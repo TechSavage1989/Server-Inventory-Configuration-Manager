@@ -72,7 +72,7 @@ User-selected inventory reports remain in their selected output directory. Unkno
 - Full structured evidence: release/3.2.2-verification.json. GUI test JSON/logs/screenshots are workflow artifacts.
 - Earlier releases/tags/assets, including the v3.1.0 PS1 release, were not overwritten. The workflow refuses existing versions. GitHub's repository-level immutable-release lock is not enabled; the API immutable flag is false.
 
-See VALIDATION.md for explicit limits. Hosted tests ran on Windows Server 2025 with Edge. UAC consent, physical desktop interaction/focus return, other browser fallback modes, older Windows Server versions, and every server-role collector were not tested. Offline/error/rate-limit/ETag/security cases use deterministic native test transport, with an additional real public ETag check. SHA-256 is not publisher signing.
+See VALIDATION.md for explicit limits. Hosted tests ran on Windows Server 2025 with Edge. UAC consent, physical desktop interaction/focus return, other browser fallback modes, older Windows Server versions, and live inventory/report workflows were not tested. Offline/error/rate-limit/ETag/security cases use deterministic native test transport, with an additional real public ETag check. SHA-256 is not publisher signing.
 
 ## Approved scope
 

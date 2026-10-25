@@ -56,7 +56,7 @@ The updater never automatically downloaded, installed, or restarted during these
 - No human-operated desktop test or UAC consent transition was performed.
 - Focus testing uses a synthetic DOM event after a real two-minute threshold. Physical mouse/keyboard focus return remains untested.
 - Offline, HTTP failures, rate limits, malicious downloads, and cached-response cases use deterministic native test transport. The host was not intentionally disconnected and the public GitHub quota was not exhausted. Public download/checksum and HTTP 304 checks were also performed independently.
-- Default-browser fallback modes, Windows Server 2012 and other legacy versions, and every server-role collector/report scenario were not validated. Collector/report logic was preserved from the confirmed baseline.
+- No live inventory collection, report-generation run, or report-viewer workflow was exercised during this updater task. Those source paths were preserved from the confirmed baseline. Default-browser fallback modes, Windows Server 2012, other legacy versions, and full server-role coverage were not validated.
 - The original v3.0.10 executable has no updater and requires one manual download into the executable release line.
 - SHA-256 checks validate bytes against the HTTPS manifest; they do not establish publisher signing.
 - Published tags/assets were preserved, and the workflow refuses overwrites. GitHub's separate repository-level immutable-release lock is not enabled; its API immutable flag is false.

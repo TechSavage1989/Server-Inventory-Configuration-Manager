@@ -176,6 +176,7 @@
     "Offline, HTTP failure, rate limiting, ETag and malicious-file cases use deterministic native Go tests.",
     "Legacy Windows Server versions and every server-role collector were not exercised.",
     "The focus handler was exercised with a synthetic DOM focus event after a real two-minute wait; physical window focus return was not tested.",
-    "Default-browser fallback modes and Windows Server 2012 compatibility were not validated."
+    "Default-browser fallback modes and Windows Server 2012 compatibility were not validated.",
+    "No live inventory collection, report generation, or report-viewer workflow was exercised during this updater task; the original code paths were preserved."
   ]
 }
