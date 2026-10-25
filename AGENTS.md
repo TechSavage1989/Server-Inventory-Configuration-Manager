@@ -8,14 +8,14 @@ Read this file and DEVELOPMENT_HANDOFF.md before making changes.
 - The user-confirmed functional and visual baseline is Server Inventory & Configuration Exporter GUI v3.0.10.
 - The original source ZIP's bundled EXE is byte-identical to the uploaded baseline. See baseline-verification.json.
 - The v3.1.0 PS1 application was a mistaken product direction. It is historical only. Never use its UI, collector extraction, or build workflow as the executable baseline.
-- v3.2.0 introduced executable updates. v3.2.1 restored direct original-source build inputs and hardened the updater. Maintain v3.2.8 or newer, including locked-target cleanup, guest browser isolation and profile-scoped shutdown.
+- v3.2.0 introduced executable updates. v3.2.1 restored direct original-source build inputs and hardened the updater. Maintain v3.2.9 or newer, including locked-target cleanup, guest browser isolation and profile-scoped shutdown.
 - Public source and releases: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager
 - Public executable feed: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/latest/download/update-manifest.json
 - Target Windows x64; Go 1.20.14 retains the broad Windows Server 2012+ target. Older Windows versions still require field validation.
 
 ## Development rules
 
-1. Preserve the original layout, collectors, reporting, report viewer, scope controls, and icon unless the user requests a change. Run scripts/verify_baseline.py. Keep the original hashes in baseline-verification.json unchanged. For user-approved collector or icon changes, record the compared revision separately and update the verifier/tests without relabeling changed bytes as the original baseline. Original icon bytes now live in baseline/v3.0.10/icons. The user-approved editable icon is assets/icons/server-inventory.svg; active hashes are in icon-verification.json.
+1. Preserve the original layout, collectors, reporting, report viewer, scope controls, and icon unless the user requests a change. Run scripts/verify_baseline.py. Keep the original hashes in baseline-verification.json unchanged. For user-approved collector or icon changes, record the compared revision separately and update the verifier/tests without relabeling changed bytes as the original baseline. The user-approved HTML redesign replaces only Write-ConsolidatedHtmlReport. Its canonical template/CSS/JS are in reporting; scripts/embed_report_renderer.py embeds them into the self-contained collector. The original renderer is archived under baseline/v3.0.10/reports and current hashes are in report-verification.json. The baseline verifier restores that exact original function before checking the original whole-script hash, so all collectors, Word/text generation, block creation and raw exports remain protected. Original icon bytes now live in baseline/v3.0.10/icons. The user-approved editable icon is assets/icons/server-inventory.svg; active hashes are in icon-verification.json.
 2. Update appVersion, collectorVersion, and the original standalone collector's scriptVersion consistently. Source files are committed directly; do not extract them from legacy PS1 applications.
 3. Link the approved SVG-derived icon and Windows file/product version metadata during compilation with scripts/build_resources.py. Do not patch a compiled EXE.
 4. Keep the portable filename stable. Install in place to preserve existing shortcuts, including legacy custom/versioned names. Do not rename a user's executable or shortcut silently.
@@ -34,21 +34,22 @@ Read this file and DEVELOPMENT_HANDOFF.md before making changes.
 Use Go 1.20.14, Python 3, and Windows PowerShell for build validation. The updater itself has no PowerShell/runtime dependency. The original inventory engine still uses built-in Windows PowerShell with the baseline process-scoped collector invocation.
 
 1. Run npm ci --prefix scripts/icon-tools and node scripts/build_icons.cjs --check. After editing the SVG, run node scripts/build_icons.cjs to regenerate PNG/ICO/hash metadata, then review. Do not embed a raster image inside the SVG. The renderer is build-time only.
-2. Run python scripts/verify_baseline.py.
-3. Run python scripts/build_resources.py --version <source-version>.
-4. Run scripts/Test-Source.ps1.
-5. Build the stable GUI EXE with go build -trimpath and Windows GUI subsystem flags.
-6. Run scripts/Test-Binary.ps1, go test -v ./..., and go vet ./.... Build the EXE before Go tests; malicious-download tests use those actual bytes.
-7. Run scripts/Test-UpdateInstall.ps1. It launches the real GUI and requires real health confirmation.
-8. Run scripts/test_ui_shutdown.cjs with Playwright and Edge. Its actual v3.2.3 HTML fixture must reproduce the prior status-0 popup, while the fixed page must have zero unexpected dialogs and no requests after accepted shutdown. Native Go tests must close a real modal app window without the launcher PID and preserve a separate profile. The published-upgrade test must assert the old profile processes are gone, inspect the actual new browser guest/extension/sync flags, and never blanket-accept dialogs.
-9. Run scripts/Build-ReleaseManifest.ps1. Write UTF-8 JSON without a BOM so older executable updaters can parse it.
+2. Run python scripts/embed_report_renderer.py --check and python scripts/verify_baseline.py. After editing reporting sources, run python scripts/embed_report_renderer.py before validation. Do not remove or relabel the original renderer/hash.
+3. Run scripts/Test-Report.ps1 to generate synthetic HTML/Word and the exact old-renderer negative control without executing inventory commands. Run scripts/test_report.cjs with Playwright/Edge against the production CSP and actual app HTML. Check data parity, summary priority, collapsed search, print-all/state restoration, escaping, no external requests, offline/no-script/mobile behavior and old/new viewer compatibility. Fixtures must exist before Go endpoint tests.
+4. Run python scripts/build_resources.py --version <source-version>.
+5. Run scripts/Test-Source.ps1.
+6. Build the stable GUI EXE with go build -trimpath and Windows GUI subsystem flags.
+7. Run scripts/Test-Binary.ps1, go test -v ./..., and go vet ./.... Build the EXE before Go tests; malicious-download tests use those actual bytes.
+8. Run scripts/Test-UpdateInstall.ps1. It launches the real GUI and requires real health confirmation.
+9. Run scripts/test_ui_shutdown.cjs with Playwright and Edge. Its actual v3.2.3 HTML fixture must reproduce the prior status-0 popup, while the fixed page must have zero unexpected dialogs and no requests after accepted shutdown. Native Go tests must close a real modal app window without the launcher PID and preserve a separate profile. The published-upgrade test must assert the old profile processes are gone, inspect the actual new browser guest/extension/sync flags, and never blanket-accept dialogs.
+10. Run scripts/Build-ReleaseManifest.ps1. Write UTF-8 JSON without a BOM so older executable updaters can parse it.
 
 ## Release and handoff
 
 - Validate source CI first, then change release/VERSION in a separate publication commit.
 - Use a new tag/version only. Never replace assets, releases, or tags that have already been published.
 - Ship the editable SVG and its SHA-256 alongside the EXE. Use the production applicationPageCSP in browser rendering tests. Permit same-origin application images while keeping remote images blocked; do not broaden the separate report policy. scripts/test_icon_render.cjs must reproduce the old data-only policy failure and prove the header SVG decodes. Native tests must match every compiled icon frame against the SVG-derived ICO and exercise Windows shell extraction. The published test verifies the SVG/PNG/favicon responses and loaded header image.
-- The workflow uploads all assets to a draft, publishes it, and verifies public downloads/feed.
-- Its separate Windows job runs the published previous executable (currently v3.2.7) through Download and Install and restart into the new release, then verifies native health, settings, shortcuts, scheduling, cleanup, and rollback.
+- The workflow uploads all assets to a draft, publishes it, and verifies public downloads/feed. Include Report-Preview.png and its checksum, generated by the real report renderer using synthetic data. Never publish collected customer inventory. New report styling applies to newly generated HTML; existing files remain readable through the legacy-compatible viewer.
+- Its separate Windows job runs the published previous executable (currently v3.2.8) through Download and Install and restart into the new release, then verifies native health, settings, shortcuts, scheduling, cleanup, and rollback.
 - Record exact tag/commit, asset hash, CI links/results, and testing limitations in DEVELOPMENT_HANDOFF.md and VALIDATION.md.
 - Do not call headless probes, helper-only tests, or cross-compilation a successful interactive Windows upgrade.

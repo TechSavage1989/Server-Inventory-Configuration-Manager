@@ -53,7 +53,13 @@ jobs:
           if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
       - name: Verify original assets
         shell: powershell
-        run: python .\scripts\verify_baseline.py
+        run: |
+          python .\scripts\embed_report_renderer.py --check
+          if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
+          python .\scripts\verify_baseline.py
+      - name: Generate real HTML and Word report fixtures
+        shell: powershell
+        run: .\scripts\Test-Report.ps1
       - name: Compile Windows resources
         shell: powershell
         run: python .\scripts\build_resources.py --version '${{ steps.version.outputs.version }}'
@@ -86,6 +92,8 @@ jobs:
           if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
           node .\scripts\test_icon_render.cjs
           if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
+          node .\scripts\test_report.cjs
+          if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
       - name: Test native replacement and visible health confirmation
         shell: powershell
         run: .\scripts\Test-UpdateInstall.ps1 -ExecutablePath .\build\Server-Inventory-Configuration-Manager.exe -ExpectedVersion '${{ steps.version.outputs.version }}'
@@ -96,7 +104,7 @@ jobs:
         shell: powershell
         run: |
           $version='${{ steps.version.outputs.version }}';$tag="v$version"
-          gh release create $tag .\dist\Server-Inventory-Configuration-Manager.exe .\dist\Server-Inventory-Configuration-Manager.exe.sha256.txt .\dist\update-manifest.json .\dist\Server-Inventory-Configuration-Manager.svg .\dist\Server-Inventory-Configuration-Manager.svg.sha256.txt .\build\go-test-results.txt --draft --target '${{ github.sha }}' --title "Server Inventory Configuration Manager $version" --notes-file ".\release-notes\$version.md"
+          gh release create $tag .\dist\Server-Inventory-Configuration-Manager.exe .\dist\Server-Inventory-Configuration-Manager.exe.sha256.txt .\dist\update-manifest.json .\dist\Server-Inventory-Configuration-Manager.svg .\dist\Server-Inventory-Configuration-Manager.svg.sha256.txt .\dist\Report-Preview.png .\dist\Report-Preview.png.sha256.txt .\build\go-test-results.txt --draft --target '${{ github.sha }}' --title "Server Inventory Configuration Manager $version" --notes-file ".\release-notes\$version.md"
           if($LASTEXITCODE -ne 0){throw 'Release create failed'}
           gh release edit $tag --draft=false --latest
           if($LASTEXITCODE -ne 0){throw 'Release publish failed'}
@@ -113,6 +121,7 @@ jobs:
             build/icon-render-regression.json
             build/icon-header-validation.png
             build/shell-icon-*.png
+            build/report-validation/
   published-upgrade:
     needs: publish
     runs-on: windows-latest

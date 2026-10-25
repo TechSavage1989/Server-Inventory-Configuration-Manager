@@ -9,11 +9,12 @@ Download Server-Inventory-Configuration-Manager.exe from [GitHub Releases](https
 Requires Go 1.20.14, Python 3, Node.js 22 for build-only icon rendering, and Windows PowerShell for validation. The updater is native Go/Win32. Inventory collection uses built-in Windows PowerShell as in the original executable.
 
 1. Run npm ci --prefix scripts/icon-tools and node scripts/build_icons.cjs --check, then python scripts/verify_baseline.py.
-2. Run python scripts/build_resources.py --version 3.2.8.
-3. Run scripts/Test-Source.ps1.
-4. Run go build -trimpath -ldflags "-s -w -H=windowsgui" -o build/Server-Inventory-Configuration-Manager.exe .
-5. Run go test -v ./... and go vet ./....
-6. Run scripts/Test-Binary.ps1 and scripts/Test-UpdateInstall.ps1 with the EXE path and expected version.
+2. Run python scripts/embed_report_renderer.py --check and scripts/Test-Report.ps1. Generate fixture reports before Go tests; run scripts/test_report.cjs with Playwright/Edge before packaging.
+3. Run python scripts/build_resources.py --version 3.2.9.
+4. Run scripts/Test-Source.ps1.
+5. Run go build -trimpath -ldflags "-s -w -H=windowsgui" -o build/Server-Inventory-Configuration-Manager.exe .
+6. Run go test -v ./... and go vet ./....
+7. Run scripts/Test-Binary.ps1 and scripts/Test-UpdateInstall.ps1 with the EXE path and expected version.
 
 The original collector is committed directly. Original icon bytes are retained under baseline/v3.0.10/icons. The new SVG-derived icon and Windows version metadata are linked during compilation, without patching the built EXE.
 
@@ -40,3 +41,9 @@ Downloads use HTTPS, exact repository/version paths, host allowlists, size/SHA-2
 Settings, logs, cache, staging, rollback, and browser session files are under %LOCALAPPDATA%/Server Inventory Configuration Manager. Reports stay in the selected output folder. Updates preserve the current executable path and shortcut targets.
 
 See AGENTS.md, DEVELOPMENT_HANDOFF.md, and VALIDATION.md for provenance, release steps, test evidence, and limitations.
+
+## HTML reports
+
+New reports open on a concise executive summary. Collection issues and recovery gaps remain prominent; routine datasets expand on demand. Search includes collapsed sections and raw text, and printing includes all sections and rows retained by the original report snapshot. Existing truncation notices still identify complete datasets in supporting exports. The HTML works offline without external fonts, libraries or image services.
+
+Edit the presentation sources under reporting, then run python scripts/embed_report_renderer.py. This embeds CSS/JS into the original self-contained collector. report-verification.json tracks approved presentation hashes; the original renderer and whole-script baseline hash remain unchanged. The Word report, text summary, collectors and raw outputs are preserved. The app viewer supports both report generations. Generate a new report to use the new layout.

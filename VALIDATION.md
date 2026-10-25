@@ -1,6 +1,10 @@
 # Executable updater validation
 
-## Latest release: v3.2.8
+## HTML presentation 3.2.9
+
+Prepared; Windows source CI and publication are pending. Local actual-function generation and 17 browser checks pass with synthetic data. Tests compare every table/column/cell and raw text against the exact original renderer, include the final row of a 1500-row dataset, print all sections with restored disclosure state, and exercise the actual app HTML/production CSP for both new and old reports. The generated PDF contains the final table row and raw output. Baseline verification protects all collector and Word/text bytes outside the approved HTML function. No live server inventory or human desktop/UAC validation is claimed.
+
+## Previously published release: v3.2.8
 
 - Exact tag/commit: v3.2.8 / 2294a921d4a85fbbb1ea5f6e551ad6861973acea.
 - EXE: 6549504 bytes; SHA-256 376332d8aae05110c111aa97b9437f039b28c628eeb0a26e255fa25688fff187.

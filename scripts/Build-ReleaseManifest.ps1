@@ -32,6 +32,14 @@ Copy-Item -LiteralPath (Join-Path $PSScriptRoot '..\assets\icons\server-inventor
 $svgHash=(Get-FileHash -LiteralPath $svgPath -Algorithm SHA256).Hash.ToLowerInvariant()
 "$svgHash  $svgName"|Set-Content -LiteralPath ($svgPath+'.sha256.txt') -Encoding ASCII
 
+$previewName='Report-Preview.png'
+$previewPath=Join-Path $OutputDirectory $previewName
+$previewSource=Join-Path $PSScriptRoot '..\build\report-validation\report-summary.png'
+if(-not (Test-Path -LiteralPath $previewSource -PathType Leaf)){throw 'Run report browser validation before building release assets.'}
+Copy-Item -LiteralPath $previewSource -Destination $previewPath
+$previewHash=(Get-FileHash -LiteralPath $previewPath -Algorithm SHA256).Hash.ToLowerInvariant()
+"$previewHash  $previewName"|Set-Content -LiteralPath ($previewPath+'.sha256.txt') -Encoding ASCII
+
 $notesPath=Join-Path (Join-Path $PSScriptRoot '..\release-notes') ($ExpectedVersion+'.md')
 $allNotes=@()
 if(Test-Path -LiteralPath $notesPath -PathType Leaf){

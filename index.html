@@ -515,6 +515,11 @@ body { height: 100vh; }
     try{doc=frame.contentDocument;}catch(e){return;}
     if(!doc || !doc.head || !doc.body){return;}
 
+    if(doc.documentElement.getAttribute('data-report-layout')==='clean-v1'){
+      doc.documentElement.classList.add('embedded-report');
+      return;
+    }
+
     var style=doc.getElementById('appViewerScrollLayout');
     if(!style){
       style=doc.createElement('style');
@@ -595,6 +600,9 @@ body { height: 100vh; }
     if(mark.closest){section=mark.closest('.report-section');}
     if(!section){while(ancestor){if((' '+(ancestor.className||'')+' ').indexOf(' report-section ')>=0){section=ancestor;break;}ancestor=ancestor.parentNode;}}
     if(section && (' '+section.className+' ').indexOf(' active ')<0){ var nav=doc.querySelector('.section-nav-button[data-section="'+section.id+'"]'); if(nav&&nav.click){nav.click();} }
+    var detail=mark.parentNode;
+    while(detail&&detail!==doc){if(detail.nodeName==='DETAILS'){detail.open=true;}detail=detail.parentNode;}
+    if(doc.defaultView&&doc.defaultView.SICMReport){doc.defaultView.SICMReport.revealElement(mark);}
     byId('viewerSearchStatus').textContent='Match '+(index+1)+' of '+viewerMatches.length+'.';
     if(mark.scrollIntoView){try{mark.scrollIntoView(true);}catch(scrollError){}}
   }

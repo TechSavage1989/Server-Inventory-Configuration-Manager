@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "approved_change": "HTML presentation only; original collectors, Word/text reports and block data preserved",
+  "original_renderer": {
+    "path": "baseline/v3.0.10/reports/Write-ConsolidatedHtmlReport.ps1",
+    "sha256": "1cbe77519263c4d0c75cb0f5b28c7bb8564eda27cf665f9eb23a8e27b5f89f36"
+  },
+  "sources": {
+    "reporting/Write-ConsolidatedHtmlReport.ps1": "23c4dccf4229d7d5cce1e51bd67939538e6ea86b51a6fabe60b6677c9ac7fca4",
+    "reporting/report.css": "555f7399c1a5581b984d0658266984cd2b8864a25d84d8a929841260db79bd4e",
+    "reporting/report.js": "30aef06737ec41a7ffef28bb92f896f21f2e68f73a4512617d10298ab3a0178d"
+  },
+  "embedded_renderer_sha256": "d546133d15b6c557c712f25e4100781a56618dd6f5e6ac97d6556c391880b48a"
+}

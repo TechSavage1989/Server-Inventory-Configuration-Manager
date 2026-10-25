@@ -35,7 +35,13 @@ jobs:
           if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
       - name: Verify original executable assets
         shell: powershell
-        run: python .\scripts\verify_baseline.py
+        run: |
+          python .\scripts\embed_report_renderer.py --check
+          if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
+          python .\scripts\verify_baseline.py
+      - name: Generate real HTML and Word report fixtures
+        shell: powershell
+        run: .\scripts\Test-Report.ps1
       - name: Compile active icon and Windows metadata resources
         shell: powershell
         run: python .\scripts\build_resources.py --version '${{ steps.version.outputs.version }}'
@@ -68,6 +74,8 @@ jobs:
           if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
           node .\scripts\test_icon_render.cjs
           if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
+          node .\scripts\test_report.cjs
+          if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
       - name: Test native install and visible healthy start
         shell: powershell
         run: .\scripts\Test-UpdateInstall.ps1 -ExecutablePath .\build\Server-Inventory-Configuration-Manager.exe -ExpectedVersion '${{ steps.version.outputs.version }}'
@@ -84,4 +92,5 @@ jobs:
             build/icon-render-regression.json
             build/icon-header-validation.png
             build/shell-icon-*.png
+            build/report-validation/
             dist/

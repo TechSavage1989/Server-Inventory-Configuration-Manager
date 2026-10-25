@@ -1,4 +1,4 @@
-/* Hosted Windows test: published v3.2.7, real UI actions, public feed, native helper,
+/* Hosted Windows test: published v3.2.8, real UI actions, public feed, native helper,
    visible new app health, settings, shortcut, timer, and failed-health rollback.
    Playwright drives the real application page while the native Edge app is visible.
    This does not simulate UAC consent or a user's physical desktop interaction. */
@@ -9,7 +9,7 @@ const reuseIndex=process.argv.indexOf('--reuse-passed-timer-evidence');
 const reuseEvidence=reuseIndex>=0?JSON.parse(fs.readFileSync(process.argv[reuseIndex+1],'utf8')):null;
 const expected=fs.readFileSync('main.go','utf8').match(/appVersion\s*=\s*"([\d.]+)"/)[1];
 const repo='https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager';
-const oldVersion='3.2.7',exeName='Server-Inventory-Configuration-Manager.exe';
+const oldVersion='3.2.8',exeName='Server-Inventory-Configuration-Manager.exe';
 const report={expected,previous:oldVersion,started:new Date().toISOString(),checks:[],limitations:['UAC consent transitions were not exercised.','Playwright drives the application page alongside its visible native Edge window; physical desktop interaction was not performed.','Offline, HTTP failure, rate limiting, ETag and malicious-file cases use deterministic native Go tests.','Legacy Windows Server versions and every server-role collector were not exercised.']};
 const suiteRoot=path.resolve('build','published-upgrade-work');
 const tempRoot=path.join(os.tmpdir(),'SICM-Published-'+crypto.randomUUID());
@@ -62,7 +62,7 @@ async function nativeProcess(exe,args,env){const child=spawn(exe,args,{env,windo
  const manifest=JSON.parse((await get(repo+'/releases/latest/download/update-manifest.json')).toString('utf8').replace(/^\uFEFF/,''));
  check(manifest.version===expected,'Public updater feed selects the expected new release');
  const oldBytes=await get(repo+'/releases/download/v'+oldVersion+'/'+exeName);
- check(sha(oldBytes)==='0bb0f753a3a8dd58087c5e41cd39cf857c5d31f104aef55ab13a61e236c0ca8d','Previous executable matches the published v3.2.7 checksum');
+ check(sha(oldBytes)==='376332d8aae05110c111aa97b9437f039b28c628eeb0a26e255fa25688fff187','Previous executable matches the published v3.2.8 checksum');
  const newBytes=await get(manifest.asset.url);check(sha(newBytes)===manifest.asset.sha256,'Published new executable matches its manifest checksum');
  const env=envFor('upgrade');const saved=await seedSettings(env);const target=path.join(suiteRoot,exeName);await fsp.writeFile(target,oldBytes);
  const shortcut=path.join(suiteRoot,'Server Inventory Configuration Manager.lnk');
@@ -87,7 +87,7 @@ async function nativeProcess(exe,args,env){const child=spawn(exe,args,{env,windo
   unexpectedDialogs.push({type:d.type(),message:d.message()});await d.dismiss();
  });
  await page.goto(oldURL);await page.locator('#updateDownloadButton').waitFor({state:'visible',timeout:420000});
- check(desktopProperties(desktopShortcut).icon===oldDesktop.icon,'Published previous application leaves the obsolete desktop icon reference unchanged (negative control)');
+ check(desktopProperties(desktopShortcut).icon!==oldDesktop.icon,'Previous published application repairs its desktop icon before the update');
  await until(async()=>{const s=await state(oldURL);return s.update.available&&s.update.canDownload});
  check((await state(oldURL)).update.latestVersion===expected,'Previous application automatically detects the newly published release');
  const ready=path.join(appRoot(env),'Updates','Ready',exeName);

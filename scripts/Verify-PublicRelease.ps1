@@ -21,6 +21,10 @@ try{
     Invoke-WebRequest -UseBasicParsing -Uri "$base/Server-Inventory-Configuration-Manager.svg" -OutFile $svg
     $expectedSvg=(Get-FileHash (Join-Path $PSScriptRoot '..\assets\icons\server-inventory.svg') -Algorithm SHA256).Hash
     if((Get-FileHash $svg -Algorithm SHA256).Hash -ne $expectedSvg){throw 'Public editable SVG differs from release source.'}
+    $preview=Join-Path $temp 'Report-Preview.png'
+    Invoke-WebRequest -UseBasicParsing -Uri "$base/Report-Preview.png" -OutFile $preview
+    $expectedPreview=(Get-FileHash (Join-Path $PSScriptRoot '..\build\report-validation\report-summary.png') -Algorithm SHA256).Hash
+    if((Get-FileHash $preview -Algorithm SHA256).Hash -ne $expectedPreview){throw 'Public report preview differs from the validated synthetic report.'}
     Write-Host 'Public updater feed and release asset verification passed.'
 }
 finally{Remove-Item $temp -Recurse -Force -ErrorAction SilentlyContinue}

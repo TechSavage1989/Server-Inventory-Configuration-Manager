@@ -113,7 +113,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$scriptVersion = '3.2.8'
+$scriptVersion = '3.2.9'
 
 function Test-IsAdministrator {
     $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -1617,379 +1617,574 @@ function ConvertTo-HtmlMultilineText {
 
 function Write-ConsolidatedHtmlReport {
     param(
-        [Parameter(Mandatory = $true)]
-        [string]$Path,
-
-        [Parameter(Mandatory = $true)]
-        [AllowEmptyCollection()]
-        [System.Collections.IEnumerable]$Blocks,
-
-        [Parameter(Mandatory = $true)]
-        [string]$DocumentTitle
+        [Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $true)][AllowEmptyCollection()][System.Collections.IEnumerable]$Blocks,
+        [Parameter(Mandatory = $true)][string]$DocumentTitle
     )
 
+    # Presentation only. Keep every original block, row, column and warning.
+    # The standalone collector embeds the stylesheet and script at build time.
+    $identity = @{}
+    $metrics = @{}
+    $anchors = @{}
+    $entries = New-Object System.Collections.ArrayList
+    $currentEntry = [pscustomobject]@{ Id='section-overview'; Title='About this report'; Links=(New-Object System.Collections.ArrayList) }
+    [void]$entries.Add($currentEntry)
+    $sectionNumber = 0
+    $subsectionNumber = 0
+    $summaryId = 'section-overview'
+    $subtitle = ''
+    $blockList = @($Blocks)
+    for ($index = 0; $index -lt $blockList.Count; $index++) {
+        $block = $blockList[$index]
+        if ([string]$block.Type -eq 'Title') { $subtitle = [string]$block.Subtitle }
+        if (([string]$block.Type -eq 'Heading') -and ([int]$block.Level -eq 1)) {
+            $sectionNumber++
+            $subsectionNumber = 0
+            $currentEntry = [pscustomobject]@{ Id=('section-' + $sectionNumber); Title=([string]$block.Text); Links=(New-Object System.Collections.ArrayList) }
+            [void]$entries.Add($currentEntry)
+            if ([string]$block.Text -match 'Executive Summary') { $summaryId = $currentEntry.Id }
+        }
+        elseif ((([string]$block.Type -eq 'Heading') -and ([int]$block.Level -gt 1)) -or ([string]$block.Type -eq 'Table') -or ([string]$block.Type -eq 'Preformatted')) {
+            $subsectionNumber++
+            $anchor = 'section-' + $sectionNumber + '-sub-' + $subsectionNumber
+            $anchors[$index] = $anchor
+            $label = ''
+            if ([string]$block.Type -eq 'Heading') { $label = [string]$block.Text }
+            else { $label = [string]$block.Title }
+            [void]$currentEntry.Links.Add([pscustomobject]@{ Id=$anchor; Title=$label })
+        }
+        if ([string]$block.Type -eq 'Table') {
+            if ([string]$block.Title -eq 'Server identity and baseline') {
+                foreach ($row in @($block.Rows)) { $identity[[string]$row.Field] = [string]$row.Value }
+            }
+            if ([string]$block.Title -eq 'Inventory at a glance') {
+                foreach ($row in @($block.Rows)) { $metrics[[string]$row.Area] = [string]$row.Count }
+            }
+        }
+    }
+    $serverName = [string]$identity['Computer name']
+    if ([string]::IsNullOrWhiteSpace($serverName)) { $serverName = $DocumentTitle }
     $builder = New-Object System.Text.StringBuilder
-    [void]$builder.AppendLine('<!DOCTYPE html>')
-    [void]$builder.AppendLine('<html><head><meta charset="utf-8">')
-    [void]$builder.AppendLine('<meta name="viewport" content="width=device-width, initial-scale=1">')
-    [void]$builder.AppendLine('<title>' + (ConvertTo-HtmlText -Value $DocumentTitle) + '</title>')
+
+    function Get-CleanReportTitle {
+        param([string]$Text)
+        return ($Text -replace '^\d+(\.\d+)*\.?\s+', '')
+    }
+    function Write-CleanReportSection {
+        param([string]$Id, [string]$Title)
+        $intro = 'Captured settings and detailed inventory.'
+        if ($Id -eq $summaryId) { $intro = 'A quick view of this server and the items that need review.' }
+        elseif ($Title -match 'Network') { $intro = 'IP addressing, routing, adapters, and listening services.' }
+        elseif ($Title -match 'Storage') { $intro = 'Disks, volumes, paths, and storage configuration.' }
+        elseif ($Title -match 'Recovery|Rebuild|Migration') { $intro = 'Review the requirements before planning migration or recovery.' }
+        elseif ($Title -match 'Collection Appendix') { $intro = 'Collection results and supporting export references.' }
+        [void]$builder.AppendLine('<section id="' + $Id + '" class="report-section">')
+        [void]$builder.AppendLine('<h2 class="section-title">' + (ConvertTo-HtmlText (Get-CleanReportTitle $Title)) + '</h2>')
+        [void]$builder.AppendLine('<p class="section-intro">' + $intro + '</p>')
+        if ($Id -eq $summaryId) {
+            [void]$builder.AppendLine('<div class="facts">')
+            foreach ($name in @('Operating system','Domain or workgroup','Physical or virtual','Collected')) {
+                $value = [string]$identity[$name]
+                if ([string]::IsNullOrWhiteSpace($value)) { $value = 'Not collected' }
+                [void]$builder.AppendLine('<div><span class="fact-label">' + (ConvertTo-HtmlText $name) + '</span><span class="fact-value">' + (ConvertTo-HtmlText $value) + '</span></div>')
+            }
+            [void]$builder.AppendLine('</div><div class="metrics">')
+            foreach ($metric in @(
+                @{Key='Collectors completed successfully'; Label='Collectors completed'},
+                @{Key='Collectors failed or unavailable'; Label='Collectors requiring review'},
+                @{Key='Detected critical roles and platforms'; Label='Critical roles and platforms'},
+                @{Key='Installed applications'; Label='Installed applications'}
+            )) {
+                $value = [string]$metrics[$metric.Key]
+                if ($value -notmatch '^\d+$') { $value = 'Not collected' }
+                $class = 'metric'
+                if (($metric.Key -eq 'Collectors failed or unavailable') -and ($value -match '^[1-9]')) { $class += ' metric-review' }
+                [void]$builder.AppendLine('<div class="' + $class + '"><span class="metric-value">' + (ConvertTo-HtmlText $value) + '</span><span class="metric-label">' + $metric.Label + '</span></div>')
+            }
+            [void]$builder.AppendLine('</div><div class="review-links">')
+            for ($reviewIndex=0; $reviewIndex -lt $blockList.Count; $reviewIndex++) {
+                $review = $blockList[$reviewIndex]
+                if (([string]$review.Type -eq 'Table') -and ([int]$review.DisplayRows -gt 0) -and ([string]$review.Title -match '^(Collection failures requiring review|Recovery prerequisites and gaps)$')) {
+                    $label = 'collection issues'
+                    if ([string]$review.Title -eq 'Recovery prerequisites and gaps') { $label = 'recovery prerequisites or gaps' }
+                    if ([int]$review.DisplayRows -eq 1) {
+                        $label = 'collection issue'
+                        if ([string]$review.Title -eq 'Recovery prerequisites and gaps') { $label = 'recovery prerequisite or gap' }
+                    }
+                    [void]$builder.AppendLine('<button type="button" class="review-link" data-anchor="' + $anchors[$reviewIndex] + '">' + $review.DisplayRows + ' ' + $label + '</button>')
+                }
+            }
+            [void]$builder.AppendLine('</div>')
+        }
+        [void]$builder.AppendLine('<div class="section-actions"><button type="button" class="quiet-button" data-details-action="expand">Expand section</button><button type="button" class="quiet-button" data-details-action="collapse">Collapse section</button></div>')
+    }
+
+    [void]$builder.AppendLine('<!DOCTYPE html><html lang="en" data-report-layout="clean-v1" data-default-section="' + $summaryId + '"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">')
+    [void]$builder.AppendLine('<title>' + (ConvertTo-HtmlText $DocumentTitle) + '</title>')
     $styleBlock = @'
 <style>
-@page { size: landscape; margin: 0.5in; }
-* { box-sizing: border-box; }
-html { height: 100%; scroll-behavior: smooth; overflow: hidden; }
-body { height: 100%; overflow: hidden; font-family: "Segoe UI", Arial, sans-serif; margin: 0; color: #1f2933; background: #eef2f7; line-height: 1.4; }
-.report-app { width: 100%; max-width: none; height: 100%; min-height: 0; margin: 0 auto; padding: 18px; display: flex; flex-direction: column; overflow: hidden; }
-.cover { flex: 0 0 auto; border: 1px solid #9fb3c8; border-radius: 12px; padding: 18px 22px; margin-bottom: 12px; background: #ffffff; box-shadow: 0 6px 22px rgba(25, 45, 70, 0.08); }
-h1 { font-size: 25px; margin: 0 0 8px 0; color: #102a43; }
-.subtitle { font-size: 14px; color: #486581; margin-bottom: 12px; }
-.meta { color: #627d98; font-size: 9.5pt; }
-.report-layout { width: 100%; max-width: none; flex: 1 1 auto; min-height: 0; height: 100%; display: grid; grid-template-columns: 285px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); gap: 14px; align-items: stretch; overflow: hidden; }
-.report-nav { position: static; height: 100%; min-height: 0; max-height: 100%; overflow-y: scroll; overflow-x: hidden; overscroll-behavior: contain; scrollbar-gutter: stable; border: 1px solid #bcccdc; border-radius: 12px; background: #ffffff; padding: 12px; box-shadow: 0 4px 16px rgba(25, 45, 70, 0.06); }
-.nav-heading { color: #102a43; font-size: 11pt; font-weight: 700; margin: 2px 4px 9px; }
-.nav-help { color: #627d98; font-size: 8.5pt; margin: 0 4px 11px; }
-.section-nav-button { width: 100%; border: 1px solid transparent; border-radius: 8px; background: transparent; color: #334e68; padding: 8px 9px; margin: 2px 0; text-align: left; font: inherit; font-size: 9.5pt; cursor: pointer; }
-.section-nav-button:hover { background: #f0f4f8; border-color: #d9e2ec; }
-.section-nav-button.active { background: #e8f0fe; border-color: #9fbaf0; color: #174ea6; font-weight: 700; }
-.nav-group { margin: 2px 0 7px; }
-.subsection-list { margin: 1px 0 4px 12px; padding-left: 8px; border-left: 1px solid #d9e2ec; }
-.subsection-nav-button { width: 100%; border: 0; border-radius: 6px; background: transparent; color: #627d98; padding: 5px 7px; text-align: left; font: inherit; font-size: 8.5pt; line-height: 1.25; cursor: pointer; }
-.subsection-nav-button:hover { background: #f0f4f8; color: #243b53; }
-.subsection-nav-button.active { background: #f0f5ff; color: #174ea6; font-weight: 600; }
-.subsection-anchor { scroll-margin-top: 16px; }
-.report-content { width: 100%; max-width: none; min-width: 0; min-height: 0; height: 100%; max-height: 100%; overflow-y: scroll; overflow-x: hidden; overscroll-behavior: contain; padding-right: 3px; scrollbar-gutter: stable; }
-.section-pager { display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid #bcccdc; border-radius: 10px; background: #ffffff; padding: 10px 12px; margin-bottom: 12px; }
-.pager-button { min-width: 120px; border: 1px solid #9fb3c8; border-radius: 7px; background: #ffffff; color: #243b53; padding: 7px 10px; cursor: pointer; font: inherit; }
-.pager-button:hover:not(:disabled) { background: #f0f4f8; }
-.pager-button:disabled { opacity: 0.42; cursor: default; }
-.pager-label { min-width: 0; color: #486581; font-size: 9.5pt; font-weight: 600; text-align: center; }
-.report-section { border: 1px solid #bcccdc; border-radius: 12px; background: #ffffff; padding: 22px; box-shadow: 0 4px 16px rgba(25, 45, 70, 0.05); overflow-x: auto; }
-.report-js .report-section { display: none; }
-.report-js .report-section.active { display: block; }
-h2 { font-size: 20px; margin: 0 0 14px 0; padding-bottom: 7px; border-bottom: 2px solid #bcccdc; color: #102a43; }
-h3 { font-size: 16px; margin: 22px 0 8px 0; color: #243b53; }
-h4 { font-size: 13px; margin: 16px 0 6px 0; color: #334e68; }
-p { margin: 7px 0; }
-.notice { border-left: 5px solid #d64545; background: #fff5f5; padding: 10px 12px; margin: 12px 0; font-weight: 600; }
-.info { border-left: 5px solid #627d98; background: #f0f4f8; padding: 10px 12px; margin: 12px 0; }
-ul { margin-top: 6px; padding-left: 24px; }
-table { border-collapse: collapse; width: 100%; margin: 8px 0 18px 0; font-size: 9pt; page-break-inside: auto; }
-thead { display: table-header-group; }
-tr { page-break-inside: avoid; page-break-after: auto; }
-th { background: #d9e2ec; color: #102a43; font-weight: 700; text-align: left; border: 1px solid #829ab1; padding: 5px; vertical-align: top; }
-td { border: 1px solid #bcccdc; padding: 5px; vertical-align: top; overflow-wrap: anywhere; }
-tr:nth-child(even) td { background: #f8fafc; }
-.table-note { color: #52667a; font-size: 9pt; font-style: italic; margin-top: -12px; margin-bottom: 16px; }
-pre { white-space: pre-wrap; overflow-wrap: anywhere; border: 1px solid #bcccdc; background: #f8fafc; padding: 10px; font-family: Consolas, "Courier New", monospace; font-size: 8pt; }
-.footer-note { margin-top: 18px; border: 1px solid #bcccdc; border-radius: 10px; background: #ffffff; padding: 10px 12px; color: #52667a; font-size: 9pt; }
-@media (max-width: 980px) {
-    .report-app { padding: 10px; }
-    .report-layout { grid-template-columns: 235px minmax(0, 1fr); gap: 10px; }
-    .report-nav { display: block; }
-    .nav-heading, .nav-help { display: block; }
-    .nav-group { display: block; width: auto; padding-right: 0; }
-    .section-nav-button { margin: 0; }
+@page { size: landscape; margin: .5in; }
+:root { color-scheme: light; --ink:#182b43; --muted:#617084; --line:#e1e7ee; --blue:#225bc5; --surface:#fff; }
+* { box-sizing:border-box; }
+html,body { height:100%; margin:0; overflow:hidden; }
+body { font:14px/1.55 "Segoe UI",Arial,sans-serif; color:var(--ink); background:#f4f6f9; }
+button,input { font:inherit; }
+button { cursor:pointer; }
+button:focus-visible,input:focus-visible,summary:focus-visible,a:focus-visible { outline:3px solid #85afea; outline-offset:3px; }
+button:disabled { cursor:default; opacity:.45; }
+.report-app { height:100%; min-height:0; display:flex; flex-direction:column; }
+.cover { flex:none; display:flex; align-items:center; gap:24px; padding:22px 30px; background:var(--surface); border-bottom:1px solid var(--line); }
+.report-brand { flex:1; min-width:0; }
+.eyebrow { color:var(--blue); font-size:11px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; }
+h1 { margin:3px 0; font-size:25px; line-height:1.25; letter-spacing:-.025em; overflow-wrap:anywhere; }
+.subtitle { margin:5px 0 0; color:var(--muted); font-size:12px; overflow-wrap:anywhere; }
+.standalone-tools { display:flex; flex-direction:column; align-items:flex-end; gap:5px; max-width:460px; }
+.report-search { display:flex; align-items:center; gap:7px; }
+.report-search input { min-width:100px; width:220px; padding:8px 11px; border:1px solid #ccd5e0; border-radius:7px; background:#fff; color:var(--ink); }
+.quiet-button,.pager-button,.nav-toggle { border:1px solid #d3dce7; background:#fff; color:#34465d; border-radius:7px; padding:7px 11px; white-space:nowrap; }
+.quiet-button:hover,.pager-button:hover:not(:disabled),.nav-toggle:hover { background:#f1f5fc; border-color:#a5bde3; }
+.search-controls { display:none; gap:6px; align-items:center; }
+.search-message { display:none; font-size:11px; color:var(--muted); min-height:17px; }
+.search-active .search-controls { display:flex; }
+.search-active .search-message { display:block; }
+.nav-toggle { display:none; }
+.report-layout { flex:1; min-height:0; display:grid; grid-template-columns:246px minmax(0,1fr); overflow:hidden; }
+.report-nav { overflow:auto; min-height:0; background:#fafbfd; border-right:1px solid var(--line); padding:24px 14px; }
+.nav-heading { color:#65758c; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.14em; margin:0 12px 12px; }
+.nav-group { margin:3px 0; }
+.section-nav-button { width:100%; display:flex; gap:10px; align-items:baseline; border:0; border-radius:7px; padding:9px 12px; text-align:left; color:#526176; background:transparent; font-size:12px; line-height:1.4; }
+.section-nav-button:hover { color:var(--ink); background:#eef2f7; }
+.section-nav-button.active { color:#184caa; background:#e9f0fd; font-weight:650; }
+.nav-number { flex:0 0 19px; color:#95a1af; font-size:10px; font-variant-numeric:tabular-nums; }
+.active .nav-number { color:#4772b9; }
+.subsection-list { display:none; margin:7px 9px 12px 40px; border-left:1px solid #d7e2f3; padding-left:8px; }
+.nav-group.active .subsection-list { display:block; }
+.subsection-nav-button { width:100%; border:0; background:transparent; color:#65758c; font-size:11px; line-height:1.4; padding:5px 7px; text-align:left; border-radius:4px; }
+.subsection-nav-button:hover,.subsection-nav-button.active { color:var(--blue); background:#eef3fc; }
+.nav-reference { border-top:1px solid var(--line); margin-top:16px; padding-top:12px; }
+.report-content { min-width:0; min-height:0; overflow:auto; padding:26px 34px 36px; scroll-behavior:smooth; }
+.reading-width { max-width:1320px; margin:0 auto; }
+.section-pager { display:flex; align-items:center; gap:8px; margin-bottom:18px; }
+.pager-label { flex:1; color:var(--muted); font-size:11px; }
+.pager-button { padding:5px 10px; font-size:11px; }
+.report-section { min-width:0; }
+.report-js .report-section { display:none; }
+.report-js .report-section.active { display:block; }
+.section-title { margin:0 0 5px; font-size:25px; line-height:1.3; letter-spacing:-.025em; font-weight:650; }
+.section-intro { color:var(--muted); font-size:12px; margin:0 0 22px; max-width:780px; }
+.section-actions { display:flex; flex-wrap:wrap; gap:7px; margin:0 0 18px; }
+.section-actions .quiet-button { font-size:11px; padding:5px 9px; }
+.facts { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:18px; padding:19px 22px; background:#fff; border:1px solid var(--line); border-radius:10px; margin:18px 0; }
+.fact-label { display:block; margin-bottom:5px; color:#65758c; font-size:10px; font-weight:650; text-transform:uppercase; letter-spacing:.07em; }
+.fact-value { display:block; font-size:12px; font-weight:600; overflow-wrap:anywhere; }
+.metrics { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; margin:18px 0; }
+.metric { border:1px solid var(--line); border-radius:10px; padding:16px 18px; background:#fff; }
+.metric-value { display:block; font-size:28px; line-height:1.15; font-weight:650; letter-spacing:-.035em; margin-bottom:7px; }
+.metric-label { font-size:11px; color:var(--muted); }
+.metric-review .metric-value { color:#ab620d; }
+.review-links { display:flex; flex-wrap:wrap; gap:8px; margin:18px 0 22px; }
+.review-links:empty { display:none; }
+.review-link { border:1px solid #e9d6b9; color:#875514; background:#fff8ec; padding:7px 11px; border-radius:7px; font-size:12px; }
+.subsection-anchor { scroll-margin-top:16px; }
+h3 { font-size:17px; font-weight:650; margin:28px 0 12px; letter-spacing:-.01em; }
+h4 { font-size:14px; margin:20px 0 10px; }
+p { margin:12px 0; overflow-wrap:anywhere; }
+ul { padding-left:22px; }
+li { margin:7px 0; }
+.notice,.info { padding:12px 16px; border-left:3px solid #d69d43; border-radius:0 7px 7px 0; background:#fff8ec; font-size:12px; }
+.info { border-color:#7197d1; background:#eef4fc; }
+.dataset { background:#fff; border:1px solid var(--line); border-radius:9px; margin:10px 0; scroll-margin-top:16px; }
+.dataset>summary { display:flex; align-items:center; gap:12px; list-style:none; padding:15px 18px; cursor:pointer; font-size:13px; font-weight:600; }
+.dataset>summary::-webkit-details-marker { display:none; }
+.dataset>summary::before { content:""; flex:0 0 6px; width:6px; height:6px; border-right:1.5px solid #7b899b; border-bottom:1.5px solid #7b899b; transform:rotate(-45deg); margin-right:2px; }
+.dataset[open]>summary::before { transform:rotate(45deg); margin-top:-3px; }
+.dataset[open]>summary { border-bottom:1px solid var(--line); }
+.dataset-title { flex:1; min-width:0; overflow-wrap:anywhere; }
+.dataset-count { color:#65758c; font-size:11px; font-weight:400; white-space:nowrap; }
+.dataset-priority { border-color:#e8d5b3; }
+.dataset-priority>summary { background:#fffbf3; border-radius:8px 8px 0 0; }
+.dataset-body { padding:0 18px 16px; }
+.empty-data { color:#65758c; font-size:12px; padding-top:10px; }
+.table-wrap { overflow:auto; margin:0 -18px; }
+.dataset-long .table-wrap { max-height:60vh; }
+table { width:100%; border-collapse:separate; border-spacing:0; font-size:12px; text-align:left; }
+th { position:sticky; top:0; z-index:1; background:#f4f7fb; color:#617087; font-size:10px; font-weight:650; padding:11px 14px; border-bottom:1px solid var(--line); vertical-align:top; }
+td { padding:10px 14px; border-bottom:1px solid #edf0f4; vertical-align:top; overflow-wrap:anywhere; min-width:110px; max-width:640px; }
+tbody tr:last-child td { border-bottom:0; }
+tbody tr:hover td { background:#f8faff; }
+.identity-table td:first-child { width:30%; color:#718097; }
+.table-note { font-size:11px; color:#8b682f; background:#fff8eb; padding:8px 10px; margin:12px 0 0; border-radius:5px; }
+.status { display:inline-block; border-radius:4px; padding:2px 7px; font-size:10px; font-weight:600; background:#edf1f7; color:#5b6c82; }
+.status-success { background:#eaf6f0; color:#257452; }
+.status-warning { background:#fff1d8; color:#976018; }
+.status-error { background:#fceceb; color:#aa4744; }
+pre { white-space:pre-wrap; overflow-wrap:anywhere; font:11px/1.65 Consolas,"Courier New",monospace; color:#3e526b; padding:16px; border-radius:6px; background:#f5f7fa; margin:15px 0 0; }
+.footer-note { max-width:1320px; margin:26px auto 0; padding-top:14px; border-top:1px solid var(--line); color:#65758c; font-size:11px; }
+mark.report-match { background:#fff1b6; color:inherit; padding:0; }
+mark.report-current { background:#ffd570; outline:2px solid #d0952a; }
+.embedded-report .standalone-tools { display:none; }
+.embedded-report .cover { padding:15px 24px; }
+.embedded-report h1 { font-size:21px; }
+.embedded-report .report-content { padding:22px 28px 30px; }
+html:not(.report-js) .report-nav,html:not(.report-js) .section-pager,html:not(.report-js) .section-actions,html:not(.report-js) .standalone-tools { display:none; }
+html:not(.report-js) .report-layout { grid-template-columns:minmax(0,1fr); }
+@media(max-width:1050px) {
+ .cover { padding:18px 22px; gap:16px; }
+ .report-search input { width:160px; }
+ .report-layout { grid-template-columns:215px minmax(0,1fr); }
+ .report-content { padding:22px; }
+ .facts { grid-template-columns:repeat(2,minmax(0,1fr)); }
+ .metric { padding:14px; }
 }
-@media (max-width: 560px) {
-    .report-layout { grid-template-columns: 185px minmax(0, 1fr); gap: 8px; }
-    .nav-group { width: 100%; padding-right: 0; }
-    .section-pager { flex-wrap: wrap; }
-    .pager-label { order: -1; width: 100%; }
-    .pager-button { flex: 1 1 120px; min-width: 92px; }
-    .report-section { padding: 14px; }
+@media(max-width:760px) {
+ .cover,.embedded-report .cover { flex-wrap:wrap; padding:14px 16px; gap:12px; }
+ h1,.embedded-report h1 { font-size:20px; }
+ .nav-toggle { display:block; min-height:40px; }
+ .standalone-tools { flex-basis:100%; align-items:stretch; max-width:none; }
+ .report-search { flex-wrap:wrap; }
+ .report-search input { flex:1; width:100px; }
+ .search-controls { flex-wrap:wrap; }
+ .report-layout { grid-template-columns:minmax(0,1fr); grid-template-rows:auto minmax(0,1fr); }
+ .report-nav { display:none; grid-row:1; border-right:0; border-bottom:1px solid var(--line); max-height:38vh; padding:14px; }
+ .nav-open .report-nav { display:block; }
+ .report-content,.embedded-report .report-content { grid-row:2; padding:18px 16px 28px; }
+ .section-title { font-size:22px; }
+ .metrics { grid-template-columns:repeat(2,minmax(0,1fr)); }
+ .metric-value { font-size:25px; }
+ .section-nav-button { min-height:40px; }
+ .dataset>summary { padding:13px 14px; }
+ .dataset-count { white-space:normal; text-align:right; max-width:100px; }
+ .dataset-body { padding:0 14px 14px; }
+ .table-wrap { margin:0 -14px; }
 }
+@media(prefers-reduced-motion:reduce) { .report-content { scroll-behavior:auto; } }
 @media print {
-    html, body { height: auto; overflow: visible; }
-    body { background: #ffffff; }
-    .report-app { display: block; height: auto; overflow: visible; max-width: none; padding: 0; }
-    .cover { border: 0; box-shadow: none; padding: 0 0 16px 0; }
-    .report-layout { display: block; overflow: visible; }
-    .report-content { height: auto; overflow: visible; }
-    .report-nav, .section-pager { display: none !important; }
-    .report-js .report-section, .report-section { display: block !important; border: 0; box-shadow: none; padding: 0; margin: 0 0 22px 0; }
-    .report-section + .report-section { page-break-before: always; }
-    a { color: inherit; text-decoration: none; }
+ html,body { height:auto!important; overflow:visible!important; background:#fff; }
+ .report-app,.report-layout,.report-content,.reading-width { display:block!important; height:auto!important; max-height:none!important; overflow:visible!important; padding:0!important; }
+ .cover { padding:0 0 20px!important; margin-bottom:18px; }
+ .report-nav,.section-pager,.section-actions,.standalone-tools,.nav-toggle,.review-links { display:none!important; }
+ .report-js .report-section,.report-section { display:block!important; margin:0 0 30px; break-before:page; }
+ .reading-width>.report-section:first-of-type { break-before:auto; }
+ .dataset,.facts,.metric { box-shadow:none; }
+ .dataset { border-radius:0; border-color:#ccc; }
+ .dataset>summary { cursor:default; }
+ .dataset>summary::before { display:none; }
+ .dataset-body,.table-wrap { display:block!important; overflow:visible!important; max-height:none!important; }
+ th { position:static; }
+ thead { display:table-header-group; }
+ tr { break-inside:avoid; }
+ td { min-width:0; font-size:9px; padding:6px 8px; }
+ th { font-size:9px; padding:7px 8px; }
+ .notice,.info { break-inside:avoid; }
+ mark { background:none!important; outline:0!important; }
 }
 </style>
 '@
     [void]$builder.AppendLine($styleBlock)
-    [void]$builder.AppendLine('</head><body>')
-    [void]$builder.AppendLine('<div class="report-app">')
-
-    # Render the cover separately so navigation remains available for every report section.
-    foreach ($block in $Blocks) {
-        if ([string]$block.Type -eq 'Title') {
-            [void]$builder.AppendLine('<div class="cover">')
-            [void]$builder.AppendLine('<h1>' + (ConvertTo-HtmlText -Value $block.Text) + '</h1>')
-            if (-not [string]::IsNullOrWhiteSpace([string]$block.Subtitle)) {
-                [void]$builder.AppendLine('<div class="subtitle">' + (ConvertTo-HtmlText -Value $block.Subtitle) + '</div>')
+    [void]$builder.AppendLine('</head><body><div class="report-app"><header class="cover"><div class="report-brand"><div class="eyebrow">Server inventory / configuration snapshot</div>')
+    [void]$builder.AppendLine('<h1>' + (ConvertTo-HtmlText $serverName) + '</h1><p class="subtitle">' + (ConvertTo-HtmlText $subtitle) + '</p></div>')
+    [void]$builder.AppendLine('<button class="nav-toggle" id="toggle-report-nav" aria-controls="report-nav" aria-expanded="false" type="button">Sections</button>')
+    [void]$builder.AppendLine('<div class="standalone-tools"><form id="report-search-form" class="report-search" role="search"><input id="report-search-input" type="search" aria-label="Search the full report" placeholder="Search the full report"><button class="quiet-button" type="submit">Find</button><button id="report-print" class="quiet-button" type="button">Print all</button></form>')
+    [void]$builder.AppendLine('<div class="search-controls"><button id="report-search-prev" class="quiet-button" type="button" disabled>Previous match</button><button id="report-search-next" class="quiet-button" type="button" disabled>Next match</button><button id="report-search-clear" class="quiet-button" type="button">Clear</button></div><div id="report-search-message" class="search-message" role="status" aria-live="polite">Search every section, including collapsed details.</div></div></header>')
+    [void]$builder.AppendLine('<div class="report-layout"><nav class="report-nav" id="report-nav" aria-label="Report sections" tabindex="0"><div class="nav-heading">Inventory sections</div>')
+    $orderedEntries = @($entries | Where-Object { $_.Id -eq $summaryId }) + @($entries | Where-Object { ($_.Id -ne $summaryId) -and ($_.Id -ne 'section-overview') -and ($_.Title -ne 'Report Contents') }) + @($entries | Where-Object { ($_.Id -ne $summaryId) -and (($_.Id -eq 'section-overview') -or ($_.Title -eq 'Report Contents')) })
+    $referenceStarted = $false
+    foreach ($entry in $orderedEntries) {
+        if ((-not $referenceStarted) -and (($entry.Id -eq 'section-overview') -or ($entry.Title -eq 'Report Contents')) -and ($entry.Id -ne $summaryId)) {
+            [void]$builder.AppendLine('<div class="nav-reference"><div class="nav-heading">Reference</div>')
+            $referenceStarted = $true
+        }
+        $title = Get-CleanReportTitle $entry.Title
+        $number = ''
+        if ($entry.Title -match '^(\d+)\.') { $number = ([int]$matches[1]).ToString('00') }
+        [void]$builder.AppendLine('<div class="nav-group"><button type="button" class="section-nav-button section-main-button" data-section="' + $entry.Id + '" data-title="' + (ConvertTo-HtmlText $title) + '"><span class="nav-number" aria-hidden="true">' + $number + '</span><span>' + (ConvertTo-HtmlText $title) + '</span></button>')
+        if ($entry.Links.Count -gt 0) {
+            [void]$builder.AppendLine('<div class="subsection-list">')
+            foreach ($link in $entry.Links) {
+                [void]$builder.AppendLine('<button type="button" class="subsection-nav-button" data-anchor="' + $link.Id + '">' + (ConvertTo-HtmlText (Get-CleanReportTitle $link.Title)) + '</button>')
             }
-            [void]$builder.AppendLine('<div class="meta">Generated automatically. Treat as sensitive infrastructure documentation. This inventory can assist with recovery or rebuild work, but it is not a backup.</div>')
             [void]$builder.AppendLine('</div>')
         }
+        [void]$builder.AppendLine('</div>')
     }
-
-    # Build hierarchical navigation. Every main section is directly accessible, and
-    # every heading, table, and preformatted dataset inside a section is exposed as
-    # a subsection link. The same deterministic IDs are regenerated while rendering.
-    [void]$builder.AppendLine('<div class="report-layout">')
-    [void]$builder.AppendLine('<nav class="report-nav" aria-label="Report sections and subsections" tabindex="0">')
-    [void]$builder.AppendLine('<div class="nav-heading">Report Sections</div>')
-    [void]$builder.AppendLine('<div class="nav-help">Select a main section or jump directly to a subsection. Printing still includes the complete report.</div>')
-    [void]$builder.AppendLine('<div class="nav-group">')
-    [void]$builder.AppendLine('<button type="button" class="section-nav-button section-main-button active" data-section="section-overview">Overview</button>')
-    [void]$builder.AppendLine('</div>')
-
-    $navSectionNumber = 0
-    $navSubsectionNumber = 0
-    $navGroupOpen = $false
-    foreach ($block in $Blocks) {
-        $navBlockType = [string]$block.Type
-        if (($navBlockType -eq 'Heading') -and ([int]$block.Level -eq 1)) {
-            if ($navGroupOpen) {
-                [void]$builder.AppendLine('</div></div>')
-            }
-            $navSectionNumber++
-            $navSubsectionNumber = 0
-            [void]$builder.AppendLine('<div class="nav-group">')
-            [void]$builder.AppendLine('<button type="button" class="section-nav-button section-main-button" data-section="section-' + $navSectionNumber + '">' + (ConvertTo-HtmlText -Value $block.Text) + '</button>')
-            [void]$builder.AppendLine('<div class="subsection-list">')
-            $navGroupOpen = $true
+    if ($referenceStarted) { [void]$builder.AppendLine('</div>') }
+    [void]$builder.AppendLine('</nav><main class="report-content" tabindex="0" aria-label="Report content"><div class="reading-width"><div class="section-pager"><div id="section-label" class="pager-label"></div><button id="previous-section" class="pager-button" type="button">Previous section</button><button id="next-section" class="pager-button" type="button">Next section</button></div>')
+    Write-CleanReportSection -Id 'section-overview' -Title 'About this report'
+    $sectionNumber = 0
+    $datasetInSection = 0
+    $currentId = 'section-overview'
+    for ($index = 0; $index -lt $blockList.Count; $index++) {
+        $block = $blockList[$index]
+        $type = [string]$block.Type
+        if ($type -eq 'Title') { continue }
+        if (($type -eq 'Heading') -and ([int]$block.Level -eq 1)) {
+            [void]$builder.AppendLine('</section>')
+            $sectionNumber++
+            $datasetInSection = 0
+            $currentId = 'section-' + $sectionNumber
+            Write-CleanReportSection -Id $currentId -Title ([string]$block.Text)
             continue
         }
-        if ($navSectionNumber -le 0) { continue }
-
-        $navTitle = ''
-        if (($navBlockType -eq 'Heading') -and ([int]$block.Level -ge 2)) {
-            $navTitle = [string]$block.Text
-        }
-        elseif (($navBlockType -eq 'Table') -or ($navBlockType -eq 'Preformatted')) {
-            $navTitle = [string]$block.Title
-        }
-        if (-not [string]::IsNullOrWhiteSpace($navTitle)) {
-            $navSubsectionNumber++
-            $navAnchorId = 'section-' + $navSectionNumber + '-sub-' + $navSubsectionNumber
-            [void]$builder.AppendLine('<button type="button" class="subsection-nav-button" data-section="section-' + $navSectionNumber + '" data-anchor="' + $navAnchorId + '">' + (ConvertTo-HtmlText -Value $navTitle) + '</button>')
-        }
-    }
-    if ($navGroupOpen) {
-        [void]$builder.AppendLine('</div></div>')
-    }
-    [void]$builder.AppendLine('</nav>')
-    [void]$builder.AppendLine('<main class="report-content" tabindex="0">')
-    [void]$builder.AppendLine('<div class="section-pager">')
-    [void]$builder.AppendLine('<button id="previous-section" class="pager-button" type="button">Previous section</button>')
-    [void]$builder.AppendLine('<div id="section-label" class="pager-label">Overview</div>')
-    [void]$builder.AppendLine('<button id="next-section" class="pager-button" type="button">Next section</button>')
-    [void]$builder.AppendLine('</div>')
-
-    $openedSection = $true
-    $currentSectionNumber = 0
-    $currentSubsectionNumber = 0
-    [void]$builder.AppendLine('<section id="section-overview" class="report-section active">')
-    [void]$builder.AppendLine('<h2>Overview</h2>')
-
-    foreach ($block in $Blocks) {
-        $blockType = [string]$block.Type
-        if ($blockType -eq 'Title') {
-            continue
-        }
-
-        if (($blockType -eq 'Heading') -and ([int]$block.Level -eq 1)) {
-            if ($openedSection) {
-                [void]$builder.AppendLine('</section>')
-            }
-            $currentSectionNumber++
-            $currentSubsectionNumber = 0
-            [void]$builder.AppendLine('<section id="section-' + $currentSectionNumber + '" class="report-section">')
-            $openedSection = $true
-            [void]$builder.AppendLine('<h2>' + (ConvertTo-HtmlText -Value $block.Text) + '</h2>')
-            continue
-        }
-
-        switch ($blockType) {
+        switch ($type) {
             'Heading' {
-                $level = [int]$block.Level
-                $currentSubsectionNumber++
-                $subsectionId = 'section-' + $currentSectionNumber + '-sub-' + $currentSubsectionNumber
-                if ($level -eq 2) {
-                    [void]$builder.AppendLine('<h3 id="' + $subsectionId + '" class="subsection-anchor">' + (ConvertTo-HtmlText -Value $block.Text) + '</h3>')
-                }
-                else {
-                    [void]$builder.AppendLine('<h4 id="' + $subsectionId + '" class="subsection-anchor">' + (ConvertTo-HtmlText -Value $block.Text) + '</h4>')
-                }
+                $tag = 'h3'
+                if ([int]$block.Level -gt 2) { $tag = 'h4' }
+                [void]$builder.AppendLine('<' + $tag + ' id="' + $anchors[$index] + '" class="subsection-anchor">' + (ConvertTo-HtmlText $block.Text) + '</' + $tag + '>')
             }
             'Paragraph' {
-                $className = ''
-                if ($block.Warning) {
-                    $className = ' class="notice"'
-                }
-                elseif ($block.Bold) {
-                    $className = ' class="info"'
-                }
-                $content = ConvertTo-HtmlText -Value $block.Text
-                if ($block.Bold -and -not $block.Warning) {
-                    $content = '<strong>' + $content + '</strong>'
-                }
-                [void]$builder.AppendLine('<p' + $className + '>' + $content + '</p>')
+                $class = ''
+                if ($block.Warning) { $class = 'notice' }
+                elseif ($block.Bold) { $class = 'info' }
+                $text = ConvertTo-HtmlText $block.Text
+                if ($block.Bold -and -not $block.Warning) { $text = '<strong>' + $text + '</strong>' }
+                [void]$builder.AppendLine('<p class="' + $class + '">' + $text + '</p>')
             }
             'Bullets' {
                 [void]$builder.AppendLine('<ul>')
-                foreach ($item in @($block.Items)) {
-                    [void]$builder.AppendLine('<li>' + (ConvertTo-HtmlText -Value $item) + '</li>')
-                }
+                foreach ($item in @($block.Items)) { [void]$builder.AppendLine('<li>' + (ConvertTo-HtmlText $item) + '</li>') }
                 [void]$builder.AppendLine('</ul>')
             }
-            'Preformatted' {
-                $currentSubsectionNumber++
-                $subsectionId = 'section-' + $currentSectionNumber + '-sub-' + $currentSubsectionNumber
-                [void]$builder.AppendLine('<h4 id="' + $subsectionId + '" class="subsection-anchor">' + (ConvertTo-HtmlText -Value $block.Title) + '</h4>')
-                if ([string]::IsNullOrWhiteSpace([string]$block.Text)) {
-                    [void]$builder.AppendLine('<p>No data was collected or the component is not present.</p>')
+            { ($_ -eq 'Table') -or ($_ -eq 'Preformatted') } {
+                $datasetInSection++
+                $priority = ([string]$block.Title -match '^(Collection failures requiring review|Recovery prerequisites and gaps)$') -and ($type -eq 'Table') -and ([int]$block.DisplayRows -gt 0)
+                $openByDefault = $priority
+                $class = 'dataset'
+                $count = 'Text output'
+                if ($priority) { $class += ' dataset-priority' }
+                if ($type -eq 'Table') {
+                    $count = [string]$block.DisplayRows + ' rows'
+                    if ([int]$block.DisplayRows -eq 1) { $count = '1 row' }
+                    if ([int]$block.TotalRows -gt [int]$block.DisplayRows) { $count = [string]$block.DisplayRows + ' of ' + [string]$block.TotalRows + ' rows' }
+                    if ([int]$block.DisplayRows -gt 15) { $class += ' dataset-long' }
+                    if (($currentId -ne $summaryId) -and ($datasetInSection -eq 1) -and ([int]$block.DisplayRows -gt 0) -and ([int]$block.DisplayRows -le 8) -and (@($block.Columns).Count -le 5)) { $openByDefault = $true }
                 }
+                $openText = 'false'
+                if ($openByDefault) { $openText = 'true' }
+                # Render open in the source for no-script and print fallbacks;
+                # the script only collapses the lower-priority screen details.
+                [void]$builder.AppendLine('<details open id="' + $anchors[$index] + '" class="' + $class + '" data-default-open="' + $openText + '" data-title="' + (ConvertTo-HtmlText $block.Title) + '"><summary><span class="dataset-title">' + (ConvertTo-HtmlText $block.Title) + '</span><span class="dataset-count">' + $count + '</span></summary><div class="dataset-body">')
+                if ($type -eq 'Preformatted') {
+                    if ([string]::IsNullOrWhiteSpace([string]$block.Text)) { [void]$builder.AppendLine('<p class="empty-data">No data was collected or the component is not present.</p>') }
+                    else { [void]$builder.AppendLine('<pre>' + (ConvertTo-HtmlMultilineText $block.Text) + '</pre>') }
+                }
+                elseif ([int]$block.DisplayRows -le 0) { [void]$builder.AppendLine('<p class="empty-data">' + (ConvertTo-HtmlText $block.EmptyMessage) + '</p>') }
                 else {
-                    [void]$builder.AppendLine('<pre>' + (ConvertTo-HtmlMultilineText -Value $block.Text) + '</pre>')
-                }
-            }
-            'Table' {
-                $currentSubsectionNumber++
-                $subsectionId = 'section-' + $currentSectionNumber + '-sub-' + $currentSubsectionNumber
-                [void]$builder.AppendLine('<h4 id="' + $subsectionId + '" class="subsection-anchor">' + (ConvertTo-HtmlText -Value $block.Title) + '</h4>')
-                if ($block.DisplayRows -le 0) {
-                    [void]$builder.AppendLine('<p>' + (ConvertTo-HtmlText -Value $block.EmptyMessage) + '</p>')
-                }
-                else {
-                    [void]$builder.AppendLine('<div style="overflow-x:auto">')
-                    [void]$builder.AppendLine('<table><thead><tr>')
+                    $tableClass = ''
+                    if ([string]$block.Title -eq 'Server identity and baseline') { $tableClass = 'identity-table' }
+                    [void]$builder.AppendLine('<div class="table-wrap" tabindex="0" aria-label="' + (ConvertTo-HtmlText $block.Title) + '"><table class="' + $tableClass + '"><thead><tr>')
                     foreach ($column in @($block.Columns)) {
-                        $header = $column
-                        if ($block.Labels -and $block.Labels.ContainsKey($column)) {
-                            $header = $block.Labels[$column]
-                        }
-                        [void]$builder.AppendLine('<th>' + (ConvertTo-HtmlText -Value $header) + '</th>')
+                        $originalLabel = $column
+                        $label = ([string]$column -replace '([a-z0-9])([A-Z])', '$1 $2') -replace '([A-Z]+)([A-Z][a-z])', '$1 $2'
+                        if ($block.Labels -and $block.Labels.ContainsKey($column)) { $label = $block.Labels[$column]; $originalLabel = $label }
+                        [void]$builder.AppendLine('<th scope="col" data-original-label="' + (ConvertTo-HtmlText $originalLabel) + '">' + (ConvertTo-HtmlText $label) + '</th>')
                     }
                     [void]$builder.AppendLine('</tr></thead><tbody>')
                     foreach ($row in @($block.Rows)) {
                         [void]$builder.AppendLine('<tr>')
                         foreach ($column in @($block.Columns)) {
-                            $cellText = Get-ReportCellText -InputObject $row -PropertyName $column -MaxLength 2500
-                            [void]$builder.AppendLine('<td>' + (ConvertTo-HtmlText -Value $cellText) + '</td>')
+                            $value = Get-ReportCellText -InputObject $row -PropertyName $column -MaxLength 2500
+                            $text = ConvertTo-HtmlText $value
+                            if ($column -match '^(Status|Severity)$') {
+                                $status = ''
+                                if ($value -match '^(Success|Complete|Completed)$') { $status = 'success' }
+                                elseif ($value -match '^(Failed|Error|Critical|High)$') { $status = 'error' }
+                                elseif ($value -match '^(Warning|Unavailable|Skipped|Medium)$') { $status = 'warning' }
+                                if ($status) { $text = '<span class="status status-' + $status + '">' + $text + '</span>' }
+                            }
+                            [void]$builder.AppendLine('<td>' + $text + '</td>')
                         }
                         [void]$builder.AppendLine('</tr>')
                     }
-                    [void]$builder.AppendLine('</tbody></table>')
-                    [void]$builder.AppendLine('</div>')
-                    if ($block.TotalRows -gt $block.DisplayRows) {
-                        [void]$builder.AppendLine('<div class="table-note">Showing ' + $block.DisplayRows + ' of ' + $block.TotalRows + ' rows. The complete dataset remains in the supporting exports.</div>')
-                    }
+                    [void]$builder.AppendLine('</tbody></table></div>')
+                    if ([int]$block.TotalRows -gt [int]$block.DisplayRows) { [void]$builder.AppendLine('<p class="table-note">Showing ' + $block.DisplayRows + ' of ' + $block.TotalRows + ' rows. The complete dataset remains in the supporting exports.</p>') }
                 }
+                [void]$builder.AppendLine('</div></details>')
             }
         }
     }
-
-    if ($openedSection) {
-        [void]$builder.AppendLine('</section>')
-    }
-
-    [void]$builder.AppendLine('<div class="footer-note">The consolidated report is the primary engineering reference for inventory review. Supporting exports are retained for validation, migration, recovery, restoration, rebuild assistance, and details too large for a practical report.</div>')
-    [void]$builder.AppendLine('</main></div></div>')
-
+    [void]$builder.AppendLine('</section></div><footer class="footer-note">Sensitive infrastructure documentation. This inventory is a configuration snapshot, not a backup. Supporting exports retain raw data and reusable artifacts.</footer></main></div></div>')
     $scriptBlock = @'
 <script>
 (function () {
+    'use strict';
     var root = document.documentElement;
-    root.className = (root.className ? root.className + ' ' : '') + 'report-js';
+    var content = document.querySelector('.report-content');
     var sections = Array.prototype.slice.call(document.querySelectorAll('.report-section'));
     var buttons = Array.prototype.slice.call(document.querySelectorAll('.section-main-button'));
-    var subsectionButtons = Array.prototype.slice.call(document.querySelectorAll('.subsection-nav-button'));
-    var previousButton = document.getElementById('previous-section');
-    var nextButton = document.getElementById('next-section');
-    var sectionLabel = document.getElementById('section-label');
-    var currentIndex = 0;
-
-    function sectionIndexById(id) {
-        for (var i = 0; i < sections.length; i++) { if (sections[i].id === id) { return i; } }
+    var details = Array.prototype.slice.call(document.querySelectorAll('details.dataset'));
+    var currentIndex = 0, matches = [], matchIndex = -1, printState = null;
+    function byId(id) { return document.getElementById(id); }
+    function parentSection(element) {
+        while (element && element !== document) {
+            if (element.classList && element.classList.contains('report-section')) { return element; }
+            element = element.parentNode;
+        }
+        return null;
+    }
+    function openParents(element) {
+        while (element && element !== document) {
+            if (element.tagName === 'DETAILS') { element.open = true; }
+            element = element.parentNode;
+        }
+    }
+    function indexById(id) {
+        for (var i=0; i<buttons.length; i++) { if (buttons[i].getAttribute('data-section') === id) { return i; } }
         return -1;
     }
-    function clearSubsectionSelection() {
-        for (var i = 0; i < subsectionButtons.length; i++) { subsectionButtons[i].className = 'subsection-nav-button'; }
+    function activate(index, updateHash, anchor) {
+        if (!buttons.length) { return; }
+        currentIndex = Math.max(0, Math.min(index, buttons.length-1));
+        var selectedId = buttons[currentIndex].getAttribute('data-section');
+        for (var i=0; i<sections.length; i++) {
+            var selected = sections[i].id === selectedId;
+            sections[i].classList.toggle('active', selected);
+            sections[i].setAttribute('aria-hidden', selected ? 'false' : 'true');
+        }
+        for (var j=0; j<buttons.length; j++) {
+            var active = j === currentIndex;
+            buttons[j].classList.toggle('active', active);
+            buttons[j].setAttribute('aria-current', active ? 'page' : 'false');
+            buttons[j].parentNode.classList.toggle('active', active);
+        }
+        var links = document.querySelectorAll('.subsection-nav-button');
+        for (var k=0; k<links.length; k++) { links[k].classList.toggle('active', links[k].getAttribute('data-anchor') === anchor); }
+        byId('section-label').textContent = buttons[currentIndex].getAttribute('data-title') + ' / ' + (currentIndex+1) + ' of ' + buttons.length;
+        byId('previous-section').disabled = currentIndex === 0;
+        byId('next-section').disabled = currentIndex === buttons.length-1;
+        if (updateHash) {
+            try { window.history.replaceState(null, '', '#' + (anchor || selectedId)); }
+            catch (error) { window.location.hash = anchor || selectedId; }
+        }
+        if (anchor) {
+            var target = byId(anchor);
+            if (target) { openParents(target); target.scrollIntoView(true); }
+        } else if (content) { content.scrollTop = 0; }
+        root.classList.remove('nav-open');
+        byId('toggle-report-nav').setAttribute('aria-expanded', 'false');
     }
-    function activate(index, updateHash, anchorId) {
-        if (!sections.length) { return; }
-        if (index < 0) { index = 0; }
-        if (index >= sections.length) { index = sections.length - 1; }
-        currentIndex = index;
-        for (var i = 0; i < sections.length; i++) {
-            if (i === index) {
-                sections[i].className = 'report-section active';
-                buttons[i].className = 'section-nav-button section-main-button active';
-            } else {
-                sections[i].className = 'report-section';
-                buttons[i].className = 'section-nav-button section-main-button';
+    function revealElement(element) {
+        var section = parentSection(element);
+        if (!section) { return; }
+        var index = indexById(section.id);
+        if (index >= 0) { activate(index, false, ''); }
+        openParents(element);
+        try { element.scrollIntoView({block:'center',inline:'nearest'}); }
+        catch (error) { element.scrollIntoView(true); }
+    }
+    function revealId(id) {
+        var element = byId(id);
+        if (!element) { return; }
+        var section = parentSection(element);
+        if (section) { activate(indexById(section.id), true, element === section ? '' : id); }
+    }
+    function clearSearch() {
+        var marks = document.querySelectorAll('mark.report-match');
+        for (var i=0; i<marks.length; i++) {
+            var parent = marks[i].parentNode;
+            parent.replaceChild(document.createTextNode(marks[i].textContent), marks[i]);
+            parent.normalize();
+        }
+        matches = []; matchIndex = -1;
+        root.classList.remove('search-active');
+        byId('report-search-prev').disabled = true;
+        byId('report-search-next').disabled = true;
+        byId('report-search-message').textContent = 'Search every section, including collapsed details.';
+    }
+    function showMatch(index) {
+        if (!matches.length) { return; }
+        if (matchIndex >= 0) { matches[matchIndex].classList.remove('report-current'); }
+        matchIndex = (index + matches.length) % matches.length;
+        matches[matchIndex].classList.add('report-current');
+        revealElement(matches[matchIndex]);
+        byId('report-search-message').textContent = 'Match ' + (matchIndex+1) + ' of ' + matches.length + ' across the full report.';
+    }
+    function search() {
+        clearSearch();
+        var query = byId('report-search-input').value.replace(/^\s+|\s+$/g, '');
+        if (!query) { return; }
+        root.classList.add('search-active');
+        var lowerQuery = query.toLowerCase(), nodes = [];
+        for (var i=0; i<sections.length; i++) {
+            var walker = document.createTreeWalker(sections[i], NodeFilter.SHOW_TEXT, {acceptNode:function(node) {
+                var tag = node.parentNode && node.parentNode.nodeName;
+                if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'BUTTON' || tag === 'MARK') { return NodeFilter.FILTER_REJECT; }
+                return node.nodeValue.toLowerCase().indexOf(lowerQuery) >= 0 ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+            }}, false);
+            var node; while ((node = walker.nextNode())) { nodes.push(node); }
+        }
+        for (var n=0; n<nodes.length; n++) {
+            var text = nodes[n].nodeValue, lower = text.toLowerCase(), offset=0, at=lower.indexOf(lowerQuery), fragment=document.createDocumentFragment();
+            while (at >= 0) {
+                if (at > offset) { fragment.appendChild(document.createTextNode(text.substring(offset,at))); }
+                var mark = document.createElement('mark'); mark.className='report-match';
+                mark.appendChild(document.createTextNode(text.substr(at,query.length))); fragment.appendChild(mark);
+                matches.push(mark); offset=at+query.length; at=lower.indexOf(lowerQuery,offset);
             }
+            if (offset < text.length) { fragment.appendChild(document.createTextNode(text.substring(offset))); }
+            nodes[n].parentNode.replaceChild(fragment,nodes[n]);
         }
-        sectionLabel.textContent = buttons[index].textContent + '  |  ' + (index + 1) + ' of ' + sections.length;
-        previousButton.disabled = index === 0;
-        nextButton.disabled = index === sections.length - 1;
-        if (buttons[index] && buttons[index].scrollIntoView) { buttons[index].scrollIntoView(false); }
-        if (!anchorId) { clearSubsectionSelection(); }
-        var hashTarget = anchorId || sections[index].id;
-        if (updateHash && window.history && window.history.replaceState) {
-            window.history.replaceState(null, '', '#' + hashTarget);
-        } else if (updateHash) {
-            window.location.hash = hashTarget;
-        }
-        var scrollTarget = anchorId ? document.getElementById(anchorId) : sections[index];
-        if (scrollTarget && scrollTarget.scrollIntoView) { scrollTarget.scrollIntoView(true); }
+        if (!matches.length) { byId('report-search-message').textContent='No matches for "' + query + '".'; return; }
+        byId('report-search-prev').disabled=false; byId('report-search-next').disabled=false; showMatch(0);
     }
-
-    for (var i = 0; i < buttons.length; i++) {
-        (function (index) {
-            buttons[index].addEventListener('click', function () { activate(index, true, ''); });
-        }(i));
+    function preparePrint() {
+        if (printState) { return; }
+        printState = details.map(function(detail) { return detail.open; });
+        for (var i=0; i<details.length; i++) { details[i].open=true; }
     }
-    for (var j = 0; j < subsectionButtons.length; j++) {
-        (function (button) {
-            button.addEventListener('click', function () {
-                var sectionId = button.getAttribute('data-section');
-                var anchorId = button.getAttribute('data-anchor');
-                var index = sectionIndexById(sectionId);
-                if (index < 0) { return; }
-                clearSubsectionSelection();
-                button.className = 'subsection-nav-button active';
-                activate(index, true, anchorId);
-                button.className = 'subsection-nav-button active';
-            });
-        }(subsectionButtons[j]));
+    function restorePrint() {
+        if (!printState) { return; }
+        for (var i=0; i<details.length; i++) { details[i].open=printState[i]; }
+        printState=null;
     }
-    previousButton.addEventListener('click', function () { activate(currentIndex - 1, true, ''); });
-    nextButton.addEventListener('click', function () { activate(currentIndex + 1, true, ''); });
-
-    var requestedId = window.location.hash ? window.location.hash.substring(1) : '';
-    if (requestedId) {
-        var requestedElement = document.getElementById(requestedId);
-        if (requestedElement) {
-            var parentSection = requestedElement;
-            while (parentSection && (!parentSection.className || String(parentSection.className).indexOf('report-section') < 0)) { parentSection = parentSection.parentNode; }
-            if (parentSection) {
-                var requestedIndex = sectionIndexById(parentSection.id);
-                if (requestedIndex >= 0) {
-                    activate(requestedIndex, false, requestedId === parentSection.id ? '' : requestedId);
-                    for (var k = 0; k < subsectionButtons.length; k++) {
-                        if (subsectionButtons[k].getAttribute('data-anchor') === requestedId) { subsectionButtons[k].className = 'subsection-nav-button active'; break; }
-                    }
-                    return;
-                }
-            }
+    for (var d=0; d<details.length; d++) { details[d].open=details[d].getAttribute('data-default-open') === 'true'; }
+    // Put actionable findings ahead of routine datasets without changing the
+    // underlying blocks or discarding their original section/anchor identities.
+    var summarySection=byId(root.getAttribute('data-default-section'));
+    if(summarySection){
+        var cursor=summarySection.querySelector('.section-actions');
+        var priorityPanels=summarySection.querySelectorAll('.dataset-priority');
+        for(var p=0;cursor&&p<priorityPanels.length;p++){
+            cursor.parentNode.insertBefore(priorityPanels[p],cursor.nextSibling);cursor=priorityPanels[p];
         }
     }
-    activate(0, false, '');
+    for (var b=0; b<buttons.length; b++) {
+        (function(index) { buttons[index].addEventListener('click',function() { activate(index,true,''); }); }(b));
+    }
+    var jumpButtons = document.querySelectorAll('[data-anchor]');
+    for (var j=0; j<jumpButtons.length; j++) {
+        (function(button) { button.addEventListener('click',function() { revealId(button.getAttribute('data-anchor')); }); }(jumpButtons[j]));
+    }
+    var expandButtons = document.querySelectorAll('[data-details-action]');
+    for (var e=0; e<expandButtons.length; e++) {
+        (function(button) { button.addEventListener('click',function() {
+            var section=parentSection(button), panels=section.querySelectorAll('details.dataset');
+            for (var i=0; i<panels.length; i++) { panels[i].open=button.getAttribute('data-details-action') === 'expand'; }
+        }); }(expandButtons[e]));
+    }
+    byId('previous-section').addEventListener('click',function() { activate(currentIndex-1,true,''); });
+    byId('next-section').addEventListener('click',function() { activate(currentIndex+1,true,''); });
+    byId('toggle-report-nav').addEventListener('click',function() {
+        var open=root.classList.toggle('nav-open'); this.setAttribute('aria-expanded',open ? 'true' : 'false');
+    });
+    byId('report-search-form').addEventListener('submit',function(event) { event.preventDefault(); search(); });
+    byId('report-search-prev').addEventListener('click',function() { showMatch(matchIndex-1); });
+    byId('report-search-next').addEventListener('click',function() { showMatch(matchIndex+1); });
+    byId('report-search-clear').addEventListener('click',function() { clearSearch(); byId('report-search-input').value=''; });
+    byId('report-print').addEventListener('click',function() { window.print(); });
+    window.addEventListener('beforeprint',preparePrint); window.addEventListener('afterprint',restorePrint);
+    window.addEventListener('hashchange',function() { revealId(window.location.hash.substring(1)); });
+    // The native viewer uses this to expose search hits inside collapsed panels.
+    window.SICMReport = {revealElement:revealElement,preparePrint:preparePrint,restorePrint:restorePrint};
+    root.classList.add('report-js');
+    var requested = window.location.hash.substring(1);
+    if (requested && byId(requested)) { revealId(requested); }
+    else { activate(indexById(root.getAttribute('data-default-section')),false,''); }
 }());
 </script>
 '@
     [void]$builder.AppendLine($scriptBlock)
     [void]$builder.AppendLine('</body></html>')
-
     $encoding = New-Object System.Text.UTF8Encoding($true)
     [System.IO.File]::WriteAllText($Path, $builder.ToString(), $encoding)
 }
