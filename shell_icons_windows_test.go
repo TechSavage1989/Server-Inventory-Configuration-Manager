@@ -26,12 +26,16 @@ func createIconTestShortcut(t *testing.T, shortcut, executable, icon string) {
 			if err != nil {
 				return err
 			}
-			var arguments = []uintptr{uintptr(unsafe.Pointer(value))}
+			// Pass converted pointers directly to the uintptrescapes call,
+			// so stack growth/GC cannot invalidate COM input buffers.
 			if item.method == 17 {
-				arguments = append(arguments, 0)
-			}
-			if err := link.call(item.method, arguments...); err != nil {
-				return err
+				if err := link.call(item.method, uintptr(unsafe.Pointer(value)), 0); err != nil {
+					return err
+				}
+			} else {
+				if err := link.call(item.method, uintptr(unsafe.Pointer(value))); err != nil {
+					return err
+				}
 			}
 		}
 		if err := link.call(13, 0x0649); err != nil {
@@ -65,15 +69,19 @@ func readIconTestShortcut(t *testing.T, shortcut string) map[string]string {
 		}{{3, "target"}, {10, "arguments"}, {8, "directory"}, {6, "description"}, {16, "icon"}} {
 			var text [32768]uint16
 			var index int32
-			args := []uintptr{uintptr(unsafe.Pointer(&text[0])), uintptr(len(text))}
-			if item.method == 3 {
-				args = append(args, 0, 4)
-			}
-			if item.method == 16 {
-				args = append(args, uintptr(unsafe.Pointer(&index)))
-			}
-			if err := link.call(item.method, args...); err != nil {
-				return err
+			switch item.method {
+			case 3:
+				if err := link.call(item.method, uintptr(unsafe.Pointer(&text[0])), uintptr(len(text)), 0, 4); err != nil {
+					return err
+				}
+			case 16:
+				if err := link.call(item.method, uintptr(unsafe.Pointer(&text[0])), uintptr(len(text)), uintptr(unsafe.Pointer(&index))); err != nil {
+					return err
+				}
+			default:
+				if err := link.call(item.method, uintptr(unsafe.Pointer(&text[0])), uintptr(len(text))); err != nil {
+					return err
+				}
 			}
 			if item.method == 16 && index != 0 {
 				t.Fatal("incorrect icon index", index)
