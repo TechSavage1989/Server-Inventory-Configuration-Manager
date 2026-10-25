@@ -603,6 +603,926 @@ $script:ApplicationId = "Server-Inventory-Configuration-Manager"
 $script:AppVersion = "3.1.0"
 $script:StableLaunchFileName = "Server-Inventory-Configuration-Manager.ps1"
 
+
+# ---------------- Application data and update system ----------------
+
+$script:RepositoryUrl = "https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager"
+$script:UpdateFeedUrl = "https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/latest/download/update-manifest.json"
+$script:UpdateAllowedHosts = @("github.com","release-assets.githubusercontent.com","github-releases.githubusercontent.com","objects.githubusercontent.com")
+$script:UpdateCheckIntervalSeconds = 300
+$script:UpdateFocusIntervalSeconds = 120
+$script:ManualUpdateCooldownSeconds = 30
+$script:MaximumUpdateBytes = 8388608
+$script:UpdateCheckInFlight = $false
+$script:UpdateDownloadInFlight = $false
+$script:UpdatePowerShell = $null
+$script:UpdateRunspace = $null
+$script:UpdateAsyncResult = $null
+$script:UpdateDownloadPowerShell = $null
+$script:UpdateDownloadRunspace = $null
+$script:UpdateDownloadAsyncResult = $null
+$script:LastUpdateAttemptUtc = [DateTime]::MinValue
+$script:LastManualUpdateAttemptUtc = [DateTime]::MinValue
+$script:CurrentUpdateManifest = $null
+$script:ReadyUpdatePath = ""
+$script:ReadyUpdateVersion = ""
+$script:SavedOutputRoot = ""
+
+function Initialize-ApplicationDataPaths {
+    $root = [Environment]::GetFolderPath([Environment+SpecialFolder]::LocalApplicationData)
+    if ([string]::IsNullOrWhiteSpace($root)) { throw "Unable to determine LocalAppData." }
+
+    $script:AppDataRoot = Join-Path $root "Server Inventory Configuration Manager"
+    $script:SettingsDirectory = Join-Path $script:AppDataRoot "Settings"
+    $script:LogsDirectory = Join-Path $script:AppDataRoot "Logs"
+    $script:UpdateDirectory = Join-Path $script:AppDataRoot "Updates"
+    $script:UpdateCacheDirectory = Join-Path $script:UpdateDirectory "Cache"
+    $script:UpdateDownloadDirectory = Join-Path $script:UpdateDirectory "Downloads"
+    $script:UpdateReadyDirectory = Join-Path $script:UpdateDirectory "Ready"
+    $script:UpdateHelperDirectory = Join-Path $script:UpdateDirectory "Helper"
+    $script:RollbackDirectory = Join-Path $script:AppDataRoot "Rollback"
+    $script:HealthDirectory = Join-Path $script:AppDataRoot "Health"
+
+    foreach ($path in @($script:AppDataRoot,$script:SettingsDirectory,$script:LogsDirectory,$script:UpdateDirectory,$script:UpdateCacheDirectory,$script:UpdateDownloadDirectory,$script:UpdateReadyDirectory,$script:UpdateHelperDirectory,$script:RollbackDirectory,$script:HealthDirectory)) {
+        if (-not (Test-Path -LiteralPath $path)) { New-Item -Path $path -ItemType Directory -Force | Out-Null }
+    }
+
+    $script:SettingsPath = Join-Path $script:SettingsDirectory "settings.json"
+    $script:UpdateCachePath = Join-Path $script:UpdateCacheDirectory "update-cache.json"
+    $script:UpdateLogPath = Join-Path $script:LogsDirectory "Updates.log"
+    $script:HealthMarkerPath = Join-Path $script:HealthDirectory "current.json"
+    $script:InstallHelperPath = Join-Path $script:UpdateHelperDirectory "Install-Update.ps1"
+    $script:RollbackPath = Join-Path $script:RollbackDirectory "previous.ps1"
+    $script:RollbackMetadataPath = Join-Path $script:RollbackDirectory "previous.json"
+}
+
+function Write-UpdateLog {
+    param([string]$Message)
+    try { Add-Content -LiteralPath $script:UpdateLogPath -Encoding UTF8 -Value ("{0}  {1}" -f (Get-Date -Format "yyyy-MM-dd HH:mm:ss.fff"),$Message) } catch { }
+}
+
+function Load-ApplicationSettings {
+    $script:SavedOutputRoot = [Environment]::GetFolderPath("Desktop")
+    if (-not (Test-Path -LiteralPath $script:SettingsPath -PathType Leaf)) { return }
+    try {
+        $settings = Get-Content -LiteralPath $script:SettingsPath -Raw | ConvertFrom-Json
+        if ($settings -and -not [string]::IsNullOrWhiteSpace([string]$settings.OutputRoot)) { $script:SavedOutputRoot = [string]$settings.OutputRoot }
+    } catch { Write-UpdateLog ("Unable to load settings: " + $_.Exception.Message) }
+}
+
+function Save-ApplicationSettings {
+    param([string]$OutputRoot)
+    if ([string]::IsNullOrWhiteSpace($OutputRoot)) { return }
+    try {
+        $temp = $script:SettingsPath + ".tmp"
+        [pscustomobject]@{ OutputRoot=$OutputRoot } | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $temp -Encoding UTF8
+        Move-Item -LiteralPath $temp -Destination $script:SettingsPath -Force
+        $script:SavedOutputRoot = $OutputRoot
+    } catch { Write-UpdateLog ("Unable to save settings: " + $_.Exception.Message) }
+}
+
+function Cleanup-ApplicationOwnedUpdateFiles {
+    try {
+        $cutoff = (Get-Date).AddDays(-7)
+        foreach ($directory in @($script:UpdateDownloadDirectory,$script:UpdateReadyDirectory,$script:UpdateHelperDirectory)) {
+            Get-ChildItem -LiteralPath $directory -Force -ErrorAction SilentlyContinue | Where-Object { $_.LastWriteTime -lt $cutoff } | ForEach-Object {
+                try { Remove-Item -LiteralPath $_.FullName -Recurse -Force -ErrorAction Stop } catch { }
+            }
+        }
+
+        Get-ChildItem -LiteralPath $script:RollbackDirectory -Force -ErrorAction SilentlyContinue | Where-Object {
+            $_.FullName -ne $script:RollbackPath -and $_.FullName -ne $script:RollbackMetadataPath
+        } | ForEach-Object {
+            try { Remove-Item -LiteralPath $_.FullName -Recurse -Force -ErrorAction Stop } catch { }
+        }
+    } catch { Write-UpdateLog ("Update cleanup failed: " + $_.Exception.Message) }
+}
+
+function Get-Sha256File {
+    param([string]$Path)
+    $sha = [Security.Cryptography.SHA256]::Create()
+    $stream = $null
+    try {
+        $stream = [IO.File]::OpenRead($Path)
+        $bytes = $sha.ComputeHash($stream)
+        return (($bytes | ForEach-Object { $_.ToString("x2") }) -join "")
+    } finally {
+        if ($stream) { $stream.Dispose() }
+        $sha.Dispose()
+    }
+}
+
+function ConvertTo-VersionObject {
+    param([string]$VersionText)
+    if ([string]::IsNullOrWhiteSpace($VersionText)) { return $null }
+    $clean = $VersionText.Trim()
+    if ($clean.StartsWith("v",[StringComparison]::OrdinalIgnoreCase)) { $clean = $clean.Substring(1) }
+    $match = [regex]::Match($clean,'^(?<v>\d+\.\d+\.\d+(?:\.\d+)?)')
+    if (-not $match.Success) { return $null }
+    try { return New-Object Version($match.Groups["v"].Value) } catch { return $null }
+}
+
+function Test-AllowedUpdateUri {
+    param([string]$UriText)
+    try {
+        $uri = New-Object Uri($UriText)
+        if ($uri.Scheme -ne "https") { return $false }
+        foreach ($hostName in $script:UpdateAllowedHosts) {
+            if ($uri.Host.Equals($hostName,[StringComparison]::OrdinalIgnoreCase)) { return $true }
+        }
+    } catch { }
+    return $false
+}
+
+function Test-UpdateManifest {
+    param([object]$Manifest)
+    if ($null -eq $Manifest) { throw "The update manifest is empty." }
+    if ([int]$Manifest.schema_version -ne 1) { throw "Unsupported update manifest schema." }
+    if ([string]$Manifest.app_id -ne $script:ApplicationId) { throw "The update belongs to a different application." }
+
+    $version = ConvertTo-VersionObject ([string]$Manifest.version)
+    if ($null -eq $version) { throw "The update manifest contains an invalid version." }
+    if ($null -eq $Manifest.asset) { throw "The update manifest does not contain an application asset." }
+    if ([string]$Manifest.asset.name -ne $script:StableLaunchFileName) { throw "Unexpected update filename." }
+    if (-not (Test-AllowedUpdateUri ([string]$Manifest.asset.url))) { throw "Untrusted update URL." }
+    if ([string]$Manifest.asset.sha256 -notmatch '^[0-9a-fA-F]{64}$') { throw "Invalid update SHA-256 digest." }
+
+    $size = [int64]$Manifest.asset.size
+    if ($size -lt 1024 -or $size -gt $script:MaximumUpdateBytes) { throw "Unexpected update file size." }
+    return $version
+}
+
+function Get-UpdateCacheObject {
+    if (-not (Test-Path -LiteralPath $script:UpdateCachePath -PathType Leaf)) { return $null }
+    try { return Get-Content -LiteralPath $script:UpdateCachePath -Raw | ConvertFrom-Json } catch { return $null }
+}
+
+function Save-UpdateCacheObject {
+    param([object]$Cache)
+    try {
+        $temp = $script:UpdateCachePath + ".tmp"
+        $Cache | ConvertTo-Json -Depth 12 | Set-Content -LiteralPath $temp -Encoding UTF8
+        Move-Item -LiteralPath $temp -Destination $script:UpdateCachePath -Force
+    } catch { Write-UpdateLog ("Unable to save update cache: " + $_.Exception.Message) }
+}
+
+function Set-UpdateNotes {
+    param([object]$Manifest)
+    $UpdateNotesPanel.Children.Clear()
+    if ($null -eq $Manifest -or $null -eq $Manifest.notes) { return }
+
+    $notes = @($Manifest.notes)
+    $limit = [Math]::Min(3,$notes.Count)
+
+    for ($index=0; $index -lt $limit; $index++) {
+        $note = [string]$notes[$index]
+        if ([string]::IsNullOrWhiteSpace($note)) { continue }
+
+        $text = New-Object Windows.Controls.TextBlock
+        $text.Text = ([char]0x2022).ToString() + " " + $note
+        $text.TextWrapping = "Wrap"
+        $text.Margin = "0,2,0,0"
+        $text.Foreground = [Windows.Media.BrushConverter]::new().ConvertFromString("#475467")
+        [void]$UpdateNotesPanel.Children.Add($text)
+    }
+}
+
+function Set-UpdateBanner {
+    param([string]$Title,[string]$Status,[string]$Kind="Info")
+    $UpdateBannerTitle.Text = $Title
+    $UpdateBannerStatus.Text = $Status
+
+    switch ($Kind) {
+        "Available" {
+            $UpdateBannerBorder.Background = [Windows.Media.BrushConverter]::new().ConvertFromString("#EFF6FF")
+            $UpdateBannerBorder.BorderBrush = [Windows.Media.BrushConverter]::new().ConvertFromString("#93C5FD")
+        }
+        "Warning" {
+            $UpdateBannerBorder.Background = [Windows.Media.BrushConverter]::new().ConvertFromString("#FFFAEB")
+            $UpdateBannerBorder.BorderBrush = [Windows.Media.BrushConverter]::new().ConvertFromString("#FEC84B")
+        }
+        "Error" {
+            $UpdateBannerBorder.Background = [Windows.Media.BrushConverter]::new().ConvertFromString("#FEF3F2")
+            $UpdateBannerBorder.BorderBrush = [Windows.Media.BrushConverter]::new().ConvertFromString("#FDA29B")
+        }
+        default {
+            $UpdateBannerBorder.Background = [Windows.Media.BrushConverter]::new().ConvertFromString("#F8FAFC")
+            $UpdateBannerBorder.BorderBrush = [Windows.Media.BrushConverter]::new().ConvertFromString("#D7DFE8")
+        }
+    }
+}
+
+function Get-UpdateBackoffUntilUtc {
+    $cache = Get-UpdateCacheObject
+    if ($null -eq $cache -or [string]::IsNullOrWhiteSpace([string]$cache.BackoffUntilUtc)) { return [DateTime]::MinValue }
+    try { return [DateTime]::Parse([string]$cache.BackoffUntilUtc).ToUniversalTime() } catch { return [DateTime]::MinValue }
+}
+
+function Begin-UpdateCheck {
+    param([switch]$Manual)
+    if ($script:UpdateCheckInFlight -or $script:UpdateDownloadInFlight) { return }
+
+    $now = [DateTime]::UtcNow
+
+    if ($Manual) {
+        $elapsed = ($now - $script:LastManualUpdateAttemptUtc).TotalSeconds
+        if ($elapsed -lt $script:ManualUpdateCooldownSeconds) {
+            Set-UpdateBanner -Title "Update check cooldown" -Status ("Try again in {0} seconds." -f [Math]::Ceiling($script:ManualUpdateCooldownSeconds-$elapsed))
+            return
+        }
+        $script:LastManualUpdateAttemptUtc = $now
+    }
+
+    if (-not $Manual -and (Get-UpdateBackoffUntilUtc) -gt $now) { return }
+
+    $cache = Get-UpdateCacheObject
+    $etag = if ($cache) { [string]$cache.ETag } else { "" }
+    $script:UpdateCheckInFlight = $true
+    $script:LastUpdateAttemptUtc = $now
+
+    Set-UpdateBanner -Title "Checking for updates" -Status ("Installed {0}" -f $script:AppVersion)
+
+    $worker = {
+        param($FeedUrl,$ETag)
+
+        $result = [ordered]@{ Status="Error"; ManifestJson=""; ETag=""; Error=""; RetryAfterSeconds=0 }
+        $response = $null
+
+        try {
+            try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 } catch { }
+
+            $request = [Net.HttpWebRequest]::Create($FeedUrl)
+            $request.Method = "GET"
+            $request.AllowAutoRedirect = $true
+            $request.MaximumAutomaticRedirections = 8
+            $request.Timeout = 8000
+            $request.ReadWriteTimeout = 8000
+            $request.UserAgent = "Server-Inventory-Configuration-Manager"
+            $request.Accept = "application/json"
+
+            if (-not [string]::IsNullOrWhiteSpace($ETag)) { $request.Headers["If-None-Match"] = $ETag }
+
+            $response = [Net.HttpWebResponse]$request.GetResponse()
+            $result.ETag = [string]$response.Headers["ETag"]
+
+            $reader = New-Object IO.StreamReader($response.GetResponseStream())
+            try { $result.ManifestJson = $reader.ReadToEnd() } finally { $reader.Dispose() }
+
+            $result.Status = "Success"
+        }
+        catch [Net.WebException] {
+            $webResponse = $_.Exception.Response
+
+            if ($webResponse) {
+                try {
+                    $http = [Net.HttpWebResponse]$webResponse
+                    $result.ETag = [string]$http.Headers["ETag"]
+
+                    if ([int]$http.StatusCode -eq 304) {
+                        $result.Status = "NotModified"
+                    }
+                    else {
+                        $retryText = [string]$http.Headers["Retry-After"]
+                        $retrySeconds = 0
+                        if ([int]::TryParse($retryText,[ref]$retrySeconds)) { $result.RetryAfterSeconds = $retrySeconds }
+                        $result.Error = "HTTP {0}: {1}" -f [int]$http.StatusCode,$http.StatusDescription
+                    }
+                } catch { $result.Error = $_.Exception.Message }
+            }
+            else {
+                $result.Error = $_.Exception.Message
+            }
+        }
+        catch {
+            $result.Error = $_.Exception.Message
+        }
+        finally {
+            if ($response) { $response.Dispose() }
+        }
+
+        [pscustomobject]$result
+    }
+
+    try {
+        $script:UpdateRunspace = [RunspaceFactory]::CreateRunspace()
+        $script:UpdateRunspace.ApartmentState = "MTA"
+        $script:UpdateRunspace.Open()
+
+        $script:UpdatePowerShell = [PowerShell]::Create()
+        $script:UpdatePowerShell.Runspace = $script:UpdateRunspace
+        [void]$script:UpdatePowerShell.AddScript($worker)
+        [void]$script:UpdatePowerShell.AddArgument($script:UpdateFeedUrl)
+        [void]$script:UpdatePowerShell.AddArgument($etag)
+        $script:UpdateAsyncResult = $script:UpdatePowerShell.BeginInvoke()
+    }
+    catch {
+        $script:UpdateCheckInFlight = $false
+        Set-UpdateBanner -Title "Update check unavailable" -Status $_.Exception.Message -Kind "Error"
+    }
+}
+
+function Apply-UpdateCheckFailure {
+    param([string]$Message,[int]$RetryAfterSeconds=0)
+    if ([string]::IsNullOrWhiteSpace($Message)) { $Message = "The update feed could not be reached." }
+
+    $cache = Get-UpdateCacheObject
+    $failureCount = 1
+
+    if ($cache -and $cache.FailureCount) { $failureCount = [Math]::Min(8,[int]$cache.FailureCount+1) }
+    if ($RetryAfterSeconds -le 0) { $RetryAfterSeconds = [Math]::Min(1800,[int](60*[Math]::Pow(2,$failureCount-1))) }
+
+    Save-UpdateCacheObject ([pscustomobject]@{
+        ETag=if($cache){[string]$cache.ETag}else{""}
+        Manifest=if($cache){$cache.Manifest}else{$null}
+        LastSuccessUtc=if($cache){[string]$cache.LastSuccessUtc}else{""}
+        LastAttemptUtc=[DateTime]::UtcNow.ToString("o")
+        BackoffUntilUtc=[DateTime]::UtcNow.AddSeconds($RetryAfterSeconds).ToString("o")
+        FailureCount=$failureCount
+    })
+
+    Write-UpdateLog ("Update check failed: " + $Message)
+
+    if ($cache -and $cache.Manifest) {
+        try {
+            $remote = Test-UpdateManifest $cache.Manifest
+            $installed = ConvertTo-VersionObject $script:AppVersion
+
+            if ($remote -gt $installed) {
+                $script:CurrentUpdateManifest = $cache.Manifest
+                Set-UpdateBanner -Title ("Update available: "+[string]$cache.Manifest.version) -Status ("Could not refresh the feed. Showing the last verified result. "+$Message) -Kind "Warning"
+                Set-UpdateNotes $cache.Manifest
+                $UpdateDownloadButton.Visibility = "Visible"
+                $UpdateReadMoreButton.Visibility = if([bool]$cache.Manifest.read_more){"Visible"}else{"Collapsed"}
+                return
+            }
+        } catch { }
+    }
+
+    $script:CurrentUpdateManifest = $null
+    Set-UpdateBanner -Title "Update check unavailable" -Status $Message -Kind "Error"
+    Set-UpdateNotes $null
+    $UpdateDownloadButton.Visibility = "Collapsed"
+    $UpdateInstallButton.Visibility = "Collapsed"
+    $UpdateReadMoreButton.Visibility = "Collapsed"
+}
+
+function Apply-UpdateManifest {
+    param([object]$Manifest)
+    try {
+        $remote = Test-UpdateManifest $Manifest
+        $installed = ConvertTo-VersionObject $script:AppVersion
+
+        if ($remote -gt $installed) {
+            $script:CurrentUpdateManifest = $Manifest
+            Set-UpdateBanner -Title ("Update available: "+[string]$Manifest.version) -Status ("Installed {0}  |  Latest {1}" -f $script:AppVersion,[string]$Manifest.version) -Kind "Available"
+            Set-UpdateNotes $Manifest
+            $UpdateDownloadButton.Visibility = "Visible"
+            $UpdateInstallButton.Visibility = if($script:ReadyUpdateVersion -eq [string]$Manifest.version -and (Test-Path -LiteralPath $script:ReadyUpdatePath -PathType Leaf)){"Visible"}else{"Collapsed"}
+            $UpdateReadMoreButton.Visibility = if([bool]$Manifest.read_more){"Visible"}else{"Collapsed"}
+        }
+        else {
+            $script:CurrentUpdateManifest = $Manifest
+            Set-UpdateBanner -Title "No update available" -Status ("Installed {0}" -f $script:AppVersion)
+            Set-UpdateNotes $null
+            $UpdateDownloadButton.Visibility = "Collapsed"
+            $UpdateInstallButton.Visibility = "Collapsed"
+            $UpdateReadMoreButton.Visibility = "Collapsed"
+        }
+    }
+    catch {
+        Apply-UpdateCheckFailure -Message $_.Exception.Message
+    }
+}
+
+function Finish-UpdateCheck {
+    if (-not $script:UpdateCheckInFlight -or $null -eq $script:UpdatePowerShell -or $null -eq $script:UpdateAsyncResult) { return }
+
+    $result = $null
+
+    try {
+        $items = @($script:UpdatePowerShell.EndInvoke($script:UpdateAsyncResult))
+        if ($items.Count -gt 0) { $result = $items[$items.Count-1] }
+    }
+    catch {
+        $result = [pscustomobject]@{ Status="Error"; Error=$_.Exception.Message; RetryAfterSeconds=0 }
+    }
+    finally {
+        try { $script:UpdatePowerShell.Dispose() } catch { }
+        try { $script:UpdateRunspace.Close(); $script:UpdateRunspace.Dispose() } catch { }
+
+        $script:UpdatePowerShell = $null
+        $script:UpdateRunspace = $null
+        $script:UpdateAsyncResult = $null
+        $script:UpdateCheckInFlight = $false
+    }
+
+    if ($null -eq $result) {
+        Apply-UpdateCheckFailure -Message "The update check returned no result."
+        return
+    }
+
+    $cache = Get-UpdateCacheObject
+    $manifest = $null
+
+    if ([string]$result.Status -eq "Success") {
+        try {
+            $manifest = [string]$result.ManifestJson | ConvertFrom-Json
+            [void](Test-UpdateManifest $manifest)
+
+            Save-UpdateCacheObject ([pscustomobject]@{
+                ETag=[string]$result.ETag
+                Manifest=$manifest
+                LastSuccessUtc=[DateTime]::UtcNow.ToString("o")
+                LastAttemptUtc=[DateTime]::UtcNow.ToString("o")
+                BackoffUntilUtc=""
+                FailureCount=0
+            })
+        }
+        catch {
+            Apply-UpdateCheckFailure -Message $_.Exception.Message
+            return
+        }
+    }
+    elseif ([string]$result.Status -eq "NotModified") {
+        if ($cache -and $cache.Manifest) { $manifest = $cache.Manifest }
+        else {
+            Apply-UpdateCheckFailure -Message "The update feed reported no changes, but no cached result is available."
+            return
+        }
+    }
+    else {
+        Apply-UpdateCheckFailure -Message ([string]$result.Error) -RetryAfterSeconds ([int]$result.RetryAfterSeconds)
+        return
+    }
+
+    Apply-UpdateManifest $manifest
+}
+
+function Begin-UpdateDownload {
+    if ($script:UpdateDownloadInFlight -or $script:UpdateCheckInFlight -or $null -eq $script:CurrentUpdateManifest) { return }
+
+    $manifest = $script:CurrentUpdateManifest
+
+    try { [void](Test-UpdateManifest $manifest) }
+    catch {
+        Apply-UpdateCheckFailure -Message $_.Exception.Message
+        return
+    }
+
+    $version = [string]$manifest.version
+    $downloadDirectory = Join-Path $script:UpdateDownloadDirectory $version
+    New-Item -Path $downloadDirectory -ItemType Directory -Force | Out-Null
+
+    $downloadPath = Join-Path $downloadDirectory ($script:StableLaunchFileName+".download")
+    Remove-Item -LiteralPath $downloadPath -Force -ErrorAction SilentlyContinue
+
+    $script:UpdateDownloadInFlight = $true
+    $UpdateDownloadButton.IsEnabled = $false
+    $UpdateProgressBar.Visibility = "Visible"
+    $UpdateProgressBar.IsIndeterminate = $true
+    Set-UpdateBanner -Title ("Downloading "+$version) -Status "The update will not install or restart until you explicitly choose Install and restart."
+
+    $worker = {
+        param($Url,$Path,$ExpectedHash,$ExpectedSize,$MaximumBytes,$ApplicationId,$ExpectedVersion,$AllowedHosts)
+
+        function Test-Allowed {
+            param([string]$Text,[string[]]$Hosts)
+            try {
+                $uri = New-Object Uri($Text)
+                if ($uri.Scheme -ne "https") { return $false }
+                foreach ($hostName in $Hosts) {
+                    if ($uri.Host.Equals($hostName,[StringComparison]::OrdinalIgnoreCase)) { return $true }
+                }
+            } catch { }
+            return $false
+        }
+
+        function Get-Hash {
+            param([string]$FilePath)
+            $sha = [Security.Cryptography.SHA256]::Create()
+            $stream = $null
+            try {
+                $stream = [IO.File]::OpenRead($FilePath)
+                $bytes = $sha.ComputeHash($stream)
+                return (($bytes | ForEach-Object { $_.ToString("x2") }) -join "")
+            } finally {
+                if ($stream) { $stream.Dispose() }
+                $sha.Dispose()
+            }
+        }
+
+        $result = [ordered]@{ Status="Error"; Error=""; Path=""; Hash=""; Size=0 }
+        $response = $null
+        $inputStream = $null
+        $outputStream = $null
+
+        try {
+            try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 } catch { }
+            if (-not (Test-Allowed $Url $AllowedHosts)) { throw "Untrusted update URL." }
+
+            $request = [Net.HttpWebRequest]::Create($Url)
+            $request.AllowAutoRedirect = $true
+            $request.MaximumAutomaticRedirections = 8
+            $request.Timeout = 15000
+            $request.ReadWriteTimeout = 15000
+            $request.UserAgent = "Server-Inventory-Configuration-Manager"
+
+            $response = [Net.HttpWebResponse]$request.GetResponse()
+
+            if (-not (Test-Allowed ([string]$response.ResponseUri.AbsoluteUri) $AllowedHosts)) { throw "Untrusted update redirect." }
+            if ($response.ContentLength -gt $MaximumBytes) { throw "Update exceeds the allowed size." }
+
+            $inputStream = $response.GetResponseStream()
+            $outputStream = [IO.File]::Open($Path,[IO.FileMode]::Create,[IO.FileAccess]::Write,[IO.FileShare]::None)
+            $buffer = New-Object byte[] 65536
+            $total = [int64]0
+
+            while (($read = $inputStream.Read($buffer,0,$buffer.Length)) -gt 0) {
+                $total += $read
+                if ($total -gt $MaximumBytes) { throw "Update exceeds the allowed size." }
+                $outputStream.Write($buffer,0,$read)
+            }
+
+            $outputStream.Dispose(); $outputStream = $null
+            $inputStream.Dispose(); $inputStream = $null
+            $response.Dispose(); $response = $null
+
+            $size = (Get-Item -LiteralPath $Path).Length
+            if ($size -ne [int64]$ExpectedSize) { throw "Update size mismatch." }
+
+            $hash = Get-Hash $Path
+            if ($hash -ne $ExpectedHash.ToLowerInvariant()) { throw "Update SHA-256 mismatch." }
+
+            $content = [IO.File]::ReadAllText($Path)
+            if ($content -notmatch ('\$script:ApplicationId\s*=\s*["'']'+[regex]::Escape($ApplicationId)+'["'']')) { throw "Wrong application identity." }
+            if ($content -notmatch ('\$script:AppVersion\s*=\s*["'']'+[regex]::Escape($ExpectedVersion)+'["'']')) { throw "Wrong application version." }
+
+            $result.Status = "Success"
+            $result.Path = $Path
+            $result.Hash = $hash
+            $result.Size = $size
+        }
+        catch {
+            $result.Error = $_.Exception.Message
+            Remove-Item -LiteralPath $Path -Force -ErrorAction SilentlyContinue
+        }
+        finally {
+            if ($outputStream) { $outputStream.Dispose() }
+            if ($inputStream) { $inputStream.Dispose() }
+            if ($response) { $response.Dispose() }
+        }
+
+        [pscustomobject]$result
+    }
+
+    try {
+        $script:UpdateDownloadRunspace = [RunspaceFactory]::CreateRunspace()
+        $script:UpdateDownloadRunspace.ApartmentState = "MTA"
+        $script:UpdateDownloadRunspace.Open()
+
+        $script:UpdateDownloadPowerShell = [PowerShell]::Create()
+        $script:UpdateDownloadPowerShell.Runspace = $script:UpdateDownloadRunspace
+        [void]$script:UpdateDownloadPowerShell.AddScript($worker)
+
+        foreach ($argument in @(
+            [string]$manifest.asset.url,
+            $downloadPath,
+            [string]$manifest.asset.sha256,
+            [int64]$manifest.asset.size,
+            [int64]$script:MaximumUpdateBytes,
+            $script:ApplicationId,
+            $version,
+            [string[]]$script:UpdateAllowedHosts
+        )) {
+            [void]$script:UpdateDownloadPowerShell.AddArgument($argument)
+        }
+
+        $script:UpdateDownloadAsyncResult = $script:UpdateDownloadPowerShell.BeginInvoke()
+    }
+    catch {
+        $script:UpdateDownloadInFlight = $false
+        $UpdateDownloadButton.IsEnabled = $true
+        $UpdateProgressBar.Visibility = "Collapsed"
+        Set-UpdateBanner -Title "Update download failed" -Status $_.Exception.Message -Kind "Error"
+    }
+}
+
+function Finish-UpdateDownload {
+    if (-not $script:UpdateDownloadInFlight -or $null -eq $script:UpdateDownloadPowerShell -or $null -eq $script:UpdateDownloadAsyncResult) { return }
+
+    $result = $null
+
+    try {
+        $items = @($script:UpdateDownloadPowerShell.EndInvoke($script:UpdateDownloadAsyncResult))
+        if ($items.Count -gt 0) { $result = $items[$items.Count-1] }
+    }
+    catch {
+        $result = [pscustomobject]@{ Status="Error"; Error=$_.Exception.Message }
+    }
+    finally {
+        try { $script:UpdateDownloadPowerShell.Dispose() } catch { }
+        try { $script:UpdateDownloadRunspace.Close(); $script:UpdateDownloadRunspace.Dispose() } catch { }
+
+        $script:UpdateDownloadPowerShell = $null
+        $script:UpdateDownloadRunspace = $null
+        $script:UpdateDownloadAsyncResult = $null
+        $script:UpdateDownloadInFlight = $false
+        $UpdateDownloadButton.IsEnabled = $true
+        $UpdateProgressBar.Visibility = "Collapsed"
+        $UpdateProgressBar.IsIndeterminate = $false
+    }
+
+    if ($null -eq $result -or [string]$result.Status -ne "Success") {
+        $message = if ($result) { [string]$result.Error } else { "The download returned no result." }
+        Set-UpdateBanner -Title "Update download failed" -Status $message -Kind "Error"
+        return
+    }
+
+    $version = [string]$script:CurrentUpdateManifest.version
+    $readyDirectory = Join-Path $script:UpdateReadyDirectory $version
+
+    if (Test-Path -LiteralPath $readyDirectory) {
+        Remove-Item -LiteralPath $readyDirectory -Recurse -Force -ErrorAction SilentlyContinue
+    }
+
+    New-Item -Path $readyDirectory -ItemType Directory -Force | Out-Null
+
+    $readyPath = Join-Path $readyDirectory $script:StableLaunchFileName
+    Move-Item -LiteralPath ([string]$result.Path) -Destination $readyPath -Force
+
+    $script:ReadyUpdatePath = $readyPath
+    $script:ReadyUpdateVersion = $version
+
+    Set-UpdateBanner -Title ("Update ready: "+$version) -Status "Download and SHA-256 validation completed. Choose Install and restart when ready." -Kind "Available"
+    $UpdateDownloadButton.Visibility = "Collapsed"
+    $UpdateInstallButton.Visibility = "Visible"
+}
+
+function Get-UpdateInstallTargetPath {
+    $current = [IO.Path]::GetFullPath($script:SelfPath)
+    $name = [IO.Path]::GetFileName($current)
+    $directory = Split-Path -Parent $current
+
+    if ($name -match '^Server-Inventory-Configuration-(?:Exporter|Manager)-v\d+\.\d+\.\d+[^\\/]*\.ps1$') {
+        return Join-Path $directory $script:StableLaunchFileName
+    }
+
+    return $current
+}
+
+function Write-ApplicationHealthMarker {
+    try {
+        $marker = [pscustomobject]@{
+            AppId=$script:ApplicationId
+            Version=$script:AppVersion
+            Pid=$PID
+            ScriptPath=[IO.Path]::GetFullPath($script:SelfPath)
+            StartedAtUtc=[DateTime]::UtcNow.ToString("o")
+        }
+
+        $temp = $script:HealthMarkerPath + ".tmp"
+        $marker | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $temp -Encoding UTF8
+        Move-Item -LiteralPath $temp -Destination $script:HealthMarkerPath -Force
+    } catch { Write-UpdateLog ("Unable to write health marker: "+$_.Exception.Message) }
+}
+
+function Write-UpdateInstallHelper {
+    $helper = @'
+param(
+[Parameter(Mandatory=$true)][int]$ParentPid,
+[Parameter(Mandatory=$true)][string]$CurrentPath,
+[Parameter(Mandatory=$true)][string]$TargetPath,
+[Parameter(Mandatory=$true)][string]$StagedPath,
+[Parameter(Mandatory=$true)][string]$ExpectedVersion,
+[Parameter(Mandatory=$true)][string]$ExpectedSha256,
+[Parameter(Mandatory=$true)][string]$ApplicationId,
+[Parameter(Mandatory=$true)][string]$HealthMarkerPath,
+[Parameter(Mandatory=$true)][string]$RollbackPath,
+[Parameter(Mandatory=$true)][string]$RollbackMetadataPath,
+[Parameter(Mandatory=$true)][string]$LogPath
+)
+
+$ErrorActionPreference='Stop'
+
+function Log([string]$Message) {
+    try { Add-Content -LiteralPath $LogPath -Encoding UTF8 -Value ((Get-Date -Format 'yyyy-MM-dd HH:mm:ss.fff')+'  '+$Message) } catch { }
+}
+
+function Hash([string]$Path) {
+    $sha=[Security.Cryptography.SHA256]::Create()
+    $stream=$null
+    try {
+        $stream=[IO.File]::OpenRead($Path)
+        $bytes=$sha.ComputeHash($stream)
+        return (($bytes|ForEach-Object{$_.ToString('x2')})-join'')
+    } finally {
+        if($stream){$stream.Dispose()}
+        $sha.Dispose()
+    }
+}
+
+function Valid([string]$Path) {
+    if(-not(Test-Path -LiteralPath $Path -PathType Leaf)){return $false}
+    if((Hash $Path)-ne$ExpectedSha256.ToLowerInvariant()){return $false}
+    $content=[IO.File]::ReadAllText($Path)
+    return(
+        $content-match('\$script:ApplicationId\s*=\s*["'']'+[regex]::Escape($ApplicationId)+'["'']') -and
+        $content-match('\$script:AppVersion\s*=\s*["'']'+[regex]::Escape($ExpectedVersion)+'["'']')
+    )
+}
+
+try {
+    Log('Installer started for '+$ExpectedVersion)
+
+    for($index=0;$index-lt120;$index++){
+        if(-not(Get-Process -Id $ParentPid -ErrorAction SilentlyContinue)){break}
+        Start-Sleep -Milliseconds 500
+    }
+
+    if(Get-Process -Id $ParentPid -ErrorAction SilentlyContinue){throw'Previous process did not exit.'}
+    if(-not(Valid $StagedPath)){throw'Staged update validation failed.'}
+
+    $targetDirectory=Split-Path -Parent $TargetPath
+    New-Item -Path $targetDirectory -ItemType Directory -Force|Out-Null
+
+    $backupSource=if(Test-Path -LiteralPath $TargetPath -PathType Leaf){$TargetPath}else{$CurrentPath}
+    if(-not(Test-Path -LiteralPath $backupSource -PathType Leaf)){throw'Current application file not found.'}
+
+    New-Item -Path (Split-Path -Parent $RollbackPath) -ItemType Directory -Force|Out-Null
+    Copy-Item -LiteralPath $backupSource -Destination $RollbackPath -Force
+
+    [pscustomobject]@{
+        OriginalPath=$backupSource
+        TargetPath=$TargetPath
+        Version=$ExpectedVersion
+        BackedUpAtUtc=[DateTime]::UtcNow.ToString('o')
+    }|ConvertTo-Json -Depth 5|Set-Content -LiteralPath $RollbackMetadataPath -Encoding UTF8
+
+    $temporary=Join-Path $targetDirectory ('.'+[IO.Path]::GetFileName($TargetPath)+'.update.'+[guid]::NewGuid().ToString('N')+'.tmp')
+    Copy-Item -LiteralPath $StagedPath -Destination $temporary -Force
+    if(-not(Valid $temporary)){throw'Target-filesystem staged update validation failed.'}
+
+    Move-Item -LiteralPath $temporary -Destination $TargetPath -Force
+    if(-not(Valid $TargetPath)){throw'Installed update validation failed.'}
+
+    Remove-Item -LiteralPath $HealthMarkerPath -Force -ErrorAction SilentlyContinue
+    $launchTime=[DateTime]::UtcNow
+
+    $powerShell="$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe"
+    $info=New-Object Diagnostics.ProcessStartInfo
+    $info.FileName=$powerShell
+    $info.UseShellExecute=$true
+    $info.WorkingDirectory=$targetDirectory
+    $info.Arguments='-NoProfile -STA -File "'+$TargetPath+'"'
+
+    $newProcess=[Diagnostics.Process]::Start($info)
+    if($null-eq$newProcess){throw'Updated application did not start.'}
+
+    $healthy=$false
+
+    for($index=0;$index-lt60;$index++){
+        Start-Sleep -Milliseconds 500
+
+        if(Test-Path -LiteralPath $HealthMarkerPath -PathType Leaf){
+            try {
+                $health=Get-Content -LiteralPath $HealthMarkerPath -Raw|ConvertFrom-Json
+                $healthTime=(Get-Item -LiteralPath $HealthMarkerPath).LastWriteTimeUtc
+
+                if(
+                    [string]$health.AppId-eq$ApplicationId -and
+                    [string]$health.Version-eq$ExpectedVersion -and
+                    ([IO.Path]::GetFullPath([string]$health.ScriptPath)).Equals([IO.Path]::GetFullPath($TargetPath),[StringComparison]::OrdinalIgnoreCase) -and
+                    $healthTime-ge$launchTime
+                ){
+                    $healthy=$true
+                    break
+                }
+            } catch { }
+        }
+
+        if($newProcess.HasExited){break}
+    }
+
+    if(-not$healthy){
+        try{Stop-Process -Id $newProcess.Id -Force -ErrorAction SilentlyContinue}catch{}
+
+        if($backupSource-eq$TargetPath){
+            Copy-Item -LiteralPath $RollbackPath -Destination $TargetPath -Force
+        } else {
+            Remove-Item -LiteralPath $TargetPath -Force -ErrorAction SilentlyContinue
+            Copy-Item -LiteralPath $RollbackPath -Destination $backupSource -Force
+        }
+
+        $rollbackDirectory=Split-Path -Parent $backupSource
+        $rollbackInfo=New-Object Diagnostics.ProcessStartInfo
+        $rollbackInfo.FileName=$powerShell
+        $rollbackInfo.UseShellExecute=$true
+        $rollbackInfo.WorkingDirectory=$rollbackDirectory
+        $rollbackInfo.Arguments='-NoProfile -STA -File "'+$backupSource+'"'
+        [void][Diagnostics.Process]::Start($rollbackInfo)
+
+        throw'Updated application did not become healthy. The previous version was restored.'
+    }
+
+    if(
+        -not([IO.Path]::GetFullPath($CurrentPath)).Equals([IO.Path]::GetFullPath($TargetPath),[StringComparison]::OrdinalIgnoreCase) -and
+        [IO.Path]::GetFileName($CurrentPath)-match'^Server-Inventory-Configuration-(?:Exporter|Manager)-v\d+\.\d+\.\d+[^\\/]*\.ps1$'
+    ){
+        Remove-Item -LiteralPath $CurrentPath -Force -ErrorAction SilentlyContinue
+    }
+
+    Remove-Item -LiteralPath $StagedPath -Force -ErrorAction SilentlyContinue
+    Log('Update installed and healthy startup confirmed.')
+    exit 0
+}
+catch {
+    Log('Install failed: '+$_.Exception.Message)
+    exit 1
+}
+'@
+
+    $helper | Set-Content -LiteralPath $script:InstallHelperPath -Encoding UTF8
+}
+
+function Install-ReadyUpdateAndRestart {
+    if($null-ne$script:CurrentAsyncResult -and -not$script:CurrentAsyncResult.IsCompleted){
+        [Windows.MessageBox]::Show("A collection is running. Finish or cancel it before installing an update.","Update blocked",[Windows.MessageBoxButton]::OK,[Windows.MessageBoxImage]::Warning)|Out-Null
+        return
+    }
+
+    if([string]::IsNullOrWhiteSpace($script:ReadyUpdatePath)-or-not(Test-Path -LiteralPath $script:ReadyUpdatePath -PathType Leaf)-or$null-eq$script:CurrentUpdateManifest){return}
+
+    $version=[string]$script:CurrentUpdateManifest.version
+    $answer=[Windows.MessageBox]::Show(("Install version {0} and restart? Save any work in this application first."-f$version),"Install update",[Windows.MessageBoxButton]::YesNo,[Windows.MessageBoxImage]::Information)
+    if($answer-ne[Windows.MessageBoxResult]::Yes){return}
+
+    try {
+        Write-UpdateInstallHelper
+        $target=Get-UpdateInstallTargetPath
+        $hash=([string]$script:CurrentUpdateManifest.asset.sha256).ToLowerInvariant()
+
+        $arguments='-NoProfile -File "'+$script:InstallHelperPath+'" -ParentPid '+$PID+' -CurrentPath "'+$script:SelfPath+'" -TargetPath "'+$target+'" -StagedPath "'+$script:ReadyUpdatePath+'" -ExpectedVersion "'+$version+'" -ExpectedSha256 "'+$hash+'" -ApplicationId "'+$script:ApplicationId+'" -HealthMarkerPath "'+$script:HealthMarkerPath+'" -RollbackPath "'+$script:RollbackPath+'" -RollbackMetadataPath "'+$script:RollbackMetadataPath+'" -LogPath "'+$script:UpdateLogPath+'"'
+
+        $info=New-Object Diagnostics.ProcessStartInfo
+        $info.FileName="$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe"
+        $info.Arguments=$arguments
+        $info.UseShellExecute=$true
+        $info.WindowStyle=[Diagnostics.ProcessWindowStyle]::Hidden
+        $info.WorkingDirectory=$script:UpdateHelperDirectory
+
+        $process=[Diagnostics.Process]::Start($info)
+        if($null-eq$process){throw'Windows did not start the update helper.'}
+
+        $window.Close()
+    }
+    catch {
+        Set-UpdateBanner -Title "Unable to start update installation" -Status $_.Exception.Message -Kind "Error"
+    }
+}
+
+function Open-UpdateReleasePage {
+    if($null-eq$script:CurrentUpdateManifest){return}
+
+    $url=[string]$script:CurrentUpdateManifest.release_url
+
+    try {
+        $uri=New-Object Uri($url)
+        if($uri.Scheme-eq"https"-and$uri.Host.Equals("github.com",[StringComparison]::OrdinalIgnoreCase)){Start-Process -FilePath $url}
+    } catch { }
+}
+
+function Migrate-LegacyDesktopShortcut {
+    try {
+        $desktop=[Environment]::GetFolderPath([Environment+SpecialFolder]::Desktop)
+        if([string]::IsNullOrWhiteSpace($desktop)){return}
+
+        $shell=New-Object -ComObject WScript.Shell
+        $legacy=Join-Path $desktop "Server Inventory & Configuration Exporter.lnk"
+        $current=Get-ApplicationDesktopShortcutPath
+
+        if((Test-Path -LiteralPath $legacy -PathType Leaf)-and-not(Test-Path -LiteralPath $current -PathType Leaf)){
+            $legacyShortcut=$shell.CreateShortcut($legacy)
+
+            if($legacyShortcut.Arguments-match'Server-Inventory-Configuration-Exporter|Server-Inventory-Configuration-Manager'){
+                [void](New-ApplicationDesktopShortcut)
+                Remove-Item -LiteralPath $legacy -Force -ErrorAction SilentlyContinue
+            }
+        }
+
+        if(Test-Path -LiteralPath $current -PathType Leaf){
+            $shortcut=$shell.CreateShortcut($current)
+            $expected=[IO.Path]::GetFullPath($script:SelfPath)
+
+            if($shortcut.Arguments-notlike('*"'+$expected+'"*')){[void](New-ApplicationDesktopShortcut)}
+        }
+    } catch { Write-UpdateLog ("Shortcut migration failed: "+$_.Exception.Message) }
+}
+
+Initialize-ApplicationDataPaths
+Load-ApplicationSettings
+Cleanup-ApplicationOwnedUpdateFiles
+
+
 # ---------------- Embedded inventory collector ----------------
 # Complete collector source is contained in this script.
 function Invoke-EmbeddedServerInventoryCollector {
@@ -6430,7 +7350,7 @@ $script:CurrentZipPath = ""
 $script:CurrentHtmlPath = ""
 $script:CurrentDocxPath = ""
 $script:CurrentSummaryPath = ""
-$script:CurrentOutputRoot = [Environment]::GetFolderPath("Desktop")
+$script:CurrentOutputRoot = if (-not [string]::IsNullOrWhiteSpace($script:SavedOutputRoot)) { $script:SavedOutputRoot } else { [Environment]::GetFolderPath("Desktop") }
 $script:CurrentResultPath = ""
 $script:LogPosition = 0
 $script:LoadedReportPath = ""
@@ -6607,7 +7527,9 @@ function Get-SectionBlocks {
     <Grid Margin="16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="12"/>
+            <RowDefinition Height="8"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="8"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
@@ -6625,7 +7547,28 @@ function Get-SectionBlocks {
             </DockPanel>
         </Border>
 
-        <TabControl Grid.Row="2" x:Name="MainTabs" Background="Transparent">
+        <Border x:Name="UpdateBannerBorder" Grid.Row="2" Background="#F8FAFC" BorderBrush="#D7DFE8" BorderThickness="1" CornerRadius="10" Padding="14,10">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0">
+                    <TextBlock x:Name="UpdateBannerTitle" Text="Update status" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}"/>
+                    <TextBlock x:Name="UpdateBannerStatus" Text="Installed 3.1.0" Margin="0,2,0,0" Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap"/>
+                    <StackPanel x:Name="UpdateNotesPanel" Margin="0,4,0,0"/>
+                    <ProgressBar x:Name="UpdateProgressBar" Height="4" Margin="0,6,0,0" Visibility="Collapsed"/>
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0">
+                    <Button x:Name="UpdateCheckButton" Content="Check for updates"/>
+                    <Button x:Name="UpdateReadMoreButton" Content="Read more" Visibility="Collapsed"/>
+                    <Button x:Name="UpdateDownloadButton" Content="Download" Visibility="Collapsed"/>
+                    <Button x:Name="UpdateInstallButton" Content="Install and restart" Style="{StaticResource PrimaryButton}" Visibility="Collapsed"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <TabControl Grid.Row="4" x:Name="MainTabs" Background="Transparent">
             <TabItem Header="Setup" x:Name="SetupTab">
                 <Grid Margin="0,10,0,0">
                     <Grid.ColumnDefinitions>
@@ -7015,6 +7958,16 @@ function Find-Control {
     return $window.FindName($Name)
 }
 
+$UpdateBannerBorder = Find-Control "UpdateBannerBorder"
+$UpdateBannerTitle = Find-Control "UpdateBannerTitle"
+$UpdateBannerStatus = Find-Control "UpdateBannerStatus"
+$UpdateNotesPanel = Find-Control "UpdateNotesPanel"
+$UpdateProgressBar = Find-Control "UpdateProgressBar"
+$UpdateCheckButton = Find-Control "UpdateCheckButton"
+$UpdateReadMoreButton = Find-Control "UpdateReadMoreButton"
+$UpdateDownloadButton = Find-Control "UpdateDownloadButton"
+$UpdateInstallButton = Find-Control "UpdateInstallButton"
+
 $MainTabs = Find-Control "MainTabs"
 $SetupTab = Find-Control "SetupTab"
 $CollectionTab = Find-Control "CollectionTab"
@@ -7263,6 +8216,7 @@ $BrowseOutputButton.Add_Click({
     $selected = Select-Folder "Choose the parent output directory" $OutputRootText.Text
     if ($selected) {
         $OutputRootText.Text = $selected
+        Save-ApplicationSettings -OutputRoot $selected
     }
 })
 
@@ -7960,6 +8914,15 @@ $CollapseReportControlsButton.Add_Click({
     }
 })
 
+# ---------------- Update controls ----------------
+
+$UpdateCheckButton.Add_Click({ Begin-UpdateCheck -Manual })
+$UpdateReadMoreButton.Add_Click({ Open-UpdateReleasePage })
+$UpdateDownloadButton.Add_Click({ Begin-UpdateDownload })
+$UpdateInstallButton.Add_Click({ Install-ReadyUpdateAndRestart })
+
+Set-UpdateBanner -Title "Update status" -Status ("Installed {0}. Update checks begin after startup." -f $script:AppVersion)
+
 # ---------------- Desktop shortcut ----------------
 
 function Update-DesktopShortcutStatus {
@@ -8167,8 +9130,26 @@ $timer.Add_Tick({
             Finish-Collection
         }
     }
+
+    if ($script:UpdateCheckInFlight -and $null -ne $script:UpdateAsyncResult -and $script:UpdateAsyncResult.IsCompleted) {
+        Finish-UpdateCheck
+    }
+
+    if ($script:UpdateDownloadInFlight -and $null -ne $script:UpdateDownloadAsyncResult -and $script:UpdateDownloadAsyncResult.IsCompleted) {
+        Finish-UpdateDownload
+    }
 })
 $timer.Start()
+
+$script:UpdateScheduleTimer = New-Object Windows.Threading.DispatcherTimer
+$script:UpdateScheduleTimer.Interval = [TimeSpan]::FromSeconds($script:UpdateCheckIntervalSeconds)
+$script:UpdateScheduleTimer.Add_Tick({ Begin-UpdateCheck })
+
+$window.Add_Activated({
+    if (([DateTime]::UtcNow - $script:LastUpdateAttemptUtc).TotalSeconds -ge $script:UpdateFocusIntervalSeconds) {
+        Begin-UpdateCheck
+    }
+})
 
 $StartButton.Add_Click({
     try {
@@ -8184,6 +9165,7 @@ $StartButton.Add_Click({
         if (-not (Test-Path -LiteralPath $outputRoot -PathType Container)) {
             New-Item -Path $outputRoot -ItemType Directory -Force | Out-Null
         }
+        Save-ApplicationSettings -OutputRoot $outputRoot
 
         $inventoryKeys = Get-SelectedKeys $script:InventoryChecks
         if ($inventoryKeys.Count -eq 0) {
@@ -8432,6 +9414,15 @@ $window.Add_Closing({
 $window.Add_ContentRendered({
     try {
         $window.Activate()
+        Write-ApplicationHealthMarker
+        Migrate-LegacyDesktopShortcut
+        Update-DesktopShortcutStatus
+
+        if ($script:UpdateScheduleTimer) {
+            $script:UpdateScheduleTimer.Start()
+        }
+
+        Begin-UpdateCheck
 
         Write-StartupLog "WPF window rendered successfully."
 
@@ -8473,3 +9464,13 @@ try {
 }
 catch {
 }
+
+try { if ($script:UpdateScheduleTimer) { $script:UpdateScheduleTimer.Stop() } } catch { }
+try {
+    if ($script:UpdatePowerShell) { $script:UpdatePowerShell.Stop(); $script:UpdatePowerShell.Dispose() }
+    if ($script:UpdateRunspace) { $script:UpdateRunspace.Dispose() }
+} catch { }
+try {
+    if ($script:UpdateDownloadPowerShell) { $script:UpdateDownloadPowerShell.Stop(); $script:UpdateDownloadPowerShell.Dispose() }
+    if ($script:UpdateDownloadRunspace) { $script:UpdateDownloadRunspace.Dispose() }
+} catch { }
