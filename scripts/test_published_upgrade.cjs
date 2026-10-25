@@ -76,6 +76,7 @@ async function nativeProcess(exe,args,env){const child=spawn(exe,args,{env,windo
  check(true,'Native automatic checks continue after five active minutes');
  await until(async()=>!(await state(newURL)).update.checking);
  await page.screenshot({path:'build/published-upgrade-after.png'});
+ await until(async()=>!fs.existsSync(ready));
  const stagedFiles=(await fsp.readdir(path.join(appRoot(env),'Updates','Downloads')));check(stagedFiles.length===0,'Owned download staging is cleaned after the update');
  // Close the automation page before stopping the native host, then launch the
  // same shortcut again to prove its actual post-upgrade launch behavior.

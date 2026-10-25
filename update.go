@@ -149,6 +149,7 @@ type rollbackMetadata struct {
 	Version      string `json:"version"`
 	OriginalPath string `json:"original_path"`
 	CreatedAtUTC string `json:"created_at_utc"`
+	SHA256       string `json:"sha256"`
 }
 
 func (a *application) initializeUpdater() error {
@@ -294,6 +295,12 @@ func (a *application) readUpdateCache() (*updateCache, error) {
 	var cache updateCache
 	if err := json.Unmarshal(data, &cache); err != nil {
 		return nil, err
+	}
+	if cache.FailureCount < 0 {
+		cache.FailureCount = 0
+	}
+	if cache.FailureCount > 8 {
+		cache.FailureCount = 8
 	}
 	return &cache, nil
 }
@@ -1045,6 +1052,16 @@ func restoreRollbackExecutable(rollbackPath, target string) error {
 	if existingFile(rollbackPath) == "" {
 		return errors.New("no rollback executable is available")
 	}
+	metadataPath := filepath.Join(filepath.Dir(rollbackPath), "previous.json")
+	var meta rollbackMetadata
+	data, err := os.ReadFile(metadataPath)
+	if err != nil || json.Unmarshal(data, &meta) != nil || len(meta.SHA256) != 64 {
+		return errors.New("rollback checksum metadata is missing or malformed")
+	}
+	hash, err := fileSHA256(rollbackPath)
+	if err != nil || !strings.EqualFold(hash, meta.SHA256) {
+		return errors.New("rollback executable checksum mismatch")
+	}
 	temp := filepath.Join(filepath.Dir(target), fmt.Sprintf(".%s.rollback-%d.tmp.exe", strings.TrimSuffix(filepath.Base(target), filepath.Ext(target)), os.Getpid()))
 	_ = os.Remove(temp)
 	if err := copyFile(rollbackPath, temp); err != nil {
@@ -1139,10 +1156,20 @@ func runUpdateHelper(args []string) int {
 		return 10
 	}
 	if existingFile(target) != "" {
+		oldHash, err := fileSHA256(target)
+		if err != nil {
+			return 10
+		}
 		rollbackTemp := rollbackPath + ".tmp"
 		defer os.Remove(rollbackTemp)
 		if err := copyFile(target, rollbackTemp); err != nil {
 			helperLog(logPath, "Could not create rollback copy: %v", err)
+			_ = os.Remove(tempTarget)
+			return 10
+		}
+		copiedHash, err := fileSHA256(rollbackTemp)
+		if err != nil || !strings.EqualFold(copiedHash, oldHash) {
+			helperLog(logPath, "Rollback copy checksum mismatch")
 			_ = os.Remove(tempTarget)
 			return 10
 		}
@@ -1151,7 +1178,7 @@ func runUpdateHelper(args []string) int {
 			helperLog(logPath, "Could not commit rollback copy: %v", err)
 			return 10
 		}
-		meta := rollbackMetadata{Version: oldVersion, OriginalPath: target, CreatedAtUTC: time.Now().UTC().Format(time.RFC3339)}
+		meta := rollbackMetadata{Version: oldVersion, OriginalPath: target, CreatedAtUTC: time.Now().UTC().Format(time.RFC3339), SHA256: oldHash}
 		if data, err := json.MarshalIndent(meta, "", "  "); err == nil {
 			_ = os.WriteFile(rollbackMetaPath, data, 0o644)
 		}
@@ -1311,6 +1338,7 @@ func (a *application) confirmHealthyWindowAndMark(token string) {
 		if ready && a.ownApplicationWindow() != 0 {
 			a.writeHealthMarker(token, true)
 			a.logUpdate("Healthy startup confirmed: visible owned window and rendered interface")
+			go a.cleanupAfterHealthyUpdate()
 			return
 		}
 		select {
@@ -1379,5 +1407,24 @@ func writeInstallResult(healthPath, status, version, message string) {
 	path := filepath.Join(filepath.Dir(healthPath), "last-update.json")
 	if os.WriteFile(path+".tmp", data, 0600) == nil {
 		_ = atomicReplaceFile(path+".tmp", path)
+	}
+}
+
+// Windows locks the helper's executable while it runs. Retry owned ready-file
+// cleanup after healthy confirmation, letting that helper finish first.
+func (a *application) cleanupAfterHealthyUpdate() {
+	for i := 0; i < 90; i++ {
+		if validateDownloadedExecutable(a.update.readyPath, appVersion) != nil {
+			return
+		}
+		if os.Remove(a.update.readyPath) == nil {
+			a.logUpdate("Cleaned the completed update helper executable")
+			return
+		}
+		select {
+		case <-a.shutdown:
+			return
+		case <-time.After(time.Second):
+		}
 	}
 }

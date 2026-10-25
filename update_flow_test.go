@@ -404,3 +404,29 @@ func TestManifestHostPathAndSizeRestrictions(t *testing.T) {
 		t.Fatal("oversized download accepted")
 	}
 }
+
+func TestOldMarkerPrefixAndOverlayNegativeControls(t *testing.T) {
+	data := fixture(t)
+	marker := []byte(binaryIdentityPrefix + appVersion + "|")
+	// The previous substring check accepts 3.2.10 when checking for 3.2.1.
+	mutated := bytes.ReplaceAll(data, marker, []byte(binaryIdentityPrefix+appVersion+"0"))
+	oldExpected := []byte(binaryIdentityPrefix + appVersion)
+	if !bytes.Contains(mutated, oldExpected) {
+		t.Fatal("negative control did not reproduce old prefix acceptance")
+	}
+	path := filepath.Join(t.TempDir(), "candidate.exe")
+	_ = os.WriteFile(path, mutated, 0600)
+	if validateDownloadedExecutable(path, appVersion) == nil {
+		t.Fatal("version-prefix impostor accepted")
+	}
+	// A forged overlay marker also passed the previous whole-file substring check.
+	mutated = bytes.ReplaceAll(data, marker, bytes.Repeat([]byte{'X'}, len(marker)))
+	mutated = append(mutated, oldExpected...)
+	if !bytes.Contains(mutated, oldExpected) {
+		t.Fatal("overlay negative control is invalid")
+	}
+	_ = os.WriteFile(path, mutated, 0600)
+	if validateDownloadedExecutable(path, appVersion) == nil {
+		t.Fatal("overlay identity impostor accepted")
+	}
+}
