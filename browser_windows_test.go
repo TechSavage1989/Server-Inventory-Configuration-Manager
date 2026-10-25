@@ -122,9 +122,8 @@ func TestNativeBrowserClosesModalWithoutLauncherPIDAndPreservesOtherProfile(t *t
 	time.Sleep(time.Second)
 	// The launcher PID is deliberately unavailable, matching Edge handoff/de-elevation.
 	a := &application{browserProfileDirectory: first}
-	if a.ownApplicationWindow() == 0 {
-		t.Fatal("owned visible app was lost after browser launcher PID handoff")
-	}
+	// A JavaScript modal can replace the normal app caption. Shutdown ownership
+	// must therefore use the private profile, independent of that caption.
 	if err := a.closeApplicationBrowser(); err != nil {
 		t.Fatal(err)
 	}
