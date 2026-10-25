@@ -3,7 +3,7 @@
 ## Current baseline
 
 - Application: Server Inventory Configuration Manager
-- Version being prepared: 3.2.0
+- Current published version: 3.2.0
 - Baseline: user-confirmed executable v3.0.10 source package
 - Stable artifact: `Server-Inventory-Configuration-Manager.exe`
 - Repository: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager
@@ -12,6 +12,22 @@
 - Update feed: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/latest/download/update-manifest.json
 - Target: Windows x64 portable desktop application, Windows Server 2012 and newer as broadly as practical
 - Toolchain target: Go 1.20.x
+
+## Published release
+
+- Release: v3.2.0
+- Release URL: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.0
+- Release source commit: 3c675de0e74a614c728a0ba0aa41d30a7aa45c99
+- Stable release asset: Server-Inventory-Configuration-Manager.exe
+- Release asset SHA-256: 194ead5dd42391bfcf231ee15708537834aa771dbe79aeb983852ce90f251c9e
+- Release asset size: 6321664 bytes
+- Update manifest asset: update-manifest.json
+- Windows CI run: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40167636433
+- Publish and public-feed verification run: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40167636428
+- Both workflows completed successfully.
+- Windows CI built with Go 1.20.14, validated the PE/identity/version contract, executed the real helper-mode install path, confirmed healthy-start handling, and ran a tampered-update negative control.
+- The publish workflow verified the public latest-release manifest and release assets after publication.
+- The older v3.1.0 PS1 release remains historical and is not the maintained executable baseline.
 
 ## Architecture
 
