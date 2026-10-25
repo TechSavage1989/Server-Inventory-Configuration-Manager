@@ -66,6 +66,11 @@ async function newContext(options={}){
   assert.equal(await page.locator('.metric-review .metric-value').textContent(),'2');
   const position=await page.locator('.report-section.active').evaluate(section=>{const p=section.querySelector('.dataset-priority'),r=section.querySelector('[data-title="Server identity and baseline"]');return p.getBoundingClientRect().top<r.getBoundingClientRect().top});assert(position);
  });
+ await check('Readable column labels preserve ordinary words and separate camel-case field names',async()=>{
+  const labels=await page.locator('[data-title="Collection failures requiring review"] th').allTextContents();
+  assert.deepStrictEqual(labels,['Collector','Status','Error Message']);
+  assert.equal(await page.locator('[data-title="Collector execution status"] th').last().textContent(),'Duration Sec');
+ });
  await page.screenshot({path:path.join(directory,'report-summary.png')});
  await check('Section expand/collapse controls expose all retained rows on request',async()=>{
   await page.locator('.section-main-button[data-title="Network Configuration"]').click();

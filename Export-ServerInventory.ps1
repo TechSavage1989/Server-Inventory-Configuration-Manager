@@ -1975,7 +1975,7 @@ html:not(.report-js) .report-layout { grid-template-columns:minmax(0,1fr); }
                     [void]$builder.AppendLine('<div class="table-wrap" tabindex="0" aria-label="' + (ConvertTo-HtmlText $block.Title) + '"><table class="' + $tableClass + '"><thead><tr>')
                     foreach ($column in @($block.Columns)) {
                         $originalLabel = $column
-                        $label = ([string]$column -replace '([a-z0-9])([A-Z])', '$1 $2') -replace '([A-Z]+)([A-Z][a-z])', '$1 $2'
+                        $label = ([string]$column -creplace '([a-z0-9])([A-Z])', '$1 $2') -creplace '([A-Z]+)([A-Z][a-z])', '$1 $2'
                         if ($block.Labels -and $block.Labels.ContainsKey($column)) { $label = $block.Labels[$column]; $originalLabel = $label }
                         [void]$builder.AppendLine('<th scope="col" data-original-label="' + (ConvertTo-HtmlText $originalLabel) + '">' + (ConvertTo-HtmlText $label) + '</th>')
                     }
