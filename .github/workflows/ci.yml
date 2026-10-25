@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: windows-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Parse every PowerShell file
+        shell: powershell
+        run: |
+          $failures = @()
+
+          Get-ChildItem -Path . -Recurse -Filter *.ps1 -File | ForEach-Object {
+            $tokens = $null
+            $errors = $null
+
+            [System.Management.Automation.Language.Parser]::ParseFile(
+              $_.FullName,
+              [ref]$tokens,
+              [ref]$errors
+            ) | Out-Null
+
+            if ($errors -and $errors.Count -gt 0) {
+              foreach ($errorItem in $errors) {
+                $failures += ('{0}:{1}:{2} {3}' -f $_.FullName,$errorItem.Extent.StartLineNumber,$errorItem.Extent.StartColumnNumber,$errorItem.Message)
+              }
+            }
+          }
+
+          if ($failures.Count -gt 0) {
+            $failures | ForEach-Object { Write-Error $_ }
+            throw 'PowerShell parser validation failed.'
+          }
+
+      - name: Validate application source contract
+        shell: powershell
+        run: .\scripts\Test-Source.ps1
+
+      - name: Dry-run release assets
+        shell: powershell
+        run: .\scripts\Build-ReleaseManifest.ps1 -OutputDirectory .\dist-ci
