@@ -7,12 +7,14 @@
 - Uploaded baseline EXE SHA-256: 572bf173917330a2fde4b4bf67df998f9f29522c8814d5350b50826caf38ee4e.
 - The original v3.0.10 source ZIP was located. Its bundled EXE matches the uploaded baseline exactly; no EXE decompilation was used.
 - Source provenance and original file hashes: baseline-verification.json.
-- Latest published executable: v3.2.5, source commit b02163944ff8189cd627a2f7af8963238d797f71.
+- Latest published executable: v3.2.7, source commit aabec80e9e8fa95aba8297ca0e6a2941479db8df.
+- Earlier v3.2.6 remains unchanged at commit 10290a1c6f62808a30ec66fe11ac9281a4439b2f. Its header SVG was blocked by the old application policy and is superseded by 3.2.7.
+- Earlier v3.2.5 remains unchanged at commit b02163944ff8189cd627a2f7af8963238d797f71.
 - Earlier v3.2.4 remains unchanged at commit 437a809a00b8112132b9e4e54566e3cb2be33ab5.
 - Earlier v3.2.3 remains unchanged at commit 6ee8048539ae429d05f7938e06c2baabdd34fb92.
 - Earlier v3.2.2 remains unchanged at commit ab7fbb783ce4032f951bb717d745f4471ae4d889.
 - Earlier v3.2.1 remains unchanged at commit 54d627d736f11335c8cf6ce4c89649f1c6351289.
-- User confirmation still applies to the v3.0.10 functional baseline. The user reports v3.2.4 improved the browser behavior. v3.2.5 has hosted Windows validation, without a claim of full user field confirmation.
+- User confirmation still applies to the v3.0.10 functional baseline. The user reports v3.2.4 improved the browser behavior. v3.2.7 has hosted Windows validation, without a claim of full user field confirmation.
 - Repository is public: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager.
 
 ## Historical PS1 release and feed
@@ -61,20 +63,21 @@ User-selected inventory reports remain in their selected output directory. Unkno
 
 ## Validation and release status
 
-- Current release: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.5.
-- Exact tag/commit: v3.2.5 / b02163944ff8189cd627a2f7af8963238d797f71.
-- Change: remembers normal window bounds and maximized state independently of disposable guest profiles and inventory settings. Flushes before shutdown/update-helper start, preserves the last non-minimized state and recovers unusable saved positions into an available monitor work area.
-- Stable EXE: Server-Inventory-Configuration-Manager.exe, 6536192 bytes.
-- SHA-256: bbd06ab0f9dadad77c0e3ed4bacf30f1482dc8ae4766426a5f68f40ab84d34b5.
-- Prepublication Windows source CI passed: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40175008751, commit de7f4d73ff84f93d4cb72b164704bedb0f8ab18b.
-- Exact-release Windows CI passed: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40175227948.
-- Publication/public feed passed: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40175227858.
-- All 24 native Go tests and four renderer regression checks passed. The real built EXE completes native close/reopen, exact position/size restore, maximize, minimized close, maximized reopen, restoration of normal bounds, off-screen saved-position recovery and inventory-settings preservation. Tampered-file, locked-target cleanup and real helper healthy-start tests also pass.
-- Real published v3.2.4-to-v3.2.5 upgrade: corrected published validation passed, with 30 directly exercised checks and the two successful real timer waits retained from the earlier run against identical SHA-256 bytes. Actual native move/resize, saved state, shortcut relaunch at exact bounds, settings, old-window closure, native health, C: staging to D: target, cleanup and rollback passed with zero unexpected dialogs. Corrected run: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40176269574. Evidence: release/3.2.5-verification.json.
-- Independent public EXE/checksum/manifest agreement, PE identity/version metadata, clean embedded Git revision and actual conditional HTTP 304 passed.
-- Prior v3.2.4 release/asset IDs, sizes and digests are unchanged. Original collector/wrapper/icon provenance passes. Earlier releases including historical v3.1.0 PS1 are preserved. The release workflow refuses overwrites; repository-level immutable locking remains disabled.
+- Latest release: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.7.
+- Exact tag/commit: v3.2.7 / aabec80e9e8fa95aba8297ca0e6a2941479db8df.
+- Stable EXE: Server-Inventory-Configuration-Manager.exe, 6531072 bytes; SHA-256 0bb0f753a3a8dd58087c5e41cd39cf857c5d31f104aef55ab13a61e236c0ca8d.
+- Editable vector release asset: Server-Inventory-Configuration-Manager.svg, 1831 bytes; SHA-256 fc9211e88bb1f3d0bc34380c82bdd010456b57e59433650b85ae03cdaaf382cd.
+- SVG master: assets/icons/server-inventory.svg. Named vector groups/shapes, transparent background, four solid colors, no bitmap or gradients. Current PNG/ICO hashes are recorded separately in icon-verification.json; original icon hashes remain unchanged in baseline-verification.json and original files are retained under baseline/v3.0.10/icons.
+- Icons cover the compiled EXE, native window, favicon/PNG and header SVG. The app policy permits its own images; remote images remain blocked and the separate report policy is unchanged.
+- Prepublication Windows source CI passed: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40180422255, commit 9f1f2daf11e8c392e3dae23a782bc32326ffb97c.
+- Exact-release Windows CI passed: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40180646660.
+- Publication/public downloads passed: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40180646656.
+- All 27 native tests passed, including every compiled icon frame, large/small native shell extraction, actual window persistence and updater/security checks. Four shutdown renderer checks and three production-policy browser checks passed, including the old blocked-header negative control and continued remote-image blocking. Real native helper installation and visible healthy start passed.
+- Actual published v3.2.6-to-v3.2.7 upgrade: passed all 35 checks in the full run with real two-minute focus and five-minute scheduler waits. The loaded SVG header, exact SVG/PNG/favicon bytes, old-profile shutdown, guest isolation, cross-volume install/restart, visible native health, byte-identical settings, stable shortcut, window placement, cleanup, one rollback generation and missing-health rollback/relaunch passed. No timer evidence was reused; zero unexpected or legacy shutdown dialogs occurred. Full evidence: release/3.2.7-verification.json.
+- Independent public EXE/SVG downloads and both checksum files agree with release source/manifest. PE identity/version metadata, clean embedded Git revision and actual HTTP 304 passed.
+- Earlier v3.2.6 and v3.2.5 release/asset IDs, sizes and digests remain unchanged. No prior tags/assets were overwritten. The workflow refuses overwrites; repository-level immutable locking remains disabled.
 
-Testing limits: hosted Windows Server 2025/Edge automation, no physical monitor removal or mixed-DPI hardware, no human desktop/UAC interaction, no reproduction of the user's Microsoft account or organization browser policies, no Chrome guest or legacy Windows validation and no live inventory/report collection. Focus events follow real elapsed waits but use a synthetic DOM event. Native network/security cases use deterministic responses. SHA-256 validates bytes, not publisher signing.
+Testing limits: hosted Windows Server 2025/Edge automation, no human desktop icon-cache or UAC validation, no physical mixed-DPI/monitor-removal or legacy Windows/Chrome guest testing, no reproduction of the user's Microsoft account or organization policies, and no live inventory/report collection. Focus testing uses a synthetic DOM event after real elapsed waits. Native network/security cases use deterministic responses. SHA-256 validates bytes, not publisher signing.
 
 ## Approved scope
 
@@ -124,7 +127,7 @@ Pinned build-only resvg 2.6.2 renders the SVG to app-icon.png and ten PNG-backed
 
 CI re-renders and compares icon bytes, checks archived original provenance, compares every compiled icon resource frame with the current ICO, and tests Windows shell large/small icon extraction. Publication includes Server-Inventory-Configuration-Manager.svg and its SHA-256 file. The previous-release input advances to immutable v3.2.5, SHA-256 bbd06ab0f9dadad77c0e3ed4bacf30f1482dc8ae4766426a5f68f40ab84d34b5. The actual published-upgrade test verifies the SVG/PNG/favicon bytes and loaded header image, plus the existing install/restart/settings/shortcut/window/timer/rollback checks.
 
-Windows source CI passed at commit b50541f76bb10d89aefc39628ea4c3a8b1a23493: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40179122995. This includes reproducible SVG assets, archived baseline provenance, all compiled icon frames, native large/small shell extraction, window persistence, security/updater tests, renderer regressions and actual helper healthy installation. Publication and actual published-upgrade validation remain pending. No normal application or update runtime dependency was added. Existing inventory/report behavior, window persistence and guest isolation are preserved. Human desktop icon-cache/UAC behavior, physical mixed-DPI hardware, Chrome/legacy Windows and live inventory/report workflows remain untested.
+Windows source CI passed at commit b50541f76bb10d89aefc39628ea4c3a8b1a23493: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40179122995. This includes reproducible SVG assets, archived baseline provenance, all compiled icon frames, native large/small shell extraction, window persistence, security/updater tests, renderer regressions and actual helper healthy installation. Version 3.2.6 was published at commit 10290a1c6f62808a30ec66fe11ac9281a4439b2f. Its live upgrade test caught the blocked header SVG under the original image policy; it is superseded by 3.2.7. No 3.2.6 tag or asset was changed. No normal application or update runtime dependency was added. Existing inventory/report behavior, window persistence and guest isolation are preserved. Human desktop icon-cache/UAC behavior, physical mixed-DPI hardware, Chrome/legacy Windows and live inventory/report workflows remain untested.
 
 ## Header image policy correction 3.2.7
 
@@ -134,4 +137,4 @@ The 3.2.7 change permits same-origin images in the application page only through
 
 scripts/test_icon_render.cjs uses the actual HTML, SVG and production policy. Its negative control reproduces the published data-only policy failure; the positive control decodes the header SVG; a routed remote-image probe confirms remote images are still blocked without contacting an external server. This regression runs before publication in both Windows workflows. Native endpoint tests verify the real application response policy. The published-upgrade timeout allows seven minutes for automatic startup/five-minute checks to observe GitHub feed propagation instead of assuming immediate CDN freshness. No manual check substitutes for automatic detection.
 
-Previous upgrade input is now published v3.2.6, SHA-256 ddeeb2256e457b0a6f3d5c71cc442507f7bee282eeeba191c45601ad6e6cb221. Local real-browser policy regression and cross-build/vet pass. Windows source CI passed at commit 9f1f2daf11e8c392e3dae23a782bc32326ffb97c: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40180422255. The real-browser blocked-image negative control, corrected-header rendering, remote-image blocking, native icon resources/shell extraction, window persistence, updater/security checks and helper installation all passed. New publication and complete actual previous-to-new update verification remain pending.
+Previous upgrade input is now published v3.2.6, SHA-256 ddeeb2256e457b0a6f3d5c71cc442507f7bee282eeeba191c45601ad6e6cb221. Local real-browser policy regression and cross-build/vet pass. Windows source CI passed at commit 9f1f2daf11e8c392e3dae23a782bc32326ffb97c: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40180422255. The real-browser blocked-image negative control, corrected-header rendering, remote-image blocking, native icon resources/shell extraction, window persistence, updater/security checks and helper installation all passed. The corrected release is published and its full 35-check actual upgrade passed; the final evidence is recorded above and in release/3.2.7-verification.json.

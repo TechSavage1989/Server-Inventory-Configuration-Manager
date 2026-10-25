@@ -1,12 +1,24 @@
 # Executable updater validation
 
-## Header image policy 3.2.7 source validation passed
+## Latest release: v3.2.7
 
-The live 3.2.6 update test caught a genuine header-image failure: the application policy allowed only data images. Version 3.2.7 permits its own same-origin images while preserving remote-image blocking and the separate report policy. The new browser negative control reproduces the old blocked SVG; positive checks decode the real header and reject remote images. Local browser regression and cross-build/vet pass. Windows source CI passed at commit 9f1f2daf11e8c392e3dae23a782bc32326ffb97c: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40180422255. Native icon/window/updater tests, real-browser policy regression and helper installation passed. Publication and actual published-upgrade verification are pending.
+- Exact tag/commit: v3.2.7 / aabec80e9e8fa95aba8297ca0e6a2941479db8df.
+- EXE: 6531072 bytes; SHA-256 0bb0f753a3a8dd58087c5e41cd39cf857c5d31f104aef55ab13a61e236c0ca8d.
+- Editable SVG: 1831 bytes; SHA-256 fc9211e88bb1f3d0bc34380c82bdd010456b57e59433650b85ae03cdaaf382cd.
+- Source CI passed before publication: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40180422255, commit 9f1f2daf11e8c392e3dae23a782bc32326ffb97c.
+- Exact-release CI passed: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40180646660.
+- Publication/public EXE/SVG verification passed: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40180646656.
+- Actual published v3.2.6-to-v3.2.7 upgrade: passed all 35 checks in the full run with real two-minute focus and five-minute scheduler waits. The loaded SVG header, exact SVG/PNG/favicon bytes, old-profile shutdown, guest isolation, cross-volume install/restart, visible native health, byte-identical settings, stable shortcut, window placement, cleanup, one rollback generation and missing-health rollback/relaunch passed. No timer evidence was reused; zero unexpected or legacy shutdown dialogs occurred. Full evidence: release/3.2.7-verification.json.
+- All 27 native Go tests passed. Compiled icon frames match the SVG-derived ICO, and Windows extracts valid large/small shell icons. The actual application window close/reopen/maximize/minimized-close/settings tests and updater/security cases pass.
+- Four UI shutdown regressions and three icon policy regressions pass. The old 3.2.6 policy blocks the header image in the negative control; the corrected production policy displays the actual SVG and keeps remote images blocked. The separate report policy remains unchanged.
+- Original collector/wrapper and archived icons match unchanged baseline hashes. Current SVG/PNG/ICO hashes are checked separately. Re-rendering from the editable SVG is byte-reproducible on Linux and Windows.
+- Independent EXE/SVG/checksum downloads, PE/version metadata, clean embedded Git revision and actual HTTP 304 passed.
+
+No human desktop icon-cache/UAC test, physical mixed-DPI/monitor-removal test, legacy Windows/Chrome guest validation, user account/policy reproduction or live inventory/report collection was performed. Full structured evidence: release/3.2.7-verification.json.
 
 ## Historical 3.2.6 source validation
 
-The new editable SVG is the master for the header, PNG/favicon and compile-time Windows ICO. CI compares regenerated assets, archived original provenance, every compiled icon frame and native shell extraction. The published v3.2.5-to-new upgrade also checks icon endpoint bytes and the loaded header image. Source CI passed at commit b50541f76bb10d89aefc39628ea4c3a8b1a23493: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40179122995. All icon/resource/extraction, window, updater/security, renderer and native helper tests passed. Publication and actual published-upgrade verification are pending. Physical desktop icon caching, UAC, mixed-DPI and live inventory/report workflows are not claimed as tested.
+The new editable SVG is the master for the header, PNG/favicon and compile-time Windows ICO. CI compares regenerated assets, archived original provenance, every compiled icon frame and native shell extraction. The published v3.2.5-to-new upgrade also checks icon endpoint bytes and the loaded header image. Source CI passed at commit b50541f76bb10d89aefc39628ea4c3a8b1a23493: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40179122995. All icon/resource/extraction, window, updater/security, renderer and native helper tests passed. Version 3.2.6 was published, but the live upgrade test correctly failed its blocked-header assertion. It is superseded by 3.2.7; its original tag/assets remain unchanged. Physical desktop icon caching, UAC, mixed-DPI and live inventory/report workflows are not claimed as tested.
 
 ## Historical release: v3.2.5
 

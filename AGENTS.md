@@ -8,7 +8,7 @@ Read this file and DEVELOPMENT_HANDOFF.md before making changes.
 - The user-confirmed functional and visual baseline is Server Inventory & Configuration Exporter GUI v3.0.10.
 - The original source ZIP's bundled EXE is byte-identical to the uploaded baseline. See baseline-verification.json.
 - The v3.1.0 PS1 application was a mistaken product direction. It is historical only. Never use its UI, collector extraction, or build workflow as the executable baseline.
-- v3.2.0 introduced executable updates. v3.2.1 restored direct original-source build inputs and hardened the updater. Maintain v3.2.5 or newer, including locked-target cleanup, guest browser isolation and profile-scoped shutdown.
+- v3.2.0 introduced executable updates. v3.2.1 restored direct original-source build inputs and hardened the updater. Maintain v3.2.7 or newer, including locked-target cleanup, guest browser isolation and profile-scoped shutdown.
 - Public source and releases: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager
 - Public executable feed: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/latest/download/update-manifest.json
 - Target Windows x64; Go 1.20.14 retains the broad Windows Server 2012+ target. Older Windows versions still require field validation.
