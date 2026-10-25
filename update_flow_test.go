@@ -430,3 +430,37 @@ func TestOldMarkerPrefixAndOverlayNegativeControls(t *testing.T) {
 		t.Fatal("overlay identity impostor accepted")
 	}
 }
+
+func TestNativeRollbackRestorationAndTampering(t *testing.T) {
+	a := testApp(t)
+	dir := t.TempDir()
+	target := filepath.Join(dir, stableExecutableName)
+	old := []byte("previous executable bytes for native replacement test")
+	if err := os.WriteFile(a.update.rollbackPath, old, 0600); err != nil {
+		t.Fatal(err)
+	}
+	sum := sha256.Sum256(old)
+	meta := rollbackMetadata{SHA256: hex.EncodeToString(sum[:]), OriginalPath: target, Version: "3.0.10"}
+	body, _ := json.Marshal(meta)
+	_ = os.WriteFile(a.update.rollbackMetaPath, body, 0600)
+	_ = os.WriteFile(target, []byte("unhealthy new executable"), 0600)
+	if err := restoreRollbackExecutable(a.update.rollbackPath, target); err != nil {
+		t.Fatal(err)
+	}
+	restored, _ := os.ReadFile(target)
+	if !bytes.Equal(restored, old) {
+		t.Fatal("native rollback did not restore bytes")
+	}
+	_ = os.WriteFile(a.update.rollbackPath, []byte("tampered rollback"), 0600)
+	if restoreRollbackExecutable(a.update.rollbackPath, target) == nil {
+		t.Fatal("tampered rollback accepted")
+	}
+	restored, _ = os.ReadFile(target)
+	if !bytes.Equal(restored, old) {
+		t.Fatal("rejected rollback modified installed target")
+	}
+	entries, _ := os.ReadDir(dir)
+	if len(entries) != 1 {
+		t.Fatal("native rollback left target-volume temporary files")
+	}
+}

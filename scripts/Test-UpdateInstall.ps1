@@ -51,7 +51,7 @@ try{
     $log=Join-Path $env:LOCALAPPDATA 'Server Inventory Configuration Manager\Logs\Updates.log'
     $token=[guid]::NewGuid().ToString('N')
 
-    $exitCode=Invoke-NativeAndWait -FilePath $staged -Arguments @('--update-helper','--parent-pid','0','--target',$target,'--expected-version',$ExpectedVersion,'--expected-sha256',$hash,'--old-version','3.0.10','--health-marker',$health,'--health-token',$token,'--rollback',$rollback,'--rollback-meta',$rollbackMeta,'--log',$log)
+    $exitCode=Invoke-NativeAndWait -FilePath $staged -Arguments @('--update-helper','--parent-pid','0','--target',$target,'--expected-version',$ExpectedVersion,'--expected-sha256',$hash,'--old-version',$ExpectedVersion,'--health-marker',$health,'--health-token',$token,'--rollback',$rollback,'--rollback-meta',$rollbackMeta,'--log',$log)
     if($exitCode -ne 0){
         Write-Host "Update helper exit code: $($exitCode)"
         if(Test-Path -LiteralPath $log){

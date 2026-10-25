@@ -40,4 +40,4 @@ The JSON report, logs, and screenshots are CI artifacts. Only test data is used;
 - Full inventory collection against every Windows Server version/role and report format is not covered by this updater test.
 - Windows Server 2012 compatibility remains a build target requiring field validation.
 
-Windows CI and published upgrade results: pending. Update this file with exact workflow links and outcomes before handoff.
+Pre-publication Windows source CI passed at commit 04b3b977932df6ebf6cee0ba694ef1a4da191b53: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40169072456. It passed the native GUI helper test, rendered/visible health confirmation, binary validation, updater tests and negative controls. The release workflow repeats validation, including the final rollback checksum test, before publication. Published upgrade results are pending. Record them before handoff.

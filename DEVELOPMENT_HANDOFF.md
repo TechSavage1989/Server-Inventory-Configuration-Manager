@@ -56,7 +56,7 @@ User-selected inventory reports remain in their selected output directory. Unkno
 
 ## Validation and release status
 
-See VALIDATION.md. At preparation time, local Linux cross-compilation, Go vet for Windows, binary metadata parsing, source provenance, and JavaScript syntax checks pass. Hosted Windows tests and actual published previous-to-new update results are pending. Do not describe them as passed until the workflows complete.
+See VALIDATION.md. Local Linux cross-compilation, Go vet for Windows, binary metadata parsing, source provenance, and JavaScript syntax checks pass. Pre-publication Windows CI passed at commit 04b3b977932df6ebf6cee0ba694ef1a4da191b53: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40169072456. It includes real native GUI install/restart and rendered/visible health confirmation, not a headless health probe. The release workflow repeats validation. Actual published previous-to-new upgrade results are pending; do not claim them until that job completes.
 
 ## Approved scope
 
