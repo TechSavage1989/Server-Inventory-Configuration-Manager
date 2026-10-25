@@ -1,0 +1,89 @@
+name: Publish Release
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - release/VERSION
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to publish
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve release version
+        id: version
+        shell: powershell
+        run: |
+          $manualVersion = '${{ inputs.version }}'
+
+          if ([string]::IsNullOrWhiteSpace($manualVersion)) {
+            $version = (Get-Content -LiteralPath .\release\VERSION -Raw).Trim()
+          }
+          else {
+            $version = $manualVersion.Trim()
+          }
+
+          if ($version -notmatch '^\d+\.\d+\.\d+$') {
+            throw "Invalid release version: $version"
+          }
+
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
+      - name: Validate exact release source
+        shell: powershell
+        run: .\scripts\Test-Source.ps1 -ExpectedVersion '${{ steps.version.outputs.version }}'
+
+      - name: Refuse an existing release
+        shell: powershell
+        run: |
+          $tag = 'v${{ steps.version.outputs.version }}'
+          gh release view $tag 2>$null
+
+          if ($LASTEXITCODE -eq 0) {
+            throw "Release $tag already exists. Published releases are never overwritten."
+          }
+
+          $global:LASTEXITCODE = 0
+
+      - name: Build release assets
+        shell: powershell
+        run: .\scripts\Build-ReleaseManifest.ps1 -ExpectedVersion '${{ steps.version.outputs.version }}' -OutputDirectory .\dist
+
+      - name: Publish GitHub release
+        shell: powershell
+        run: |
+          $version = '${{ steps.version.outputs.version }}'
+          $tag = "v$version"
+          $notes = ".\release-notes\$version.md"
+
+          if (-not (Test-Path -LiteralPath $notes -PathType Leaf)) {
+            throw "Release notes not found: $notes"
+          }
+
+          gh release create $tag .\dist\Server-Inventory-Configuration-Manager.ps1 .\dist\Server-Inventory-Configuration-Manager.ps1.sha256.txt .\dist\update-manifest.json --target "${{ github.sha }}" --title "Server Inventory Configuration Manager $version" --notes-file $notes
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "GitHub release creation failed with exit code $LASTEXITCODE."
+          }
+
+      - name: Verify public updater feed and release assets
+        shell: powershell
+        run: .\scripts\Verify-PublicRelease.ps1 -ExpectedVersion '${{ steps.version.outputs.version }}'
