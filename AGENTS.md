@@ -15,7 +15,7 @@ Read this file and DEVELOPMENT_HANDOFF.md before making changes.
 
 ## Development rules
 
-1. Preserve the original layout, collectors, reporting, report viewer, scope controls, and icon unless the user requests a change. Run scripts/verify_baseline.py; intentional collector changes require an explicit baseline-evidence update.
+1. Preserve the original layout, collectors, reporting, report viewer, scope controls, and icon unless the user requests a change. Run scripts/verify_baseline.py. Keep the original hashes in baseline-verification.json unchanged. For future user-approved collector changes, record the compared revision separately and update the verifier/tests without relabeling changed bytes as the original baseline.
 2. Update appVersion, collectorVersion, and the original standalone collector's scriptVersion consistently. Source files are committed directly; do not extract them from legacy PS1 applications.
 3. Link the original icon and Windows file/product version metadata during compilation with scripts/build_resources.py. Do not patch a compiled EXE.
 4. Keep the portable filename stable. Install in place to preserve existing shortcuts, including legacy custom/versioned names. Do not rename a user's executable or shortcut silently.
