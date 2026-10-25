@@ -1,6 +1,8 @@
 # Executable updater validation
 
-## 3.2.4 browser/shutdown regression validation pending
+## 3.2.4 source validation passed, publication pending
+
+Windows source CI passed at commit 36385ac478e1252844fd307e8663c304edc797c7: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40173525342. Native profile-scoped modal closure, preservation of another browser session, live listener ownership, all four renderer checks, existing updater/security tests and native helper healthy install passed.
 
 The prior published test automatically accepted page dialogs and did not verify disappearance of the old native browser process. The v3.2.3 updater results below remain historical evidence, but do not establish popup-free account-isolated startup or complete old-window closure. New source and publication gates exercise both behaviors and record unexpected dialogs. Hosted tests do not reproduce the user's Microsoft account, browser policies or UAC desktop.
 
