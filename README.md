@@ -9,7 +9,7 @@ Download Server-Inventory-Configuration-Manager.exe from [GitHub Releases](https
 Requires Go 1.20.14, Python 3, and Windows PowerShell for validation. The updater is native Go/Win32. Inventory collection uses built-in Windows PowerShell as in the original executable.
 
 1. Run python scripts/verify_baseline.py.
-2. Run python scripts/build_resources.py --version 3.2.2.
+2. Run python scripts/build_resources.py --version 3.2.3.
 3. Run scripts/Test-Source.ps1.
 4. Run go build -trimpath -ldflags "-s -w -H=windowsgui" -o build/Server-Inventory-Configuration-Manager.exe .
 5. Run go test -v ./... and go vet ./....

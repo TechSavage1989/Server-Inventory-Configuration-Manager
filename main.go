@@ -31,8 +31,8 @@ import (
 
 const (
 	appName           = "Server Inventory Configuration Manager"
-	appVersion        = "3.2.2"
-	collectorVersion  = "3.2.2"
+	appVersion        = "3.2.3"
+	collectorVersion  = "3.2.3"
 	maximumCollectors = 49
 
 	mbOK              = 0x00000000
