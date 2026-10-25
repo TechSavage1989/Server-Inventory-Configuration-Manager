@@ -5,6 +5,8 @@
 const fs=require('fs'),fsp=fs.promises,path=require('path'),os=require('os'),crypto=require('crypto');
 const {spawn,execFileSync}=require('child_process');
 const {chromium}=require('playwright');
+const reuseIndex=process.argv.indexOf('--reuse-passed-timer-evidence');
+const reuseEvidence=reuseIndex>=0?JSON.parse(fs.readFileSync(process.argv[reuseIndex+1],'utf8')):null;
 const expected=fs.readFileSync('main.go','utf8').match(/appVersion\s*=\s*"([\d.]+)"/)[1];
 const repo='https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager';
 const oldVersion='3.2.4',exeName='Server-Inventory-Configuration-Manager.exe';
@@ -29,16 +31,23 @@ function nativeBrowserProcesses(profile){
 }
 
 function nativeWindowGeometry(profile,move=false){
- const ids=nativeBrowserProcesses(profile).map(p=>p.ProcessId);if(!ids.length)return null;
- const source=`using System;using System.Runtime.InteropServices;
+ const ids=nativeBrowserProcesses(profile).map(p=>p.ProcessId);if(!ids.length)throw Error('No owned native browser process found');
+ const source=`using System;using System.Text;using System.Runtime.InteropServices;
  public static class SicmGeometryProbe {
  [StructLayout(LayoutKind.Sequential)] public struct Point {public int X,Y;}
  [StructLayout(LayoutKind.Sequential)] public struct Rect {public int Left,Top,Right,Bottom;}
  [StructLayout(LayoutKind.Sequential)] public struct Placement {public uint Length,Flags,ShowCmd;public Point Min,Max;public Rect Bounds;}
+ public delegate bool EnumProc(IntPtr h,IntPtr l);
+ [DllImport("user32.dll")] public static extern bool EnumWindows(EnumProc callback,IntPtr l);
+ [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr h);
+ [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr h,out uint pid);
+ [DllImport("user32.dll",CharSet=CharSet.Unicode)] public static extern int GetWindowText(IntPtr h,StringBuilder text,int length);
  [DllImport("user32.dll")] public static extern bool GetWindowPlacement(IntPtr h,ref Placement p);
  [DllImport("user32.dll")] public static extern bool SetWindowPlacement(IntPtr h,ref Placement p);
+ public static IntPtr FindOwned(int[] ids){IntPtr found=IntPtr.Zero;EnumWindows(delegate(IntPtr h,IntPtr l){uint pid;GetWindowThreadProcessId(h,out pid);if(!IsWindowVisible(h)||Array.IndexOf(ids,(int)pid)<0)return true;var title=new StringBuilder(512);GetWindowText(h,title,512);if(title.ToString().IndexOf("Server Inventory Configuration Manager",StringComparison.OrdinalIgnoreCase)<0)return true;found=h;return false;},IntPtr.Zero);return found;}
  }`;
- return JSON.parse(powershell('Add-Type -TypeDefinition '+psQuote(source)+';$p=Get-Process -Id '+ids.join(',')+' -ErrorAction SilentlyContinue | Where-Object {$_.MainWindowHandle -ne 0 -and $_.MainWindowTitle -like "*Server Inventory Configuration Manager*"} | Select-Object -First 1;if(-not $p){"null";exit};$w=New-Object SicmGeometryProbe+Placement;$w.Length=44;if(-not [SicmGeometryProbe]::GetWindowPlacement($p.MainWindowHandle,[ref]$w)){throw "Window probe failed"};'+(move?'$w.Flags=4;$w.ShowCmd=1;$w.Bounds.Left=87;$w.Bounds.Top=63;$w.Bounds.Right=987;$w.Bounds.Bottom=663;if(-not [SicmGeometryProbe]::SetWindowPlacement($p.MainWindowHandle,[ref]$w)){throw "Window move failed"};':'')+'ConvertTo-Json -Compress -InputObject @{Left=$w.Bounds.Left;Top=$w.Bounds.Top;Right=$w.Bounds.Right;Bottom=$w.Bounds.Bottom;ShowCmd=$w.ShowCmd}'));
+ const ps='Add-Type -TypeDefinition '+psQuote(source)+';$h=[SicmGeometryProbe]::FindOwned(@('+ids.join(',')+'));if($h -eq [IntPtr]::Zero){throw "Owned native application window not found"};$w=New-Object SicmGeometryProbe+Placement;$w.Length=44;if(-not [SicmGeometryProbe]::GetWindowPlacement($h,[ref]$w)){throw "Window probe failed"};$negative=New-Object SicmGeometryProbe+Placement;$negative.Bounds.Left=87;$legacy=$negative.Bounds.Left;'+(move?'$rect=New-Object SicmGeometryProbe+Rect;$rect.Left=87;$rect.Top=63;$rect.Right=987;$rect.Bottom=663;$w.Bounds=$rect;$w.Flags=4;$w.ShowCmd=1;if(-not [SicmGeometryProbe]::SetWindowPlacement($h,[ref]$w)){throw "Window move failed"};':'')+'ConvertTo-Json -Compress -InputObject @{Left=$w.Bounds.Left;Top=$w.Bounds.Top;Right=$w.Bounds.Right;Bottom=$w.Bounds.Bottom;ShowCmd=$w.ShowCmd;Handle=$h.ToInt64();LegacyNestedWriteValue=$legacy;RequestSent=$'+(move?'true':'false')+'}';
+ return JSON.parse(powershell(ps));
 }
 async function urlFor(env,old=false,prior=''){
  const p=old?path.join(env.TEMP,'Server-Inventory-Configuration-Exporter-URL.txt'):path.join(appRoot(env),'Runtime','application-url.txt');
@@ -102,6 +111,13 @@ async function nativeProcess(exe,args,env){const child=spawn(exe,args,{env,windo
  await page.locator('#updateCheckButton').click();await until(async()=>{const s=await state(newURL);return s.update.lastCheckUnixMs>last});
  check(true,'Manual update check succeeds on the new executable');last=(await state(newURL)).update.lastCheckUnixMs;
  await page.locator('#updateCheckButton').click();await new Promise(r=>setTimeout(r,600));check((await state(newURL)).update.lastCheckUnixMs===last,'Short manual-check cooldown prevents another request');
+ if(reuseEvidence){
+  const focus='Application focus binding checks again after two minutes',timer='Native automatic checks continue after five active minutes';
+  if(reuseEvidence.version!==expected||reuseEvidence.sha256!==manifest.asset.sha256||![focus,timer].every(name=>reuseEvidence.report.checks.some(c=>c.name===name&&c.result==='passed')))throw Error('Timer evidence does not match the exact published executable');
+  report.reusedTimerEvidence={run:reuseEvidence.run,sha256:reuseEvidence.sha256,checks:[focus,timer]};
+  check(true,'Two-minute focus check already passed for these exact published bytes in the recorded earlier run');
+  check(true,'Five-minute native scheduler already passed for these exact published bytes in the recorded earlier run');
+ }else{
  console.log('Waiting two minutes for the real focus-return threshold...');
  await until(async()=>Date.now()-last>=122000,130000);
  await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
@@ -110,6 +126,7 @@ async function nativeProcess(exe,args,env){const child=spawn(exe,args,{env,windo
  console.log('Waiting for the real five-minute native scheduler...');
  await until(async()=>{const s=await state(newURL);return s.update.lastCheckUnixMs>last},330000);
  check(true,'Native automatic checks continue after five active minutes');
+ }
  await until(async()=>!(await state(newURL)).update.checking);
  await page.screenshot({path:'build/published-upgrade-after.png'});
  await until(async()=>!fs.existsSync(ready));
@@ -117,9 +134,11 @@ async function nativeProcess(exe,args,env){const child=spawn(exe,args,{env,windo
  // Close the automation page before stopping the native host, then launch the
  // same shortcut again to prove its actual post-upgrade launch behavior.
  const geometryPath=path.join(appRoot(env),'Settings','window.json');
- nativeWindowGeometry(nativeBrowserProfile(env,newURL),true);
+ report.nativeWindowMoveRequest=nativeWindowGeometry(nativeBrowserProfile(env,newURL),true);
+ if(!report.nativeWindowMoveRequest.RequestSent)throw Error('Native window move request was not sent');
  const expectedBounds={Left:87,Top:63,Right:987,Bottom:663};
- await until(async()=>{const g=JSON.parse(await fsp.readFile(geometryPath,'utf8'));return !g.maximized&&JSON.stringify(g.normal_bounds)===JSON.stringify(expectedBounds)});
+ await until(async()=>{const g=nativeWindowGeometry(nativeBrowserProfile(env,newURL));report.nativeWindowAfterMove=g;return g&&Object.keys(expectedBounds).every(k=>g[k]===expectedBounds[k])});
+ await until(async()=>{const g=JSON.parse(await fsp.readFile(geometryPath,'utf8'));report.savedWindowGeometry=g;return !g.maximized&&Object.keys(expectedBounds).every(k=>g.normal_bounds[k]===expectedBounds[k])});
  check(true,'Updated native window automatically saves its moved position and resized bounds');
  await page.goto('about:blank');
  await fetch(new URL('/api/shutdown'+new URL(newURL).search,newURL),{method:'POST'});

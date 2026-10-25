@@ -1,0 +1,144 @@
+{
+  "version": "3.2.5",
+  "sha256": "bbd06ab0f9dadad77c0e3ed4bacf30f1482dc8ae4766426a5f68f40ab84d34b5",
+  "release_commit": "b02163944ff8189cd627a2f7af8963238d797f71",
+  "run": "https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40175227858",
+  "note": "The actual upgrade and both real timer waits passed. The later PowerShell window-move setup failed before shortcut/rollback validation. Retain this failed report transparently; do not relabel the whole run as passed. Reuse only its two successful timer checks against the identical executable SHA-256.",
+  "report": {
+    "expected": "3.2.5",
+    "previous": "3.2.4",
+    "started": "2026-10-25T08:08:51.694Z",
+    "checks": [
+      {
+        "name": "Public updater feed selects the expected new release",
+        "result": "passed",
+        "time": "2026-10-25T08:08:52.242Z"
+      },
+      {
+        "name": "Previous executable matches the published v3.2.4 checksum",
+        "result": "passed",
+        "time": "2026-10-25T08:08:52.715Z"
+      },
+      {
+        "name": "Published new executable matches its manifest checksum",
+        "result": "passed",
+        "time": "2026-10-25T08:08:53.373Z"
+      },
+      {
+        "name": "Previous executable starts through the desktop shortcut",
+        "result": "passed",
+        "time": "2026-10-25T08:08:54.429Z"
+      },
+      {
+        "name": "Previous application automatically detects the newly published release",
+        "result": "passed",
+        "time": "2026-10-25T08:09:01.082Z"
+      },
+      {
+        "name": "No automatic download occurs before Download is clicked",
+        "result": "passed",
+        "time": "2026-10-25T08:09:01.083Z"
+      },
+      {
+        "name": "Download through the application completes and stages verified release bytes",
+        "result": "passed",
+        "time": "2026-10-25T08:09:02.965Z"
+      },
+      {
+        "name": "Previous native application browser session is observed before installation",
+        "result": "passed",
+        "time": "2026-10-25T08:09:04.731Z"
+      },
+      {
+        "name": "All browser processes for the old application profile close during the real upgrade",
+        "result": "passed",
+        "time": "2026-10-25T08:09:08.006Z"
+      },
+      {
+        "name": "No unexpected dialog is silently accepted during the upgrade",
+        "result": "passed",
+        "time": "2026-10-25T08:09:08.006Z"
+      },
+      {
+        "name": "Actual new native browser uses guest mode with extensions and sync disabled",
+        "result": "passed",
+        "time": "2026-10-25T08:09:08.566Z"
+      },
+      {
+        "name": "Native helper installs and restarts the new version",
+        "result": "passed",
+        "time": "2026-10-25T08:09:09.344Z"
+      },
+      {
+        "name": "New application confirms a rendered interface and a visible owned native window",
+        "result": "passed",
+        "time": "2026-10-25T08:09:09.344Z"
+      },
+      {
+        "name": "User settings remain byte-identical after the real upgrade",
+        "result": "passed",
+        "time": "2026-10-25T08:09:11.899Z"
+      },
+      {
+        "name": "Exactly the previous published executable is retained for rollback",
+        "result": "passed",
+        "time": "2026-10-25T08:09:11.909Z"
+      },
+      {
+        "name": "Only one rollback executable generation is retained",
+        "result": "passed",
+        "time": "2026-10-25T08:09:11.910Z"
+      },
+      {
+        "name": "Desktop shortcut target remains the same stable executable path",
+        "result": "passed",
+        "time": "2026-10-25T08:09:12.220Z"
+      },
+      {
+        "name": "Installed target bytes match the new public release across staging volumes",
+        "result": "passed",
+        "time": "2026-10-25T08:09:12.226Z"
+      },
+      {
+        "name": "Manual update check succeeds on the new executable",
+        "result": "passed",
+        "time": "2026-10-25T08:09:12.549Z"
+      },
+      {
+        "name": "Short manual-check cooldown prevents another request",
+        "result": "passed",
+        "time": "2026-10-25T08:09:13.166Z"
+      },
+      {
+        "name": "Application focus binding checks again after two minutes",
+        "result": "passed",
+        "time": "2026-10-25T08:11:14.874Z"
+      },
+      {
+        "name": "Native automatic checks continue after five active minutes",
+        "result": "passed",
+        "time": "2026-10-25T08:16:22.948Z"
+      },
+      {
+        "name": "Owned download staging is cleaned after the update",
+        "result": "passed",
+        "time": "2026-10-25T08:16:23.007Z"
+      }
+    ],
+    "limitations": [
+      "UAC consent transitions were not exercised.",
+      "Playwright drives the application page alongside its visible native Edge window; physical desktop interaction was not performed.",
+      "Offline, HTTP failure, rate limiting, ETag and malicious-file cases use deterministic native Go tests.",
+      "Legacy Windows Server versions and every server-role collector were not exercised."
+    ],
+    "legacyShutdownDialogs": [],
+    "volumes": {
+      "target": "D:\\",
+      "staging": "C:\\"
+    },
+    "status": "failed",
+    "error": "Error: Timed out: async()=>{const g=JSON.parse(await fsp.readFile(geometryPath,'utf8'));return !g.maximized&&JSON.stringify(g.normal_bounds)===JSON.stringify(\n    at until (D:\\a\\Server-Inventory-Configuration-Manager\\Server-Inventory-Configuration-Manager\\scripts\\test_published_upgrade.cjs:16:212)\n    at async D:\\a\\Server-Inventory-Configuration-Manager\\Server-Inventory-Configuration-Manager\\scripts\\test_published_upgrade.cjs:122:2",
+    "unexpectedDialogs": [],
+    "completed": "2026-10-25T08:17:28.372Z"
+  }
+}

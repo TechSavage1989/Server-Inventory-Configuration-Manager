@@ -1,0 +1,42 @@
+name: Validate published executable
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/validate-published.yml]
+  workflow_dispatch:
+    inputs:
+      timer_evidence:
+        description: Optional recorded successful timer checks for identical release bytes; leave empty for full real waits
+        required: false
+        type: string
+permissions:
+  contents: read
+jobs:
+  published-upgrade:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install browser test tools
+        shell: powershell
+        run: npm install --prefix .\build\ui-tools playwright@1.58.2
+      - name: Validate unchanged published executable and native window relaunch
+        shell: powershell
+        run: |
+          $env:NODE_PATH=(Resolve-Path .\build\ui-tools\node_modules).Path
+          $timerEvidence='${{ inputs.timer_evidence }}'
+          # This workflow's first push repairs only the Windows test harness.
+          # Keep the already passed real timer waits tied to the exact 3.2.5 SHA.
+          if('${{ github.event_name }}' -eq 'push'){$timerEvidence='release/3.2.5-first-upgrade-evidence.json'}
+          $validationOptions=@()
+          if($timerEvidence){$validationOptions=@('--reuse-passed-timer-evidence',$timerEvidence)}
+          node .\scripts\test_published_upgrade.cjs @validationOptions
+          if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: published-upgrade-validation
+          path: build/published-upgrade-*
