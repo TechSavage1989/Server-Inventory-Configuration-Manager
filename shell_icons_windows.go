@@ -60,6 +60,7 @@ var (
 
 type shellCOM struct{ vtable *[21]uintptr }
 
+//go:uintptrescapes
 func (object *shellCOM) call(method int, arguments ...uintptr) error {
 	arguments = append([]uintptr{uintptr(unsafe.Pointer(object))}, arguments...)
 	result, _, _ := syscall.SyscallN(object.vtable[method], arguments...)
@@ -116,7 +117,17 @@ func notifyShellIcon(path string) {
 }
 
 func sameShellPath(left, right string) bool {
-	return left != "" && right != "" && strings.EqualFold(filepath.Clean(left), filepath.Clean(right))
+	if left == "" || right == "" {
+		return false
+	}
+	if strings.EqualFold(filepath.Clean(left), filepath.Clean(right)) {
+		return true
+	}
+	// IShellLink may normalize an 8.3 or extended path differently from
+	// os.Executable. Match the actual file identity, never its display name.
+	leftInfo, leftErr := os.Stat(left)
+	rightInfo, rightErr := os.Stat(right)
+	return leftErr == nil && rightErr == nil && os.SameFile(leftInfo, rightInfo)
 }
 
 func repairShellShortcut(shortcut, executable, icon string) (bool, error) {

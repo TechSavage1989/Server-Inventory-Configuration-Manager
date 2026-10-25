@@ -190,6 +190,7 @@ func TestExplorerAndDesktopShortcutUseApprovedIcon(t *testing.T) {
 	shortcut := filepath.Join(desktop, "Server inventory.lnk")
 	createIconTestShortcut(t, shortcut, executable, oldIcon)
 	before := readIconTestShortcut(t, shortcut)
+	t.Logf("Shortcut target=%q executable=%q", before["target"], executable)
 	if bytes.Equal(approved, shellIconPixels(t, nativeShellIcon(t, shortcut))) {
 		t.Fatal("negative control did not retain the previous desktop icon")
 	}
@@ -210,13 +211,13 @@ func TestExplorerAndDesktopShortcutUseApprovedIcon(t *testing.T) {
 			t.Fatal("shortcut property changed", key)
 		}
 	}
-	if after["icon"] != icon {
+	if !sameShellPath(after["icon"], icon) {
 		t.Fatal("shortcut still references obsolete icon", after["icon"])
 	}
 	if !bytes.Equal(approved, shellIconPixels(t, nativeShellIcon(t, shortcut))) {
 		t.Fatal("actual Explorer shortcut pixels do not match approved icon")
 	}
-	if shared := readIconTestShortcut(t, portable); shared["icon"] != executable {
+	if shared := readIconTestShortcut(t, portable); !sameShellPath(shared["icon"], executable) {
 		t.Fatal("shared or portable link incorrectly depends on a per-user icon", shared)
 	}
 	// Validate the exact shell-pixel probe used by the later published update
