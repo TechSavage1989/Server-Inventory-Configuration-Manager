@@ -78,7 +78,7 @@ Requires Go 1.20.14, Python 3, Node.js 22 for build-only icon rendering, and Win
 
 1. Run npm ci --prefix scripts/icon-tools and node scripts/build_icons.cjs --check, then python scripts/verify_baseline.py.
 2. Run python scripts/embed_report_renderer.py --check and scripts/Test-Report.ps1. Generate fixture reports before Go tests; run scripts/test_report.cjs with Playwright/Edge before packaging.
-3. Run python scripts/build_resources.py --version <source-version>.
+3. Run `python scripts/build_resources.py --version <source-version>` using the version in `main.go`.
 4. Run scripts/Test-Source.ps1.
 5. Run go build -trimpath -ldflags "-s -w -H=windowsgui" -o build/Server-Inventory-Configuration-Manager.exe .
 6. Run go test -v ./... and go vet ./....
