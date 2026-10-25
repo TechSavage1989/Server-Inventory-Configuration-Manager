@@ -205,7 +205,7 @@ func (a *application) initializeUpdater() error {
 	a.cleanupStaleUpdateFiles()
 	if data, err := os.ReadFile(filepath.Join(a.update.healthDir, "last-update.json")); err == nil {
 		var result map[string]string
-		if json.Unmarshal(data, &result) == nil && result["status"] == "rollback" {
+		if json.Unmarshal(data, &result) == nil && (result["status"] == "rollback" || result["status"] == "failed") {
 			a.update.state.Notice = result["message"]
 		}
 	}
@@ -1130,6 +1130,7 @@ func runUpdateHelper(args []string) int {
 	targetDir := filepath.Dir(target)
 	tempTarget := filepath.Join(targetDir, fmt.Sprintf(".%s.update-%d.tmp.exe", strings.TrimSuffix(filepath.Base(target), filepath.Ext(target)), os.Getpid()))
 	_ = os.Remove(tempTarget)
+	defer os.Remove(tempTarget)
 	if err := copyFile(stagedPath, tempTarget); err != nil {
 		helperLog(logPath, "Could not stage update on target filesystem: %v", err)
 		return 7
@@ -1158,6 +1159,8 @@ func runUpdateHelper(args []string) int {
 	if existingFile(target) != "" {
 		oldHash, err := fileSHA256(target)
 		if err != nil {
+			helperLog(logPath, "Could not read the installed executable for rollback: %v", err)
+			writeInstallResult(healthMarkerPath, "failed", oldVersion, "The update could not prepare a rollback copy because the installed executable was locked or unreadable. The installed file was left unchanged.")
 			return 10
 		}
 		rollbackTemp := rollbackPath + ".tmp"

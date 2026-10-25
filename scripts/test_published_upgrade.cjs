@@ -1,4 +1,4 @@
-/* Hosted Windows test: published v3.2.0, real UI actions, public feed, native helper,
+/* Hosted Windows test: published v3.2.1, real UI actions, public feed, native helper,
    visible new app health, settings, shortcut, timer, and failed-health rollback.
    Playwright drives the real application page while the native Edge app is visible.
    This does not simulate UAC consent or a user's physical desktop interaction. */
@@ -7,7 +7,7 @@ const {spawn,execFileSync}=require('child_process');
 const {chromium}=require('playwright');
 const expected=fs.readFileSync('main.go','utf8').match(/appVersion\s*=\s*"([\d.]+)"/)[1];
 const repo='https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager';
-const oldVersion='3.2.0',exeName='Server-Inventory-Configuration-Manager.exe';
+const oldVersion='3.2.1',exeName='Server-Inventory-Configuration-Manager.exe';
 const report={expected,previous:oldVersion,started:new Date().toISOString(),checks:[],limitations:['UAC consent transitions were not exercised.','Playwright drives the application page alongside its visible native Edge window; physical desktop interaction was not performed.','Offline, HTTP failure, rate limiting, ETag and malicious-file cases use deterministic native Go tests.','Legacy Windows Server versions and every server-role collector were not exercised.']};
 const suiteRoot=path.resolve('build','published-upgrade-work');
 const tempRoot=path.join(os.tmpdir(),'SICM-Published-'+crypto.randomUUID());
@@ -33,13 +33,13 @@ async function nativeProcess(exe,args,env){const child=spawn(exe,args,{env,windo
  const manifest=JSON.parse((await get(repo+'/releases/latest/download/update-manifest.json')).toString('utf8').replace(/^\uFEFF/,''));
  check(manifest.version===expected,'Public updater feed selects the expected new release');
  const oldBytes=await get(repo+'/releases/download/v'+oldVersion+'/'+exeName);
- check(sha(oldBytes)==='194ead5dd42391bfcf231ee15708537834aa771dbe79aeb983852ce90f251c9e','Previous executable matches the published v3.2.0 checksum');
+ check(sha(oldBytes)==='6ba0d0d231c313fd87874dbd737753c42255d5635c6a67082109f7a5890d0dc5','Previous executable matches the published v3.2.1 checksum');
  const newBytes=await get(manifest.asset.url);check(sha(newBytes)===manifest.asset.sha256,'Published new executable matches its manifest checksum');
  const env=envFor('upgrade');const saved=await seedSettings(env);const target=path.join(suiteRoot,exeName);await fsp.writeFile(target,oldBytes);
  const shortcut=path.join(suiteRoot,'Server Inventory Configuration Manager.lnk');
  powershell('$s=(New-Object -ComObject WScript.Shell).CreateShortcut('+psQuote(shortcut)+');$s.TargetPath='+psQuote(target)+';$s.WorkingDirectory='+psQuote(suiteRoot)+';$s.IconLocation='+psQuote(target+',0')+';$s.Save()');
  spawn('powershell.exe',['-NoProfile','-NonInteractive','-Command','Start-Process -FilePath '+psQuote(shortcut)],{env,stdio:'ignore'});
- const oldURL=await urlFor(env,true);check((await state(oldURL)).appVersion===oldVersion,'Previous executable starts through the desktop shortcut');
+ const oldURL=await urlFor(env,oldVersion==='3.2.0');check((await state(oldURL)).appVersion===oldVersion,'Previous executable starts through the desktop shortcut');
  browser=await chromium.launch({channel:'msedge',headless:true});page=await browser.newPage({viewport:{width:1440,height:1000}});page.on('dialog',async d=>{await d.accept()});
  await page.goto(oldURL);await page.locator('#updateDownloadButton').waitFor({state:'visible',timeout:60000});
  await until(async()=>{const s=await state(oldURL);return s.update.available&&s.update.canDownload});
@@ -92,7 +92,7 @@ async function nativeProcess(exe,args,env){const child=spawn(exe,args,{env,windo
  const code=await nativeProcess(stage,['--update-helper','--parent-pid','0','--target',badTarget,'--expected-version',expected,'--expected-sha256',manifest.asset.sha256,'--old-version',oldVersion,'--health-marker',health,'--health-token',crypto.randomUUID(),'--rollback',path.join(root,'Rollback','previous.exe'),'--rollback-meta',path.join(root,'Rollback','previous.json'),'--log',path.join(root,'Logs','Updates.log')],badEnv);
  check(code===17,'Missing healthy-start confirmation triggers the actual native rollback path');
  check(sha(await fsp.readFile(badTarget))===sha(oldBytes),'Rollback restores the previous executable bytes at a legacy versioned filename');
- const restoredURL=await urlFor(badEnv,true);check((await state(restoredURL)).appVersion===oldVersion,'Rollback relaunches the previous application');
+ const restoredURL=await urlFor(badEnv,oldVersion==='3.2.0');check((await state(restoredURL)).appVersion===oldVersion,'Rollback relaunches the previous application');
  check((await fsp.readFile(badSaved.path)).equals(badSaved.bytes),'Rollback preserves user settings');await stopApp(badEnv);
  report.status='passed';
 })().catch(e=>{report.status='failed';report.error=e.stack;console.error(e);process.exitCode=1}).finally(async()=>{

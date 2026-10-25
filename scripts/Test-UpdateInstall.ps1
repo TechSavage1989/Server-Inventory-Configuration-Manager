@@ -85,6 +85,30 @@ try{
     $badExitCode=Invoke-NativeAndWait -FilePath $tampered -Arguments @('--update-helper','--parent-pid','0','--target',(Join-Path $temp 'BadTarget.exe'),'--expected-version',$ExpectedVersion,'--expected-sha256',$hash,'--old-version',$ExpectedVersion,'--health-marker',(Join-Path $temp 'bad-health.json'),'--health-token','bad','--rollback',(Join-Path $temp 'bad-prev.exe'),'--rollback-meta',(Join-Path $temp 'bad-prev.json'),'--log',(Join-Path $temp 'bad.log'))
     if($badExitCode -eq 0){throw 'Negative control failed: tampered update was accepted.'}
 
+    # Regression control: the published v3.2.1 helper left a target-volume
+    # temporary file when the existing executable could not be read for rollback.
+    # Test that real published binary, then the new helper, with the same lock.
+    $prior=Join-Path $temp 'Published-3.2.1.exe'
+    Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/download/v3.2.1/Server-Inventory-Configuration-Manager.exe' -OutFile $prior
+    $priorHash=(Get-FileHash $prior -Algorithm SHA256).Hash.ToLowerInvariant()
+    if($priorHash -ne '6ba0d0d231c313fd87874dbd737753c42255d5635c6a67082109f7a5890d0dc5'){throw 'Published negative-control executable checksum mismatch'}
+    foreach($case in @(@{Name='previous-failure';Exe=$prior;Version='3.2.1';Hash=$priorHash;ExpectOrphan=$true},@{Name='fixed';Exe=$staged;Version=$ExpectedVersion;Hash=$hash;ExpectOrphan=$false})){
+        $caseDir=Join-Path $temp $case.Name
+        New-Item -ItemType Directory $caseDir -Force|Out-Null
+        $lockedTarget=Join-Path $caseDir 'LockedTarget.exe'
+        Copy-Item $ExecutablePath $lockedTarget
+        $originalTargetHash=(Get-FileHash $lockedTarget -Algorithm SHA256).Hash
+        $lock=[IO.File]::Open($lockedTarget,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::None)
+        try{
+            $code=Invoke-NativeAndWait -FilePath $case.Exe -Arguments @('--update-helper','--parent-pid','0','--target',$lockedTarget,'--expected-version',$case.Version,'--expected-sha256',$case.Hash,'--old-version',$ExpectedVersion,'--health-marker',(Join-Path $caseDir 'Health\current.json'),'--health-token','locked-target-test','--rollback',(Join-Path $caseDir 'Rollback\previous.exe'),'--rollback-meta',(Join-Path $caseDir 'Rollback\previous.json'),'--log',(Join-Path $caseDir 'Updates.log'))
+        }finally{$lock.Dispose()}
+        if($code -ne 10){throw "Expected locked-target refusal 10, got $code ($($case.Name))"}
+        $orphans=@(Get-ChildItem -LiteralPath $caseDir -Force|Where-Object{$_.Name -like '*.update-*.tmp.exe'})
+        if($case.ExpectOrphan -and $orphans.Count -eq 0){throw 'Negative control did not reproduce the published v3.2.1 cleanup failure'}
+        if(-not $case.ExpectOrphan -and $orphans.Count -ne 0){throw 'A failed installation left update clutter beside the executable'}
+        if((Get-FileHash $lockedTarget -Algorithm SHA256).Hash -ne $originalTargetHash){throw 'Locked-target refusal modified the installed application'}
+        Write-Host "Locked-target control passed: $($case.Name), temporary files: $($orphans.Count)"
+    }
     Write-Host 'Native GUI update helper test passed with rendered UI, owned visible window and tampered-update negative control.'
 }
 finally{
