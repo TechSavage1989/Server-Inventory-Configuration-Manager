@@ -1,8 +1,19 @@
 # Executable updater validation
 
-## Desktop and Explorer update 3.2.8
+## Latest release: v3.2.8
 
-Source CI passed before publication at commit 4fd4f30c76d8829c85fb41e38f1706549d4adf4c: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40217768305. All 28 native Go tests, vet, four UI-shutdown regressions, three production icon-policy regressions, original provenance and the real native helper install/visible-health test passed. Publication and the full published upgrade are pending. The native shell regression checks real EXE/shortcut icon pixels, obsolete-icon negative control, launch-property preservation, unrelated/malformed links, persistent ICO lifetime, idempotence and corruption recovery. Published upgrade validation uses the real native desktop folder and actual published 3.2.7 EXE. Full results will be recorded after completion.
+- Exact tag/commit: v3.2.8 / 2294a921d4a85fbbb1ea5f6e551ad6861973acea.
+- EXE: 6549504 bytes; SHA-256 376332d8aae05110c111aa97b9437f039b28c628eeb0a26e255fa25688fff187.
+- Editable SVG unchanged: 1831 bytes; SHA-256 fc9211e88bb1f3d0bc34380c82bdd010456b57e59433650b85ae03cdaaf382cd.
+- Source CI passed before publication at commit 4fd4f30c76d8829c85fb41e38f1706549d4adf4c: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40217768305.
+- Exact-release CI passed: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40218088783.
+- Publication/public assets passed: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40218088811.
+- All 28 native Go tests passed, including shell-rendered EXE and desktop shortcut icons, exact old-icon negative control, native shortcut-arrow composition, file-identity alias matching, preserved target/arguments/directory/description/hotkey/window style, portable/shared icon targets, unrelated/malformed links, idempotence and persistent ICO lifetime/corruption recovery. Native evidence PNGs are retained in CI. The exact published shell-pixel probe is gated before publication.
+- Four UI shutdown and three production image-policy regressions pass. Actual native helper install/visible health, updater/security tests, native window persistence, source vet, reproducible icon generation and original provenance pass.
+- Independent public downloads/checksums, PE identity/version metadata, exact clean embedded revision and public feed HTTP 200/conditional 304 passed.
+- Actual published v3.2.7-to-v3.2.8 upgrade: passed all 41 checks in the full run, with no reused timer evidence and zero unexpected or legacy shutdown dialogs. The actual desktop shortcut icon and installed EXE render the exact approved pixels, including the native shortcut arrow. Persistent artwork survives application/browser shutdown; target and launch properties are preserved, and unrelated links remain byte-identical. Real download/staging/cross-volume install/restart, visible native health, byte-identical settings, one rollback generation, stable shortcut/window placement, real two-minute focus and five-minute scheduler waits, cleanup and missing-health rollback/relaunch passed. Full evidence: release/3.2.8-verification.json.
+
+The actual current-user desktop folder is used by the published-upgrade fixture; its owned test shortcuts are removed afterward. Hosted native shell/pixel validation does not establish human desktop-paint/UAC, physical mixed-DPI/monitor removal, legacy Windows/Chrome guest, user account/policy or live inventory/report behavior. Network/security errors use deterministic native responses. SHA-256 validates bytes, not publisher signing. Full structured evidence: release/3.2.8-verification.json.
 
 ## Previously published release: v3.2.7
 

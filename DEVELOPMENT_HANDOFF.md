@@ -7,14 +7,15 @@
 - Uploaded baseline EXE SHA-256: 572bf173917330a2fde4b4bf67df998f9f29522c8814d5350b50826caf38ee4e.
 - The original v3.0.10 source ZIP was located. Its bundled EXE matches the uploaded baseline exactly; no EXE decompilation was used.
 - Source provenance and original file hashes: baseline-verification.json.
-- Latest published executable: v3.2.7, source commit aabec80e9e8fa95aba8297ca0e6a2941479db8df.
+- Latest published executable: v3.2.8, source commit 2294a921d4a85fbbb1ea5f6e551ad6861973acea.
+- Earlier v3.2.7 remains unchanged at commit aabec80e9e8fa95aba8297ca0e6a2941479db8df. Its native EXE icon is correct; 3.2.8 additionally repairs old shortcut icon references and refreshes shell items.
 - Earlier v3.2.6 remains unchanged at commit 10290a1c6f62808a30ec66fe11ac9281a4439b2f. Its header SVG was blocked by the old application policy and is superseded by 3.2.7.
 - Earlier v3.2.5 remains unchanged at commit b02163944ff8189cd627a2f7af8963238d797f71.
 - Earlier v3.2.4 remains unchanged at commit 437a809a00b8112132b9e4e54566e3cb2be33ab5.
 - Earlier v3.2.3 remains unchanged at commit 6ee8048539ae429d05f7938e06c2baabdd34fb92.
 - Earlier v3.2.2 remains unchanged at commit ab7fbb783ce4032f951bb717d745f4471ae4d889.
 - Earlier v3.2.1 remains unchanged at commit 54d627d736f11335c8cf6ce4c89649f1c6351289.
-- User confirmation still applies to the v3.0.10 functional baseline. The user reports v3.2.4 improved the browser behavior. v3.2.7 has hosted Windows validation, without a claim of full user field confirmation.
+- User confirmation still applies to the v3.0.10 functional baseline. The user reports v3.2.4 improved the browser behavior. v3.2.8 has hosted Windows validation, without a claim of full user field confirmation.
 - Repository is public: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager.
 
 ## Historical PS1 release and feed
@@ -52,6 +53,7 @@ All updater data is under %LOCALAPPDATA%/Server Inventory Configuration Manager:
 
 - Settings/settings.json
 - Settings/window.json for native window placement and maximized state
+- Icons/application-<artwork SHA-256>.ico, persistent artwork for current-user desktop shortcuts
 - Logs/Updates.log
 - Updates/Cache/update-cache.json
 - Updates/Downloads and Updates/Ready
@@ -63,21 +65,20 @@ User-selected inventory reports remain in their selected output directory. Unkno
 
 ## Validation and release status
 
-- Latest release: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.7.
-- Exact tag/commit: v3.2.7 / aabec80e9e8fa95aba8297ca0e6a2941479db8df.
-- Stable EXE: Server-Inventory-Configuration-Manager.exe, 6531072 bytes; SHA-256 0bb0f753a3a8dd58087c5e41cd39cf857c5d31f104aef55ab13a61e236c0ca8d.
-- Editable vector release asset: Server-Inventory-Configuration-Manager.svg, 1831 bytes; SHA-256 fc9211e88bb1f3d0bc34380c82bdd010456b57e59433650b85ae03cdaaf382cd.
-- SVG master: assets/icons/server-inventory.svg. Named vector groups/shapes, transparent background, four solid colors, no bitmap or gradients. Current PNG/ICO hashes are recorded separately in icon-verification.json; original icon hashes remain unchanged in baseline-verification.json and original files are retained under baseline/v3.0.10/icons.
-- Icons cover the compiled EXE, native window, favicon/PNG and header SVG. The app policy permits its own images; remote images remain blocked and the separate report policy is unchanged.
-- Prepublication Windows source CI passed: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40180422255, commit 9f1f2daf11e8c392e3dae23a782bc32326ffb97c.
-- Exact-release Windows CI passed: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40180646660.
-- Publication/public downloads passed: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40180646656.
-- All 27 native tests passed, including every compiled icon frame, large/small native shell extraction, actual window persistence and updater/security checks. Four shutdown renderer checks and three production-policy browser checks passed, including the old blocked-header negative control and continued remote-image blocking. Real native helper installation and visible healthy start passed.
-- Actual published v3.2.6-to-v3.2.7 upgrade: passed all 35 checks in the full run with real two-minute focus and five-minute scheduler waits. The loaded SVG header, exact SVG/PNG/favicon bytes, old-profile shutdown, guest isolation, cross-volume install/restart, visible native health, byte-identical settings, stable shortcut, window placement, cleanup, one rollback generation and missing-health rollback/relaunch passed. No timer evidence was reused; zero unexpected or legacy shutdown dialogs occurred. Full evidence: release/3.2.7-verification.json.
-- Independent public EXE/SVG downloads and both checksum files agree with release source/manifest. PE identity/version metadata, clean embedded Git revision and actual HTTP 304 passed.
-- Earlier v3.2.6 and v3.2.5 release/asset IDs, sizes and digests remain unchanged. No prior tags/assets were overwritten. The workflow refuses overwrites; repository-level immutable locking remains disabled.
+- Latest release: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.8.
+- Exact tag/commit: v3.2.8 / 2294a921d4a85fbbb1ea5f6e551ad6861973acea.
+- Stable EXE: Server-Inventory-Configuration-Manager.exe, 6549504 bytes; SHA-256 376332d8aae05110c111aa97b9437f039b28c628eeb0a26e255fa25688fff187.
+- Editable SVG asset: Server-Inventory-Configuration-Manager.svg, 1831 bytes; SHA-256 fc9211e88bb1f3d0bc34380c82bdd010456b57e59433650b85ae03cdaaf382cd.
+- The approved SVG/PNG/ICO artwork is unchanged from 3.2.7. It covers the compiled EXE, native window, favicon/PNG/header, and now repaired desktop shortcuts. Current-user shortcut artwork survives session cleanup; shared/portable links use the embedded EXE icon. Only matching executable targets are repaired; launch properties remain intact.
+- Windows source CI passed before publication: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40217768305, source commit 4fd4f30c76d8829c85fb41e38f1706549d4adf4c.
+- Exact-release Windows CI passed: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40218088783.
+- Publication/public download validation passed: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40218088811, publish job 121243495825.
+- All 28 native Go tests passed, including actual shell-rendered EXE/shortcut pixels, the exact historical-icon negative control, 8.3 target aliases, preserved shortcut properties, unrelated/malformed links, persistent ICO lifetime/corruption recovery and idempotence. The expected desktop icon includes the identical native shortcut arrow; no pixels are ignored. The exact PowerShell validation-only probe used by the published test also passes before publication. Four shutdown regressions, three production image-policy regressions, vet, original-source/icon provenance and real helper install/visible health passed.
+- Actual published v3.2.7-to-v3.2.8 upgrade: passed all 41 checks in the full run, with no reused timer evidence and zero unexpected or legacy shutdown dialogs. The actual desktop shortcut icon and installed EXE render the exact approved pixels, including the native shortcut arrow. Persistent artwork survives application/browser shutdown; target and launch properties are preserved, and unrelated links remain byte-identical. Real download/staging/cross-volume install/restart, visible native health, byte-identical settings, one rollback generation, stable shortcut/window placement, real two-minute focus and five-minute scheduler waits, cleanup and missing-health rollback/relaunch passed. Full evidence: release/3.2.8-verification.json.
+- Independent public EXE/SVG downloads and both checksum files agree with the release source and manifest. PE identity/version metadata, clean exact embedded Git revision and public feed HTTP 200/conditional 304 passed.
+- Prior releases/tags/assets remain unchanged. The release workflow refuses overwrites; repository-level immutable locking remains disabled. SHA-256 validates bytes, not publisher signing.
 
-Testing limits: hosted Windows Server 2025/Edge automation, no human desktop icon-cache or UAC validation, no physical mixed-DPI/monitor-removal or legacy Windows/Chrome guest testing, no reproduction of the user's Microsoft account or organization policies, and no live inventory/report collection. Focus testing uses a synthetic DOM event after real elapsed waits. Native network/security cases use deterministic responses. SHA-256 validates bytes, not publisher signing.
+Testing limits: hosted Windows Server 2025/Edge automation and native shell API/pixel validation, without human Explorer/desktop-paint or UAC interaction. Physical mixed-DPI/monitor removal, legacy Windows/Chrome guest behavior, the user's Microsoft account/organization policies and live inventory/report collection were not exercised. Focus uses a synthetic DOM event after a real elapsed wait. Offline/HTTP/rate-limit/cache/security cases use deterministic native responses. Historical full 3.2.6-to-3.2.7 evidence remains in release/3.2.7-verification.json.
 
 ## Approved scope
 
@@ -145,6 +146,8 @@ The user requests the new flat icon for desktop shortcuts and Explorer and autho
 
 The downloaded native helper also notifies the shell after install and rollback replacement. All active SVG/PNG/ICO bytes and original provenance hashes are unchanged. No UI, inventory/report behavior, settings, browser isolation, window persistence or updater security change is intended. Versions advance together to 3.2.8. Earlier published tags/assets remain unchanged.
 
-Prepublication Windows source CI passed at commit 4fd4f30c76d8829c85fb41e38f1706549d4adf4c: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40217768305. All 28 native tests, four renderer shutdown regressions, three icon-policy regressions, vet, original provenance and real native helper install/visible health passed. Publication and the full published-upgrade validation are the next steps. The new native regression renders actual SHGetFileInfoW HICON pixels for the built EXE and real shortcut, reproduces the obsolete-icon reference, and checks preservation/idempotence/unrelated links/corruption recovery. The published-upgrade input is the immutable 3.2.7 EXE, SHA-256 0bb0f753a3a8dd58087c5e41cd39cf857c5d31f104aef55ab13a61e236c0ca8d. Its desktop fixture uses the real known desktop folder and is removed after validation. Full previous-to-new Download/Install/restart/health/settings/window/rollback checks remain required.
+Prepublication Windows source CI passed at commit 4fd4f30c76d8829c85fb41e38f1706549d4adf4c: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40217768305. All 28 native tests, four renderer shutdown regressions, three icon-policy regressions, vet, original provenance and real native helper install/visible health passed. Version 3.2.8 is published and its full 41-check previous-to-new upgrade passed; evidence is recorded above and in release/3.2.8-verification.json. The new native regression renders actual SHGetFileInfoW HICON pixels for the built EXE and real shortcut, reproduces the obsolete-icon reference, and checks preservation/idempotence/unrelated links/corruption recovery. The published-upgrade input is the immutable 3.2.7 EXE, SHA-256 0bb0f753a3a8dd58087c5e41cd39cf857c5d31f104aef55ab13a61e236c0ca8d. Its desktop fixture uses the real known desktop folder and is removed after validation. Full previous-to-new Download/Install/restart/health/settings/window/rollback checks remain required.
 
 Prepublication Windows validation exposed 8.3-versus-long-path aliases in shortcut targets; matching now checks actual Windows file identity as well as case-insensitive paths. The native icon test initializes COM on a locked thread and compares every desktop pixel against the approved art with the identical native Windows shortcut arrow; it does not remove the standard arrow or ignore differing pixels. The negative control renders the exact historical icon plus that arrow. Evidence PNGs are retained by CI. No previously published release was modified during these fixes.
+
+The actual published test started with an automatic response still advertising 3.2.7 at 17:50:47 UTC. Its real five-minute automatic retry detected 3.2.8 at 17:55:47 UTC; no manual check replaced automatic detection. All 41 checks completed successfully in the same full run, including the later real focus/scheduler waits.
