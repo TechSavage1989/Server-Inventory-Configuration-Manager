@@ -1,4 +1,4 @@
-/* Hosted Windows test: published v3.2.6, real UI actions, public feed, native helper,
+/* Hosted Windows test: published v3.2.7, real UI actions, public feed, native helper,
    visible new app health, settings, shortcut, timer, and failed-health rollback.
    Playwright drives the real application page while the native Edge app is visible.
    This does not simulate UAC consent or a user's physical desktop interaction. */
@@ -9,11 +9,11 @@ const reuseIndex=process.argv.indexOf('--reuse-passed-timer-evidence');
 const reuseEvidence=reuseIndex>=0?JSON.parse(fs.readFileSync(process.argv[reuseIndex+1],'utf8')):null;
 const expected=fs.readFileSync('main.go','utf8').match(/appVersion\s*=\s*"([\d.]+)"/)[1];
 const repo='https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager';
-const oldVersion='3.2.6',exeName='Server-Inventory-Configuration-Manager.exe';
+const oldVersion='3.2.7',exeName='Server-Inventory-Configuration-Manager.exe';
 const report={expected,previous:oldVersion,started:new Date().toISOString(),checks:[],limitations:['UAC consent transitions were not exercised.','Playwright drives the application page alongside its visible native Edge window; physical desktop interaction was not performed.','Offline, HTTP failure, rate limiting, ETag and malicious-file cases use deterministic native Go tests.','Legacy Windows Server versions and every server-role collector were not exercised.']};
 const suiteRoot=path.resolve('build','published-upgrade-work');
 const tempRoot=path.join(os.tmpdir(),'SICM-Published-'+crypto.randomUUID());
-let browser;let page;let installingLegacy=false;let confirmingInstall=false;const unexpectedDialogs=[];const legacyShutdownDialogs=[];
+let browser;let page;let installingLegacy=false;let confirmingInstall=false;const unexpectedDialogs=[];const legacyShutdownDialogs=[];const desktopTestFiles=[];
 function check(condition,message){if(!condition)throw Error(message);report.checks.push({name:message,result:'passed',time:new Date().toISOString()});console.log('PASS: '+message);}
 async function until(fn,timeout=60000){const deadline=Date.now()+timeout;let last;while(Date.now()<deadline){try{const v=await fn();if(v)return v;}catch(e){last=e;}await new Promise(r=>setTimeout(r,250));}throw Error('Timed out: '+(last?.message||fn.toString().slice(0,140)));}
 async function get(url){const r=await fetch(url);if(!r.ok)throw Error('HTTP '+r.status+' '+url);return Buffer.from(await r.arrayBuffer());}
@@ -62,11 +62,20 @@ async function nativeProcess(exe,args,env){const child=spawn(exe,args,{env,windo
  const manifest=JSON.parse((await get(repo+'/releases/latest/download/update-manifest.json')).toString('utf8').replace(/^\uFEFF/,''));
  check(manifest.version===expected,'Public updater feed selects the expected new release');
  const oldBytes=await get(repo+'/releases/download/v'+oldVersion+'/'+exeName);
- check(sha(oldBytes)==='ddeeb2256e457b0a6f3d5c71cc442507f7bee282eeeba191c45601ad6e6cb221','Previous executable matches the published v3.2.6 checksum');
+ check(sha(oldBytes)==='0bb0f753a3a8dd58087c5e41cd39cf857c5d31f104aef55ab13a61e236c0ca8d','Previous executable matches the published v3.2.7 checksum');
  const newBytes=await get(manifest.asset.url);check(sha(newBytes)===manifest.asset.sha256,'Published new executable matches its manifest checksum');
  const env=envFor('upgrade');const saved=await seedSettings(env);const target=path.join(suiteRoot,exeName);await fsp.writeFile(target,oldBytes);
  const shortcut=path.join(suiteRoot,'Server Inventory Configuration Manager.lnk');
  powershell('$s=(New-Object -ComObject WScript.Shell).CreateShortcut('+psQuote(shortcut)+');$s.TargetPath='+psQuote(target)+';$s.WorkingDirectory='+psQuote(suiteRoot)+';$s.IconLocation='+psQuote(target+',0')+';$s.Save()');
+ const desktop=powershell("[Environment]::GetFolderPath('Desktop')");if(!desktop)throw Error('No native user desktop');await fsp.mkdir(desktop,{recursive:true});
+ const desktopShortcut=path.join(desktop,'SICM-icon-validation-'+crypto.randomUUID()+'.lnk');
+ const unrelatedShortcut=path.join(desktop,'SICM-unrelated-validation-'+crypto.randomUUID()+'.lnk');desktopTestFiles.push(desktopShortcut,unrelatedShortcut);
+ const historicalIcon=path.join(suiteRoot,'previous-desktop-icon.ico');await fsp.copyFile('baseline/v3.0.10/icons/favicon.ico',historicalIcon);
+ const desktopProperties=p=>JSON.parse(powershell('$s=(New-Object -ComObject WScript.Shell).CreateShortcut('+psQuote(p)+');ConvertTo-Json -Compress -InputObject @{target=$s.TargetPath;arguments=$s.Arguments;workingDirectory=$s.WorkingDirectory;description=$s.Description;windowStyle=$s.WindowStyle;hotkey=$s.Hotkey;icon=$s.IconLocation}'));
+ for(const [p,exe] of [[desktopShortcut,target],[unrelatedShortcut,process.env.ComSpec]]){
+  powershell('$s=(New-Object -ComObject WScript.Shell).CreateShortcut('+psQuote(p)+');$s.TargetPath='+psQuote(exe)+';$s.WorkingDirectory='+psQuote(suiteRoot)+';$s.Description="Preserved desktop link";$s.IconLocation='+psQuote(historicalIcon+',0')+';$s.Save()');
+ }
+ const oldDesktop=desktopProperties(desktopShortcut),unrelatedDesktopBytes=await fsp.readFile(unrelatedShortcut);
  spawn('powershell.exe',['-NoProfile','-NonInteractive','-Command','Start-Process -FilePath '+psQuote(shortcut)],{env,stdio:'ignore'});
  const oldURL=await urlFor(env,oldVersion==='3.2.0');check((await state(oldURL)).appVersion===oldVersion,'Previous executable starts through the desktop shortcut');
  browser=await chromium.launch({channel:'msedge',headless:true});page=await browser.newPage({viewport:{width:1440,height:1000}});
@@ -78,6 +87,7 @@ async function nativeProcess(exe,args,env){const child=spawn(exe,args,{env,windo
   unexpectedDialogs.push({type:d.type(),message:d.message()});await d.dismiss();
  });
  await page.goto(oldURL);await page.locator('#updateDownloadButton').waitFor({state:'visible',timeout:420000});
+ check(desktopProperties(desktopShortcut).icon===oldDesktop.icon,'Published previous application leaves the obsolete desktop icon reference unchanged (negative control)');
  await until(async()=>{const s=await state(oldURL);return s.update.available&&s.update.canDownload});
  check((await state(oldURL)).update.latestVersion===expected,'Previous application automatically detects the newly published release');
  const ready=path.join(appRoot(env),'Updates','Ready',exeName);
@@ -98,6 +108,13 @@ async function nativeProcess(exe,args,env){const child=spawn(exe,args,{env,windo
  check(guest&&['--disable-extensions','--disable-sync','--no-first-run'].every(flag=>guest.CommandLine.includes(flag)),'Actual new native browser uses guest mode with extensions and sync disabled');
  const healthy=await until(async()=>{const h=JSON.parse(await fsp.readFile(path.join(appRoot(env),'Health','current.json'),'utf8'));return h.version===expected&&h.ui_ready&&h.visible_window_confirmed?h:false},90000);
  check((await state(newURL)).appVersion===expected,'Native helper installs and restarts the new version');
+ const desktopState=await until(async()=>{const s=desktopProperties(desktopShortcut);const iconPath=s.icon.replace(/,0$/,'');return iconPath.startsWith(path.join(appRoot(env),'Icons')+path.sep)&&fs.existsSync(iconPath)?{properties:s,iconPath}:false});
+ const expectedICO=await fsp.readFile('favicon.ico');
+ check((await fsp.readFile(desktopState.iconPath)).equals(expectedICO),'Actual user desktop shortcut now references the persistent approved icon');
+ check(['target','arguments','workingDirectory','description','windowStyle','hotkey'].every(k=>desktopState.properties[k]===oldDesktop[k]),'Desktop icon repair preserves its target and all existing launch properties');
+ check((await fsp.readFile(unrelatedShortcut)).equals(unrelatedDesktopBytes),'Unrelated desktop shortcut remains byte-identical');
+ report.shellIcons=JSON.parse(execFileSync('powershell.exe',['-NoProfile','-NonInteractive','-File','scripts/Test-ShellIcon.ps1','-ExecutablePath',target,'-ShortcutPath',desktopShortcut,'-ExpectedIconPath',desktopState.iconPath],{encoding:'utf8'}));
+ check(report.shellIcons.status==='passed','Windows Explorer resolves the approved rendered pixels for both the installed EXE and actual desktop shortcut');
  const iconMetadata=JSON.parse(fs.readFileSync('icon-verification.json','utf8'));
  const svg=await get(new URL('/app-icon.svg',newURL));
  check(sha(svg)===iconMetadata.source_sha256,'Updated application serves the exact editable SVG icon');
@@ -151,6 +168,7 @@ async function nativeProcess(exe,args,env){const child=spawn(exe,args,{env,windo
  await page.goto('about:blank');
  await fetch(new URL('/api/shutdown'+new URL(newURL).search,newURL),{method:'POST'});
  await until(async()=>!fs.existsSync(path.join(appRoot(env),'Runtime','application-url.txt')));
+ check((await fsp.readFile(desktopState.iconPath)).equals(expectedICO),'Desktop shortcut icon remains valid after the application and browser session close');
  spawn('powershell.exe',['-NoProfile','-NonInteractive','-Command','Start-Process -FilePath '+psQuote(shortcut)],{env,stdio:'ignore'});
  const shortcutURL=await urlFor(env);await page.goto(shortcutURL);check((await state(shortcutURL)).appVersion===expected,'Existing desktop shortcut launches the updated executable');
  await until(async()=>{const g=nativeWindowGeometry(nativeBrowserProfile(env,shortcutURL));return g&&g.ShowCmd===1&&Object.keys(expectedBounds).every(k=>g[k]===expectedBounds[k])});
@@ -170,6 +188,7 @@ async function nativeProcess(exe,args,env){const child=spawn(exe,args,{env,windo
  check(unexpectedDialogs.length===0,'Fixed application produces no unexpected modal dialogs throughout the test');
  report.status='passed';
 })().catch(e=>{report.status='failed';report.error=e.stack;console.error(e);process.exitCode=1}).finally(async()=>{
+ for(const p of desktopTestFiles){try{await fsp.unlink(p)}catch{}}
  if(browser)await browser.close();report.unexpectedDialogs=unexpectedDialogs;report.completed=new Date().toISOString();await fsp.mkdir('build',{recursive:true});await fsp.writeFile('build/published-upgrade-report.json',JSON.stringify(report,null,2));
  // Keep only non-customer test logs as CI evidence. Never upload collected server inventory.
  for(const name of ['upgrade','rollback']){try{const log=await fsp.readFile(path.join(appRoot(envFor(name)),'Logs','Updates.log'));await fsp.writeFile('build/published-upgrade-'+name+'.log',log)}catch{}}

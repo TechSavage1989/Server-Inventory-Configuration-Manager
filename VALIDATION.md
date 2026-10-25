@@ -1,6 +1,10 @@
 # Executable updater validation
 
-## Latest release: v3.2.7
+## Desktop and Explorer update 3.2.8
+
+Source is prepared; hosted Windows validation and publication are pending. The native shell regression checks real EXE/shortcut icon pixels, obsolete-icon negative control, launch-property preservation, unrelated/malformed links, persistent ICO lifetime, idempotence and corruption recovery. Published upgrade validation uses the real native desktop folder and actual published 3.2.7 EXE. Full results will be recorded after completion.
+
+## Previously published release: v3.2.7
 
 - Exact tag/commit: v3.2.7 / aabec80e9e8fa95aba8297ca0e6a2941479db8df.
 - EXE: 6531072 bytes; SHA-256 0bb0f753a3a8dd58087c5e41cd39cf857c5d31f104aef55ab13a61e236c0ca8d.

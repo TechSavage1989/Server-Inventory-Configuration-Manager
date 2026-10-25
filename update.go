@@ -1071,6 +1071,7 @@ func restoreRollbackExecutable(rollbackPath, target string) error {
 		_ = os.Remove(temp)
 		return err
 	}
+	notifyShellIcon(target)
 	return nil
 }
 
@@ -1204,6 +1205,7 @@ func runUpdateHelper(args []string) int {
 		_ = os.Remove(tempTarget)
 		return 11
 	}
+	notifyShellIcon(target)
 	launchArgs := []string{"--health-token", healthToken}
 
 	restartOriginal = false
@@ -1370,9 +1372,13 @@ func (a *application) handleUIReady(response http.ResponseWriter, request *http.
 		return
 	}
 	a.mu.Lock()
+	firstPaint := !a.uiReady
 	a.uiReady = true
 	a.mu.Unlock()
 	a.startUpdateScheduler()
+	if firstPaint {
+		go a.refreshDesktopIcons()
+	}
 	writeJSON(response, http.StatusOK, map[string]any{"ok": true})
 }
 

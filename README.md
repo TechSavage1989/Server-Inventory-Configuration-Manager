@@ -1,6 +1,6 @@
 # Server Inventory Configuration Manager
 
-Portable Windows server inventory and configuration capture application. The maintained product is the executable application, preserving the original v3.0.10 interface, collectors, report generation, viewer, configuration controls, and icon.
+Portable Windows server inventory and configuration capture application. The maintained product is the executable application, preserving the original v3.0.10 interface, collectors, report generation, viewer, configuration controls, and user-approved flat icon.
 
 Download Server-Inventory-Configuration-Manager.exe from [GitHub Releases](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/latest). The original v3.0.10 executable and historical v3.1.0 PS1 application require one manual download to enter the executable update line. The PS1 release is retained unchanged.
 
@@ -9,7 +9,7 @@ Download Server-Inventory-Configuration-Manager.exe from [GitHub Releases](https
 Requires Go 1.20.14, Python 3, Node.js 22 for build-only icon rendering, and Windows PowerShell for validation. The updater is native Go/Win32. Inventory collection uses built-in Windows PowerShell as in the original executable.
 
 1. Run npm ci --prefix scripts/icon-tools and node scripts/build_icons.cjs --check, then python scripts/verify_baseline.py.
-2. Run python scripts/build_resources.py --version 3.2.7.
+2. Run python scripts/build_resources.py --version 3.2.8.
 3. Run scripts/Test-Source.ps1.
 4. Run go build -trimpath -ldflags "-s -w -H=windowsgui" -o build/Server-Inventory-Configuration-Manager.exe .
 5. Run go test -v ./... and go vet ./....
@@ -21,7 +21,7 @@ The original collector is committed directly. Original icon bytes are retained u
 
 Edit assets/icons/server-inventory.svg in Inkscape, Illustrator or another SVG editor. The rack, drawers, indicators and checkmark are named vector shapes in separate groups, using four solid colors and no embedded bitmap. Run node scripts/build_icons.cjs after editing to regenerate the 256px PNG, ten Windows ICO sizes and icon-verification.json. The renderer is a build tool only; the portable application and updater do not require Node.js.
 
-The editable SVG and its checksum are also included in each executable release.
+The editable SVG and its checksum are also included in each executable release. The same ICO is compiled into the EXE for Explorer. After the interface starts, native shell notifications refresh that executable and existing shortcuts targeting it. Current-user desktop shortcuts use a persistent artwork-specific ICO beneath LocalAppData/Server Inventory Configuration Manager/Icons; public-desktop and portable-folder shortcuts use the embedded EXE icon so they remain readable by other users. Shortcut targets and launch properties are preserved. Unrelated shortcuts are not changed, and Explorer is not restarted. Redirected desktop folders are discovered through Windows known folders.
 
 ## Browser isolation
 
