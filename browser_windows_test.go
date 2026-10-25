@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -55,6 +56,33 @@ func TestBrowserPolicyCannotFallbackToAccountSignin(t *testing.T) {
 	}
 	if browserPolicyDisallowsGuest(map[string]uint32{}) || browserPolicyDisallowsGuest(map[string]uint32{"BrowserGuestModeEnabled": 1, "BrowserSignin": 1}) {
 		t.Fatal("available guest session was rejected")
+	}
+}
+func TestLegacyBrowserOwnershipRequiresLiveMatchingBackendPID(t *testing.T) {
+	t.Setenv("LOCALAPPDATA", t.TempDir())
+	server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	defer server.Close()
+	token := strings.Repeat("c", 48)
+	address := server.URL + "/?token=" + token
+	profile := filepath.Join(browserRuntimeDir(), "Browser-"+token)
+	if err := os.MkdirAll(browserRuntimeDir(), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(browserRuntimeDir(), "application-url.txt"), []byte(address), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if got := previousBrowserProfile(os.Getpid(), "unused legacy target"); got != profile {
+		t.Fatal("could not identify the live previous application profile", got)
+	}
+	if got := previousBrowserProfile(os.Getpid()+1000000, "unused legacy target"); got != "" {
+		t.Fatal("accepted a different application's listener PID", got)
+	}
+	_, port, ok := profileFromApplicationURL(address)
+	if !ok || tcpListenerPID(port) != uint32(os.Getpid()) {
+		t.Fatal("native listener metadata did not identify the owning PID", strconv.Itoa(port))
+	}
+	if _, _, ok := profileFromApplicationURL("https://example.com/?token=" + token); ok {
+		t.Fatal("non-application address accepted as browser ownership")
 	}
 }
 func TestNativeBrowserClosesModalWithoutLauncherPIDAndPreservesOtherProfile(t *testing.T) {
