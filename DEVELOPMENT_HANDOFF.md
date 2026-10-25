@@ -7,8 +7,8 @@
 - Uploaded baseline EXE SHA-256: 572bf173917330a2fde4b4bf67df998f9f29522c8814d5350b50826caf38ee4e.
 - The original v3.0.10 source ZIP was located. Its bundled EXE matches the uploaded baseline exactly; no EXE decompilation was used.
 - Source provenance and original file hashes: baseline-verification.json.
-- Existing published executable: v3.2.0 at commit 3c675de0e74a614c728a0ba0aa41d30a7aa45c99.
-- Prepared version: v3.2.1. Publication and Windows results must be recorded after validation.
+- Published executable v3.2.1: commit 54d627d736f11335c8cf6ce4c89649f1c6351289, unchanged.
+- Prepared version: v3.2.2, correcting a locked-target staging cleanup failure found with a real published-binary negative control. Final publication/results must be recorded after validation.
 - Repository is public: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager.
 
 ## Historical PS1 release and feed
@@ -61,3 +61,7 @@ See VALIDATION.md. Local Linux cross-compilation, Go vet for Windows, binary met
 ## Approved scope
 
 Continue inventory/configuration capture, reporting, server-role coverage, migration/recovery assistance, desktop UX, executable updater reliability, release automation, and handoff documentation. Do not add server setup, CLI automation, unattended workers, payment setup, API-account setup, or embedded credentials.
+
+## Locked-target cleanup regression
+
+The Windows test runs the exact published v3.2.1 EXE against an exclusively locked installed target. It reproduces one orphan target-volume update file. The v3.2.2 helper refuses the same unsafe installation, preserves the installed file bytes, logs the cause, and leaves zero target-volume temporary files. The previous published binary is checksum-pinned in the test. Source CI for this fix: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40169661939, source commit 61fb5ef25ffde8764a229d64cf2c3cb5f0bec5f6.

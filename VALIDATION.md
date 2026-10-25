@@ -1,6 +1,6 @@
 # Executable updater validation
 
-Prepared release: v3.2.1, based on the original v3.0.10 executable source.
+Prepared release: v3.2.2, based on the original v3.0.10 executable source.
 
 ## Local validation
 
@@ -26,7 +26,7 @@ The native helper script launches the real app and requires a visible owned brow
 
 ## Published upgrade coverage
 
-The post-publication Windows job starts the exact published v3.2.0 executable through a shortcut and drives the real application HTML interface with Playwright while the native Edge app window is visible. It checks the public feed, clicks Download, clicks Install and restart, waits for the new visible healthy app, verifies settings and previous-version bytes, verifies and relaunches the same shortcut, waits through actual two- and five-minute scheduling thresholds, and forces a missing-health rollback with real native restoration/relaunch. When staging and target drives differ, this also exercises cross-volume staging.
+The post-publication Windows job starts the exact published v3.2.1 executable through a shortcut and drives the real application HTML interface with Playwright while the native Edge app window is visible. It checks the public feed, clicks Download, clicks Install and restart, waits for the new visible healthy app, verifies settings and previous-version bytes, verifies and relaunches the same shortcut, waits through actual two- and five-minute scheduling thresholds, and forces a missing-health rollback with real native restoration/relaunch. When staging and target drives differ, this also exercises cross-volume staging.
 
 The JSON report, logs, and screenshots are CI artifacts. Only test data is used; customer inventory is not uploaded.
 
@@ -41,3 +41,7 @@ The JSON report, logs, and screenshots are CI artifacts. Only test data is used;
 - Windows Server 2012 compatibility remains a build target requiring field validation.
 
 Pre-publication Windows source CI passed at commit 04b3b977932df6ebf6cee0ba694ef1a4da191b53: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40169072456. It passed the native GUI helper test, rendered/visible health confirmation, binary validation, updater tests and negative controls. The release workflow repeats validation, including the final rollback checksum test, before publication. Published upgrade results are pending. Record them before handoff.
+
+## Locked-target failure negative control
+
+Windows source CI at commit 61fb5ef25ffde8764a229d64cf2c3cb5f0bec5f6 passed: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40169661939. The actual published v3.2.1 helper reproduces one orphan temporary EXE with an exclusive target lock. The v3.2.2 helper refuses installation without modifying the target and leaves zero temporary files. Both cases execute the actual application helper, not a substitute implementation.

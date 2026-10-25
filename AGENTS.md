@@ -8,7 +8,7 @@ Read this file and DEVELOPMENT_HANDOFF.md before making changes.
 - The user-confirmed functional and visual baseline is Server Inventory & Configuration Exporter GUI v3.0.10.
 - The original source ZIP's bundled EXE is byte-identical to the uploaded baseline. See baseline-verification.json.
 - The v3.1.0 PS1 application was a mistaken product direction. It is historical only. Never use its UI, collector extraction, or build workflow as the executable baseline.
-- v3.2.0 is an existing executable updater release. v3.2.1 corrects its updater and restores direct original-source build inputs.
+- v3.2.0 introduced executable updates. v3.2.1 restored direct original-source build inputs and hardened the updater. Maintain v3.2.2 or newer, including locked-target failure cleanup.
 - Public source and releases: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager
 - Public executable feed: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/latest/download/update-manifest.json
 - Target Windows x64; Go 1.20.14 retains the broad Windows Server 2012+ target. Older Windows versions still require field validation.
@@ -43,6 +43,6 @@ Use Go 1.20.14, Python 3, and Windows PowerShell for build validation. The updat
 - Validate source CI first, then change release/VERSION in a separate publication commit.
 - Use a new tag/version only. Never replace assets, releases, or tags that have already been published.
 - The workflow uploads all assets to a draft, publishes it, and verifies public downloads/feed.
-- Its separate Windows job runs published v3.2.0 through Download and Install and restart into the new release, then verifies native health, settings, shortcuts, scheduling, cleanup, and rollback.
+- Its separate Windows job runs the published previous executable (currently v3.2.1) through Download and Install and restart into the new release, then verifies native health, settings, shortcuts, scheduling, cleanup, and rollback.
 - Record exact tag/commit, asset hash, CI links/results, and testing limitations in DEVELOPMENT_HANDOFF.md and VALIDATION.md.
 - Do not call headless probes, helper-only tests, or cross-compilation a successful interactive Windows upgrade.
