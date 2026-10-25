@@ -12,6 +12,18 @@
 - Target: Windows portable PowerShell/WPF, Windows Server 2012 and newer as broadly as practical
 - Starting source: latest user-confirmed single-file v3.0.25 baseline from the development chat
 
+## Published release
+
+- Release: v3.1.0
+- Release URL: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.1.0
+- Release source commit: d62debfb12e92eb17f2ebbdda27d424ceb7c3189
+- Release asset: Server-Inventory-Configuration-Manager.ps1
+- Release asset SHA-256: 4cf0d052d9bd93fa9b94e3622cd2440bb5ebbf336bf5b3aa99be7be67606f603
+- CI run: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40163972495
+- Publish/verification run: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40163972490
+- Both runs completed successfully.
+- The publish workflow verified the public latest-release updater feed by downloading the published manifest and PS1, checking size, SHA-256, application ID, and version.
+
 ## Architecture
 
 The application is one readable PS1 containing the WPF interface, collectors, report generation, report viewer, icon/shortcut support, and updater.
