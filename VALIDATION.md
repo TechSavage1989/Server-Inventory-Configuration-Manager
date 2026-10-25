@@ -1,6 +1,10 @@
 # Executable updater validation
 
-## Latest release: v3.2.4
+## Window persistence 3.2.5 validation pending
+
+The new native EXE test covers actual move/resize persistence, title-bar close/reopen, maximized state, closing while minimized, restoration of normal bounds, off-screen saved-position recovery and unchanged inventory settings. Public upgrade tests use published v3.2.4 and also inspect native geometry after shortcut relaunch. Results are pending. Physical multi-monitor/mixed-DPI hardware and human desktop/UAC interaction are not exercised by hosted automation.
+
+## Historical release: v3.2.4
 
 - Exact tag/commit: v3.2.4 / 437a809a00b8112132b9e4e54566e3cb2be33ab5.
 - EXE size: 6520320 bytes.

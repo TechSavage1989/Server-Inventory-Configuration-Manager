@@ -31,8 +31,8 @@ import (
 
 const (
 	appName           = "Server Inventory Configuration Manager"
-	appVersion        = "3.2.4"
-	collectorVersion  = "3.2.4"
+	appVersion        = "3.2.5"
+	collectorVersion  = "3.2.5"
 	maximumCollectors = 49
 
 	mbOK              = 0x00000000
@@ -206,6 +206,7 @@ type internalState struct {
 type application struct {
 	mu                      sync.Mutex
 	update                  updateRuntime
+	windowGeometry          windowGeometryRuntime
 	installing              bool
 	criticalOperations      int
 	uiReady                 bool
@@ -1949,6 +1950,7 @@ func (a *application) stopServer() {
 		a.mu.Lock()
 		a.closing = true
 		a.mu.Unlock()
+		a.stopWindowPersistence()
 		// Keep the local backend alive until its owned browser windows are gone.
 		// A modal page dialog must not leave an orphaned old app window.
 		if err := a.closeApplicationBrowser(); err != nil {

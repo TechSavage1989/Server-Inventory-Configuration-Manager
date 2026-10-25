@@ -968,6 +968,7 @@ func (a *application) installReadyUpdate() error {
 	}
 	command := exec.Command(readyPath, args...)
 	command.Dir = filepath.Dir(currentPath)
+	a.saveCurrentWindowGeometry()
 	if err := command.Start(); err != nil {
 		return fmt.Errorf("could not start the update installer: %w", err)
 	}
@@ -1344,7 +1345,8 @@ func (a *application) confirmHealthyWindowAndMark(token string) {
 		a.mu.Lock()
 		ready := a.uiReady
 		a.mu.Unlock()
-		if ready && a.ownApplicationWindow() != 0 {
+		if hwnd := a.ownApplicationWindow(); ready && hwnd != 0 {
+			a.startWindowPersistence(hwnd)
 			a.writeHealthMarker(token, true)
 			a.logUpdate("Healthy startup confirmed: visible owned window and rendered interface")
 			go a.cleanupAfterHealthyUpdate()

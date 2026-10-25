@@ -1,4 +1,4 @@
-/* Hosted Windows test: published v3.2.3, real UI actions, public feed, native helper,
+/* Hosted Windows test: published v3.2.4, real UI actions, public feed, native helper,
    visible new app health, settings, shortcut, timer, and failed-health rollback.
    Playwright drives the real application page while the native Edge app is visible.
    This does not simulate UAC consent or a user's physical desktop interaction. */
@@ -7,7 +7,7 @@ const {spawn,execFileSync}=require('child_process');
 const {chromium}=require('playwright');
 const expected=fs.readFileSync('main.go','utf8').match(/appVersion\s*=\s*"([\d.]+)"/)[1];
 const repo='https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager';
-const oldVersion='3.2.3',exeName='Server-Inventory-Configuration-Manager.exe';
+const oldVersion='3.2.4',exeName='Server-Inventory-Configuration-Manager.exe';
 const report={expected,previous:oldVersion,started:new Date().toISOString(),checks:[],limitations:['UAC consent transitions were not exercised.','Playwright drives the application page alongside its visible native Edge window; physical desktop interaction was not performed.','Offline, HTTP failure, rate limiting, ETag and malicious-file cases use deterministic native Go tests.','Legacy Windows Server versions and every server-role collector were not exercised.']};
 const suiteRoot=path.resolve('build','published-upgrade-work');
 const tempRoot=path.join(os.tmpdir(),'SICM-Published-'+crypto.randomUUID());
@@ -28,6 +28,18 @@ function nativeBrowserProcesses(profile){
  return JSON.parse(raw||'[]').filter(p=>p.CommandLine&&match.test(p.CommandLine));
 }
 
+function nativeWindowGeometry(profile,move=false){
+ const ids=nativeBrowserProcesses(profile).map(p=>p.ProcessId);if(!ids.length)return null;
+ const source=`using System;using System.Runtime.InteropServices;
+ public static class SicmGeometryProbe {
+ [StructLayout(LayoutKind.Sequential)] public struct Point {public int X,Y;}
+ [StructLayout(LayoutKind.Sequential)] public struct Rect {public int Left,Top,Right,Bottom;}
+ [StructLayout(LayoutKind.Sequential)] public struct Placement {public uint Length,Flags,ShowCmd;public Point Min,Max;public Rect Bounds;}
+ [DllImport("user32.dll")] public static extern bool GetWindowPlacement(IntPtr h,ref Placement p);
+ [DllImport("user32.dll")] public static extern bool SetWindowPlacement(IntPtr h,ref Placement p);
+ }`;
+ return JSON.parse(powershell('Add-Type -TypeDefinition '+psQuote(source)+';$p=Get-Process -Id '+ids.join(',')+' -ErrorAction SilentlyContinue | Where-Object {$_.MainWindowHandle -ne 0 -and $_.MainWindowTitle -like "*Server Inventory Configuration Manager*"} | Select-Object -First 1;if(-not $p){"null";exit};$w=New-Object SicmGeometryProbe+Placement;$w.Length=44;if(-not [SicmGeometryProbe]::GetWindowPlacement($p.MainWindowHandle,[ref]$w)){throw "Window probe failed"};'+(move?'$w.Flags=4;$w.ShowCmd=1;$w.Bounds.Left=87;$w.Bounds.Top=63;$w.Bounds.Right=987;$w.Bounds.Bottom=663;if(-not [SicmGeometryProbe]::SetWindowPlacement($p.MainWindowHandle,[ref]$w)){throw "Window move failed"};':'')+'ConvertTo-Json -Compress -InputObject @{Left=$w.Bounds.Left;Top=$w.Bounds.Top;Right=$w.Bounds.Right;Bottom=$w.Bounds.Bottom;ShowCmd=$w.ShowCmd}'));
+}
 async function urlFor(env,old=false,prior=''){
  const p=old?path.join(env.TEMP,'Server-Inventory-Configuration-Exporter-URL.txt'):path.join(appRoot(env),'Runtime','application-url.txt');
  return until(async()=>{const u=(await fsp.readFile(p,'utf8')).trim();if(u===prior)return false;const r=await fetch(new URL('/api/state'+new URL(u).search,u));return r.ok?u:false;});
@@ -41,7 +53,7 @@ async function nativeProcess(exe,args,env){const child=spawn(exe,args,{env,windo
  const manifest=JSON.parse((await get(repo+'/releases/latest/download/update-manifest.json')).toString('utf8').replace(/^\uFEFF/,''));
  check(manifest.version===expected,'Public updater feed selects the expected new release');
  const oldBytes=await get(repo+'/releases/download/v'+oldVersion+'/'+exeName);
- check(sha(oldBytes)==='8cd753daefddc1072ee2cc69a48c0269c4a9ea5b646f7d21215c29a5575e29b5','Previous executable matches the published v3.2.3 checksum');
+ check(sha(oldBytes)==='6319f6ad5c2b15882110b4a34ba63f99812be879166de3a754b70e794c1c4ab2','Previous executable matches the published v3.2.4 checksum');
  const newBytes=await get(manifest.asset.url);check(sha(newBytes)===manifest.asset.sha256,'Published new executable matches its manifest checksum');
  const env=envFor('upgrade');const saved=await seedSettings(env);const target=path.join(suiteRoot,exeName);await fsp.writeFile(target,oldBytes);
  const shortcut=path.join(suiteRoot,'Server Inventory Configuration Manager.lnk');
@@ -104,10 +116,20 @@ async function nativeProcess(exe,args,env){const child=spawn(exe,args,{env,windo
  const stagedFiles=(await fsp.readdir(path.join(appRoot(env),'Updates','Downloads')));check(stagedFiles.length===0,'Owned download staging is cleaned after the update');
  // Close the automation page before stopping the native host, then launch the
  // same shortcut again to prove its actual post-upgrade launch behavior.
- await page.goto('about:blank');await stopApp(env);
- await fsp.rm(path.join(appRoot(env),'Runtime','application-url.txt'),{force:true});
+ const geometryPath=path.join(appRoot(env),'Settings','window.json');
+ nativeWindowGeometry(nativeBrowserProfile(env,newURL),true);
+ const expectedBounds={Left:87,Top:63,Right:987,Bottom:663};
+ await until(async()=>{const g=JSON.parse(await fsp.readFile(geometryPath,'utf8'));return !g.maximized&&JSON.stringify(g.normal_bounds)===JSON.stringify(expectedBounds)});
+ check(true,'Updated native window automatically saves its moved position and resized bounds');
+ await page.goto('about:blank');
+ await fetch(new URL('/api/shutdown'+new URL(newURL).search,newURL),{method:'POST'});
+ await until(async()=>!fs.existsSync(path.join(appRoot(env),'Runtime','application-url.txt')));
  spawn('powershell.exe',['-NoProfile','-NonInteractive','-Command','Start-Process -FilePath '+psQuote(shortcut)],{env,stdio:'ignore'});
- const shortcutURL=await urlFor(env);await page.goto(shortcutURL);check((await state(shortcutURL)).appVersion===expected,'Existing desktop shortcut launches the updated executable');await page.goto('about:blank');await stopApp(env);
+ const shortcutURL=await urlFor(env);await page.goto(shortcutURL);check((await state(shortcutURL)).appVersion===expected,'Existing desktop shortcut launches the updated executable');
+ await until(async()=>{const g=nativeWindowGeometry(nativeBrowserProfile(env,shortcutURL));return g&&g.ShowCmd===1&&Object.keys(expectedBounds).every(k=>g[k]===expectedBounds[k])});
+ check(true,'Real native window reopens from the stable shortcut at its saved size and position');
+ check((await fsp.readFile(saved.path)).equals(saved.bytes),'Window geometry persistence leaves inventory settings byte-identical');
+ await page.goto('about:blank');await stopApp(env);
  // A different owned health filename deliberately withholds the expected
  // healthy-start confirmation. No shipped headless-health bypass is used.
  const badEnv=envFor('rollback');const badSaved=await seedSettings(badEnv);const badDir=path.join(suiteRoot,'rollback-case');await fsp.mkdir(badDir,{recursive:true});

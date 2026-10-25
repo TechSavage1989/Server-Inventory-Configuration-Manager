@@ -25,7 +25,8 @@ Read this file and DEVELOPMENT_HANDOFF.md before making changes.
 8. Validate HTTPS/redirect hosts, exact repository and version paths, size, SHA-256, PE sections/entrypoint/architecture/subsystem, mapped application identity marker, and Windows version metadata before execution. The manifest hash is byte validation, not a publisher signature.
 9. The downloaded application is its own native helper. Stage on the target volume, retain exactly one previous rollback EXE, and require token/PID/path-matched health with a rendered UI and visible owned window. Never ship a headless healthy-start bypass.
 10. Launch the interface only in an app-owned guest browser profile with extensions and sync disabled. Never fall back to a personal profile or change user/system browser policies. Respect policies that block guest mode or require account sign-in. Discover and close the exact app-owned profile even when Edge hands off to another PID; never kill browsers by name. Quiesce UI requests before install/shutdown and show update-action errors inline.
-11. Keep credentials, tokens, private signing keys, and customer data out of source and artifacts. Do not add server setup, Codex CLI automation, unattended workers, payment setup, or API-account setup.
+11. Persist native window bounds/maximized state in Settings/window.json, separately from inventory settings and disposable guest profiles. Use GetWindowPlacement/SetWindowPlacement consistently, preserve the last non-minimized state, constrain restored bounds to available monitor work areas, and flush before closing the browser or starting the update helper. Keep per-thread DPI handling isolated from existing dialogs. The real-EXE window test must cover native close/reopen, maximize, minimized close, normal restore bounds, invalid state, off-screen recovery and unchanged inventory settings.
+12. Keep credentials, tokens, private signing keys, and customer data out of source and artifacts. Do not add server setup, Codex CLI automation, unattended workers, payment setup, or API-account setup.
 
 ## Build and validate
 
@@ -45,6 +46,6 @@ Use Go 1.20.14, Python 3, and Windows PowerShell for build validation. The updat
 - Validate source CI first, then change release/VERSION in a separate publication commit.
 - Use a new tag/version only. Never replace assets, releases, or tags that have already been published.
 - The workflow uploads all assets to a draft, publishes it, and verifies public downloads/feed.
-- Its separate Windows job runs the published previous executable (currently v3.2.3) through Download and Install and restart into the new release, then verifies native health, settings, shortcuts, scheduling, cleanup, and rollback.
+- Its separate Windows job runs the published previous executable (currently v3.2.4) through Download and Install and restart into the new release, then verifies native health, settings, shortcuts, scheduling, cleanup, and rollback.
 - Record exact tag/commit, asset hash, CI links/results, and testing limitations in DEVELOPMENT_HANDOFF.md and VALIDATION.md.
 - Do not call headless probes, helper-only tests, or cross-compilation a successful interactive Windows upgrade.
