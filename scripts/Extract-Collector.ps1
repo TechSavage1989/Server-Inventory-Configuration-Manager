@@ -13,7 +13,7 @@ if(-not $fn){throw 'Invoke-EmbeddedServerInventoryCollector was not found in the
 $body=$fn.Body.Extent.Text
 if($body.Length -lt 2 -or $body[0] -ne '{' -or $body[$body.Length-1] -ne '}'){throw 'Collector function body was malformed.'}
 $content=$body.Substring(1,$body.Length-2).Trim()
-$content=[regex]::Replace($content,"\$scriptVersion\s*=\s*'[^']+'",("`$scriptVersion = '"+$Version+"'"),1)
-if($content -notmatch "\$scriptVersion\s*=\s*'"+[regex]::Escape($Version)+"'"){throw 'Collector version replacement failed.'}
+$content=[regex]::Replace($content,'(?m)\$scriptVersion\s*=\s*''[^'']+''',('$scriptVersion = '''+$Version+'''') ,1)
+if($content -notmatch ('(?m)\$scriptVersion\s*=\s*''' + [regex]::Escape($Version) + '''')){throw 'Collector version replacement failed.'}
 [IO.File]::WriteAllText([IO.Path]::GetFullPath($OutputPath),$content,(New-Object Text.UTF8Encoding($true)))
 Write-Host "Collector extracted to $OutputPath"
