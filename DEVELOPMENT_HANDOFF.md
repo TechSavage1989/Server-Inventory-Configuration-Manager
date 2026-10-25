@@ -7,11 +7,12 @@
 - Uploaded baseline EXE SHA-256: 572bf173917330a2fde4b4bf67df998f9f29522c8814d5350b50826caf38ee4e.
 - The original v3.0.10 source ZIP was located. Its bundled EXE matches the uploaded baseline exactly; no EXE decompilation was used.
 - Source provenance and original file hashes: baseline-verification.json.
-- Latest published executable: v3.2.4, source commit 437a809a00b8112132b9e4e54566e3cb2be33ab5.
+- Latest published executable: v3.2.5, source commit b02163944ff8189cd627a2f7af8963238d797f71.
+- Earlier v3.2.4 remains unchanged at commit 437a809a00b8112132b9e4e54566e3cb2be33ab5.
 - Earlier v3.2.3 remains unchanged at commit 6ee8048539ae429d05f7938e06c2baabdd34fb92.
 - Earlier v3.2.2 remains unchanged at commit ab7fbb783ce4032f951bb717d745f4471ae4d889.
 - Earlier v3.2.1 remains unchanged at commit 54d627d736f11335c8cf6ce4c89649f1c6351289.
-- User confirmation still applies to the v3.0.10 functional baseline. v3.2.4 has hosted Windows validation, not a claim of user field confirmation.
+- User confirmation still applies to the v3.0.10 functional baseline. The user reports v3.2.4 improved the browser behavior. v3.2.5 has hosted Windows validation, without a claim of full user field confirmation.
 - Repository is public: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager.
 
 ## Historical PS1 release and feed
@@ -48,6 +49,7 @@ Inventory/report collection continues to use Windows' built-in PowerShell, prese
 All updater data is under %LOCALAPPDATA%/Server Inventory Configuration Manager:
 
 - Settings/settings.json
+- Settings/window.json for native window placement and maximized state
 - Logs/Updates.log
 - Updates/Cache/update-cache.json
 - Updates/Downloads and Updates/Ready
@@ -59,21 +61,20 @@ User-selected inventory reports remain in their selected output directory. Unkno
 
 ## Validation and release status
 
-- Current release: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.4.
-- Exact tag/commit: v3.2.4 / 437a809a00b8112132b9e4e54566e3cb2be33ab5.
-- Changes: app-owned guest browser sessions with account sync/extensions disabled; no personal-profile fallback; profile-scoped browser discovery/shutdown across launcher handoff; legacy-window closure by the downloaded helper; request quiescence and inline update errors.
-- Stable EXE: Server-Inventory-Configuration-Manager.exe, 6520320 bytes.
-- SHA-256: 6319f6ad5c2b15882110b4a34ba63f99812be879166de3a754b70e794c1c4ab2.
-- Windows source gates passed before publication: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40173525342, commit 36385ac478e1252844fd307e8663c304edc797c7.
-- Exact-release Windows CI passed: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40173688357.
-- Publication and public feed/assets passed: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40173688380.
-- Published v3.2.3-to-v3.2.4 upgrade final report: all 29 checks passed, zero unexpected or legacy shutdown dialogs; native old-profile exit, actual guest flags, settings, shortcuts, real two/five-minute waits, C: staging to D: target, cleanup, healthy start and forced rollback/relaunch verified. Structured evidence: release/3.2.4-verification.json.
-- The real native modal browser test passes without the launcher PID and preserves a second independent browser profile. Live legacy TCP listener ownership also passes.
-- All four renderer regression checks pass. Actual v3.2.3 HTML reproduces four status-0 alerts; the fixed interface produces zero unexpected dialogs, cancels in-flight requests, stops shutdown polling/focus requests, and resumes controls/polling after install rejection.
-- Independent public download, checksum/manifest agreement, PE identity/version metadata, clean embedded Git revision, guest/isolation flags, and actual conditional HTTP 304 passed.
-- Earlier v3.2.3 release ID, asset IDs, sizes and digests were compared before/after publication and are unchanged. All older tags/assets, including historical v3.1.0 PS1, are preserved. GitHub repository-level immutable locking remains disabled; the workflow refuses overwrites.
+- Current release: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.5.
+- Exact tag/commit: v3.2.5 / b02163944ff8189cd627a2f7af8963238d797f71.
+- Change: remembers normal window bounds and maximized state independently of disposable guest profiles and inventory settings. Flushes before shutdown/update-helper start, preserves the last non-minimized state and recovers unusable saved positions into an available monitor work area.
+- Stable EXE: Server-Inventory-Configuration-Manager.exe, 6536192 bytes.
+- SHA-256: bbd06ab0f9dadad77c0e3ed4bacf30f1482dc8ae4766426a5f68f40ab84d34b5.
+- Prepublication Windows source CI passed: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40175008751, commit de7f4d73ff84f93d4cb72b164704bedb0f8ab18b.
+- Exact-release Windows CI passed: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40175227948.
+- Publication/public feed passed: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40175227858.
+- All 24 native Go tests and four renderer regression checks passed. The real built EXE completes native close/reopen, exact position/size restore, maximize, minimized close, maximized reopen, restoration of normal bounds, off-screen saved-position recovery and inventory-settings preservation. Tampered-file, locked-target cleanup and real helper healthy-start tests also pass.
+- Real published v3.2.4-to-v3.2.5 upgrade: corrected published validation passed, with 30 directly exercised checks and the two successful real timer waits retained from the earlier run against identical SHA-256 bytes. Actual native move/resize, saved state, shortcut relaunch at exact bounds, settings, old-window closure, native health, C: staging to D: target, cleanup and rollback passed with zero unexpected dialogs. Corrected run: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40176269574. Evidence: release/3.2.5-verification.json.
+- Independent public EXE/checksum/manifest agreement, PE identity/version metadata, clean embedded Git revision and actual conditional HTTP 304 passed.
+- Prior v3.2.4 release/asset IDs, sizes and digests are unchanged. Original collector/wrapper/icon provenance passes. Earlier releases including historical v3.1.0 PS1 are preserved. The release workflow refuses overwrites; repository-level immutable locking remains disabled.
 
-Testing limits: hosted Windows Server 2025/Edge automation; no reproduction of the user's Microsoft account, synced extensions or organization policies; no human desktop/UAC test; synthetic focus after a real wait; deterministic native network-failure/security cases; no live inventory/report workflows, Chrome guest fallback or legacy Windows validation. Original collector/wrapper/icon provenance still passes. SHA-256 validates bytes, not publisher signing.
+Testing limits: hosted Windows Server 2025/Edge automation, no physical monitor removal or mixed-DPI hardware, no human desktop/UAC interaction, no reproduction of the user's Microsoft account or organization browser policies, no Chrome guest or legacy Windows validation and no live inventory/report collection. Focus events follow real elapsed waits but use a synthetic DOM event. Native network/security cases use deterministic responses. SHA-256 validates bytes, not publisher signing.
 
 ## Approved scope
 
@@ -107,4 +108,10 @@ The 3.2.5 source adds a native observer bound to the verified app-owned window. 
 
 Native tests run the actual built EXE through native title-bar close/reopen, normal geometry restoration, maximize, minimized close, maximized reopen, restored normal bounds and an off-screen saved-position recovery. They verify existing inventory settings remain byte-identical. Additional validation rejects malformed/oversized/schema-invalid state and exercises negative monitor coordinates. The published-upgrade input advances to the immutable v3.2.4 EXE, SHA-256 6319f6ad5c2b15882110b4a34ba63f99812be879166de3a754b70e794c1c4ab2, and verifies actual native geometry after a stable-shortcut relaunch.
 
-Windows source CI passed at commit de7f4d73ff84f93d4cb72b164704bedb0f8ab18b: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40175008751. This includes the actual EXE close/reopen/maximize/minimized-close/off-screen tests, original source provenance, updater/security tests, renderer regressions and real helper healthy installation. Publication and the real published v3.2.4-to-v3.2.5 upgrade remain pending. Hosted Windows automation does not test physical monitor removal, mixed-DPI hardware, a human desktop/UAC interaction, the user's Microsoft account, Chrome guest mode or live inventory/report collection.
+Windows source CI passed at commit de7f4d73ff84f93d4cb72b164704bedb0f8ab18b: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40175008751. This includes the actual EXE close/reopen/maximize/minimized-close/off-screen tests, original source provenance, updater/security tests, renderer regressions and real helper healthy installation. The release is published. The corrected published upgrade and window relaunch validation passed; final evidence is recorded above. Hosted Windows automation does not test physical monitor removal, mixed-DPI hardware, a human desktop/UAC interaction, the user's Microsoft account, Chrome guest mode or live inventory/report collection.
+
+## Published-window validation harness correction
+
+The original publication job successfully built/published/verified 3.2.5. Its upgrade job passed the real v3.2.4 update and both actual two/five-minute waits, then failed the new resize test setup. PowerShell field writes to a nested RECT value did not update the parent placement structure. The old operation is retained as a negative control: LegacyNestedWriteValue is 0 after an attempted Left=87 write. The corrected test assigns a complete RECT, finds the exact visible owned native window through EnumWindows, and independently verifies the applied bounds before checking persistence. Request, actual native placement and saved JSON all match Left=87, Top=63, Right=987, Bottom=663.
+
+Corrected validation: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40176269574, harness commit d36360c94211fb4ad65a0c88c624c6c603e307b7. It reruns the actual published download/install/restart, window save/relaunch, settings, shortcuts, health, cleanup and forced rollback. Only the two already passed real timer waits are reused, guarded by the exact unchanged published SHA-256. The failed first report is preserved in release/3.2.5-first-upgrade-evidence.json; do not describe its entire workflow as successful. No release tag, EXE or asset was changed for the test repair. The standard release workflow still runs all real waits by default. The separate validation workflow can be dispatched with no evidence input to run all waits again.

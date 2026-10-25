@@ -1,8 +1,19 @@
 # Executable updater validation
 
-## Window persistence 3.2.5 source validation passed
+## Latest release: v3.2.5
 
-The new native EXE test covers actual move/resize persistence, title-bar close/reopen, maximized state, closing while minimized, restoration of normal bounds, off-screen saved-position recovery and unchanged inventory settings. Public upgrade tests use published v3.2.4 and also inspect native geometry after shortcut relaunch. Windows source CI passed at commit de7f4d73ff84f93d4cb72b164704bedb0f8ab18b: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40175008751. All native window tests, updater/security checks, renderer regressions and helper install/healthy start passed. Publication and the real published upgrade are pending. Physical multi-monitor/mixed-DPI hardware and human desktop/UAC interaction are not exercised by hosted automation.
+- Exact tag/commit: v3.2.5 / b02163944ff8189cd627a2f7af8963238d797f71.
+- EXE: 6536192 bytes; SHA-256 bbd06ab0f9dadad77c0e3ed4bacf30f1482dc8ae4766426a5f68f40ab84d34b5.
+- Prepublication source CI passed: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40175008751, commit de7f4d73ff84f93d4cb72b164704bedb0f8ab18b.
+- Exact-release Windows CI passed: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40175227948.
+- Publication/public feed passed: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40175227858.
+- All 24 native tests and four renderer checks passed, plus the actual native helper installation/health and locked-target/tampered-byte controls.
+- The native test launches the actual built application and visible guest window. It moves/resizes the window, closes it through the native title bar, reopens it and compares exact normal bounds. It verifies maximized state, closing while minimized, maximized reopening, normal restore bounds, off-screen saved-position recovery, unchanged inventory settings and temporary-file cleanup.
+- Invalid schema, malformed/unsafe bounds, negative monitor coordinates and work-area recovery cases passed.
+- Real published v3.2.4-to-v3.2.5 upgrade: corrected published validation passed, with 30 directly exercised checks and the two successful real timer waits retained from the earlier run against identical SHA-256 bytes. Actual native move/resize, saved state, shortcut relaunch at exact bounds, settings, old-window closure, native health, C: staging to D: target, cleanup and rollback passed with zero unexpected dialogs. Corrected run: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40176269574. Evidence: release/3.2.5-verification.json.
+- Independent public download/checksum/manifest, PE identity/version, clean embedded Git revision and actual HTTP 304 passed.
+
+Physical monitor removal, mixed-DPI hardware and human desktop/UAC interaction were not tested. Hosted automation uses Windows Server 2025 and Edge. The user's Microsoft account, browser policies, Chrome guest fallback, legacy Windows and live inventory/report workflows are not reproduced. Full evidence is recorded in release/3.2.5-verification.json.
 
 ## Historical release: v3.2.4
 
@@ -55,6 +66,7 @@ The tests build and execute the actual Windows GUI EXE on Windows Server 2025 wi
 
 | Requirement | Validation | Result |
 | --- | --- | --- |
+| Window placement persistence | Real EXE native close/reopen, exact bounds/maximized state, minimized close and off-screen saved position | Passed in native Windows tests |
 | Guest browser isolation | Actual new native process has guest, disabled extensions and disabled sync flags; no account/policy simulation | Passed on hosted Edge |
 | Old application browser closure | Real published upgrade verifies old profile processes exit; native modal test preserves another profile without launcher PID | Passed |
 | Update shutdown UI | Real previous HTML reproduces status-0 alerts; fixed renderer cancels requests and records zero unexpected dialogs | Passed |
@@ -97,3 +109,9 @@ The updater never automatically downloaded, installed, or restarted during these
 - The original v3.0.10 executable has no updater and requires one manual download into the executable release line.
 - SHA-256 checks validate bytes against the HTTPS manifest; they do not establish publisher signing.
 - Published tags/assets were preserved, and the workflow refuses overwrites. GitHub's separate repository-level immutable-release lock is not enabled; its API immutable flag is false.
+
+## Published-window validation harness correction
+
+The original publication job successfully built/published/verified 3.2.5. Its upgrade job passed the real v3.2.4 update and both actual two/five-minute waits, then failed the new resize test setup. PowerShell field writes to a nested RECT value did not update the parent placement structure. The old operation is retained as a negative control: LegacyNestedWriteValue is 0 after an attempted Left=87 write. The corrected test assigns a complete RECT, finds the exact visible owned native window through EnumWindows, and independently verifies the applied bounds before checking persistence. Request, actual native placement and saved JSON all match Left=87, Top=63, Right=987, Bottom=663.
+
+Corrected validation: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40176269574, harness commit d36360c94211fb4ad65a0c88c624c6c603e307b7. It reruns the actual published download/install/restart, window save/relaunch, settings, shortcuts, health, cleanup and forced rollback. Only the two already passed real timer waits are reused, guarded by the exact unchanged published SHA-256. The failed first report is preserved in release/3.2.5-first-upgrade-evidence.json; do not describe its entire workflow as successful. No release tag, EXE or asset was changed for the test repair. The standard release workflow still runs all real waits by default. The separate validation workflow can be dispatched with no evidence input to run all waits again.

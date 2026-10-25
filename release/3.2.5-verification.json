@@ -1,0 +1,370 @@
+{
+  "version": "3.2.5",
+  "tag": "v3.2.5",
+  "release_commit": "b02163944ff8189cd627a2f7af8963238d797f71",
+  "release_id": 423240000,
+  "release_url": "https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.5",
+  "release_assets": [
+    {
+      "id": 674464584,
+      "name": "go-test-results.txt",
+      "size": 8176,
+      "digest": "sha256:291732ed10d759f223fc85ade2e2d7169e5dbd7b1d408f42e7fc78629c7b29dd"
+    },
+    {
+      "id": 674464588,
+      "name": "Server-Inventory-Configuration-Manager.exe",
+      "size": 6536192,
+      "digest": "sha256:bbd06ab0f9dadad77c0e3ed4bacf30f1482dc8ae4766426a5f68f40ab84d34b5"
+    },
+    {
+      "id": 674464587,
+      "name": "Server-Inventory-Configuration-Manager.exe.sha256.txt",
+      "size": 110,
+      "digest": "sha256:20ce99074024e4fff23c5d6ad9406578338795dbace2fea9252399bc7fff3de1"
+    },
+    {
+      "id": 674464586,
+      "name": "update-manifest.json",
+      "size": 1201,
+      "digest": "sha256:ac3fb35d6fbcf4151dd4f76a0937a2e06d4245d5ea017b015c86655912830ca2"
+    }
+  ],
+  "source_ci": {
+    "id": 40175008751,
+    "commit": "de7f4d73ff84f93d4cb72b164704bedb0f8ab18b",
+    "conclusion": "success",
+    "url": "https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40175008751"
+  },
+  "exact_release_ci": {
+    "id": 40175227948,
+    "commit": "b02163944ff8189cd627a2f7af8963238d797f71",
+    "conclusion": "success",
+    "url": "https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40175227948"
+  },
+  "publication": {
+    "id": 40175227858,
+    "job": 121114339248,
+    "url": "https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40175227858"
+  },
+  "previous_release_unchanged": true,
+  "repository_immutable_release_flag": false,
+  "native_tests": {
+    "top_level_passed": 24,
+    "real_executable_window_persistence": "passed",
+    "cases": [
+      "Automatic position/size save",
+      "Native title-bar close and reopen",
+      "Exact normal bounds restored",
+      "Maximized state retained",
+      "Minimized close preserves last usable state",
+      "Reopens maximized after minimized close",
+      "Normal restore bounds preserved",
+      "Off-screen saved position recovered",
+      "Inventory settings byte-identical",
+      "Temporary file cleanup"
+    ]
+  },
+  "renderer_checks_passed": 4,
+  "binary_validation": {
+    "pe_identity_version_metadata": "passed",
+    "embedded_git_revision": "b02163944ff8189cd627a2f7af8963238d797f71",
+    "embedded_git_modified": false
+  },
+  "limitations": [
+    "Hosted Windows Server 2025 and Edge automation, without human desktop/UAC interaction.",
+    "Physical monitor removal and mixed-DPI hardware were not exercised. Off-screen recovery uses a deliberately invalid saved position; monitor cases also use deterministic bounds.",
+    "The user Microsoft account, organization browser policies, Chrome guest mode and legacy Windows were not reproduced.",
+    "Live inventory/report collection was not performed; original collector/wrapper/icon provenance passes.",
+    "Focus is a synthetic DOM event after a real wait. Native offline/HTTP/rate-limit/cache/security cases use deterministic responses.",
+    "SHA-256 validates bytes, not publisher signing. Repository-level immutable locking remains disabled; workflow overwrite guards remain."
+  ],
+  "corrected_validation": {
+    "run": 40176269574,
+    "commit": "d36360c94211fb4ad65a0c88c624c6c603e307b7",
+    "url": "https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40176269574",
+    "conclusion": "success",
+    "artifact_id": 12592286179
+  },
+  "initial_upgrade_failure": {
+    "run": 40175227858,
+    "publication_job": "success",
+    "upgrade_job": "failure",
+    "cause": "The PowerShell test mutated nested RECT value-type fields without assigning the complete RECT. The negative control returns LegacyNestedWriteValue=0; the corrected request/independent native probe and saved-file bounds all match.",
+    "evidence": "release/3.2.5-first-upgrade-evidence.json"
+  },
+  "harness_ci": {
+    "run": 40176269580,
+    "commit": "d36360c94211fb4ad65a0c88c624c6c603e307b7",
+    "url": "https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40176269580",
+    "conclusion": "success"
+  },
+  "public_download": {
+    "version": "3.2.5",
+    "sha256": "bbd06ab0f9dadad77c0e3ed4bacf30f1482dc8ae4766426a5f68f40ab84d34b5",
+    "size": 6536192,
+    "feed_status": 200,
+    "etag_present": true,
+    "conditional_status": 304
+  },
+  "published_upgrade": {
+    "expected": "3.2.5",
+    "previous": "3.2.4",
+    "started": "2026-10-25T08:21:31.544Z",
+    "checks": [
+      {
+        "name": "Public updater feed selects the expected new release",
+        "result": "passed",
+        "time": "2026-10-25T08:21:31.787Z"
+      },
+      {
+        "name": "Previous executable matches the published v3.2.4 checksum",
+        "result": "passed",
+        "time": "2026-10-25T08:21:31.907Z"
+      },
+      {
+        "name": "Published new executable matches its manifest checksum",
+        "result": "passed",
+        "time": "2026-10-25T08:21:32.027Z"
+      },
+      {
+        "name": "Previous executable starts through the desktop shortcut",
+        "result": "passed",
+        "time": "2026-10-25T08:21:32.994Z"
+      },
+      {
+        "name": "Previous application automatically detects the newly published release",
+        "result": "passed",
+        "time": "2026-10-25T08:21:39.133Z"
+      },
+      {
+        "name": "No automatic download occurs before Download is clicked",
+        "result": "passed",
+        "time": "2026-10-25T08:21:39.157Z"
+      },
+      {
+        "name": "Download through the application completes and stages verified release bytes",
+        "result": "passed",
+        "time": "2026-10-25T08:21:40.068Z"
+      },
+      {
+        "name": "Previous native application browser session is observed before installation",
+        "result": "passed",
+        "time": "2026-10-25T08:21:41.672Z"
+      },
+      {
+        "name": "All browser processes for the old application profile close during the real upgrade",
+        "result": "passed",
+        "time": "2026-10-25T08:21:44.795Z"
+      },
+      {
+        "name": "No unexpected dialog is silently accepted during the upgrade",
+        "result": "passed",
+        "time": "2026-10-25T08:21:44.795Z"
+      },
+      {
+        "name": "Actual new native browser uses guest mode with extensions and sync disabled",
+        "result": "passed",
+        "time": "2026-10-25T08:21:45.720Z"
+      },
+      {
+        "name": "Native helper installs and restarts the new version",
+        "result": "passed",
+        "time": "2026-10-25T08:21:45.724Z"
+      },
+      {
+        "name": "New application confirms a rendered interface and a visible owned native window",
+        "result": "passed",
+        "time": "2026-10-25T08:21:45.724Z"
+      },
+      {
+        "name": "User settings remain byte-identical after the real upgrade",
+        "result": "passed",
+        "time": "2026-10-25T08:21:48.019Z"
+      },
+      {
+        "name": "Exactly the previous published executable is retained for rollback",
+        "result": "passed",
+        "time": "2026-10-25T08:21:48.029Z"
+      },
+      {
+        "name": "Only one rollback executable generation is retained",
+        "result": "passed",
+        "time": "2026-10-25T08:21:48.030Z"
+      },
+      {
+        "name": "Desktop shortcut target remains the same stable executable path",
+        "result": "passed",
+        "time": "2026-10-25T08:21:48.347Z"
+      },
+      {
+        "name": "Installed target bytes match the new public release across staging volumes",
+        "result": "passed",
+        "time": "2026-10-25T08:21:48.354Z"
+      },
+      {
+        "name": "Manual update check succeeds on the new executable",
+        "result": "passed",
+        "time": "2026-10-25T08:21:48.685Z"
+      },
+      {
+        "name": "Short manual-check cooldown prevents another request",
+        "result": "passed",
+        "time": "2026-10-25T08:21:49.309Z"
+      },
+      {
+        "name": "Two-minute focus check already passed for these exact published bytes in the recorded earlier run",
+        "result": "passed",
+        "time": "2026-10-25T08:21:49.309Z"
+      },
+      {
+        "name": "Five-minute native scheduler already passed for these exact published bytes in the recorded earlier run",
+        "result": "passed",
+        "time": "2026-10-25T08:21:49.310Z"
+      },
+      {
+        "name": "Owned download staging is cleaned after the update",
+        "result": "passed",
+        "time": "2026-10-25T08:21:49.369Z"
+      },
+      {
+        "name": "Updated native window automatically saves its moved position and resized bounds",
+        "result": "passed",
+        "time": "2026-10-25T08:21:51.617Z"
+      },
+      {
+        "name": "Existing desktop shortcut launches the updated executable",
+        "result": "passed",
+        "time": "2026-10-25T08:21:53.751Z"
+      },
+      {
+        "name": "Real native window reopens from the stable shortcut at its saved size and position",
+        "result": "passed",
+        "time": "2026-10-25T08:21:57.116Z"
+      },
+      {
+        "name": "Window geometry persistence leaves inventory settings byte-identical",
+        "result": "passed",
+        "time": "2026-10-25T08:21:57.117Z"
+      },
+      {
+        "name": "Missing healthy-start confirmation triggers the actual native rollback path",
+        "result": "passed",
+        "time": "2026-10-25T08:22:43.208Z"
+      },
+      {
+        "name": "Rollback restores the previous executable bytes at a legacy versioned filename",
+        "result": "passed",
+        "time": "2026-10-25T08:22:43.219Z"
+      },
+      {
+        "name": "Rollback relaunches the previous application",
+        "result": "passed",
+        "time": "2026-10-25T08:22:43.480Z"
+      },
+      {
+        "name": "Rollback preserves user settings",
+        "result": "passed",
+        "time": "2026-10-25T08:22:43.481Z"
+      },
+      {
+        "name": "Fixed application produces no unexpected modal dialogs throughout the test",
+        "result": "passed",
+        "time": "2026-10-25T08:22:43.587Z"
+      }
+    ],
+    "limitations": [
+      "UAC consent transitions were not exercised.",
+      "Playwright drives the application page alongside its visible native Edge window; physical desktop interaction was not performed.",
+      "Offline, HTTP failure, rate limiting, ETag and malicious-file cases use deterministic native Go tests.",
+      "Legacy Windows Server versions and every server-role collector were not exercised."
+    ],
+    "legacyShutdownDialogs": [],
+    "volumes": {
+      "target": "D:\\",
+      "staging": "C:\\"
+    },
+    "reusedTimerEvidence": {
+      "run": "https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40175227858",
+      "sha256": "bbd06ab0f9dadad77c0e3ed4bacf30f1482dc8ae4766426a5f68f40ab84d34b5",
+      "checks": [
+        "Application focus binding checks again after two minutes",
+        "Native automatic checks continue after five active minutes"
+      ]
+    },
+    "nativeWindowMoveRequest": {
+      "Bottom": 663,
+      "RequestSent": true,
+      "LegacyNestedWriteValue": 0,
+      "Handle": 328036,
+      "Top": 63,
+      "ShowCmd": 1,
+      "Left": 87,
+      "Right": 987
+    },
+    "nativeWindowAfterMove": {
+      "Bottom": 663,
+      "RequestSent": false,
+      "LegacyNestedWriteValue": 0,
+      "Handle": 328036,
+      "Top": 63,
+      "ShowCmd": 1,
+      "Left": 87,
+      "Right": 987
+    },
+    "savedWindowGeometry": {
+      "schema_version": 1,
+      "normal_bounds": {
+        "Left": 87,
+        "Top": 63,
+        "Right": 987,
+        "Bottom": 663
+      },
+      "maximized": false
+    },
+    "status": "passed",
+    "unexpectedDialogs": [],
+    "completed": "2026-10-25T08:22:44.557Z"
+  },
+  "renderer_regression": {
+    "checks": [
+      {
+        "name": "Published v3.2.3 negative control reproduces the status-0 popup after shutdown",
+        "result": "passed"
+      },
+      {
+        "name": "Fixed page stops polling, aborts in-flight XHRs, and ignores focus/visibility after install acceptance",
+        "result": "passed"
+      },
+      {
+        "name": "Failed manual update action is shown inline with zero modal alerts",
+        "result": "passed"
+      },
+      {
+        "name": "Rejected installation restores the controls and active state polling without modal errors",
+        "result": "passed"
+      }
+    ],
+    "status": "passed",
+    "negativeControlDialogs": [
+      {
+        "type": "alert",
+        "message": "Request failed with status 0."
+      },
+      {
+        "type": "alert",
+        "message": "Request failed with status 0."
+      },
+      {
+        "type": "alert",
+        "message": "Request failed with status 0."
+      },
+      {
+        "type": "alert",
+        "message": "Request failed with status 0."
+      }
+    ]
+  },
+  "direct_checks_in_corrected_run": 30,
+  "real_timer_checks_reused_for_identical_sha256": 2
+}
