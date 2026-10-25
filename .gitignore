@@ -1,5 +1,8 @@
-dist/
-*.user
-*.log
-.DS_Store
-Thumbs.db
+/build/
+/dist/
+Export-ServerInventory.ps1
+app-icon.png
+favicon.ico
+server_inventory.ico
+*.exe
+*.sha256.txt

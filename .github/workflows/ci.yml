@@ -2,50 +2,56 @@ name: CI
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   pull_request:
-  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
-  validate:
+  windows:
     runs-on: windows-latest
-    timeout-minutes: 15
-
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
-
-      - name: Parse every PowerShell file
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.20.14'
+          cache: false
+      - name: Resolve source version
+        id: version
         shell: powershell
         run: |
-          $failures = @()
-
-          Get-ChildItem -Path . -Recurse -Filter *.ps1 -File | ForEach-Object {
-            $tokens = $null
-            $errors = $null
-
-            [System.Management.Automation.Language.Parser]::ParseFile(
-              $_.FullName,
-              [ref]$tokens,
-              [ref]$errors
-            ) | Out-Null
-
-            if ($errors -and $errors.Count -gt 0) {
-              foreach ($errorItem in $errors) {
-                $failures += ('{0}:{1}:{2} {3}' -f $_.FullName,$errorItem.Extent.StartLineNumber,$errorItem.Extent.StartColumnNumber,$errorItem.Message)
-              }
-            }
-          }
-
-          if ($failures.Count -gt 0) {
-            $failures | ForEach-Object { Write-Error $_ }
-            throw 'PowerShell parser validation failed.'
-          }
-
-      - name: Validate application source contract
+          $main=Get-Content -LiteralPath .\main.go -Raw
+          $version=[regex]::Match($main,'appVersion\s*=\s*"(?<v>\d+\.\d+\.\d+)"').Groups['v'].Value
+          if([string]::IsNullOrWhiteSpace($version)){throw 'Unable to parse appVersion from main.go.'}
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+      - name: Generate embedded assets
+        shell: powershell
+        run: |
+          python .\scripts\generate_assets.py --output-root .
+          .\scripts\Extract-Collector.ps1 -Version '${{ steps.version.outputs.version }}'
+      - name: Validate source contracts
         shell: powershell
         run: .\scripts\Test-Source.ps1
-
-      - name: Dry-run release assets
+      - name: Run Go tests
         shell: powershell
-        run: .\scripts\Build-ReleaseManifest.ps1 -OutputDirectory .\dist-ci
+        run: go test ./...
+      - name: Vet Go source
+        shell: powershell
+        run: go vet ./...
+      - name: Build portable Windows executable
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Path .\build -Force | Out-Null
+          go build -trimpath -ldflags "-s -w -H=windowsgui" -o .\build\Server-Inventory-Configuration-Manager.raw.exe .
+          python .\scripts\embed_icon.py --input .\build\Server-Inventory-Configuration-Manager.raw.exe --output .\build\Server-Inventory-Configuration-Manager.exe --icon .\server_inventory.ico
+      - name: Validate executable
+        shell: powershell
+        run: .\scripts\Test-Binary.ps1 -ExecutablePath .\build\Server-Inventory-Configuration-Manager.exe -ExpectedVersion '${{ steps.version.outputs.version }}'
+      - name: Test update helper install path
+        shell: powershell
+        run: .\scripts\Test-UpdateInstall.ps1 -ExecutablePath .\build\Server-Inventory-Configuration-Manager.exe -ExpectedVersion '${{ steps.version.outputs.version }}'
+      - name: Dry-run release manifest
+        shell: powershell
+        run: .\scripts\Build-ReleaseManifest.ps1 -ExecutablePath .\build\Server-Inventory-Configuration-Manager.exe -ExpectedVersion '${{ steps.version.outputs.version }}' -OutputDirectory .\dist

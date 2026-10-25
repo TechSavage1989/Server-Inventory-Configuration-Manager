@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Server Inventory Configuration Manager</title>
+<link rel="icon" type="image/x-icon" href="/favicon.ico?v=320">
+<link rel="icon" type="image/png" sizes="256x256" href="/app-icon.png?v=320">
+<link rel="apple-touch-icon" sizes="256x256" href="/app-icon.png?v=320">
+<style>
+* { box-sizing: border-box; }
+html, body { min-height: 100%; }
+body { margin: 0; background: #eef2f7; color: #172033; font-family: "Segoe UI", Arial, sans-serif; font-size: 14px; line-height: 1.45; }
+button, input { font: inherit; }
+button { cursor: pointer; }
+.hidden { display: none !important; }
+.shell { min-height: 100vh; }
+.topbar { height: 72px; background: #111a2e; color: #fff; border-bottom: 1px solid #273552; box-shadow: 0 2px 10px rgba(15,23,42,.18); }
+.topbar-inner { max-width: 1580px; height: 72px; margin: 0 auto; padding: 0 24px; display: flex; align-items: center; justify-content: space-between; }
+.brand { display: flex; align-items: center; min-width: 0; }
+.brand-mark { width: 42px; height: 42px; margin-right: 13px; border-radius: 11px; background: #2d6cdf; display: flex; align-items: center; justify-content: center; box-shadow: inset 0 0 0 1px rgba(255,255,255,.12), 0 6px 16px rgba(18,87,197,.28); }
+.brand-mark svg { width: 26px; height: 26px; fill: none; stroke: #fff; stroke-width: 1.8; }
+.brand-title { font-size: 18px; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.brand-subtitle { color: #aebbd2; font-size: 12px; margin-top: 2px; }
+.top-badges { display: flex; align-items: center; }
+.badge { display: inline-flex; align-items: center; min-height: 28px; margin-left: 8px; padding: 5px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.07); color: #dce6f5; }
+.badge-dot { width: 7px; height: 7px; border-radius: 50%; margin-right: 7px; background: #42c989; }
+.page { max-width: 1580px; margin: 0 auto; padding: 22px 24px 30px; }
+.hero { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }
+.hero h1 { margin: 0 0 5px; font-size: 22px; color: #17243a; }
+.hero p { margin: 0; color: #68778c; max-width: 830px; }
+.version-block { color: #7a8798; text-align: right; font-size: 11px; line-height: 1.6; white-space: nowrap; }
+.app-tabs { display: flex; align-items: end; gap: 5px; margin-bottom: 14px; border-bottom: 1px solid #cfd8e4; }
+.tab-button { min-width: 132px; height: 42px; border: 1px solid transparent; border-bottom: 0; border-radius: 9px 9px 0 0; background: transparent; color: #59687c; font-weight: 650; padding: 0 16px; position: relative; top: 1px; }
+.tab-button:hover { color: #243249; background: #f5f7fa; }
+.tab-button.active { background: #fff; color: #1f4f9d; border-color: #cfd8e4; }
+.tab-badge { display: inline-block; min-width: 18px; margin-left: 7px; padding: 1px 6px; border-radius: 999px; background: #e8edf4; color: #66758a; font-size: 10px; }
+.tab-button.active .tab-badge { background: #e8f0fe; color: #245eae; }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+.card { background: #fff; border: 1px solid #d6dee8; border-radius: 10px; box-shadow: 0 2px 7px rgba(30,48,72,.05); margin-bottom: 14px; overflow: hidden; }
+.card-header { padding: 14px 18px; border-bottom: 1px solid #e3e8ef; display: flex; align-items: center; justify-content: space-between; background: #fbfcfe; }
+.card-title { font-size: 15px; font-weight: 650; color: #1b2942; }
+.card-subtitle { color: #718096; font-size: 12px; margin-top: 3px; }
+.card-body { padding: 19px; }
+.setup-layout { display: flex; align-items: flex-start; max-width: 1220px; margin: 0 auto; }
+.sidebar { flex: 0 0 245px; width: 245px; margin-right: 15px; }
+.main { flex: 1 1 auto; min-width: 0; }
+.server-panel { padding: 17px; }
+.server-name { font-size: 16px; font-weight: 700; color: #1d2a43; margin-bottom: 3px; word-break: break-word; }
+.server-label { color: #7a8798; font-size: 12px; margin-bottom: 14px; }
+.info-row { display: flex; justify-content: space-between; padding: 8px 0; border-top: 1px solid #edf1f6; font-size: 12px; }
+.info-row span:first-child { color: #748095; }
+.info-row span:last-child { color: #29364a; font-weight: 600; text-align: right; max-width: 145px; word-break: break-word; }
+.workflow { padding: 9px 0; }
+.workflow-step { display: flex; padding: 12px 15px; align-items: flex-start; }
+.workflow-num { width: 25px; height: 25px; flex: 0 0 25px; border-radius: 50%; border: 1px solid #cfd8e5; color: #637086; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; margin-right: 10px; background: #fff; }
+.workflow-step.active .workflow-num { background: #2d6cdf; border-color: #2d6cdf; color: #fff; }
+.workflow-step.done .workflow-num { background: #e8f7ef; border-color: #a9ddbf; color: #1d8b53; }
+.workflow-name { font-size: 13px; font-weight: 650; color: #2a374c; margin-top: 2px; }
+.workflow-desc { color: #8590a1; font-size: 11px; margin-top: 2px; }
+.field-label { display: block; color: #334156; font-size: 12px; font-weight: 650; margin-bottom: 7px; }
+.path-row { display: flex; width: 100%; }
+.path-input { min-width: 0; flex: 1 1 auto; height: 42px; border: 1px solid #cbd5e1; border-radius: 8px 0 0 8px; padding: 0 12px; background: #fff; color: #1e293b; outline: none; }
+.path-input:focus { border-color: #2d6cdf; box-shadow: inset 0 0 0 1px #2d6cdf; }
+.browse-button { flex: 0 0 auto; height: 42px; border: 1px solid #2d6cdf; border-left: 0; border-radius: 0 8px 8px 0; background: #edf4ff; color: #1d55ad; font-weight: 650; padding: 0 17px; }
+.helper { color: #7b8798; font-size: 11px; margin-top: 7px; }
+.option-grid { margin: -6px; font-size: 0; }
+.option-card { display: inline-block; vertical-align: top; width: 50%; padding: 6px; font-size: 14px; }
+.option-inner { min-height: 108px; border: 1px solid #dce3ec; border-radius: 9px; padding: 14px 14px 12px; background: #fff; transition: border-color .15s ease, background .15s ease; }
+.option-inner.enabled { border-color: #9dbcea; background: #f7faff; }
+.option-head { display: flex; align-items: center; justify-content: space-between; }
+.option-title { font-size: 13px; font-weight: 650; color: #243249; padding-right: 10px; }
+.option-desc { color: #748095; font-size: 11px; line-height: 1.45; margin-top: 8px; }
+.toggle { position: relative; display: inline-block; width: 38px; height: 22px; flex: 0 0 38px; }
+.toggle input { opacity: 0; width: 0; height: 0; }
+.slider { position: absolute; cursor: pointer; inset: 0; background: #b7c1cf; border-radius: 22px; transition: .18s; }
+.slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background: #fff; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,.25); transition: .18s; }
+.toggle input:checked + .slider { background: #2d6cdf; }
+.toggle input:checked + .slider:before { transform: translateX(16px); }
+.event-days { display: flex; align-items: center; margin-top: 8px; color: #657287; font-size: 11px; }
+.event-days input { width: 65px; height: 28px; margin: 0 6px; border: 1px solid #cbd5e1; border-radius: 6px; padding: 0 6px; }
+.warning-box { margin-top: 12px; padding: 11px 12px; border: 1px solid #f0cf8a; border-radius: 8px; background: #fff9ea; color: #74551f; font-size: 11px; }
+.action-bar { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-top: 18px; padding-top: 18px; border-top: 1px solid #e7ecf2; }
+.scope-note { color: #798699; font-size: 11px; max-width: 590px; }
+.primary-button, .secondary-button { border-radius: 8px; font-weight: 650; }
+.primary-button { min-width: 190px; height: 44px; border: 0; background: #2d6cdf; color: #fff; box-shadow: 0 5px 12px rgba(45,108,223,.22); padding: 0 18px; }
+.primary-button:hover { background: #245fbf; }
+.primary-button:disabled { background: #a6b3c6; box-shadow: none; cursor: default; }
+.secondary-button { min-height: 38px; border: 1px solid #cbd5e1; background: #fff; color: #334155; padding: 0 14px; }
+.secondary-button:hover:not(:disabled) { background: #f4f7fa; }
+.secondary-button:disabled { opacity: .5; cursor: default; }
+.danger-button { color: #a33b3b; border-color: #e3b7b7; background: #fffafa; }
+.collection-wrap { max-width: 1220px; margin: 0 auto; }
+.status-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.status-left { display: flex; align-items: center; min-width: 0; }
+.status-indicator { width: 11px; height: 11px; border-radius: 50%; background: #98a5b7; margin-right: 9px; box-shadow: 0 0 0 4px rgba(152,165,183,.15); }
+.status-indicator.running { background: #2d6cdf; box-shadow: 0 0 0 4px rgba(45,108,223,.15); }
+.status-indicator.success { background: #27a365; box-shadow: 0 0 0 4px rgba(39,163,101,.15); }
+.status-indicator.failed { background: #c84b4b; box-shadow: 0 0 0 4px rgba(200,75,75,.15); }
+.status-title { font-weight: 700; color: #243249; }
+.status-message { color: #718096; font-size: 11px; margin-top: 2px; }
+.elapsed { color: #5f6d80; font-size: 12px; font-variant-numeric: tabular-nums; }
+.progress-track { width: 100%; height: 10px; background: #e7ecf3; border-radius: 999px; overflow: hidden; }
+.progress-fill { width: 0; height: 100%; background: #2d6cdf; border-radius: 999px; transition: width .35s ease; }
+.progress-fill.success { background: #27a365; }
+.progress-fill.failed { background: #c84b4b; }
+.current-step { margin-top: 13px; padding: 10px 12px; background: #f3f6fa; border-radius: 7px; color: #46546a; font-size: 12px; }
+.metric-row { display: flex; margin: 15px -6px 0; }
+.metric { flex: 1 1 0; margin: 0 6px; border: 1px solid #e0e6ee; border-radius: 8px; padding: 10px 11px; background: #fafbfd; }
+.metric-label { color: #7b8798; font-size: 10px; text-transform: uppercase; letter-spacing: .45px; }
+.metric-value { color: #26344a; font-size: 17px; font-weight: 700; margin-top: 3px; }
+.log-toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 9px; }
+.log-title { font-size: 12px; font-weight: 650; color: #344258; }
+.log-view { min-height: 410px; height: auto; overflow: visible; border-radius: 8px; border: 1px solid #202a3b; background: #111827; color: #d2d9e5; padding: 12px 13px; font-family: Consolas, "Courier New", monospace; font-size: 11px; line-height: 1.55; white-space: pre-wrap; word-break: break-word; }
+.log-line-warn { color: #f1cf77; }
+.log-line-error { color: #ff9a9a; }
+.log-line-good { color: #89d8ad; }
+.collection-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 13px; }
+.report-tab-wrap { min-width: 0; }
+.report-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 14px; border: 1px solid #d6dee8; border-radius: 10px 10px 0 0; background: #fff; }
+.report-ident { flex: 1 1 340px; min-width: 240px; }
+.report-name { font-weight: 700; color: #22324a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.report-path { color: #7b8798; font-size: 11px; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.report-actions { display: flex; flex-wrap: wrap; gap: 7px; }
+.viewer-search { display: flex; align-items: center; gap: 6px; width: 100%; padding-top: 10px; margin-top: 2px; border-top: 1px solid #e5eaf0; }
+.viewer-search input { min-width: 210px; flex: 1 1 340px; height: 36px; border: 1px solid #cbd5e1; border-radius: 7px; padding: 0 10px; outline: none; }
+.viewer-search input:focus { border-color: #2d6cdf; box-shadow: 0 0 0 2px rgba(45,108,223,.12); }
+.search-status { min-width: 175px; color: #69788d; font-size: 11px; text-align: right; }
+.report-view-shell { position: relative; border: 1px solid #d6dee8; border-top: 0; border-radius: 0 0 10px 10px; background: #dfe5ed; min-height: 680px; overflow: visible; }
+.report-frame { display: block; width: 100%; height: 680px; min-height: 680px; border: 0; background: #fff; overflow: hidden; }
+.report-empty { min-height: 680px; display: flex; align-items: center; justify-content: center; padding: 40px; text-align: center; color: #6f7d90; background: #f7f9fc; }
+.report-empty-inner { max-width: 560px; }
+.report-empty-title { color: #2c3a50; font-size: 18px; font-weight: 700; margin-bottom: 7px; }
+.report-empty p { margin: 0 0 16px; }
+.report-empty-actions { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
+.viewer-note { margin-top: 9px; color: #7b8798; font-size: 11px; }
+.footer { margin-top: 18px; color: #8490a2; font-size: 11px; text-align: center; }
+.locked { opacity: .64; pointer-events: none; }
+@media (max-width: 920px) {
+  .setup-layout { display: block; }
+  .sidebar { width: auto; margin-right: 0; }
+  .sidebar .card:nth-child(2) { display: none; }
+  .option-card { width: 100%; }
+  .viewer-search { align-items: stretch; flex-wrap: wrap; }
+  .search-status { width: 100%; text-align: left; }
+}
+@media (max-width: 620px) {
+  .top-badges { display: none; }
+  .page { padding-left: 12px; padding-right: 12px; }
+  .topbar-inner { padding-left: 14px; padding-right: 14px; }
+  .hero { display: block; }
+  .version-block { text-align: left; margin-top: 8px; }
+  .app-tabs { overflow-x: auto; }
+  .tab-button { min-width: 110px; }
+  .action-bar { display: block; }
+  .primary-button { width: 100%; margin-top: 13px; }
+  .metric-row { display: block; margin: 10px 0 0; }
+  .metric { margin: 7px 0; }
+  .report-frame, .report-empty { min-height: 620px; height: 720px; }
+}
+
+.scope-heading,.scope-panel-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;flex-wrap:wrap}.scope-buttons{display:flex;gap:8px;flex-wrap:wrap}.preset-button{min-height:38px}.scope-panel{margin-top:18px;border:1px solid var(--border);border-radius:14px;padding:16px;background:rgba(255,255,255,.025)}.scope-title{font-weight:700;font-size:15px;margin-bottom:4px}.scope-count{font-size:12px;color:var(--muted);font-weight:700;white-space:nowrap}.category-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin-top:14px}.category-grid.compact{grid-template-columns:repeat(3,minmax(0,1fr))}.category-check{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--border);border-radius:10px;padding:10px 11px;background:var(--panel);cursor:pointer;min-width:0}.category-check:has(input:checked){border-color:var(--accent);background:var(--accent-soft)}.category-check input{margin-top:3px;flex:0 0 auto}.category-check span{min-width:0}.category-check strong{display:block;font-size:13px;line-height:1.25}.category-check small{display:block;color:var(--muted);font-size:11px;line-height:1.35;margin-top:3px}.category-setting{margin-top:13px}.export-panel{border-style:dashed}.sensitive-inline{margin-top:14px}.sensitive-choice{border-color:rgba(235,180,70,.35)}@media(max-width:1100px){.category-grid,.category-grid.compact{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:720px){.category-grid,.category-grid.compact{grid-template-columns:1fr}}
+
+
+/* v3.2.0 updater banner. */
+.update-banner { flex: 0 0 auto; margin: 10px 0 0; border: 1px solid #d7dee7; border-radius: 12px; background: #fff; padding: 11px 14px; display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 14px; align-items: center; }
+.update-banner.available { background: #eff6ff; border-color: #93c5fd; }
+.update-banner.warning { background: #fffaeb; border-color: #fec84b; }
+.update-banner.error { background: #fef3f2; border-color: #fda29b; }
+.update-copy { min-width: 0; }
+.update-title { font-weight: 700; font-size: 13px; color: #172033; }
+.update-status { color: #667085; font-size: 12px; margin-top: 2px; }
+.update-notes { margin: 5px 0 0 18px; padding: 0; color: #475467; font-size: 12px; }
+.update-notes li { margin: 2px 0; }
+.update-actions { display: flex; gap: 7px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+.update-actions button { min-height: 34px; }
+.update-progress { grid-column: 1 / -1; height: 4px; background: #dbe3ed; border-radius: 999px; overflow: hidden; display: none; }
+.update-progress.visible { display: block; }
+.update-progress-fill { height: 100%; width: 0%; background: #2d6cdf; transition: width .18s ease; }
+@media(max-width:900px){.update-banner{grid-template-columns:1fr}.update-actions{justify-content:flex-start}}
+
+/* v3.0.5 fixed desktop-console layout. The application shell itself never scrolls. */
+html, body { height: 100%; min-height: 0; overflow: hidden; }
+body { height: 100vh; }
+.shell { height: 100%; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+.topbar { flex: 0 0 72px; }
+.page { width: 100%; flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow: hidden; padding-bottom: 12px; }
+.hero { flex: 0 0 auto; }
+.app-tabs { flex: 0 0 auto; overflow-y: hidden; }
+.tab-panel { min-height: 0; flex: 1 1 auto; overflow: hidden; }
+.tab-panel.active { display: flex; flex-direction: column; min-height: 0; }
+.footer { flex: 0 0 auto; margin-top: 9px; }
+
+/* Setup: fixed left information rail, independently scrolling configuration, fixed Start button. */
+.setup-layout { width: 100%; max-width: 1220px; height: 100%; min-height: 0; display: flex; align-items: stretch; overflow: hidden; }
+.sidebar { height: 100%; min-height: 0; overflow-y: auto; overflow-x: hidden; scrollbar-gutter: stable; }
+.main { height: 100%; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+.main > .card { height: 100%; min-height: 0; margin-bottom: 0; display: flex; flex-direction: column; overflow: hidden; }
+.main > .card > .card-header { flex: 0 0 auto; }
+#configBody { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; scrollbar-gutter: stable; }
+.setup-action-bar { flex: 0 0 auto; margin: 0; padding: 12px 18px; background: #fbfcfe; border-top: 1px solid #e3e8ef; }
+.setup-action-bar .primary-button { flex: 0 0 auto; }
+
+/* Collection: status and controls remain visible; only the execution log scrolls. */
+.collection-wrap { width: 100%; max-width: 1220px; height: 100%; min-height: 0; overflow: hidden; }
+.collection-wrap > .card { height: 100%; min-height: 0; margin-bottom: 0; display: flex; flex-direction: column; overflow: hidden; }
+.collection-wrap > .card > .card-header { flex: 0 0 auto; }
+.collection-wrap > .card > .card-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+.status-header, .progress-track, .current-step, .metric-row, .log-toolbar, .collection-actions { flex: 0 0 auto; }
+.log-view { flex: 1 1 auto; min-height: 120px; height: auto; overflow-y: auto; overflow-x: auto; scrollbar-gutter: stable; }
+.collection-actions { margin-top: 10px; padding-top: 10px; border-top: 1px solid #e5eaf0; background: #fff; }
+
+/* Report Viewer: controls stay fixed. The embedded report owns its navigation/content scroll panes. */
+.report-tab-wrap { width: 100%; height: 100%; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+.report-toolbar { flex: 0 0 auto; }
+.report-view-shell { flex: 1 1 auto; min-height: 0; overflow: hidden; border-radius: 0 0 10px 10px; }
+.report-frame { width: 100%; height: 100%; min-height: 0; overflow: hidden; pointer-events: auto; }
+.report-empty { width: 100%; height: 100%; min-height: 0; overflow-y: auto; }
+.report-toolbar.collapsed { min-height: 46px; padding: 6px 10px; flex-wrap: nowrap; }
+.report-toolbar.collapsed .report-path, .report-toolbar.collapsed .viewer-search { display: none; }
+.report-toolbar.collapsed .report-ident { flex: 1 1 auto; min-width: 0; }
+.report-toolbar.collapsed .report-actions { flex: 0 0 auto; }
+.report-toolbar.collapsed .report-actions > button:not(#collapseReportHeaderButton) { display: none; }
+.report-toolbar.collapsed #collapseReportHeaderButton { min-height: 34px; }
+
+/* v3.0.8: let the workspace, especially Report Viewer, use the entire browser window. */
+.page { max-width: none; width: 100%; }
+#tabReport { width: 100%; min-width: 0; }
+.report-tab-wrap { width: 100%; max-width: none; min-width: 0; }
+.report-view-shell { width: 100%; max-width: none; min-width: 0; }
+.report-frame { width: 100%; max-width: none; min-width: 0; }
+@media (min-width: 1600px) {
+  .page { padding-left: 18px; padding-right: 18px; }
+}
+
+@media (max-width: 920px) {
+  .setup-layout { display: flex; }
+  .sidebar { flex-basis: 210px; width: 210px; margin-right: 10px; }
+  .sidebar .card:nth-child(2) { display: block; }
+}
+@media (max-width: 720px) {
+  .sidebar { flex-basis: 185px; width: 185px; }
+  .setup-action-bar { display: flex; }
+  .setup-action-bar .primary-button { width: auto; margin-top: 0; min-width: 150px; }
+}
+
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="topbar"><div class="topbar-inner">
+    <div class="brand"><div class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="3.5" width="16" height="6" rx="1.5"></rect><rect x="4" y="14.5" width="16" height="6" rx="1.5"></rect><line x1="7" y1="6.5" x2="7.1" y2="6.5"></line><line x1="7" y1="17.5" x2="7.1" y2="17.5"></line><path d="M12 9.5v5"></path></svg></div><div><div class="brand-title">Server Inventory Configuration Manager</div><div class="brand-subtitle">Configuration capture, documentation, and recovery assistance</div></div></div>
+    <div class="top-badges"><div class="badge"><span class="badge-dot"></span>Local interface</div><div class="badge">Administrator</div></div>
+  </div></div>
+
+  <div class="page">
+    <div class="hero"><div><h1>Inventory, review, and retain server configuration</h1><p>Collect a broad server inventory across Windows Server generations, monitor collection independently, and review current or previous consolidated reports without leaving the application.</p></div><div class="version-block">Interface <strong>v__APP_VERSION__</strong><br>Collector <strong>v__COLLECTOR_VERSION__</strong></div></div>
+
+    <div class="update-banner" id="updateBanner">
+      <div class="update-copy">
+        <div class="update-title" id="updateTitle">Update status</div>
+        <div class="update-status" id="updateStatus">Installed v__APP_VERSION__. Update checks begin after startup.</div>
+        <ul class="update-notes hidden" id="updateNotes"></ul>
+      </div>
+      <div class="update-actions">
+        <button class="secondary-button" id="updateCheckButton" type="button">Check for updates</button>
+        <button class="secondary-button hidden" id="updateReadMoreButton" type="button">Read more</button>
+        <button class="secondary-button hidden" id="updateDownloadButton" type="button">Download</button>
+        <button class="primary-button hidden" id="updateInstallButton" type="button">Install and restart</button>
+      </div>
+      <div class="update-progress" id="updateProgress"><div class="update-progress-fill" id="updateProgressFill"></div></div>
+    </div>
+
+    <div class="app-tabs" role="tablist" aria-label="Application sections">
+      <button class="tab-button active" id="tabButtonSetup" type="button" data-tab="setup">Setup</button>
+      <button class="tab-button" id="tabButtonCollection" type="button" data-tab="collection">Collection <span class="tab-badge" id="collectionTabBadge">Ready</span></button>
+      <button class="tab-button" id="tabButtonReport" type="button" data-tab="report">Report Viewer <span class="tab-badge" id="reportTabBadge">None</span></button>
+    </div>
+
+    <section class="tab-panel active" id="tabSetup" role="tabpanel">
+      <div class="setup-layout">
+        <div class="sidebar">
+          <div class="card"><div class="server-panel"><div class="server-name" id="serverName">Loading server...</div><div class="server-label">Current inventory target</div><div class="info-row"><span>Elevation</span><span id="adminState">Checking</span></div><div class="info-row"><span>PowerShell</span><span id="powerShellState">Checking</span></div><div class="info-row"><span>Compatibility target</span><span>Server 2012+</span></div><div class="info-row"><span>Connection</span><span>127.0.0.1 only</span></div></div></div>
+          <div class="card"><div class="workflow"><div class="workflow-step active" id="flowSetup"><div class="workflow-num">1</div><div><div class="workflow-name">Setup</div><div class="workflow-desc">Choose destination and scope</div></div></div><div class="workflow-step" id="flowCollection"><div class="workflow-num">2</div><div><div class="workflow-name">Collection</div><div class="workflow-desc">Monitor progress and logs</div></div></div><div class="workflow-step" id="flowReport"><div class="workflow-num">3</div><div><div class="workflow-name">Report</div><div class="workflow-desc">Search and review results</div></div></div></div></div>
+        </div>
+        <div class="main">
+          <div class="card"><div class="card-header"><div><div class="card-title">Collection configuration</div><div class="card-subtitle">Choose exactly what to inventory and which supported configuration exports to capture. Maximum Capture is selected by default, with legacy-safe fallbacks when newer Windows modules are unavailable.</div></div></div><div class="card-body" id="configBody">
+            <label class="field-label" for="outputPath">Output parent directory</label>
+            <div class="path-row"><input class="path-input" id="outputPath" type="text" spellcheck="false"><button class="browse-button" id="browseButton" type="button">Browse</button></div>
+            <div class="helper">A timestamped inventory folder and ZIP archive will be created inside this directory.</div>
+            <div style="height:18px"></div>
+            <div class="scope-heading"><div><label class="field-label">Collection profile</label><div class="helper">Presets only change the selections below. You can customize any category after choosing a preset.</div></div><div class="scope-buttons"><button class="secondary-button preset-button" id="presetMaximum" type="button">Maximum capture</button><button class="secondary-button preset-button" id="presetInventory" type="button">Inventory only</button><button class="secondary-button preset-button" id="presetCore" type="button">Core server</button><button class="secondary-button preset-button" id="presetClear" type="button">Clear</button></div></div>
+
+            <div class="scope-panel">
+              <div class="scope-panel-head"><div><div class="scope-title">Inventory categories</div><div class="helper">Select the information to query. Unsupported roles or cmdlets are skipped or collected through legacy fallbacks where practical.</div></div><div class="scope-count" id="inventoryCount">0 selected</div></div>
+              <div class="category-grid" id="inventoryCategories">
+                <label class="category-check"><input type="checkbox" data-inventory value="Hardware" checked><span><strong>Hardware</strong><small>System, CPU, memory, firmware, devices, drivers</small></span></label>
+                <label class="category-check"><input type="checkbox" data-inventory value="OperatingSystem" checked><span><strong>Operating system</strong><small>Windows build, activation, environment, boot baseline</small></span></label>
+                <label class="category-check"><input type="checkbox" data-inventory value="Storage" checked><span><strong>Storage</strong><small>Disks, volumes, partitions, pools, iSCSI, MPIO</small></span></label>
+                <label class="category-check"><input type="checkbox" data-inventory value="Networking" checked><span><strong>Networking</strong><small>IP, DNS client, gateways, routes, listeners, adapters</small></span></label>
+                <label class="category-check"><input type="checkbox" data-inventory value="DNS" checked><span><strong>DNS Server</strong><small>Zones, records, forwarders, scavenging, settings</small></span></label>
+                <label class="category-check"><input type="checkbox" data-inventory value="DHCP" checked><span><strong>DHCP Server</strong><small>Scopes, leases, exclusions, reservations, policies, failover</small></span></label>
+                <label class="category-check"><input type="checkbox" data-inventory value="ActiveDirectory" checked><span><strong>Active Directory</strong><small>Topology, FSMO, users, groups, OUs, sites, replication</small></span></label>
+                <label class="category-check"><input type="checkbox" data-inventory value="GroupPolicy" checked><span><strong>Group Policy</strong><small>GPOs, links, permissions, inheritance, effective policy</small></span></label>
+                <label class="category-check"><input type="checkbox" data-inventory value="FileServices" checked><span><strong>File services</strong><small>FSRM, advanced storage, NFS, file-service configuration</small></span></label>
+                <label class="category-check"><input type="checkbox" data-inventory value="SharesPermissions" checked><span><strong>Shares and permissions</strong><small>SMB shares, share ACLs, NTFS roots and optional recursion</small></span></label>
+                <label class="category-check"><input type="checkbox" data-inventory value="PrintServices" checked><span><strong>Print services</strong><small>Queues, drivers, ports and print-server configuration</small></span></label>
+                <label class="category-check"><input type="checkbox" data-inventory value="IIS" checked><span><strong>IIS</strong><small>Sites, pools, bindings, applications, virtual directories</small></span></label>
+                <label class="category-check"><input type="checkbox" data-inventory value="SQLServer" checked><span><strong>SQL Server</strong><small>Instances, databases, files, jobs, backups, ports, metadata</small></span></label>
+                <label class="category-check"><input type="checkbox" data-inventory value="HyperV" checked><span><strong>Hyper-V</strong><small>Host, VMs, disks, switches, adapters and replication</small></span></label>
+                <label class="category-check"><input type="checkbox" data-inventory value="FailoverClustering" checked><span><strong>Failover Clustering</strong><small>Nodes, groups, resources, networks, CSVs, dependencies</small></span></label>
+                <label class="category-check"><input type="checkbox" data-inventory value="WindowsServerBackup" checked><span><strong>Windows Server Backup</strong><small>Policy, schedule, status and available backup versions</small></span></label>
+                <label class="category-check"><input type="checkbox" data-inventory value="Certificates" checked><span><strong>Certificates / AD CS</strong><small>Certificate metadata, stores and CA configuration without keys</small></span></label>
+                <label class="category-check"><input type="checkbox" data-inventory value="ScheduledTasks" checked><span><strong>Scheduled Tasks</strong><small>Tasks, principals, triggers, actions and state</small></span></label>
+                <label class="category-check"><input type="checkbox" data-inventory value="Services" checked><span><strong>Services</strong><small>Accounts, binaries, startup, dependencies and recovery details</small></span></label>
+                <label class="category-check"><input type="checkbox" data-inventory value="InstalledSoftware" checked><span><strong>Installed software / ODBC</strong><small>Applications, components, application folders and data sources</small></span></label>
+                <label class="category-check"><input type="checkbox" data-inventory value="WindowsFeaturesRoles" checked><span><strong>Windows Features / Roles</strong><small>Installed roles, features and management components</small></span></label>
+                <label class="category-check"><input type="checkbox" data-inventory value="Firewall" checked><span><strong>Firewall / IPsec</strong><small>Profiles, rules, filters and policy</small></span></label>
+                <label class="category-check"><input type="checkbox" data-inventory value="RRAS" checked><span><strong>RRAS / Routing</strong><small>Routing, VPN and RemoteAccess configuration when present</small></span></label>
+                <label class="category-check"><input type="checkbox" data-inventory value="NPS" checked><span><strong>NPS / RADIUS</strong><small>Policies, RADIUS clients and configuration summary</small></span></label>
+                <label class="category-check"><input type="checkbox" data-inventory value="BitLocker" checked><span><strong>BitLocker</strong><small>Volume encryption status without recovery keys</small></span></label>
+                <label class="category-check"><input type="checkbox" data-inventory value="SMB" checked><span><strong>SMB configuration</strong><small>Server/client configuration, shares and protocol settings</small></span></label>
+                <label class="category-check"><input type="checkbox" data-inventory value="DFS" checked><span><strong>DFS</strong><small>Namespaces, targets, replication groups and memberships</small></span></label>
+                <label class="category-check"><input type="checkbox" data-inventory value="WindowsUpdate" checked><span><strong>Windows Update / WSUS</strong><small>Hotfixes, packages, update configuration and WSUS metadata</small></span></label>
+                <label class="category-check"><input type="checkbox" data-inventory value="EventLogs" checked><span><strong>Event-log summaries</strong><small>Recent Critical, Error and Warning events</small></span></label>
+                <label class="category-check"><input type="checkbox" data-inventory value="LocalAccounts" checked><span><strong>Local users / groups</strong><small>Accounts, groups, memberships and account policy</small></span></label>
+                <label class="category-check"><input type="checkbox" data-inventory value="Power" checked><span><strong>Power / boot / recovery</strong><small>Power plans, pagefile, boot and Windows Recovery Environment</small></span></label>
+                <label class="category-check"><input type="checkbox" data-inventory value="TimeNTP" checked><span><strong>Time / NTP</strong><small>W32Time configuration, peers and status</small></span></label>
+                <label class="category-check"><input type="checkbox" data-inventory value="Security" checked><span><strong>Security configuration</strong><small>Local policy, audit, Defender, TLS, RDP and security metadata</small></span></label>
+                <label class="category-check"><input type="checkbox" data-inventory value="RemoteManagement" checked><span><strong>Remote management</strong><small>WinRM, PowerShell remoting and HTTP.sys configuration</small></span></label>
+              </div>
+              <div class="event-days category-setting">Event history window <input id="eventDays" type="number" min="1" max="365" value="30"> days</div>
+            </div>
+
+            <div class="scope-panel export-panel">
+              <div class="scope-panel-head"><div><div class="scope-title">Optional backup / configuration exports</div><div class="helper">These are separate from inventory. They create supported configuration exports or restoration references when the role is present. No restore operation runs automatically.</div></div><div class="scope-count" id="exportCount">0 selected</div></div>
+              <div class="category-grid compact" id="exportCategories">
+                <label class="category-check"><input type="checkbox" data-export value="DHCP" checked><span><strong>DHCP</strong><small>XML export and DHCP database backup</small></span></label>
+                <label class="category-check"><input type="checkbox" data-export value="DNS" checked><span><strong>DNS</strong><small>Zone-file exports where supported</small></span></label>
+                <label class="category-check"><input type="checkbox" data-export value="GroupPolicy" checked><span><strong>Group Policy</strong><small>Backup-GPO output and reports</small></span></label>
+                <label class="category-check"><input type="checkbox" data-export value="IIS" checked><span><strong>IIS</strong><small>AppCmd configuration backup</small></span></label>
+                <label class="category-check"><input type="checkbox" data-export value="Firewall" checked><span><strong>Firewall</strong><small>Importable Windows Firewall policy</small></span></label>
+                <label class="category-check"><input type="checkbox" data-export value="Certificates" checked><span><strong>Public certificates</strong><small>Exports public .CER files only; never private keys or PFX passwords</small></span></label>
+                <label class="category-check"><input type="checkbox" data-export value="ScheduledTasks" checked><span><strong>Scheduled Tasks</strong><small>Task definitions where supported</small></span></label>
+                <label class="category-check"><input type="checkbox" data-export value="SharesPermissions" checked><span><strong>Share / NTFS ACLs</strong><small>Recursive ICACLS permission export; can be slow</small></span></label>
+                <label class="category-check"><input type="checkbox" data-export value="PrintServices" checked><span><strong>Print services</strong><small>PrintBRM migration export</small></span></label>
+                <label class="category-check"><input type="checkbox" data-export value="RRAS" checked><span><strong>RRAS</strong><small>Routing reconstruction reference</small></span></label>
+                <label class="category-check"><input type="checkbox" data-export value="SQLServer" checked><span><strong>SQL configuration</strong><small>Registry/configuration metadata only, not databases</small></span></label>
+                <label class="category-check"><input type="checkbox" data-export value="Registry" checked><span><strong>Relevant registry exports</strong><small>Selected role and configuration registry branches</small></span></label>
+                <label class="category-check sensitive-choice"><input type="checkbox" data-export value="NPS"><span><strong>NPS full export</strong><small>Requires Sensitive exports below; may include RADIUS shared secrets</small></span></label>
+              </div>
+            </div>
+
+            <div class="option-card sensitive-inline"><div class="option-inner" id="cardSensitive"><div class="option-head"><div class="option-title">Allow sensitive exports</div><label class="toggle"><input id="includeSensitive" type="checkbox"><span class="slider"></span></label></div><div class="option-desc">Required for explicitly selected exports that can contain reusable secrets, such as a complete NPS configuration. Passwords, private certificate keys, DPAPI secrets and SQL credentials are never automatically collected.</div></div></div>
+            <div class="warning-box" id="sensitiveWarning">Sensitive exports are disabled. Normal inventory and safe configuration exports do not require this option.</div>
+          </div>
+          <div class="action-bar setup-action-bar"><div class="scope-note">Collection and export selections are recorded in the report. The application automatically switches to the Collection tab after starting.</div><button class="primary-button" id="startButton" type="button">Start collection</button></div>
+        </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="tab-panel" id="tabCollection" role="tabpanel">
+      <div class="collection-wrap"><div class="card"><div class="card-header"><div><div class="card-title">Collection progress</div><div class="card-subtitle">Live status from the embedded PowerShell collector. You can switch tabs without interrupting collection.</div></div></div><div class="card-body">
+        <div class="status-header"><div class="status-left"><div class="status-indicator" id="statusIndicator"></div><div><div class="status-title" id="statusTitle">Ready</div><div class="status-message" id="statusMessage">No collection is running.</div></div></div><div class="elapsed" id="elapsedTime">00:00:00</div></div>
+        <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+        <div class="current-step" id="currentStep">No active collector.</div>
+        <div class="metric-row"><div class="metric"><div class="metric-label">Estimated progress</div><div class="metric-value" id="progressValue">0%</div></div><div class="metric"><div class="metric-label">Sections processed</div><div class="metric-value" id="completedValue">0</div></div><div class="metric"><div class="metric-label">Warnings</div><div class="metric-value" id="warningValue">0</div></div><div class="metric"><div class="metric-label">Errors</div><div class="metric-value" id="errorValue">0</div></div></div>
+        <div style="height:17px"></div><div class="log-toolbar"><div class="log-title">Live execution log</div><button class="secondary-button" id="clearLogButton" type="button">Clear view</button></div><div class="log-view" id="logView"></div>
+        <div class="collection-actions"><button class="secondary-button danger-button hidden" id="cancelButton" type="button">Cancel collection</button><button class="secondary-button hidden" id="openDiagnosticsButton" type="button">Open diagnostics</button><button class="secondary-button hidden" id="newInventoryButton" type="button">New inventory</button><button class="secondary-button hidden" id="viewReportButton" type="button">View report</button></div>
+      </div></div></div>
+    </section>
+
+    <section class="tab-panel" id="tabReport" role="tabpanel">
+      <div class="report-tab-wrap">
+        <div class="report-toolbar" id="reportToolbar">
+          <div class="report-ident"><div class="report-name" id="loadedReportName">No report loaded</div><div class="report-path" id="loadedReportPath">Run an inventory or load a previous inventory package.</div></div>
+          <div class="report-actions"><button class="secondary-button" id="loadPreviousButton" type="button">Load previous report</button><button class="secondary-button" id="openHtmlButton" type="button" disabled>Open HTML externally</button><button class="secondary-button" id="openWordButton" type="button" disabled>Open Word</button><button class="secondary-button" id="openSummaryButton" type="button" disabled>Open summary</button><button class="secondary-button" id="openFolderButton" type="button" disabled>Open folder</button><button class="secondary-button" id="toggleViewerButton" type="button" disabled>Close report</button><button class="secondary-button" id="collapseReportHeaderButton" type="button" aria-expanded="true">Collapse controls</button></div>
+          <div class="viewer-search"><input id="viewerSearchInput" type="search" placeholder="Search the entire loaded report..." aria-label="Search loaded report"><button class="secondary-button" id="viewerSearchButton" type="button" disabled>Search</button><button class="secondary-button" id="viewerPrevButton" type="button" disabled>Previous</button><button class="secondary-button" id="viewerNextButton" type="button" disabled>Next</button><button class="secondary-button" id="viewerClearButton" type="button" disabled>Clear</button><div class="search-status" id="viewerSearchStatus">Load a report to search it.</div></div>
+        </div>
+        <div class="report-view-shell"><iframe class="report-frame hidden" id="reportFrame" title="Server inventory report viewer" scrolling="no"></iframe><div class="report-empty" id="reportEmpty"><div class="report-empty-inner"><div class="report-empty-title">No report is currently open</div><p id="reportEmptyText">Run a new inventory or load an earlier inventory package to review its consolidated HTML report inside the application.</p><div class="report-empty-actions"><button class="secondary-button" id="emptyLoadPreviousButton" type="button">Load previous report</button><button class="secondary-button hidden" id="reopenReportButton" type="button">Reopen loaded report</button></div><div class="viewer-note">Reports generated by this application provide section navigation inside the viewer. The search bar above searches across all sections, including previous reports.</div></div></div></div>
+      </div>
+    </section>
+
+    <div class="footer">All collection and report viewing remains local to this computer. No server inventory is uploaded by the application.</div>
+  </div>
+</div>
+<script>
+(function () {
+  var token = '__TOKEN__';
+  var lastLogIndex = 0;
+  var lastStatus = '';
+  var activeTab = 'setup';
+  var viewerOpen = false;
+  var loadedReportSerial = -1;
+  var latestState = null;
+  var viewerMatches = [];
+  var viewerMatchIndex = -1;
+  var reportHeaderCollapsed = false;
+  var latestUpdateState = null;
+
+  function byId(id) { return document.getElementById(id); }
+  function request(method, path, body, callback) {
+    var xhr = new XMLHttpRequest();
+    xhr.open(method, path, true);
+    xhr.setRequestHeader('X-App-Token', token);
+    if (body !== null && body !== undefined) { xhr.setRequestHeader('Content-Type', 'application/json'); }
+    xhr.onreadystatechange = function () {
+      if (xhr.readyState !== 4) { return; }
+      var data = null;
+      try { data = xhr.responseText ? JSON.parse(xhr.responseText) : {}; } catch (e) { data = {}; }
+      if (xhr.status >= 200 && xhr.status < 300) { callback(null, data || {}); }
+      else { callback((data && data.error) ? data.error : ('Request failed with status ' + xhr.status + '.'), data || {}); }
+    };
+    xhr.send(body !== null && body !== undefined ? JSON.stringify(body) : null);
+  }
+  function switchTab(name) {
+    activeTab = name;
+    var names = ['setup','collection','report'];
+    for (var i=0;i<names.length;i++) {
+      var n=names[i];
+      byId('tab'+n.charAt(0).toUpperCase()+n.slice(1)).className = 'tab-panel' + (n===name ? ' active' : '');
+      byId('tabButton'+n.charAt(0).toUpperCase()+n.slice(1)).className = 'tab-button' + (n===name ? ' active' : '');
+    }
+  }
+  function getCheckedValues(selector){ var nodes=document.querySelectorAll(selector+':checked'), out=[]; for(var i=0;i<nodes.length;i++){out.push(nodes[i].value);} return out; }
+  function setCheckedValues(selector, values){ var lookup={}; for(var i=0;i<values.length;i++){lookup[values[i]]=true;} var nodes=document.querySelectorAll(selector); for(var j=0;j<nodes.length;j++){nodes[j].checked=!!lookup[nodes[j].value];} syncCategoryState(); }
+  function syncCategoryState(){
+    var exportNodes=document.querySelectorAll('input[data-export]');
+    for(var ei=0;ei<exportNodes.length;ei++){
+      if(exportNodes[ei].checked){ var match=document.querySelector('input[data-inventory][value="'+exportNodes[ei].value+'"]'); if(match){match.checked=true;} }
+    }
+    var inv=getCheckedValues('input[data-inventory]'), exp=getCheckedValues('input[data-export]');
+    byId('inventoryCount').textContent=inv.length+' selected'; byId('exportCount').textContent=exp.length+' selected';
+    byId('cardSensitive').className='option-inner'+(byId('includeSensitive').checked?' enabled':'');
+    byId('sensitiveWarning').innerHTML=byId('includeSensitive').checked?'<strong>Sensitive exports allowed.</strong> Only explicitly selected sensitive export modules will use this permission. Protect the resulting package accordingly.':'Sensitive exports are disabled. Normal inventory and safe configuration exports do not require this option.';
+    var eventSelected=inv.indexOf('EventLogs')>=0; byId('eventDays').disabled=!eventSelected;
+  }
+  function setConfigDisabled(disabled){
+    var nodes=document.querySelectorAll('#configBody input,#configBody button'); for(var i=0;i<nodes.length;i++){ if(nodes[i].id!=='eventDays'||!disabled){nodes[i].disabled=disabled;} }
+    byId('startButton').disabled=!!disabled;
+    byId('configBody').className=disabled?'card-body locked':'card-body'; if(!disabled){syncCategoryState();}
+  }
+  function applyPreset(name){
+    var invNodes=document.querySelectorAll('input[data-inventory]'), expNodes=document.querySelectorAll('input[data-export]');
+    var core=['Hardware','OperatingSystem','Storage','Networking','WindowsFeaturesRoles','Services','InstalledSoftware','WindowsUpdate','LocalAccounts','Security','TimeNTP','WindowsServerBackup'];
+    for(var i=0;i<invNodes.length;i++){invNodes[i].checked=(name==='maximum'||name==='inventory'||(name==='core'&&core.indexOf(invNodes[i].value)>=0));}
+    for(var j=0;j<expNodes.length;j++){expNodes[j].checked=(name==='maximum'&&expNodes[j].value!=='NPS');}
+    if(name==='clear'){for(var k=0;k<invNodes.length;k++){invNodes[k].checked=false;}for(var m=0;m<expNodes.length;m++){expNodes[m].checked=false;}}
+    byId('includeSensitive').checked=false; syncCategoryState();
+  }
+  function appendLogs(lines) {
+    if (!lines || !lines.length) { return; }
+    var view=byId('logView');
+    for(var i=0;i<lines.length;i++){
+      var div=document.createElement('div'); var text=lines[i].text || ''; div.textContent=text;
+      var upper=text.toUpperCase();
+      if(upper.indexOf('[WARN]')>=0){div.className='log-line-warn';}
+      else if(upper.indexOf('[ERROR]')>=0 || upper.indexOf('FAILED')>=0){div.className='log-line-error';}
+      else if(upper.indexOf('COMPLETED:')>=0 || upper.indexOf('SUCCESS')>=0){div.className='log-line-good';}
+      view.appendChild(div);
+    }
+    view.scrollTop=view.scrollHeight;
+  }
+  function formatElapsed(ms){ if(!ms||ms<0){return '00:00:00';} var total=Math.floor(ms/1000),h=Math.floor(total/3600),m=Math.floor((total%3600)/60),s=total%60; function pad(n){return n<10?'0'+n:String(n);} return pad(h)+':'+pad(m)+':'+pad(s); }
+  function updateWorkflow(state){
+    byId('flowSetup').className='workflow-step'+(state.running||state.status==='success'||state.status==='failed'||state.status==='canceled'?' done':' active');
+    byId('flowCollection').className='workflow-step'+(state.running?' active':(state.status==='success'||state.status==='failed'||state.status==='canceled'?' done':''));
+    byId('flowReport').className='workflow-step'+(state.status==='success'?' active':'');
+  }
+  function setReportHeaderCollapsed(collapsed){
+    reportHeaderCollapsed=!!collapsed;
+    var toolbar=byId('reportToolbar');
+    if(toolbar){toolbar.className='report-toolbar'+(reportHeaderCollapsed?' collapsed':'');}
+    var button=byId('collapseReportHeaderButton');
+    if(button){button.textContent=reportHeaderCollapsed?'Expand controls':'Collapse controls';button.setAttribute('aria-expanded',reportHeaderCollapsed?'false':'true');}
+  }
+  function enforceReportViewerScrollLayout(){
+    var frame=byId('reportFrame');
+    var doc=null;
+    try{doc=frame.contentDocument;}catch(e){return;}
+    if(!doc || !doc.head || !doc.body){return;}
+
+    var style=doc.getElementById('appViewerScrollLayout');
+    if(!style){
+      style=doc.createElement('style');
+      style.id='appViewerScrollLayout';
+      style.textContent='html,body{height:100% !important;min-height:0 !important;max-height:100% !important;overflow:hidden !important;}'+
+        'body{margin:0 !important;}'+
+        '.report-app{width:100% !important;max-width:none !important;margin:0 !important;height:100% !important;min-height:0 !important;max-height:100% !important;overflow:hidden !important;display:flex !important;flex-direction:column !important;}'+
+        '.cover{width:100% !important;max-width:none !important;flex:0 0 auto !important;}'+
+        '.report-layout{width:100% !important;max-width:none !important;flex:1 1 auto !important;height:auto !important;min-height:0 !important;max-height:none !important;overflow:hidden !important;display:grid !important;grid-template-columns:clamp(250px,16vw,300px) minmax(0,1fr) !important;grid-template-rows:minmax(0,1fr) !important;align-items:stretch !important;}'+
+        '.report-nav{position:static !important;height:auto !important;min-height:0 !important;max-height:none !important;overflow-y:scroll !important;overflow-x:hidden !important;overscroll-behavior:contain !important;scrollbar-gutter:stable !important;}'+
+        '.report-content,.report-main{width:100% !important;max-width:none !important;height:auto !important;min-height:0 !important;max-height:none !important;overflow-y:scroll !important;overflow-x:auto !important;overscroll-behavior:contain !important;scrollbar-gutter:stable !important;}'+'.report-section{width:100% !important;max-width:none !important;}'+
+        '@media(max-width:760px){.report-layout{grid-template-columns:235px minmax(0,1fr) !important;}}';
+      doc.head.appendChild(style);
+    }
+
+    var nav=doc.querySelector('.report-nav');
+    var content=doc.querySelector('.report-content')||doc.querySelector('.report-main');
+    if(nav){nav.setAttribute('tabindex','0');nav.setAttribute('aria-label','Report sections');}
+    if(content){content.setAttribute('tabindex','0');content.setAttribute('aria-label','Report content');}
+
+    // Force a layout pass after applying compatibility rules. This is particularly
+    // important for previous reports generated before independent viewer scrolling.
+    if(doc.documentElement){void doc.documentElement.offsetHeight;}
+  }
+  function reportFrameUrl(serial){ return '/report/current?token='+encodeURIComponent(token)+'&serial='+encodeURIComponent(String(serial))+'&t='+Date.now(); }
+  function setReportButtons(state){
+    var available=!!state.loadedReportAvailable;
+    byId('openHtmlButton').disabled=!available;
+    byId('openFolderButton').disabled=!available;
+    byId('openWordButton').disabled=!state.loadedReportDocxPath;
+    byId('openSummaryButton').disabled=!state.loadedReportSummaryPath;
+    byId('toggleViewerButton').disabled=!available;
+    byId('toggleViewerButton').textContent=viewerOpen?'Close report':'Reopen report';
+    byId('viewerSearchButton').disabled=!available||!viewerOpen;
+    byId('viewerClearButton').disabled=!available||!viewerOpen;
+  }
+  function clearViewerSearch(silent){
+    viewerMatches=[]; viewerMatchIndex=-1;
+    var doc=null; try{doc=byId('reportFrame').contentDocument;}catch(e){}
+    if(doc){
+      var marks=doc.querySelectorAll('mark.app-viewer-match');
+      for(var i=marks.length-1;i>=0;i--){ var mark=marks[i], parent=mark.parentNode; if(parent){ parent.replaceChild(doc.createTextNode(mark.textContent||''),mark); if(parent.normalize){parent.normalize();} } }
+    }
+    byId('viewerPrevButton').disabled=true; byId('viewerNextButton').disabled=true;
+    if(!silent){byId('viewerSearchInput').value='';}
+    byId('viewerSearchStatus').textContent = latestState && latestState.loadedReportAvailable ? 'Search the complete loaded report.' : 'Load a report to search it.';
+  }
+  function openViewer(forceReload){
+    if(!latestState || !latestState.loadedReportAvailable){ return; }
+    viewerOpen=true; clearViewerSearch(true);
+    byId('reportEmpty').className='report-empty hidden';
+    var frame=byId('reportFrame'); frame.className='report-frame';
+    if(forceReload || frame.getAttribute('data-serial')!==String(latestState.loadedReportSerial)){
+      frame.setAttribute('data-serial',String(latestState.loadedReportSerial)); frame.src=reportFrameUrl(latestState.loadedReportSerial);
+    }
+    setReportButtons(latestState);
+  }
+  function closeViewer(){
+    viewerOpen=false; clearViewerSearch(true); byId('reportFrame').className='report-frame hidden'; byId('reportEmpty').className='report-empty';
+    byId('reportEmptyText').textContent='The report is still loaded. Reopen it when you want to continue reviewing it.';
+    byId('reopenReportButton').className='secondary-button'; setReportButtons(latestState||{});
+  }
+  function refreshLoadedReport(state, autoOpen){
+    byId('reportTabBadge').textContent=state.loadedReportAvailable?'Ready':'None';
+    byId('loadedReportName').textContent=state.loadedReportAvailable?(state.loadedReportName||'Loaded inventory report'):'No report loaded';
+    byId('loadedReportPath').textContent=state.loadedReportAvailable?(state.loadedReportPath||''):'Run an inventory or load a previous inventory package.';
+    if(state.loadedReportAvailable && (loadedReportSerial!==state.loadedReportSerial)){
+      loadedReportSerial=state.loadedReportSerial; viewerOpen=true; byId('reopenReportButton').className='secondary-button hidden'; openViewer(true);
+    } else if(state.loadedReportAvailable && autoOpen && !viewerOpen){ openViewer(false); }
+    if(!state.loadedReportAvailable){ viewerOpen=false; byId('reportFrame').className='report-frame hidden'; byId('reportEmpty').className='report-empty'; byId('reopenReportButton').className='secondary-button hidden'; }
+    setReportButtons(state);
+  }
+  function revealViewerMatch(index){
+    if(!viewerMatches.length){return;} if(index<0){index=viewerMatches.length-1;} if(index>=viewerMatches.length){index=0;}
+    if(viewerMatchIndex>=0 && viewerMatches[viewerMatchIndex]){viewerMatches[viewerMatchIndex].className='app-viewer-match';}
+    viewerMatchIndex=index; var mark=viewerMatches[index]; mark.className='app-viewer-match app-viewer-current';
+    var doc=mark.ownerDocument; var section=null; var ancestor=mark;
+    if(mark.closest){section=mark.closest('.report-section');}
+    if(!section){while(ancestor){if((' '+(ancestor.className||'')+' ').indexOf(' report-section ')>=0){section=ancestor;break;}ancestor=ancestor.parentNode;}}
+    if(section && (' '+section.className+' ').indexOf(' active ')<0){ var nav=doc.querySelector('.section-nav-button[data-section="'+section.id+'"]'); if(nav&&nav.click){nav.click();} }
+    byId('viewerSearchStatus').textContent='Match '+(index+1)+' of '+viewerMatches.length+'.';
+    if(mark.scrollIntoView){try{mark.scrollIntoView(true);}catch(scrollError){}}
+  }
+  function viewerSearch(){
+    if(!viewerOpen){return;} clearViewerSearch(true); var q=(byId('viewerSearchInput').value||'').replace(/^\s+|\s+$/g,'');
+    if(!q){byId('viewerSearchStatus').textContent='Enter text to search the report.';return;}
+    var doc; try{doc=byId('reportFrame').contentDocument;}catch(e){}
+    if(!doc||!doc.body){byId('viewerSearchStatus').textContent='The report is still loading.';return;}
+    var style=doc.getElementById('appViewerSearchStyle'); if(!style){ style=doc.createElement('style'); style.id='appViewerSearchStyle'; style.textContent='mark.app-viewer-match{background:#fff0a6;color:inherit;padding:0 1px;border-radius:2px}mark.app-viewer-current{background:#f5c84b;outline:2px solid #b7791f}'; doc.head.appendChild(style); }
+    var roots=doc.querySelectorAll('.report-section'); if(!roots.length){roots=[doc.querySelector('.report-content')||doc.body];}
+    var ql=q.toLowerCase();
+    function markNode(node){ var text=node.nodeValue||'', lower=text.toLowerCase(), off=0, at=lower.indexOf(ql); if(at<0){return;} var frag=doc.createDocumentFragment(); while(at>=0){ if(at>off){frag.appendChild(doc.createTextNode(text.substring(off,at)));} var m=doc.createElement('mark'); m.className='app-viewer-match'; m.appendChild(doc.createTextNode(text.substr(at,q.length))); frag.appendChild(m); off=at+q.length; at=lower.indexOf(ql,off);} if(off<text.length){frag.appendChild(doc.createTextNode(text.substring(off)));} node.parentNode.replaceChild(frag,node); }
+    for(var r=0;r<roots.length;r++){ var walker=doc.createTreeWalker(roots[r],NodeFilter.SHOW_TEXT,{acceptNode:function(n){var p=n.parentNode;if(!p){return NodeFilter.FILTER_REJECT;}var tag=(p.nodeName||'').toLowerCase();if(tag==='script'||tag==='style'||tag==='mark'||tag==='button'){return NodeFilter.FILTER_REJECT;}return n.nodeValue&&n.nodeValue.toLowerCase().indexOf(ql)>=0?NodeFilter.FILTER_ACCEPT:NodeFilter.FILTER_REJECT;}},false); var nodes=[],cur; while((cur=walker.nextNode())){nodes.push(cur);} for(var j=0;j<nodes.length;j++){markNode(nodes[j]);} }
+    viewerMatches=Array.prototype.slice.call(doc.querySelectorAll('mark.app-viewer-match'));
+    if(!viewerMatches.length){byId('viewerSearchStatus').textContent='No matches for "'+q+'".';return;}
+    byId('viewerPrevButton').disabled=false; byId('viewerNextButton').disabled=false; revealViewerMatch(0);
+  }
+  function renderUpdate(update, running){
+    if(!update){return;}
+    latestUpdateState=update;
+    var banner=byId('updateBanner');
+    banner.className='update-banner'+(update.status==='available'||update.status==='ready'?' available':(update.status==='error'?' error':(update.status==='cooldown'?' warning':'')));
+    byId('updateTitle').textContent=update.title||'Update status';
+    byId('updateStatus').textContent=update.message||('Installed '+(update.installedVersion||''));
+    var notes=byId('updateNotes'); notes.innerHTML='';
+    var list=update.notes||[];
+    for(var i=0;i<list.length && i<3;i++){var li=document.createElement('li');li.textContent=list[i];notes.appendChild(li);}
+    notes.className=list.length?'update-notes':'update-notes hidden';
+    byId('updateCheckButton').disabled=!update.canCheck||!!update.checking||!!update.downloading;
+    byId('updateReadMoreButton').className=update.readMore&&update.releaseUrl?'secondary-button':'secondary-button hidden';
+    byId('updateDownloadButton').className=update.available?'secondary-button':'secondary-button hidden';
+    byId('updateDownloadButton').disabled=!update.canDownload||!!update.downloading;
+    byId('updateDownloadButton').textContent=update.downloading?'Downloading...':'Download';
+    byId('updateInstallButton').className=update.canInstall?'primary-button':'primary-button hidden';
+    byId('updateInstallButton').disabled=!update.canInstall||!!running;
+    var progress=byId('updateProgress'); progress.className=update.downloading?'update-progress visible':'update-progress';
+    byId('updateProgressFill').style.width=String(update.progress||0)+'%';
+  }
+  function renderState(state){
+    latestState=state;
+    renderUpdate(state.update,!!state.running);
+    if(!byId('outputPath').value){byId('outputPath').value=state.defaultOutputRoot||'';}
+    byId('serverName').textContent=state.computerName||'This server'; byId('adminState').textContent=state.isAdministrator?'Administrator':'Not elevated'; byId('powerShellState').textContent=state.powerShellVersion||'Available';
+    setConfigDisabled(!!state.running); updateWorkflow(state);
+    byId('statusTitle').textContent=state.phase||'Ready'; byId('statusMessage').textContent=state.message||''; byId('currentStep').textContent=state.currentStep||'No active collector.';
+    byId('progressValue').textContent=(state.progress||0)+'%'; byId('completedValue').textContent=String(state.completedSteps||0); byId('warningValue').textContent=String(state.warningCount||0); byId('errorValue').textContent=String(state.errorCount||0);
+    var fill=byId('progressFill'); fill.style.width=(state.progress||0)+'%'; fill.className='progress-fill'+(state.status==='success'?' success':(state.status==='failed'?' failed':''));
+    var indicator=byId('statusIndicator'); indicator.className='status-indicator'+(state.running?' running':(state.status==='success'?' success':(state.status==='failed'?' failed':'')));
+    var end=state.endedAtUnixMs||Date.now(); byId('elapsedTime').textContent=state.startedAtUnixMs?formatElapsed(end-state.startedAtUnixMs):'00:00:00';
+    byId('cancelButton').className=state.running?'secondary-button danger-button':'secondary-button danger-button hidden';
+    byId('openDiagnosticsButton').className=(state.status==='failed'||state.status==='canceled')?'secondary-button':'secondary-button hidden';
+    byId('newInventoryButton').className=(!state.running && state.status!=='idle')?'secondary-button':'secondary-button hidden';
+    byId('viewReportButton').className=state.loadedReportAvailable?'secondary-button':'secondary-button hidden';
+    byId('collectionTabBadge').textContent=state.running?'Running':(state.status==='success'?'Complete':(state.status==='failed'?'Failed':(state.status==='canceled'?'Canceled':'Ready')));
+    refreshLoadedReport(state,false);
+    if(lastStatus!==state.status){
+      if(state.status==='running'){switchTab('collection');}
+      else if(state.status==='success'){switchTab('report'); refreshLoadedReport(state,true);}
+      else if(state.status==='failed'||state.status==='canceled'){switchTab('collection');}
+      lastStatus=state.status;
+    }
+  }
+  function poll(){ request('GET','/api/state?since='+encodeURIComponent(String(lastLogIndex)),null,function(err,data){ if(!err){appendLogs(data.logs||[]); lastLogIndex=data.nextLogIndex||lastLogIndex; renderState(data);} setTimeout(poll,900); }); }
+  function browseFolder(){ request('POST','/api/browse',{},function(err,data){if(err){window.alert(err);return;}if(data.path){byId('outputPath').value=data.path;}}); }
+  function startCollection(){
+    var days=parseInt(byId('eventDays').value,10); if(isNaN(days)||days<1||days>365){window.alert('Event history days must be between 1 and 365.');return;}
+    var inventoryCategories=getCheckedValues('input[data-inventory]'); var exportCategories=getCheckedValues('input[data-export]');
+    if(!inventoryCategories.length){window.alert('Select at least one inventory category.');return;}
+    var body={outputRoot:byId('outputPath').value,inventoryCategories:inventoryCategories,exportCategories:exportCategories,eventLogDays:days,includeSensitive:byId('includeSensitive').checked};
+    if(body.includeSensitive && !window.confirm('Sensitive role exports can contain reusable secrets. Continue only if the output location is appropriately protected.')){return;}
+    byId('logView').innerHTML=''; lastLogIndex=0; switchTab('collection'); request('POST','/api/start',body,function(err){if(err){window.alert(err);switchTab('setup');}});
+  }
+  function loadPrevious(){ request('POST','/api/browse-report',{},function(err,data){if(err){window.alert(err);return;}if(data.selected){switchTab('report'); request('GET','/api/state?since='+encodeURIComponent(String(lastLogIndex)),null,function(stateErr,state){if(!stateErr){appendLogs(state.logs||[]);lastLogIndex=state.nextLogIndex||lastLogIndex;renderState(state);refreshLoadedReport(state,true);}});}}); }
+  function openKind(kind){request('POST','/api/open',{kind:kind},function(err){if(err){window.alert(err);}});}
+  function resetInterface(){request('POST','/api/reset',{},function(err){if(err){window.alert(err);return;}byId('logView').innerHTML='';lastLogIndex=0;switchTab('setup');});}
+
+  function checkForUpdates(manual,reason){request('POST','/api/update/check',{manual:!!manual,reason:reason||''},function(err){if(err){window.alert(err);}});}
+  function downloadUpdate(){request('POST','/api/update/download',{},function(err){if(err){window.alert(err);}});}
+  function installUpdate(){
+    if(latestState&&latestState.running){window.alert('A collection is running. Finish or cancel it before installing an update.');return;}
+    var version=latestUpdateState&&latestUpdateState.latestVersion?latestUpdateState.latestVersion:'the downloaded update';
+    if(!window.confirm('Install '+version+' and restart? Save any work in this application first.')){return;}
+    request('POST','/api/update/install',{},function(err){if(err){window.alert(err);return;}byId('updateInstallButton').disabled=true;byId('updateStatus').textContent='Installing update and restarting...';});
+  }
+
+  var tabButtons=document.querySelectorAll('.tab-button'); for(var i=0;i<tabButtons.length;i++){tabButtons[i].addEventListener('click',function(){switchTab(this.getAttribute('data-tab'));});}
+  var categoryInputs=document.querySelectorAll('input[data-inventory],input[data-export],#includeSensitive'); for(var ci=0;ci<categoryInputs.length;ci++){categoryInputs[ci].addEventListener('change',syncCategoryState);}
+  byId('presetMaximum').addEventListener('click',function(){applyPreset('maximum');}); byId('presetInventory').addEventListener('click',function(){applyPreset('inventory');}); byId('presetCore').addEventListener('click',function(){applyPreset('core');}); byId('presetClear').addEventListener('click',function(){applyPreset('clear');});
+  byId('browseButton').addEventListener('click',browseFolder); byId('startButton').addEventListener('click',startCollection); byId('cancelButton').addEventListener('click',function(){request('POST','/api/cancel',{},function(err){if(err){window.alert(err);}});});
+  byId('clearLogButton').addEventListener('click',function(){byId('logView').innerHTML='';}); byId('openDiagnosticsButton').addEventListener('click',function(){openKind('diagnostics');}); byId('newInventoryButton').addEventListener('click',resetInterface); byId('viewReportButton').addEventListener('click',function(){switchTab('report');openViewer(false);});
+  byId('loadPreviousButton').addEventListener('click',loadPrevious); byId('emptyLoadPreviousButton').addEventListener('click',loadPrevious); byId('reopenReportButton').addEventListener('click',function(){openViewer(false);byId('reopenReportButton').className='secondary-button hidden';});
+  byId('openHtmlButton').addEventListener('click',function(){openKind('loadedhtml');}); byId('openWordButton').addEventListener('click',function(){openKind('loadeddocx');}); byId('openSummaryButton').addEventListener('click',function(){openKind('loadedsummary');}); byId('openFolderButton').addEventListener('click',function(){openKind('loadedfolder');});
+  byId('toggleViewerButton').addEventListener('click',function(){if(viewerOpen){closeViewer();}else{openViewer(false);}});
+  byId('collapseReportHeaderButton').addEventListener('click',function(){setReportHeaderCollapsed(!reportHeaderCollapsed);});
+  byId('viewerSearchButton').addEventListener('click',viewerSearch); byId('viewerPrevButton').addEventListener('click',function(){revealViewerMatch(viewerMatchIndex-1);}); byId('viewerNextButton').addEventListener('click',function(){revealViewerMatch(viewerMatchIndex+1);}); byId('viewerClearButton').addEventListener('click',function(){clearViewerSearch(false);});
+  byId('viewerSearchInput').addEventListener('keydown',function(e){if(e.key==='Enter'||e.keyCode===13){e.preventDefault();viewerSearch();}});
+  byId('updateCheckButton').addEventListener('click',function(){checkForUpdates(true,'manual');});
+  byId('updateReadMoreButton').addEventListener('click',function(){openKind('updaterelease');});
+  byId('updateDownloadButton').addEventListener('click',downloadUpdate);
+  byId('updateInstallButton').addEventListener('click',installUpdate);
+  window.addEventListener('focus',function(){checkForUpdates(false,'focus');});
+  byId('reportFrame').addEventListener('load',function(){
+    enforceReportViewerScrollLayout();
+    window.setTimeout(enforceReportViewerScrollLayout,80);
+    window.setTimeout(enforceReportViewerScrollLayout,350);
+    clearViewerSearch(true);
+    if(latestState&&latestState.loadedReportAvailable){byId('viewerSearchStatus').textContent='Search the complete loaded report.';}
+  });
+  setReportHeaderCollapsed(false); syncCategoryState(); poll();
+}());
+</script>
+</body>
+</html>

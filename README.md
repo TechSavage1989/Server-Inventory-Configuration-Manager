@@ -1,31 +1,37 @@
 # Server Inventory Configuration Manager
 
-Server Inventory Configuration Manager is a portable Windows PowerShell/WPF application for broad server inventory, configuration capture, documentation, troubleshooting, migration planning, recovery assistance, and rebuild reference.
+Portable Windows desktop inventory and configuration-capture utility for Windows Server.
 
-## Run
+The application collects server hardware, operating system, storage, networking, roles, applications, services, security, policies, SQL metadata, Hyper-V, IIS, Active Directory, DHCP, DNS, file services, and other rebuild/migration/recovery information where available.
 
-Download Server-Inventory-Configuration-Manager.ps1 and use **Run with PowerShell**. The application requests administrator elevation when required.
+## Release format
 
-The release is intentionally a readable single PowerShell file rather than an EXE bootstrapper.
+The maintained application is a single portable Windows executable:
 
-## Output
+`Server-Inventory-Configuration-Manager.exe`
 
-Collections can produce Word, interactive HTML, text summary, raw supporting exports, optional role/configuration exports, ZIP packages, and SHA-256 checksums.
+Runtime settings, updater state, downloads, logs, health markers, and rollback files are stored below:
+
+`%LOCALAPPDATA%\Server Inventory Configuration Manager`
+
+## Build
+
+Requires Go 1.20.x for the broad Windows Server 2012+ compatibility target and Python 3 for icon-resource injection.
+
+```powershell
+python .\scripts\generate_assets.py --output-root .
+.\scripts\Extract-Collector.ps1 -Version 3.2.0
+go test ./...
+go vet ./...
+go build -trimpath -ldflags "-s -w -H=windowsgui" -o .\build\Server-Inventory-Configuration-Manager.raw.exe .
+python .\scripts\embed_icon.py --input .\build\Server-Inventory-Configuration-Manager.raw.exe --output .\build\Server-Inventory-Configuration-Manager.exe --icon .\server_inventory.ico
+.\scripts\Test-Binary.ps1 -ExecutablePath .\build\Server-Inventory-Configuration-Manager.exe -ExpectedVersion 3.2.0
+```
 
 ## Updates
 
-The application checks the public GitHub release feed after startup, every five minutes while running, and after focus returns when the previous check is old enough.
+The app checks the public GitHub Releases feed after startup, every five minutes while running, and after focus returns when the last check is at least two minutes old.
 
-Updates are never downloaded or installed automatically. An available release exposes explicit **Download** and **Install and restart** actions.
+Updates are never automatically downloaded, installed, or restarted. Downloads are validated against the release manifest, SHA-256, PE architecture/subsystem, application identity, and version before installation is offered.
 
-Updater state, logs, staging, and rollback data are stored under:
-
-%LOCALAPPDATA%\Server Inventory Configuration Manager
-
-## Development
-
-Read AGENTS.md first, then DEVELOPMENT_HANDOFF.md.
-
-~~~powershell
-powershell.exe -NoProfile -File .\scripts\Test-Source.ps1
-~~~
+A matching SHA-256 validates the downloaded bytes against the trusted release manifest. It is not proof of publisher signing.
