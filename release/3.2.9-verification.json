@@ -1,0 +1,729 @@
+{
+  "version": "3.2.9",
+  "functional_baseline": "Windows executable v3.0.10",
+  "release_commit": "96d30c340565e6ea6e2ea68b70ff87b4f4d1894f",
+  "release_id": 423604457,
+  "release_url": "https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.9",
+  "assets": [
+    {
+      "id": 675877288,
+      "name": "go-test-results.txt",
+      "size": 13560,
+      "digest": "sha256:aed2aa0b8ef3e78b978587797d3f779a2310488f7da7818eea272ba5e7168a39"
+    },
+    {
+      "id": 675877262,
+      "name": "Report-Preview.png",
+      "size": 101139,
+      "digest": "sha256:8eab9e066dca7be579f7aab6bd86fa6cc9d6a2452cf885c432f406af8ab9d46d"
+    },
+    {
+      "id": 675877271,
+      "name": "Report-Preview.png.sha256.txt",
+      "size": 86,
+      "digest": "sha256:f270bdce0ba1177581e4383a9aa41b15f1a503b8ff77be56963f0faf20606962"
+    },
+    {
+      "id": 675877229,
+      "name": "Server-Inventory-Configuration-Manager.exe",
+      "size": 6568448,
+      "digest": "sha256:5483a308e0da37e5e9a518f12b3d344ecf12fb267c4419c50860149394fb53c3"
+    },
+    {
+      "id": 675877251,
+      "name": "Server-Inventory-Configuration-Manager.exe.sha256.txt",
+      "size": 110,
+      "digest": "sha256:f052af09d774689a81b3d63655e8cd8b5bc8f961a9190410fdda355f0b29949b"
+    },
+    {
+      "id": 675877226,
+      "name": "Server-Inventory-Configuration-Manager.svg",
+      "size": 1831,
+      "digest": "sha256:fc9211e88bb1f3d0bc34380c82bdd010456b57e59433650b85ae03cdaaf382cd"
+    },
+    {
+      "id": 675877238,
+      "name": "Server-Inventory-Configuration-Manager.svg.sha256.txt",
+      "size": 110,
+      "digest": "sha256:d3dbaca5c8a7184f9ef99757bed4ccd833285b18952981a1d4cd4b3dd31b3c99"
+    },
+    {
+      "id": 675877242,
+      "name": "update-manifest.json",
+      "size": 1122,
+      "digest": "sha256:b1d29994abe2348b82f4194ebbfa8050832ec0a99ba456066a0450d5d7a9e838"
+    }
+  ],
+  "source_ci": {
+    "id": 40224067507,
+    "commit": "071c28e94883235ca6174a87ce7f50e0bf856985",
+    "conclusion": "success",
+    "url": "https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40224067507",
+    "job": 121261614865
+  },
+  "exact_release_ci": {
+    "id": 40224435714,
+    "commit": "96d30c340565e6ea6e2ea68b70ff87b4f4d1894f",
+    "conclusion": "success",
+    "url": "https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40224435714"
+  },
+  "publication": {
+    "run": 40224435804,
+    "job": 121262697039,
+    "publish_conclusion": "success",
+    "url": "https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40224435804",
+    "conclusion": "success"
+  },
+  "release_validation_artifact": {
+    "id": 12610229927,
+    "name": "release-validation",
+    "size_in_bytes": 645151,
+    "url": "https://api.github.com/repos/TechSavage1989/Server-Inventory-Configuration-Manager/actions/artifacts/12610229927",
+    "archive_download_url": "https://api.github.com/repos/TechSavage1989/Server-Inventory-Configuration-Manager/actions/artifacts/12610229927/zip",
+    "expired": false,
+    "created_at": "2026-10-25T19:10:14Z",
+    "expires_at": "2027-01-23T19:06:29Z",
+    "updated_at": "2026-10-25T19:10:14Z",
+    "digest": "sha256:2aab6d65825082b4de3b7d1f559d70bb94fd2e4afe371ac4228e528534754bf5",
+    "workflow_run": {
+      "id": 40224435804,
+      "repository_id": 1432828386,
+      "head_repository_id": 1432828386,
+      "head_branch": "main",
+      "head_sha": "96d30c340565e6ea6e2ea68b70ff87b4f4d1894f"
+    }
+  },
+  "native_tests_passed": 29,
+  "native_test_names": [
+    "TestBrowserLaunchIsGuestAndExtensionFree",
+    "TestNativeProcessCommandLineMetadata",
+    "TestBrowserPolicyCannotFallbackToAccountSignin",
+    "TestLegacyBrowserOwnershipRequiresLiveMatchingBackendPID",
+    "TestNativeBrowserClosesModalWithoutLauncherPIDAndPreservesOtherProfile",
+    "TestApplicationPagePolicyPermitsOwnIconsWithoutRemoteImages",
+    "TestIconEndpointsServeApprovedVectorAndRasterAssets",
+    "TestCompiledIconResourcesAndNativeShellExtraction",
+    "TestNewAndLegacyReportsKeepAuthenticationAndContentIsolation",
+    "TestExplorerAndDesktopShortcutUseApprovedIcon",
+    "TestManifestEncodingNegativeControl",
+    "TestCachedSameVersionIsNeverCurrentBeforeNetworkSuccess",
+    "TestConditionalRequestsAndETagPoisoning",
+    "TestRateLimitBackoffIncludesManualChecks",
+    "TestCheckSingleFlightAndCooldown",
+    "TestNativeSchedulerAndFocusGate",
+    "TestDownloadStagingAndRejections",
+    "TestBinaryVersionBoundaryAndMalformedPE",
+    "TestInstallBlockedDuringCriticalOperation",
+    "TestSettingsAndOwnedCleanup",
+    "TestStartupRequiresRenderedUI",
+    "TestManifestHostPathAndSizeRestrictions",
+    "TestOldMarkerPrefixAndOverlayNegativeControls",
+    "TestNativeRollbackRestorationAndTampering",
+    "TestCompareVersions",
+    "TestValidateManifest",
+    "TestBinaryIdentityMarker",
+    "TestWindowGeometryRejectsCorruptionAndRecoversOffScreenBounds",
+    "TestExecutableRemembersWindowBoundsMaximizedAndMinimizedClose"
+  ],
+  "report_browser_checks_passed": 18,
+  "report_generation_checks_passed": 5,
+  "ui_shutdown_checks_passed": 4,
+  "image_policy_checks_passed": 3,
+  "prior_328_unchanged": true,
+  "immutable_release_api_flag": false,
+  "report_scope": {
+    "changed_function": "Write-ConsolidatedHtmlReport",
+    "canonical_sources": "reporting",
+    "original_function": "baseline/v3.0.10/reports/Write-ConsolidatedHtmlReport.ps1",
+    "original_sha256": "1cbe77519263c4d0c75cb0f5b28c7bb8564eda27cf665f9eb23a8e27b5f89f36",
+    "baseline_hash_file_unchanged": "baseline-verification.json",
+    "data": "Synthetic only",
+    "table_datasets": 21,
+    "retained_rows": 1545,
+    "windows_pdf_final_row_present": true,
+    "windows_pdf_raw_text_present": true,
+    "new_reports_only": true,
+    "legacy_viewer_compatible": true,
+    "verification": {
+      "schema_version": 1,
+      "approved_change": "HTML presentation only; original collectors, Word/text reports and block data preserved",
+      "original_renderer": {
+        "path": "baseline/v3.0.10/reports/Write-ConsolidatedHtmlReport.ps1",
+        "sha256": "1cbe77519263c4d0c75cb0f5b28c7bb8564eda27cf665f9eb23a8e27b5f89f36"
+      },
+      "sources": {
+        "reporting/Write-ConsolidatedHtmlReport.ps1": "063f3684aa2a4cd3089257d8190ecac8216a98e878a2188514c3fe9d716c2078",
+        "reporting/report.css": "555f7399c1a5581b984d0658266984cd2b8864a25d84d8a929841260db79bd4e",
+        "reporting/report.js": "30aef06737ec41a7ffef28bb92f896f21f2e68f73a4512617d10298ab3a0178d"
+      },
+      "embedded_renderer_sha256": "580d547f6b4cce6fef8e42abe49a6d252365cf9d78bf377bea164474dd7ecfa8"
+    }
+  },
+  "limits": [
+    "Hosted Windows Server 2025/Edge/Windows PowerShell 5.1 and local PowerShell 7/Chromium. No human desktop/UAC or native report-folder dialog automation.",
+    "Report/browser tests use synthetic data. Real app HTML/CSP uses local fixture responses; the real Go report endpoint is separately tested. No live server/role collection or Office visual rendering.",
+    "No physical mixed-DPI/monitor-removal, legacy Windows/PowerShell 3/4/Chrome guest, or user's Microsoft account/policies field reproduction.",
+    "Focus uses a synthetic DOM event after real elapsed waits. Offline/HTTP/rate-limit/cache/security cases use deterministic native responses.",
+    "SHA-256 validates bytes, not publisher signing. Prior releases/tags/assets are not overwritten; repository-level immutable locking is disabled."
+  ],
+  "published_upgrade": {
+    "job": 121263616535,
+    "artifact": {
+      "id": 12610922340,
+      "name": "published-upgrade-validation",
+      "size_in_bytes": 8538445,
+      "url": "https://api.github.com/repos/TechSavage1989/Server-Inventory-Configuration-Manager/actions/artifacts/12610922340",
+      "archive_download_url": "https://api.github.com/repos/TechSavage1989/Server-Inventory-Configuration-Manager/actions/artifacts/12610922340/zip",
+      "expired": false,
+      "created_at": "2026-10-25T19:19:13Z",
+      "expires_at": "2027-01-23T19:06:29Z",
+      "updated_at": "2026-10-25T19:19:13Z",
+      "digest": "sha256:4180de3eaa801b546cddb859d54ae49be6ad930988a3764b70e2e25a5c7372de",
+      "workflow_run": {
+        "id": 40224435804,
+        "repository_id": 1432828386,
+        "head_repository_id": 1432828386,
+        "head_branch": "main",
+        "head_sha": "96d30c340565e6ea6e2ea68b70ff87b4f4d1894f"
+      }
+    },
+    "previous": "3.2.8",
+    "expected": "3.2.9",
+    "status": "passed",
+    "checks_passed": 41,
+    "full_timer_evidence": true,
+    "no_reused_timer_evidence": true,
+    "report": {
+      "expected": "3.2.9",
+      "previous": "3.2.8",
+      "started": "2026-10-25T19:10:46.218Z",
+      "checks": [
+        {
+          "name": "Public updater feed selects the expected new release",
+          "result": "passed",
+          "time": "2026-10-25T19:10:46.854Z"
+        },
+        {
+          "name": "Previous executable matches the published v3.2.8 checksum",
+          "result": "passed",
+          "time": "2026-10-25T19:10:47.200Z"
+        },
+        {
+          "name": "Published new executable matches its manifest checksum",
+          "result": "passed",
+          "time": "2026-10-25T19:10:47.512Z"
+        },
+        {
+          "name": "Previous executable starts through the desktop shortcut",
+          "result": "passed",
+          "time": "2026-10-25T19:10:50.921Z"
+        },
+        {
+          "name": "Previous published application repairs its desktop icon before the update",
+          "result": "passed",
+          "time": "2026-10-25T19:10:56.670Z"
+        },
+        {
+          "name": "Previous application automatically detects the newly published release",
+          "result": "passed",
+          "time": "2026-10-25T19:10:56.675Z"
+        },
+        {
+          "name": "No automatic download occurs before Download is clicked",
+          "result": "passed",
+          "time": "2026-10-25T19:10:56.675Z"
+        },
+        {
+          "name": "Download through the application completes and stages verified release bytes",
+          "result": "passed",
+          "time": "2026-10-25T19:10:57.100Z"
+        },
+        {
+          "name": "Previous native application browser session is observed before installation",
+          "result": "passed",
+          "time": "2026-10-25T19:10:57.819Z"
+        },
+        {
+          "name": "All browser processes for the old application profile close during the real upgrade",
+          "result": "passed",
+          "time": "2026-10-25T19:11:01.424Z"
+        },
+        {
+          "name": "No unexpected dialog is silently accepted during the upgrade",
+          "result": "passed",
+          "time": "2026-10-25T19:11:01.424Z"
+        },
+        {
+          "name": "Actual new native browser uses guest mode with extensions and sync disabled",
+          "result": "passed",
+          "time": "2026-10-25T19:11:02.006Z"
+        },
+        {
+          "name": "Native helper installs and restarts the new version",
+          "result": "passed",
+          "time": "2026-10-25T19:11:02.011Z"
+        },
+        {
+          "name": "Actual user desktop shortcut now references the persistent approved icon",
+          "result": "passed",
+          "time": "2026-10-25T19:11:02.441Z"
+        },
+        {
+          "name": "Desktop icon repair preserves its target and all existing launch properties",
+          "result": "passed",
+          "time": "2026-10-25T19:11:02.441Z"
+        },
+        {
+          "name": "Unrelated desktop shortcut remains byte-identical",
+          "result": "passed",
+          "time": "2026-10-25T19:11:02.442Z"
+        },
+        {
+          "name": "Windows Explorer resolves the approved rendered pixels for both the installed EXE and actual desktop shortcut",
+          "result": "passed",
+          "time": "2026-10-25T19:11:03.755Z"
+        },
+        {
+          "name": "Updated application serves the exact editable SVG icon",
+          "result": "passed",
+          "time": "2026-10-25T19:11:03.758Z"
+        },
+        {
+          "name": "Application favicon and PNG match the SVG-derived icon assets",
+          "result": "passed",
+          "time": "2026-10-25T19:11:03.761Z"
+        },
+        {
+          "name": "Visible application header loads the new vector icon",
+          "result": "passed",
+          "time": "2026-10-25T19:11:03.794Z"
+        },
+        {
+          "name": "New application confirms a rendered interface and a visible owned native window",
+          "result": "passed",
+          "time": "2026-10-25T19:11:03.794Z"
+        },
+        {
+          "name": "User settings remain byte-identical after the real upgrade",
+          "result": "passed",
+          "time": "2026-10-25T19:11:03.796Z"
+        },
+        {
+          "name": "Exactly the previous published executable is retained for rollback",
+          "result": "passed",
+          "time": "2026-10-25T19:11:03.811Z"
+        },
+        {
+          "name": "Only one rollback executable generation is retained",
+          "result": "passed",
+          "time": "2026-10-25T19:11:03.811Z"
+        },
+        {
+          "name": "Desktop shortcut target remains the same stable executable path",
+          "result": "passed",
+          "time": "2026-10-25T19:11:04.171Z"
+        },
+        {
+          "name": "Installed target bytes match the new public release across staging volumes",
+          "result": "passed",
+          "time": "2026-10-25T19:11:04.180Z"
+        },
+        {
+          "name": "Manual update check succeeds on the new executable",
+          "result": "passed",
+          "time": "2026-10-25T19:11:04.482Z"
+        },
+        {
+          "name": "Short manual-check cooldown prevents another request",
+          "result": "passed",
+          "time": "2026-10-25T19:11:05.122Z"
+        },
+        {
+          "name": "Application focus binding checks again after two minutes",
+          "result": "passed",
+          "time": "2026-10-25T19:13:06.798Z"
+        },
+        {
+          "name": "Native automatic checks continue after five active minutes",
+          "result": "passed",
+          "time": "2026-10-25T19:18:15.597Z"
+        },
+        {
+          "name": "Owned download staging is cleaned after the update",
+          "result": "passed",
+          "time": "2026-10-25T19:18:15.670Z"
+        },
+        {
+          "name": "Updated native window automatically saves its moved position and resized bounds",
+          "result": "passed",
+          "time": "2026-10-25T19:18:17.669Z"
+        },
+        {
+          "name": "Desktop shortcut icon remains valid after the application and browser session close",
+          "result": "passed",
+          "time": "2026-10-25T19:18:19.459Z"
+        },
+        {
+          "name": "Existing desktop shortcut launches the updated executable",
+          "result": "passed",
+          "time": "2026-10-25T19:18:20.307Z"
+        },
+        {
+          "name": "Real native window reopens from the stable shortcut at its saved size and position",
+          "result": "passed",
+          "time": "2026-10-25T19:18:22.259Z"
+        },
+        {
+          "name": "Window geometry persistence leaves inventory settings byte-identical",
+          "result": "passed",
+          "time": "2026-10-25T19:18:22.260Z"
+        },
+        {
+          "name": "Missing healthy-start confirmation triggers the actual native rollback path",
+          "result": "passed",
+          "time": "2026-10-25T19:19:08.327Z"
+        },
+        {
+          "name": "Rollback restores the previous executable bytes at a legacy versioned filename",
+          "result": "passed",
+          "time": "2026-10-25T19:19:08.367Z"
+        },
+        {
+          "name": "Rollback relaunches the previous application",
+          "result": "passed",
+          "time": "2026-10-25T19:19:08.631Z"
+        },
+        {
+          "name": "Rollback preserves user settings",
+          "result": "passed",
+          "time": "2026-10-25T19:19:08.631Z"
+        },
+        {
+          "name": "Fixed application produces no unexpected modal dialogs throughout the test",
+          "result": "passed",
+          "time": "2026-10-25T19:19:08.706Z"
+        }
+      ],
+      "limitations": [
+        "UAC consent transitions were not exercised.",
+        "Playwright drives the application page alongside its visible native Edge window; physical desktop interaction was not performed.",
+        "Offline, HTTP failure, rate limiting, ETag and malicious-file cases use deterministic native Go tests.",
+        "Legacy Windows Server versions and every server-role collector were not exercised."
+      ],
+      "legacyShutdownDialogs": [],
+      "shellIcons": {
+        "executable_matches": true,
+        "pixel_sha256": "c53459e7fc5df2156f07ffb2bb95917688749ff21fd61305683c0d767276247f",
+        "native_shortcut_arrow": true,
+        "shortcut_pixel_sha256": "eb936c2aa7fe2d45e9de9aef9c68b05edb716b352a01164ff73cfca08e443d88",
+        "shortcut_matches": true,
+        "status": "passed"
+      },
+      "volumes": {
+        "target": "D:\\",
+        "staging": "C:\\"
+      },
+      "nativeWindowMoveRequest": {
+        "Bottom": 663,
+        "RequestSent": true,
+        "LegacyNestedWriteValue": 0,
+        "Handle": 197202,
+        "Top": 63,
+        "ShowCmd": 1,
+        "Left": 87,
+        "Right": 987
+      },
+      "nativeWindowAfterMove": {
+        "Bottom": 663,
+        "RequestSent": false,
+        "LegacyNestedWriteValue": 0,
+        "Handle": 197202,
+        "Top": 63,
+        "ShowCmd": 1,
+        "Left": 87,
+        "Right": 987
+      },
+      "savedWindowGeometry": {
+        "schema_version": 1,
+        "normal_bounds": {
+          "Left": 87,
+          "Top": 63,
+          "Right": 987,
+          "Bottom": 663
+        },
+        "maximized": false
+      },
+      "status": "passed",
+      "unexpectedDialogs": [],
+      "completed": "2026-10-25T19:19:10.112Z"
+    }
+  },
+  "prior_release": {
+    "id": 423562509,
+    "tag": "v3.2.8",
+    "commit": "2294a921d4a85fbbb1ea5f6e551ad6861973acea",
+    "assets": [
+      {
+        "id": 675710529,
+        "name": "go-test-results.txt",
+        "size": 13244,
+        "digest": "sha256:9663db3cb87e4bd5f5ca3550b6a30c261f3ed6ddc9c35f3893428d24ecba186c"
+      },
+      {
+        "id": 675710501,
+        "name": "Server-Inventory-Configuration-Manager.exe",
+        "size": 6549504,
+        "digest": "sha256:376332d8aae05110c111aa97b9437f039b28c628eeb0a26e255fa25688fff187"
+      },
+      {
+        "id": 675710502,
+        "name": "Server-Inventory-Configuration-Manager.exe.sha256.txt",
+        "size": 110,
+        "digest": "sha256:6080031f1eb31a37ed131778e62613caf6f6755cdfcfa4c0ba09ac6c0188d618"
+      },
+      {
+        "id": 675710504,
+        "name": "Server-Inventory-Configuration-Manager.svg",
+        "size": 1831,
+        "digest": "sha256:fc9211e88bb1f3d0bc34380c82bdd010456b57e59433650b85ae03cdaaf382cd"
+      },
+      {
+        "id": 675710505,
+        "name": "Server-Inventory-Configuration-Manager.svg.sha256.txt",
+        "size": 110,
+        "digest": "sha256:d3dbaca5c8a7184f9ef99757bed4ccd833285b18952981a1d4cd4b3dd31b3c99"
+      },
+      {
+        "id": 675710500,
+        "name": "update-manifest.json",
+        "size": 1263,
+        "digest": "sha256:e81887d6e357877dbebc8e3d6bb39dd9fe1e78dab2bab601d55d33da061381f6"
+      }
+    ],
+    "unchanged": true
+  },
+  "independent_public_verification": {
+    "version": "3.2.9",
+    "release_commit": "96d30c340565e6ea6e2ea68b70ff87b4f4d1894f",
+    "sha256": "5483a308e0da37e5e9a518f12b3d344ecf12fb267c4419c50860149394fb53c3",
+    "size": 6568448,
+    "svg_sha256": "fc9211e88bb1f3d0bc34380c82bdd010456b57e59433650b85ae03cdaaf382cd",
+    "svg_matches_source": true,
+    "preview_sha256": "8eab9e066dca7be579f7aab6bd86fa6cc9d6a2452cf885c432f406af8ab9d46d",
+    "preview_dimensions": [
+      1440,
+      1000
+    ],
+    "all_three_checksum_files_match": true,
+    "pe_identity_version_metadata": "passed",
+    "embedded_git_revision": "96d30c340565e6ea6e2ea68b70ff87b4f4d1894f",
+    "embedded_git_modified": false,
+    "feed_status": 200,
+    "etag_present": true,
+    "conditional_status": 304,
+    "go_test_asset_matches_validated_output": true
+  },
+  "report_browser_results": {
+    "status": "passed",
+    "checks": [
+      {
+        "name": "All original table columns, cells, rows and multiline outputs remain available",
+        "result": "passed"
+      },
+      {
+        "name": "Summary opens first with fewer visible tables and navigation links than the original report",
+        "result": "passed"
+      },
+      {
+        "name": "Collection failures and recovery gaps stay expanded ahead of routine datasets",
+        "result": "passed"
+      },
+      {
+        "name": "Readable column labels preserve ordinary words and separate camel-case field names",
+        "result": "passed"
+      },
+      {
+        "name": "Section expand/collapse controls expose all retained rows on request",
+        "result": "passed"
+      },
+      {
+        "name": "Full-report search reveals the last row inside an inactive collapsed dataset",
+        "result": "passed"
+      },
+      {
+        "name": "Search also reveals raw output and supports next, previous, clear and no-match states",
+        "result": "passed"
+      },
+      {
+        "name": "Inventory HTML-like values and search queries remain escaped text with no external requests",
+        "result": "passed"
+      },
+      {
+        "name": "Existing row-limit notices and empty dataset explanations remain visible when opened",
+        "result": "passed"
+      },
+      {
+        "name": "Dataset deep links and keyboard activation open the intended section and details",
+        "result": "passed"
+      },
+      {
+        "name": "Print includes every section and dataset and restores screen expansion state",
+        "result": "passed"
+      },
+      {
+        "name": "Narrow screens use a collapsible section menu without page-level horizontal overflow",
+        "result": "passed"
+      },
+      {
+        "name": "Missing metadata is labelled Not collected instead of zero or healthy",
+        "result": "passed"
+      },
+      {
+        "name": "Standalone saved HTML works offline without a server or external assets",
+        "result": "passed"
+      },
+      {
+        "name": "No-script fallback retains every section and starts with all datasets open",
+        "result": "passed"
+      },
+      {
+        "name": "Application viewer respects the new report layout and reveals collapsed search hits",
+        "result": "passed"
+      },
+      {
+        "name": "Previously generated reports still navigate and search in the unchanged legacy viewer",
+        "result": "passed"
+      },
+      {
+        "name": "Report and viewer execution produces no script errors or external requests",
+        "result": "passed"
+      }
+    ],
+    "data": "Synthetic only",
+    "limitations": [
+      "Browser rendering and actual report functions, without live server collection."
+    ],
+    "tables": 21,
+    "rows": 1545,
+    "negativeControl": {
+      "oldVisibleSubsectionLinks": 27,
+      "newVisibleSubsectionLinks": 8,
+      "oldSummaryTables": 7,
+      "newSummaryTables": 2
+    }
+  },
+  "report_generation_results": {
+    "status": "passed",
+    "data": "Synthetic only",
+    "rows": 1500,
+    "checks": [
+      "Actual collector parses without errors",
+      "Actual HTML renderer generates a self-contained report",
+      "HTML rendering leaves every shared block unchanged",
+      "Original renderer generates the identical synthetic dataset for comparison",
+      "Unchanged Word generator preserves the final table row and multiline text"
+    ]
+  },
+  "ui_shutdown_regression": {
+    "checks": [
+      {
+        "name": "Published v3.2.3 negative control reproduces the status-0 popup after shutdown",
+        "result": "passed"
+      },
+      {
+        "name": "Fixed page stops polling, aborts in-flight XHRs, and ignores focus/visibility after install acceptance",
+        "result": "passed"
+      },
+      {
+        "name": "Failed manual update action is shown inline with zero modal alerts",
+        "result": "passed"
+      },
+      {
+        "name": "Rejected installation restores the controls and active state polling without modal errors",
+        "result": "passed"
+      }
+    ],
+    "status": "passed",
+    "negativeControlDialogs": [
+      {
+        "type": "alert",
+        "message": "Request failed with status 0."
+      },
+      {
+        "type": "alert",
+        "message": "Request failed with status 0."
+      },
+      {
+        "type": "alert",
+        "message": "Request failed with status 0."
+      },
+      {
+        "type": "alert",
+        "message": "Request failed with status 0."
+      }
+    ]
+  },
+  "icon_render_regression": {
+    "checks": [
+      {
+        "name": "Published 3.2.6 image policy reproduces a blocked header SVG",
+        "result": "passed"
+      },
+      {
+        "name": "Production policy renders the actual local SVG header image",
+        "result": "passed"
+      },
+      {
+        "name": "Remote images remain blocked by the production policy",
+        "result": "passed"
+      }
+    ],
+    "status": "passed",
+    "negativeControlBlocked": true,
+    "renderedImage": {
+      "complete": true,
+      "width": 512,
+      "height": 512,
+      "path": "/app-icon.svg"
+    },
+    "remoteImagesBlocked": true
+  },
+  "icon_verification": {
+    "schema_version": 1,
+    "source": "assets/icons/server-inventory.svg",
+    "source_sha256": "fc9211e88bb1f3d0bc34380c82bdd010456b57e59433650b85ae03cdaaf382cd",
+    "palette": [
+      "#132F4C",
+      "#2563EB",
+      "#FFFFFF",
+      "#13B8A6"
+    ],
+    "ico_sizes": [
+      16,
+      20,
+      24,
+      32,
+      40,
+      48,
+      64,
+      96,
+      128,
+      256
+    ],
+    "renderer": "@resvg/resvg-js@2.6.2",
+    "assets": {
+      "favicon.ico": {
+        "sha256": "033daa7a992a6054541f2a99a21c1c22a563d65ce775f1053fea79f4d29d0183",
+        "size": 17732
+      },
+      "server_inventory.ico": {
+        "sha256": "033daa7a992a6054541f2a99a21c1c22a563d65ce775f1053fea79f4d29d0183",
+        "size": 17732
+      },
+      "app-icon.png": {
+        "sha256": "5275e28ef45ababecede026f979c301ceaeda4a7e4c1526955da570870636b7f",
+        "size": 6148
+      }
+    }
+  }
+}

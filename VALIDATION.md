@@ -1,8 +1,21 @@
 # Executable updater validation
 
-## HTML presentation 3.2.9
+## Latest release: v3.2.9
 
-Windows source CI passed before publication at commit 071c28e94883235ca6174a87ce7f50e0bf856985: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40224067507. All 29 native Go tests, 18 report browser checks, five HTML/Word generation checks, four shutdown checks, three production image-policy checks, vet, baseline/icon provenance and actual helper install/visible healthy start passed. Hosted Windows PDF text independently retains the final table row and multiline raw output. Publication and full previous-to-new update verification are pending. Local actual-function generation and 18 browser checks pass with synthetic data. Tests compare every table/column/cell and raw text against the exact original renderer, include the final row of a 1500-row dataset, print all sections with restored disclosure state, and exercise the actual app HTML/production CSP for both new and old reports. The generated PDF contains the final table row and raw output. Baseline verification protects all collector and Word/text bytes outside the approved HTML function. No live server inventory or human desktop/UAC validation is claimed.
+- Exact tag/commit: v3.2.9 / 96d30c340565e6ea6e2ea68b70ff87b4f4d1894f.
+- EXE: 6568448 bytes; SHA-256 5483a308e0da37e5e9a518f12b3d344ecf12fb267c4419c50860149394fb53c3.
+- Report-Preview.png: 1440x1000, synthetic data; SHA-256 8eab9e066dca7be579f7aab6bd86fa6cc9d6a2452cf885c432f406af8ab9d46d.
+- Editable SVG unchanged: SHA-256 fc9211e88bb1f3d0bc34380c82bdd010456b57e59433650b85ae03cdaaf382cd.
+- Source CI passed before publication at commit 071c28e94883235ca6174a87ce7f50e0bf856985: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40224067507.
+- Exact-release CI passed: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40224435714.
+- Publication/public assets passed: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40224435804.
+- All 29 native Go, 18 report-browser, five HTML/Word generation, four UI-shutdown and three production image-policy checks passed. Native helper install/restart and visible healthy start passed.
+- Report parity against the exact original renderer covers 21 datasets, 1545 retained rows, original column identities/cells and raw multiline text. The negative control has seven visible summary tables and 27 visible subsection links; the new presentation has two and eight respectively. All retained data remains available. Failure/gap priority, readable field labels, collapsed search, raw-output search, deep links, keyboard controls, mobile, empty data, no-script/offline behavior, escaping and print-state restoration pass. Both actual app HTML/CSP viewer variants work; the Go endpoint retains authentication and content isolation.
+- The actual release Windows PDF independently contains the final row of the 1500-row table and the raw-output sentinel. Word package content retains both. No live server data is used.
+- The public preview matches the validated renderer output. Public EXE/SVG/preview checksums, PE/version metadata, exact clean embedded Git revision and public feed HTTP 200/conditional 304 pass.
+- Actual published v3.2.8-to-v3.2.9 upgrade: passed all 41 checks in one full run with real two-minute focus and five-minute timer waits and no reused timer evidence. Automatic detection, explicit download/validation/staging/cross-volume install/restart, visible native health, byte-identical settings, stable shortcut/icon, native window placement/relaunch, one rollback generation, cleanup and missing-health rollback/relaunch passed. Zero unexpected or legacy shutdown dialogs occurred. Structured evidence: release/3.2.9-verification.json.
+
+Original collector/Word/text/wrapper/icon provenance is preserved outside the approved HTML renderer and version. New source/embedded hashes are in report-verification.json. New styling applies to newly generated reports; the legacy viewer continues to read existing HTML. No human desktop/UAC, native report-folder dialog automation, physical mixed-DPI/monitor removal, legacy Windows/PowerShell 3/4/Chrome guest, Office visual rendering or live inventory/role validation is claimed. Report browser integration uses real app HTML/production CSP with local fixture responses; the real endpoint is separately tested. Full structured evidence: release/3.2.9-verification.json.
 
 ## Previously published release: v3.2.8
 
