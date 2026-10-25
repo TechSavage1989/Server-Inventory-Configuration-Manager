@@ -83,4 +83,5 @@ jobs:
             build/ui-shutdown-regression.json
             build/icon-render-regression.json
             build/icon-header-validation.png
+            build/shell-icon-*.png
             dist/

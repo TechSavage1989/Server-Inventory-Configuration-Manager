@@ -4,11 +4,14 @@ package main
 
 import (
 	"bytes"
+	"image"
+	"image/png"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"syscall"
 	"testing"
+	"time"
 	"unsafe"
 )
 
@@ -168,6 +171,28 @@ func shellIconPixels(t *testing.T, icon uintptr) []byte {
 	return append([]byte(nil), buffer...)
 }
 
+func saveShellIconEvidence(t *testing.T, name string, pixels []byte) {
+	t.Helper()
+	img := image.NewNRGBA(image.Rect(0, 0, 32, 32))
+	for i := 0; i < len(pixels); i += 4 {
+		img.Pix[i] = pixels[i+2]
+		img.Pix[i+1] = pixels[i+1]
+		img.Pix[i+2] = pixels[i]
+		img.Pix[i+3] = pixels[i+3]
+	}
+	if err := os.MkdirAll("build", 0700); err != nil {
+		t.Fatal(err)
+	}
+	file, err := os.Create(filepath.Join("build", "shell-icon-"+name+".png"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer file.Close()
+	if err := png.Encode(file, img); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestExplorerAndDesktopShortcutUseApprovedIcon(t *testing.T) {
 	root := t.TempDir()
 	executable := filepath.Join(root, "Server-Inventory-Configuration-Exporter-GUI-v3.0.10.exe")
@@ -188,6 +213,7 @@ func TestExplorerAndDesktopShortcutUseApprovedIcon(t *testing.T) {
 		t.Fatal(err)
 	}
 	approved := shellIconPixels(t, nativeShellIcon(t, icon))
+	saveShellIconEvidence(t, "expected", approved)
 	if !bytes.Equal(approved, shellIconPixels(t, nativeShellIcon(t, executable))) {
 		t.Fatal("Explorer EXE icon does not match approved SVG-derived ICO")
 	}
@@ -222,7 +248,19 @@ func TestExplorerAndDesktopShortcutUseApprovedIcon(t *testing.T) {
 	if !sameShellPath(after["icon"], icon) {
 		t.Fatal("shortcut still references obsolete icon", after["icon"])
 	}
-	if !bytes.Equal(approved, shellIconPixels(t, nativeShellIcon(t, shortcut))) {
+	// SHCNF_FLUSHNOWAIT deliberately queues delivery so a stalled Explorer
+	// cannot block normal application startup. Allow that notification to land.
+	var actual []byte
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		actual = shellIconPixels(t, nativeShellIcon(t, shortcut))
+		if bytes.Equal(approved, actual) || time.Now().After(deadline) {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	saveShellIconEvidence(t, "shortcut-after", actual)
+	if !bytes.Equal(approved, actual) {
 		t.Fatal("actual Explorer shortcut pixels do not match approved icon")
 	}
 	if shared := readIconTestShortcut(t, portable); !sameShellPath(shared["icon"], executable) {
