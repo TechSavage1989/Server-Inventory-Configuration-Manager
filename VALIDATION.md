@@ -1,8 +1,8 @@
 # Executable updater validation
 
-## Header image policy 3.2.7 validation pending
+## Header image policy 3.2.7 source validation passed
 
-The live 3.2.6 update test caught a genuine header-image failure: the application policy allowed only data images. Version 3.2.7 permits its own same-origin images while preserving remote-image blocking and the separate report policy. The new browser negative control reproduces the old blocked SVG; positive checks decode the real header and reject remote images. Local browser regression and cross-build/vet pass. Windows source/published-update validation is pending.
+The live 3.2.6 update test caught a genuine header-image failure: the application policy allowed only data images. Version 3.2.7 permits its own same-origin images while preserving remote-image blocking and the separate report policy. The new browser negative control reproduces the old blocked SVG; positive checks decode the real header and reject remote images. Local browser regression and cross-build/vet pass. Windows source CI passed at commit 9f1f2daf11e8c392e3dae23a782bc32326ffb97c: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40180422255. Native icon/window/updater tests, real-browser policy regression and helper installation passed. Publication and actual published-upgrade verification are pending.
 
 ## Historical 3.2.6 source validation
 
