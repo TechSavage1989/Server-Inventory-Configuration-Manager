@@ -7,10 +7,11 @@
 - Uploaded baseline EXE SHA-256: 572bf173917330a2fde4b4bf67df998f9f29522c8814d5350b50826caf38ee4e.
 - The original v3.0.10 source ZIP was located. Its bundled EXE matches the uploaded baseline exactly; no EXE decompilation was used.
 - Source provenance and original file hashes: baseline-verification.json.
-- Latest published and automatically validated executable: v3.2.3, source commit 6ee8048539ae429d05f7938e06c2baabdd34fb92.
+- Latest published executable: v3.2.4, source commit 437a809a00b8112132b9e4e54566e3cb2be33ab5.
+- Earlier v3.2.3 remains unchanged at commit 6ee8048539ae429d05f7938e06c2baabdd34fb92.
 - Earlier v3.2.2 remains unchanged at commit ab7fbb783ce4032f951bb717d745f4471ae4d889.
 - Earlier v3.2.1 remains unchanged at commit 54d627d736f11335c8cf6ce4c89649f1c6351289.
-- User confirmation still applies to the v3.0.10 functional baseline. v3.2.3 has hosted Windows validation, not a claim of user field confirmation.
+- User confirmation still applies to the v3.0.10 functional baseline. v3.2.4 has hosted Windows validation, not a claim of user field confirmation.
 - Repository is public: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager.
 
 ## Historical PS1 release and feed
@@ -52,26 +53,27 @@ All updater data is under %LOCALAPPDATA%/Server Inventory Configuration Manager:
 - Updates/Downloads and Updates/Ready
 - Rollback/previous.exe and previous.json
 - Health/current.json and last-update.json
-- Runtime/application-url.txt, application.ico, and per-session browser profiles
+- Runtime/application-url.txt, application.ico, and per-session guest browser profiles with application ownership records
 
 User-selected inventory reports remain in their selected output directory. Unknown files are not removed by update cleanup.
 
 ## Validation and release status
 
-- Current release: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.3.
-- Exact tag/commit: v3.2.3 / 6ee8048539ae429d05f7938e06c2baabdd34fb92.
-- Change: a small Portable EXE badge beside the existing header badges, plus consistent version metadata. Collector/report logic, updater behavior, settings behavior, and icon bytes are unchanged.
-- Stable EXE: Server-Inventory-Configuration-Manager.exe, 6491648 bytes.
-- SHA-256: 8cd753daefddc1072ee2cc69a48c0269c4a9ea5b646f7d21215c29a5575e29b5.
-- Exact-release Windows source CI passed: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40171462464.
-- Publication, public feed/assets, and real v3.2.2-to-v3.2.3 update passed: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40171462463.
-- All 24 published-upgrade checks passed, including detection, explicit download/install, new visible healthy window, saved settings, stable shortcut relaunch, real two/five-minute thresholds, cleanup, and forced missing-health rollback/relaunch.
-- Target was on D: with staging on C:. Native helper CI also passed same-volume replacement and the locked-target regression control.
-- Independent public download, checksum file/manifest, Windows PE/version metadata, embedded Git revision, embedded new badge, and real conditional HTTP 304 were verified.
-- Structured evidence: release/3.2.3-verification.json. Prior v3.2.2 evidence remains in release/3.2.2-verification.json.
-- Earlier tags and assets, including v3.2.2 and historical v3.1.0 PS1, were preserved. The release workflow rejects overwrites. GitHub repository-level immutable locking remains disabled.
+- Current release: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.4.
+- Exact tag/commit: v3.2.4 / 437a809a00b8112132b9e4e54566e3cb2be33ab5.
+- Changes: app-owned guest browser sessions with account sync/extensions disabled; no personal-profile fallback; profile-scoped browser discovery/shutdown across launcher handoff; legacy-window closure by the downloaded helper; request quiescence and inline update errors.
+- Stable EXE: Server-Inventory-Configuration-Manager.exe, 6520320 bytes.
+- SHA-256: 6319f6ad5c2b15882110b4a34ba63f99812be879166de3a754b70e794c1c4ab2.
+- Windows source gates passed before publication: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40173525342, commit 36385ac478e1252844fd307e8663c304edc797c7.
+- Exact-release Windows CI passed: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40173688357.
+- Publication and public feed/assets passed: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40173688380.
+- Published v3.2.3-to-v3.2.4 upgrade final report: all 29 checks passed, zero unexpected or legacy shutdown dialogs; native old-profile exit, actual guest flags, settings, shortcuts, real two/five-minute waits, C: staging to D: target, cleanup, healthy start and forced rollback/relaunch verified. Structured evidence: release/3.2.4-verification.json.
+- The real native modal browser test passes without the launcher PID and preserves a second independent browser profile. Live legacy TCP listener ownership also passes.
+- All four renderer regression checks pass. Actual v3.2.3 HTML reproduces four status-0 alerts; the fixed interface produces zero unexpected dialogs, cancels in-flight requests, stops shutdown polling/focus requests, and resumes controls/polling after install rejection.
+- Independent public download, checksum/manifest agreement, PE identity/version metadata, clean embedded Git revision, guest/isolation flags, and actual conditional HTTP 304 passed.
+- Earlier v3.2.3 release ID, asset IDs, sizes and digests were compared before/after publication and are unchanged. All older tags/assets, including historical v3.1.0 PS1, are preserved. GitHub repository-level immutable locking remains disabled; the workflow refuses overwrites.
 
-Testing limits are unchanged: hosted Windows Server 2025/Edge automation, no human desktop/UAC test, synthetic focus event after a real wait, deterministic native network-failure/security cases, no live inventory/report workflows, and no legacy Windows Server or other-browser validation. The original collector/wrapper/icon provenance checks still pass. SHA-256 validates bytes, not publisher signing.
+Testing limits: hosted Windows Server 2025/Edge automation; no reproduction of the user's Microsoft account, synced extensions or organization policies; no human desktop/UAC test; synthetic focus after a real wait; deterministic native network-failure/security cases; no live inventory/report workflows, Chrome guest fallback or legacy Windows validation. Original collector/wrapper/icon provenance still passes. SHA-256 validates bytes, not publisher signing.
 
 ## Approved scope
 
@@ -95,4 +97,4 @@ The UI cancels pending requests and polling before installation, ignores focus d
 
 New gates include the actual v3.2.3 HTML negative control, fixed-page no-dialog/no-post-shutdown-request checks, and a real native modal-browser close test with launcher PID deliberately absent and another profile kept alive. The published-upgrade test input advances to the immutable v3.2.3 EXE with pinned SHA-256 8cd753daefddc1072ee2cc69a48c0269c4a9ea5b646f7d21215c29a5575e29b5. It now asserts old-profile process exit and the new native browser's guest/extension/sync flags. Unexpected dialogs are recorded and fail the test. Exact legacy status-0 alerts may be recorded only while leaving the unchanged previous page.
 
-Windows source CI passed at commit 36385ac478e1252844fd307e8663c304edc797c7: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40173525342. This includes the native modal close with a separate profile preserved, live legacy TCP-owner validation, renderer negative control and zero-dialog fixed interface, updater/security tests, and actual helper install with rendered/visible healthy start. Publication and the real published v3.2.3-to-v3.2.4 upgrade are pending. The user's actual signed-in Microsoft account, organization browser policies, physical desktop and UAC consent are not reproduced by hosted CI.
+Windows source CI passed at commit 36385ac478e1252844fd307e8663c304edc797c7: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40173525342. This includes the native modal close with a separate profile preserved, live legacy TCP-owner validation, renderer negative control and zero-dialog fixed interface, updater/security tests, and actual helper install with rendered/visible healthy start. The new release is published; the real v3.2.3-to-v3.2.4 upgrade passed all 29 checks with zero unexpected dialogs and zero legacy shutdown alerts. Native browser flags, complete old-profile process exit, settings, shortcuts, timers, cleanup, health and rollback passed. Structured evidence: release/3.2.4-verification.json. The user's actual signed-in Microsoft account, organization browser policies, physical desktop and UAC consent are not reproduced by hosted CI.

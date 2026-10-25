@@ -1,10 +1,20 @@
 # Executable updater validation
 
-## 3.2.4 source validation passed, publication pending
+## Latest release: v3.2.4
 
-Windows source CI passed at commit 36385ac478e1252844fd307e8663c304edc797c7: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40173525342. Native profile-scoped modal closure, preservation of another browser session, live listener ownership, all four renderer checks, existing updater/security tests and native helper healthy install passed.
+- Exact tag/commit: v3.2.4 / 437a809a00b8112132b9e4e54566e3cb2be33ab5.
+- EXE size: 6520320 bytes.
+- SHA-256: 6319f6ad5c2b15882110b4a34ba63f99812be879166de3a754b70e794c1c4ab2.
+- Prepublication Windows source CI passed: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40173525342, commit 36385ac478e1252844fd307e8663c304edc797c7.
+- Exact-release Windows CI passed: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40173688357.
+- Publication/public-feed checks passed: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40173688380.
+- Real published v3.2.3-to-v3.2.4 upgrade final report: all 29 checks passed, zero unexpected or legacy shutdown dialogs; native old-profile exit, actual guest flags, settings, shortcuts, real two/five-minute waits, C: staging to D: target, cleanup, healthy start and forced rollback/relaunch verified. Structured evidence: release/3.2.4-verification.json.
+- All 22 top-level native Go tests passed, including actual modal browser closure with no launcher PID, preservation of a different browser profile, live legacy TCP-owner matching, updater scheduling/security, staging and rollback validation.
+- Four renderer checks passed: the real v3.2.3 HTML reproduces four status-0 modal alerts; the fixed page has zero unexpected dialogs and no post-install requests; manual action failures appear inline; installation rejection restores controls and polling.
+- The native helper install test confirms a rendered interface and visible owned window. Locked-target cleanup and tampered-byte controls also pass.
+- Public asset/checksum/manifest, PE identity/version, clean embedded Git revision, browser isolation flags and real HTTP 304 checks passed independently.
 
-The prior published test automatically accepted page dialogs and did not verify disappearance of the old native browser process. The v3.2.3 updater results below remain historical evidence, but do not establish popup-free account-isolated startup or complete old-window closure. New source and publication gates exercise both behaviors and record unexpected dialogs. Hosted tests do not reproduce the user's Microsoft account, browser policies or UAC desktop.
+The prior published test automatically accepted page dialogs and did not assert old native process disappearance. Its v3.2.3 results below remain historical evidence, but do not establish popup-free account-isolated startup or complete old-window closure. The new gates record unexpected dialogs and assert real browser ownership and exit. Hosted CI cannot reproduce the user's Microsoft account, synced extensions, organization policies or physical UAC desktop. No live inventory/report workflow or Chrome guest fallback was tested.
 
 ## Historical release: v3.2.3
 
@@ -41,6 +51,9 @@ The tests build and execute the actual Windows GUI EXE on Windows Server 2025 wi
 
 | Requirement | Validation | Result |
 | --- | --- | --- |
+| Guest browser isolation | Actual new native process has guest, disabled extensions and disabled sync flags; no account/policy simulation | Passed on hosted Edge |
+| Old application browser closure | Real published upgrade verifies old profile processes exit; native modal test preserves another profile without launcher PID | Passed |
+| Update shutdown UI | Real previous HTML reproduces status-0 alerts; fixed renderer cancels requests and records zero unexpected dialogs | Passed |
 | Normal startup and automatic update detection | Published previous EXE launched through a shortcut and detected the public release | Passed |
 | Startup after first paint | Authenticated UI-ready event starts the native scheduler; pre-render focus requests are blocked | Passed |
 | Five-minute checks | Real elapsed wait and changed check timestamp from the native scheduler | Passed |
@@ -76,7 +89,7 @@ The updater never automatically downloaded, installed, or restarted during these
 - No human-operated desktop test or UAC consent transition was performed.
 - Focus testing uses a synthetic DOM event after a real two-minute threshold. Physical mouse/keyboard focus return remains untested.
 - Offline, HTTP failures, rate limits, malicious downloads, and cached-response cases use deterministic native test transport. The host was not intentionally disconnected and the public GitHub quota was not exhausted. Public download/checksum and HTTP 304 checks were also performed independently.
-- No live inventory collection, report-generation run, or report-viewer workflow was exercised during this updater task. Those source paths were preserved from the confirmed baseline. Default-browser fallback modes, Windows Server 2012, other legacy versions, and full server-role coverage were not validated.
+- No live inventory collection, report-generation run, or report-viewer workflow was exercised during this updater task. Those source paths were preserved from the confirmed baseline. The personal-browser fallback was removed in v3.2.4. Chrome guest fallback, Windows Server 2012, other legacy versions, and full server-role coverage were not validated.
 - The original v3.0.10 executable has no updater and requires one manual download into the executable release line.
 - SHA-256 checks validate bytes against the HTTPS manifest; they do not establish publisher signing.
 - Published tags/assets were preserved, and the workflow refuses overwrites. GitHub's separate repository-level immutable-release lock is not enabled; its API immutable flag is false.

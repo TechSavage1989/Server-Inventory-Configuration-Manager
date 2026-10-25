@@ -1,0 +1,298 @@
+{
+  "version": "3.2.4",
+  "tag": "v3.2.4",
+  "release_commit": "437a809a00b8112132b9e4e54566e3cb2be33ab5",
+  "release_url": "https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.4",
+  "release_id": 423225048,
+  "release_assets": [
+    {
+      "id": 674414673,
+      "name": "go-test-results.txt",
+      "size": 7192,
+      "digest": "sha256:3d4415c565c1036f97f601a1db1c19e1aeadcf8394ee0069394ab7c70f3ea532"
+    },
+    {
+      "id": 674414674,
+      "name": "Server-Inventory-Configuration-Manager.exe",
+      "size": 6520320,
+      "digest": "sha256:6319f6ad5c2b15882110b4a34ba63f99812be879166de3a754b70e794c1c4ab2"
+    },
+    {
+      "id": 674414670,
+      "name": "Server-Inventory-Configuration-Manager.exe.sha256.txt",
+      "size": 110,
+      "digest": "sha256:5ef1ce224086b4bdd419e31998bf6ec36bfc745d402fff24ccf5c9098eab509f"
+    },
+    {
+      "id": 674414671,
+      "name": "update-manifest.json",
+      "size": 1250,
+      "digest": "sha256:9f622f81941ed443785c0af47ec2111f13fbd20c8243421aaaf3e0d4a2a5e005"
+    }
+  ],
+  "source_ci": {
+    "id": 40173525342,
+    "commit": "36385ac478e1252844fd307e8663c304edc797c7",
+    "conclusion": "success",
+    "url": "https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40173525342"
+  },
+  "release_runs": [
+    {
+      "id": 40173688380,
+      "commit": "437a809a00b8112132b9e4e54566e3cb2be33ab5",
+      "url": "https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40173688380",
+      "conclusion": "success"
+    },
+    {
+      "id": 40173688357,
+      "commit": "437a809a00b8112132b9e4e54566e3cb2be33ab5",
+      "url": "https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40173688357",
+      "conclusion": "success"
+    }
+  ],
+  "previous_release_unchanged": true,
+  "upgrade_artifact": 12591347822,
+  "immutable_release_api_flag": false,
+  "public_download": {
+    "version": "3.2.4",
+    "sha256": "6319f6ad5c2b15882110b4a34ba63f99812be879166de3a754b70e794c1c4ab2",
+    "size": 6520320,
+    "feed_status": 200,
+    "etag_present": true,
+    "conditional_status": 304
+  },
+  "published_upgrade": {
+    "expected": "3.2.4",
+    "previous": "3.2.3",
+    "started": "2026-10-25T07:43:42.461Z",
+    "checks": [
+      {
+        "name": "Public updater feed selects the expected new release",
+        "result": "passed",
+        "time": "2026-10-25T07:43:42.713Z"
+      },
+      {
+        "name": "Previous executable matches the published v3.2.3 checksum",
+        "result": "passed",
+        "time": "2026-10-25T07:43:42.862Z"
+      },
+      {
+        "name": "Published new executable matches its manifest checksum",
+        "result": "passed",
+        "time": "2026-10-25T07:43:42.989Z"
+      },
+      {
+        "name": "Previous executable starts through the desktop shortcut",
+        "result": "passed",
+        "time": "2026-10-25T07:43:44.279Z"
+      },
+      {
+        "name": "Previous application automatically detects the newly published release",
+        "result": "passed",
+        "time": "2026-10-25T07:43:49.846Z"
+      },
+      {
+        "name": "No automatic download occurs before Download is clicked",
+        "result": "passed",
+        "time": "2026-10-25T07:43:49.847Z"
+      },
+      {
+        "name": "Download through the application completes and stages verified release bytes",
+        "result": "passed",
+        "time": "2026-10-25T07:43:50.772Z"
+      },
+      {
+        "name": "Previous native application browser session is observed before installation",
+        "result": "passed",
+        "time": "2026-10-25T07:43:53.287Z"
+      },
+      {
+        "name": "All browser processes for the old application profile close during the real upgrade",
+        "result": "passed",
+        "time": "2026-10-25T07:43:56.633Z"
+      },
+      {
+        "name": "No unexpected dialog is silently accepted during the upgrade",
+        "result": "passed",
+        "time": "2026-10-25T07:43:56.633Z"
+      },
+      {
+        "name": "Actual new native browser uses guest mode with extensions and sync disabled",
+        "result": "passed",
+        "time": "2026-10-25T07:43:57.450Z"
+      },
+      {
+        "name": "Native helper installs and restarts the new version",
+        "result": "passed",
+        "time": "2026-10-25T07:43:57.977Z"
+      },
+      {
+        "name": "New application confirms a rendered interface and a visible owned native window",
+        "result": "passed",
+        "time": "2026-10-25T07:43:57.977Z"
+      },
+      {
+        "name": "User settings remain byte-identical after the real upgrade",
+        "result": "passed",
+        "time": "2026-10-25T07:44:00.313Z"
+      },
+      {
+        "name": "Exactly the previous published executable is retained for rollback",
+        "result": "passed",
+        "time": "2026-10-25T07:44:00.324Z"
+      },
+      {
+        "name": "Only one rollback executable generation is retained",
+        "result": "passed",
+        "time": "2026-10-25T07:44:00.325Z"
+      },
+      {
+        "name": "Desktop shortcut target remains the same stable executable path",
+        "result": "passed",
+        "time": "2026-10-25T07:44:00.799Z"
+      },
+      {
+        "name": "Installed target bytes match the new public release across staging volumes",
+        "result": "passed",
+        "time": "2026-10-25T07:44:00.811Z"
+      },
+      {
+        "name": "Manual update check succeeds on the new executable",
+        "result": "passed",
+        "time": "2026-10-25T07:44:01.148Z"
+      },
+      {
+        "name": "Short manual-check cooldown prevents another request",
+        "result": "passed",
+        "time": "2026-10-25T07:44:01.771Z"
+      },
+      {
+        "name": "Application focus binding checks again after two minutes",
+        "result": "passed",
+        "time": "2026-10-25T07:46:03.262Z"
+      },
+      {
+        "name": "Native automatic checks continue after five active minutes",
+        "result": "passed",
+        "time": "2026-10-25T07:51:10.555Z"
+      },
+      {
+        "name": "Owned download staging is cleaned after the update",
+        "result": "passed",
+        "time": "2026-10-25T07:51:10.623Z"
+      },
+      {
+        "name": "Existing desktop shortcut launches the updated executable",
+        "result": "passed",
+        "time": "2026-10-25T07:51:11.663Z"
+      },
+      {
+        "name": "Missing healthy-start confirmation triggers the actual native rollback path",
+        "result": "passed",
+        "time": "2026-10-25T07:51:59.180Z"
+      },
+      {
+        "name": "Rollback restores the previous executable bytes at a legacy versioned filename",
+        "result": "passed",
+        "time": "2026-10-25T07:51:59.193Z"
+      },
+      {
+        "name": "Rollback relaunches the previous application",
+        "result": "passed",
+        "time": "2026-10-25T07:51:59.470Z"
+      },
+      {
+        "name": "Rollback preserves user settings",
+        "result": "passed",
+        "time": "2026-10-25T07:51:59.470Z"
+      },
+      {
+        "name": "Fixed application produces no unexpected modal dialogs throughout the test",
+        "result": "passed",
+        "time": "2026-10-25T07:51:59.548Z"
+      }
+    ],
+    "limitations": [
+      "UAC consent transitions were not exercised.",
+      "Playwright drives the application page alongside its visible native Edge window; physical desktop interaction was not performed.",
+      "Offline, HTTP failure, rate limiting, ETag and malicious-file cases use deterministic native Go tests.",
+      "Legacy Windows Server versions and every server-role collector were not exercised."
+    ],
+    "legacyShutdownDialogs": [],
+    "volumes": {
+      "target": "D:\\",
+      "staging": "C:\\"
+    },
+    "status": "passed",
+    "unexpectedDialogs": [],
+    "completed": "2026-10-25T07:52:00.536Z"
+  },
+  "renderer_regression": {
+    "checks": [
+      {
+        "name": "Published v3.2.3 negative control reproduces the status-0 popup after shutdown",
+        "result": "passed"
+      },
+      {
+        "name": "Fixed page stops polling, aborts in-flight XHRs, and ignores focus/visibility after install acceptance",
+        "result": "passed"
+      },
+      {
+        "name": "Failed manual update action is shown inline with zero modal alerts",
+        "result": "passed"
+      },
+      {
+        "name": "Rejected installation restores the controls and active state polling without modal errors",
+        "result": "passed"
+      }
+    ],
+    "status": "passed",
+    "negativeControlDialogs": [
+      {
+        "type": "alert",
+        "message": "Request failed with status 0."
+      },
+      {
+        "type": "alert",
+        "message": "Request failed with status 0."
+      },
+      {
+        "type": "alert",
+        "message": "Request failed with status 0."
+      },
+      {
+        "type": "alert",
+        "message": "Request failed with status 0."
+      }
+    ]
+  },
+  "ui_negative_control": {
+    "source_commit": "6ee8048539ae429d05f7938e06c2baabdd34fb92",
+    "path": "tests/fixtures/index-v3.2.3.html",
+    "sha256": "5106ff78a34aef05200f456a548e8e3ecd8df831fd31c4f8eed7c201b11d31c4"
+  },
+  "native_validation": {
+    "top_level_tests_passed": 22,
+    "modal_browser_closed_without_launcher_pid": true,
+    "independent_browser_profile_preserved": true,
+    "legacy_tcp_listener_owner_verified": true,
+    "helper_rendered_visible_health_confirmed": true,
+    "locked_target_previous_failure_reproduced": true,
+    "locked_target_fixed_zero_temporary_files": true
+  },
+  "binary_validation": {
+    "pe_identity_version_metadata": "passed",
+    "embedded_git_revision": "437a809a00b8112132b9e4e54566e3cb2be33ab5",
+    "embedded_git_modified": false,
+    "guest_extension_sync_flags": "present"
+  },
+  "limits": [
+    "The user Microsoft account, synced extensions and organization policies were not reproduced.",
+    "Hosted Windows Server 2025 and Edge were tested. Human desktop and UAC consent were not tested.",
+    "Playwright drives the real application page alongside its visible native Edge window. Focus uses a synthetic DOM event after a real wait.",
+    "Offline, HTTP, rate-limit, cache and malicious-file cases use deterministic native Go tests.",
+    "Live inventory/report workflows, Chrome guest fallback and legacy Windows versions were not tested.",
+    "SHA-256 validates bytes against the HTTPS manifest, not publisher signing.",
+    "Prior releases/tags/assets were preserved. Repository-level immutable release locking is disabled; workflow overwrite guards remain."
+  ]
+}
