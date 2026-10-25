@@ -5,9 +5,9 @@
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Server Inventory Configuration Manager</title>
-<link rel="icon" type="image/x-icon" href="/favicon.ico?v=323">
-<link rel="icon" type="image/png" sizes="256x256" href="/app-icon.png?v=323">
-<link rel="apple-touch-icon" sizes="256x256" href="/app-icon.png?v=323">
+<link rel="icon" type="image/x-icon" href="/favicon.ico?v=324">
+<link rel="icon" type="image/png" sizes="256x256" href="/app-icon.png?v=324">
+<link rel="apple-touch-icon" sizes="256x256" href="/app-icon.png?v=324">
 <style>
 * { box-sizing: border-box; }
 html, body { min-height: 100%; }
@@ -400,15 +400,47 @@ body { height: 100vh; }
   var viewerMatchIndex = -1;
   var reportHeaderCollapsed = false;
   var latestUpdateState = null;
+  var uiLifecycle = 'active';
+  var pollTimer = null;
+  var pendingRequests = [];
+  var updateUiError = '';
+  var installDisabledControls = [];
+  function quiesceInterface(state){
+    uiLifecycle=state||'closing';
+    if(pollTimer!==null){window.clearTimeout(pollTimer);pollTimer=null;}
+    var requests=pendingRequests.slice();pendingRequests=[];
+    for(var i=0;i<requests.length;i++){requests[i].onreadystatechange=null;requests[i].abort();}
+  }
+  function showUpdateActionError(message){
+    updateUiError=message;
+    byId('updateBanner').className='update-banner error';
+    byId('updateTitle').textContent='Update action unavailable';
+    byId('updateStatus').textContent=message;
+  }
+  function showConnectionClosed(){
+    quiesceInterface('disconnected');
+    showUpdateActionError('This application window is no longer connected. Close it and use the restarted application window.');
+    byId('updateCheckButton').disabled=true;
+    byId('updateDownloadButton').disabled=true;
+    byId('updateInstallButton').disabled=true;
+  }
+  function setInstallControls(disabled){
+    if(disabled){var controls=document.querySelectorAll('button,input');installDisabledControls=[];for(var i=0;i<controls.length;i++){installDisabledControls.push([controls[i],controls[i].disabled]);controls[i].disabled=true;}}
+    else{for(var j=0;j<installDisabledControls.length;j++){installDisabledControls[j][0].disabled=installDisabledControls[j][1];}installDisabledControls=[];}
+  }
 
   function byId(id) { return document.getElementById(id); }
-  function request(method, path, body, callback) {
+  function request(method, path, body, callback, allowClosing) {
+    if(uiLifecycle!=='active'&&!allowClosing){return;}
     var xhr = new XMLHttpRequest();
+    pendingRequests.push(xhr);
     xhr.open(method, path, true);
     xhr.setRequestHeader('X-App-Token', token);
     if (body !== null && body !== undefined) { xhr.setRequestHeader('Content-Type', 'application/json'); }
     xhr.onreadystatechange = function () {
       if (xhr.readyState !== 4) { return; }
+      var index=pendingRequests.indexOf(xhr);if(index>=0){pendingRequests.splice(index,1);}
+      if(uiLifecycle!=='active'&&!allowClosing){return;}
       var data = null;
       try { data = xhr.responseText ? JSON.parse(xhr.responseText) : {}; } catch (e) { data = {}; }
       if (xhr.status >= 200 && xhr.status < 300) { callback(null, data || {}); }
@@ -582,6 +614,7 @@ body { height: 100vh; }
   }
   function renderUpdate(update, running){
     if(!update){return;}
+    if(updateUiError){showUpdateActionError(updateUiError);return;}
     latestUpdateState=update;
     var banner=byId('updateBanner');
     banner.className='update-banner'+(update.status==='available'||update.status==='ready'?' available':(update.status==='error'||update.status==='offline'?' error':(update.status==='cooldown'||update.status==='rollback'?' warning':'')));
@@ -603,6 +636,7 @@ body { height: 100vh; }
     byId('updateProgressFill').style.width=String(update.progress||0)+'%';
   }
   function renderState(state){
+    if(state.closing||(state.update&&state.update.status==='installing')){quiesceInterface('installing');return;}
     latestState=state;
     renderUpdate(state.update,!!state.running);
     if(!byId('outputPath').value){byId('outputPath').value=state.defaultOutputRoot||'';}
@@ -626,7 +660,15 @@ body { height: 100vh; }
       lastStatus=state.status;
     }
   }
-  function poll(){ request('GET','/api/state?since='+encodeURIComponent(String(lastLogIndex)),null,function(err,data){ if(!err){appendLogs(data.logs||[]); lastLogIndex=data.nextLogIndex||lastLogIndex; renderState(data);} setTimeout(poll,900); }); }
+  function poll(){
+    if(uiLifecycle!=='active'){return;}
+    request('GET','/api/state?since='+encodeURIComponent(String(lastLogIndex)),null,function(err,data){
+      if(uiLifecycle!=='active'){return;}
+      if(err){showConnectionClosed();return;}
+      appendLogs(data.logs||[]);lastLogIndex=data.nextLogIndex||lastLogIndex;renderState(data);
+      if(uiLifecycle==='active'){pollTimer=window.setTimeout(poll,900);}
+    });
+  }
   function browseFolder(){ request('POST','/api/browse',{},function(err,data){if(err){window.alert(err);return;}if(data.path){byId('outputPath').value=data.path;}}); }
   function startCollection(){
     var days=parseInt(byId('eventDays').value,10); if(isNaN(days)||days<1||days>365){window.alert('Event history days must be between 1 and 365.');return;}
@@ -640,13 +682,28 @@ body { height: 100vh; }
   function openKind(kind){request('POST','/api/open',{kind:kind},function(err){if(err){window.alert(err);}});}
   function resetInterface(){request('POST','/api/reset',{},function(err){if(err){window.alert(err);return;}byId('logView').innerHTML='';lastLogIndex=0;switchTab('setup');});}
 
-  function checkForUpdates(manual,reason){request('POST','/api/update/check',{manual:!!manual,reason:reason||''},function(err){if(err){window.alert(err);}});}
-  function downloadUpdate(){request('POST','/api/update/download',{},function(err){if(err){window.alert(err);}});}
+  function checkForUpdates(manual,reason){
+    if(uiLifecycle!=='active'){return;}
+    if(manual){updateUiError='';}
+    request('POST','/api/update/check',{manual:!!manual,reason:reason||''},function(err){
+      if(err&&manual){showUpdateActionError(err);}
+    });
+  }
+  function downloadUpdate(){
+    if(uiLifecycle!=='active'){return;}
+    updateUiError='';request('POST','/api/update/download',{},function(err){if(err){showUpdateActionError(err);}});
+  }
   function installUpdate(){
-    if(latestState&&latestState.running){window.alert('A collection is running. Finish or cancel it before installing an update.');return;}
+    if(uiLifecycle!=='active'){return;}
+    if(latestState&&latestState.running){showUpdateActionError('A collection is running. Finish or cancel it before installing an update.');return;}
     var version=latestUpdateState&&latestUpdateState.latestVersion?latestUpdateState.latestVersion:'the downloaded update';
     if(!window.confirm('Install '+version+' and restart? Save any work in this application first.')){return;}
-    request('POST','/api/update/install',{},function(err){if(err){window.alert(err);return;}byId('updateInstallButton').disabled=true;byId('updateStatus').textContent='Installing update and restarting...';});
+    updateUiError='';quiesceInterface('installing');setInstallControls(true);
+    byId('updateStatus').textContent='Installing update and restarting...';
+    request('POST','/api/update/install',{},function(err){
+      if(err){uiLifecycle='active';setInstallControls(false);showUpdateActionError(err);poll();return;}
+      uiLifecycle='closing';
+    },true);
   }
 
   var tabButtons=document.querySelectorAll('.tab-button'); for(var i=0;i<tabButtons.length;i++){tabButtons[i].addEventListener('click',function(){switchTab(this.getAttribute('data-tab'));});}
@@ -664,8 +721,10 @@ body { height: 100vh; }
   byId('updateReadMoreButton').addEventListener('click',function(){openKind('updaterelease');});
   byId('updateDownloadButton').addEventListener('click',downloadUpdate);
   byId('updateInstallButton').addEventListener('click',installUpdate);
-  window.addEventListener('focus',function(){checkForUpdates(false,'focus');});
-  document.addEventListener('visibilitychange',function(){if(!document.hidden){checkForUpdates(false,'focus');}});
+  window.addEventListener('focus',function(){if(uiLifecycle==='active'){checkForUpdates(false,'focus');}});
+  document.addEventListener('visibilitychange',function(){if(uiLifecycle==='active'&&!document.hidden){checkForUpdates(false,'focus');}});
+  window.addEventListener('pagehide',function(){quiesceInterface('closed');});
+  window.addEventListener('beforeunload',function(){quiesceInterface('closed');});
   window.requestAnimationFrame(function(){window.requestAnimationFrame(function(){request('POST','/api/ui/ready',{},function(){});});});
   byId('reportFrame').addEventListener('load',function(){
     enforceReportViewerScrollLayout();

@@ -31,8 +31,8 @@ import (
 
 const (
 	appName           = "Server Inventory Configuration Manager"
-	appVersion        = "3.2.3"
-	collectorVersion  = "3.2.3"
+	appVersion        = "3.2.4"
+	collectorVersion  = "3.2.4"
 	maximumCollectors = 49
 
 	mbOK              = 0x00000000
@@ -111,6 +111,7 @@ type logEntry struct {
 
 type stateResponse struct {
 	AppVersion              string              `json:"appVersion"`
+	Closing                 bool                `json:"closing"`
 	CollectorVersion        string              `json:"collectorVersion"`
 	Update                  updateStateResponse `json:"update"`
 	BuildIdentity           string              `json:"buildIdentity"`
@@ -208,6 +209,7 @@ type application struct {
 	installing              bool
 	criticalOperations      int
 	uiReady                 bool
+	closing                 bool
 	token                   string
 	computerName            string
 	admin                   bool
@@ -545,31 +547,20 @@ func applyBrowserWindowIcon(iconPath string) {
 	}
 }
 
-func openInterfaceURL(url, profile string) (*exec.Cmd, string, error) {
-	programFiles := []string{
-		os.Getenv("ProgramFiles(x86)"),
-		os.Getenv("ProgramFiles"),
+func openInterfaceURL(address, profile string) (*exec.Cmd, string, error) {
+	if err := writeBrowserOwner(profile); err != nil {
+		return nil, "", err
 	}
-	relativeCandidates := []string{
-		filepath.Join("Microsoft", "Edge", "Application", "msedge.exe"),
-		filepath.Join("Google", "Chrome", "Application", "chrome.exe"),
-	}
-	for _, root := range programFiles {
-		if strings.TrimSpace(root) == "" {
+	for _, candidate := range browserCandidates() {
+		if info, err := os.Stat(candidate); err != nil || info.IsDir() || !guestModeAllowed(candidate) {
 			continue
 		}
-		for _, relative := range relativeCandidates {
-			candidate := filepath.Join(root, relative)
-			if info, err := os.Stat(candidate); err == nil && !info.IsDir() {
-				arguments := []string{"--app=" + url, "--new-window", "--no-first-run", "--no-default-browser-check", "--user-data-dir=" + profile}
-				command := exec.Command(candidate, arguments...)
-				if err := command.Start(); err == nil {
-					return command, profile, nil
-				}
-			}
+		command := exec.Command(candidate, browserArguments(address, profile)...)
+		if err := command.Start(); err == nil {
+			return command, profile, nil
 		}
 	}
-	return nil, "", shellOpen(url)
+	return nil, "", errors.New("A supported Edge or Chrome guest session could not be opened. The application will not open your personal browser profile. Guest mode may be disabled by browser policy.")
 }
 
 func powershellPath() string {
@@ -1147,6 +1138,7 @@ func (a *application) snapshot(since int) stateResponse {
 	}
 	return stateResponse{
 		AppVersion:              appVersion,
+		Closing:                 a.closing,
 		CollectorVersion:        collectorVersion,
 		Update:                  a.updateSnapshot(),
 		BuildIdentity:           binaryIdentityMarker,
@@ -1954,22 +1946,22 @@ func (a *application) runCollection(options collectionOptions, packageName, runI
 
 func (a *application) stopServer() {
 	a.shutdownOnce.Do(func() {
+		a.mu.Lock()
+		a.closing = true
+		a.mu.Unlock()
+		// Keep the local backend alive until its owned browser windows are gone.
+		// A modal page dialog must not leave an orphaned old app window.
+		if err := a.closeApplicationBrowser(); err != nil {
+			a.logUpdate("Browser shutdown failed: %v", err)
+		}
 		if a.server != nil {
 			contextWithTimeout, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 			_ = a.server.Shutdown(contextWithTimeout)
 			cancel()
 		}
 		a.mu.Lock()
-		profile := a.browserProfileDirectory
-		command := a.browserCmd
 		a.browserCmd = nil
 		a.mu.Unlock()
-		if command != nil && command.Process != nil {
-			terminateProcessTree(command.Process.Pid)
-		}
-		if profile != "" {
-			_ = os.RemoveAll(profile)
-		}
 		close(a.shutdown)
 	})
 }
@@ -2103,7 +2095,10 @@ func main() {
 	}
 	browserCmd, browserProfileDirectory, openErr := openInterfaceURL(url, filepath.Join(runtimeDir, "Browser-"+app.token))
 	if openErr != nil {
-		messageBox("The interface started, but a browser window could not be opened.\r\n\r\nThe local address was written to:\r\n"+urlFile, appName, mbOK|mbIconInformation)
+		messageBox("The application interface could not open in a private guest session.\r\n\r\n"+openErr.Error(), appName, mbOK|mbIconError)
+		app.stopServer()
+		_ = os.Remove(urlFile)
+		return
 	} else if browserCmd != nil {
 		app.mu.Lock()
 		app.browserCmd = browserCmd

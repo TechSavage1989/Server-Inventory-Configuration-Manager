@@ -28,6 +28,9 @@ jobs:
         with:
           go-version: '1.20.14'
           cache: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
       - name: Resolve new release version
         id: version
         shell: powershell
@@ -66,6 +69,14 @@ jobs:
       - name: Vet Go source
         shell: powershell
         run: go vet ./...
+      - name: Test renderer shutdown and modal-error negative control
+        shell: powershell
+        run: |
+          npm install --prefix .\build\ui-tools playwright@1.58.2
+          if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
+          $env:NODE_PATH=(Resolve-Path .\build\ui-tools\node_modules).Path
+          node .\scripts\test_ui_shutdown.cjs
+          if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
       - name: Test native replacement and visible health confirmation
         shell: powershell
         run: .\scripts\Test-UpdateInstall.ps1 -ExecutablePath .\build\Server-Inventory-Configuration-Manager.exe -ExpectedVersion '${{ steps.version.outputs.version }}'
@@ -87,7 +98,9 @@ jobs:
         if: always()
         with:
           name: release-validation
-          path: build/go-test-results.txt
+          path: |
+            build/go-test-results.txt
+            build/ui-shutdown-regression.json
   published-upgrade:
     needs: publish
     runs-on: windows-latest

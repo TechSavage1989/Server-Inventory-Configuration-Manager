@@ -1,4 +1,4 @@
-/* Hosted Windows test: published v3.2.2, real UI actions, public feed, native helper,
+/* Hosted Windows test: published v3.2.3, real UI actions, public feed, native helper,
    visible new app health, settings, shortcut, timer, and failed-health rollback.
    Playwright drives the real application page while the native Edge app is visible.
    This does not simulate UAC consent or a user's physical desktop interaction. */
@@ -7,11 +7,11 @@ const {spawn,execFileSync}=require('child_process');
 const {chromium}=require('playwright');
 const expected=fs.readFileSync('main.go','utf8').match(/appVersion\s*=\s*"([\d.]+)"/)[1];
 const repo='https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager';
-const oldVersion='3.2.2',exeName='Server-Inventory-Configuration-Manager.exe';
+const oldVersion='3.2.3',exeName='Server-Inventory-Configuration-Manager.exe';
 const report={expected,previous:oldVersion,started:new Date().toISOString(),checks:[],limitations:['UAC consent transitions were not exercised.','Playwright drives the application page alongside its visible native Edge window; physical desktop interaction was not performed.','Offline, HTTP failure, rate limiting, ETag and malicious-file cases use deterministic native Go tests.','Legacy Windows Server versions and every server-role collector were not exercised.']};
 const suiteRoot=path.resolve('build','published-upgrade-work');
 const tempRoot=path.join(os.tmpdir(),'SICM-Published-'+crypto.randomUUID());
-let browser;let page;
+let browser;let page;let installingLegacy=false;let confirmingInstall=false;const unexpectedDialogs=[];const legacyShutdownDialogs=[];
 function check(condition,message){if(!condition)throw Error(message);report.checks.push({name:message,result:'passed',time:new Date().toISOString()});console.log('PASS: '+message);}
 async function until(fn,timeout=60000){const deadline=Date.now()+timeout;let last;while(Date.now()<deadline){try{const v=await fn();if(v)return v;}catch(e){last=e;}await new Promise(r=>setTimeout(r,250));}throw Error('Timed out: '+(last?.message||fn.toString().slice(0,140)));}
 async function get(url){const r=await fetch(url);if(!r.ok)throw Error('HTTP '+r.status+' '+url);return Buffer.from(await r.arrayBuffer());}
@@ -20,6 +20,14 @@ function envFor(name){const data=path.join(tempRoot,name);fs.mkdirSync(path.join
 const appRoot=e=>path.join(e.LOCALAPPDATA,'Server Inventory Configuration Manager');
 function powershell(text){return execFileSync('powershell.exe',['-NoLogo','-NoProfile','-NonInteractive','-Command',text],{encoding:'utf8'}).trim();}
 const psQuote=s=>"'"+s.replaceAll("'","''")+"'";
+function nativeBrowserProfile(env,url){return path.join(appRoot(env),'Runtime','Browser-'+new URL(url).searchParams.get('token'));}
+function nativeBrowserProcesses(profile){
+ const raw=powershell("ConvertTo-Json -Compress -InputObject @(Get-CimInstance Win32_Process -Filter \"Name='msedge.exe' OR Name='chrome.exe'\" | Select-Object ProcessId,CommandLine)");
+ const escaped=profile.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+ const match=new RegExp('(?:^|\\s)"?--user-data-dir=(?:"'+escaped+'"|'+escaped+'(?:"|(?=\\s|$)))','i');
+ return JSON.parse(raw||'[]').filter(p=>p.CommandLine&&match.test(p.CommandLine));
+}
+
 async function urlFor(env,old=false,prior=''){
  const p=old?path.join(env.TEMP,'Server-Inventory-Configuration-Exporter-URL.txt'):path.join(appRoot(env),'Runtime','application-url.txt');
  return until(async()=>{const u=(await fsp.readFile(p,'utf8')).trim();if(u===prior)return false;const r=await fetch(new URL('/api/state'+new URL(u).search,u));return r.ok?u:false;});
@@ -33,14 +41,21 @@ async function nativeProcess(exe,args,env){const child=spawn(exe,args,{env,windo
  const manifest=JSON.parse((await get(repo+'/releases/latest/download/update-manifest.json')).toString('utf8').replace(/^\uFEFF/,''));
  check(manifest.version===expected,'Public updater feed selects the expected new release');
  const oldBytes=await get(repo+'/releases/download/v'+oldVersion+'/'+exeName);
- check(sha(oldBytes)==='68a816ae191fab47526893bca06deb0466a9193a543f2b2410955bd7f6e8d9cc','Previous executable matches the published v3.2.2 checksum');
+ check(sha(oldBytes)==='8cd753daefddc1072ee2cc69a48c0269c4a9ea5b646f7d21215c29a5575e29b5','Previous executable matches the published v3.2.3 checksum');
  const newBytes=await get(manifest.asset.url);check(sha(newBytes)===manifest.asset.sha256,'Published new executable matches its manifest checksum');
  const env=envFor('upgrade');const saved=await seedSettings(env);const target=path.join(suiteRoot,exeName);await fsp.writeFile(target,oldBytes);
  const shortcut=path.join(suiteRoot,'Server Inventory Configuration Manager.lnk');
  powershell('$s=(New-Object -ComObject WScript.Shell).CreateShortcut('+psQuote(shortcut)+');$s.TargetPath='+psQuote(target)+';$s.WorkingDirectory='+psQuote(suiteRoot)+';$s.IconLocation='+psQuote(target+',0')+';$s.Save()');
  spawn('powershell.exe',['-NoProfile','-NonInteractive','-Command','Start-Process -FilePath '+psQuote(shortcut)],{env,stdio:'ignore'});
  const oldURL=await urlFor(env,oldVersion==='3.2.0');check((await state(oldURL)).appVersion===oldVersion,'Previous executable starts through the desktop shortcut');
- browser=await chromium.launch({channel:'msedge',headless:true});page=await browser.newPage({viewport:{width:1440,height:1000}});page.on('dialog',async d=>{await d.accept()});
+ browser=await chromium.launch({channel:'msedge',headless:true});page=await browser.newPage({viewport:{width:1440,height:1000}});
+ page.on('dialog',async d=>{
+  if(confirmingInstall&&d.type()==='confirm'&&d.message().startsWith('Install ')){confirmingInstall=false;await d.accept();return}
+  // The unmodified published legacy HTML can alert during shutdown. Record this
+  // known regression explicitly; no dialog from the fixed page is exempted.
+  if(installingLegacy&&d.type()==='alert'&&d.message()==='Request failed with status 0.'){legacyShutdownDialogs.push(d.message());await d.dismiss();return}
+  unexpectedDialogs.push({type:d.type(),message:d.message()});await d.dismiss();
+ });
  await page.goto(oldURL);await page.locator('#updateDownloadButton').waitFor({state:'visible',timeout:60000});
  await until(async()=>{const s=await state(oldURL);return s.update.available&&s.update.canDownload});
  check((await state(oldURL)).update.latestVersion===expected,'Previous application automatically detects the newly published release');
@@ -49,8 +64,17 @@ async function nativeProcess(exe,args,env){const child=spawn(exe,args,{env,windo
  await page.locator('#updateDownloadButton').click();await page.locator('#updateInstallButton').waitFor({state:'visible',timeout:120000});
  check(sha(await fsp.readFile(ready))===manifest.asset.sha256,'Download through the application completes and stages verified release bytes');
  await page.screenshot({path:'build/published-upgrade-before.png'});
- await page.locator('#updateInstallButton').click();
- const newURL=await urlFor(env,false,oldURL);await page.goto(newURL);
+ const oldProfile=nativeBrowserProfile(env,oldURL);
+ check(nativeBrowserProcesses(oldProfile).length>0,'Previous native application browser session is observed before installation');
+ installingLegacy=true;confirmingInstall=true;await page.locator('#updateInstallButton').click();
+ const newURL=await urlFor(env,false,oldURL);await page.goto('about:blank');installingLegacy=false;await page.goto(newURL);
+ await until(async()=>nativeBrowserProcesses(oldProfile).length===0);
+ check(true,'All browser processes for the old application profile close during the real upgrade');
+ report.legacyShutdownDialogs=legacyShutdownDialogs;
+ check(unexpectedDialogs.length===0,'No unexpected dialog is silently accepted during the upgrade');
+ const newNative=await until(async()=>{const p=nativeBrowserProcesses(nativeBrowserProfile(env,newURL));return p.length?p:false});
+ const guest=newNative.find(p=>/(?:^|\s)--guest(?:\s|$)/.test(p.CommandLine));
+ check(guest&&['--disable-extensions','--disable-sync','--no-first-run'].every(flag=>guest.CommandLine.includes(flag)),'Actual new native browser uses guest mode with extensions and sync disabled');
  const healthy=await until(async()=>{const h=JSON.parse(await fsp.readFile(path.join(appRoot(env),'Health','current.json'),'utf8'));return h.version===expected&&h.ui_ready&&h.visible_window_confirmed?h:false},90000);
  check((await state(newURL)).appVersion===expected,'Native helper installs and restarts the new version');
  check(healthy.ui_ready&&healthy.visible_window_confirmed,'New application confirms a rendered interface and a visible owned native window');
@@ -94,9 +118,10 @@ async function nativeProcess(exe,args,env){const child=spawn(exe,args,{env,windo
  check(sha(await fsp.readFile(badTarget))===sha(oldBytes),'Rollback restores the previous executable bytes at a legacy versioned filename');
  const restoredURL=await urlFor(badEnv,oldVersion==='3.2.0');check((await state(restoredURL)).appVersion===oldVersion,'Rollback relaunches the previous application');
  check((await fsp.readFile(badSaved.path)).equals(badSaved.bytes),'Rollback preserves user settings');await stopApp(badEnv);
+ check(unexpectedDialogs.length===0,'Fixed application produces no unexpected modal dialogs throughout the test');
  report.status='passed';
 })().catch(e=>{report.status='failed';report.error=e.stack;console.error(e);process.exitCode=1}).finally(async()=>{
- if(browser)await browser.close();report.completed=new Date().toISOString();await fsp.mkdir('build',{recursive:true});await fsp.writeFile('build/published-upgrade-report.json',JSON.stringify(report,null,2));
+ if(browser)await browser.close();report.unexpectedDialogs=unexpectedDialogs;report.completed=new Date().toISOString();await fsp.mkdir('build',{recursive:true});await fsp.writeFile('build/published-upgrade-report.json',JSON.stringify(report,null,2));
  // Keep only non-customer test logs as CI evidence. Never upload collected server inventory.
  for(const name of ['upgrade','rollback']){try{const log=await fsp.readFile(path.join(appRoot(envFor(name)),'Logs','Updates.log'));await fsp.writeFile('build/published-upgrade-'+name+'.log',log)}catch{}}
 });

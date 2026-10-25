@@ -9,13 +9,17 @@ Download Server-Inventory-Configuration-Manager.exe from [GitHub Releases](https
 Requires Go 1.20.14, Python 3, and Windows PowerShell for validation. The updater is native Go/Win32. Inventory collection uses built-in Windows PowerShell as in the original executable.
 
 1. Run python scripts/verify_baseline.py.
-2. Run python scripts/build_resources.py --version 3.2.3.
+2. Run python scripts/build_resources.py --version 3.2.4.
 3. Run scripts/Test-Source.ps1.
 4. Run go build -trimpath -ldflags "-s -w -H=windowsgui" -o build/Server-Inventory-Configuration-Manager.exe .
 5. Run go test -v ./... and go vet ./....
 6. Run scripts/Test-Binary.ps1 and scripts/Test-UpdateInstall.ps1 with the EXE path and expected version.
 
 The original collector and icon assets are committed directly. The icon and Windows version metadata are linked during compilation, without patching the built EXE.
+
+## Browser isolation
+
+The interface opens in a dedicated Edge or Chrome guest app session with extensions and account sync disabled. It never falls back to your personal browser profile or changes your browser settings or policies. If guest browsing is blocked by organization policy, startup reports the limitation instead of opening a signed-in browser.
 
 ## Updates
 

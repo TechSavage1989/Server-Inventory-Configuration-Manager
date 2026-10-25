@@ -24,7 +24,8 @@ Read this file and DEVELOPMENT_HANDOFF.md before making changes.
 7. Never automatically download, install, or restart. Block installation during collection, report loading, or folder dialogs. Prevent new critical operations once installation starts.
 8. Validate HTTPS/redirect hosts, exact repository and version paths, size, SHA-256, PE sections/entrypoint/architecture/subsystem, mapped application identity marker, and Windows version metadata before execution. The manifest hash is byte validation, not a publisher signature.
 9. The downloaded application is its own native helper. Stage on the target volume, retain exactly one previous rollback EXE, and require token/PID/path-matched health with a rendered UI and visible owned window. Never ship a headless healthy-start bypass.
-10. Keep credentials, tokens, private signing keys, and customer data out of source and artifacts. Do not add server setup, Codex CLI automation, unattended workers, payment setup, or API-account setup.
+10. Launch the interface only in an app-owned guest browser profile with extensions and sync disabled. Never fall back to a personal profile or change user/system browser policies. Respect policies that block guest mode or require account sign-in. Discover and close the exact app-owned profile even when Edge hands off to another PID; never kill browsers by name. Quiesce UI requests before install/shutdown and show update-action errors inline.
+11. Keep credentials, tokens, private signing keys, and customer data out of source and artifacts. Do not add server setup, Codex CLI automation, unattended workers, payment setup, or API-account setup.
 
 ## Build and validate
 
@@ -36,13 +37,14 @@ Use Go 1.20.14, Python 3, and Windows PowerShell for build validation. The updat
 4. Build the stable GUI EXE with go build -trimpath and Windows GUI subsystem flags.
 5. Run scripts/Test-Binary.ps1, go test -v ./..., and go vet ./.... Build the EXE before Go tests; malicious-download tests use those actual bytes.
 6. Run scripts/Test-UpdateInstall.ps1. It launches the real GUI and requires real health confirmation.
-7. Run scripts/Build-ReleaseManifest.ps1. Write UTF-8 JSON without a BOM so older executable updaters can parse it.
+7. Run scripts/test_ui_shutdown.cjs with Playwright and Edge. Its actual v3.2.3 HTML fixture must reproduce the prior status-0 popup, while the fixed page must have zero unexpected dialogs and no requests after accepted shutdown. Native Go tests must close a real modal app window without the launcher PID and preserve a separate profile. The published-upgrade test must assert the old profile processes are gone, inspect the actual new browser guest/extension/sync flags, and never blanket-accept dialogs.
+8. Run scripts/Build-ReleaseManifest.ps1. Write UTF-8 JSON without a BOM so older executable updaters can parse it.
 
 ## Release and handoff
 
 - Validate source CI first, then change release/VERSION in a separate publication commit.
 - Use a new tag/version only. Never replace assets, releases, or tags that have already been published.
 - The workflow uploads all assets to a draft, publishes it, and verifies public downloads/feed.
-- Its separate Windows job runs the published previous executable (currently v3.2.2) through Download and Install and restart into the new release, then verifies native health, settings, shortcuts, scheduling, cleanup, and rollback.
+- Its separate Windows job runs the published previous executable (currently v3.2.3) through Download and Install and restart into the new release, then verifies native health, settings, shortcuts, scheduling, cleanup, and rollback.
 - Record exact tag/commit, asset hash, CI links/results, and testing limitations in DEVELOPMENT_HANDOFF.md and VALIDATION.md.
 - Do not call headless probes, helper-only tests, or cross-compilation a successful interactive Windows upgrade.

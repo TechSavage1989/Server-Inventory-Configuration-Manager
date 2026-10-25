@@ -1,6 +1,10 @@
 # Executable updater validation
 
-## Latest release: v3.2.3
+## 3.2.4 browser/shutdown regression validation pending
+
+The prior published test automatically accepted page dialogs and did not verify disappearance of the old native browser process. The v3.2.3 updater results below remain historical evidence, but do not establish popup-free account-isolated startup or complete old-window closure. New source and publication gates exercise both behaviors and record unexpected dialogs. Hosted tests do not reproduce the user's Microsoft account, browser policies or UAC desktop.
+
+## Historical release: v3.2.3
 
 - Source commit: 6ee8048539ae429d05f7938e06c2baabdd34fb92.
 - Small visible change: Portable EXE header badge. Inventory/report/updater logic and icon bytes are unchanged.

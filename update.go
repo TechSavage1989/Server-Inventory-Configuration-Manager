@@ -983,7 +983,6 @@ func (a *application) installReadyUpdate() error {
 	a.logUpdate("Started update installer PID=%d target=%s version=%s", command.Process.Pid, currentPath, readyVersion)
 	go func() {
 		time.Sleep(800 * time.Millisecond)
-		a.closeOwnApplicationWindow()
 		a.stopServer()
 	}()
 	return nil
@@ -1102,6 +1101,15 @@ func runUpdateHelper(args []string) int {
 		return 3
 	}
 	helperLog(logPath, "Installer started. ParentPID=%d target=%s staged=%s version=%s", parentPID, target, stagedPath, expectedVersion)
+	priorProfile := previousBrowserProfile(parentPID, target)
+	if priorProfile != "" {
+		time.Sleep(150 * time.Millisecond) // allow the install POST response to finish
+		if err := closeScopedBrowser(priorProfile); err != nil {
+			helperLog(logPath, "Previous browser close: %v", err)
+		} else {
+			helperLog(logPath, "Previous app browser session closed")
+		}
+	}
 	deadline := time.Now().Add(45 * time.Second)
 	for parentPID > 0 && processStillRunning(parentPID) && time.Now().Before(deadline) {
 		time.Sleep(250 * time.Millisecond)
@@ -1109,6 +1117,9 @@ func runUpdateHelper(args []string) int {
 	if parentPID > 0 && processStillRunning(parentPID) {
 		helperLog(logPath, "Parent process did not exit before timeout.")
 		return 4
+	}
+	if parentPID > 0 {
+		closeOrphanedApplicationBrowsers()
 	}
 	if err := validateDownloadedExecutable(stagedPath, expectedVersion); err != nil {
 		helperLog(logPath, "Staged update validation failed: %v", err)
@@ -1306,29 +1317,24 @@ func (a *application) writeHealthMarker(token string, visible bool) {
 
 func (a *application) ownApplicationWindow() uintptr {
 	a.mu.Lock()
-	command := a.browserCmd
+	profile := a.browserProfileDirectory
 	a.mu.Unlock()
-	if command == nil || command.Process == nil {
+	if profile == "" {
 		return 0
 	}
-	var found uintptr
-	callback := syscall.NewCallback(func(hwnd uintptr, lparam uintptr) uintptr {
-		var pid uint32
-		procGetWindowThreadProcessID.Call(hwnd, uintptr(unsafe.Pointer(&pid)))
-		visible, _, _ := procIsWindowVisible.Call(hwnd)
-		if visible != 0 && int(pid) == command.Process.Pid && strings.Contains(strings.ToLower(windowText(hwnd)), "server inventory") {
-			found = hwnd
-			return 0
+	for _, window := range scopedBrowserWindows(profile) {
+		if strings.Contains(strings.ToLower(windowText(window)), strings.ToLower(appName)) {
+			return window
 		}
-		return 1
-	})
-	procEnumWindows.Call(callback, 0)
-	return found
+	}
+	return 0
 }
-
 func (a *application) closeOwnApplicationWindow() {
-	if hwnd := a.ownApplicationWindow(); hwnd != 0 {
-		procPostMessageWUpdate.Call(hwnd, wmClose, 0, 0)
+	a.mu.Lock()
+	profile := a.browserProfileDirectory
+	a.mu.Unlock()
+	if profile != "" {
+		_ = closeScopedBrowser(profile)
 	}
 }
 
