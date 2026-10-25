@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"syscall"
 	"testing"
 	"time"
@@ -112,6 +113,15 @@ func readIconTestShortcut(t *testing.T, shortcut string) map[string]string {
 
 func nativeShellIcon(t *testing.T, path string) uintptr {
 	t.Helper()
+	// SHGetFileInfo requires an initialized COM apartment, particularly for
+	// .lnk handlers. PE/ICO extraction can otherwise hide a broken test setup.
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	hr, _, _ := procCoInitializeEx.Call(0, coinitApartmentThreaded)
+	if int32(hr) < 0 {
+		t.Fatalf("shell probe COM initialization failed: 0x%08x", uint32(hr))
+	}
+	defer procCoUninitialize.Call()
 	var info struct {
 		Icon        uintptr
 		Index       int32
