@@ -1,5 +1,19 @@
 # Executable updater validation
 
+## Latest release: v3.2.3
+
+- Source commit: 6ee8048539ae429d05f7938e06c2baabdd34fb92.
+- Small visible change: Portable EXE header badge. Inventory/report/updater logic and icon bytes are unchanged.
+- EXE size: 6491648 bytes.
+- SHA-256: 8cd753daefddc1072ee2cc69a48c0269c4a9ea5b646f7d21215c29a5575e29b5.
+- Exact-release source CI passed: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40171462464.
+- Publication/public-feed/real v3.2.2-to-v3.2.3 upgrade passed: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40171462463.
+- All 24 actual published-upgrade checks passed, including settings, shortcut relaunch, healthy start, two/five-minute waits, cross-volume staging, cleanup, and rollback.
+- Independent public download/hash, embedded badge, Windows metadata, Git revision, and HTTP 304 checks passed.
+- Structured evidence: release/3.2.3-verification.json. The explicit testing limits below continue to apply. No live inventory or report workflow was exercised.
+
+## Historical v3.2.2 validation
+
 Published executable: v3.2.2.
 
 - Exact release commit: ab7fbb783ce4032f951bb717d745f4471ae4d889.

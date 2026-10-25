@@ -1,0 +1,176 @@
+{
+  "schema_version": 1,
+  "application_id": "Server-Inventory-Configuration-Manager",
+  "version": "3.2.3",
+  "tag": "v3.2.3",
+  "source_commit": "6ee8048539ae429d05f7938e06c2baabdd34fb92",
+  "change": "Adds a small Portable EXE header badge for updater testing. Collector/report/updater logic and icon bytes are unchanged.",
+  "asset": {
+    "name": "Server-Inventory-Configuration-Manager.exe",
+    "size": 6491648,
+    "sha256": "8cd753daefddc1072ee2cc69a48c0269c4a9ea5b646f7d21215c29a5575e29b5",
+    "url": "https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/download/v3.2.3/Server-Inventory-Configuration-Manager.exe"
+  },
+  "source_ci": {
+    "run_id": 40171462464,
+    "url": "https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40171462464",
+    "conclusion": "success"
+  },
+  "publication_and_upgrade": {
+    "run_id": 40171462463,
+    "url": "https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40171462463",
+    "conclusion": "success"
+  },
+  "public_conditional_response": 304,
+  "embedded_git_revision_verified": true,
+  "real_previous_version_upgrade": {
+    "expected": "3.2.3",
+    "previous": "3.2.2",
+    "started": "2026-10-25T07:07:08.158Z",
+    "checks": [
+      {
+        "name": "Public updater feed selects the expected new release",
+        "result": "passed",
+        "time": "2026-10-25T07:07:08.396Z"
+      },
+      {
+        "name": "Previous executable matches the published v3.2.2 checksum",
+        "result": "passed",
+        "time": "2026-10-25T07:07:08.537Z"
+      },
+      {
+        "name": "Published new executable matches its manifest checksum",
+        "result": "passed",
+        "time": "2026-10-25T07:07:08.701Z"
+      },
+      {
+        "name": "Previous executable starts through the desktop shortcut",
+        "result": "passed",
+        "time": "2026-10-25T07:07:10.189Z"
+      },
+      {
+        "name": "Previous application automatically detects the newly published release",
+        "result": "passed",
+        "time": "2026-10-25T07:07:16.043Z"
+      },
+      {
+        "name": "No automatic download occurs before Download is clicked",
+        "result": "passed",
+        "time": "2026-10-25T07:07:16.043Z"
+      },
+      {
+        "name": "Download through the application completes and stages verified release bytes",
+        "result": "passed",
+        "time": "2026-10-25T07:07:17.429Z"
+      },
+      {
+        "name": "Native helper installs and restarts the new version",
+        "result": "passed",
+        "time": "2026-10-25T07:07:21.838Z"
+      },
+      {
+        "name": "New application confirms a rendered interface and a visible owned native window",
+        "result": "passed",
+        "time": "2026-10-25T07:07:21.838Z"
+      },
+      {
+        "name": "User settings remain byte-identical after the real upgrade",
+        "result": "passed",
+        "time": "2026-10-25T07:07:23.895Z"
+      },
+      {
+        "name": "Exactly the previous published executable is retained for rollback",
+        "result": "passed",
+        "time": "2026-10-25T07:07:23.908Z"
+      },
+      {
+        "name": "Only one rollback executable generation is retained",
+        "result": "passed",
+        "time": "2026-10-25T07:07:23.908Z"
+      },
+      {
+        "name": "Desktop shortcut target remains the same stable executable path",
+        "result": "passed",
+        "time": "2026-10-25T07:07:24.388Z"
+      },
+      {
+        "name": "Installed target bytes match the new public release across staging volumes",
+        "result": "passed",
+        "time": "2026-10-25T07:07:24.396Z"
+      },
+      {
+        "name": "Manual update check succeeds on the new executable",
+        "result": "passed",
+        "time": "2026-10-25T07:07:24.742Z"
+      },
+      {
+        "name": "Short manual-check cooldown prevents another request",
+        "result": "passed",
+        "time": "2026-10-25T07:07:25.372Z"
+      },
+      {
+        "name": "Application focus binding checks again after two minutes",
+        "result": "passed",
+        "time": "2026-10-25T07:09:26.886Z"
+      },
+      {
+        "name": "Native automatic checks continue after five active minutes",
+        "result": "passed",
+        "time": "2026-10-25T07:14:35.201Z"
+      },
+      {
+        "name": "Owned download staging is cleaned after the update",
+        "result": "passed",
+        "time": "2026-10-25T07:14:35.267Z"
+      },
+      {
+        "name": "Existing desktop shortcut launches the updated executable",
+        "result": "passed",
+        "time": "2026-10-25T07:14:36.304Z"
+      },
+      {
+        "name": "Missing healthy-start confirmation triggers the actual native rollback path",
+        "result": "passed",
+        "time": "2026-10-25T07:15:22.990Z"
+      },
+      {
+        "name": "Rollback restores the previous executable bytes at a legacy versioned filename",
+        "result": "passed",
+        "time": "2026-10-25T07:15:23.002Z"
+      },
+      {
+        "name": "Rollback relaunches the previous application",
+        "result": "passed",
+        "time": "2026-10-25T07:15:23.285Z"
+      },
+      {
+        "name": "Rollback preserves user settings",
+        "result": "passed",
+        "time": "2026-10-25T07:15:23.286Z"
+      }
+    ],
+    "limitations": [
+      "UAC consent transitions were not exercised.",
+      "Playwright drives the application page alongside its visible native Edge window; physical desktop interaction was not performed.",
+      "Offline, HTTP failure, rate limiting, ETag and malicious-file cases use deterministic native Go tests.",
+      "Legacy Windows Server versions and every server-role collector were not exercised."
+    ],
+    "volumes": {
+      "target": "D:\\",
+      "staging": "C:\\"
+    },
+    "status": "passed",
+    "completed": "2026-10-25T07:15:24.653Z"
+  },
+  "previous_release_preserved": "v3.2.2",
+  "github_immutable_release_lock": false,
+  "limitations": [
+    "UAC consent transitions were not exercised.",
+    "Playwright drives the application page alongside its visible native Edge window; physical desktop interaction was not performed.",
+    "Offline, HTTP failure, rate limiting, ETag and malicious-file cases use deterministic native Go tests.",
+    "Legacy Windows Server versions and every server-role collector were not exercised.",
+    "Focus uses a synthetic DOM event after a real two-minute wait.",
+    "No live inventory collection, report-generation run, or report-viewer workflow was exercised.",
+    "Other browser fallback modes and legacy Windows Server versions were not validated."
+  ]
+}

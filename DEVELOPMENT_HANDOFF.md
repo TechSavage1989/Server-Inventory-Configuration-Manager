@@ -7,9 +7,10 @@
 - Uploaded baseline EXE SHA-256: 572bf173917330a2fde4b4bf67df998f9f29522c8814d5350b50826caf38ee4e.
 - The original v3.0.10 source ZIP was located. Its bundled EXE matches the uploaded baseline exactly; no EXE decompilation was used.
 - Source provenance and original file hashes: baseline-verification.json.
-- Latest published and automatically validated executable: v3.2.2, source commit ab7fbb783ce4032f951bb717d745f4471ae4d889.
+- Latest published and automatically validated executable: v3.2.3, source commit 6ee8048539ae429d05f7938e06c2baabdd34fb92.
+- Earlier v3.2.2 remains unchanged at commit ab7fbb783ce4032f951bb717d745f4471ae4d889.
 - Earlier v3.2.1 remains unchanged at commit 54d627d736f11335c8cf6ce4c89649f1c6351289.
-- User confirmation still applies to the v3.0.10 functional baseline. v3.2.2 has hosted Windows validation, not a claim of user field confirmation.
+- User confirmation still applies to the v3.0.10 functional baseline. v3.2.3 has hosted Windows validation, not a claim of user field confirmation.
 - Repository is public: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager.
 
 ## Historical PS1 release and feed
@@ -57,22 +58,20 @@ User-selected inventory reports remain in their selected output directory. Unkno
 
 ## Validation and release status
 
-- Release: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.2.
-- Exact release tag/commit: v3.2.2 / ab7fbb783ce4032f951bb717d745f4471ae4d889.
-- Stable EXE size: 6491648 bytes.
-- EXE SHA-256: 68a816ae191fab47526893bca06deb0466a9193a543f2b2410955bd7f6e8d9cc.
-- Published assets: stable EXE, .exe.sha256.txt, update-manifest.json, and go-test-results.txt.
-- Exact-release source CI passed: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40169800117.
-- Publication, public feed/download verification, and the real published v3.2.1-to-v3.2.2 update passed: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40169800158.
-- The prior real v3.2.0-to-v3.2.1 update also passed: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40169175169.
-- Actual Windows automation verified public detection, explicit Download and Install and restart, native replacement, visible rendered health, byte-identical settings, exactly one previous rollback EXE, shortcut preservation/relaunch, real two/five-minute thresholds, cleanup, forced failed-health rollback and previous-version relaunch.
-- Target EXE was on D: and staging was on C:, exercising cross-volume staging. The separate native helper test covers same-volume installation.
-- Independent downloads matched both checksums, Windows PE/application/version metadata, and the embedded Git revision. The public feed returned a real ETag conditional HTTP 304.
-- A Windows negative control runs the actual published v3.2.1 EXE with an exclusive target lock: one orphan file before the fix, zero with v3.2.2, installed bytes unchanged.
-- Full structured evidence: release/3.2.2-verification.json. GUI test JSON/logs/screenshots are workflow artifacts.
-- Earlier releases/tags/assets, including the v3.1.0 PS1 release, were not overwritten. The workflow refuses existing versions. GitHub's repository-level immutable-release lock is not enabled; the API immutable flag is false.
+- Current release: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.3.
+- Exact tag/commit: v3.2.3 / 6ee8048539ae429d05f7938e06c2baabdd34fb92.
+- Change: a small Portable EXE badge beside the existing header badges, plus consistent version metadata. Collector/report logic, updater behavior, settings behavior, and icon bytes are unchanged.
+- Stable EXE: Server-Inventory-Configuration-Manager.exe, 6491648 bytes.
+- SHA-256: 8cd753daefddc1072ee2cc69a48c0269c4a9ea5b646f7d21215c29a5575e29b5.
+- Exact-release Windows source CI passed: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40171462464.
+- Publication, public feed/assets, and real v3.2.2-to-v3.2.3 update passed: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40171462463.
+- All 24 published-upgrade checks passed, including detection, explicit download/install, new visible healthy window, saved settings, stable shortcut relaunch, real two/five-minute thresholds, cleanup, and forced missing-health rollback/relaunch.
+- Target was on D: with staging on C:. Native helper CI also passed same-volume replacement and the locked-target regression control.
+- Independent public download, checksum file/manifest, Windows PE/version metadata, embedded Git revision, embedded new badge, and real conditional HTTP 304 were verified.
+- Structured evidence: release/3.2.3-verification.json. Prior v3.2.2 evidence remains in release/3.2.2-verification.json.
+- Earlier tags and assets, including v3.2.2 and historical v3.1.0 PS1, were preserved. The release workflow rejects overwrites. GitHub repository-level immutable locking remains disabled.
 
-See VALIDATION.md for explicit limits. Hosted tests ran on Windows Server 2025 with Edge. UAC consent, physical desktop interaction/focus return, other browser fallback modes, older Windows Server versions, and live inventory/report workflows were not tested. Offline/error/rate-limit/ETag/security cases use deterministic native test transport, with an additional real public ETag check. SHA-256 is not publisher signing.
+Testing limits are unchanged: hosted Windows Server 2025/Edge automation, no human desktop/UAC test, synthetic focus event after a real wait, deterministic native network-failure/security cases, no live inventory/report workflows, and no legacy Windows Server or other-browser validation. The original collector/wrapper/icon provenance checks still pass. SHA-256 validates bytes, not publisher signing.
 
 ## Approved scope
 
@@ -82,6 +81,6 @@ Continue inventory/configuration capture, reporting, server-role coverage, migra
 
 The Windows test runs the exact published v3.2.1 EXE against an exclusively locked installed target. It reproduces one orphan target-volume update file. The v3.2.2 helper refuses the same unsafe installation, preserves the installed file bytes, logs the cause, and leaves zero target-volume temporary files. The previous published binary is checksum-pinned in the test. Source CI for this fix: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40169661939, source commit 61fb5ef25ffde8764a229d64cf2c3cb5f0bec5f6.
 
-## Prepared updater test release 3.2.3
+## Published updater test release 3.2.3
 
-The user requested a small visible application change and a published update to test the updater. Prepared version 3.2.3 adds a Portable EXE badge beside the existing header badges. The icon, layout structure, collectors, report code, settings behavior, and updater implementation are otherwise unchanged. Application, collector, script, and Windows resource versions advance together. The published-upgrade workflow uses the exact published v3.2.2 EXE, SHA-256 68a816ae191fab47526893bca06deb0466a9193a543f2b2410955bd7f6e8d9cc, as its previous-version test input. Source CI passed at commit b9ba2f934d4f039ac27d47284b7d043771d6c483: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40171315650. Publication and the new Windows upgrade results are pending; the v3.2.2 validation record above remains historical evidence.
+Version 3.2.3 adds a Portable EXE badge beside the existing header badges. The icon, layout structure, collectors, report code, settings behavior, and updater implementation are otherwise unchanged. Application, collector, script, and Windows resource versions advance together. The published-upgrade workflow uses the exact published v3.2.2 EXE, SHA-256 68a816ae191fab47526893bca06deb0466a9193a543f2b2410955bd7f6e8d9cc, as its previous-version test input. Source CI passed at commit b9ba2f934d4f039ac27d47284b7d043771d6c483: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40171315650. Release v3.2.3 is published and its real v3.2.2-to-v3.2.3 upgrade passed all 24 checks. The v3.2.2 verification file remains historical evidence.
