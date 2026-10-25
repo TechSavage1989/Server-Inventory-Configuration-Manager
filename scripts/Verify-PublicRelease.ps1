@@ -29,11 +29,7 @@ try {
         try {
             $manifestPath = Join-Path $temp 'update-manifest.json'
 
-            Invoke-WebRequest
-                -Uri $feed
-                -OutFile $manifestPath
-                -UseBasicParsing
-                -TimeoutSec 20
+            Invoke-WebRequest -Uri $feed -OutFile $manifestPath -UseBasicParsing -TimeoutSec 20
 
             $manifest =
                 Get-Content -LiteralPath $manifestPath -Raw |
@@ -79,11 +75,7 @@ try {
     $assetPath =
         Join-Path $temp 'Server-Inventory-Configuration-Manager.ps1'
 
-    Invoke-WebRequest
-        -Uri ([string]$manifest.asset.url)
-        -OutFile $assetPath
-        -UseBasicParsing
-        -TimeoutSec 30
+    Invoke-WebRequest -Uri ([string]$manifest.asset.url) -OutFile $assetPath -UseBasicParsing -TimeoutSec 30
 
     if (
         (Get-Item -LiteralPath $assetPath).Length -ne
@@ -142,9 +134,5 @@ try {
     Write-Host "SHA-256: $hash"
 }
 finally {
-    Remove-Item
-        -LiteralPath $temp
-        -Recurse
-        -Force
-        -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $temp -Recurse -Force -ErrorAction SilentlyContinue
 }
