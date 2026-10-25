@@ -5,6 +5,7 @@ package main
 import (
 	"bytes"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"syscall"
 	"testing"
@@ -200,7 +201,9 @@ func TestExplorerAndDesktopShortcutUseApprovedIcon(t *testing.T) {
 	if err := os.WriteFile(malformed, []byte("malformed"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	refreshShellIcons(executable, icon, []shellShortcutDirectory{{desktop, icon}}, t.Logf)
+	portable := filepath.Join(root, "Portable shortcut.lnk")
+	createIconTestShortcut(t, portable, executable, oldIcon)
+	refreshShellIcons(executable, icon, []shellShortcutDirectory{{desktop, icon}, {root, executable}}, t.Logf)
 	after := readIconTestShortcut(t, shortcut)
 	for _, key := range []string{"target", "arguments", "directory", "description"} {
 		if before[key] != after[key] {
@@ -212,6 +215,17 @@ func TestExplorerAndDesktopShortcutUseApprovedIcon(t *testing.T) {
 	}
 	if !bytes.Equal(approved, shellIconPixels(t, nativeShellIcon(t, shortcut))) {
 		t.Fatal("actual Explorer shortcut pixels do not match approved icon")
+	}
+	if shared := readIconTestShortcut(t, portable); shared["icon"] != executable {
+		t.Fatal("shared or portable link incorrectly depends on a per-user icon", shared)
+	}
+	// Validate the exact shell-pixel probe used by the later published update
+	// before a release is allowed to publish.
+	probe := exec.Command("powershell.exe", "-NoLogo", "-NoProfile", "-NonInteractive", "-File", "scripts/Test-ShellIcon.ps1", "-ExecutablePath", executable, "-ShortcutPath", shortcut, "-ExpectedIconPath", icon)
+	if output, err := probe.CombinedOutput(); err != nil {
+		t.Fatalf("published shell-icon probe failed: %v\n%s", err, output)
+	} else {
+		t.Logf("Published shell-icon probe: %s", output)
 	}
 	if b, _ := os.ReadFile(unrelated); !bytes.Equal(b, unrelatedBytes) {
 		t.Fatal("unrelated shortcut was changed")
