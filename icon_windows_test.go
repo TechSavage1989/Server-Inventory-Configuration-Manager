@@ -129,8 +129,10 @@ func TestCompiledIconResourcesAndNativeShellExtraction(t *testing.T) {
 	if small != 0 {
 		defer user32.NewProc("DestroyIcon").Call(small)
 	}
-	if n != 1 || large == 0 || small == 0 {
-		t.Fatal("Windows could not extract both desktop and small executable icons")
+	// A combined large+small request can report two successfully extracted icons.
+	// Require both actual handles instead of assuming the result counts groups.
+	if n == 0 || n == 0xffffffff || large == 0 || small == 0 {
+		t.Fatalf("Windows icon extraction failed: count=%d large=%#x small=%#x", n, large, small)
 	}
-	t.Log("All ten SVG-derived icon frames match the compiled executable; native large/small shell extraction passed")
+	t.Logf("All ten SVG-derived icon frames match the compiled executable; native large/small shell extraction passed, returned count=%d", n)
 }
