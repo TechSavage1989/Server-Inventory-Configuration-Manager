@@ -1,4 +1,4 @@
-"""Build a Windows COFF .rsrc object from the original icon and exact version metadata.
+"""Build a Windows COFF .rsrc object from the approved active icon and exact version metadata.
 Resources are linked by Go; the compiled executable is never patched afterward.
 """
 import argparse,pathlib,struct

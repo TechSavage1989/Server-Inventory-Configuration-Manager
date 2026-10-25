@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "source": "assets/icons/server-inventory.svg",
+  "source_sha256": "fc9211e88bb1f3d0bc34380c82bdd010456b57e59433650b85ae03cdaaf382cd",
+  "palette": [
+    "#132F4C",
+    "#2563EB",
+    "#FFFFFF",
+    "#13B8A6"
+  ],
+  "ico_sizes": [
+    16,
+    20,
+    24,
+    32,
+    40,
+    48,
+    64,
+    96,
+    128,
+    256
+  ],
+  "renderer": "@resvg/resvg-js@2.6.2",
+  "assets": {
+    "favicon.ico": {
+      "sha256": "033daa7a992a6054541f2a99a21c1c22a563d65ce775f1053fea79f4d29d0183",
+      "size": 17732
+    },
+    "server_inventory.ico": {
+      "sha256": "033daa7a992a6054541f2a99a21c1c22a563d65ce775f1053fea79f4d29d0183",
+      "size": 17732
+    },
+    "app-icon.png": {
+      "sha256": "5275e28ef45ababecede026f979c301ceaeda4a7e4c1526955da570870636b7f",
+      "size": 6148
+    }
+  }
+}

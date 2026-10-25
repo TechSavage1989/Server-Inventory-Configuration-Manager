@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+     xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+     width="512" height="512" viewBox="0 0 512 512"
+     role="img" aria-labelledby="icon-title icon-description">
+  <title id="icon-title">Server Inventory Configuration Manager</title>
+  <desc id="icon-description">Three server drawers with an inventory checkmark. Four solid colors on a transparent background. Every component is an editable vector shape.</desc>
+  <g id="server" inkscape:groupmode="layer" inkscape:label="Server rack">
+    <rect id="chassis" x="48" y="48" width="352" height="384" rx="44" fill="#132F4C"/>
+    <g id="drawers" fill="#2563EB">
+      <rect id="top-drawer" x="72" y="72" width="304" height="96" rx="14"/>
+      <rect id="middle-drawer" x="72" y="188" width="304" height="96" rx="14"/>
+      <rect id="bottom-drawer" x="72" y="304" width="304" height="96" rx="14"/>
+    </g>
+    <g id="slots-and-indicators" fill="#FFFFFF">
+      <rect id="top-slot" x="100" y="106" width="132" height="28" rx="14"/>
+      <rect id="middle-slot" x="100" y="222" width="132" height="28" rx="14"/>
+      <rect id="bottom-slot" x="100" y="338" width="132" height="28" rx="14"/>
+      <circle id="top-indicator" cx="332" cy="120" r="14"/>
+      <circle id="middle-indicator" cx="332" cy="236" r="14"/>
+      <circle id="bottom-indicator" cx="332" cy="352" r="14"/>
+    </g>
+  </g>
+  <g id="inventory" inkscape:groupmode="layer" inkscape:label="Inventory checkmark">
+    <circle id="badge-border" cx="368" cy="376" r="88" fill="#132F4C"/>
+    <circle id="badge-fill" cx="368" cy="376" r="72" fill="#13B8A6"/>
+    <path id="checkmark" d="M334 376 L357 399 L405 349" fill="none" stroke="#FFFFFF" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

@@ -31,8 +31,8 @@ import (
 
 const (
 	appName           = "Server Inventory Configuration Manager"
-	appVersion        = "3.2.5"
-	collectorVersion  = "3.2.5"
+	appVersion        = "3.2.6"
+	collectorVersion  = "3.2.6"
 	maximumCollectors = 49
 
 	mbOK              = 0x00000000
@@ -57,7 +57,7 @@ const (
 	lrLoadFromFile = 0x0010
 )
 
-//go:embed Export-ServerInventory.ps1 Run-Inventory.ps1 index.html favicon.ico app-icon.png
+//go:embed Export-ServerInventory.ps1 Run-Inventory.ps1 index.html favicon.ico app-icon.png assets/icons/server-inventory.svg
 var embeddedPayloads embed.FS
 
 var (
@@ -2017,11 +2017,23 @@ func (a *application) handleAppIcon(response http.ResponseWriter, request *http.
 	_, _ = response.Write(data)
 }
 
+func (a *application) handleAppIconSVG(response http.ResponseWriter, request *http.Request) {
+	data, err := embeddedPayloads.ReadFile("assets/icons/server-inventory.svg")
+	if err != nil {
+		http.NotFound(response, request)
+		return
+	}
+	response.Header().Set("Content-Type", "image/svg+xml")
+	response.Header().Set("Cache-Control", "public, max-age=86400")
+	_, _ = response.Write(data)
+}
+
 func (a *application) serve(listener net.Listener) error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", a.handleIndex)
 	mux.HandleFunc("/favicon.ico", a.handleFavicon)
 	mux.HandleFunc("/app-icon.png", a.handleAppIcon)
+	mux.HandleFunc("/app-icon.svg", a.handleAppIconSVG)
 	mux.HandleFunc("/api/state", a.handleState)
 	mux.HandleFunc("/api/browse", a.handleBrowse)
 	mux.HandleFunc("/api/browse-report", a.handleBrowseReport)

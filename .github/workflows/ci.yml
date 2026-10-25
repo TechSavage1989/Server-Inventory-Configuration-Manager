@@ -26,10 +26,17 @@ jobs:
           $version=[regex]::Match($main,'appVersion\s*=\s*"(?<v>\d+\.\d+\.\d+)"').Groups['v'].Value
           if(-not $version){throw 'Missing source version'}
           "version=$version" | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
+      - name: Verify SVG-derived icon assets
+        shell: powershell
+        run: |
+          npm ci --prefix .\scripts\icon-tools --no-audit --no-fund
+          if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
+          node .\scripts\build_icons.cjs --check
+          if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
       - name: Verify original executable assets
         shell: powershell
         run: python .\scripts\verify_baseline.py
-      - name: Compile original icon and Windows metadata resources
+      - name: Compile active icon and Windows metadata resources
         shell: powershell
         run: python .\scripts\build_resources.py --version '${{ steps.version.outputs.version }}'
       - name: Validate source

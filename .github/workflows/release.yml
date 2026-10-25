@@ -44,6 +44,13 @@ jobs:
           $releases=@(gh release list --limit 100 --json tagName|ConvertFrom-Json)
           if($LASTEXITCODE -ne 0){throw 'Release lookup failed'}
           if(@($releases|Where-Object{$_.tagName -eq $tag}).Count){throw 'Existing releases are never overwritten'}
+      - name: Verify SVG-derived icon assets
+        shell: powershell
+        run: |
+          npm ci --prefix .\scripts\icon-tools --no-audit --no-fund
+          if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
+          node .\scripts\build_icons.cjs --check
+          if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
       - name: Verify original assets
         shell: powershell
         run: python .\scripts\verify_baseline.py
@@ -87,7 +94,7 @@ jobs:
         shell: powershell
         run: |
           $version='${{ steps.version.outputs.version }}';$tag="v$version"
-          gh release create $tag .\dist\Server-Inventory-Configuration-Manager.exe .\dist\Server-Inventory-Configuration-Manager.exe.sha256.txt .\dist\update-manifest.json .\build\go-test-results.txt --draft --target '${{ github.sha }}' --title "Server Inventory Configuration Manager $version" --notes-file ".\release-notes\$version.md"
+          gh release create $tag .\dist\Server-Inventory-Configuration-Manager.exe .\dist\Server-Inventory-Configuration-Manager.exe.sha256.txt .\dist\update-manifest.json .\dist\Server-Inventory-Configuration-Manager.svg .\dist\Server-Inventory-Configuration-Manager.svg.sha256.txt .\build\go-test-results.txt --draft --target '${{ github.sha }}' --title "Server Inventory Configuration Manager $version" --notes-file ".\release-notes\$version.md"
           if($LASTEXITCODE -ne 0){throw 'Release create failed'}
           gh release edit $tag --draft=false --latest
           if($LASTEXITCODE -ne 0){throw 'Release publish failed'}

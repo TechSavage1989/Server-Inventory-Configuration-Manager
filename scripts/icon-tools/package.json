@@ -1,0 +1,9 @@
+{
+  "name": "sicm-icon-build-tools",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Build-only SVG renderer; never required by the application or updater",
+  "dependencies": {
+    "@resvg/resvg-js": "2.6.2"
+  }
+}

@@ -6,16 +6,22 @@ Download Server-Inventory-Configuration-Manager.exe from [GitHub Releases](https
 
 ## Build
 
-Requires Go 1.20.14, Python 3, and Windows PowerShell for validation. The updater is native Go/Win32. Inventory collection uses built-in Windows PowerShell as in the original executable.
+Requires Go 1.20.14, Python 3, Node.js 22 for build-only icon rendering, and Windows PowerShell for validation. The updater is native Go/Win32. Inventory collection uses built-in Windows PowerShell as in the original executable.
 
-1. Run python scripts/verify_baseline.py.
-2. Run python scripts/build_resources.py --version 3.2.5.
+1. Run npm ci --prefix scripts/icon-tools and node scripts/build_icons.cjs --check, then python scripts/verify_baseline.py.
+2. Run python scripts/build_resources.py --version 3.2.6.
 3. Run scripts/Test-Source.ps1.
 4. Run go build -trimpath -ldflags "-s -w -H=windowsgui" -o build/Server-Inventory-Configuration-Manager.exe .
 5. Run go test -v ./... and go vet ./....
 6. Run scripts/Test-Binary.ps1 and scripts/Test-UpdateInstall.ps1 with the EXE path and expected version.
 
-The original collector and icon assets are committed directly. The icon and Windows version metadata are linked during compilation, without patching the built EXE.
+The original collector is committed directly. Original icon bytes are retained under baseline/v3.0.10/icons. The new SVG-derived icon and Windows version metadata are linked during compilation, without patching the built EXE.
+
+## Editable application icon
+
+Edit assets/icons/server-inventory.svg in Inkscape, Illustrator or another SVG editor. The rack, drawers, indicators and checkmark are named vector shapes in separate groups, using four solid colors and no embedded bitmap. Run node scripts/build_icons.cjs after editing to regenerate the 256px PNG, ten Windows ICO sizes and icon-verification.json. The renderer is a build tool only; the portable application and updater do not require Node.js.
+
+The editable SVG and its checksum are also included in each executable release.
 
 ## Browser isolation
 

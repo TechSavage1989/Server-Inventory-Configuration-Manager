@@ -1,10 +1,17 @@
-"""Verify that original collection behavior and icon bytes remain the build inputs."""
+"""Verify original collector behavior and archived icons, plus approved active icon hashes."""
 import pathlib,json,hashlib,re
 root=pathlib.Path(__file__).resolve().parent.parent
 expected=json.loads((root/'baseline-verification.json').read_text())['source_files']
 for name in ['Run-Inventory.ps1','favicon.ico','app-icon.png','server_inventory.ico','Export-ServerInventory.ps1']:
-    data=(root/name).read_bytes()
+    # The user explicitly requested the new SVG icon. Preserve original icon
+    # hashes and bytes as history rather than relabeling the new art as baseline.
+    path=root/'baseline/v3.0.10/icons'/name if name in ['favicon.ico','app-icon.png','server_inventory.ico'] else root/name
+    data=path.read_bytes()
     if name=='Export-ServerInventory.ps1':
         data=re.sub(rb"\$scriptVersion = '\d+\.\d+\.\d+'",b"$scriptVersion = '3.0.0'",data,count=1)
     if hashlib.sha256(data).hexdigest()!=expected[name]:raise SystemExit('Original asset changed unexpectedly: '+name)
-print('Original v3.0.10 collector, wrapper and icons match baseline bytes (collector version normalized).')
+active=json.loads((root/'icon-verification.json').read_text())
+for name,metadata in active['assets'].items():
+    if hashlib.sha256((root/name).read_bytes()).hexdigest()!=metadata['sha256']:raise SystemExit('Approved active icon changed unexpectedly: '+name)
+if hashlib.sha256((root/active['source']).read_bytes()).hexdigest()!=active['source_sha256']:raise SystemExit('Editable SVG source changed; rebuild and review active icon assets')
+print('Original v3.0.10 collector/wrapper and archived icons match baseline bytes; approved active SVG/icon hashes match separately.')

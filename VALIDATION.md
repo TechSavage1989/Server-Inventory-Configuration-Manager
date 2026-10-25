@@ -1,6 +1,10 @@
 # Executable updater validation
 
-## Latest release: v3.2.5
+## Editable icon 3.2.6 validation pending
+
+The new editable SVG is the master for the header, PNG/favicon and compile-time Windows ICO. CI compares regenerated assets, archived original provenance, every compiled icon frame and native shell extraction. The published v3.2.5-to-new upgrade also checks icon endpoint bytes and the loaded header image. Results are pending. Physical desktop icon caching, UAC, mixed-DPI and live inventory/report workflows are not claimed as tested.
+
+## Historical release: v3.2.5
 
 - Exact tag/commit: v3.2.5 / b02163944ff8189cd627a2f7af8963238d797f71.
 - EXE: 6536192 bytes; SHA-256 bbd06ab0f9dadad77c0e3ed4bacf30f1482dc8ae4766426a5f68f40ab84d34b5.

@@ -17,6 +17,10 @@ try{
     $hash=(Get-FileHash $exe -Algorithm SHA256).Hash.ToLowerInvariant()
     if($hash -ne ([string]$manifest.asset.sha256).ToLowerInvariant()){throw 'Public asset SHA-256 mismatch.'}
     & (Join-Path $PSScriptRoot 'Test-Binary.ps1') -ExecutablePath $exe -ExpectedVersion $ExpectedVersion
+    $svg=Join-Path $temp 'Server-Inventory-Configuration-Manager.svg'
+    Invoke-WebRequest -UseBasicParsing -Uri "$base/Server-Inventory-Configuration-Manager.svg" -OutFile $svg
+    $expectedSvg=(Get-FileHash (Join-Path $PSScriptRoot '..\assets\icons\server-inventory.svg') -Algorithm SHA256).Hash
+    if((Get-FileHash $svg -Algorithm SHA256).Hash -ne $expectedSvg){throw 'Public editable SVG differs from release source.'}
     Write-Host 'Public updater feed and release asset verification passed.'
 }
 finally{Remove-Item $temp -Recurse -Force -ErrorAction SilentlyContinue}

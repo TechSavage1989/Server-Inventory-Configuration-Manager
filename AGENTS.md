@@ -15,9 +15,9 @@ Read this file and DEVELOPMENT_HANDOFF.md before making changes.
 
 ## Development rules
 
-1. Preserve the original layout, collectors, reporting, report viewer, scope controls, and icon unless the user requests a change. Run scripts/verify_baseline.py. Keep the original hashes in baseline-verification.json unchanged. For future user-approved collector changes, record the compared revision separately and update the verifier/tests without relabeling changed bytes as the original baseline.
+1. Preserve the original layout, collectors, reporting, report viewer, scope controls, and icon unless the user requests a change. Run scripts/verify_baseline.py. Keep the original hashes in baseline-verification.json unchanged. For user-approved collector or icon changes, record the compared revision separately and update the verifier/tests without relabeling changed bytes as the original baseline. Original icon bytes now live in baseline/v3.0.10/icons. The user-approved editable icon is assets/icons/server-inventory.svg; active hashes are in icon-verification.json.
 2. Update appVersion, collectorVersion, and the original standalone collector's scriptVersion consistently. Source files are committed directly; do not extract them from legacy PS1 applications.
-3. Link the original icon and Windows file/product version metadata during compilation with scripts/build_resources.py. Do not patch a compiled EXE.
+3. Link the approved SVG-derived icon and Windows file/product version metadata during compilation with scripts/build_resources.py. Do not patch a compiled EXE.
 4. Keep the portable filename stable. Install in place to preserve existing shortcuts, including legacy custom/versioned names. Do not rename a user's executable or shortcut silently.
 5. Settings, updater logs/cache/downloads/health/rollback, and browser session files belong under per-user LocalAppData/Server Inventory Configuration Manager. The one transient replacement file on the executable's volume is removed after replacement or failure.
 6. Startup checks follow the authenticated first UI paint. Native timers schedule checks every five minutes; focus checks require two minutes. Keep single-flight, ETags, cooldown, Retry-After, GitHub reset handling, and persistent backoff. Cached/offline/failed checks never mean up to date.
@@ -32,20 +32,22 @@ Read this file and DEVELOPMENT_HANDOFF.md before making changes.
 
 Use Go 1.20.14, Python 3, and Windows PowerShell for build validation. The updater itself has no PowerShell/runtime dependency. The original inventory engine still uses built-in Windows PowerShell with the baseline process-scoped collector invocation.
 
-1. Run python scripts/verify_baseline.py.
-2. Run python scripts/build_resources.py --version <source-version>.
-3. Run scripts/Test-Source.ps1.
-4. Build the stable GUI EXE with go build -trimpath and Windows GUI subsystem flags.
-5. Run scripts/Test-Binary.ps1, go test -v ./..., and go vet ./.... Build the EXE before Go tests; malicious-download tests use those actual bytes.
-6. Run scripts/Test-UpdateInstall.ps1. It launches the real GUI and requires real health confirmation.
-7. Run scripts/test_ui_shutdown.cjs with Playwright and Edge. Its actual v3.2.3 HTML fixture must reproduce the prior status-0 popup, while the fixed page must have zero unexpected dialogs and no requests after accepted shutdown. Native Go tests must close a real modal app window without the launcher PID and preserve a separate profile. The published-upgrade test must assert the old profile processes are gone, inspect the actual new browser guest/extension/sync flags, and never blanket-accept dialogs.
-8. Run scripts/Build-ReleaseManifest.ps1. Write UTF-8 JSON without a BOM so older executable updaters can parse it.
+1. Run npm ci --prefix scripts/icon-tools and node scripts/build_icons.cjs --check. After editing the SVG, run node scripts/build_icons.cjs to regenerate PNG/ICO/hash metadata, then review. Do not embed a raster image inside the SVG. The renderer is build-time only.
+2. Run python scripts/verify_baseline.py.
+3. Run python scripts/build_resources.py --version <source-version>.
+4. Run scripts/Test-Source.ps1.
+5. Build the stable GUI EXE with go build -trimpath and Windows GUI subsystem flags.
+6. Run scripts/Test-Binary.ps1, go test -v ./..., and go vet ./.... Build the EXE before Go tests; malicious-download tests use those actual bytes.
+7. Run scripts/Test-UpdateInstall.ps1. It launches the real GUI and requires real health confirmation.
+8. Run scripts/test_ui_shutdown.cjs with Playwright and Edge. Its actual v3.2.3 HTML fixture must reproduce the prior status-0 popup, while the fixed page must have zero unexpected dialogs and no requests after accepted shutdown. Native Go tests must close a real modal app window without the launcher PID and preserve a separate profile. The published-upgrade test must assert the old profile processes are gone, inspect the actual new browser guest/extension/sync flags, and never blanket-accept dialogs.
+9. Run scripts/Build-ReleaseManifest.ps1. Write UTF-8 JSON without a BOM so older executable updaters can parse it.
 
 ## Release and handoff
 
 - Validate source CI first, then change release/VERSION in a separate publication commit.
 - Use a new tag/version only. Never replace assets, releases, or tags that have already been published.
+- Ship the editable SVG and its SHA-256 alongside the EXE. Native tests must match every compiled icon frame against the SVG-derived ICO and exercise Windows shell extraction. The published test verifies the SVG/PNG/favicon responses and loaded header image.
 - The workflow uploads all assets to a draft, publishes it, and verifies public downloads/feed.
-- Its separate Windows job runs the published previous executable (currently v3.2.4) through Download and Install and restart into the new release, then verifies native health, settings, shortcuts, scheduling, cleanup, and rollback.
+- Its separate Windows job runs the published previous executable (currently v3.2.5) through Download and Install and restart into the new release, then verifies native health, settings, shortcuts, scheduling, cleanup, and rollback.
 - Record exact tag/commit, asset hash, CI links/results, and testing limitations in DEVELOPMENT_HANDOFF.md and VALIDATION.md.
 - Do not call headless probes, helper-only tests, or cross-compilation a successful interactive Windows upgrade.

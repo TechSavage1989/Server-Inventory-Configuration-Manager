@@ -26,6 +26,12 @@ $hash=(Get-FileHash -LiteralPath $assetPath -Algorithm SHA256).Hash.ToLowerInvar
 $checksumPath=$assetPath+'.sha256.txt'
 "$hash  $assetName"|Set-Content -LiteralPath $checksumPath -Encoding ASCII
 
+$svgName='Server-Inventory-Configuration-Manager.svg'
+$svgPath=Join-Path $OutputDirectory $svgName
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot '..\assets\icons\server-inventory.svg') -Destination $svgPath
+$svgHash=(Get-FileHash -LiteralPath $svgPath -Algorithm SHA256).Hash.ToLowerInvariant()
+"$svgHash  $svgName"|Set-Content -LiteralPath ($svgPath+'.sha256.txt') -Encoding ASCII
+
 $notesPath=Join-Path (Join-Path $PSScriptRoot '..\release-notes') ($ExpectedVersion+'.md')
 $allNotes=@()
 if(Test-Path -LiteralPath $notesPath -PathType Leaf){

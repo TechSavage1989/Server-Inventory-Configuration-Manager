@@ -1,4 +1,4 @@
-/* Hosted Windows test: published v3.2.4, real UI actions, public feed, native helper,
+/* Hosted Windows test: published v3.2.5, real UI actions, public feed, native helper,
    visible new app health, settings, shortcut, timer, and failed-health rollback.
    Playwright drives the real application page while the native Edge app is visible.
    This does not simulate UAC consent or a user's physical desktop interaction. */
@@ -9,7 +9,7 @@ const reuseIndex=process.argv.indexOf('--reuse-passed-timer-evidence');
 const reuseEvidence=reuseIndex>=0?JSON.parse(fs.readFileSync(process.argv[reuseIndex+1],'utf8')):null;
 const expected=fs.readFileSync('main.go','utf8').match(/appVersion\s*=\s*"([\d.]+)"/)[1];
 const repo='https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager';
-const oldVersion='3.2.4',exeName='Server-Inventory-Configuration-Manager.exe';
+const oldVersion='3.2.5',exeName='Server-Inventory-Configuration-Manager.exe';
 const report={expected,previous:oldVersion,started:new Date().toISOString(),checks:[],limitations:['UAC consent transitions were not exercised.','Playwright drives the application page alongside its visible native Edge window; physical desktop interaction was not performed.','Offline, HTTP failure, rate limiting, ETag and malicious-file cases use deterministic native Go tests.','Legacy Windows Server versions and every server-role collector were not exercised.']};
 const suiteRoot=path.resolve('build','published-upgrade-work');
 const tempRoot=path.join(os.tmpdir(),'SICM-Published-'+crypto.randomUUID());
@@ -62,7 +62,7 @@ async function nativeProcess(exe,args,env){const child=spawn(exe,args,{env,windo
  const manifest=JSON.parse((await get(repo+'/releases/latest/download/update-manifest.json')).toString('utf8').replace(/^\uFEFF/,''));
  check(manifest.version===expected,'Public updater feed selects the expected new release');
  const oldBytes=await get(repo+'/releases/download/v'+oldVersion+'/'+exeName);
- check(sha(oldBytes)==='6319f6ad5c2b15882110b4a34ba63f99812be879166de3a754b70e794c1c4ab2','Previous executable matches the published v3.2.4 checksum');
+ check(sha(oldBytes)==='bbd06ab0f9dadad77c0e3ed4bacf30f1482dc8ae4766426a5f68f40ab84d34b5','Previous executable matches the published v3.2.5 checksum');
  const newBytes=await get(manifest.asset.url);check(sha(newBytes)===manifest.asset.sha256,'Published new executable matches its manifest checksum');
  const env=envFor('upgrade');const saved=await seedSettings(env);const target=path.join(suiteRoot,exeName);await fsp.writeFile(target,oldBytes);
  const shortcut=path.join(suiteRoot,'Server Inventory Configuration Manager.lnk');
@@ -98,6 +98,14 @@ async function nativeProcess(exe,args,env){const child=spawn(exe,args,{env,windo
  check(guest&&['--disable-extensions','--disable-sync','--no-first-run'].every(flag=>guest.CommandLine.includes(flag)),'Actual new native browser uses guest mode with extensions and sync disabled');
  const healthy=await until(async()=>{const h=JSON.parse(await fsp.readFile(path.join(appRoot(env),'Health','current.json'),'utf8'));return h.version===expected&&h.ui_ready&&h.visible_window_confirmed?h:false},90000);
  check((await state(newURL)).appVersion===expected,'Native helper installs and restarts the new version');
+ const iconMetadata=JSON.parse(fs.readFileSync('icon-verification.json','utf8'));
+ const svg=await get(new URL('/app-icon.svg',newURL));
+ check(sha(svg)===iconMetadata.source_sha256,'Updated application serves the exact editable SVG icon');
+ const [favicon,png]=await Promise.all([get(new URL('/favicon.ico',newURL)),get(new URL('/app-icon.png',newURL))]);
+ check(sha(favicon)===iconMetadata.assets['favicon.ico'].sha256&&sha(png)===iconMetadata.assets['app-icon.png'].sha256,'Application favicon and PNG match the SVG-derived icon assets');
+ await until(async()=>page.locator('.brand-mark img').evaluate(img=>img.complete&&img.naturalWidth===512&&new URL(img.currentSrc).pathname==='/app-icon.svg'));
+ check(true,'Visible application header loads the new vector icon');
+
  check(healthy.ui_ready&&healthy.visible_window_confirmed,'New application confirms a rendered interface and a visible owned native window');
  await until(async()=>{const log=await fsp.readFile(path.join(appRoot(env),'Logs','Updates.log'),'utf8');return log.includes('Update installed successfully.')});
  check((await fsp.readFile(saved.path)).equals(saved.bytes),'User settings remain byte-identical after the real upgrade');
