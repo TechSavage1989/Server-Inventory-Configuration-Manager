@@ -23,7 +23,24 @@ try{
     $token=[guid]::NewGuid().ToString('N')
 
     $p=Start-Process -FilePath $staged -ArgumentList @('--update-helper','--parent-pid','0','--target',$target,'--expected-version',$ExpectedVersion,'--expected-sha256',$hash,'--old-version','3.0.10','--health-marker',$health,'--health-token',$token,'--rollback',$rollback,'--rollback-meta',$rollbackMeta,'--log',$log,'--allow-headless-health','true') -PassThru -Wait
-    if($p.ExitCode -ne 0){throw "Update helper integration test failed with exit code $($p.ExitCode). Log: $log"}
+    if($p.ExitCode -ne 0){
+        Write-Host "Update helper exit code: $($p.ExitCode)"
+        if(Test-Path -LiteralPath $log){
+            Write-Host '----- Updates.log -----'
+            Get-Content -LiteralPath $log | ForEach-Object { Write-Host $_ }
+            Write-Host '----- End Updates.log -----'
+        }else{
+            Write-Host "Update log was not created: $log"
+        }
+        if(Test-Path -LiteralPath $health){
+            Write-Host '----- Health marker -----'
+            Get-Content -LiteralPath $health | ForEach-Object { Write-Host $_ }
+            Write-Host '----- End health marker -----'
+        }else{
+            Write-Host "Health marker was not created: $health"
+        }
+        throw "Update helper integration test failed with exit code $($p.ExitCode)."
+    }
     if(-not(Test-Path $target)){throw 'Updated target was not present.'}
     if(-not(Test-Path $rollback)){throw 'Rollback executable was not retained.'}
     $marker=Get-Content $health -Raw|ConvertFrom-Json
