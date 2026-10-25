@@ -2,7 +2,7 @@
 
 ## Desktop and Explorer update 3.2.8
 
-Source is prepared; hosted Windows validation and publication are pending. The native shell regression checks real EXE/shortcut icon pixels, obsolete-icon negative control, launch-property preservation, unrelated/malformed links, persistent ICO lifetime, idempotence and corruption recovery. Published upgrade validation uses the real native desktop folder and actual published 3.2.7 EXE. Full results will be recorded after completion.
+Source CI passed before publication at commit 4fd4f30c76d8829c85fb41e38f1706549d4adf4c: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40217768305. All 28 native Go tests, vet, four UI-shutdown regressions, three production icon-policy regressions, original provenance and the real native helper install/visible-health test passed. Publication and the full published upgrade are pending. The native shell regression checks real EXE/shortcut icon pixels, obsolete-icon negative control, launch-property preservation, unrelated/malformed links, persistent ICO lifetime, idempotence and corruption recovery. Published upgrade validation uses the real native desktop folder and actual published 3.2.7 EXE. Full results will be recorded after completion.
 
 ## Previously published release: v3.2.7
 
