@@ -46,8 +46,8 @@ Use Go 1.20.14, Python 3, and Windows PowerShell for build validation. The updat
 
 - Validate source CI first, then change release/VERSION in a separate publication commit.
 - Use a new tag/version only. Never replace assets, releases, or tags that have already been published.
-- Ship the editable SVG and its SHA-256 alongside the EXE. Native tests must match every compiled icon frame against the SVG-derived ICO and exercise Windows shell extraction. The published test verifies the SVG/PNG/favicon responses and loaded header image.
+- Ship the editable SVG and its SHA-256 alongside the EXE. Use the production applicationPageCSP in browser rendering tests. Permit same-origin application images while keeping remote images blocked; do not broaden the separate report policy. scripts/test_icon_render.cjs must reproduce the old data-only policy failure and prove the header SVG decodes. Native tests must match every compiled icon frame against the SVG-derived ICO and exercise Windows shell extraction. The published test verifies the SVG/PNG/favicon responses and loaded header image.
 - The workflow uploads all assets to a draft, publishes it, and verifies public downloads/feed.
-- Its separate Windows job runs the published previous executable (currently v3.2.5) through Download and Install and restart into the new release, then verifies native health, settings, shortcuts, scheduling, cleanup, and rollback.
+- Its separate Windows job runs the published previous executable (currently v3.2.6) through Download and Install and restart into the new release, then verifies native health, settings, shortcuts, scheduling, cleanup, and rollback.
 - Record exact tag/commit, asset hash, CI links/results, and testing limitations in DEVELOPMENT_HANDOFF.md and VALIDATION.md.
 - Do not call headless probes, helper-only tests, or cross-compilation a successful interactive Windows upgrade.

@@ -1,6 +1,10 @@
 # Executable updater validation
 
-## Editable icon 3.2.6 source validation passed
+## Header image policy 3.2.7 validation pending
+
+The live 3.2.6 update test caught a genuine header-image failure: the application policy allowed only data images. Version 3.2.7 permits its own same-origin images while preserving remote-image blocking and the separate report policy. The new browser negative control reproduces the old blocked SVG; positive checks decode the real header and reject remote images. Local browser regression and cross-build/vet pass. Windows source/published-update validation is pending.
+
+## Historical 3.2.6 source validation
 
 The new editable SVG is the master for the header, PNG/favicon and compile-time Windows ICO. CI compares regenerated assets, archived original provenance, every compiled icon frame and native shell extraction. The published v3.2.5-to-new upgrade also checks icon endpoint bytes and the loaded header image. Source CI passed at commit b50541f76bb10d89aefc39628ea4c3a8b1a23493: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40179122995. All icon/resource/extraction, window, updater/security, renderer and native helper tests passed. Publication and actual published-upgrade verification are pending. Physical desktop icon caching, UAC, mixed-DPI and live inventory/report workflows are not claimed as tested.
 

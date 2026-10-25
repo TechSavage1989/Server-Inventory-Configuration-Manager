@@ -9,10 +9,24 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"testing"
 	"unsafe"
 )
+
+func TestApplicationPagePolicyPermitsOwnIconsWithoutRemoteImages(t *testing.T) {
+	a := &application{token: "icon-policy-test"}
+	response := httptest.NewRecorder()
+	a.handleIndex(response, httptest.NewRequest("GET", "/?token=icon-policy-test", nil))
+	policy := response.Header().Get("Content-Security-Policy")
+	if response.Code != 200 || policy != applicationPageCSP || !strings.Contains(policy, "img-src 'self' data:;") {
+		t.Fatal("application page does not permit its own icon", policy)
+	}
+	if strings.Contains(policy, "*") || strings.Contains(policy, "https:") || !strings.Contains(policy, "default-src 'none';") {
+		t.Fatal("application page unexpectedly permits external content", policy)
+	}
+}
 
 func TestIconEndpointsServeApprovedVectorAndRasterAssets(t *testing.T) {
 	a := &application{}

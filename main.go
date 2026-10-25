@@ -30,10 +30,11 @@ import (
 )
 
 const (
-	appName           = "Server Inventory Configuration Manager"
-	appVersion        = "3.2.6"
-	collectorVersion  = "3.2.6"
-	maximumCollectors = 49
+	appName            = "Server Inventory Configuration Manager"
+	appVersion         = "3.2.7"
+	collectorVersion   = "3.2.7"
+	applicationPageCSP = "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; frame-src 'self'"
+	maximumCollectors  = 49
 
 	mbOK              = 0x00000000
 	mbIconError       = 0x00000010
@@ -1223,7 +1224,7 @@ func (a *application) handleIndex(response http.ResponseWriter, request *http.Re
 	response.Header().Set("Content-Type", "text/html; charset=utf-8")
 	response.Header().Set("Cache-Control", "no-store")
 	response.Header().Set("X-Content-Type-Options", "nosniff")
-	response.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; img-src data:; frame-src 'self'")
+	response.Header().Set("Content-Security-Policy", applicationPageCSP)
 	_, _ = io.WriteString(response, html)
 }
 

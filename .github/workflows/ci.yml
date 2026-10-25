@@ -66,6 +66,8 @@ jobs:
           $env:NODE_PATH=(Resolve-Path .\build\ui-tools\node_modules).Path
           node .\scripts\test_ui_shutdown.cjs
           if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
+          node .\scripts\test_icon_render.cjs
+          if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
       - name: Test native install and visible healthy start
         shell: powershell
         run: .\scripts\Test-UpdateInstall.ps1 -ExecutablePath .\build\Server-Inventory-Configuration-Manager.exe -ExpectedVersion '${{ steps.version.outputs.version }}'
@@ -79,4 +81,6 @@ jobs:
           path: |
             build/go-test-results.txt
             build/ui-shutdown-regression.json
+            build/icon-render-regression.json
+            build/icon-header-validation.png
             dist/
