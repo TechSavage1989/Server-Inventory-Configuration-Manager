@@ -1,8 +1,8 @@
 # Executable updater validation
 
-## Window persistence 3.2.5 validation pending
+## Window persistence 3.2.5 source validation passed
 
-The new native EXE test covers actual move/resize persistence, title-bar close/reopen, maximized state, closing while minimized, restoration of normal bounds, off-screen saved-position recovery and unchanged inventory settings. Public upgrade tests use published v3.2.4 and also inspect native geometry after shortcut relaunch. Results are pending. Physical multi-monitor/mixed-DPI hardware and human desktop/UAC interaction are not exercised by hosted automation.
+The new native EXE test covers actual move/resize persistence, title-bar close/reopen, maximized state, closing while minimized, restoration of normal bounds, off-screen saved-position recovery and unchanged inventory settings. Public upgrade tests use published v3.2.4 and also inspect native geometry after shortcut relaunch. Windows source CI passed at commit de7f4d73ff84f93d4cb72b164704bedb0f8ab18b: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40175008751. All native window tests, updater/security checks, renderer regressions and helper install/healthy start passed. Publication and the real published upgrade are pending. Physical multi-monitor/mixed-DPI hardware and human desktop/UAC interaction are not exercised by hosted automation.
 
 ## Historical release: v3.2.4
 
