@@ -22,9 +22,10 @@ public static class SicmShellIconProbe {
     [DllImport("shell32.dll",CharSet=CharSet.Unicode)]
     static extern IntPtr SHGetFileInfo(string path,uint attributes,ref Info info,uint size,uint flags);
     [DllImport("user32.dll")] static extern bool DestroyIcon(IntPtr icon);
-    public static string Pixels(string path) {
+    public static string Pixels(string path,bool shortcutOverlay) {
         Info info=new Info();
-        if(SHGetFileInfo(path,0,ref info,(uint)Marshal.SizeOf(typeof(Info)),0x100)==IntPtr.Zero || info.Icon==IntPtr.Zero)
+        uint flags=shortcutOverlay ? 0x8100u : 0x100u;
+        if(SHGetFileInfo(path,0,ref info,(uint)Marshal.SizeOf(typeof(Info)),flags)==IntPtr.Zero || info.Icon==IntPtr.Zero)
             throw new Exception("Shell icon lookup failed: "+path);
         try {
             using(Icon icon=Icon.FromHandle(info.Icon))
@@ -43,9 +44,10 @@ public static class SicmShellIconProbe {
     }
 }
 '@
-$expected=[SicmShellIconProbe]::Pixels([IO.Path]::GetFullPath($ExpectedIconPath))
-$executable=[SicmShellIconProbe]::Pixels([IO.Path]::GetFullPath($ExecutablePath))
-$shortcut=[SicmShellIconProbe]::Pixels([IO.Path]::GetFullPath($ShortcutPath))
+$expected=[SicmShellIconProbe]::Pixels([IO.Path]::GetFullPath($ExpectedIconPath),$false)
+$expectedShortcut=[SicmShellIconProbe]::Pixels([IO.Path]::GetFullPath($ExpectedIconPath),$true)
+$executable=[SicmShellIconProbe]::Pixels([IO.Path]::GetFullPath($ExecutablePath),$false)
+$shortcut=[SicmShellIconProbe]::Pixels([IO.Path]::GetFullPath($ShortcutPath),$false)
 if($executable -ne $expected){throw 'Explorer executable icon pixels do not match the approved ICO.'}
-if($shortcut -ne $expected){throw 'Desktop shortcut icon pixels do not match the approved ICO.'}
-ConvertTo-Json -Compress -InputObject @{status='passed';pixel_sha256=$expected;executable_matches=$true;shortcut_matches=$true}
+if($shortcut -ne $expectedShortcut){throw 'Desktop shortcut icon pixels do not match the approved ICO with the native shortcut arrow.'}
+ConvertTo-Json -Compress -InputObject @{status='passed';pixel_sha256=$expected;shortcut_pixel_sha256=$expectedShortcut;native_shortcut_arrow=$true;executable_matches=$true;shortcut_matches=$true}

@@ -111,7 +111,7 @@ func readIconTestShortcut(t *testing.T, shortcut string) map[string]string {
 	return values
 }
 
-func nativeShellIcon(t *testing.T, path string) uintptr {
+func nativeShellIcon(t *testing.T, path string, shortcutOverlay ...bool) uintptr {
 	t.Helper()
 	// SHGetFileInfo requires an initialized COM apartment, particularly for
 	// .lnk handlers. PE/ICO extraction can otherwise hide a broken test setup.
@@ -130,7 +130,11 @@ func nativeShellIcon(t *testing.T, path string) uintptr {
 		TypeName    [80]uint16
 	}
 	value, _ := syscall.UTF16PtrFromString(path)
-	result, _, err := shell32.NewProc("SHGetFileInfoW").Call(uintptr(unsafe.Pointer(value)), 0, uintptr(unsafe.Pointer(&info)), unsafe.Sizeof(info), 0x100)
+	flags := uintptr(0x100)
+	if len(shortcutOverlay) > 0 && shortcutOverlay[0] {
+		flags |= 0x8000
+	}
+	result, _, err := shell32.NewProc("SHGetFileInfoW").Call(uintptr(unsafe.Pointer(value)), 0, uintptr(unsafe.Pointer(&info)), unsafe.Sizeof(info), flags)
 	if result == 0 || info.Icon == 0 {
 		t.Fatal("Explorer icon lookup failed", path, err)
 	}
@@ -223,7 +227,11 @@ func TestExplorerAndDesktopShortcutUseApprovedIcon(t *testing.T) {
 		t.Fatal(err)
 	}
 	approved := shellIconPixels(t, nativeShellIcon(t, icon))
+	// A real .lnk includes Windows' own shortcut arrow. Apply that identical
+	// native overlay to the expected ICO, rather than masking or ignoring pixels.
+	approvedShortcut := shellIconPixels(t, nativeShellIcon(t, icon, true))
 	saveShellIconEvidence(t, "expected", approved)
+	saveShellIconEvidence(t, "expected-shortcut", approvedShortcut)
 	if !bytes.Equal(approved, shellIconPixels(t, nativeShellIcon(t, executable))) {
 		t.Fatal("Explorer EXE icon does not match approved SVG-derived ICO")
 	}
@@ -235,7 +243,11 @@ func TestExplorerAndDesktopShortcutUseApprovedIcon(t *testing.T) {
 	createIconTestShortcut(t, shortcut, executable, oldIcon)
 	before := readIconTestShortcut(t, shortcut)
 	t.Logf("Shortcut target=%q executable=%q", before["target"], executable)
-	if bytes.Equal(approved, shellIconPixels(t, nativeShellIcon(t, shortcut))) {
+	beforePixels := shellIconPixels(t, nativeShellIcon(t, shortcut))
+	if !bytes.Equal(beforePixels, shellIconPixels(t, nativeShellIcon(t, oldIcon, true))) {
+		t.Fatal("negative control does not render the exact historical icon with its native shortcut arrow")
+	}
+	if bytes.Equal(approvedShortcut, beforePixels) {
 		t.Fatal("negative control did not retain the previous desktop icon")
 	}
 	t.Log("Negative control: actual shortcut retains old artwork despite its target EXE containing the new icon")
@@ -264,13 +276,13 @@ func TestExplorerAndDesktopShortcutUseApprovedIcon(t *testing.T) {
 	deadline := time.Now().Add(5 * time.Second)
 	for {
 		actual = shellIconPixels(t, nativeShellIcon(t, shortcut))
-		if bytes.Equal(approved, actual) || time.Now().After(deadline) {
+		if bytes.Equal(approvedShortcut, actual) || time.Now().After(deadline) {
 			break
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
 	saveShellIconEvidence(t, "shortcut-after", actual)
-	if !bytes.Equal(approved, actual) {
+	if !bytes.Equal(approvedShortcut, actual) {
 		t.Fatal("actual Explorer shortcut pixels do not match approved icon")
 	}
 	if shared := readIconTestShortcut(t, portable); !sameShellPath(shared["icon"], executable) {
