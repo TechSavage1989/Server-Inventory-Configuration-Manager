@@ -62,7 +62,7 @@ func TestValidateManifest(t *testing.T) {
 }
 
 func TestBinaryIdentityMarker(t *testing.T) {
-	want := binaryIdentityPrefix + appVersion
+	want := binaryIdentityPrefix + appVersion + "|"
 	if binaryIdentityMarker != want {
 		t.Fatalf("binary identity marker %q want %q", binaryIdentityMarker, want)
 	}

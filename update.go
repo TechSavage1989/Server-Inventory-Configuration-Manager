@@ -6,12 +6,12 @@ import (
 	"bytes"
 	"crypto/rand"
 	"crypto/sha256"
-	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -36,15 +36,16 @@ const (
 	binaryIdentityPrefix       = "SICM_BINARY_ID|Server-Inventory-Configuration-Manager|"
 )
 
-var binaryIdentityMarker = binaryIdentityPrefix + appVersion
+var binaryIdentityMarker = binaryIdentityPrefix + appVersion + "|"
 
 var (
-	kernel32               = syscall.NewLazyDLL("kernel32.dll")
-	procOpenProcess        = kernel32.NewProc("OpenProcess")
-	procGetExitCodeProcess = kernel32.NewProc("GetExitCodeProcess")
-	procCloseHandle        = kernel32.NewProc("CloseHandle")
-	procMoveFileExW        = kernel32.NewProc("MoveFileExW")
-	procPostMessageWUpdate = user32.NewProc("PostMessageW")
+	kernel32                     = syscall.NewLazyDLL("kernel32.dll")
+	procOpenProcess              = kernel32.NewProc("OpenProcess")
+	procGetExitCodeProcess       = kernel32.NewProc("GetExitCodeProcess")
+	procCloseHandle              = kernel32.NewProc("CloseHandle")
+	procMoveFileExW              = kernel32.NewProc("MoveFileExW")
+	procPostMessageWUpdate       = user32.NewProc("PostMessageW")
+	procGetWindowThreadProcessID = user32.NewProc("GetWindowThreadProcessId")
 )
 
 const (
@@ -126,6 +127,8 @@ type updateRuntime struct {
 	downloadInFlight bool
 	lastAttempt      time.Time
 	lastManual       time.Time
+	httpClient       *http.Client
+	schedulerOnce    sync.Once
 	readyVersion     string
 	readySHA256      string
 }
@@ -138,6 +141,7 @@ type healthMarker struct {
 	HealthToken            string `json:"health_token,omitempty"`
 	StartedAtUTC           string `json:"started_at_utc"`
 	VisibleWindowConfirmed bool   `json:"visible_window_confirmed"`
+	UIReady                bool   `json:"ui_ready"`
 }
 
 type rollbackMetadata struct {
@@ -179,17 +183,20 @@ func (a *application) initializeUpdater() error {
 		InstalledVersion: appVersion,
 		CanCheck:         true,
 	}
-	if cache, err := a.readUpdateCache(); err == nil && cache.Manifest != nil {
+	if cache, err := a.readUpdateCache(); err == nil && validateManifest(cache.Manifest) == nil {
+		if when, err := time.Parse(time.RFC3339, cache.LastCheckedUTC); err == nil {
+			a.update.lastAttempt = when
+		}
 		a.applyManifestState(cache.Manifest, false)
-		if cmp, cmpErr := compareVersions(appVersion, cache.Manifest.Version); cmpErr == nil && cmp < 0 {
-			if validateDownloadedExecutable(a.update.readyPath, cache.Manifest.Version) == nil {
+		if cmp, _ := compareVersions(appVersion, cache.Manifest.Version); cmp < 0 {
+			if verifyUpdateFile(a.update.readyPath, *cache.Manifest) == nil {
 				a.update.readyVersion = cache.Manifest.Version
 				a.update.readySHA256 = strings.ToLower(cache.Manifest.Asset.SHA256)
 				a.update.state.Downloaded = true
 				a.update.state.CanInstall = true
 				a.update.state.Status = "ready"
 				a.update.state.Title = "Update ready"
-				a.update.state.Message = cache.Manifest.Version + " is downloaded and verified."
+				a.update.state.Message = fmt.Sprintf("Installed %s. Version %s is downloaded and verified.", appVersion, cache.Manifest.Version)
 			}
 		}
 	}
@@ -215,15 +222,22 @@ func (a *application) logUpdate(format string, args ...any) {
 	}
 }
 
+// Only recognized application-owned download names are removed. Unknown files remain untouched.
 func (a *application) cleanupStaleUpdateFiles() {
 	entries, _ := os.ReadDir(a.update.downloadsDir)
 	for _, entry := range entries {
-		if entry.IsDir() {
-			_ = os.RemoveAll(filepath.Join(a.update.downloadsDir, entry.Name()))
+		if !entry.IsDir() {
+			continue
 		}
+		if _, err := parseVersion(entry.Name()); err != nil {
+			continue
+		}
+		dir := filepath.Join(a.update.downloadsDir, entry.Name())
+		_ = os.Remove(filepath.Join(dir, stableExecutableName+".download"))
+		_ = os.Remove(dir) // removes empty directories only
 	}
 	if info, err := os.Stat(a.update.readyPath); err == nil && !info.IsDir() {
-		if err := validateDownloadedExecutable(a.update.readyPath, appVersion); err == nil {
+		if validateDownloadedExecutable(a.update.readyPath, appVersion) == nil {
 			_ = os.Remove(a.update.readyPath)
 		}
 	}
@@ -261,8 +275,7 @@ func (a *application) saveApplicationSettings(outputRoot string) {
 	}
 	temp := a.update.settingsPath + ".tmp"
 	if os.WriteFile(temp, data, 0o644) == nil {
-		_ = os.Remove(a.update.settingsPath)
-		_ = os.Rename(temp, a.update.settingsPath)
+		_ = atomicReplaceFile(temp, a.update.settingsPath)
 	}
 }
 
@@ -285,8 +298,7 @@ func (a *application) writeUpdateCache(cache *updateCache) {
 	}
 	temp := a.update.cachePath + ".tmp"
 	if err := os.WriteFile(temp, data, 0o644); err == nil {
-		_ = os.Remove(a.update.cachePath)
-		_ = os.Rename(temp, a.update.cachePath)
+		_ = atomicReplaceFile(temp, a.update.cachePath)
 	}
 }
 
@@ -297,11 +309,11 @@ func parseVersion(value string) ([3]int, error) {
 		return result, fmt.Errorf("invalid semantic version %q", value)
 	}
 	for i, part := range parts {
-		if part == "" {
+		if part == "" || (len(part) > 1 && part[0] == '0') || strings.Trim(part, "0123456789") != "" {
 			return result, fmt.Errorf("invalid semantic version %q", value)
 		}
 		n, err := strconv.Atoi(part)
-		if err != nil || n < 0 {
+		if err != nil || n < 0 || n > 65535 {
 			return result, fmt.Errorf("invalid semantic version %q", value)
 		}
 		result[i] = n
@@ -345,7 +357,7 @@ func validateHTTPSURL(rawURL string) error {
 	if err != nil {
 		return fmt.Errorf("invalid URL: %w", err)
 	}
-	if req.URL.Scheme != "https" {
+	if req.URL.Scheme != "https" || req.URL.User != nil || (req.URL.Port() != "" && req.URL.Port() != "443") || req.URL.Fragment != "" {
 		return errors.New("update URLs must use HTTPS")
 	}
 	if !isAllowedUpdateHost(req.URL.Hostname()) {
@@ -370,11 +382,17 @@ func validateManifest(manifest *updateManifest) error {
 	if strings.TrimSpace(manifest.ReleaseURL) == "" {
 		return errors.New("update manifest release URL is missing")
 	}
+	if manifest.ReleaseURL != repositoryURL+"/releases/tag/v"+manifest.Version {
+		return errors.New("release URL does not match the expected repository/version")
+	}
 	if err := validateHTTPSURL(manifest.ReleaseURL); err != nil {
 		return fmt.Errorf("release URL validation failed: %w", err)
 	}
 	if manifest.Asset.Name != stableExecutableName {
 		return fmt.Errorf("unexpected update asset %q", manifest.Asset.Name)
+	}
+	if manifest.Asset.URL != repositoryURL+"/releases/download/v"+manifest.Version+"/"+stableExecutableName {
+		return errors.New("asset URL does not match the expected repository/version")
 	}
 	if err := validateHTTPSURL(manifest.Asset.URL); err != nil {
 		return fmt.Errorf("asset URL validation failed: %w", err)
@@ -399,7 +417,7 @@ func newUpdateHTTPClient() *http.Client {
 			if len(via) >= 8 {
 				return errors.New("too many update redirects")
 			}
-			if req.URL.Scheme != "https" || !isAllowedUpdateHost(req.URL.Hostname()) {
+			if validateHTTPSURL(req.URL.String()) != nil {
 				return fmt.Errorf("redirected to untrusted update URL %q", req.URL.String())
 			}
 			return nil
@@ -412,7 +430,7 @@ func parseRetryAfter(header string) time.Duration {
 	if header == "" {
 		return 0
 	}
-	if seconds, err := strconv.Atoi(header); err == nil && seconds > 0 {
+	if seconds, err := strconv.ParseInt(header, 10, 64); err == nil && seconds > 0 && seconds < int64((1<<63-1)/time.Second) {
 		return time.Duration(seconds) * time.Second
 	}
 	if when, err := http.ParseTime(header); err == nil {
@@ -423,20 +441,38 @@ func parseRetryAfter(header string) time.Duration {
 	return 0
 }
 
+func (a *application) updateClient() *http.Client {
+	if a.update.httpClient != nil {
+		return a.update.httpClient
+	}
+	return newUpdateHTTPClient()
+}
+
 func (a *application) beginUpdateCheck(manual bool, focus bool) error {
+	a.mu.Lock()
+	installing := a.installing
+	a.mu.Unlock()
+	if installing {
+		return nil
+	}
 	now := time.Now().UTC()
 	a.update.mu.Lock()
+	defer a.update.mu.Unlock()
 	if a.update.checkInFlight || a.update.downloadInFlight {
-		a.update.mu.Unlock()
 		return nil
 	}
 	if manual && !a.update.lastManual.IsZero() && now.Sub(a.update.lastManual) < manualUpdateCooldown {
-		remaining := manualUpdateCooldown - now.Sub(a.update.lastManual)
-		a.update.state.Status = "cooldown"
-		a.update.state.Title = "Update check cooldown"
-		a.update.state.Message = fmt.Sprintf("Try again in %d seconds.", int(remaining.Seconds())+1)
-		a.update.mu.Unlock()
 		return nil
+	}
+	cache, _ := a.readUpdateCache()
+	// Manual actions must honor server Retry-After and shared-IP rate limits too.
+	if cache != nil {
+		if until, err := time.Parse(time.RFC3339, cache.BackoffUntilUTC); err == nil && now.Before(until) {
+			a.update.state.Status = "cooldown"
+			a.update.state.Title = "Update checks paused"
+			a.update.state.Message = fmt.Sprintf("Installed %s. Check unavailable; retry after %s.", appVersion, until.Local().Format("15:04:05"))
+			return nil
+		}
 	}
 	if !manual {
 		minimum := updateCheckInterval
@@ -444,19 +480,11 @@ func (a *application) beginUpdateCheck(manual bool, focus bool) error {
 			minimum = updateFocusInterval
 		}
 		if !a.update.lastAttempt.IsZero() && now.Sub(a.update.lastAttempt) < minimum {
-			a.update.mu.Unlock()
 			return nil
 		}
-		if cache, err := a.readUpdateCache(); err == nil && cache.BackoffUntilUTC != "" {
-			if until, err := time.Parse(time.RFC3339, cache.BackoffUntilUTC); err == nil && now.Before(until) {
-				a.update.mu.Unlock()
-				return nil
-			}
-		}
 	}
-	cache, _ := a.readUpdateCache()
 	etag := ""
-	if cache != nil {
+	if cache != nil && validateManifest(cache.Manifest) == nil {
 		etag = cache.ETag
 	}
 	a.update.checkInFlight = true
@@ -469,10 +497,33 @@ func (a *application) beginUpdateCheck(manual bool, focus bool) error {
 	a.update.state.Title = "Checking for updates"
 	a.update.state.Message = "Installed " + appVersion
 	a.update.state.CanCheck = false
-	a.update.mu.Unlock()
-
 	go a.performUpdateCheck(etag)
 	return nil
+}
+
+func decodeUpdateManifest(data []byte) (*updateManifest, error) {
+	// v3.2.0's published manifest uses a UTF-8 BOM. Accept it without weakening JSON validation.
+	data = bytes.TrimPrefix(data, []byte{0xef, 0xbb, 0xbf})
+	var parsed updateManifest
+	if err := json.Unmarshal(data, &parsed); err != nil {
+		return nil, err
+	}
+	if err := validateManifest(&parsed); err != nil {
+		return nil, err
+	}
+	return &parsed, nil
+}
+
+func serverRetryDelay(response *http.Response) time.Duration {
+	retry := parseRetryAfter(response.Header.Get("Retry-After"))
+	if response.StatusCode == http.StatusTooManyRequests || response.StatusCode == http.StatusForbidden {
+		if seconds, err := strconv.ParseInt(response.Header.Get("X-RateLimit-Reset"), 10, 64); err == nil {
+			if reset := time.Until(time.Unix(seconds, 0)); reset > retry {
+				retry = reset
+			}
+		}
+	}
+	return retry
 }
 
 func (a *application) performUpdateCheck(etag string) {
@@ -480,105 +531,87 @@ func (a *application) performUpdateCheck(etag string) {
 	if resultCache == nil {
 		resultCache = &updateCache{}
 	}
-	client := newUpdateHTTPClient()
 	request, err := http.NewRequest(http.MethodGet, updateFeedURL, nil)
 	if err == nil {
 		request.Header.Set("Accept", "application/json")
 		request.Header.Set("User-Agent", applicationID+"/"+appVersion)
-		if strings.TrimSpace(etag) != "" {
+		if etag != "" {
 			request.Header.Set("If-None-Match", etag)
 		}
 	}
 	var manifest *updateManifest
 	var retryAfter time.Duration
 	if err == nil {
-		response, requestErr := client.Do(request)
+		response, requestErr := a.updateClient().Do(request)
 		if requestErr != nil {
 			err = requestErr
 		} else {
 			defer response.Body.Close()
-			if tag := strings.TrimSpace(response.Header.Get("ETag")); tag != "" {
-				resultCache.ETag = tag
-			}
-			retryAfter = parseRetryAfter(response.Header.Get("Retry-After"))
+			retryAfter = serverRetryDelay(response)
 			switch response.StatusCode {
 			case http.StatusNotModified:
 				manifest = resultCache.Manifest
-				if manifest == nil {
-					err = errors.New("the update feed reported no changes but no cached manifest is available")
+				err = validateManifest(manifest)
+				if err == nil && response.Header.Get("ETag") != "" {
+					resultCache.ETag = response.Header.Get("ETag")
 				}
 			case http.StatusOK:
-				limited := io.LimitReader(response.Body, 1024*1024)
-				data, readErr := io.ReadAll(limited)
+				data, readErr := io.ReadAll(io.LimitReader(response.Body, 1024*1024+1))
 				if readErr != nil {
 					err = readErr
+				} else if len(data) > 1024*1024 {
+					err = errors.New("update manifest exceeds 1 MiB")
 				} else {
-					var parsed updateManifest
-					if parseErr := json.Unmarshal(data, &parsed); parseErr != nil {
-						err = parseErr
-					} else if validateErr := validateManifest(&parsed); validateErr != nil {
-						err = validateErr
-					} else {
-						manifest = &parsed
+					manifest, err = decodeUpdateManifest(data)
+					if err == nil {
 						resultCache.Manifest = manifest
+						resultCache.ETag = response.Header.Get("ETag")
 					}
 				}
 			default:
-				err = fmt.Errorf("update feed returned HTTP %d %s", response.StatusCode, response.Status)
+				err = fmt.Errorf("update feed returned HTTP %d", response.StatusCode)
 			}
 		}
 	}
-
 	now := time.Now().UTC()
 	if err != nil {
-		resultCache.FailureCount++
-		if resultCache.FailureCount > 8 {
-			resultCache.FailureCount = 8
+		resultCache.FailureCount = minInt(resultCache.FailureCount+1, 8)
+		backoff := time.Duration(1<<minInt(resultCache.FailureCount, 6)) * time.Minute
+		if retryAfter > backoff {
+			backoff = retryAfter
 		}
-		if retryAfter <= 0 {
-			retryAfter = time.Duration(1<<minInt(resultCache.FailureCount, 6)) * time.Minute
-		}
-		if retryAfter > 24*time.Hour {
-			retryAfter = 24 * time.Hour
-		}
-		resultCache.BackoffUntilUTC = now.Add(retryAfter).Format(time.RFC3339)
+		resultCache.BackoffUntilUTC = now.Add(backoff).Format(time.RFC3339)
 		resultCache.LastCheckedUTC = now.Format(time.RFC3339)
 		a.writeUpdateCache(resultCache)
-
 		a.update.mu.Lock()
 		a.update.checkInFlight = false
 		a.update.state.Checking = false
 		a.update.state.Status = "error"
 		a.update.state.Title = "Update check unavailable"
-		a.update.state.Message = err.Error()
+		var netErr net.Error
+		if errors.As(err, &netErr) {
+			a.update.state.Status = "offline"
+			a.update.state.Title = "Offline or connection unavailable"
+		}
+		a.update.state.Message = "Installed " + appVersion + ". " + err.Error()
 		a.update.state.CanCheck = true
 		a.update.state.LastCheckUnixMs = now.UnixMilli()
 		a.update.mu.Unlock()
-		a.logUpdate("Update check failed: %v", err)
+		a.logUpdate("Update check failed: %v; next attempt after %s", err, resultCache.BackoffUntilUTC)
 		return
 	}
-
 	resultCache.FailureCount = 0
 	resultCache.BackoffUntilUTC = ""
 	resultCache.LastCheckedUTC = now.Format(time.RFC3339)
 	a.writeUpdateCache(resultCache)
-
+	// Retain single-flight ownership until the successful result is fully applied.
+	a.applyManifestState(manifest, true)
 	a.update.mu.Lock()
 	a.update.checkInFlight = false
 	a.update.state.Checking = false
 	a.update.state.CanCheck = true
 	a.update.state.LastCheckUnixMs = now.UnixMilli()
 	a.update.mu.Unlock()
-
-	if manifest == nil {
-		a.update.mu.Lock()
-		a.update.state.Status = "error"
-		a.update.state.Title = "Update check unavailable"
-		a.update.state.Message = "The update feed returned no usable manifest."
-		a.update.mu.Unlock()
-		return
-	}
-	a.applyManifestState(manifest, true)
 }
 
 func minInt(a, b int) int {
@@ -626,6 +659,11 @@ func (a *application) applyManifestState(manifest *updateManifest, logResult boo
 		a.update.state.Status = "current"
 		a.update.state.Title = "Up to date"
 		a.update.state.Message = "Installed " + appVersion + "."
+		if !logResult {
+			a.update.state.Status = "idle"
+			a.update.state.Title = "Update status not yet verified"
+			a.update.state.Message = "Installed " + appVersion + ". Waiting for a successful online check."
+		}
 		a.update.state.CanDownload = false
 		a.update.state.CanInstall = false
 		a.update.state.Downloaded = false
@@ -637,6 +675,12 @@ func (a *application) applyManifestState(manifest *updateManifest, logResult boo
 }
 
 func (a *application) beginUpdateDownload() error {
+	a.mu.Lock()
+	installing := a.installing
+	a.mu.Unlock()
+	if installing {
+		return errors.New("An update is already being installed")
+	}
 	a.update.mu.Lock()
 	if a.update.downloadInFlight || a.update.checkInFlight {
 		a.update.mu.Unlock()
@@ -671,13 +715,16 @@ func (a *application) beginUpdateDownload() error {
 
 func (a *application) performUpdateDownload(manifest updateManifest) {
 	versionDir := filepath.Join(a.update.downloadsDir, manifest.Version)
-	_ = os.RemoveAll(versionDir)
 	if err := os.MkdirAll(versionDir, 0o755); err != nil {
 		a.finishUpdateDownloadError(err)
 		return
 	}
 	downloadPath := filepath.Join(versionDir, stableExecutableName+".download")
-	client := newUpdateHTTPClient()
+	defer func() { _ = os.Remove(downloadPath); _ = os.Remove(versionDir) }()
+	client := a.updateClient()
+	downloadClient := *client
+	downloadClient.Timeout = 5 * time.Minute
+	client = &downloadClient
 	request, _ := http.NewRequest(http.MethodGet, manifest.Asset.URL, nil)
 	request.Header.Set("User-Agent", applicationID+"/"+appVersion)
 	response, err := client.Do(request)
@@ -760,7 +807,7 @@ func (a *application) performUpdateDownload(manifest updateManifest) {
 		a.finishUpdateDownloadError(err)
 		return
 	}
-	if err := validateDownloadedExecutable(a.update.readyPath, manifest.Version); err != nil {
+	if err := verifyUpdateFile(a.update.readyPath, manifest); err != nil {
 		a.finishUpdateDownloadError(err)
 		return
 	}
@@ -793,58 +840,22 @@ func (a *application) finishUpdateDownloadError(err error) {
 	a.logUpdate("Update download failed: %v", err)
 }
 
-func validateDownloadedExecutable(path, expectedVersion string) error {
+func verifyUpdateFile(path string, manifest updateManifest) error {
 	info, err := os.Stat(path)
 	if err != nil {
 		return err
 	}
-	if info.IsDir() || info.Size() <= 0 || info.Size() > maximumUpdateBytes {
-		return errors.New("downloaded update has an invalid file size")
+	if info.Size() != manifest.Asset.Size {
+		return errors.New("update size does not match the manifest")
 	}
-	file, err := os.Open(path)
+	hash, err := fileSHA256(path)
 	if err != nil {
 		return err
 	}
-	defer file.Close()
-	header := make([]byte, 4096)
-	n, err := io.ReadFull(file, header)
-	if err != nil && !errors.Is(err, io.ErrUnexpectedEOF) {
-		return err
+	if !strings.EqualFold(hash, manifest.Asset.SHA256) {
+		return errors.New("update SHA-256 does not match the trusted manifest")
 	}
-	header = header[:n]
-	if len(header) < 0x100 || header[0] != 'M' || header[1] != 'Z' {
-		return errors.New("downloaded update is not a Windows PE executable")
-	}
-	peOffset := int(binary.LittleEndian.Uint32(header[0x3c:0x40]))
-	if peOffset < 0 || peOffset+26 >= len(header) {
-		return errors.New("downloaded update has an invalid PE header")
-	}
-	if !bytes.Equal(header[peOffset:peOffset+4], []byte{'P', 'E', 0, 0}) {
-		return errors.New("downloaded update has an invalid PE signature")
-	}
-	machine := binary.LittleEndian.Uint16(header[peOffset+4 : peOffset+6])
-	if machine != 0x8664 {
-		return fmt.Errorf("downloaded update has unexpected PE machine 0x%04x", machine)
-	}
-	optional := peOffset + 24
-	if optional+70 > len(header) {
-		return errors.New("downloaded update has a truncated optional header")
-	}
-	if binary.LittleEndian.Uint16(header[optional:optional+2]) != 0x20b {
-		return errors.New("downloaded update is not a PE32+ executable")
-	}
-	if binary.LittleEndian.Uint16(header[optional+68:optional+70]) != 2 {
-		return errors.New("downloaded update is not a Windows GUI executable")
-	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return err
-	}
-	marker := []byte(binaryIdentityPrefix + expectedVersion)
-	if !bytes.Contains(data, marker) {
-		return errors.New("downloaded update does not contain the expected application identity/version marker")
-	}
-	return nil
+	return validateDownloadedExecutable(path, manifest.Version)
 }
 
 func fileSHA256(path string) (string, error) {
@@ -870,11 +881,22 @@ func randomToken(bytesCount int) (string, error) {
 
 func (a *application) installReadyUpdate() error {
 	a.mu.Lock()
-	running := a.state.Running
+	running := a.state.Running || a.installing || a.criticalOperations > 0
+	if !running {
+		a.installing = true
+	}
 	a.mu.Unlock()
 	if running {
 		return errors.New("a collection is running; finish or cancel it before installing an update")
 	}
+	started := false
+	defer func() {
+		if !started {
+			a.mu.Lock()
+			a.installing = false
+			a.mu.Unlock()
+		}
+	}()
 	a.update.mu.Lock()
 	manifest := a.update.currentManifest
 	readyVersion := a.update.readyVersion
@@ -885,7 +907,7 @@ func (a *application) installReadyUpdate() error {
 	rollbackMeta := a.update.rollbackMetaPath
 	logPath := a.update.updateLogPath
 	a.update.mu.Unlock()
-	if manifest == nil || readyVersion == "" || readyVersion != manifest.Version {
+	if manifest == nil || validateManifest(manifest) != nil || readyVersion == "" || readyVersion != manifest.Version {
 		return errors.New("no verified update is ready to install")
 	}
 	if existingFile(readyPath) == "" {
@@ -900,6 +922,9 @@ func (a *application) installReadyUpdate() error {
 	}
 	if !strings.EqualFold(actual, readyHash) {
 		return errors.New("the ready update hash changed after verification")
+	}
+	if err := verifyUpdateFile(readyPath, *manifest); err != nil {
+		return err
 	}
 	currentPath, err := os.Executable()
 	if err != nil {
@@ -928,10 +953,19 @@ func (a *application) installReadyUpdate() error {
 	if err := command.Start(); err != nil {
 		return fmt.Errorf("could not start the update installer: %w", err)
 	}
+	started = true
+	a.update.mu.Lock()
+	a.update.state.CanInstall = false
+	a.update.state.CanDownload = false
+	a.update.state.CanCheck = false
+	a.update.state.Status = "installing"
+	a.update.state.Title = "Installing update"
+	a.update.state.Message = "Installing " + readyVersion + " and restarting..."
+	a.update.mu.Unlock()
 	a.logUpdate("Started update installer PID=%d target=%s version=%s", command.Process.Pid, currentPath, readyVersion)
 	go func() {
 		time.Sleep(800 * time.Millisecond)
-		closeApplicationWindow()
+		a.closeOwnApplicationWindow()
 		a.stopServer()
 	}()
 	return nil
@@ -997,7 +1031,8 @@ func atomicReplaceFile(source, target string) error {
 }
 
 func restoreRollbackExecutable(rollbackPath, target string) error {
-	if existingFile(rollbackPath) == "" {		return errors.New("no rollback executable is available")
+	if existingFile(rollbackPath) == "" {
+		return errors.New("no rollback executable is available")
 	}
 	temp := filepath.Join(filepath.Dir(target), fmt.Sprintf(".%s.rollback-%d.tmp.exe", strings.TrimSuffix(filepath.Base(target), filepath.Ext(target)), os.Getpid()))
 	_ = os.Remove(temp)
@@ -1029,8 +1064,8 @@ func runUpdateHelper(args []string) int {
 	rollbackPath := values["--rollback"]
 	rollbackMetaPath := values["--rollback-meta"]
 	logPath := values["--log"]
-	allowHeadlessHealth := strings.EqualFold(values["--allow-headless-health"], "true")
-	if target == "" || expectedVersion == "" || expectedHash == "" || healthMarkerPath == "" || rollbackPath == "" || rollbackMetaPath == "" || logPath == "" {
+
+	if healthToken == "" || target == "" || expectedVersion == "" || expectedHash == "" || healthMarkerPath == "" || rollbackPath == "" || rollbackMetaPath == "" || logPath == "" {
 		return 2
 	}
 	stagedPath, err := os.Executable()
@@ -1056,6 +1091,14 @@ func runUpdateHelper(args []string) int {
 		helperLog(logPath, "Staged update hash validation failed. actual=%s err=%v", actualHash, err)
 		return 6
 	}
+	restartOriginal := true
+	defer func() {
+		if restartOriginal && parentPID > 0 && existingFile(target) != "" {
+			cmd := exec.Command(target)
+			cmd.Dir = filepath.Dir(target)
+			_ = cmd.Start()
+		}
+	}()
 	targetDir := filepath.Dir(target)
 	tempTarget := filepath.Join(targetDir, fmt.Sprintf(".%s.update-%d.tmp.exe", strings.TrimSuffix(filepath.Base(target), filepath.Ext(target)), os.Getpid()))
 	_ = os.Remove(tempTarget)
@@ -1068,17 +1111,33 @@ func runUpdateHelper(args []string) int {
 		_ = os.Remove(tempTarget)
 		return 8
 	}
+	copiedHash, hashErr := fileSHA256(tempTarget)
+	if hashErr != nil || !strings.EqualFold(copiedHash, expectedHash) {
+		_ = os.Remove(tempTarget)
+		helperLog(logPath, "Target filesystem hash mismatch")
+		return 8
+	}
 	if err := os.MkdirAll(filepath.Dir(rollbackPath), 0o755); err != nil {
 		helperLog(logPath, "Could not create rollback directory: %v", err)
 		_ = os.Remove(tempTarget)
 		return 9
 	}
-	_ = os.Remove(rollbackPath)
-	_ = os.Remove(rollbackMetaPath)
+	if existingFile(target) == "" {
+		_ = os.Remove(tempTarget)
+		helperLog(logPath, "Original target is missing")
+		return 10
+	}
 	if existingFile(target) != "" {
-		if err := copyFile(target, rollbackPath); err != nil {
+		rollbackTemp := rollbackPath + ".tmp"
+		defer os.Remove(rollbackTemp)
+		if err := copyFile(target, rollbackTemp); err != nil {
 			helperLog(logPath, "Could not create rollback copy: %v", err)
 			_ = os.Remove(tempTarget)
+			return 10
+		}
+		if err := atomicReplaceFile(rollbackTemp, rollbackPath); err != nil {
+			_ = os.Remove(tempTarget)
+			helperLog(logPath, "Could not commit rollback copy: %v", err)
 			return 10
 		}
 		meta := rollbackMetadata{Version: oldVersion, OriginalPath: target, CreatedAtUTC: time.Now().UTC().Format(time.RFC3339)}
@@ -1093,9 +1152,8 @@ func runUpdateHelper(args []string) int {
 		return 11
 	}
 	launchArgs := []string{"--health-token", healthToken}
-	if allowHeadlessHealth {
-		launchArgs = append(launchArgs, "--health-probe")
-	}
+
+	restartOriginal = false
 	launch := exec.Command(target, launchArgs...)
 	launch.Dir = targetDir
 	if err := launch.Start(); err != nil {
@@ -1110,25 +1168,39 @@ func runUpdateHelper(args []string) int {
 	helperLog(logPath, "Updated application launched. PID=%d", launch.Process.Pid)
 	healthDeadline := time.Now().Add(45 * time.Second)
 	healthy := false
+	var healthySince time.Time
 	for time.Now().Before(healthDeadline) {
 		data, err := os.ReadFile(healthMarkerPath)
 		if err == nil {
 			var marker healthMarker
 			if json.Unmarshal(data, &marker) == nil && marker.AppID == applicationID && marker.Version == expectedVersion && marker.HealthToken == healthToken {
-				if marker.VisibleWindowConfirmed || allowHeadlessHealth {
+				if marker.VisibleWindowConfirmed && marker.UIReady && marker.PID == launch.Process.Pid && strings.EqualFold(filepath.Clean(marker.ExecutablePath), filepath.Clean(target)) && processStillRunning(marker.PID) {
+					if healthySince.IsZero() {
+						healthySince = time.Now()
+					}
+					if time.Since(healthySince) < 2*time.Second {
+						time.Sleep(250 * time.Millisecond)
+						continue
+					}
 					healthy = true
 					helperLog(logPath, "Healthy startup confirmed. VisibleWindowConfirmed=%t", marker.VisibleWindowConfirmed)
 					break
 				}
 			}
 		}
+		if !processStillRunning(launch.Process.Pid) {
+			break
+		}
 		time.Sleep(500 * time.Millisecond)
 	}
 	if healthy {
 		helperLog(logPath, "Update installed successfully.")
+		writeInstallResult(healthMarkerPath, "installed", expectedVersion, "Update installed successfully")
+
 		return 0
 	}
 	helperLog(logPath, "Healthy startup was not confirmed; rolling back.")
+	writeInstallResult(healthMarkerPath, "rollback", oldVersion, "The update did not confirm a healthy visible startup. The previous version was restored.")
 	terminateProcessTree(launch.Process.Pid)
 	time.Sleep(500 * time.Millisecond)
 	if err := restoreRollbackExecutable(rollbackPath, target); err != nil {
@@ -1168,6 +1240,9 @@ func (a *application) writeHealthMarker(token string, visible bool) {
 		return
 	}
 	executable, _ := os.Executable()
+	a.mu.Lock()
+	uiReady := a.uiReady
+	a.mu.Unlock()
 	marker := healthMarker{
 		AppID:                  applicationID,
 		Version:                appVersion,
@@ -1176,6 +1251,7 @@ func (a *application) writeHealthMarker(token string, visible bool) {
 		HealthToken:            token,
 		StartedAtUTC:           time.Now().UTC().Format(time.RFC3339),
 		VisibleWindowConfirmed: visible,
+		UIReady:                uiReady,
 	}
 	data, err := json.MarshalIndent(marker, "", "  ")
 	if err != nil {
@@ -1183,38 +1259,114 @@ func (a *application) writeHealthMarker(token string, visible bool) {
 	}
 	temp := a.update.healthMarkerPath + ".tmp"
 	if os.WriteFile(temp, data, 0o644) == nil {
-		_ = os.Remove(a.update.healthMarkerPath)
-		_ = os.Rename(temp, a.update.healthMarkerPath)
+		_ = atomicReplaceFile(temp, a.update.healthMarkerPath)
+	}
+}
+
+func (a *application) ownApplicationWindow() uintptr {
+	a.mu.Lock()
+	command := a.browserCmd
+	a.mu.Unlock()
+	if command == nil || command.Process == nil {
+		return 0
+	}
+	var found uintptr
+	callback := syscall.NewCallback(func(hwnd uintptr, lparam uintptr) uintptr {
+		var pid uint32
+		procGetWindowThreadProcessID.Call(hwnd, uintptr(unsafe.Pointer(&pid)))
+		visible, _, _ := procIsWindowVisible.Call(hwnd)
+		if visible != 0 && int(pid) == command.Process.Pid && strings.Contains(strings.ToLower(windowText(hwnd)), "server inventory") {
+			found = hwnd
+			return 0
+		}
+		return 1
+	})
+	procEnumWindows.Call(callback, 0)
+	return found
+}
+
+func (a *application) closeOwnApplicationWindow() {
+	if hwnd := a.ownApplicationWindow(); hwnd != 0 {
+		procPostMessageWUpdate.Call(hwnd, wmClose, 0, 0)
 	}
 }
 
 func (a *application) confirmHealthyWindowAndMark(token string) {
-	visible := false
-	deadline := time.Now().Add(15 * time.Second)
+	deadline := time.Now().Add(35 * time.Second)
 	for time.Now().Before(deadline) {
-		if findApplicationWindow() != 0 {
-			visible = true
-			break
+		a.mu.Lock()
+		ready := a.uiReady
+		a.mu.Unlock()
+		if ready && a.ownApplicationWindow() != 0 {
+			a.writeHealthMarker(token, true)
+			a.logUpdate("Healthy startup confirmed: visible owned window and rendered interface")
+			return
 		}
-		time.Sleep(250 * time.Millisecond)
+		select {
+		case <-a.shutdown:
+			return
+		case <-time.After(250 * time.Millisecond):
+		}
 	}
-	a.writeHealthMarker(token, visible)
-	a.logUpdate("Healthy-start marker written. visibleWindow=%t", visible)
+	a.logUpdate("Healthy startup was not confirmed")
+}
+
+func (a *application) handleUIReady(response http.ResponseWriter, request *http.Request) {
+	if !a.requireAuthorization(response, request) {
+		return
+	}
+	if request.Method != http.MethodPost {
+		writeJSON(response, http.StatusMethodNotAllowed, map[string]any{"error": "POST is required"})
+		return
+	}
+	a.mu.Lock()
+	a.uiReady = true
+	a.mu.Unlock()
+	a.startUpdateScheduler()
+	writeJSON(response, http.StatusOK, map[string]any{"ok": true})
 }
 
 func (a *application) startUpdateScheduler() {
-	go func() {
-		time.Sleep(2 * time.Second)
-		_ = a.beginUpdateCheck(false, false)
-		ticker := time.NewTicker(updateCheckInterval)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ticker.C:
-				_ = a.beginUpdateCheck(false, false)
-			case <-a.shutdown:
-				return
-			}
+	a.update.schedulerOnce.Do(func() {
+		go func() {
+			ticker := time.NewTicker(15 * time.Second)
+			defer ticker.Stop()
+			a.runUpdateScheduler(ticker.C)
+		}()
+	})
+}
+
+func (a *application) runUpdateScheduler(ticks <-chan time.Time) {
+	a.update.mu.Lock()
+	a.update.lastAttempt = time.Time{}
+	a.update.mu.Unlock()
+	// Called only after the authenticated UI has painted; network work runs separately.
+	_ = a.beginUpdateCheck(false, false)
+	for {
+		select {
+		case <-ticks:
+			_ = a.beginUpdateCheck(false, false)
+		case <-a.shutdown:
+			return
 		}
-	}()
+	}
+}
+
+func (a *application) beginCriticalOperation() bool {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.installing {
+		return false
+	}
+	a.criticalOperations++
+	return true
+}
+func (a *application) endCriticalOperation() { a.mu.Lock(); a.criticalOperations--; a.mu.Unlock() }
+
+func writeInstallResult(healthPath, status, version, message string) {
+	data, _ := json.Marshal(map[string]string{"status": status, "version": version, "message": message, "time": time.Now().UTC().Format(time.RFC3339)})
+	path := filepath.Join(filepath.Dir(healthPath), "last-update.json")
+	if os.WriteFile(path+".tmp", data, 0600) == nil {
+		_ = atomicReplaceFile(path+".tmp", path)
+	}
 }

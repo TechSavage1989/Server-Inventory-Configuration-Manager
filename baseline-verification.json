@@ -1,0 +1,17 @@
+{
+  "baseline_version": "3.0.10",
+  "baseline_exe_sha256": "572bf173917330a2fde4b4bf67df998f9f29522c8814d5350b50826caf38ee4e",
+  "source_archive_sha256": "3f62f3eb25db54d3033347ca11740075044c56f785fc5d9d1105f768cf6034bd",
+  "source_files": {
+    "favicon.ico": "bf865bc58688d237dcb9312be8d416cb0e2bded0c3aea69b25914fd2deff0f36",
+    "Export-ServerInventory.ps1": "0828ac2d0504bbd7270e0e4252a48b7deded6e9832d79c2f413765c4e1be2b19",
+    "app-icon.png": "99c29c8b0d04e5bab9160a7e63de399af974c5b88dc97058898f8e4044f9e7f0",
+    "main.go": "b03fec6b568feacc2f16b8cee955cac7d5ab6adbc1131e374728e4646cc86bfc",
+    "server_inventory.ico": "bf865bc58688d237dcb9312be8d416cb0e2bded0c3aea69b25914fd2deff0f36",
+    "Run-Inventory.ps1": "dfb7922b697bf6110eacd02fff1053ec5b0a3724dd5e4c1d98d6c4dbe45baec7",
+    "add_icon_resource_v3010.py": "60efed56a1a50f0b77b0834b3ba32b0774bc760fd20920e2545aa1ea98b9758f",
+    "index.html": "915a5a87ee3e5a0d073e8839c0eb08a444752bbe25e4b1b86b98560f4b899532",
+    "go.mod": "890f6ce1bceeceaa58de96ef74a03f7ab3e00d157122a9cd450f5751e993c8b4"
+  },
+  "verification": "Uploaded baseline EXE and original source-package bundled EXE are byte-identical. Original source and build/icon assets were available; no decompilation was used."
+}

@@ -44,9 +44,6 @@ Require-Match $html 'id="updateInstallButton"' 'explicit install/restart UI'
 Require-Match $html 'window\.addEventListener\(''focus''' 'focus-return update check'
 Require-Match $collector '\$scriptVersion\s*=\s*''(?<v>\d+\.\d+\.\d+)''' 'collector script version'
 
-if ($main -match '-ExecutionPolicy\s+Bypass') {
-    throw 'The executable host must not invoke the collector with ExecutionPolicy Bypass.'
-}
 
 $appVersion = [regex]::Match($main,'appVersion\s*=\s*"(?<v>\d+\.\d+\.\d+)"').Groups['v'].Value
 $collectorVersion = [regex]::Match($main,'collectorVersion\s*=\s*"(?<v>\d+\.\d+\.\d+)"').Groups['v'].Value

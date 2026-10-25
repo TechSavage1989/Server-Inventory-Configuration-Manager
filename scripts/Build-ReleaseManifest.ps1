@@ -47,7 +47,7 @@ $manifest=[ordered]@{
         size=(Get-Item -LiteralPath $assetPath).Length
     }
 }
-$manifest|ConvertTo-Json -Depth 8|Set-Content -LiteralPath (Join-Path $OutputDirectory 'update-manifest.json') -Encoding UTF8
+[IO.File]::WriteAllText((Join-Path $OutputDirectory 'update-manifest.json'),($manifest|ConvertTo-Json -Depth 8),(New-Object Text.UTF8Encoding($false)))
 Write-Host "Release assets created in $OutputDirectory"
 Write-Host "Version: $ExpectedVersion"
 Write-Host "SHA-256: $hash"

@@ -1,53 +1,48 @@
 # AGENTS.md
 
-Read this file first before changing Server Inventory Configuration Manager.
+Read this file and DEVELOPMENT_HANDOFF.md before making changes.
 
-## Product baseline
+## Primary application baseline
 
-- Product: Server Inventory Configuration Manager
-- Primary source: Go Windows host plus embedded `index.html`, `Export-ServerInventory.ps1`, and `Run-Inventory.ps1`
-- Stable portable artifact: `Server-Inventory-Configuration-Manager.exe`
-- Platform: Windows x64 portable desktop application
-- Compatibility target: Windows Server 2012 and newer as broadly as practical
-- Go toolchain target: Go 1.20.x
-- Current release line: 3.2.x
-- Public source and release repository: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager
-- Public updater feed: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/latest/download/update-manifest.json
-
-The v3.1.0 PS1 release is historical and was published against the wrong product format. The maintained product from v3.2.0 forward is the executable application.
+- Maintain the Windows portable executable, Server-Inventory-Configuration-Manager.exe.
+- The user-confirmed functional and visual baseline is Server Inventory & Configuration Exporter GUI v3.0.10.
+- The original source ZIP's bundled EXE is byte-identical to the uploaded baseline. See baseline-verification.json.
+- The v3.1.0 PS1 application was a mistaken product direction. It is historical only. Never use its UI, collector extraction, or build workflow as the executable baseline.
+- v3.2.0 is an existing executable updater release. v3.2.1 corrects its updater and restores direct original-source build inputs.
+- Public source and releases: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager
+- Public executable feed: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/latest/download/update-manifest.json
+- Target Windows x64; Go 1.20.14 retains the broad Windows Server 2012+ target. Older Windows versions still require field validation.
 
 ## Development rules
 
-1. Preserve working collectors, report generation, browser-hosted GUI layout, settings, and report viewer behavior unless a requested change requires otherwise.
-2. Use semantic versions. Update `appVersion`, `collectorVersion`, and `$scriptVersion` together.
-3. Keep the release filename `Server-Inventory-Configuration-Manager.exe` stable and without a version suffix.
-4. Store settings, logs, updater cache, downloads, ready updates, health state, and rollback data under `%LOCALAPPDATA%\Server Inventory Configuration Manager`.
-5. Never commit credentials, GitHub tokens, signing private keys, passwords, or customer inventory output.
-6. The updater must never automatically download, install, or restart.
-7. A failed or offline update check must never be presented as current/up to date.
-8. Update downloads must be HTTPS/host allowlisted, size checked, SHA-256 verified, PE validated, and checked for expected application identity/version.
-9. Stage replacement on the target filesystem, retain one rollback generation, and restore it if the new application does not confirm a healthy visible startup.
-10. Do not add server setup, Codex CLI automation, unattended workers, payment setup, or API-account setup.
+1. Preserve the original layout, collectors, reporting, report viewer, scope controls, and icon unless the user requests a change. Run scripts/verify_baseline.py; intentional collector changes require an explicit baseline-evidence update.
+2. Update appVersion, collectorVersion, and the original standalone collector's scriptVersion consistently. Source files are committed directly; do not extract them from legacy PS1 applications.
+3. Link the original icon and Windows file/product version metadata during compilation with scripts/build_resources.py. Do not patch a compiled EXE.
+4. Keep the portable filename stable. Install in place to preserve existing shortcuts, including legacy custom/versioned names. Do not rename a user's executable or shortcut silently.
+5. Settings, updater logs/cache/downloads/health/rollback, and browser session files belong under per-user LocalAppData/Server Inventory Configuration Manager. The one transient replacement file on the executable's volume is removed after replacement or failure.
+6. Startup checks follow the authenticated first UI paint. Native timers schedule checks every five minutes; focus checks require two minutes. Keep single-flight, ETags, cooldown, Retry-After, GitHub reset handling, and persistent backoff. Cached/offline/failed checks never mean up to date.
+7. Never automatically download, install, or restart. Block installation during collection, report loading, or folder dialogs. Prevent new critical operations once installation starts.
+8. Validate HTTPS/redirect hosts, exact repository and version paths, size, SHA-256, PE sections/entrypoint/architecture/subsystem, mapped application identity marker, and Windows version metadata before execution. The manifest hash is byte validation, not a publisher signature.
+9. The downloaded application is its own native helper. Stage on the target volume, retain exactly one previous rollback EXE, and require token/PID/path-matched health with a rendered UI and visible owned window. Never ship a headless healthy-start bypass.
+10. Keep credentials, tokens, private signing keys, and customer data out of source and artifacts. Do not add server setup, Codex CLI automation, unattended workers, payment setup, or API-account setup.
 
-## Validation
+## Build and validate
 
-```powershell
-.\scripts\Test-Source.ps1
+Use Go 1.20.14, Python 3, and Windows PowerShell for build validation. The updater itself has no PowerShell/runtime dependency. The original inventory engine still uses built-in Windows PowerShell with the baseline process-scoped collector invocation.
 
-go test ./...
-go vet ./...
+1. Run python scripts/verify_baseline.py.
+2. Run python scripts/build_resources.py --version <source-version>.
+3. Run scripts/Test-Source.ps1.
+4. Build the stable GUI EXE with go build -trimpath and Windows GUI subsystem flags.
+5. Run scripts/Test-Binary.ps1, go test -v ./..., and go vet ./.... Build the EXE before Go tests; malicious-download tests use those actual bytes.
+6. Run scripts/Test-UpdateInstall.ps1. It launches the real GUI and requires real health confirmation.
+7. Run scripts/Build-ReleaseManifest.ps1. Write UTF-8 JSON without a BOM so older executable updaters can parse it.
 
-# After building the icon-bearing EXE
-.\scripts\Test-Binary.ps1 -ExecutablePath .\build\Server-Inventory-Configuration-Manager.exe -ExpectedVersion <version>
-.\scripts\Test-UpdateInstall.ps1 -ExecutablePath .\build\Server-Inventory-Configuration-Manager.exe -ExpectedVersion <version>
-.\scripts\Build-ReleaseManifest.ps1 -ExecutablePath .\build\Server-Inventory-Configuration-Manager.exe -OutputDirectory .\dist -ExpectedVersion <version>
-```
+## Release and handoff
 
-## Release procedure
-
-1. Update source version and `release-notes/<version>.md`.
-2. Verify Windows CI.
-3. Update `release/VERSION` only when publishing.
-4. The release workflow builds with Go 1.20.x, injects the application icon, validates the executable, runs the helper-mode update integration test, creates stable EXE/checksum/manifest assets, publishes tag `v<version>`, and verifies the public feed.
-5. Never overwrite an existing release or tag.
-6. Update `DEVELOPMENT_HANDOFF.md` after release with exact tag/commit and validation status.
+- Validate source CI first, then change release/VERSION in a separate publication commit.
+- Use a new tag/version only. Never replace assets, releases, or tags that have already been published.
+- The workflow uploads all assets to a draft, publishes it, and verifies public downloads/feed.
+- Its separate Windows job runs published v3.2.0 through Download and Install and restart into the new release, then verifies native health, settings, shortcuts, scheduling, cleanup, and rollback.
+- Record exact tag/commit, asset hash, CI links/results, and testing limitations in DEVELOPMENT_HANDOFF.md and VALIDATION.md.
+- Do not call headless probes, helper-only tests, or cross-compilation a successful interactive Windows upgrade.

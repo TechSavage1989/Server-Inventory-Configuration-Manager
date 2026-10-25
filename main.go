@@ -31,8 +31,8 @@ import (
 
 const (
 	appName           = "Server Inventory Configuration Manager"
-	appVersion        = "3.2.0"
-	collectorVersion  = "3.2.0"
+	appVersion        = "3.2.1"
+	collectorVersion  = "3.2.1"
 	maximumCollectors = 49
 
 	mbOK              = 0x00000000
@@ -205,6 +205,9 @@ type internalState struct {
 type application struct {
 	mu                      sync.Mutex
 	update                  updateRuntime
+	installing              bool
+	criticalOperations      int
+	uiReady                 bool
 	token                   string
 	computerName            string
 	admin                   bool
@@ -542,7 +545,7 @@ func applyBrowserWindowIcon(iconPath string) {
 	}
 }
 
-func openInterfaceURL(url string) (*exec.Cmd, string, error) {
+func openInterfaceURL(url, profile string) (*exec.Cmd, string, error) {
 	programFiles := []string{
 		os.Getenv("ProgramFiles(x86)"),
 		os.Getenv("ProgramFiles"),
@@ -558,10 +561,10 @@ func openInterfaceURL(url string) (*exec.Cmd, string, error) {
 		for _, relative := range relativeCandidates {
 			candidate := filepath.Join(root, relative)
 			if info, err := os.Stat(candidate); err == nil && !info.IsDir() {
-				arguments := []string{"--app=" + url, "--new-window", "--no-first-run", "--no-default-browser-check"}
+				arguments := []string{"--app=" + url, "--new-window", "--no-first-run", "--no-default-browser-check", "--user-data-dir=" + profile}
 				command := exec.Command(candidate, arguments...)
 				if err := command.Start(); err == nil {
-					return command, "", nil
+					return command, profile, nil
 				}
 			}
 		}
@@ -996,8 +999,8 @@ func newApplication() (*application, error) {
 		lastClientActivity:  time.Now(),
 	}
 	app.state = internalState{
-		Status:      "idle",
-		Phase:       "Ready",		Message:     "Choose an output directory and review the collection scope.",
+		Status: "idle",
+		Phase:  "Ready", Message: "Choose an output directory and review the collection scope.",
 		CurrentStep: "No active collector.",
 		Progress:    0,
 	}
@@ -1240,6 +1243,12 @@ func (a *application) handleBrowse(response http.ResponseWriter, request *http.R
 	if !a.requireAuthorization(response, request) {
 		return
 	}
+	if !a.beginCriticalOperation() {
+		writeJSON(response, http.StatusConflict, map[string]any{"error": "An update is being installed."})
+		return
+	}
+	defer a.endCriticalOperation()
+
 	if request.Method != http.MethodPost {
 		writeJSON(response, http.StatusMethodNotAllowed, map[string]any{"ok": false, "error": "POST is required."})
 		return
@@ -1267,6 +1276,12 @@ func (a *application) handleBrowseReport(response http.ResponseWriter, request *
 	if !a.requireAuthorization(response, request) {
 		return
 	}
+	if !a.beginCriticalOperation() {
+		writeJSON(response, http.StatusConflict, map[string]any{"error": "An update is being installed."})
+		return
+	}
+	defer a.endCriticalOperation()
+
 	if request.Method != http.MethodPost {
 		writeJSON(response, http.StatusMethodNotAllowed, map[string]any{"ok": false, "error": "POST is required."})
 		return
@@ -1370,10 +1385,9 @@ func (a *application) handleStart(response http.ResponseWriter, request *http.Re
 		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": err.Error()})
 		return
 	}
-	a.saveApplicationSettings(options.OutputRoot)
 
 	a.mu.Lock()
-	if a.state.Running {
+	if a.state.Running || a.installing {
 		a.mu.Unlock()
 		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "A server inventory collection is already running."})
 		return
@@ -1391,7 +1405,7 @@ func (a *application) handleStart(response http.ResponseWriter, request *http.Re
 	launcherLogPath := filepath.Join(options.OutputRoot, packageName+"_GUI-Launcher.log")
 
 	a.mu.Lock()
-	if a.state.Running {
+	if a.state.Running || a.installing {
 		a.mu.Unlock()
 		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "A server inventory collection is already running."})
 		return
@@ -1413,6 +1427,7 @@ func (a *application) handleStart(response http.ResponseWriter, request *http.Re
 		SummaryTextPath: filepath.Join(packagePath, "OPEN-FIRST - Server Inventory Summary.txt"),
 		LauncherLogPath: launcherLogPath,
 	}
+	a.saveApplicationSettings(options.OutputRoot)
 	a.logs = nil
 	a.nextLogIndex = 0
 	a.completedCollectors = make(map[string]bool)
@@ -1611,7 +1626,7 @@ func (a *application) handleReset(response http.ResponseWriter, request *http.Re
 		return
 	}
 	a.mu.Lock()
-	if a.state.Running {
+	if a.state.Running || a.installing {
 		a.mu.Unlock()
 		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "A running collection cannot be reset."})
 		return
@@ -1805,7 +1820,7 @@ func (a *application) runCollection(options collectionOptions, packageName, runI
 
 	validateCommand := exec.Command(
 		a.powerShellPath,
-		"-NoLogo", "-NoProfile", "-NonInteractive",
+		"-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
 		"-File", validatorPath,
 		"-CollectorPath", collectorPath,
 		"-WrapperPath", wrapperPath,
@@ -1833,7 +1848,7 @@ func (a *application) runCollection(options collectionOptions, packageName, runI
 
 	resultPath := filepath.Join(temporaryDirectory, "Run-Result.json")
 	arguments := []string{
-		"-NoLogo", "-NoProfile", "-NonInteractive",
+		"-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
 		"-File", wrapperPath,
 		"-CollectorPath", collectorPath,
 		"-OutputRoot", options.OutputRoot,
@@ -1996,7 +2011,8 @@ func (a *application) handleAppIcon(response http.ResponseWriter, request *http.
 	_, _ = response.Write(data)
 }
 
-func (a *application) serve(listener net.Listener) error {	mux := http.NewServeMux()
+func (a *application) serve(listener net.Listener) error {
+	mux := http.NewServeMux()
 	mux.HandleFunc("/", a.handleIndex)
 	mux.HandleFunc("/favicon.ico", a.handleFavicon)
 	mux.HandleFunc("/app-icon.png", a.handleAppIcon)
@@ -2007,6 +2023,7 @@ func (a *application) serve(listener net.Listener) error {	mux := http.NewServeM
 	mux.HandleFunc("/api/start", a.handleStart)
 	mux.HandleFunc("/api/cancel", a.handleCancel)
 	mux.HandleFunc("/api/open", a.handleOpen)
+	mux.HandleFunc("/api/ui/ready", a.handleUIReady)
 	mux.HandleFunc("/api/update/check", a.handleUpdateCheck)
 	mux.HandleFunc("/api/update/download", a.handleUpdateDownload)
 	mux.HandleFunc("/api/update/install", a.handleUpdateInstall)
@@ -2037,14 +2054,7 @@ func main() {
 	}
 	healthToken := extractHealthToken(os.Args[1:])
 	_ = binaryIdentityMarker
-	if hasArgument(os.Args[1:], "--health-probe") {
-		probe := &application{}
-		if err := probe.initializeUpdater(); err != nil {
-			os.Exit(21)
-		}
-		probe.writeHealthMarker(healthToken, true)
-		os.Exit(0)
-	}
+
 	if !isAdministrator() {
 		if err := relaunchElevated(); err != nil {
 			messageBox("Administrator rights are required.\r\n\r\n"+err.Error(), appName, mbOK|mbIconError)
@@ -2071,13 +2081,15 @@ func main() {
 
 	address := listener.Addr().(*net.TCPAddr)
 	url := fmt.Sprintf("http://127.0.0.1:%d/?token=%s", address.Port, app.token)
-	urlFile := filepath.Join(os.TempDir(), "Server-Inventory-Configuration-Exporter-URL.txt")
+	runtimeDir := filepath.Join(app.update.appDataRoot, "Runtime")
+	_ = os.MkdirAll(runtimeDir, 0o700)
+	urlFile := filepath.Join(runtimeDir, "application-url.txt")
 	_ = os.WriteFile(urlFile, []byte(url), 0600)
-	windowIconPath := filepath.Join(os.TempDir(), "Server-Inventory-Configuration-Exporter.ico")
+	windowIconPath := filepath.Join(runtimeDir, "application.ico")
 	if iconData, iconErr := embeddedPayloads.ReadFile("favicon.ico"); iconErr == nil {
 		_ = os.WriteFile(windowIconPath, iconData, 0600)
 	}
-	browserCmd, browserProfileDirectory, openErr := openInterfaceURL(url)
+	browserCmd, browserProfileDirectory, openErr := openInterfaceURL(url, filepath.Join(runtimeDir, "Browser-"+app.token))
 	if openErr != nil {
 		messageBox("The interface started, but a browser window could not be opened.\r\n\r\nThe local address was written to:\r\n"+urlFile, appName, mbOK|mbIconInformation)
 	} else if browserCmd != nil {
@@ -2089,7 +2101,7 @@ func main() {
 
 	go applyBrowserWindowIcon(windowIconPath)
 	go app.confirmHealthyWindowAndMark(healthToken)
-	app.startUpdateScheduler()
+	// The authenticated UI-ready event starts the scheduler after the first paint.
 
 	<-app.shutdown
 	_ = os.Remove(urlFile)

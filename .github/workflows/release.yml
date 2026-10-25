@@ -1,27 +1,25 @@
 name: Publish Release
-
 on:
   push:
     branches: [main]
-    paths:
-      - release/VERSION
+    paths: [release/VERSION]
   workflow_dispatch:
     inputs:
       version:
-        description: Version to publish
+        description: New version to publish
         required: true
         type: string
-
 permissions:
   contents: write
-
+concurrency:
+  group: executable-release
+  cancel-in-progress: false
 jobs:
   publish:
     runs-on: windows-latest
     timeout-minutes: 30
     env:
       GH_TOKEN: ${{ github.token }}
-
     steps:
       - uses: actions/checkout@v4
         with:
@@ -30,68 +28,87 @@ jobs:
         with:
           go-version: '1.20.14'
           cache: false
-
-      - name: Resolve release version
+      - name: Resolve new release version
         id: version
         shell: powershell
         run: |
-          $manualVersion='${{ inputs.version }}'
-          if([string]::IsNullOrWhiteSpace($manualVersion)){$version=(Get-Content .\release\VERSION -Raw).Trim()}else{$version=$manualVersion.Trim()}
-          if($version -notmatch '^\d+\.\d+\.\d+$'){throw "Invalid release version: $version"}
-          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-
-      - name: Generate embedded assets
+          $version='${{ inputs.version }}'
+          if(-not $version){$version=(Get-Content .\release\VERSION -Raw).Trim()}
+          if($version -notmatch '^\d+\.\d+\.\d+$'){throw 'Invalid release version'}
+          "version=$version" | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
+          $tag="v$version"
+          if(git tag --list $tag){throw 'Existing tags are never overwritten'}
+          $releases=@(gh release list --limit 100 --json tagName|ConvertFrom-Json)
+          if($LASTEXITCODE -ne 0){throw 'Release lookup failed'}
+          if(@($releases|Where-Object{$_.tagName -eq $tag}).Count){throw 'Existing releases are never overwritten'}
+      - name: Verify original assets
         shell: powershell
-        run: |
-          python .\scripts\generate_assets.py --output-root .
-          .\scripts\Extract-Collector.ps1 -Version '${{ steps.version.outputs.version }}'
-      - name: Validate exact release source
+        run: python .\scripts\verify_baseline.py
+      - name: Compile Windows resources
+        shell: powershell
+        run: python .\scripts\build_resources.py --version '${{ steps.version.outputs.version }}'
+      - name: Verify exact source version
         shell: powershell
         run: .\scripts\Test-Source.ps1 -ExpectedVersion '${{ steps.version.outputs.version }}'
-
-      - name: Refuse an existing release
+      - name: Build stable executable
         shell: powershell
         run: |
-          $tag='v${{ steps.version.outputs.version }}'
-          $releases=@(gh release list --limit 100 --json tagName | ConvertFrom-Json)
-          if(@($releases|Where-Object{$_.tagName -eq $tag}).Count -gt 0){throw "Release $tag already exists. Published releases are never overwritten."}
-
-      - name: Run Go tests
+          New-Item -ItemType Directory .\build -Force|Out-Null
+          go build -trimpath -ldflags "-s -w -H=windowsgui" -o .\build\Server-Inventory-Configuration-Manager.exe .
+      - name: Validate executable
         shell: powershell
-        run: go test ./...
+        run: .\scripts\Test-Binary.ps1 -ExecutablePath .\build\Server-Inventory-Configuration-Manager.exe -ExpectedVersion '${{ steps.version.outputs.version }}'
+      - name: Test updater
+        shell: powershell
+        run: |
+          go test -v ./... 2>&1 | Tee-Object .\build\go-test-results.txt
+          if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
       - name: Vet Go source
         shell: powershell
         run: go vet ./...
-
-      - name: Build release executable
-        shell: powershell
-        run: |
-          New-Item -ItemType Directory -Path .\build -Force | Out-Null
-          go build -trimpath -ldflags "-s -w -H=windowsgui" -o .\build\Server-Inventory-Configuration-Manager.raw.exe .
-          python .\scripts\embed_icon.py --input .\build\Server-Inventory-Configuration-Manager.raw.exe --output .\build\Server-Inventory-Configuration-Manager.exe --icon .\server_inventory.ico
-
-      - name: Validate release executable
-        shell: powershell
-        run: .\scripts\Test-Binary.ps1 -ExecutablePath .\build\Server-Inventory-Configuration-Manager.exe -ExpectedVersion '${{ steps.version.outputs.version }}'
-
-      - name: Test actual update helper path
+      - name: Test native replacement and visible health confirmation
         shell: powershell
         run: .\scripts\Test-UpdateInstall.ps1 -ExecutablePath .\build\Server-Inventory-Configuration-Manager.exe -ExpectedVersion '${{ steps.version.outputs.version }}'
-
       - name: Build release assets
         shell: powershell
         run: .\scripts\Build-ReleaseManifest.ps1 -ExecutablePath .\build\Server-Inventory-Configuration-Manager.exe -ExpectedVersion '${{ steps.version.outputs.version }}' -OutputDirectory .\dist
-
-      - name: Publish GitHub release
+      - name: Publish complete new release
         shell: powershell
         run: |
-          $version='${{ steps.version.outputs.version }}'
-          $tag="v$version"
-          $notes=".\release-notes\$version.md"
-          if(-not(Test-Path $notes)){throw "Release notes not found: $notes"}
-          gh release create $tag .\dist\Server-Inventory-Configuration-Manager.exe .\dist\Server-Inventory-Configuration-Manager.exe.sha256.txt .\dist\update-manifest.json --target "${{ github.sha }}" --title "Server Inventory Configuration Manager $version" --notes-file $notes
-          if($LASTEXITCODE -ne 0){throw "GitHub release creation failed with exit code $LASTEXITCODE."}
-
-      - name: Verify public updater feed and release assets
+          $version='${{ steps.version.outputs.version }}';$tag="v$version"
+          gh release create $tag .\dist\Server-Inventory-Configuration-Manager.exe .\dist\Server-Inventory-Configuration-Manager.exe.sha256.txt .\dist\update-manifest.json .\build\go-test-results.txt --draft --target '${{ github.sha }}' --title "Server Inventory Configuration Manager $version" --notes-file ".\release-notes\$version.md"
+          if($LASTEXITCODE -ne 0){throw 'Release create failed'}
+          gh release edit $tag --draft=false --latest
+          if($LASTEXITCODE -ne 0){throw 'Release publish failed'}
+      - name: Verify public feed and downloads
         shell: powershell
         run: .\scripts\Verify-PublicRelease.ps1 -ExpectedVersion '${{ steps.version.outputs.version }}'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: release-validation
+          path: build/go-test-results.txt
+  published-upgrade:
+    needs: publish
+    runs-on: windows-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install browser test tools
+        shell: powershell
+        run: npm install --prefix .\build\ui-tools playwright@1.58.2
+      - name: Exercise real published previous-to-new update
+        shell: powershell
+        run: |
+          $env:NODE_PATH=(Resolve-Path .\build\ui-tools\node_modules).Path
+          node .\scripts\test_published_upgrade.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: published-upgrade-validation
+          path: build/published-upgrade-*

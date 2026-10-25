@@ -23,7 +23,7 @@ if ($magic -ne 0x20b) { throw 'Executable is not PE32+.' }
 $subsystem=[BitConverter]::ToUInt16($bytes,$optional+68)
 if ($subsystem -ne 2) { throw "Executable subsystem is $subsystem, expected Windows GUI (2)." }
 
-$marker=[Text.Encoding]::UTF8.GetBytes("SICM_BINARY_ID|Server-Inventory-Configuration-Manager|$ExpectedVersion")
+$marker=[Text.Encoding]::UTF8.GetBytes("SICM_BINARY_ID|Server-Inventory-Configuration-Manager|$ExpectedVersion|")
 $found=$false
 for($i=0;$i -le $bytes.Length-$marker.Length;$i++){
     $match=$true
@@ -35,3 +35,6 @@ if(-not $found){ throw 'Expected application identity/version marker was not fou
 $hash=(Get-FileHash -LiteralPath $ExecutablePath -Algorithm SHA256).Hash.ToLowerInvariant()
 Write-Host 'Binary validation passed.'
 Write-Host "SHA-256: $hash"
+$versionInfo=[Diagnostics.FileVersionInfo]::GetVersionInfo($ExecutablePath)
+if($versionInfo.FileVersion -ne $ExpectedVersion -or $versionInfo.ProductVersion -ne $ExpectedVersion){throw 'Windows version metadata mismatch.'}
+if($versionInfo.ProductName -ne 'Server Inventory Configuration Manager' -or $versionInfo.OriginalFilename -ne 'Server-Inventory-Configuration-Manager.exe'){throw 'Windows application identity metadata mismatch.'}

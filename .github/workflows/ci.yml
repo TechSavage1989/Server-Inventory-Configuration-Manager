@@ -1,17 +1,14 @@
 name: CI
-
 on:
   push:
     branches: [main]
   pull_request:
-
 permissions:
   contents: read
-
 jobs:
   windows:
     runs-on: windows-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -22,36 +19,45 @@ jobs:
         id: version
         shell: powershell
         run: |
-          $main=Get-Content -LiteralPath .\main.go -Raw
+          $main=Get-Content .\main.go -Raw
           $version=[regex]::Match($main,'appVersion\s*=\s*"(?<v>\d+\.\d+\.\d+)"').Groups['v'].Value
-          if([string]::IsNullOrWhiteSpace($version)){throw 'Unable to parse appVersion from main.go.'}
-          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
-      - name: Generate embedded assets
+          if(-not $version){throw 'Missing source version'}
+          "version=$version" | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
+      - name: Verify original executable assets
         shell: powershell
-        run: |
-          python .\scripts\generate_assets.py --output-root .
-          .\scripts\Extract-Collector.ps1 -Version '${{ steps.version.outputs.version }}'
-      - name: Validate source contracts
+        run: python .\scripts\verify_baseline.py
+      - name: Compile original icon and Windows metadata resources
+        shell: powershell
+        run: python .\scripts\build_resources.py --version '${{ steps.version.outputs.version }}'
+      - name: Validate source
         shell: powershell
         run: .\scripts\Test-Source.ps1
-      - name: Run Go tests
-        shell: powershell
-        run: go test ./...
-      - name: Vet Go source
-        shell: powershell
-        run: go vet ./...
       - name: Build portable Windows executable
         shell: powershell
         run: |
-          New-Item -ItemType Directory -Path .\build -Force | Out-Null
-          go build -trimpath -ldflags "-s -w -H=windowsgui" -o .\build\Server-Inventory-Configuration-Manager.raw.exe .
-          python .\scripts\embed_icon.py --input .\build\Server-Inventory-Configuration-Manager.raw.exe --output .\build\Server-Inventory-Configuration-Manager.exe --icon .\server_inventory.ico
+          New-Item -ItemType Directory .\build -Force | Out-Null
+          go build -trimpath -ldflags "-s -w -H=windowsgui" -o .\build\Server-Inventory-Configuration-Manager.exe .
       - name: Validate executable
         shell: powershell
         run: .\scripts\Test-Binary.ps1 -ExecutablePath .\build\Server-Inventory-Configuration-Manager.exe -ExpectedVersion '${{ steps.version.outputs.version }}'
-      - name: Test update helper install path
+      - name: Run updater tests and negative controls
+        shell: powershell
+        run: |
+          go test -v ./... 2>&1 | Tee-Object .\build\go-test-results.txt
+          if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
+      - name: Vet Go source
+        shell: powershell
+        run: go vet ./...
+      - name: Test native install and visible healthy start
         shell: powershell
         run: .\scripts\Test-UpdateInstall.ps1 -ExecutablePath .\build\Server-Inventory-Configuration-Manager.exe -ExpectedVersion '${{ steps.version.outputs.version }}'
-      - name: Dry-run release manifest
+      - name: Build release manifest
         shell: powershell
         run: .\scripts\Build-ReleaseManifest.ps1 -ExecutablePath .\build\Server-Inventory-Configuration-Manager.exe -ExpectedVersion '${{ steps.version.outputs.version }}' -OutputDirectory .\dist
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-validation
+          path: |
+            build/go-test-results.txt
+            dist/

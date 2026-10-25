@@ -5,9 +5,9 @@
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Server Inventory Configuration Manager</title>
-<link rel="icon" type="image/x-icon" href="/favicon.ico?v=320">
-<link rel="icon" type="image/png" sizes="256x256" href="/app-icon.png?v=320">
-<link rel="apple-touch-icon" sizes="256x256" href="/app-icon.png?v=320">
+<link rel="icon" type="image/x-icon" href="/favicon.ico?v=321">
+<link rel="icon" type="image/png" sizes="256x256" href="/app-icon.png?v=321">
+<link rel="apple-touch-icon" sizes="256x256" href="/app-icon.png?v=321">
 <style>
 * { box-sizing: border-box; }
 html, body { min-height: 100%; }
@@ -164,7 +164,7 @@ button { cursor: pointer; }
 .scope-heading,.scope-panel-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;flex-wrap:wrap}.scope-buttons{display:flex;gap:8px;flex-wrap:wrap}.preset-button{min-height:38px}.scope-panel{margin-top:18px;border:1px solid var(--border);border-radius:14px;padding:16px;background:rgba(255,255,255,.025)}.scope-title{font-weight:700;font-size:15px;margin-bottom:4px}.scope-count{font-size:12px;color:var(--muted);font-weight:700;white-space:nowrap}.category-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin-top:14px}.category-grid.compact{grid-template-columns:repeat(3,minmax(0,1fr))}.category-check{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--border);border-radius:10px;padding:10px 11px;background:var(--panel);cursor:pointer;min-width:0}.category-check:has(input:checked){border-color:var(--accent);background:var(--accent-soft)}.category-check input{margin-top:3px;flex:0 0 auto}.category-check span{min-width:0}.category-check strong{display:block;font-size:13px;line-height:1.25}.category-check small{display:block;color:var(--muted);font-size:11px;line-height:1.35;margin-top:3px}.category-setting{margin-top:13px}.export-panel{border-style:dashed}.sensitive-inline{margin-top:14px}.sensitive-choice{border-color:rgba(235,180,70,.35)}@media(max-width:1100px){.category-grid,.category-grid.compact{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:720px){.category-grid,.category-grid.compact{grid-template-columns:1fr}}
 
 
-/* v3.2.0 updater banner. */
+/* Executable updater banner. */
 .update-banner { flex: 0 0 auto; margin: 10px 0 0; border: 1px solid #d7dee7; border-radius: 12px; background: #fff; padding: 11px 14px; display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 14px; align-items: center; }
 .update-banner.available { background: #eff6ff; border-color: #93c5fd; }
 .update-banner.warning { background: #fffaeb; border-color: #fec84b; }
@@ -584,9 +584,10 @@ body { height: 100vh; }
     if(!update){return;}
     latestUpdateState=update;
     var banner=byId('updateBanner');
-    banner.className='update-banner'+(update.status==='available'||update.status==='ready'?' available':(update.status==='error'?' error':(update.status==='cooldown'?' warning':'')));
+    banner.className='update-banner'+(update.status==='available'||update.status==='ready'?' available':(update.status==='error'||update.status==='offline'?' error':(update.status==='cooldown'||update.status==='rollback'?' warning':'')));
     byId('updateTitle').textContent=update.title||'Update status';
     byId('updateStatus').textContent=update.message||('Installed '+(update.installedVersion||''));
+    byId('updateInstallButton').title=running?'Finish or cancel the current operation before installing.':'';
     var notes=byId('updateNotes'); notes.innerHTML='';
     var list=update.notes||[];
     for(var i=0;i<list.length && i<3;i++){var li=document.createElement('li');li.textContent=list[i];notes.appendChild(li);}
@@ -664,6 +665,8 @@ body { height: 100vh; }
   byId('updateDownloadButton').addEventListener('click',downloadUpdate);
   byId('updateInstallButton').addEventListener('click',installUpdate);
   window.addEventListener('focus',function(){checkForUpdates(false,'focus');});
+  document.addEventListener('visibilitychange',function(){if(!document.hidden){checkForUpdates(false,'focus');}});
+  window.requestAnimationFrame(function(){window.requestAnimationFrame(function(){request('POST','/api/ui/ready',{},function(){});});});
   byId('reportFrame').addEventListener('load',function(){
     enforceReportViewerScrollLayout();
     window.setTimeout(enforceReportViewerScrollLayout,80);
