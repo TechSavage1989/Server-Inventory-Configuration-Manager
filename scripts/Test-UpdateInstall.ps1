@@ -4,6 +4,35 @@ param(
     [Parameter(Mandatory=$true)][string]$ExpectedVersion
 )
 $ErrorActionPreference='Stop'
+
+function Invoke-NativeAndWait {
+    param(
+        [Parameter(Mandatory=$true)][string]$FilePath,
+        [Parameter(Mandatory=$true)][string[]]$Arguments
+    )
+
+    # Start-Process -ArgumentList flattens arrays into one command line and does
+    # not reliably preserve arguments containing spaces. Build one explicitly
+    # quoted command line so the test exercises the same argv values as Go's
+    # exec.Command used by the production updater.
+    $quoted=@(
+        $Arguments | ForEach-Object {
+            '"' + ([string]$_).Replace('"','\"') + '"'
+        }
+    )
+
+    $info=New-Object System.Diagnostics.ProcessStartInfo
+    $info.FileName=$FilePath
+    $info.Arguments=($quoted -join ' ')
+    $info.UseShellExecute=$false
+    $info.CreateNoWindow=$true
+
+    $process=[System.Diagnostics.Process]::Start($info)
+    if($null-eq$process){throw "Could not start native process: $FilePath"}
+    $process.WaitForExit()
+
+    return $process.ExitCode
+}
 $ExecutablePath=[IO.Path]::GetFullPath($ExecutablePath)
 $temp=Join-Path $env:TEMP ('SICM-UpdateTest-'+[guid]::NewGuid().ToString('N'))
 New-Item -Path $temp -ItemType Directory -Force|Out-Null
@@ -22,9 +51,9 @@ try{
     $log=Join-Path $env:LOCALAPPDATA 'Server Inventory Configuration Manager\Logs\Updates.log'
     $token=[guid]::NewGuid().ToString('N')
 
-    $p=Start-Process -FilePath $staged -ArgumentList @('--update-helper','--parent-pid','0','--target',$target,'--expected-version',$ExpectedVersion,'--expected-sha256',$hash,'--old-version','3.0.10','--health-marker',$health,'--health-token',$token,'--rollback',$rollback,'--rollback-meta',$rollbackMeta,'--log',$log,'--allow-headless-health','true') -PassThru -Wait
-    if($p.ExitCode -ne 0){
-        Write-Host "Update helper exit code: $($p.ExitCode)"
+    $exitCode=Invoke-NativeAndWait -FilePath $staged -Arguments @('--update-helper','--parent-pid','0','--target',$target,'--expected-version',$ExpectedVersion,'--expected-sha256',$hash,'--old-version','3.0.10','--health-marker',$health,'--health-token',$token,'--rollback',$rollback,'--rollback-meta',$rollbackMeta,'--log',$log,'--allow-headless-health','true')
+    if($exitCode -ne 0){
+        Write-Host "Update helper exit code: $($exitCode)"
         if(Test-Path -LiteralPath $log){
             Write-Host '----- Updates.log -----'
             Get-Content -LiteralPath $log | ForEach-Object { Write-Host $_ }
@@ -39,7 +68,7 @@ try{
         }else{
             Write-Host "Health marker was not created: $health"
         }
-        throw "Update helper integration test failed with exit code $($p.ExitCode)."
+        throw "Update helper integration test failed with exit code $($exitCode)."
     }
     if(-not(Test-Path $target)){throw 'Updated target was not present.'}
     if(-not(Test-Path $rollback)){throw 'Rollback executable was not retained.'}
@@ -51,8 +80,8 @@ try{
     Copy-Item $ExecutablePath $tampered
     $stream=[IO.File]::Open($tampered,[IO.FileMode]::Append,[IO.FileAccess]::Write,[IO.FileShare]::Read)
     try{$stream.WriteByte(0x42)}finally{$stream.Dispose()}
-    $bad=Start-Process -FilePath $tampered -ArgumentList @('--update-helper','--parent-pid','0','--target',(Join-Path $temp 'BadTarget.exe'),'--expected-version',$ExpectedVersion,'--expected-sha256',$hash,'--old-version',$ExpectedVersion,'--health-marker',(Join-Path $temp 'bad-health.json'),'--health-token','bad','--rollback',(Join-Path $temp 'bad-prev.exe'),'--rollback-meta',(Join-Path $temp 'bad-prev.json'),'--log',(Join-Path $temp 'bad.log'),'--allow-headless-health','true') -PassThru -Wait
-    if($bad.ExitCode -eq 0){throw 'Negative control failed: tampered update was accepted.'}
+    $badExitCode=Invoke-NativeAndWait -FilePath $tampered -Arguments @('--update-helper','--parent-pid','0','--target',(Join-Path $temp 'BadTarget.exe'),'--expected-version',$ExpectedVersion,'--expected-sha256',$hash,'--old-version',$ExpectedVersion,'--health-marker',(Join-Path $temp 'bad-health.json'),'--health-token','bad','--rollback',(Join-Path $temp 'bad-prev.exe'),'--rollback-meta',(Join-Path $temp 'bad-prev.json'),'--log',(Join-Path $temp 'bad.log'),'--allow-headless-health','true')
+    if($badExitCode -eq 0){throw 'Negative control failed: tampered update was accepted.'}
 
     Write-Host 'Update install integration test passed, including tampered-update negative control.'
 }
