@@ -55,13 +55,11 @@ jobs:
         shell: powershell
         run: |
           $tag = 'v${{ steps.version.outputs.version }}'
-          gh release view $tag 2>$null
+          $releases = @(gh release list --limit 100 --json tagName | ConvertFrom-Json)
 
-          if ($LASTEXITCODE -eq 0) {
+          if (@($releases | Where-Object { $_.tagName -eq $tag }).Count -gt 0) {
             throw "Release $tag already exists. Published releases are never overwritten."
           }
-
-          $global:LASTEXITCODE = 0
 
       - name: Build release assets
         shell: powershell
