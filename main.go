@@ -887,6 +887,9 @@ func copyFile(source, destination string) error {
 		return err
 	}
 	_, copyErr := io.Copy(output, input)
+	if copyErr == nil {
+		copyErr = output.Sync()
+	}
 	closeErr := output.Close()
 	if copyErr != nil {
 		return copyErr
@@ -1790,7 +1793,8 @@ func (a *application) runCollection(options collectionOptions, packageName, runI
 	a.logLauncher("Event history days when selected: %d", options.EventLogDays)
 	a.logLauncher("Sensitive exports allowed: %t", options.IncludeSensitive)
 
-	temporaryDirectory, err := os.MkdirTemp("", "ServerInventoryGUI-")
+	_ = os.MkdirAll(filepath.Join(a.update.appDataRoot, "Runtime"), 0700)
+	temporaryDirectory, err := os.MkdirTemp(filepath.Join(a.update.appDataRoot, "Runtime"), "Collectors-")
 	if err != nil {
 		a.logLauncher("Temporary directory creation failed: %v", err)
 		a.markFailure("A runtime directory could not be created: "+err.Error(), false)
@@ -1956,8 +1960,16 @@ func (a *application) stopServer() {
 			cancel()
 		}
 		a.mu.Lock()
+		profile := a.browserProfileDirectory
+		command := a.browserCmd
 		a.browserCmd = nil
 		a.mu.Unlock()
+		if command != nil && command.Process != nil {
+			terminateProcessTree(command.Process.Pid)
+		}
+		if profile != "" {
+			_ = os.RemoveAll(profile)
+		}
 		close(a.shutdown)
 	})
 }

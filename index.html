@@ -586,7 +586,7 @@ body { height: 100vh; }
     var banner=byId('updateBanner');
     banner.className='update-banner'+(update.status==='available'||update.status==='ready'?' available':(update.status==='error'||update.status==='offline'?' error':(update.status==='cooldown'||update.status==='rollback'?' warning':'')));
     byId('updateTitle').textContent=update.title||'Update status';
-    byId('updateStatus').textContent=update.message||('Installed '+(update.installedVersion||''));
+    byId('updateStatus').textContent=(update.message||('Installed '+(update.installedVersion||'')))+(update.notice?' '+update.notice:'');
     byId('updateInstallButton').title=running?'Finish or cancel the current operation before installing.':'';
     var notes=byId('updateNotes'); notes.innerHTML='';
     var list=update.notes||[];
@@ -598,7 +598,7 @@ body { height: 100vh; }
     byId('updateDownloadButton').disabled=!update.canDownload||!!update.downloading;
     byId('updateDownloadButton').textContent=update.downloading?'Downloading...':'Download';
     byId('updateInstallButton').className=update.canInstall?'primary-button':'primary-button hidden';
-    byId('updateInstallButton').disabled=!update.canInstall||!!running;
+    byId('updateInstallButton').disabled=!update.canInstall||!!running||!!update.checking||!!update.downloading;
     var progress=byId('updateProgress'); progress.className=update.downloading?'update-progress visible':'update-progress';
     byId('updateProgressFill').style.width=String(update.progress||0)+'%';
   }

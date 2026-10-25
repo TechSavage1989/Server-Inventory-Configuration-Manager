@@ -27,7 +27,7 @@ func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { retu
 func testApp(t *testing.T) *application {
 	t.Helper()
 	t.Setenv("LOCALAPPDATA", t.TempDir())
-	a := &application{shutdown: make(chan struct{}), token: "test-token"}
+	a := &application{shutdown: make(chan struct{}), token: "test-token", uiReady: true}
 	if err := a.initializeUpdater(); err != nil {
 		t.Fatal(err)
 	}
@@ -343,5 +343,64 @@ func TestSettingsAndOwnedCleanup(t *testing.T) {
 	}
 	if _, err := os.Stat(owned); !os.IsNotExist(err) {
 		t.Fatal("owned partial remains")
+	}
+}
+
+func TestStartupRequiresRenderedUI(t *testing.T) {
+	a := testApp(t)
+	a.uiReady = false
+	var requests int32
+	m := testManifest(appVersion)
+	body, _ := json.Marshal(m)
+	setTransport(a, func(r *http.Request) (*http.Response, error) {
+		atomic.AddInt32(&requests, 1)
+		return response(200, body, nil), nil
+	})
+	_ = a.beginUpdateCheck(false, true)
+	if atomic.LoadInt32(&requests) != 0 {
+		t.Fatal("focus event started network work before the UI rendered")
+	}
+	a.uiReady = true
+	_ = a.beginUpdateCheck(false, false)
+	waitCheck(t, a)
+	if atomic.LoadInt32(&requests) != 1 {
+		t.Fatal("startup check did not run after the UI rendered")
+	}
+}
+func TestManifestHostPathAndSizeRestrictions(t *testing.T) {
+	for _, kind := range []string{"http", "wrong-host", "wrong-repository", "oversize", "credentials", "version-prefix"} {
+		m := testManifest("3.2.2")
+		switch kind {
+		case "http":
+			m.Asset.URL = strings.Replace(m.Asset.URL, "https:", "http:", 1)
+		case "wrong-host":
+			m.Asset.URL = strings.Replace(m.Asset.URL, "github.com", "evil.example", 1)
+		case "wrong-repository":
+			m.Asset.URL = strings.Replace(m.Asset.URL, "TechSavage1989", "someone-else", 1)
+		case "oversize":
+			m.Asset.Size = maximumUpdateBytes + 1
+		case "credentials":
+			m.Asset.URL = strings.Replace(m.Asset.URL, "https://", "https://user:secret@", 1)
+		case "version-prefix":
+			m.Version = "3.2.20"
+		}
+		if validateManifest(&m) == nil {
+			t.Fatal("unsafe manifest accepted", kind)
+		}
+	}
+	req, _ := http.NewRequest("GET", "https://evil.example/update.exe", nil)
+	if newUpdateHTTPClient().CheckRedirect(req, nil) == nil {
+		t.Fatal("redirect to unallowlisted host accepted")
+	}
+	a := testApp(t)
+	m := testManifest(appVersion)
+	setTransport(a, func(r *http.Request) (*http.Response, error) {
+		res := response(200, nil, nil)
+		res.ContentLength = maximumUpdateBytes + 1
+		return res, nil
+	})
+	a.performUpdateDownload(m)
+	if a.updateSnapshot().CanInstall {
+		t.Fatal("oversized download accepted")
 	}
 }

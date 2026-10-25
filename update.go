@@ -100,6 +100,7 @@ type updateStateResponse struct {
 	CanDownload      bool     `json:"canDownload"`
 	CanInstall       bool     `json:"canInstall"`
 	LastCheckUnixMs  int64    `json:"lastCheckUnixMs"`
+	Notice           string   `json:"notice,omitempty"`
 }
 
 type updateRuntime struct {
@@ -201,6 +202,12 @@ func (a *application) initializeUpdater() error {
 		}
 	}
 	a.cleanupStaleUpdateFiles()
+	if data, err := os.ReadFile(filepath.Join(a.update.healthDir, "last-update.json")); err == nil {
+		var result map[string]string
+		if json.Unmarshal(data, &result) == nil && result["status"] == "rollback" {
+			a.update.state.Notice = result["message"]
+		}
+	}
 	return nil
 }
 
@@ -450,13 +457,13 @@ func (a *application) updateClient() *http.Client {
 
 func (a *application) beginUpdateCheck(manual bool, focus bool) error {
 	a.mu.Lock()
-	installing := a.installing
-	a.mu.Unlock()
-	if installing {
+	if a.installing || (!manual && !a.uiReady) {
+		a.mu.Unlock()
 		return nil
 	}
-	now := time.Now().UTC()
 	a.update.mu.Lock()
+	a.mu.Unlock()
+	now := time.Now().UTC()
 	defer a.update.mu.Unlock()
 	if a.update.checkInFlight || a.update.downloadInFlight {
 		return nil
@@ -676,12 +683,12 @@ func (a *application) applyManifestState(manifest *updateManifest, logResult boo
 
 func (a *application) beginUpdateDownload() error {
 	a.mu.Lock()
-	installing := a.installing
-	a.mu.Unlock()
-	if installing {
+	if a.installing {
+		a.mu.Unlock()
 		return errors.New("An update is already being installed")
 	}
 	a.update.mu.Lock()
+	a.mu.Unlock()
 	if a.update.downloadInFlight || a.update.checkInFlight {
 		a.update.mu.Unlock()
 		return nil
@@ -898,6 +905,7 @@ func (a *application) installReadyUpdate() error {
 		}
 	}()
 	a.update.mu.Lock()
+	busy := a.update.downloadInFlight || a.update.checkInFlight
 	manifest := a.update.currentManifest
 	readyVersion := a.update.readyVersion
 	readyHash := a.update.readySHA256
@@ -907,6 +915,9 @@ func (a *application) installReadyUpdate() error {
 	rollbackMeta := a.update.rollbackMetaPath
 	logPath := a.update.updateLogPath
 	a.update.mu.Unlock()
+	if busy {
+		return errors.New("Wait for the current update check or download to finish")
+	}
 	if manifest == nil || validateManifest(manifest) != nil || readyVersion == "" || readyVersion != manifest.Version {
 		return errors.New("no verified update is ready to install")
 	}
