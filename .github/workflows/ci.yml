@@ -53,6 +53,26 @@ jobs:
         run: |
           New-Item -ItemType Directory .\build -Force | Out-Null
           go build -trimpath -ldflags "-s -w -H=windowsgui" -o .\build\Server-Inventory-Configuration-Manager.exe ./src/app
+      - name: Verify extracted source archive rebuild
+        shell: powershell
+        run: |
+          git archive --format=zip --output=build/source-validation.zip HEAD
+          if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
+          Expand-Archive build/source-validation.zip build/source-validation -Force
+          Push-Location build/source-validation
+          try {
+            python scripts/check_layout.py
+            if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
+            python scripts/verify_baseline.py
+            if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
+            python scripts/embed_report_renderer.py --check
+            if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
+            python scripts/build_resources.py --version '${{ steps.version.outputs.version }}'
+            if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
+            go build -trimpath -ldflags "-s -w -H=windowsgui" -o ../source-validation.exe ./src/app
+            if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
+            ./scripts/Test-Binary.ps1 -ExecutablePath ../source-validation.exe -ExpectedVersion '${{ steps.version.outputs.version }}'
+          } finally { Pop-Location }
       - name: Validate executable
         shell: powershell
         run: .\scripts\Test-Binary.ps1 -ExecutablePath .\build\Server-Inventory-Configuration-Manager.exe -ExpectedVersion '${{ steps.version.outputs.version }}'
