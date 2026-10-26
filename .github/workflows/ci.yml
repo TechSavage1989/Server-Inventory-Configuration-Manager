@@ -69,9 +69,10 @@ jobs:
             if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
             python scripts/build_resources.py --version '${{ steps.version.outputs.version }}'
             if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
-            go build -trimpath -ldflags "-s -w -H=windowsgui" -o ../source-validation.exe ./src/app
+            New-Item -ItemType Directory build -Force | Out-Null
+            go build -trimpath -ldflags "-s -w -H=windowsgui" -o build/Server-Inventory-Configuration-Manager.exe ./src/app
             if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
-            ./scripts/Test-Binary.ps1 -ExecutablePath ../source-validation.exe -ExpectedVersion '${{ steps.version.outputs.version }}'
+            ./scripts/Test-Binary.ps1 -ExecutablePath build/Server-Inventory-Configuration-Manager.exe -ExpectedVersion '${{ steps.version.outputs.version }}'
           } finally { Pop-Location }
       - name: Validate executable
         shell: powershell
@@ -114,3 +115,4 @@ jobs:
             build/shell-icon-*.png
             build/report-validation/
             dist/
+
