@@ -19,7 +19,7 @@ try{
     & (Join-Path $PSScriptRoot 'Test-Binary.ps1') -ExecutablePath $exe -ExpectedVersion $ExpectedVersion
     $svg=Join-Path $temp 'Server-Inventory-Configuration-Manager.svg'
     Invoke-WebRequest -UseBasicParsing -Uri "$base/Server-Inventory-Configuration-Manager.svg" -OutFile $svg
-    $expectedSvg=(Get-FileHash (Join-Path $PSScriptRoot '..\assets\icons\server-inventory.svg') -Algorithm SHA256).Hash
+    $expectedSvg=(Get-FileHash (Join-Path $PSScriptRoot '..\src\app\assets\icons\server-inventory.svg') -Algorithm SHA256).Hash
     if((Get-FileHash $svg -Algorithm SHA256).Hash -ne $expectedSvg){throw 'Public editable SVG differs from release source.'}
     $preview=Join-Path $temp 'Report-Preview.png'
     Invoke-WebRequest -UseBasicParsing -Uri "$base/Report-Preview.png" -OutFile $preview

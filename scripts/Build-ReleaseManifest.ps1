@@ -11,7 +11,7 @@ $OutputDirectory=[IO.Path]::GetFullPath($OutputDirectory)
 
 & (Join-Path $PSScriptRoot 'Test-Source.ps1') -ExpectedVersion $ExpectedVersion
 if([string]::IsNullOrWhiteSpace($ExpectedVersion)){
-    $main=[IO.File]::ReadAllText((Join-Path $PSScriptRoot '..\main.go'))
+    $main=[IO.File]::ReadAllText((Join-Path $PSScriptRoot '..\src\app\main.go'))
     $ExpectedVersion=[regex]::Match($main,'appVersion\s*=\s*"(?<v>\d+\.\d+\.\d+)"').Groups['v'].Value
 }
 & (Join-Path $PSScriptRoot 'Test-Binary.ps1') -ExecutablePath $ExecutablePath -ExpectedVersion $ExpectedVersion
@@ -28,7 +28,7 @@ $checksumPath=$assetPath+'.sha256.txt'
 
 $svgName='Server-Inventory-Configuration-Manager.svg'
 $svgPath=Join-Path $OutputDirectory $svgName
-Copy-Item -LiteralPath (Join-Path $PSScriptRoot '..\assets\icons\server-inventory.svg') -Destination $svgPath
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot '..\src\app\assets\icons\server-inventory.svg') -Destination $svgPath
 $svgHash=(Get-FileHash -LiteralPath $svgPath -Algorithm SHA256).Hash.ToLowerInvariant()
 "$svgHash  $svgName"|Set-Content -LiteralPath ($svgPath+'.sha256.txt') -Encoding ASCII
 
@@ -40,7 +40,7 @@ Copy-Item -LiteralPath $previewSource -Destination $previewPath
 $previewHash=(Get-FileHash -LiteralPath $previewPath -Algorithm SHA256).Hash.ToLowerInvariant()
 "$previewHash  $previewName"|Set-Content -LiteralPath ($previewPath+'.sha256.txt') -Encoding ASCII
 
-$notesPath=Join-Path (Join-Path $PSScriptRoot '..\release-notes') ($ExpectedVersion+'.md')
+$notesPath=Join-Path (Join-Path $PSScriptRoot '..\docs\release-notes') ($ExpectedVersion+'.md')
 $allNotes=@()
 if(Test-Path -LiteralPath $notesPath -PathType Leaf){
     $allNotes=@(Get-Content -LiteralPath $notesPath|Where-Object{$_ -match '^\s*-\s+'}|ForEach-Object{($_ -replace '^\s*-\s+','').Trim()}|Where-Object{$_})

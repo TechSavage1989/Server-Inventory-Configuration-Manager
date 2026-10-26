@@ -59,7 +59,7 @@ func waitCheck(t *testing.T, a *application) {
 }
 func fixture(t *testing.T) []byte {
 	t.Helper()
-	data, err := os.ReadFile(filepath.Join("build", stableExecutableName))
+	data, err := os.ReadFile(filepath.Join("..", "..", "build", stableExecutableName))
 	if err != nil {
 		t.Fatal("Build the GUI executable before tests: ", err)
 	}

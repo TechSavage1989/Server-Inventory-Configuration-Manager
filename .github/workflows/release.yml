@@ -70,7 +70,7 @@ jobs:
         shell: powershell
         run: |
           New-Item -ItemType Directory .\build -Force|Out-Null
-          go build -trimpath -ldflags "-s -w -H=windowsgui" -o .\build\Server-Inventory-Configuration-Manager.exe .
+          go build -trimpath -ldflags "-s -w -H=windowsgui" -o .\build\Server-Inventory-Configuration-Manager.exe ./src/app
       - name: Validate executable
         shell: powershell
         run: .\scripts\Test-Binary.ps1 -ExecutablePath .\build\Server-Inventory-Configuration-Manager.exe -ExpectedVersion '${{ steps.version.outputs.version }}'
@@ -104,7 +104,7 @@ jobs:
         shell: powershell
         run: |
           $version='${{ steps.version.outputs.version }}';$tag="v$version"
-          gh release create $tag .\dist\Server-Inventory-Configuration-Manager.exe .\dist\Server-Inventory-Configuration-Manager.exe.sha256.txt .\dist\update-manifest.json .\dist\Server-Inventory-Configuration-Manager.svg .\dist\Server-Inventory-Configuration-Manager.svg.sha256.txt .\dist\Report-Preview.png .\dist\Report-Preview.png.sha256.txt .\build\go-test-results.txt --draft --target '${{ github.sha }}' --title "Server Inventory Configuration Manager $version" --notes-file ".\release-notes\$version.md"
+          gh release create $tag .\dist\Server-Inventory-Configuration-Manager.exe .\dist\Server-Inventory-Configuration-Manager.exe.sha256.txt .\dist\update-manifest.json .\dist\Server-Inventory-Configuration-Manager.svg .\dist\Server-Inventory-Configuration-Manager.svg.sha256.txt .\dist\Report-Preview.png .\dist\Report-Preview.png.sha256.txt .\build\go-test-results.txt --draft --target '${{ github.sha }}' --title "Server Inventory Configuration Manager $version" --notes-file ".\docs\release-notes\$version.md"
           if($LASTEXITCODE -ne 0){throw 'Release create failed'}
           gh release edit $tag --draft=false --latest
           if($LASTEXITCODE -ne 0){throw 'Release publish failed'}

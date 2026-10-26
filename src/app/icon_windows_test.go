@@ -50,7 +50,7 @@ func TestIconEndpointsServeApprovedVectorAndRasterAssets(t *testing.T) {
 			t.Fatal("wrong embedded icon response", tc.route, err)
 		}
 	}
-	old, err := os.ReadFile("baseline/v3.0.10/icons/favicon.ico")
+	old, err := os.ReadFile("../../baseline/v3.0.10/icons/favicon.ico")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -134,7 +134,7 @@ func TestCompiledIconResourcesAndNativeShellExtraction(t *testing.T) {
 		}
 	}
 	// Exercise Windows' own icon extraction used by Explorer and shortcuts.
-	exe, _ := filepath.Abs(filepath.Join("build", stableExecutableName))
+	exe, _ := filepath.Abs(filepath.Join("..", "..", "build", stableExecutableName))
 	var large, small uintptr
 	n, _, _ := shell32.NewProc("ExtractIconExW").Call(uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(exe))), 0, uintptr(unsafe.Pointer(&large)), uintptr(unsafe.Pointer(&small)), 1)
 	if large != 0 {

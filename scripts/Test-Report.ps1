@@ -8,7 +8,7 @@ $root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $OutputDirectory=[IO.Path]::GetFullPath($OutputDirectory)
 New-Item -ItemType Directory -Path $OutputDirectory -Force | Out-Null
 $tokens=$null;$parseErrors=$null
-$ast=[Management.Automation.Language.Parser]::ParseFile((Join-Path $root 'Export-ServerInventory.ps1'),[ref]$tokens,[ref]$parseErrors)
+$ast=[Management.Automation.Language.Parser]::ParseFile((Join-Path $root 'src/app/Export-ServerInventory.ps1'),[ref]$tokens,[ref]$parseErrors)
 if($parseErrors.Count){throw ('Collector parse errors: '+($parseErrors -join '; '))}
 $names=@('ConvertTo-ReportAtomicText','ConvertTo-ReportText','ConvertTo-ReportMultilineText','Get-ReportPropertyValue','Get-ReportCellText','Add-ReportTitle','Add-ReportHeading','Add-ReportParagraph','Add-ReportBullets','Add-ReportPreformatted','Add-ReportTable','ConvertTo-HtmlText','ConvertTo-HtmlMultilineText','Write-ConsolidatedHtmlReport','Write-DocxTextRun','Write-DocxParagraph','Write-DocxTable','Write-ConsolidatedDocxReport')
 foreach($name in $names){

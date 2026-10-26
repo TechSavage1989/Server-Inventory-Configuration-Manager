@@ -51,6 +51,6 @@ def build(icon,version):
     symbol=struct.pack('<8sIhHBB',b'.rsrc\0\0\0',0,1,0,3,0)
     return header+section+buf+relocs+symbol+struct.pack('<I',4)
 if __name__=='__main__':
-    parser=argparse.ArgumentParser();parser.add_argument('--icon',default='server_inventory.ico');parser.add_argument('--version',required=True);parser.add_argument('--output',default='application_windows_amd64.syso');args=parser.parse_args()
+    parser=argparse.ArgumentParser();parser.add_argument('--icon',default='src/app/server_inventory.ico');parser.add_argument('--version',required=True);parser.add_argument('--output',default='src/app/application_windows_amd64.syso');args=parser.parse_args()
     pathlib.Path(args.output).write_bytes(build(args.icon,args.version))
     print(args.output)

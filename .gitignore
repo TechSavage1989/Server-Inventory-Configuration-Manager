@@ -4,3 +4,6 @@
 *.sha256.txt
 *.syso
 node_modules/
+
+__pycache__/
+*.pyc

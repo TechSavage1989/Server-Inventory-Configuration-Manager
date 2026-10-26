@@ -194,10 +194,10 @@ func saveShellIconEvidence(t *testing.T, name string, pixels []byte) {
 		img.Pix[i+2] = pixels[i]
 		img.Pix[i+3] = pixels[i+3]
 	}
-	if err := os.MkdirAll("build", 0700); err != nil {
+	if err := os.MkdirAll(filepath.Join("..", "..", "build"), 0700); err != nil {
 		t.Fatal(err)
 	}
-	file, err := os.Create(filepath.Join("build", "shell-icon-"+name+".png"))
+	file, err := os.Create(filepath.Join("..", "..", "build", "shell-icon-"+name+".png"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -214,7 +214,7 @@ func TestExplorerAndDesktopShortcutUseApprovedIcon(t *testing.T) {
 		t.Fatal(err)
 	}
 	oldIcon := filepath.Join(root, "old.ico")
-	oldBytes, err := os.ReadFile("baseline/v3.0.10/icons/favicon.ico")
+	oldBytes, err := os.ReadFile("../../baseline/v3.0.10/icons/favicon.ico")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -290,7 +290,7 @@ func TestExplorerAndDesktopShortcutUseApprovedIcon(t *testing.T) {
 	}
 	// Validate the exact shell-pixel probe used by the later published update
 	// before a release is allowed to publish.
-	probe := exec.Command("powershell.exe", "-NoLogo", "-NoProfile", "-NonInteractive", "-File", "scripts/Test-ShellIcon.ps1", "-ExecutablePath", executable, "-ShortcutPath", shortcut, "-ExpectedIconPath", icon)
+	probe := exec.Command("powershell.exe", "-NoLogo", "-NoProfile", "-NonInteractive", "-File", "../../scripts/Test-ShellIcon.ps1", "-ExecutablePath", executable, "-ShortcutPath", shortcut, "-ExpectedIconPath", icon)
 	if output, err := probe.CombinedOutput(); err != nil {
 		t.Fatalf("published shell-icon probe failed: %v\n%s", err, output)
 	} else {

@@ -13,7 +13,7 @@ import (
 
 func TestNewAndLegacyReportsKeepAuthenticationAndContentIsolation(t *testing.T) {
 	for _, name := range []string{"sample-report.html", "baseline-report.html"} {
-		path := filepath.Join("build", "report-validation", name)
+		path := filepath.Join("..", "..", "build", "report-validation", name)
 		data, err := os.ReadFile(path)
 		if err != nil {
 			t.Fatal("Generate the synthetic report fixtures before Go tests:", err)

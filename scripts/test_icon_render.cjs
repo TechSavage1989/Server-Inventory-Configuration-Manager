@@ -3,14 +3,14 @@ const fs=require('fs'),http=require('http'),assert=require('assert');
 const {chromium}=require('playwright');
 const report={checks:[],status:'running'};
 const args=process.argv.slice(2),executable=args.includes('--executable')?args[args.indexOf('--executable')+1]:null;
-const policy=fs.readFileSync('main.go','utf8').match(/applicationPageCSP\s*=\s*"([^"]+)"/)[1];
-const html=fs.readFileSync('index.html','utf8').replaceAll('__TOKEN__','icon-test').replaceAll('__APP_VERSION__','3.2.7').replaceAll('__COLLECTOR_VERSION__','3.2.7');
+const policy=fs.readFileSync('src/app/main.go','utf8').match(/applicationPageCSP\s*=\s*"([^"]+)"/)[1];
+const html=fs.readFileSync('src/app/index.html','utf8').replaceAll('__TOKEN__','icon-test').replaceAll('__APP_VERSION__','3.2.7').replaceAll('__COLLECTOR_VERSION__','3.2.7');
 async function fixture(browser,csp){
  const server=http.createServer((req,res)=>{
   const route=req.url.split('?')[0];
   if(route==='/'){res.setHeader('Content-Type','text/html');res.setHeader('Content-Security-Policy',csp);res.end(html);return}
-  if(route==='/app-icon.svg'){res.setHeader('Content-Type','image/svg+xml');res.end(fs.readFileSync('assets/icons/server-inventory.svg'));return}
-  if(route==='/favicon.ico'||route==='/app-icon.png'){res.setHeader('Content-Type',route.endsWith('.ico')?'image/x-icon':'image/png');res.end(fs.readFileSync(route.slice(1)));return}
+  if(route==='/app-icon.svg'){res.setHeader('Content-Type','image/svg+xml');res.end(fs.readFileSync('src/app/assets/icons/server-inventory.svg'));return}
+  if(route==='/favicon.ico'||route==='/app-icon.png'){res.setHeader('Content-Type',route.endsWith('.ico')?'image/x-icon':'image/png');res.end(fs.readFileSync('src/app/'+route.slice(1)));return}
   if(route==='/api/state'){res.setHeader('Content-Type','application/json');res.end(JSON.stringify({appVersion:'3.2.7',logs:[],nextLogIndex:0,status:'idle',running:false,update:{status:'current',title:'Up to date',installedVersion:'3.2.7',latestVersion:'3.2.7',canCheck:true,notes:[]}}));return}
   res.setHeader('Content-Type','application/json');res.end('{}');
  });

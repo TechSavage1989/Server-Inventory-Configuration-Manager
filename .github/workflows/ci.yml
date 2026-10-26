@@ -22,7 +22,7 @@ jobs:
         id: version
         shell: powershell
         run: |
-          $main=Get-Content .\main.go -Raw
+          $main=Get-Content .\src\app\main.go -Raw
           $version=[regex]::Match($main,'appVersion\s*=\s*"(?<v>\d+\.\d+\.\d+)"').Groups['v'].Value
           if(-not $version){throw 'Missing source version'}
           "version=$version" | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
@@ -52,7 +52,7 @@ jobs:
         shell: powershell
         run: |
           New-Item -ItemType Directory .\build -Force | Out-Null
-          go build -trimpath -ldflags "-s -w -H=windowsgui" -o .\build\Server-Inventory-Configuration-Manager.exe .
+          go build -trimpath -ldflags "-s -w -H=windowsgui" -o .\build\Server-Inventory-Configuration-Manager.exe ./src/app
       - name: Validate executable
         shell: powershell
         run: .\scripts\Test-Binary.ps1 -ExecutablePath .\build\Server-Inventory-Configuration-Manager.exe -ExpectedVersion '${{ steps.version.outputs.version }}'

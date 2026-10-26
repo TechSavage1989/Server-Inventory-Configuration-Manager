@@ -7,11 +7,11 @@ const directory=path.resolve('build/report-validation');
 const current=fs.readFileSync(path.join(directory,'sample-report.html'));
 const original=fs.readFileSync(path.join(directory,'baseline-report.html'));
 const empty=fs.readFileSync(path.join(directory,'empty-report.html'));
-const main=fs.readFileSync('main.go','utf8');
+const main=fs.readFileSync('src/app/main.go','utf8');
 const version=main.match(/appVersion\s*=\s*"([^"]+)"/)[1];
 const reportPolicy=main.match(/func \(a \*application\) handleCurrentReport[\s\S]*?Set\("Content-Security-Policy", "([^"]+)"\)/)[1];
 const appPolicy=main.match(/applicationPageCSP\s*=\s*"([^"]+)"/)[1];
-const appHTML=fs.readFileSync('index.html','utf8').replaceAll('__TOKEN__','report-fixture').replaceAll('__APP_VERSION__',version).replaceAll('__COLLECTOR_VERSION__',version);
+const appHTML=fs.readFileSync('src/app/index.html','utf8').replaceAll('__TOKEN__','report-fixture').replaceAll('__APP_VERSION__',version).replaceAll('__COLLECTOR_VERSION__',version);
 const report={status:'running',checks:[],data:'Synthetic only',limitations:['Browser rendering and actual report functions, without live server collection.']};
 let flavor='new',server,browser;const errors=[];let externalRequests=0;
 function state(){return {appVersion:version,collectorVersion:version,computerName:'DEMO-FS-01',isAdministrator:true,powerShellVersion:'5.1',logs:[],nextLogIndex:0,status:'idle',running:false,loadedReportAvailable:true,loadedReportPath:'Synthetic report',loadedReportName:'DEMO-FS-01',loadedReportPackage:'Synthetic package',loadedReportDocxPath:'Synthetic Word report',loadedReportSummaryPath:'Synthetic summary',loadedReportSerial:flavor==='new'?1:2,update:{status:'current',title:'Up to date',installedVersion:version,latestVersion:version,canCheck:true,notes:[]}};}
@@ -38,7 +38,7 @@ async function newContext(options={}){
    return res.end(route==='/old'?original:route==='/empty'?empty:route==='/report/current'&&flavor==='old'?original:current);
   }
   if(route==='/app-icon.svg'||route==='/app-icon.png'||route==='/favicon.ico'){
-   res.setHeader('Content-Type',route.endsWith('svg')?'image/svg+xml':route.endsWith('png')?'image/png':'image/x-icon');return res.end(fs.readFileSync(route.endsWith('svg')?'assets/icons/server-inventory.svg':route.slice(1)));
+   res.setHeader('Content-Type',route.endsWith('svg')?'image/svg+xml':route.endsWith('png')?'image/png':'image/x-icon');return res.end(fs.readFileSync(route.endsWith('svg')?'src/app/assets/icons/server-inventory.svg':'src/app/'+route.slice(1)));
   }
   res.setHeader('Content-Type','application/json');res.end(JSON.stringify(route==='/api/state'?state():{}));
  });

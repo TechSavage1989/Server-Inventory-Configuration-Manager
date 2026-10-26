@@ -17,7 +17,7 @@ def renderer():
 
 def main():
     parser=argparse.ArgumentParser();parser.add_argument('--check',action='store_true');args=parser.parse_args()
-    collector=root/'Export-ServerInventory.ps1';data=collector.read_bytes()
+    collector=root/'src/app/Export-ServerInventory.ps1';data=collector.read_bytes()
     start=data.index(start_marker);end=data.index(end_marker,start)
     active=renderer()
     files=['reporting/Write-ConsolidatedHtmlReport.ps1','reporting/report.css','reporting/report.js']
@@ -28,9 +28,9 @@ def main():
     manifest=(json.dumps(metadata,indent=2)+'\n').encode()
     if args.check:
         assert data[start:end]==active,'Embedded HTML renderer differs from reporting source; run scripts/embed_report_renderer.py'
-        assert (root/'report-verification.json').read_bytes()==manifest,'Report verification metadata differs from source'
+        assert (root/'docs/verification/report-verification.json').read_bytes()==manifest,'Report verification metadata differs from source'
     else:
-        collector.write_bytes(data[:start]+active+data[end:]);(root/'report-verification.json').write_bytes(manifest)
+        collector.write_bytes(data[:start]+active+data[end:]);(root/'docs/verification/report-verification.json').write_bytes(manifest)
     print(('Verified' if args.check else 'Embedded')+' self-contained HTML renderer and scoped provenance metadata.')
 
 if __name__=='__main__':main()

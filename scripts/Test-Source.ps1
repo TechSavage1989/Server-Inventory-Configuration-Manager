@@ -6,11 +6,15 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $SourceRoot = [IO.Path]::GetFullPath($SourceRoot)
+& python (Join-Path $SourceRoot "scripts/check_layout.py")
+if ($LASTEXITCODE -ne 0) { throw "Repository layout validation failed" }
+& python (Join-Path $SourceRoot "tests/test_layout.py")
+if ($LASTEXITCODE -ne 0) { throw "Repository layout negative controls failed" }
 
-$mainPath = Join-Path $SourceRoot 'main.go'
-$updatePath = Join-Path $SourceRoot 'update.go'
-$htmlPath = Join-Path $SourceRoot 'index.html'
-$collectorPath = Join-Path $SourceRoot 'Export-ServerInventory.ps1'
+$mainPath = Join-Path $SourceRoot 'src/app/main.go'
+$updatePath = Join-Path $SourceRoot 'src/app/update.go'
+$htmlPath = Join-Path $SourceRoot 'src/app/index.html'
+$collectorPath = Join-Path $SourceRoot 'src/app/Export-ServerInventory.ps1'
 
 foreach ($path in @($mainPath,$updatePath,$htmlPath,$collectorPath)) {
     if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {

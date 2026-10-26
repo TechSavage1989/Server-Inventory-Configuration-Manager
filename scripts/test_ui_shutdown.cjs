@@ -27,7 +27,7 @@ async function check(name,fn){await fn();report.checks.push({name,result:'passed
 (async()=>{
  const browser=await chromium.launch(executable?{headless:true,executablePath:executable,args:process.platform==='linux'&&process.getuid?.()===0?['--no-sandbox']:[]}:{channel:'msedge',headless:true});
  try{
-  const previous=fs.readFileSync('tests/fixtures/index-v3.2.3.html','utf8'),current=fs.readFileSync('index.html','utf8');
+  const previous=fs.readFileSync('tests/fixtures/index-v3.2.3.html','utf8'),current=fs.readFileSync('src/app/index.html','utf8');
   await check('Published v3.2.3 negative control reproduces the status-0 popup after shutdown',async()=>{const f=await fixture(browser,previous,'accept');try{
    await f.page.locator('#updateInstallButton').click();await f.page.waitForTimeout(150);
    for(let i=0;i<4;i++){await f.page.evaluate(()=>window.dispatchEvent(new Event('focus')));await f.page.waitForTimeout(80)}
