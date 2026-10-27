@@ -1,29 +1,25 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg"
-     xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
-     width="512" height="512" viewBox="0 0 512 512"
-     role="img" aria-labelledby="icon-title icon-description">
-  <title id="icon-title">Server Inventory Configuration Manager</title>
-  <desc id="icon-description">Three server drawers with an inventory checkmark. Four solid colors on a transparent background. Every component is an editable vector shape.</desc>
-  <g id="server" inkscape:groupmode="layer" inkscape:label="Server rack">
-    <rect id="chassis" x="48" y="48" width="352" height="384" rx="44" fill="#132F4C"/>
-    <g id="drawers" fill="#2563EB">
-      <rect id="top-drawer" x="72" y="72" width="304" height="96" rx="14"/>
-      <rect id="middle-drawer" x="72" y="188" width="304" height="96" rx="14"/>
-      <rect id="bottom-drawer" x="72" y="304" width="304" height="96" rx="14"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <g>
+    <g id="server">
+      <path id="chassis" fill="#132F4C" d="M92,48h264c24.3,0,44,19.7,44,44v296c0,24.3-19.7,44-44,44H92     c-24.3,0-44-19.7-44-44V92C48,67.7,67.7,48,92,48z" />
+      <g id="drawers">
+        <path id="top" fill="#2563EB" d="M86,72h276c7.73,0,14,6.27,14,14v68c0,7.73-6.27,14-14,14H86      c-7.73,0-14-6.27-14-14V86C72,78.27,78.27,72,86,72z" />
+        <path id="middle" fill="#2563EB" d="M86,188h276c7.73,0,14,6.27,14,14v68      c0,7.73-6.27,14-14,14H86c-7.73,0-14-6.27-14-14v-68C72,194.27,78.27,188,86,188z" />
+        <path id="bottom" fill="#2563EB" d="M86,304h276c7.73,0,14,6.27,14,14v68      c0,7.73-6.27,14-14,14H86c-7.73,0-14-6.27-14-14v-68C72,310.27,78.27,304,86,304z" />
+      </g>
+      <g id="slots-and-lights">
+        <path id="top-slot" fill="#FFFFFF" d="M114,106h104c7.73,0,14,6.27,14,14l0,0      c0,7.73-6.27,14-14,14H114c-7.73,0-14-6.27-14-14l0,0C100,112.27,106.27,106,114,106z" />
+        <path id="middle-slot" fill="#FFFFFF" d="M114,222h104c7.73,0,14,6.27,14,14l0,0      c0,7.73-6.27,14-14,14H114c-7.73,0-14-6.27-14-14l0,0C100,228.27,106.27,222,114,222z" />
+        <path id="bottom-slot" fill="#FFFFFF" d="M114,338h104c7.73,0,14,6.27,14,14l0,0      c0,7.73-6.27,14-14,14H114c-7.73,0-14-6.27-14-14l0,0C100,344.27,106.27,338,114,338z" />
+        <circle id="top-indicator" fill="#FFFFFF" cx="332" cy="120" r="14" />
+        <circle id="middle-indicator" fill="#FFFFFF" cx="332" cy="236" r="14" />
+        <circle id="bottom-indicator" fill="#FFFFFF" cx="332" cy="352" r="14" />
+      </g>
     </g>
-    <g id="slots-and-indicators" fill="#FFFFFF">
-      <rect id="top-slot" x="100" y="106" width="132" height="28" rx="14"/>
-      <rect id="middle-slot" x="100" y="222" width="132" height="28" rx="14"/>
-      <rect id="bottom-slot" x="100" y="338" width="132" height="28" rx="14"/>
-      <circle id="top-indicator" cx="332" cy="120" r="14"/>
-      <circle id="middle-indicator" cx="332" cy="236" r="14"/>
-      <circle id="bottom-indicator" cx="332" cy="352" r="14"/>
+    <g id="badge">
+      <circle id="badge-border" fill="#132F4C" cx="368" cy="376" r="88" />
+      <circle id="badge-fill" fill="#13B8A6" cx="368" cy="376" r="72" />
+      <path id="checkmark" fill="none" stroke="#FFFFFF" stroke-width="22" stroke-linecap="round" stroke-linejoin="round" d="M334,376l23,23l48-50" />
     </g>
-  </g>
-  <g id="inventory" inkscape:groupmode="layer" inkscape:label="Inventory checkmark">
-    <circle id="badge-border" cx="368" cy="376" r="88" fill="#132F4C"/>
-    <circle id="badge-fill" cx="368" cy="376" r="72" fill="#13B8A6"/>
-    <path id="checkmark" d="M334 376 L357 399 L405 349" fill="none" stroke="#FFFFFF" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
   </g>
 </svg>

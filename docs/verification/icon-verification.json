@@ -1,7 +1,9 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "source": "assets/icons/server-inventory.svg",
-  "source_sha256": "fc9211e88bb1f3d0bc34380c82bdd010456b57e59433650b85ae03cdaaf382cd",
+  "source_sha256": "21d338c351408e8dfd3ce320e50c4e9f6e1429876e3243870cf16398e6ebc576",
+  "editable_source": "src/app/assets/icons/source/server-inventory-illustrator.svg",
+  "editable_source_sha256": "4eb6eb78435ebaf64dbc5b71c836af8f1b6544235bba3adbfcd0a7e2a7c3a775",
   "palette": [
     "#132F4C",
     "#2563EB",

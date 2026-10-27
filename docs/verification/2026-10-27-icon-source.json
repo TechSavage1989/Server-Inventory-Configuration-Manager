@@ -1,0 +1,60 @@
+{
+  "release": "v3.2.9",
+  "release_url": "https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.9",
+  "exe_sha256": "5483a308e0da37e5e9a518f12b3d344ecf12fb267c4419c50860149394fb53c3",
+  "source_master_sha256": "4eb6eb78435ebaf64dbc5b71c836af8f1b6544235bba3adbfcd0a7e2a7c3a775",
+  "ico_sha256": "033daa7a992a6054541f2a99a21c1c22a563d65ce775f1053fea79f4d29d0183",
+  "frames": [
+    {
+      "size": 16,
+      "sha256": "778ea2eb68d27a8f5089b40d4517eb2c681fdd9fdabc971491c2c341b916e3cb",
+      "matches": true
+    },
+    {
+      "size": 20,
+      "sha256": "95afc5b8cae4439520f04cf71c91e448c96a5e3ced327be959903f6f5f3b022d",
+      "matches": true
+    },
+    {
+      "size": 24,
+      "sha256": "6e6f7bd1dc64495a54950a9e6e55cd2aeb8ce37ff83bccf592e482ca0761fe93",
+      "matches": true
+    },
+    {
+      "size": 32,
+      "sha256": "5f98c572e47be649d7f09232144950b4d19210638b60d62d85cefaf5b8c032a1",
+      "matches": true
+    },
+    {
+      "size": 40,
+      "sha256": "a48fd272aa27eb849fb162f73da21c222be7675045d0ee3e67658c11b412ecb5",
+      "matches": true
+    },
+    {
+      "size": 48,
+      "sha256": "56e8ee4e1a7170fa957baff47b8e38d20bcd38447d81aac871d96a4744caa63b",
+      "matches": true
+    },
+    {
+      "size": 64,
+      "sha256": "b52c6a62285433c9307f486edc4a58216f015661e4d575bfc78ad1f3c505e6b6",
+      "matches": true
+    },
+    {
+      "size": 96,
+      "sha256": "b22e45b76a7c81e3abb5e539a39f9a807ca5cfe412f0f040710cdf46ac33a942",
+      "matches": true
+    },
+    {
+      "size": 128,
+      "sha256": "5bdc9b6fb226093587b3bedb47686dad60098a7a3615628905a23cf552af2918",
+      "matches": true
+    },
+    {
+      "size": 256,
+      "sha256": "5275e28ef45ababecede026f979c301ceaeda4a7e4c1526955da570870636b7f",
+      "matches": true
+    }
+  ],
+  "result": "All ten native RT_ICON resources in the existing published executable match the supplied master-derived ICO exactly. No binary replacement or new release is needed."
+}

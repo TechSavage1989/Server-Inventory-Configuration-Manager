@@ -3,3 +3,6 @@
 *.ico binary
 *.syso binary
 *.exe binary
+
+# Preserve the user-supplied Illustrator master byte for byte, including CRLF.
+src/app/assets/icons/source/*.svg -text

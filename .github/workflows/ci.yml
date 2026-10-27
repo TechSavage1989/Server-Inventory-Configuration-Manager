@@ -31,6 +31,8 @@ jobs:
         run: |
           npm ci --prefix .\scripts\icon-tools --no-audit --no-fund
           if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
+          python .\tests\test_icon_source.py
+          if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
           node .\scripts\build_icons.cjs --check
           if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
       - name: Verify original executable assets

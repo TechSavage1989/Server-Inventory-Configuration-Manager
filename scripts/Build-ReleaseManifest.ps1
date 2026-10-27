@@ -32,6 +32,12 @@ Copy-Item -LiteralPath (Join-Path $PSScriptRoot '..\src\app\assets\icons\server-
 $svgHash=(Get-FileHash -LiteralPath $svgPath -Algorithm SHA256).Hash.ToLowerInvariant()
 "$svgHash  $svgName"|Set-Content -LiteralPath ($svgPath+'.sha256.txt') -Encoding ASCII
 
+$masterName='Server-Inventory-Configuration-Manager-Illustrator.svg'
+$masterPath=Join-Path $OutputDirectory $masterName
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot '..\src\app\assets\icons\source\server-inventory-illustrator.svg') -Destination $masterPath
+$masterHash=(Get-FileHash -LiteralPath $masterPath -Algorithm SHA256).Hash.ToLowerInvariant()
+"$masterHash  $masterName"|Set-Content -LiteralPath ($masterPath+'.sha256.txt') -Encoding ASCII
+
 $previewName='Report-Preview.png'
 $previewPath=Join-Path $OutputDirectory $previewName
 $previewSource=Join-Path $PSScriptRoot '..\build\report-validation\report-summary.png'

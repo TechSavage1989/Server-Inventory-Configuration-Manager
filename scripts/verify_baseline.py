@@ -22,4 +22,5 @@ active=json.loads((root/'docs/verification/icon-verification.json').read_text())
 for name,metadata in active['assets'].items():
     if hashlib.sha256((root/'src/app'/name).read_bytes()).hexdigest()!=metadata['sha256']:raise SystemExit('Approved active icon changed unexpectedly: '+name)
 if hashlib.sha256((root/'src/app'/active['source']).read_bytes()).hexdigest()!=active['source_sha256']:raise SystemExit('Editable SVG source changed; rebuild and review active icon assets')
+if hashlib.sha256((root/active['editable_source']).read_bytes()).hexdigest()!=active['editable_source_sha256']:raise SystemExit('Illustrator source changed; rebuild and review icon assets')
 print('Original collectors, Word/text generation, wrapper and archived icons match baseline; approved HTML presentation and active icon hashes verified separately.')

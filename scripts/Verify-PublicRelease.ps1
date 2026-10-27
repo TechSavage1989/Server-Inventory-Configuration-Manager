@@ -21,6 +21,10 @@ try{
     Invoke-WebRequest -UseBasicParsing -Uri "$base/Server-Inventory-Configuration-Manager.svg" -OutFile $svg
     $expectedSvg=(Get-FileHash (Join-Path $PSScriptRoot '..\src\app\assets\icons\server-inventory.svg') -Algorithm SHA256).Hash
     if((Get-FileHash $svg -Algorithm SHA256).Hash -ne $expectedSvg){throw 'Public editable SVG differs from release source.'}
+    $master=Join-Path $temp 'Server-Inventory-Configuration-Manager-Illustrator.svg'
+    Invoke-WebRequest -UseBasicParsing -Uri "$base/Server-Inventory-Configuration-Manager-Illustrator.svg" -OutFile $master
+    $expectedMaster=(Get-FileHash (Join-Path $PSScriptRoot '..\src\app\assets\icons\source\server-inventory-illustrator.svg') -Algorithm SHA256).Hash
+    if((Get-FileHash $master -Algorithm SHA256).Hash -ne $expectedMaster){throw 'Public Illustrator master differs from the original approved source.'}
     $preview=Join-Path $temp 'Report-Preview.png'
     Invoke-WebRequest -UseBasicParsing -Uri "$base/Report-Preview.png" -OutFile $preview
     $expectedPreview=(Get-FileHash (Join-Path $PSScriptRoot '..\build\report-validation\report-summary.png') -Algorithm SHA256).Hash

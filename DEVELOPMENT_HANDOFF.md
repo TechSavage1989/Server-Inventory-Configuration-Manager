@@ -1,5 +1,13 @@
 # DEVELOPMENT_HANDOFF.md
 
+## Supplied Illustrator source — 2026-10-27
+
+The user supplied the editable Illustrator SVG for current and future builds. Its original 49,437 bytes (SHA-256 `4eb6eb78435ebaf64dbc5b71c836af8f1b6544235bba3adbfcd0a7e2a7c3a775`) are preserved in `src/app/assets/icons/source/server-inventory-illustrator.svg`, with Git text conversion disabled for that master. No artwork was redesigned. The source renders pixel-identically at all ten icon sizes to the existing approved PNG/ICO. Direct inspection of the downloaded, checksum-pinned published v3.2.9 EXE confirms every native RT_ICON frame matches; evidence is in `docs/verification/2026-10-27-icon-source.json`. Therefore v3.2.9, its tag, assets, application versions and `release/VERSION` remain unchanged rather than publishing a redundant application update.
+
+`prepare_icon.py` reads the master without resolving external DTDs/entities, rejects unsupported/active content, removes editor-only metadata and inlines its simple CSS fills/strokes. The generated safe runtime SVG is visually identical; no original editor payload is embedded in the application. `build_icons.cjs --check` verifies its exact derivation, every rendered size against the CSS/vector source, and generated asset hashes. Two converter tests include source identity and ten hostile/unsupported input controls. Both the untouched Illustrator master and safe SVG plus checksums are packaged and publicly verified for future new releases. Native icon/resource/shortcut tests, application CSP tests, baseline collector/report checks and compile-time resource embedding remain required. No finished EXE is patched.
+
+Local Go 1.20.14 Windows cross-build/vet, source-identity/negative tests, deterministic ten-size render parity, resource generation, original provenance, report embedding and layout checks pass. Actual 512px, 32px and 16px renders were reviewed. The cloud sandbox cannot launch Chromium's local sockets; full Windows/browser/visible-health validation is delegated to the required hosted CI, not claimed from cross-compilation. Hosted source CI is pending for this source update.
+
 ## Repository layout — 2026-10-26
 
 The maintained Go Windows executable package and unchanged embedded collector/UI/icon inputs moved to `src/app/`. Root `go.mod` remains; build target is `./src/app`. Validation and provenance moved into `docs/`; release notes into `docs/release-notes`. Logical provenance keys and original hashes are unchanged. Native tests resolve repository build fixtures/history two levels above their package. `scripts/check_layout.py` is called by source validation. Version 3.2.9, release/VERSION, updater behavior and published assets are unchanged. This is source organization only.
