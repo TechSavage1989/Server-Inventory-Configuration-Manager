@@ -26,3 +26,16 @@ foreach ($statement in $tests[0].Body.Statements) {
  Write-Host ('PASS startup self-test source line ' + $line)
 }
 Write-Host 'PASS: exact published startup report self-tests completed. No inventory commands executed.'
+Write-Host 'BEGIN unmodified whole startup self-test block'
+. ([scriptblock]::Create($tests[0].Extent.Text))
+Write-Host 'PASS unmodified whole startup self-test block'
+# Execute the original startup prefix, ending strictly BEFORE the first inventory command.
+$firstInventory=@($ast.EndBlock.Statements | Where-Object { $_.Extent.Text -match '^\$os = Get-CimInstance -ClassName Win32_OperatingSystem' })
+if ($firstInventory.Count -ne 1) { throw 'Unable to establish safe startup boundary.' }
+$source=[IO.File]::ReadAllText($CollectorPath)
+$prefix=$source.Substring(0,$firstInventory[0].Extent.StartOffset)
+$syntheticRoot=Join-Path ([IO.Path]::GetTempPath()) ('inventory-startup-'+[Guid]::NewGuid().ToString('N'))
+Write-Host 'BEGIN original startup prefix (terminates before the first CIM inventory query)'
+& ([scriptblock]::Create($prefix)) -OutputRoot $syntheticRoot -PackageName 'synthetic-startup' -RunId 'SYNTHETIC' -InventoryCategoryList 'All' -ExportCategoryList 'DHCP;DNS;GroupPolicy;IIS;Firewall;Certificates;ScheduledTasks;SharesPermissions;PrintServices;RRAS;SQLServer;Registry'
+if ($script:transcriptStarted) { Stop-Transcript | Out-Null }
+Write-Host 'PASS original startup prefix; no inventory queries were executed.'

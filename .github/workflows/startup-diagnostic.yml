@@ -24,11 +24,23 @@ jobs:
           $probe=Join-Path $PWD 'scripts/Test-StartupSelfTests.ps1'
           $collector=Join-Path $PWD 'src/app/Export-ServerInventory.ps1'
           $arguments='-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "'+$probe+'" -CollectorPath "'+$collector+'"'
-          $child=Start-Process -FilePath "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe" -ArgumentList $arguments -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+          $startInfo=New-Object System.Diagnostics.ProcessStartInfo
+          $startInfo.FileName="$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe"
+          $startInfo.Arguments=$arguments
+          $startInfo.UseShellExecute=$false
+          $startInfo.RedirectStandardOutput=$true
+          $startInfo.RedirectStandardError=$true
+          $child=New-Object System.Diagnostics.Process
+          $child.StartInfo=$startInfo
+          [void]$child.Start()
+          $outTask=$child.StandardOutput.ReadToEndAsync()
+          $errTask=$child.StandardError.ReadToEndAsync()
           $completed=$child.WaitForExit(60000)
           if(-not $completed){ $child.Kill(); $child.WaitForExit() }
-          $child.Refresh()
+          $child.WaitForExit()
           $exitCode=$child.ExitCode
+          [IO.File]::WriteAllText($stdout,$outTask.Result)
+          [IO.File]::WriteAllText($stderr,$errTask.Result)
           Get-Content $stdout
           Get-Content $stderr
           [pscustomobject]@{Completed=$completed;ExitCode=$exitCode;HostPowerShell=$PSVersionTable.PSVersion.ToString();OS=[Environment]::OSVersion.VersionString;SourceCommit='${{ github.sha }}'} | ConvertTo-Json | Set-Content build/startup-diagnostic/result.json -Encoding UTF8
