@@ -141,6 +141,21 @@ func TestExecutableRemembersWindowBoundsMaximizedAndMinimizedClose(t *testing.T)
 	}
 	wanted := windowGeometry{Schema: 1, Bounds: windowRect{87, 63, 987, 663}}
 	startApp()
+	// Exercise the real registered endpoint and on-disk choices in the same
+	// native-close/relaunch flow; this does not run synthetic inventory commands.
+	preferences := collectionOptions{OutputRoot: filepath.Join(t.TempDir(), "Saved choices"), InventoryCategories: []string{"Hardware", "EventLogs"}, ExportCategories: []string{}, EventLogDays: 17}
+	preferenceBytes, _ := json.Marshal(preferences)
+	appURL, _ := url.Parse(address)
+	preferenceRequest, _ := http.NewRequest(http.MethodPost, appURL.Scheme+"://"+appURL.Host+"/api/preferences", bytes.NewReader(preferenceBytes))
+	preferenceRequest.Header.Set("X-App-Token", appURL.Query().Get("token"))
+	preferenceResponse, err := (&http.Client{Timeout: 5 * time.Second}).Do(preferenceRequest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	preferenceResponse.Body.Close()
+	if preferenceResponse.StatusCode != 200 {
+		t.Fatal("real executable could not save choices", preferenceResponse.StatusCode)
+	}
 	if !restoreWindowGeometry(hwnd, wanted) {
 		t.Fatal("could not move and resize the real window")
 	}
@@ -149,6 +164,19 @@ func TestExecutableRemembersWindowBoundsMaximizedAndMinimizedClose(t *testing.T)
 	// The live observer must already have retained its last usable placement.
 	closeApp(true)
 	startApp()
+	appURL, _ = url.Parse(address)
+	stateRequest, _ := http.NewRequest(http.MethodGet, appURL.Scheme+"://"+appURL.Host+"/api/state", nil)
+	stateRequest.Header.Set("X-App-Token", appURL.Query().Get("token"))
+	stateResponseBody, err := (&http.Client{Timeout: 5 * time.Second}).Do(stateRequest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var restored stateResponse
+	decodeErr := json.NewDecoder(stateResponseBody.Body).Decode(&restored)
+	stateResponseBody.Body.Close()
+	if decodeErr != nil || restored.CollectionPreferences == nil || restored.CollectionPreferences.Options.EventLogDays != 17 || restored.CollectionPreferences.Options.OutputRoot != preferences.OutputRoot || len(restored.CollectionPreferences.Options.InventoryCategories) != 2 {
+		t.Fatal("real executable did not restore collection choices", decodeErr, restored.CollectionPreferences)
+	}
 	wait("normal position and size restored on reopening", 8*time.Second, func() bool { got, ok := captureWindowGeometry(hwnd); return ok && got == wanted })
 	procShowWindow.Call(hwnd, 3)
 	wanted.Maximized = true

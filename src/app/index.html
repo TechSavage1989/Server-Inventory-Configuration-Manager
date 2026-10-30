@@ -246,17 +246,76 @@ body { height: 100vh; }
   .setup-action-bar .primary-button { width: auto; margin-top: 0; min-width: 150px; }
 }
 
+
+/* Collection workspace: shared tokens, clear selection and compact navigation. */
+:root { --border:#dbe3ed; --muted:#596b80; --panel:#fff; --accent:#2563eb; --accent-soft:#eff6ff; }
+button,input,select { font:inherit; }
+button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible { outline:3px solid #2563eb; outline-offset:3px; }
+.toggle input { position:absolute; inset:0; width:100%; height:100%; margin:0; z-index:1; cursor:pointer; }
+.toggle input:focus-visible + .slider { outline:3px solid #2563eb; outline-offset:3px; }
+.topbar,.topbar-inner { height:64px; }.topbar { flex-basis:64px; box-shadow:none; }
+.topbar-inner { max-width:none; }.brand { flex:1; }.brand > div:last-child { min-width:0; }.top-badges { flex:none; }.page { padding-top:16px; }
+.hero { margin-bottom:8px; }.hero h1 { font-size:21px; }.hero p { font-size:12px; }
+.update-banner { margin:0 0 12px; border-radius:9px; padding:9px 12px; }
+.card { box-shadow:0 1px 3px rgba(30,48,72,.04); }.card-subtitle,.helper,.category-check small,.scope-note { color:#596b80; }
+.scope-panel { background:#fff; border-radius:10px; padding:16px; }
+.scope-title { color:#1b2942; }.category-grid { gap:8px; }.category-check { padding:12px; transition:background .15s,border-color .15s; }
+.category-check:hover { border-color:#94a3b8; }.category-check:has(input:checked) { border-color:#a6c3f1; }
+.category-check input { accent-color:#2563eb; width:16px; height:16px; }
+.preset-button[aria-pressed="true"] { color:#1749a1; background:#eaf2ff; border-color:#8eb4ed; }
+.profile-summary { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:12px 0 0; color:#52647c; font-size:12px; }
+.profile-chip { color:#1749a1; background:#eaf2ff; padding:4px 9px; border-radius:6px; font-weight:650; }
+.scope-search { display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin-top:15px; }
+.scope-search input,.log-tools input,.log-tools select { min-width:0; height:36px; border:1px solid #bcc9d9; border-radius:7px; padding:0 10px; background:#fff; color:#23334b; }
+.scope-search input { flex:1 1 230px; }.scope-search label { font-size:12px; color:#52647c; }
+.scope-results { color:#596b80; font-size:12px; }.scope-empty { padding:12px; color:#596b80; }
+.export-panel > summary { cursor:pointer; list-style-position:outside; margin-left:16px; }
+.export-panel > summary .scope-panel-head { display:inline-flex; width:calc(100% - 8px); vertical-align:top; }
+.export-panel:not([open]) .category-grid { display:none; }
+.sensitive-inline { width:100%; padding:0; margin-top:16px; }.option-inner { min-height:0; }.option-desc { max-width:760px; }
+.setup-action-bar { flex-wrap:wrap; gap:8px; }.setup-action-bar .scope-note { flex:1 1 210px; }.setup-actions { display:flex; gap:8px; flex-wrap:wrap; }
+#selectionSummary { display:block; font-size:12px; color:#34465f; font-weight:600; margin-bottom:2px; }
+.app-notice { flex:none; margin:0 0 10px; padding:10px 12px; border:1px solid #bfd0e5; border-radius:8px; background:#eff6ff; color:#1e467a; display:flex; align-items:center; justify-content:space-between; gap:10px; font-size:12px; }
+.app-notice.error { background:#fff2f2; border-color:#f0b4b4; color:#8c2626; }.app-notice button { border:0; background:transparent; color:inherit; padding:4px 8px; }
+[aria-invalid="true"] { border-color:#b42318 !important; }
+.log-toolbar { margin-top:12px; flex-wrap:wrap; gap:8px; }.log-tools { display:flex; flex-wrap:wrap; gap:7px; align-items:center; }
+.log-tools input { width:200px; }.log-tools label { color:#52647c; font-size:12px; }.log-tools input[type=checkbox] { width:16px; height:16px; vertical-align:middle; accent-color:#2563eb; }
+.log-meta { display:flex; justify-content:space-between; gap:12px; font-size:11px; color:#596b80; margin:0 0 6px; flex:none; }
+.log-view { min-height:90px; font-size:12px; }.log-empty { color:#9dacbf; padding:12px 0; }
+.tab-button { min-width:120px; }.tab-button[aria-selected="true"] { border-bottom:2px solid #2563eb; }
+@media(max-width:1000px) { .top-badges { display:none; } }
+@media(max-width:800px) {
+ .update-banner { grid-template-columns:minmax(0,1fr) auto; gap:8px; }.update-actions { justify-content:flex-end; max-width:190px; }.update-actions button { font-size:12px; }
+ .setup-layout { flex-direction:column; gap:10px; }.sidebar { flex:0 0 auto; width:100%; height:auto; margin:0; overflow:visible; }
+ .sidebar .card { margin:0; }.sidebar .card:nth-child(2) { display:none; }.server-panel { padding:10px 14px; display:flex; flex-wrap:wrap; align-items:center; gap:8px 18px; }
+ .server-name { font-size:14px; margin:0; }.server-label { display:none; }.info-row { border:0; padding:0; gap:7px; }.info-row:nth-last-child(-n+2) { display:none; }
+ .main { flex:1 1 auto; height:auto; }.category-grid,.category-grid.compact { grid-template-columns:repeat(2,minmax(0,1fr)); }
+ .hero p,.version-block { display:none; }.hero h1 { font-size:18px; }.brand-title { font-size:15px; }.brand-subtitle { font-size:10px; }
+ .setup-action-bar .primary-button { min-width:150px; }.metric-row { display:flex; margin:10px -4px 0; }.metric { margin:0 4px; padding:8px; }.metric-value { font-size:16px; }.metric-label { font-size:9px; }
+ .log-tools { width:100%; }.log-tools input[type=search] { flex:1 1 140px; }.card-body { padding:13px; }
+}
+@media(max-width:500px) {
+ .update-actions { max-width:120px; }.update-actions button { padding:4px 8px; }.update-title { font-size:12px; }.update-status { font-size:11px; }
+ .category-grid,.category-grid.compact { grid-template-columns:1fr; }.hero { display:none; }.brand-subtitle { display:none; }.brand-mark,.brand-mark img { width:32px; height:32px; }.brand-mark { flex-basis:32px; margin-right:8px; }
+ .topbar,.topbar-inner { height:54px; }.topbar { flex-basis:54px; }.tab-button { min-width:0; padding:0 9px; font-size:12px; }.tab-badge { margin-left:3px; }
+ .setup-actions { width:100%; }.setup-actions button { flex:1; }.setup-action-bar .primary-button { width:auto; margin:0; }.footer { display:none; }
+ .scope-panel { padding:12px; }.report-ident { min-width:0; }.viewer-search input { min-width:100px; }.report-actions button { font-size:12px; }
+ .log-tools select { max-width:140px; }.status-header { gap:8px; }.card-header { padding:10px 13px; }.current-step { padding:6px 9px; }
+}
+@media(max-height:650px) { .hero,.footer { display:none; }.page { padding-top:8px; }.card-subtitle { font-size:11px; }.update-notes { max-height:65px; overflow:auto; } }
+@media(prefers-reduced-motion:reduce) { *,*::before,*::after { transition:none !important; } }
+
 </style>
 </head>
 <body>
 <div class="shell">
   <div class="topbar"><div class="topbar-inner">
     <div class="brand"><div class="brand-mark" aria-hidden="true"><img src="/app-icon.svg?v=327" alt="" width="42" height="42"></div><div><div class="brand-title">Server Inventory Configuration Manager</div><div class="brand-subtitle">Configuration capture, documentation, and recovery assistance</div></div></div>
-    <div class="top-badges"><div class="badge"><span class="badge-dot"></span>Local interface</div><div class="badge">Administrator</div><div class="badge" id="portableEditionBadge">Portable EXE</div></div>
+    <div class="top-badges"><div class="badge"><span class="badge-dot"></span>Local interface</div><div class="badge" id="elevationBadge">Checking access</div><div class="badge" id="portableEditionBadge">Portable EXE</div></div>
   </div></div>
 
   <div class="page">
-    <div class="hero"><div><h1>Inventory, review, and retain server configuration</h1><p>Collect a broad server inventory across Windows Server generations, monitor collection independently, and review current or previous consolidated reports without leaving the application.</p></div><div class="version-block">Interface <strong>v__APP_VERSION__</strong><br>Collector <strong>v__COLLECTOR_VERSION__</strong></div></div>
+    <div class="hero"><div><h1>Your server, documented</h1><p>Choose your scope, capture configuration, and explore a complete local report.</p></div><div class="version-block">Interface <strong>v__APP_VERSION__</strong><br>Collector <strong>v__COLLECTOR_VERSION__</strong></div></div>
 
     <div class="update-banner" id="updateBanner">
       <div class="update-copy">
@@ -274,25 +333,30 @@ body { height: 100vh; }
     </div>
 
     <div class="app-tabs" role="tablist" aria-label="Application sections">
-      <button class="tab-button active" id="tabButtonSetup" type="button" data-tab="setup">Setup</button>
-      <button class="tab-button" id="tabButtonCollection" type="button" data-tab="collection">Collection <span class="tab-badge" id="collectionTabBadge">Ready</span></button>
-      <button class="tab-button" id="tabButtonReport" type="button" data-tab="report">Report Viewer <span class="tab-badge" id="reportTabBadge">None</span></button>
+      <button class="tab-button active" id="tabButtonSetup" role="tab" aria-controls="tabSetup" aria-selected="true" tabindex="0" type="button" data-tab="setup">Setup</button>
+      <button class="tab-button" id="tabButtonCollection" role="tab" aria-controls="tabCollection" aria-selected="false" tabindex="-1" type="button" data-tab="collection">Collection <span class="tab-badge" id="collectionTabBadge">Ready</span></button>
+      <button class="tab-button" id="tabButtonReport" role="tab" aria-controls="tabReport" aria-selected="false" tabindex="-1" type="button" data-tab="report">Report Viewer <span class="tab-badge" id="reportTabBadge">None</span></button>
     </div>
 
-    <section class="tab-panel active" id="tabSetup" role="tabpanel">
+    <div class="app-notice hidden" id="appNotice" role="status"><span id="appNoticeText"></span><button type="button" id="dismissNotice" aria-label="Dismiss message">Dismiss</button></div>
+
+    <section class="tab-panel active" id="tabSetup" role="tabpanel" aria-labelledby="tabButtonSetup">
       <div class="setup-layout">
         <div class="sidebar">
           <div class="card"><div class="server-panel"><div class="server-name" id="serverName">Loading server...</div><div class="server-label">Current inventory target</div><div class="info-row"><span>Elevation</span><span id="adminState">Checking</span></div><div class="info-row"><span>PowerShell</span><span id="powerShellState">Checking</span></div><div class="info-row"><span>Compatibility target</span><span>Server 2012+</span></div><div class="info-row"><span>Connection</span><span>127.0.0.1 only</span></div></div></div>
           <div class="card"><div class="workflow"><div class="workflow-step active" id="flowSetup"><div class="workflow-num">1</div><div><div class="workflow-name">Setup</div><div class="workflow-desc">Choose destination and scope</div></div></div><div class="workflow-step" id="flowCollection"><div class="workflow-num">2</div><div><div class="workflow-name">Collection</div><div class="workflow-desc">Monitor progress and logs</div></div></div><div class="workflow-step" id="flowReport"><div class="workflow-num">3</div><div><div class="workflow-name">Report</div><div class="workflow-desc">Search and review results</div></div></div></div></div>
         </div>
         <div class="main">
-          <div class="card"><div class="card-header"><div><div class="card-title">Collection configuration</div><div class="card-subtitle">Choose exactly what to inventory and which supported configuration exports to capture. Maximum Capture is selected by default, with legacy-safe fallbacks when newer Windows modules are unavailable.</div></div></div><div class="card-body" id="configBody">
+          <div class="card"><div class="card-header"><div><div class="card-title">Collection configuration</div><div class="card-subtitle">Choose a profile, then adjust individual categories. Your last saved choices are restored when you reopen the application.</div></div></div><div class="card-body" id="configBody">
             <label class="field-label" for="outputPath">Output parent directory</label>
             <div class="path-row"><input class="path-input" id="outputPath" type="text" spellcheck="false"><button class="browse-button" id="browseButton" type="button">Browse</button></div>
             <div class="helper">A timestamped inventory folder and ZIP archive will be created inside this directory.</div>
             <div style="height:18px"></div>
-            <div class="scope-heading"><div><label class="field-label">Collection profile</label><div class="helper">Presets only change the selections below. You can customize any category after choosing a preset.</div></div><div class="scope-buttons"><button class="secondary-button preset-button" id="presetMaximum" type="button">Maximum capture</button><button class="secondary-button preset-button" id="presetInventory" type="button">Inventory only</button><button class="secondary-button preset-button" id="presetCore" type="button">Core server</button><button class="secondary-button preset-button" id="presetClear" type="button">Clear</button></div></div>
+            <div class="scope-heading"><div><label class="field-label">Collection profile</label><div class="helper">Maximum includes safe exports. Inventory only skips exports. Core covers common server essentials.</div></div><div class="scope-buttons"><button class="secondary-button preset-button" id="presetMaximum" type="button">Maximum capture</button><button class="secondary-button preset-button" id="presetInventory" type="button">Inventory only</button><button class="secondary-button preset-button" id="presetCore" type="button">Core server</button><button class="secondary-button preset-button" id="presetClear" type="button">Clear</button></div></div>
 
+            <div class="profile-summary"><span class="profile-chip" id="profileName">Maximum capture</span><span id="preferencesStatus">Choices are saved when collection starts, or with Save choices.</span></div>
+            <div class="scope-search"><label for="scopeSearch">Find a category</label><input id="scopeSearch" type="search" placeholder="Search names or descriptions, such as DNS or backup"><button class="secondary-button" id="scopeSearchClear" type="button">Clear search</button><span class="scope-results" id="scopeSearchStatus" role="status"></span></div>
+            <div class="scope-empty hidden" id="scopeEmpty">No matching categories. Clear the search to see all choices.</div>
             <div class="scope-panel">
               <div class="scope-panel-head"><div><div class="scope-title">Inventory categories</div><div class="helper">Select the information to query. Unsupported roles or cmdlets are skipped or collected through legacy fallbacks where practical.</div></div><div class="scope-count" id="inventoryCount">0 selected</div></div>
               <div class="category-grid" id="inventoryCategories">
@@ -331,11 +395,11 @@ body { height: 100vh; }
                 <label class="category-check"><input type="checkbox" data-inventory value="Security" checked><span><strong>Security configuration</strong><small>Local policy, audit, Defender, TLS, RDP and security metadata</small></span></label>
                 <label class="category-check"><input type="checkbox" data-inventory value="RemoteManagement" checked><span><strong>Remote management</strong><small>WinRM, PowerShell remoting and HTTP.sys configuration</small></span></label>
               </div>
-              <div class="event-days category-setting">Event history window <input id="eventDays" type="number" min="1" max="365" value="30"> days</div>
+              <div class="event-days category-setting"><label for="eventDays">Event history window</label> <input id="eventDays" type="number" min="1" max="365" value="30"> days</div>
             </div>
 
-            <div class="scope-panel export-panel">
-              <div class="scope-panel-head"><div><div class="scope-title">Optional backup / configuration exports</div><div class="helper">These are separate from inventory. They create supported configuration exports or restoration references when the role is present. No restore operation runs automatically.</div></div><div class="scope-count" id="exportCount">0 selected</div></div>
+            <details class="scope-panel export-panel" id="exportPanel">
+              <summary><div class="scope-panel-head"><div><div class="scope-title">Optional configuration exports</div><div class="helper">These are separate from inventory. They create supported configuration exports or restoration references when the role is present. No restore operation runs automatically.</div></div><div class="scope-count" id="exportCount">0 selected</div></div></summary>
               <div class="category-grid compact" id="exportCategories">
                 <label class="category-check"><input type="checkbox" data-export value="DHCP" checked><span><strong>DHCP</strong><small>XML export and DHCP database backup</small></span></label>
                 <label class="category-check"><input type="checkbox" data-export value="DNS" checked><span><strong>DNS</strong><small>Zone-file exports where supported</small></span></label>
@@ -351,29 +415,29 @@ body { height: 100vh; }
                 <label class="category-check"><input type="checkbox" data-export value="Registry" checked><span><strong>Relevant registry exports</strong><small>Selected role and configuration registry branches</small></span></label>
                 <label class="category-check sensitive-choice"><input type="checkbox" data-export value="NPS"><span><strong>NPS full export</strong><small>Requires Sensitive exports below; may include RADIUS shared secrets</small></span></label>
               </div>
-            </div>
+            </details>
 
-            <div class="option-card sensitive-inline"><div class="option-inner" id="cardSensitive"><div class="option-head"><div class="option-title">Allow sensitive exports</div><label class="toggle"><input id="includeSensitive" type="checkbox"><span class="slider"></span></label></div><div class="option-desc">Required for explicitly selected exports that can contain reusable secrets, such as a complete NPS configuration. Passwords, private certificate keys, DPAPI secrets and SQL credentials are never automatically collected.</div></div></div>
+            <div class="option-card sensitive-inline"><div class="option-inner" id="cardSensitive"><div class="option-head"><div class="option-title">Allow sensitive exports</div><label class="toggle"><input id="includeSensitive" type="checkbox" aria-label="Allow sensitive exports"><span class="slider"></span></label></div><div class="option-desc">Required for explicitly selected exports that can contain reusable secrets, such as a complete NPS configuration. Passwords, private certificate keys, DPAPI secrets and SQL credentials are never automatically collected.</div></div></div>
             <div class="warning-box" id="sensitiveWarning">Sensitive exports are disabled. Normal inventory and safe configuration exports do not require this option.</div>
           </div>
-          <div class="action-bar setup-action-bar"><div class="scope-note">Collection and export selections are recorded in the report. The application automatically switches to the Collection tab after starting.</div><button class="primary-button" id="startButton" type="button">Start collection</button></div>
+          <div class="action-bar setup-action-bar"><div class="scope-note"><span id="selectionSummary"></span><span id="scopeHint">Selections are recorded in the report.</span></div><div class="setup-actions"><button class="secondary-button" id="saveChoicesButton" type="button">Save choices</button><button class="primary-button" id="startButton" type="button">Start collection</button></div></div>
         </div>
         </div>
       </div>
     </section>
 
-    <section class="tab-panel" id="tabCollection" role="tabpanel">
+    <section class="tab-panel" id="tabCollection" role="tabpanel" aria-labelledby="tabButtonCollection">
       <div class="collection-wrap"><div class="card"><div class="card-header"><div><div class="card-title">Collection progress</div><div class="card-subtitle">Live status from the embedded PowerShell collector. You can switch tabs without interrupting collection.</div></div></div><div class="card-body">
         <div class="status-header"><div class="status-left"><div class="status-indicator" id="statusIndicator"></div><div><div class="status-title" id="statusTitle">Ready</div><div class="status-message" id="statusMessage">No collection is running.</div></div></div><div class="elapsed" id="elapsedTime">00:00:00</div></div>
-        <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+        <div class="progress-track" id="collectionProgress" role="progressbar" aria-label="Estimated collection progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="progress-fill" id="progressFill"></div></div>
         <div class="current-step" id="currentStep">No active collector.</div>
         <div class="metric-row"><div class="metric"><div class="metric-label">Estimated progress</div><div class="metric-value" id="progressValue">0%</div></div><div class="metric"><div class="metric-label">Sections processed</div><div class="metric-value" id="completedValue">0</div></div><div class="metric"><div class="metric-label">Warnings</div><div class="metric-value" id="warningValue">0</div></div><div class="metric"><div class="metric-label">Errors</div><div class="metric-value" id="errorValue">0</div></div></div>
-        <div style="height:17px"></div><div class="log-toolbar"><div class="log-title">Live execution log</div><button class="secondary-button" id="clearLogButton" type="button">Clear view</button></div><div class="log-view" id="logView"></div>
+        <div class="log-toolbar"><div class="log-title">Execution log</div><div class="log-tools"><input id="logSearch" type="search" placeholder="Find in log" aria-label="Find in execution log"><select id="logLevel" aria-label="Log level"><option value="all">All messages</option><option value="issues">Warnings and errors</option><option value="error">Errors only</option></select><label><input id="followLog" type="checkbox" checked> Follow live</label><button class="secondary-button" id="clearLogButton" type="button">Clear view</button></div></div><div class="log-meta"><span id="logCount" role="status">No messages yet</span><span>Filtering does not change saved logs.</span></div><div class="log-view" id="logView" tabindex="0" aria-label="Execution log"></div>
         <div class="collection-actions"><button class="secondary-button danger-button hidden" id="cancelButton" type="button">Cancel collection</button><button class="secondary-button hidden" id="openDiagnosticsButton" type="button">Open diagnostics</button><button class="secondary-button hidden" id="newInventoryButton" type="button">New inventory</button><button class="secondary-button hidden" id="viewReportButton" type="button">View report</button></div>
       </div></div></div>
     </section>
 
-    <section class="tab-panel" id="tabReport" role="tabpanel">
+    <section class="tab-panel" id="tabReport" role="tabpanel" aria-labelledby="tabButtonReport">
       <div class="report-tab-wrap">
         <div class="report-toolbar" id="reportToolbar">
           <div class="report-ident"><div class="report-name" id="loadedReportName">No report loaded</div><div class="report-path" id="loadedReportPath">Run an inventory or load a previous inventory package.</div></div>
@@ -405,6 +469,44 @@ body { height: 100vh; }
   var pendingRequests = [];
   var updateUiError = '';
   var installDisabledControls = [];
+  var preferencesLoaded = false, preferencesDirty = false, configurationBusy = false;
+  var logLines = [], scopeSearchWasOpen = false, previousScopeQuery = '';
+  var coreCategories = ['Hardware','OperatingSystem','Storage','Networking','WindowsFeaturesRoles','Services','InstalledSoftware','WindowsUpdate','LocalAccounts','Security','TimeNTP','WindowsServerBackup'];
+  function notice(message,error){byId('appNoticeText').textContent=message;byId('appNotice').className='app-notice'+(error?' error':'');}
+  function choices(){var inv=getCheckedValues('input[data-inventory]'),days=Number(byId('eventDays').value);if(inv.indexOf('EventLogs')<0&&(!Number.isInteger(days)||days<1||days>365)){days=30;}return {outputRoot:byId('outputPath').value.trim(),inventoryCategories:inv,exportCategories:getCheckedValues('input[data-export]'),eventLogDays:days,includeSensitive:byId('includeSensitive').checked};}
+  function markChoicesDirty(){var invalid=document.querySelectorAll('#configBody [aria-invalid]');for(var i=0;i<invalid.length;i++){invalid[i].removeAttribute('aria-invalid');}preferencesDirty=true;byId('preferencesStatus').textContent='Unsaved choices';}
+  function validateChoices(){
+    byId('outputPath').removeAttribute('aria-invalid');byId('eventDays').removeAttribute('aria-invalid');
+    var value=choices(),bad='',field=null;
+    if(!/^(?:[a-zA-Z]:[\\/]|\\\\[^\\]+\\[^\\]+)/.test(value.outputRoot)){bad='Choose an absolute output folder, such as C:\\Reports or \\\\server\\share.';field=byId('outputPath');}
+    else if(!value.inventoryCategories.length){bad='Select at least one inventory category.';field=byId('presetCore');}
+    else if(!Number.isInteger(value.eventLogDays)||value.eventLogDays<1||value.eventLogDays>365){bad='Event history must be a whole number from 1 to 365 days.';field=byId('eventDays');}
+    else if(value.exportCategories.indexOf('NPS')>=0&&!value.includeSensitive){bad='Enable Allow sensitive exports for NPS full export, or deselect that export.';field=byId('includeSensitive');}
+    if(bad){notice(bad,true);field.setAttribute('aria-invalid','true');field.focus();return null;}
+    return value;
+  }
+  function saveChoices(){
+    var value=validateChoices();if(!value||configurationBusy){return;}
+    configurationBusy=true;setConfigDisabled(true);
+    request('POST','/api/preferences',value,function(err){configurationBusy=false;setConfigDisabled(!!(latestState&&latestState.running));if(err){notice(err,true);return;}preferencesDirty=false;byId('preferencesStatus').textContent='Choices saved for next time';notice('Collection choices saved. Sensitive permission and NPS full export must be selected again each session.',false);});
+  }
+  function filterScope(){
+    var query=byId('scopeSearch').value.trim().toLowerCase(),cards=document.querySelectorAll('.category-check'),count=0;
+    if(query&&!previousScopeQuery){scopeSearchWasOpen=byId('exportPanel').open;}
+    for(var i=0;i<cards.length;i++){var show=!query||cards[i].textContent.toLowerCase().indexOf(query)>=0;cards[i].classList.toggle('hidden',!show);if(show){count++;}}
+    if(query){byId('exportPanel').open=true;}else if(previousScopeQuery){byId('exportPanel').open=scopeSearchWasOpen;}
+    byId('scopeSearchStatus').textContent=query?count+' matching choices':'';
+    byId('scopeEmpty').classList.toggle('hidden',count>0);previousScopeQuery=query;
+  }
+  function profileLabel(inv,exp){
+    var all=document.querySelectorAll('input[data-inventory]').length;
+    if(!inv.length&&!exp.length){return 'No categories';}
+    if(inv.length===all&&!exp.length){return 'Inventory only';}
+    if(inv.length===all&&exp.length===12&&exp.indexOf('NPS')<0){return 'Maximum capture';}
+    if(!exp.length&&inv.length===coreCategories.length&&coreCategories.every(function(n){return inv.indexOf(n)>=0;})){return 'Core server';}
+    return 'Custom scope';
+  }
+
   function quiesceInterface(state){
     uiLifecycle=state||'closing';
     if(pollTimer!==null){window.clearTimeout(pollTimer);pollTimer=null;}
@@ -454,7 +556,8 @@ body { height: 100vh; }
     for (var i=0;i<names.length;i++) {
       var n=names[i];
       byId('tab'+n.charAt(0).toUpperCase()+n.slice(1)).className = 'tab-panel' + (n===name ? ' active' : '');
-      byId('tabButton'+n.charAt(0).toUpperCase()+n.slice(1)).className = 'tab-button' + (n===name ? ' active' : '');
+      var button=byId('tabButton'+n.charAt(0).toUpperCase()+n.slice(1));
+      button.className='tab-button'+(n===name?' active':'');button.setAttribute('aria-selected',n===name?'true':'false');button.tabIndex=n===name?0:-1;
     }
   }
   function getCheckedValues(selector){ var nodes=document.querySelectorAll(selector+':checked'), out=[]; for(var i=0;i<nodes.length;i++){out.push(nodes[i].value);} return out; }
@@ -465,36 +568,39 @@ body { height: 100vh; }
       if(exportNodes[ei].checked){ var match=document.querySelector('input[data-inventory][value="'+exportNodes[ei].value+'"]'); if(match){match.checked=true;} }
     }
     var inv=getCheckedValues('input[data-inventory]'), exp=getCheckedValues('input[data-export]');
+    var profile=profileLabel(inv,exp);byId('profileName').textContent=profile;
+    ['Maximum','Inventory','Core','Clear'].forEach(function(n){var label={Maximum:'Maximum capture',Inventory:'Inventory only',Core:'Core server',Clear:'No categories'}[n];byId('preset'+n).setAttribute('aria-pressed',profile===label?'true':'false');});
+    byId('selectionSummary').textContent=inv.length+' inventory categories / '+exp.length+' configuration exports';
+    byId('scopeHint').textContent=exp.indexOf('SharesPermissions')>=0?'Recursive permission exports can take longer on large shares.':'HTML, Word, text summary and a ZIP package are generated.';
     byId('inventoryCount').textContent=inv.length+' selected'; byId('exportCount').textContent=exp.length+' selected';
     byId('cardSensitive').className='option-inner'+(byId('includeSensitive').checked?' enabled':'');
     byId('sensitiveWarning').innerHTML=byId('includeSensitive').checked?'<strong>Sensitive exports allowed.</strong> Only explicitly selected sensitive export modules will use this permission. Protect the resulting package accordingly.':'Sensitive exports are disabled. Normal inventory and safe configuration exports do not require this option.';
-    var eventSelected=inv.indexOf('EventLogs')>=0; byId('eventDays').disabled=!eventSelected;
+    var eventSelected=inv.indexOf('EventLogs')>=0; byId('eventDays').disabled=!eventSelected||configurationBusy||!!(latestState&&latestState.running);
   }
   function setConfigDisabled(disabled){
-    var nodes=document.querySelectorAll('#configBody input,#configBody button'); for(var i=0;i<nodes.length;i++){ if(nodes[i].id!=='eventDays'||!disabled){nodes[i].disabled=disabled;} }
-    byId('startButton').disabled=!!disabled;
+    disabled=!!disabled||configurationBusy;
+    var nodes=document.querySelectorAll('#configBody input,#configBody button'); for(var i=0;i<nodes.length;i++){nodes[i].disabled=disabled;}
+    byId('startButton').disabled=!!disabled;byId('saveChoicesButton').disabled=!!disabled;
     byId('configBody').className=disabled?'card-body locked':'card-body'; if(!disabled){syncCategoryState();}
   }
   function applyPreset(name){
     var invNodes=document.querySelectorAll('input[data-inventory]'), expNodes=document.querySelectorAll('input[data-export]');
-    var core=['Hardware','OperatingSystem','Storage','Networking','WindowsFeaturesRoles','Services','InstalledSoftware','WindowsUpdate','LocalAccounts','Security','TimeNTP','WindowsServerBackup'];
+    var core=coreCategories;
     for(var i=0;i<invNodes.length;i++){invNodes[i].checked=(name==='maximum'||name==='inventory'||(name==='core'&&core.indexOf(invNodes[i].value)>=0));}
     for(var j=0;j<expNodes.length;j++){expNodes[j].checked=(name==='maximum'&&expNodes[j].value!=='NPS');}
     if(name==='clear'){for(var k=0;k<invNodes.length;k++){invNodes[k].checked=false;}for(var m=0;m<expNodes.length;m++){expNodes[m].checked=false;}}
-    byId('includeSensitive').checked=false; syncCategoryState();
+    byId('includeSensitive').checked=false; syncCategoryState();markChoicesDirty();
   }
+  function logSeverity(text){var upper=text.toUpperCase();return upper.indexOf('[ERROR]')>=0||upper.indexOf('FAILED')>=0?'error':(upper.indexOf('[WARN]')>=0?'warn':(upper.indexOf('COMPLETED:')>=0||upper.indexOf('SUCCESS')>=0?'good':'info'));}
+  function logMatches(line){var query=byId('logSearch').value.toLowerCase(),level=byId('logLevel').value;return (!query||line.text.toLowerCase().indexOf(query)>=0)&&(level==='all'||(level==='issues'&&(line.level==='warn'||line.level==='error'))||level===line.level);}
+  function updateLogCount(){var shown=byId('logView').querySelectorAll('[data-log-line]:not(.hidden)').length;byId('logCount').textContent=logLines.length?shown+' of '+logLines.length+' messages':'No messages yet';}
+  function filterLogs(){var children=byId('logView').children;for(var i=0;i<logLines.length;i++){children[i].classList.toggle('hidden',!logMatches(logLines[i]));}updateLogCount();if(byId('followLog').checked){byId('logView').scrollTop=byId('logView').scrollHeight;}}
+  function clearLogs(){logLines=[];byId('logView').textContent='';updateLogCount();}
   function appendLogs(lines) {
-    if (!lines || !lines.length) { return; }
-    var view=byId('logView');
-    for(var i=0;i<lines.length;i++){
-      var div=document.createElement('div'); var text=lines[i].text || ''; div.textContent=text;
-      var upper=text.toUpperCase();
-      if(upper.indexOf('[WARN]')>=0){div.className='log-line-warn';}
-      else if(upper.indexOf('[ERROR]')>=0 || upper.indexOf('FAILED')>=0){div.className='log-line-error';}
-      else if(upper.indexOf('COMPLETED:')>=0 || upper.indexOf('SUCCESS')>=0){div.className='log-line-good';}
-      view.appendChild(div);
-    }
-    view.scrollTop=view.scrollHeight;
+    if(!lines||!lines.length){return;}
+    var view=byId('logView'),fragment=document.createDocumentFragment();
+    for(var i=0;i<lines.length;i++){var text=lines[i].text||'',line={text:text,level:logSeverity(text)},div=document.createElement('div');logLines.push(line);div.textContent=text;div.setAttribute('data-log-line','');div.className='log-line-'+line.level;div.classList.toggle('hidden',!logMatches(line));fragment.appendChild(div);}
+    view.appendChild(fragment);updateLogCount();if(byId('followLog').checked){view.scrollTop=view.scrollHeight;}
   }
   function formatElapsed(ms){ if(!ms||ms<0){return '00:00:00';} var total=Math.floor(ms/1000),h=Math.floor(total/3600),m=Math.floor((total%3600)/60),s=total%60; function pad(n){return n<10?'0'+n:String(n);} return pad(h)+':'+pad(m)+':'+pad(s); }
   function updateWorkflow(state){
@@ -647,16 +753,24 @@ body { height: 100vh; }
     if(state.closing||(state.update&&state.update.status==='installing')){quiesceInterface('installing');return;}
     latestState=state;
     renderUpdate(state.update,!!state.running);
-    if(!byId('outputPath').value){byId('outputPath').value=state.defaultOutputRoot||'';}
-    byId('serverName').textContent=state.computerName||'This server'; byId('adminState').textContent=state.isAdministrator?'Administrator':'Not elevated'; byId('powerShellState').textContent=state.powerShellVersion||'Available';
+    if(!preferencesLoaded){
+      preferencesLoaded=true;
+      if(!preferencesDirty){
+        var saved=state.collectionPreferences&&state.collectionPreferences.options;
+        byId('outputPath').value=saved?saved.outputRoot:(state.defaultOutputRoot||'');
+        if(saved){setCheckedValues('input[data-export]',[]);setCheckedValues('input[data-inventory]',saved.inventoryCategories||[]);setCheckedValues('input[data-export]',(saved.exportCategories||[]).filter(function(v){return v!=='NPS';}));byId('eventDays').value=saved.eventLogDays||30;byId('includeSensitive').checked=false;byId('preferencesStatus').textContent='Saved choices restored';}
+      }
+    }
+    byId('serverName').textContent=state.computerName||'This server'; byId('adminState').textContent=state.isAdministrator?'Administrator':'Not elevated';byId('elevationBadge').textContent=state.isAdministrator?'Administrator':'Not elevated'; byId('powerShellState').textContent=state.powerShellVersion||'Available';
     setConfigDisabled(!!state.running); updateWorkflow(state);
     byId('statusTitle').textContent=state.phase||'Ready'; byId('statusMessage').textContent=state.message||''; byId('currentStep').textContent=state.currentStep||'No active collector.';
+    byId('collectionProgress').setAttribute('aria-valuenow',String(state.progress||0));
     byId('progressValue').textContent=(state.progress||0)+'%'; byId('completedValue').textContent=String(state.completedSteps||0); byId('warningValue').textContent=String(state.warningCount||0); byId('errorValue').textContent=String(state.errorCount||0);
     var fill=byId('progressFill'); fill.style.width=(state.progress||0)+'%'; fill.className='progress-fill'+(state.status==='success'?' success':(state.status==='failed'?' failed':''));
     var indicator=byId('statusIndicator'); indicator.className='status-indicator'+(state.running?' running':(state.status==='success'?' success':(state.status==='failed'?' failed':'')));
     var end=state.endedAtUnixMs||Date.now(); byId('elapsedTime').textContent=state.startedAtUnixMs?formatElapsed(end-state.startedAtUnixMs):'00:00:00';
     byId('cancelButton').className=state.running?'secondary-button danger-button':'secondary-button danger-button hidden';
-    byId('openDiagnosticsButton').className=(state.status==='failed'||state.status==='canceled')?'secondary-button':'secondary-button hidden';
+    byId('openDiagnosticsButton').className=state.diagnosticPath?'secondary-button':'secondary-button hidden';
     byId('newInventoryButton').className=(!state.running && state.status!=='idle')?'secondary-button':'secondary-button hidden';
     byId('viewReportButton').className=state.loadedReportAvailable?'secondary-button':'secondary-button hidden';
     byId('collectionTabBadge').textContent=state.running?'Running':(state.status==='success'?'Complete':(state.status==='failed'?'Failed':(state.status==='canceled'?'Canceled':'Ready')));
@@ -677,18 +791,19 @@ body { height: 100vh; }
       if(uiLifecycle==='active'){pollTimer=window.setTimeout(poll,900);}
     });
   }
-  function browseFolder(){ request('POST','/api/browse',{},function(err,data){if(err){window.alert(err);return;}if(data.path){byId('outputPath').value=data.path;}}); }
+  function browseFolder(){ request('POST','/api/browse',{},function(err,data){if(err){notice(err,true);return;}if(data.path){byId('outputPath').value=data.path;markChoicesDirty();}}); }
   function startCollection(){
-    var days=parseInt(byId('eventDays').value,10); if(isNaN(days)||days<1||days>365){window.alert('Event history days must be between 1 and 365.');return;}
-    var inventoryCategories=getCheckedValues('input[data-inventory]'); var exportCategories=getCheckedValues('input[data-export]');
-    if(!inventoryCategories.length){window.alert('Select at least one inventory category.');return;}
-    var body={outputRoot:byId('outputPath').value,inventoryCategories:inventoryCategories,exportCategories:exportCategories,eventLogDays:days,includeSensitive:byId('includeSensitive').checked};
-    if(body.includeSensitive && !window.confirm('Sensitive role exports can contain reusable secrets. Continue only if the output location is appropriately protected.')){return;}
-    byId('logView').innerHTML=''; lastLogIndex=0; switchTab('collection'); request('POST','/api/start',body,function(err){if(err){window.alert(err);switchTab('setup');}});
+    var body=validateChoices();if(!body||configurationBusy){return;}
+    if(body.includeSensitive&&!window.confirm('Sensitive role exports can contain reusable secrets. Continue only if the output location is appropriately protected.')){return;}
+    configurationBusy=true;setConfigDisabled(true);
+    request('POST','/api/start',body,function(err,data){configurationBusy=false;setConfigDisabled(!!(latestState&&latestState.running));if(err){notice(err,true);return;}
+      clearLogs();lastLogIndex=0;switchTab('collection');preferencesDirty=false;if(latestState){latestState.running=true;}setConfigDisabled(true);
+      if(data.preferencesSaved===false){notice('Collection started, but choices could not be saved for next time.',true);}else{byId('preferencesStatus').textContent='Choices saved for next time';byId('appNotice').classList.add('hidden');}
+    });
   }
-  function loadPrevious(){ request('POST','/api/browse-report',{},function(err,data){if(err){window.alert(err);return;}if(data.selected){switchTab('report'); request('GET','/api/state?since='+encodeURIComponent(String(lastLogIndex)),null,function(stateErr,state){if(!stateErr){appendLogs(state.logs||[]);lastLogIndex=state.nextLogIndex||lastLogIndex;renderState(state);refreshLoadedReport(state,true);}});}}); }
-  function openKind(kind){request('POST','/api/open',{kind:kind},function(err){if(err){window.alert(err);}});}
-  function resetInterface(){request('POST','/api/reset',{},function(err){if(err){window.alert(err);return;}byId('logView').innerHTML='';lastLogIndex=0;switchTab('setup');});}
+  function loadPrevious(){ request('POST','/api/browse-report',{},function(err,data){if(err){notice(err,true);return;}if(data.selected){switchTab('report'); request('GET','/api/state?since='+encodeURIComponent(String(lastLogIndex)),null,function(stateErr,state){if(!stateErr){appendLogs(state.logs||[]);lastLogIndex=state.nextLogIndex||lastLogIndex;renderState(state);refreshLoadedReport(state,true);}});}}); }
+  function openKind(kind){request('POST','/api/open',{kind:kind},function(err){if(err){notice(err,true);}});}
+  function resetInterface(){request('POST','/api/reset',{},function(err){if(err){notice(err,true);return;}clearLogs();lastLogIndex=0;switchTab('setup');});}
 
   function checkForUpdates(manual,reason){
     if(uiLifecycle!=='active'){return;}
@@ -715,10 +830,13 @@ body { height: 100vh; }
   }
 
   var tabButtons=document.querySelectorAll('.tab-button'); for(var i=0;i<tabButtons.length;i++){tabButtons[i].addEventListener('click',function(){switchTab(this.getAttribute('data-tab'));});}
-  var categoryInputs=document.querySelectorAll('input[data-inventory],input[data-export],#includeSensitive'); for(var ci=0;ci<categoryInputs.length;ci++){categoryInputs[ci].addEventListener('change',syncCategoryState);}
+  var categoryInputs=document.querySelectorAll('input[data-inventory],input[data-export],#includeSensitive'); for(var ci=0;ci<categoryInputs.length;ci++){categoryInputs[ci].addEventListener('change',function(){
+    if(this.hasAttribute('data-inventory')&&!this.checked){var partner=document.querySelector('input[data-export][value="'+this.value+'"]');if(partner){partner.checked=false;}}
+    syncCategoryState();markChoicesDirty();
+  });}
   byId('presetMaximum').addEventListener('click',function(){applyPreset('maximum');}); byId('presetInventory').addEventListener('click',function(){applyPreset('inventory');}); byId('presetCore').addEventListener('click',function(){applyPreset('core');}); byId('presetClear').addEventListener('click',function(){applyPreset('clear');});
-  byId('browseButton').addEventListener('click',browseFolder); byId('startButton').addEventListener('click',startCollection); byId('cancelButton').addEventListener('click',function(){request('POST','/api/cancel',{},function(err){if(err){window.alert(err);}});});
-  byId('clearLogButton').addEventListener('click',function(){byId('logView').innerHTML='';}); byId('openDiagnosticsButton').addEventListener('click',function(){openKind('diagnostics');}); byId('newInventoryButton').addEventListener('click',resetInterface); byId('viewReportButton').addEventListener('click',function(){switchTab('report');openViewer(false);});
+  byId('browseButton').addEventListener('click',browseFolder); byId('startButton').addEventListener('click',startCollection); byId('cancelButton').addEventListener('click',function(){request('POST','/api/cancel',{},function(err){if(err){notice(err,true);}});});
+  byId('clearLogButton').addEventListener('click',clearLogs); byId('openDiagnosticsButton').addEventListener('click',function(){openKind('diagnostics');}); byId('newInventoryButton').addEventListener('click',resetInterface); byId('viewReportButton').addEventListener('click',function(){switchTab('report');openViewer(false);});
   byId('loadPreviousButton').addEventListener('click',loadPrevious); byId('emptyLoadPreviousButton').addEventListener('click',loadPrevious); byId('reopenReportButton').addEventListener('click',function(){openViewer(false);byId('reopenReportButton').className='secondary-button hidden';});
   byId('openHtmlButton').addEventListener('click',function(){openKind('loadedhtml');}); byId('openWordButton').addEventListener('click',function(){openKind('loadeddocx');}); byId('openSummaryButton').addEventListener('click',function(){openKind('loadedsummary');}); byId('openFolderButton').addEventListener('click',function(){openKind('loadedfolder');});
   byId('toggleViewerButton').addEventListener('click',function(){if(viewerOpen){closeViewer();}else{openViewer(false);}});
@@ -741,6 +859,13 @@ body { height: 100vh; }
     clearViewerSearch(true);
     if(latestState&&latestState.loadedReportAvailable){byId('viewerSearchStatus').textContent='Search the complete loaded report.';}
   });
+  byId('saveChoicesButton').addEventListener('click',saveChoices);
+  byId('dismissNotice').addEventListener('click',function(){byId('appNotice').classList.add('hidden');});
+  byId('outputPath').addEventListener('input',markChoicesDirty);byId('eventDays').addEventListener('input',markChoicesDirty);
+  byId('scopeSearch').addEventListener('input',filterScope);byId('scopeSearchClear').addEventListener('click',function(){byId('scopeSearch').value='';filterScope();byId('scopeSearch').focus();});
+  byId('logSearch').addEventListener('input',filterLogs);byId('logLevel').addEventListener('change',filterLogs);byId('followLog').addEventListener('change',filterLogs);
+  byId('logView').addEventListener('scroll',function(){var view=this;if(view.scrollHeight-view.scrollTop-view.clientHeight>40){byId('followLog').checked=false;}});
+  for(var ti=0;ti<tabButtons.length;ti++){tabButtons[ti].addEventListener('keydown',function(e){var list=Array.prototype.slice.call(tabButtons),index=list.indexOf(this);if(e.key==='ArrowRight'){index=(index+1)%list.length;}else if(e.key==='ArrowLeft'){index=(index+list.length-1)%list.length;}else if(e.key==='Home'){index=0;}else if(e.key==='End'){index=list.length-1;}else{return;}e.preventDefault();list[index].click();list[index].focus();});}
   setReportHeaderCollapsed(false); syncCategoryState(); poll();
 }());
 </script>

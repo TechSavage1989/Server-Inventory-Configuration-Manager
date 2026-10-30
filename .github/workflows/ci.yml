@@ -97,6 +97,8 @@ jobs:
           if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
           node .\scripts\test_icon_render.cjs
           if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
+          node .\scripts\test_workspace.cjs
+          if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
           node .\scripts\test_report.cjs
           if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
       - name: Test native install and visible healthy start
@@ -116,5 +118,6 @@ jobs:
             build/icon-header-validation.png
             build/shell-icon-*.png
             build/report-validation/
+            build/workspace-validation/
             dist/
 

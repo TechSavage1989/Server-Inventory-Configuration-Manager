@@ -1,5 +1,14 @@
 # DEVELOPMENT_HANDOFF.md
 
+## Collection workspace review: 3.2.10 in validation
+
+The user requested a broad review and useful functional/visual improvements. This source adds clearer profile/selection styling, category and description search, expandable exports, scope summaries, saved collection choices, inline action errors, log search/severity filtering/live-follow control, keyboard tabs and compact-window layouts. It corrects forced inventory reselection and the previously unlocked event-history field during collection. See docs/APP_REVIEW.md for findings and behavior.
+
+Safe choices are stored atomically in Settings/collection.json. Save choices does not run collection or probe/create an output folder. Collection start validates supported categories/dependencies and saves the choices. Sensitive consent and NPS full export are never restored; the existing sensitive-operation confirmation is retained. Existing settings.json, window.json, updater/rollback files and user output remain compatible. Original collectors/report functions/icons are protected by the existing provenance gates; only the standalone collector version changes.
+
+Local checks: Go 1.20.14 Windows cross-build/test compilation/vet, baseline/report/icon/layout checks, four shutdown checks, three icon-policy checks and 14 real-browser workspace checks pass. The exact v3.2.9 HTML reproduces four prior failures. Screenshots at desktop, 800x600 and 390x844 were reviewed. Hosted Windows and publication verification are pending; cross-compilation is not a Windows execution pass. Source version is 3.2.10; release/VERSION remains 3.2.9 until source CI passes.
+
+
 ## Supplied Illustrator source — 2026-10-27
 
 The user supplied the editable Illustrator SVG for current and future builds. Its original 49,437 bytes (SHA-256 `4eb6eb78435ebaf64dbc5b71c836af8f1b6544235bba3adbfcd0a7e2a7c3a775`) are preserved in `src/app/assets/icons/source/server-inventory-illustrator.svg`, with Git text conversion disabled for that master. No artwork was redesigned. The source renders pixel-identically at all ten icon sizes to the existing approved PNG/ICO. Direct inspection of the downloaded, checksum-pinned published v3.2.9 EXE confirms every native RT_ICON frame matches; evidence is in `docs/verification/2026-10-27-icon-source.json`. Therefore v3.2.9, its tag, assets, application versions and `release/VERSION` remain unchanged rather than publishing a redundant application update.

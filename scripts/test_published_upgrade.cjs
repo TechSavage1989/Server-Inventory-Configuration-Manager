@@ -1,4 +1,4 @@
-/* Hosted Windows test: published v3.2.8, real UI actions, public feed, native helper,
+/* Hosted Windows test: published v3.2.9, real UI actions, public feed, native helper,
    visible new app health, settings, shortcut, timer, and failed-health rollback.
    Playwright drives the real application page while the native Edge app is visible.
    This does not simulate UAC consent or a user's physical desktop interaction. */
@@ -9,7 +9,7 @@ const reuseIndex=process.argv.indexOf('--reuse-passed-timer-evidence');
 const reuseEvidence=reuseIndex>=0?JSON.parse(fs.readFileSync(process.argv[reuseIndex+1],'utf8')):null;
 const expected=fs.readFileSync('src/app/main.go','utf8').match(/appVersion\s*=\s*"([\d.]+)"/)[1];
 const repo='https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager';
-const oldVersion='3.2.8',exeName='Server-Inventory-Configuration-Manager.exe';
+const oldVersion='3.2.9',exeName='Server-Inventory-Configuration-Manager.exe';
 const report={expected,previous:oldVersion,started:new Date().toISOString(),checks:[],limitations:['UAC consent transitions were not exercised.','Playwright drives the application page alongside its visible native Edge window; physical desktop interaction was not performed.','Offline, HTTP failure, rate limiting, ETag and malicious-file cases use deterministic native Go tests.','Legacy Windows Server versions and every server-role collector were not exercised.']};
 const suiteRoot=path.resolve('build','published-upgrade-work');
 const tempRoot=path.join(os.tmpdir(),'SICM-Published-'+crypto.randomUUID());
@@ -62,7 +62,7 @@ async function nativeProcess(exe,args,env){const child=spawn(exe,args,{env,windo
  const manifest=JSON.parse((await get(repo+'/releases/latest/download/update-manifest.json')).toString('utf8').replace(/^\uFEFF/,''));
  check(manifest.version===expected,'Public updater feed selects the expected new release');
  const oldBytes=await get(repo+'/releases/download/v'+oldVersion+'/'+exeName);
- check(sha(oldBytes)==='376332d8aae05110c111aa97b9437f039b28c628eeb0a26e255fa25688fff187','Previous executable matches the published v3.2.8 checksum');
+ check(sha(oldBytes)==='5483a308e0da37e5e9a518f12b3d344ecf12fb267c4419c50860149394fb53c3','Previous executable matches the published v3.2.9 checksum');
  const newBytes=await get(manifest.asset.url);check(sha(newBytes)===manifest.asset.sha256,'Published new executable matches its manifest checksum');
  const env=envFor('upgrade');const saved=await seedSettings(env);const target=path.join(suiteRoot,exeName);await fsp.writeFile(target,oldBytes);
  const shortcut=path.join(suiteRoot,'Server Inventory Configuration Manager.lnk');
@@ -158,6 +158,13 @@ async function nativeProcess(exe,args,env){const child=spawn(exe,args,{env,windo
  const stagedFiles=(await fsp.readdir(path.join(appRoot(env),'Updates','Downloads')));check(stagedFiles.length===0,'Owned download staging is cleaned after the update');
  // Close the automation page before stopping the native host, then launch the
  // same shortcut again to prove its actual post-upgrade launch behavior.
+ await page.locator('#tabButtonSetup').click();
+ await page.locator('#presetCore').click();
+ await page.locator('#saveChoicesButton').click();
+ await until(async()=>{const s=await state(newURL);return s.collectionPreferences&&s.collectionPreferences.options.inventoryCategories.length===12});
+ const choicesPath=path.join(appRoot(env),'Settings','collection.json');
+ const choicesBytes=await fsp.readFile(choicesPath);
+ check(JSON.parse(choicesBytes).options.includeSensitive===false,'Real updated application saves collection choices without persistent sensitive consent');
  const geometryPath=path.join(appRoot(env),'Settings','window.json');
  report.nativeWindowMoveRequest=nativeWindowGeometry(nativeBrowserProfile(env,newURL),true);
  if(!report.nativeWindowMoveRequest.RequestSent)throw Error('Native window move request was not sent');
@@ -173,6 +180,8 @@ async function nativeProcess(exe,args,env){const child=spawn(exe,args,{env,windo
  const shortcutURL=await urlFor(env);await page.goto(shortcutURL);check((await state(shortcutURL)).appVersion===expected,'Existing desktop shortcut launches the updated executable');
  await until(async()=>{const g=nativeWindowGeometry(nativeBrowserProfile(env,shortcutURL));return g&&g.ShowCmd===1&&Object.keys(expectedBounds).every(k=>g[k]===expectedBounds[k])});
  check(true,'Real native window reopens from the stable shortcut at its saved size and position');
+ await until(async()=>await page.locator('#profileName').textContent()==='Core server');
+ check((await fsp.readFile(choicesPath)).equals(choicesBytes)&&(await state(shortcutURL)).collectionPreferences.options.inventoryCategories.length===12,'Saved collection profile is restored in the visible application after a real shortcut relaunch');
  check((await fsp.readFile(saved.path)).equals(saved.bytes),'Window geometry persistence leaves inventory settings byte-identical');
  await page.goto('about:blank');await stopApp(env);
  // A different owned health filename deliberately withholds the expected

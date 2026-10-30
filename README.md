@@ -13,7 +13,7 @@ A portable **Windows x64 application** for collecting server inventory, exportin
 | Capture | Review | Keep working |
 | --- | --- | --- |
 | Choose inventory categories and optional configuration exports. | Start with an executive summary and visible collection issues. | Run a portable EXE with an isolated local browser interface. |
-| Use presets, then tailor the scope to your server. | Search collapsed report sections and inspect supporting exports. | Keep settings, window placement, and shortcut targets through updates. |
+| Search categories, use presets, and save your preferred scope. | Search collapsed report sections and inspect supporting exports. | Keep settings, window placement, and shortcut targets through updates. |
 | Collect available server-role details without treating missing roles as present. | Open HTML offline, print retained report data, or use Word/text outputs. | Choose when to download, install, and restart. |
 
 ## Download
@@ -32,7 +32,7 @@ Get the maintained **Windows EXE** from [the current release](https://github.com
 1. Download **`Server-Inventory-Configuration-Manager.exe`** from the current [release](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/latest). Use its checksum file if you want to verify downloaded bytes.
 2. Keep the EXE in a permanent writable folder, then launch it with the permissions appropriate to your authorized server work.
 3. In **Setup**, choose the **Output parent directory**. Pick **Inventory only**, **Core server**, or **Maximum capture**, then review the individual categories and optional exports.
-4. Start collection and follow progress and logs in **Collection**.
+4. Use **Save choices** to remember the configuration, or start collection to save and run it. In **Collection**, search the log, filter warnings/errors, or pause **Follow live** to inspect earlier output.
 5. Open **Report Viewer**, inspect collection failures/recovery gaps first, then search the details and supporting files in your output folder.
 
 > **Protect your exports.** Inventory and configuration files can contain sensitive infrastructure information. Review the scope and sensitive-data options before collecting; store and share the output securely. Configuration exports and recovery references are not a substitute for a tested backup, and no restore runs automatically.
@@ -40,6 +40,11 @@ Get the maintained **Windows EXE** from [the current release](https://github.com
 **Coming from an older version?** The original v3.0.10 EXE and historical v3.1.0 PS1 application need one manual download of the maintained EXE. The PS1 application is historical—not the current product or build baseline. Existing executable updates preserve the installed path, including custom filenames.
 
 ## How to use
+
+Setup shows the selected profile and exact inventory/export counts. Search by category name or description without altering your selections; optional exports expand when needed. Unchecking an inventory category also clears its dependent export. Saved safe choices return at the next launch. Sensitive permission and NPS full export must be selected again each session.
+
+Use the Collection log's search and severity filter to focus on issues. Scrolling back pauses live following; enable Follow live to return to the newest output. Filtering and Clear view do not alter saved diagnostic files.
+
 
 New HTML reports lead with a concise executive summary. Collection issues and recovery gaps remain prominent; routine datasets expand on demand. Search includes collapsed sections and raw text. Printing includes all rows retained by the report snapshot; truncation notices still point to complete supporting exports.
 

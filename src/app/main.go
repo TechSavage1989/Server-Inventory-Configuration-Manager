@@ -31,8 +31,8 @@ import (
 
 const (
 	appName            = "Server Inventory Configuration Manager"
-	appVersion         = "3.2.9"
-	collectorVersion   = "3.2.9"
+	appVersion         = "3.2.10"
+	collectorVersion   = "3.2.10"
 	applicationPageCSP = "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; frame-src 'self'"
 	maximumCollectors  = 49
 
@@ -111,46 +111,47 @@ type logEntry struct {
 }
 
 type stateResponse struct {
-	AppVersion              string              `json:"appVersion"`
-	Closing                 bool                `json:"closing"`
-	CollectorVersion        string              `json:"collectorVersion"`
-	Update                  updateStateResponse `json:"update"`
-	BuildIdentity           string              `json:"buildIdentity"`
-	ComputerName            string              `json:"computerName"`
-	IsAdministrator         bool                `json:"isAdministrator"`
-	PowerShellPath          string              `json:"powerShellPath"`
-	PowerShellVersion       string              `json:"powerShellVersion"`
-	DefaultOutputRoot       string              `json:"defaultOutputRoot"`
-	Status                  string              `json:"status"`
-	Phase                   string              `json:"phase"`
-	Message                 string              `json:"message"`
-	CurrentStep             string              `json:"currentStep"`
-	Progress                int                 `json:"progress"`
-	CompletedSteps          int                 `json:"completedSteps"`
-	TotalSteps              int                 `json:"totalSteps"`
-	WarningCount            int                 `json:"warningCount"`
-	ErrorCount              int                 `json:"errorCount"`
-	StartedAtUnixMs         int64               `json:"startedAtUnixMs"`
-	EndedAtUnixMs           int64               `json:"endedAtUnixMs"`
-	Running                 bool                `json:"running"`
-	RunID                   string              `json:"runId"`
-	OutputRoot              string              `json:"outputRoot"`
-	PackagePath             string              `json:"packagePath"`
-	ZipPath                 string              `json:"zipPath"`
-	DocxReportPath          string              `json:"docxReportPath"`
-	HtmlReportPath          string              `json:"htmlReportPath"`
-	SummaryTextPath         string              `json:"summaryTextPath"`
-	LauncherLogPath         string              `json:"launcherLogPath"`
-	DiagnosticPath          string              `json:"diagnosticPath"`
-	LoadedReportAvailable   bool                `json:"loadedReportAvailable"`
-	LoadedReportPath        string              `json:"loadedReportPath"`
-	LoadedReportPackage     string              `json:"loadedReportPackage"`
-	LoadedReportDocxPath    string              `json:"loadedReportDocxPath"`
-	LoadedReportSummaryPath string              `json:"loadedReportSummaryPath"`
-	LoadedReportName        string              `json:"loadedReportName"`
-	LoadedReportSerial      uint64              `json:"loadedReportSerial"`
-	Logs                    []logEntry          `json:"logs"`
-	NextLogIndex            int                 `json:"nextLogIndex"`
+	CollectionPreferences   *collectionPreferences `json:"collectionPreferences,omitempty"`
+	AppVersion              string                 `json:"appVersion"`
+	Closing                 bool                   `json:"closing"`
+	CollectorVersion        string                 `json:"collectorVersion"`
+	Update                  updateStateResponse    `json:"update"`
+	BuildIdentity           string                 `json:"buildIdentity"`
+	ComputerName            string                 `json:"computerName"`
+	IsAdministrator         bool                   `json:"isAdministrator"`
+	PowerShellPath          string                 `json:"powerShellPath"`
+	PowerShellVersion       string                 `json:"powerShellVersion"`
+	DefaultOutputRoot       string                 `json:"defaultOutputRoot"`
+	Status                  string                 `json:"status"`
+	Phase                   string                 `json:"phase"`
+	Message                 string                 `json:"message"`
+	CurrentStep             string                 `json:"currentStep"`
+	Progress                int                    `json:"progress"`
+	CompletedSteps          int                    `json:"completedSteps"`
+	TotalSteps              int                    `json:"totalSteps"`
+	WarningCount            int                    `json:"warningCount"`
+	ErrorCount              int                    `json:"errorCount"`
+	StartedAtUnixMs         int64                  `json:"startedAtUnixMs"`
+	EndedAtUnixMs           int64                  `json:"endedAtUnixMs"`
+	Running                 bool                   `json:"running"`
+	RunID                   string                 `json:"runId"`
+	OutputRoot              string                 `json:"outputRoot"`
+	PackagePath             string                 `json:"packagePath"`
+	ZipPath                 string                 `json:"zipPath"`
+	DocxReportPath          string                 `json:"docxReportPath"`
+	HtmlReportPath          string                 `json:"htmlReportPath"`
+	SummaryTextPath         string                 `json:"summaryTextPath"`
+	LauncherLogPath         string                 `json:"launcherLogPath"`
+	DiagnosticPath          string                 `json:"diagnosticPath"`
+	LoadedReportAvailable   bool                   `json:"loadedReportAvailable"`
+	LoadedReportPath        string                 `json:"loadedReportPath"`
+	LoadedReportPackage     string                 `json:"loadedReportPackage"`
+	LoadedReportDocxPath    string                 `json:"loadedReportDocxPath"`
+	LoadedReportSummaryPath string                 `json:"loadedReportSummaryPath"`
+	LoadedReportName        string                 `json:"loadedReportName"`
+	LoadedReportSerial      uint64                 `json:"loadedReportSerial"`
+	Logs                    []logEntry             `json:"logs"`
+	NextLogIndex            int                    `json:"nextLogIndex"`
 }
 
 type runResult struct {
@@ -205,6 +206,7 @@ type internalState struct {
 }
 
 type application struct {
+	collectionPreferences   *collectionPreferences
 	mu                      sync.Mutex
 	update                  updateRuntime
 	windowGeometry          windowGeometryRuntime
@@ -1006,6 +1008,7 @@ func newApplication() (*application, error) {
 	if savedOutputRoot := app.loadSavedOutputRoot(); savedOutputRoot != "" {
 		app.defaultOutputRoot = savedOutputRoot
 	}
+	app.loadCollectionPreferences()
 	return app, nil
 }
 
@@ -1139,6 +1142,7 @@ func (a *application) snapshot(since int) stateResponse {
 		endedMs = a.state.EndedAt.UnixNano() / int64(time.Millisecond)
 	}
 	return stateResponse{
+		CollectionPreferences:   a.collectionPreferences,
 		AppVersion:              appVersion,
 		Closing:                 a.closing,
 		CollectorVersion:        collectorVersion,
@@ -1357,25 +1361,11 @@ func (a *application) handleStart(response http.ResponseWriter, request *http.Re
 		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "The collection settings were invalid: " + err.Error()})
 		return
 	}
-	rawOutputRoot := strings.TrimSpace(options.OutputRoot)
-	if rawOutputRoot == "" {
-		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "Select or enter an output parent directory."})
-		return
-	}
-	options.OutputRoot = filepath.Clean(rawOutputRoot)
-	if !filepath.IsAbs(options.OutputRoot) {
-		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "The output parent directory must be an absolute local or UNC path."})
-		return
-	}
-	if len(options.InventoryCategories) == 0 {
-		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "Select at least one inventory category."})
-		return
-	}
 	if options.EventLogDays == 0 {
 		options.EventLogDays = 30
 	}
-	if options.EventLogDays < 1 || options.EventLogDays > 365 {
-		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "Event log days must be between 1 and 365."})
+	if err := validateCollectionOptions(&options); err != nil {
+		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": err.Error()})
 		return
 	}
 	if err := testOutputWritable(options.OutputRoot); err != nil {
@@ -1425,13 +1415,14 @@ func (a *application) handleStart(response http.ResponseWriter, request *http.Re
 		LauncherLogPath: launcherLogPath,
 	}
 	a.saveApplicationSettings(options.OutputRoot)
+	preferenceErr := a.saveCollectionPreferences(options)
 	a.logs = nil
 	a.nextLogIndex = 0
 	a.completedCollectors = make(map[string]bool)
 	a.mu.Unlock()
 
 	go a.runCollection(options, packageName, runID)
-	writeJSON(response, http.StatusAccepted, map[string]any{"ok": true, "runId": runID, "packagePath": packagePath})
+	writeJSON(response, http.StatusAccepted, map[string]any{"ok": true, "runId": runID, "packagePath": packagePath, "preferencesSaved": preferenceErr == nil})
 }
 
 func (a *application) handleCancel(response http.ResponseWriter, request *http.Request) {
@@ -2040,6 +2031,7 @@ func (a *application) serve(listener net.Listener) error {
 	mux.HandleFunc("/api/browse-report", a.handleBrowseReport)
 	mux.HandleFunc("/report/current", a.handleCurrentReport)
 	mux.HandleFunc("/api/start", a.handleStart)
+	mux.HandleFunc("/api/preferences", a.handlePreferences)
 	mux.HandleFunc("/api/cancel", a.handleCancel)
 	mux.HandleFunc("/api/open", a.handleOpen)
 	mux.HandleFunc("/api/ui/ready", a.handleUIReady)

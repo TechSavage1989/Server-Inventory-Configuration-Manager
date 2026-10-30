@@ -29,6 +29,10 @@ try{
     Invoke-WebRequest -UseBasicParsing -Uri "$base/Report-Preview.png" -OutFile $preview
     $expectedPreview=(Get-FileHash (Join-Path $PSScriptRoot '..\build\report-validation\report-summary.png') -Algorithm SHA256).Hash
     if((Get-FileHash $preview -Algorithm SHA256).Hash -ne $expectedPreview){throw 'Public report preview differs from the validated synthetic report.'}
+    $appPreview=Join-Path $temp 'Application-Preview.png'
+    Invoke-WebRequest -UseBasicParsing -Uri "$base/Application-Preview.png" -OutFile $appPreview
+    $expectedAppPreview=(Get-FileHash (Join-Path $PSScriptRoot '..\build\workspace-validation\setup-desktop.png') -Algorithm SHA256).Hash
+    if((Get-FileHash $appPreview -Algorithm SHA256).Hash -ne $expectedAppPreview){throw 'Public application preview differs from the validated fixture.'}
     Write-Host 'Public updater feed and release asset verification passed.'
 }
 finally{Remove-Item $temp -Recurse -Force -ErrorAction SilentlyContinue}

@@ -1,10 +1,14 @@
+# Collection workspace 3.2.10: validation in progress
+
+Local Go 1.20.14 Windows cross-build/test compilation/vet, original provenance, report embedding, deterministic icon generation, layout, four shutdown and three image-policy browser checks pass. Fourteen real-browser workspace checks exercise the actual HTML/CSP using synthetic state and retain the exact v3.2.9 negative controls. Native hosted Windows source CI and the new published v3.2.9-to-v3.2.10 update are pending. No live server collection, human UAC, physical monitor or Office visual validation is claimed.
+
 # Icon source update validation — 2026-10-27
 
 - Published v3.2.9 remains current and unchanged; no new release is required for identical artwork.
 - The exact published EXE SHA-256 is `5483a308e0da37e5e9a518f12b3d344ecf12fb267c4419c50860149394fb53c3`. All ten native icon resource frames match the supplied-master-derived ICO byte for byte; see [structured evidence](verification/2026-10-27-icon-source.json).
 - Original Illustrator master: 49,437 bytes, SHA-256 `4eb6eb78435ebaf64dbc5b71c836af8f1b6544235bba3adbfcd0a7e2a7c3a775`. Master bytes and original historical baseline hashes are preserved.
 - Local passes: converter identity and hostile-input controls; all ten original CSS/runtime render comparisons; deterministic icon regeneration; original collector/report/icon provenance; report-embedding check; layout tests; compile-time resource generation; Go 1.20.14 Windows x64 cross-build and vet. Rendered 16/32/512px images reviewed.
-- Native hosted Windows/browser/visible-health CI: pending. Local Chromium could not start because the cloud sandbox disallows its local sockets. Cross-compilation is not an interactive Windows pass.
+- Historical icon-source hosted Windows/browser/visible-health CI passed: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/40561712690. The earlier local sandbox limitation did not establish a Windows failure.
 - Earlier release evidence below is historical and unchanged.
 
 # Executable updater validation

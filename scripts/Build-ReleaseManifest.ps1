@@ -46,6 +46,14 @@ Copy-Item -LiteralPath $previewSource -Destination $previewPath
 $previewHash=(Get-FileHash -LiteralPath $previewPath -Algorithm SHA256).Hash.ToLowerInvariant()
 "$previewHash  $previewName"|Set-Content -LiteralPath ($previewPath+'.sha256.txt') -Encoding ASCII
 
+$appPreviewName='Application-Preview.png'
+$appPreviewPath=Join-Path $OutputDirectory $appPreviewName
+$appPreviewSource=Join-Path $PSScriptRoot '..\build\workspace-validation\setup-desktop.png'
+if(-not (Test-Path -LiteralPath $appPreviewSource -PathType Leaf)){throw 'Run application workspace validation before building release assets.'}
+Copy-Item -LiteralPath $appPreviewSource -Destination $appPreviewPath
+$appPreviewHash=(Get-FileHash -LiteralPath $appPreviewPath -Algorithm SHA256).Hash.ToLowerInvariant()
+"$appPreviewHash  $appPreviewName"|Set-Content -LiteralPath ($appPreviewPath+'.sha256.txt') -Encoding ASCII
+
 $notesPath=Join-Path (Join-Path $PSScriptRoot '..\docs\release-notes') ($ExpectedVersion+'.md')
 $allNotes=@()
 if(Test-Path -LiteralPath $notesPath -PathType Leaf){
