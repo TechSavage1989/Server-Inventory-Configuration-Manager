@@ -2,7 +2,7 @@
   "schema_version": 1,
   "compared_revision": "81e2a0e5a598df6e8edd7bb533e2f02b915a9c7b",
   "compared_release": "v3.2.10",
-  "approval": "Targeted startup cyclic-table handling and responsive, bounded recursive ACL export; no other collector behavior changes authorized.",
+  "approval": "Previously approved startup cyclic-table handling and bounded ACL export, plus user-requested final-report performance improvements and preservation of actual collection values in CSV-backed reports. No unrelated collector behavior changes authorized.",
   "normalization": "Standalone scriptVersion normalized to3.0.0; separately pinned HTML renderer restored to original before region comparison.",
   "files": {
     "Export-ServerInventory.ps1": {
@@ -30,6 +30,16 @@
           "reason": "Bounded recursive ACL export progress, ownership, control or incomplete-result propagation"
         },
         {
+          "before_start": 20558,
+          "before_end": 20658,
+          "before_start_line_normalized": 493,
+          "before_end_line_normalized": 493,
+          "before_sha256": "0686cb43a3bbd676cadf83988638d515631097b96903763a4b265803f71aae2d",
+          "after_length": 962,
+          "after_sha256": "a41c61bef6129394a39968fc9292cc7534adb33b850cdf08680d065e6a087c95",
+          "reason": "Preserve actual array/list values in CSV-backed reports instead of System.String[] type labels"
+        },
+        {
           "before_start": 22884,
           "before_end": 22884,
           "before_start_line_normalized": 569,
@@ -40,6 +50,16 @@
           "reason": "Bounded recursive ACL export progress, ownership, control or incomplete-result propagation"
         },
         {
+          "before_start": 60788,
+          "before_end": 60788,
+          "before_start_line_normalized": 1158,
+          "before_end_line_normalized": 1157,
+          "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "after_length": 227,
+          "after_sha256": "29ac3f14fdc072f85587af859475e7bcda67ac60cd873ddf32ab0db54dbf53b8",
+          "reason": "Avoid redundant atomic conversion for flat string report cells with exact normalization preserved"
+        },
+        {
           "before_start": 64128,
           "before_end": 64159,
           "before_start_line_normalized": 1289,
@@ -48,6 +68,16 @@
           "after_length": 517,
           "after_sha256": "035de05dc7dd6fcb6e53ac7abf48891024087b7a0b08a2fc2984ef1813d2f87f",
           "reason": "Preserve report property collection identity before cyclic/nesting guards"
+        },
+        {
+          "before_start": 102959,
+          "before_end": 103042,
+          "before_start_line_normalized": 2210,
+          "before_end_line_normalized": 2210,
+          "before_sha256": "79e9b973abbb19ace505960894f6be69f1414d6acbade5d97c3049e7dac4aef9",
+          "after_length": 689,
+          "after_sha256": "5aa5ae9e9b6173fd93e69bca15f1b811860913d815dd8479e61dfdc85e50eb14",
+          "reason": "Fast fixed-format Word table paragraphs with validated XML text and original multiline fallback"
         },
         {
           "before_start": 137923,
@@ -131,7 +161,7 @@
         }
       ],
       "normalized_archive_sha256": "0828ac2d0504bbd7270e0e4252a48b7deded6e9832d79c2f413765c4e1be2b19",
-      "normalized_candidate_sha256": "cdcc75b292901562282863a03389f78247c50126d2d47f7323c1a07594926c41"
+      "normalized_candidate_sha256": "ab8a7ea30886e4fecce67663c3271a089235c8fd062b40f0641255d65fd89d78"
     },
     "Run-Inventory.ps1": {
       "archive_path": "baseline/v3.2.10/collectors/Run-Inventory.ps1",
@@ -164,6 +194,6 @@
   },
   "reviewed_diff": {
     "path": "docs/verification/collector-approved-changes.diff",
-    "sha256": "b2c71690e905ec4bae2c6892a5c0356c0170850ba0c6ed427045ce569e150f9a"
+    "sha256": "2db0ecea0fc12389e42ede16d70030816a68565367d18462a768a8bac99dbe9e"
   }
 }

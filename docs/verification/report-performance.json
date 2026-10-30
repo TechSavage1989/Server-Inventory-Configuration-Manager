@@ -1,0 +1,138 @@
+{
+  "schema_version": 1,
+  "scope": "Synthetic report table snapshot construction, HTML rendering and DOCX generation only; no inventory collection or customer data.",
+  "baseline_revision": "c7b56b03b4d94332141415d817e146083318d363",
+  "runtime": "7.4.13",
+  "platform": "Unix 6.18.57.0",
+  "workload": {
+    "tables": 4,
+    "rows_per_table": 2500,
+    "columns": 8,
+    "total_cells": 80000,
+    "includes": [
+      "long synthetic paths",
+      "quoted HTML-like command strings",
+      "Unicode",
+      "array values",
+      "multiline source values",
+      "empty strings",
+      "numbers"
+    ],
+    "warmup_iterations": 1,
+    "measured_iterations": 2
+  },
+  "baseline": {
+    "Runtime": "7.4.13",
+    "Platform": "Unix 6.18.57.0",
+    "SourceSHA256": "A5D01D0428CD18B09BCE2778F31F0407A0FEEBBAD2DB21DA0BF80E66362B99D2",
+    "Results": [
+      {
+        "Iteration": 0,
+        "Warmup": true,
+        "RowsPerTable": 2500,
+        "Tables": 4,
+        "Cells": 80000,
+        "SnapshotMs": 19421.21,
+        "HtmlMs": 22397.89,
+        "DocxMs": 26962.02,
+        "HtmlBytes": 4657182,
+        "DocxBytes": 177797
+      },
+      {
+        "Iteration": 1,
+        "Warmup": false,
+        "RowsPerTable": 2500,
+        "Tables": 4,
+        "Cells": 80000,
+        "SnapshotMs": 11427.89,
+        "HtmlMs": 23981.0,
+        "DocxMs": 25685.2,
+        "HtmlBytes": 4657182,
+        "DocxBytes": 177798
+      },
+      {
+        "Iteration": 2,
+        "Warmup": false,
+        "RowsPerTable": 2500,
+        "Tables": 4,
+        "Cells": 80000,
+        "SnapshotMs": 14522.66,
+        "HtmlMs": 23726.98,
+        "DocxMs": 32864.76,
+        "HtmlBytes": 4657182,
+        "DocxBytes": 177798
+      }
+    ]
+  },
+  "candidate": {
+    "Runtime": "7.4.13",
+    "Platform": "Unix 6.18.57.0",
+    "SourceSHA256": "2EACD7B00C31CA704145DE545C410AFF241339ACD0D44BF2AD3456CBFBFB554F",
+    "Results": [
+      {
+        "Iteration": 0,
+        "Warmup": true,
+        "RowsPerTable": 2500,
+        "Tables": 4,
+        "Cells": 80000,
+        "SnapshotMs": 15739.36,
+        "HtmlMs": 1500.5,
+        "DocxMs": 7763.67,
+        "HtmlBytes": 4668255,
+        "DocxBytes": 177798
+      },
+      {
+        "Iteration": 1,
+        "Warmup": false,
+        "RowsPerTable": 2500,
+        "Tables": 4,
+        "Cells": 80000,
+        "SnapshotMs": 12457.51,
+        "HtmlMs": 1953.15,
+        "DocxMs": 8289.03,
+        "HtmlBytes": 4668255,
+        "DocxBytes": 177798
+      },
+      {
+        "Iteration": 2,
+        "Warmup": false,
+        "RowsPerTable": 2500,
+        "Tables": 4,
+        "Cells": 80000,
+        "SnapshotMs": 10082.21,
+        "HtmlMs": 631.33,
+        "DocxMs": 8857.23,
+        "HtmlBytes": 4668255,
+        "DocxBytes": 177798
+      }
+    ]
+  },
+  "mean_seconds": {
+    "baseline": {
+      "Snapshot": 12.975,
+      "Html": 23.854,
+      "Docx": 29.275,
+      "TotalSeconds": 66.104
+    },
+    "candidate": {
+      "Snapshot": 11.27,
+      "Html": 1.292,
+      "Docx": 8.573,
+      "TotalSeconds": 21.135
+    }
+  },
+  "parity": {
+    "html_cells_and_headers_equal": 80032,
+    "docx_document_xml_byte_identical": true,
+    "docx_document_xml_sha256": "7af71690dec017de21b37dae06ba29c2977e31d0ab0bbc838739809f3f691fe3"
+  },
+  "limitations": [
+    "Linux PowerShell 7.4.13 synthetic timings, not Windows PowerShell 5.1 or the user server.",
+    "No live collection, export package ZIP compression, remote/filesystem delays, or UI interactivity measured.",
+    "One warmup discarded per process; two measured iterations, normal host scheduling variance.",
+    "Existing snapshot truncation and safety markers unchanged.",
+    "Shared-host scheduling affects timings; other small test/candidate work overlapped portions of the retained baseline run. The final 3.2.12 candidate benchmark ran without other benchmark or aggregate-test processes. This is synthetic diagnostic evidence, not a controlled Windows performance guarantee."
+  ],
+  "reproduce": "Set POWERSHELL_TELEMETRY_OPTOUT=1, DOTNET_CLI_TELEMETRY_OPTOUT=1, POWERSHELL_UPDATECHECK=Off. Run scripts/Measure-ReportPerformance.ps1 -SourcePath <source> -OutputDirectory <output> -Rows 2500 -Tables 4 -Iterations 2 separately for baseline and candidate; scripts/Test-ReportPerformance.ps1 is the mandatory output parity gate.",
+  "candidate_source_version": "3.2.12"
+}

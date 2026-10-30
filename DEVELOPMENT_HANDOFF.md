@@ -1,3 +1,14 @@
+## Unpublished report usability and generation candidate — 2026-10-30
+
+Requested scope: copyable report data, compact rows instead of forced column wrapping, more interactive/polished final results, slow final report generation, and DNS address fields rendered as `System.String[]`.
+
+- HTML tables default to compact non-wrapping rows with horizontal scrolling. `Wrap values` deliberately expands a dataset; full cell text remains in the DOM, selectable, searchable and copyable. Table filters and accessible three-state column sorts preserve all rows; the third sort click restores original order. Global/viewer search clears a conflicting table filter to reveal its match. Print includes filtered-out rows and wraps full values.
+- Copy table uses quoted tab-separated text; Copy text preserves raw text, and Copy section/full report includes collapsed data and existing omission notices. Copy table explicitly includes all rows even when filtered. Clipboard failure falls back to legacy copy, then a selected read-only text panel with keyboard-copy instructions; no browser policy is weakened. Asynchronous old copy results cannot replace a newer request. Reports remain standalone/offline and no-script data is retained.
+- DNS array loss occurred before rendering: `Export-Csv` stringified collection-valued cells and `Get-ReportData` intentionally preferred that flat CSV over potentially cyclic typed objects. New exports normalize collection-valued CSV cells with the existing bounded report converter; scalar schema/formatting and raw CLIXML remain unchanged. Existing depth/item safety limits remain explicit, and full typed raw XML remains available. Already-lossy HTML/CSV cannot recover original values; a fresh collection is required.
+- Generation optimizations avoid repeated normalization of already-normalized flat strings and emit the fixed Word table paragraph structure directly through the XML writer while keeping all values escaped and retaining general-path fallbacks. Synthetic equivalence tests compare reported cell text and exact Word document XML against the prior implementation. No live inventory or AD/DHCP error diagnosis is included.
+
+Validation status and measured timing belong in `docs/VALIDATION.md`. Source/publication authorization and hosted Windows validation are separate gates; this note does not claim a release or browser/native pass. No user/customer screenshot, hostname, log or collected inventory is included in source or test artifacts.
+
 ## 3.2.11 published and verified — 2026-10-30
 
 - Release/tag: [v3.2.11](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.11), commit `56969491c44b97df730e55d502d5fa57e4542538`; PR #2 merged with publication authorization.

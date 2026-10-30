@@ -118,7 +118,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$scriptVersion = '3.2.11'
+$scriptVersion = '3.2.12'
 
 function Test-IsAdministrator {
     $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -501,7 +501,22 @@ function Save-ObjectData {
 
     if (-not $SkipCsv) {
         try {
-            $items | Export-Csv -Path ($BasePath + '.csv') -NoTypeInformation -Encoding UTF8 -Force
+            # Export-Csv stringifies array properties as System.String[] (and
+            # similar type names), losing values before the consolidated report
+            # reads this CSV. Flatten collection cells without mutating the typed
+            # objects already saved to CLIXML; retain scalar CSV formatting.
+            $items | ForEach-Object {
+                if ($null -eq $_) { return }
+                $csvRow = [ordered]@{}
+                foreach ($property in $_.PSObject.Properties) {
+                    $value = $property.Value
+                    if (($value -is [System.Collections.IEnumerable]) -and -not ($value -is [string])) {
+                        $value = ConvertTo-ReportText -Value $value -MaxLength 0
+                    }
+                    $csvRow[$property.Name] = $value
+                }
+                [pscustomobject]$csvRow
+            } | Export-Csv -Path ($BasePath + '.csv') -NoTypeInformation -Encoding UTF8 -Force
         }
         catch {
             ('CSV export was not possible: ' + $_.Exception.Message) |
@@ -1366,6 +1381,11 @@ function ConvertTo-ReportText {
 
         $text = $parts -join '; '
     }
+    elseif ($Value -is [string]) {
+        # CSV and report snapshots are already strings. Avoid one PowerShell
+        # function invocation per cell while retaining the exact normalization below.
+        $text = $Value
+    }
     else {
         $text = ConvertTo-ReportAtomicText -Value $Value
     }
@@ -2025,8 +2045,26 @@ li { margin:7px 0; }
 .table-wrap { overflow:auto; margin:0 -18px; }
 .dataset-long .table-wrap { max-height:60vh; }
 table { width:100%; border-collapse:separate; border-spacing:0; font-size:12px; text-align:left; }
-th { position:sticky; top:0; z-index:1; background:#f4f7fb; color:#617087; font-size:10px; font-weight:650; padding:11px 14px; border-bottom:1px solid var(--line); vertical-align:top; }
-td { padding:10px 14px; border-bottom:1px solid #edf0f4; vertical-align:top; overflow-wrap:anywhere; min-width:110px; max-width:640px; }
+th { position:sticky; top:0; z-index:1; background:#f4f7fb; color:#617087; font-size:10px; font-weight:650; padding:7px 12px; white-space:nowrap; border-bottom:1px solid var(--line); vertical-align:top; }
+td { padding:5px 12px; border-bottom:1px solid #edf0f4; vertical-align:top; white-space:nowrap; overflow-wrap:normal; min-width:80px; }
+.report-content,.cover { -webkit-user-select:text; user-select:text; }
+.dataset.wrap-values td { white-space:pre-wrap; overflow-wrap:anywhere; max-width:640px; }
+.dataset-tools { display:flex; flex-wrap:wrap; align-items:center; gap:7px; padding:8px 0; }
+.dataset-tools .quiet-button { font-size:11px; padding:4px 9px; }
+.table-hint { font-size:11px; color:var(--muted); }
+.table-filter { display:flex; align-items:center; gap:7px; font-size:11px; margin-left:auto; }
+.table-filter input { width:180px; min-width:100px; padding:5px 8px; border:1px solid #ccd5e0; border-radius:6px; color:var(--ink); background:#fff; }
+.table-filter-count { flex-basis:100%; font-size:11px; color:var(--muted); }
+.table-filter-count:empty { display:none; }
+.table-sort { font:inherit; color:inherit; text-align:left; border:0; padding:0; background:transparent; }
+.table-sort::after { content:" ↕"; color:#8291a6; }
+th[aria-sort="ascending"] .table-sort::after { content:" ↑"; color:var(--blue); }
+th[aria-sort="descending"] .table-sort::after { content:" ↓"; color:var(--blue); }
+.copy-feedback { flex-basis:100%; font-size:12px; color:var(--muted); }
+.copy-panel { position:fixed; z-index:20; inset:auto 20px 20px; max-height:55vh; overflow:auto; padding:16px; border:1px solid var(--blue); border-radius:9px; background:#fff; box-shadow:0 4px 24px #182b4333; }
+.copy-panel[hidden] { display:none; }
+.copy-panel textarea { display:block; width:100%; height:22vh; margin:8px 0; resize:vertical; white-space:pre; font:12px/1.4 Consolas,monospace; }
+.copy-panel p { margin:0; }
 tbody tr:last-child td { border-bottom:0; }
 tbody tr:hover td { background:#f8faff; }
 .identity-table td:first-child { width:30%; color:#718097; }
@@ -2035,7 +2073,7 @@ tbody tr:hover td { background:#f8faff; }
 .status-success { background:#eaf6f0; color:#257452; }
 .status-warning { background:#fff1d8; color:#976018; }
 .status-error { background:#fceceb; color:#aa4744; }
-pre { white-space:pre-wrap; overflow-wrap:anywhere; font:11px/1.65 Consolas,"Courier New",monospace; color:#3e526b; padding:16px; border-radius:6px; background:#f5f7fa; margin:15px 0 0; }
+pre { white-space:pre; overflow:auto; overflow-wrap:normal; font:11px/1.65 Consolas,"Courier New",monospace; color:#3e526b; padding:16px; border-radius:6px; background:#f5f7fa; margin:15px 0 0; }
 .footer-note { max-width:1320px; margin:26px auto 0; padding-top:14px; border-top:1px solid var(--line); color:#65758c; font-size:11px; }
 mark.report-match { background:#fff1b6; color:inherit; padding:0; }
 mark.report-current { background:#ffd570; outline:2px solid #d0952a; }
@@ -2079,7 +2117,7 @@ html:not(.report-js) .report-layout { grid-template-columns:minmax(0,1fr); }
  html,body { height:auto!important; overflow:visible!important; background:#fff; }
  .report-app,.report-layout,.report-content,.reading-width { display:block!important; height:auto!important; max-height:none!important; overflow:visible!important; padding:0!important; }
  .cover { padding:0 0 20px!important; margin-bottom:18px; }
- .report-nav,.section-pager,.section-actions,.standalone-tools,.nav-toggle,.review-links { display:none!important; }
+ .report-nav,.section-pager,.section-actions,.standalone-tools,.nav-toggle,.review-links,.dataset-tools,.copy-feedback,.copy-panel,.copy-action { display:none!important; }
  .report-js .report-section,.report-section { display:block!important; margin:0 0 30px; break-before:page; }
  .reading-width>.report-section:first-of-type { break-before:auto; }
  .dataset,.facts,.metric { box-shadow:none; }
@@ -2090,8 +2128,11 @@ html:not(.report-js) .report-layout { grid-template-columns:minmax(0,1fr); }
  th { position:static; }
  thead { display:table-header-group; }
  tr { break-inside:avoid; }
- td { min-width:0; font-size:9px; padding:6px 8px; }
- th { font-size:9px; padding:7px 8px; }
+ tr[hidden] { display:table-row!important; }
+ .table-sort::after { display:none; }
+ td,.dataset.wrap-values td { min-width:0; max-width:none; white-space:pre-wrap; overflow-wrap:anywhere; font-size:9px; padding:6px 8px; }
+ pre { white-space:pre-wrap; overflow-wrap:anywhere; overflow:visible; }
+ th { white-space:normal; font-size:9px; padding:7px 8px; }
  .notice,.info { break-inside:avoid; }
  mark { background:none!important; outline:0!important; }
 }
@@ -2199,8 +2240,20 @@ html:not(.report-js) .report-layout { grid-template-columns:minmax(0,1fr); }
                     foreach ($row in @($block.Rows)) {
                         [void]$builder.AppendLine('<tr>')
                         foreach ($column in @($block.Columns)) {
-                            $value = Get-ReportCellText -InputObject $row -PropertyName $column -MaxLength 2500
-                            $text = ConvertTo-HtmlText $value
+                            # Add-ReportTable snapshots cells as flat strings. Keep a
+                            # fallback for callers supplying raw/custom properties, but
+                            # do not traverse and normalize every snapshot three times.
+                            $property = $null
+                            if ($null -ne $row) { $property = $row.PSObject.Properties[$column] }
+                            if (($property -is [System.Management.Automation.PSNoteProperty]) -and ($property.Value -is [string]) -and ($property.Value.Length -le 2500) -and ($property.Value -notmatch '[\x00-\x1F]') -and ($property.Value -ceq $property.Value.Trim())) {
+                                $value = $property.Value
+                                try { $text = [System.Net.WebUtility]::HtmlEncode($value) }
+                                catch { $text = [System.Security.SecurityElement]::Escape($value) }
+                            }
+                            else {
+                                $value = Get-ReportCellText -InputObject $row -PropertyName $column -MaxLength 2500
+                                $text = ConvertTo-HtmlText $value
+                            }
                             if ($column -match '^(Status|Severity)$') {
                                 $status = ''
                                 if ($value -match '^(Success|Complete|Completed)$') { $status = 'success' }
@@ -2282,6 +2335,8 @@ html:not(.report-js) .report-layout { grid-template-columns:minmax(0,1fr); }
     function revealElement(element) {
         var section = parentSection(element);
         if (!section) { return; }
+        var panel=element.closest&&element.closest('details.dataset');
+        if(panel&&panel.clearTableFilter){panel.clearTableFilter();}
         var index = indexById(section.id);
         if (index >= 0) { activate(index, false, ''); }
         openParents(element);
@@ -2324,7 +2379,7 @@ html:not(.report-js) .report-layout { grid-template-columns:minmax(0,1fr); }
         for (var i=0; i<sections.length; i++) {
             var walker = document.createTreeWalker(sections[i], NodeFilter.SHOW_TEXT, {acceptNode:function(node) {
                 var tag = node.parentNode && node.parentNode.nodeName;
-                if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'BUTTON' || tag === 'MARK') { return NodeFilter.FILTER_REJECT; }
+                if (node.parentElement.closest('.dataset-tools,.section-actions,.copy-feedback') || tag === 'SCRIPT' || tag === 'STYLE' || (tag === 'BUTTON' && !node.parentElement.classList.contains('table-sort')) || tag === 'MARK') { return NodeFilter.FILTER_REJECT; }
                 return node.nodeValue.toLowerCase().indexOf(lowerQuery) >= 0 ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
             }}, false);
             var node; while ((node = walker.nextNode())) { nodes.push(node); }
@@ -2352,6 +2407,111 @@ html:not(.report-js) .report-layout { grid-template-columns:minmax(0,1fr); }
         if (!printState) { return; }
         for (var i=0; i<details.length; i++) { details[i].open=printState[i]; }
         printState=null;
+    }
+    // Read DOM text, not innerText: collapsed panels, horizontal scrolling and
+    // search marks must never omit or change the copied report values.
+    function tableText(table) {
+        return Array.prototype.map.call(table.rows,function(row) {
+            return Array.prototype.map.call(row.cells,function(cell) {
+                var value=cell.textContent;
+                return /[\t\r\n"]/.test(value) ? '"'+value.replace(/"/g,'""')+'"' : value;
+            }).join('\t');
+        }).join('\r\n');
+    }
+    function reportText(container) {
+        var chunks=[];
+        function visit(node) {
+            if (node.nodeType !== 1 || node.matches('button,.dataset-tools,.section-actions,.copy-feedback,.review-links')) { return; }
+            if (node.tagName === 'TABLE') { chunks.push(tableText(node)); return; }
+            if (node.tagName === 'SUMMARY') { chunks.push(node.querySelector('.dataset-title').textContent+' ('+node.querySelector('.dataset-count').textContent+')'); return; }
+            if (node.matches('.facts,.metrics')) {
+                chunks.push(Array.prototype.map.call(node.children,function(item){return Array.prototype.map.call(item.children,function(part){return part.textContent;}).join(': ');}).join('\r\n'));return;
+            }
+            if (node.matches('h1,h2,h3,h4,p,li,pre')) { chunks.push(node.textContent); return; }
+            for (var i=0;i<node.children.length;i++) { visit(node.children[i]); }
+        }
+        visit(container); return chunks.join('\r\n\r\n');
+    }
+    var copyFeedback=document.createElement('div');
+    copyFeedback.className='copy-feedback';copyFeedback.setAttribute('role','status');copyFeedback.setAttribute('aria-live','polite');
+    document.querySelector('.report-brand').appendChild(copyFeedback);
+    var copyPanel=document.createElement('div');copyPanel.className='copy-panel';copyPanel.hidden=true;
+    copyPanel.setAttribute('role','region');copyPanel.setAttribute('aria-label','Manual report copy');
+    var copyHelp=document.createElement('p');copyHelp.textContent='Automatic copy is unavailable. The complete text is selected below. Press Ctrl+C (Command+C on Mac), then Close.';
+    var copyArea=document.createElement('textarea');copyArea.readOnly=true;copyArea.setAttribute('aria-label','Complete report text to copy');
+    var copyClose=document.createElement('button');copyClose.type='button';copyClose.className='quiet-button';copyClose.textContent='Close';
+    copyPanel.appendChild(copyHelp);copyPanel.appendChild(copyArea);copyPanel.appendChild(copyClose);document.body.appendChild(copyPanel);
+    var copyOrigin=null,copyRequest=0;
+    function closeCopy() { copyPanel.hidden=true;copyArea.value='';if(copyOrigin){copyOrigin.focus();} }
+    copyClose.addEventListener('click',closeCopy);
+    copyPanel.addEventListener('keydown',function(event){if(event.key==='Escape'){event.preventDefault();closeCopy();}});
+    function copyText(text,button) {
+        // Keep the selected text available if either the Clipboard API or the
+        // older local-file fallback is blocked by browser/iframe policy.
+        copyOrigin=button;copyFeedback.textContent='';var request=++copyRequest;copyPanel.hidden=true;copyArea.value='';
+        function fallback() {
+            if(request!==copyRequest){return;}
+            copyArea.value=text;copyPanel.hidden=false;copyArea.focus();copyArea.select();
+            var copied=false;try { copied=document.execCommand('copy'); } catch(error) { /* manual copy remains available */ }
+            if(copied){closeCopy();copyFeedback.textContent='Copied complete text.';}
+            else{copyFeedback.textContent='Use the selected text in the manual copy panel.';}
+        }
+        if(navigator.clipboard && navigator.clipboard.writeText) {
+            try { navigator.clipboard.writeText(text).then(function(){if(request===copyRequest){copyFeedback.textContent='Copied complete text.';}},fallback); }
+            catch(error){fallback();}
+        } else { fallback(); }
+    }
+    function copyButton(label,container,getText) {
+        var button=document.createElement('button');button.type='button';button.className='quiet-button copy-action';button.textContent=label;
+        button.addEventListener('click',function(){copyText(getText(),button);});container.appendChild(button);return button;
+    }
+    for(var cs=0;cs<sections.length;cs++) {
+        (function(section){copyButton('Copy section',section.querySelector('.section-actions'),function(){return reportText(section);});}(sections[cs]));
+    }
+    // This control remains available in the embedded viewer as well as saved HTML.
+    copyButton('Copy full report',document.querySelector('.report-brand'),function(){
+        return document.querySelector('h1').textContent+'\r\n'+document.querySelector('.subtitle').textContent+'\r\n\r\n'+sections.map(reportText).join('\r\n\r\n');
+    });
+    function enhanceTable(panel,table,toolbar) {
+        var rows=Array.prototype.slice.call(table.tBodies[0].rows),searchRows=null;
+        var filterLabel=document.createElement('label');filterLabel.className='table-filter';filterLabel.textContent='Filter rows ';
+        var filter=document.createElement('input');filter.type='search';filter.placeholder='Find in this table';filter.setAttribute('aria-label','Filter rows in '+panel.getAttribute('data-title'));
+        filterLabel.appendChild(filter);toolbar.appendChild(filterLabel);
+        var count=document.createElement('span');count.className='table-filter-count';count.setAttribute('role','status');count.setAttribute('aria-live','polite');toolbar.appendChild(count);
+        function applyFilter() {
+            var query=filter.value.trim().toLowerCase(),shown=0;
+            if(query&&!searchRows){searchRows=rows.map(function(row){return row.textContent.toLowerCase();});}
+            for(var i=0;i<rows.length;i++){rows[i].hidden=!!query&&searchRows[i].indexOf(query)<0;if(!rows[i].hidden){shown++;}}
+            count.textContent=query?shown+' of '+rows.length+' rows shown. Copy table includes all rows.':'';
+        }
+        filter.addEventListener('input',applyFilter);
+        panel.clearTableFilter=function(){if(filter.value){filter.value='';applyFilter();}};
+        var headers=Array.prototype.slice.call(table.tHead.rows[0].cells),sortColumn=-1,sortDirection=0;
+        var collator=typeof Intl!=='undefined'&&Intl.Collator?new Intl.Collator(undefined,{numeric:true,sensitivity:'base'}):null;
+        headers.forEach(function(header,index){
+            var label=header.textContent,button=document.createElement('button');button.type='button';button.className='table-sort';button.textContent=label;
+            button.setAttribute('aria-label','Sort by '+label);header.textContent='';header.appendChild(button);header.setAttribute('aria-sort','none');
+            button.addEventListener('click',function(){
+                sortDirection=sortColumn===index?(sortDirection+1)%3:1;sortColumn=index;
+                headers.forEach(function(h,i){h.setAttribute('aria-sort',i===index&&sortDirection?(sortDirection===1?'ascending':'descending'):'none');});
+                var ordered=rows.map(function(row,original){return {row:row,original:original,value:row.cells[index].textContent};});
+                if(sortDirection){ordered.sort(function(a,b){var result=collator?collator.compare(a.value,b.value):a.value.localeCompare(b.value);return (sortDirection===1?result:-result)||a.original-b.original;});}
+                var fragment=document.createDocumentFragment();ordered.forEach(function(item){fragment.appendChild(item.row);});table.tBodies[0].appendChild(fragment);
+            });
+        });
+    }
+    for(var cd=0;cd<details.length;cd++) {
+        (function(panel){
+            var body=panel.querySelector('.dataset-body'),table=panel.querySelector('table'),pre=panel.querySelector('pre');
+            var toolbar=document.createElement('div');toolbar.className='dataset-tools';body.insertBefore(toolbar,body.firstChild);
+            copyButton(table?'Copy table': 'Copy text',toolbar,function(){return table?tableText(table):pre?pre.textContent:reportText(body);});
+            if(table){
+                var wrap=document.createElement('button');wrap.type='button';wrap.className='quiet-button';wrap.textContent='Wrap values';wrap.setAttribute('aria-pressed','false');
+                wrap.addEventListener('click',function(){var on=panel.classList.toggle('wrap-values');wrap.setAttribute('aria-pressed',String(on));wrap.textContent=on?'Compact rows':'Wrap values';});toolbar.appendChild(wrap);
+                var hint=document.createElement('span');hint.className='table-hint';hint.textContent='Select text to copy a value. Scroll sideways for wide tables. Copy table includes all rows.';toolbar.appendChild(hint);
+                enhanceTable(panel,table,toolbar);
+            }
+        }(details[cd]));
     }
     for (var d=0; d<details.length; d++) { details[d].open=details[d].getAttribute('data-default-open') === 'true'; }
     // Put actionable findings ahead of routine datasets without changing the
@@ -2618,7 +2778,17 @@ function Write-DocxTable {
             $Writer.WriteAttributeString('w', 'type', $wordNamespace, 'dxa')
             $Writer.WriteEndElement()
             $Writer.WriteEndElement()
-            Write-DocxParagraph -Writer $Writer -Text $cellText -Style 'TableText'
+            # Flat snapshot cells share one invariant paragraph/run format. Keep
+            # WriteString for XML escaping/character validation, never raw data.
+            # Exceptional/raw caller values retain the general multiline path.
+            if (($cellText -notmatch '[\x00-\x1F]') -and ($cellText -ceq $cellText.Trim())) {
+                $Writer.WriteRaw('<w:p><w:pPr><w:pStyle w:val="TableText" /></w:pPr><w:r><w:t xml:space="preserve">')
+                $Writer.WriteString($cellText)
+                $Writer.WriteRaw('</w:t></w:r></w:p>')
+            }
+            else {
+                Write-DocxParagraph -Writer $Writer -Text $cellText -Style 'TableText'
+            }
             $Writer.WriteEndElement()
         }
         $Writer.WriteEndElement()

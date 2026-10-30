@@ -1,9 +1,6 @@
 --- published-v3.2.10-normalized/Export-ServerInventory.ps1
 +++ candidate-normalized/Export-ServerInventory.ps1
-@@ -109,7 +109,12 @@
-     [switch]$IncludeSensitiveRoleExports,
- 
-     [Parameter()]
+@@ -112 +112,6 @@
 -    [bool]$CreateZip = $true
 +    [bool]$CreateZip = $true,
 +
@@ -11,26 +8,33 @@
 +    [Parameter()][ValidateRange(30, 3600)][int]$AclExportTimeoutSeconds = 120,
 +    [Parameter()][string]$AclControlPath = ''
 +    # END APPROVED ACL EXPORT PARAMETERS
- )
- 
- $ErrorActionPreference = 'Stop'
-@@ -195,6 +200,12 @@
- $script:transcriptStarted = $false
- $script:installedFeatures = @()
- $script:consolidatedReportResult = $null
+@@ -197,0 +203,6 @@
 +# BEGIN APPROVED ACL EXPORT STATE
 +$script:aclSkipRemaining = $false
 +$script:aclExportResults = @()
 +$script:aclExportsIncompleteCount = 0
 +$script:aclExportUnsafePending = $false
 +# END APPROVED ACL EXPORT STATE
- 
- 
- function ConvertTo-CategorySet {
-@@ -567,6 +578,205 @@
- 
- }
- 
+@@ -493 +504,16 @@
+-            $items | Export-Csv -Path ($BasePath + '.csv') -NoTypeInformation -Encoding UTF8 -Force
++            # Export-Csv stringifies array properties as System.String[] (and
++            # similar type names), losing values before the consolidated report
++            # reads this CSV. Flatten collection cells without mutating the typed
++            # objects already saved to CLIXML; retain scalar CSV formatting.
++            $items | ForEach-Object {
++                if ($null -eq $_) { return }
++                $csvRow = [ordered]@{}
++                foreach ($property in $_.PSObject.Properties) {
++                    $value = $property.Value
++                    if (($value -is [System.Collections.IEnumerable]) -and -not ($value -is [string])) {
++                        $value = ConvertTo-ReportText -Value $value -MaxLength 0
++                    }
++                    $csvRow[$property.Name] = $value
++                }
++                [pscustomobject]$csvRow
++            } | Export-Csv -Path ($BasePath + '.csv') -NoTypeInformation -Encoding UTF8 -Force
+@@ -568,0 +595,199 @@
++
 +# BEGIN APPROVED ACL EXPORT HELPERS
 +function Initialize-AclExportProcessType {
 +    if ('ServerInventory.AclExportProcess' -as [type]) { return }
@@ -229,14 +233,13 @@
 +    }
 +}
 +# END APPROVED ACL EXPORT HELPERS
-+
- function Export-RegistryKey {
-     param(
-         [Parameter(Mandatory = $true)]
-@@ -1286,7 +1496,13 @@
- 
-     $property = $InputObject.PSObject.Properties[$PropertyName]
-     if ($property) {
+@@ -1158,0 +1384,5 @@
++    elseif ($Value -is [string]) {
++        # CSV and report snapshots are already strings. Avoid one PowerShell
++        # function invocation per cell while retaining the exact normalization below.
++        $text = $Value
++    }
+@@ -1289 +1519,7 @@
 -        return $property.Value
 +        # Emit the property as one object, not as a PowerShell pipeline collection.
 +        # Enumerating here loses collection identity before ConvertTo-ReportText
@@ -245,48 +248,37 @@
 +        # A unary-comma envelope is unwrapped once by the pipeline; the original
 +        # value (including an empty or cyclic collection) remains intact.
 +        return ,$property.Value
-     }
- 
-     return $null
-@@ -2690,6 +2906,12 @@
-         Add-RoleRecoveryGap -List $recoveryGaps -Severity 'Critical' -Requirement 'File data backup with NTFS metadata' -Reason 'Share definitions and permissions do not contain the actual data.' -Action 'Confirm file data, ownership, ACLs, timestamps, and required alternate streams are protected by backup.'
-     }
- 
+@@ -2210 +2446,11 @@
+-            Write-DocxParagraph -Writer $Writer -Text $cellText -Style 'TableText'
++            # Flat snapshot cells share one invariant paragraph/run format. Keep
++            # WriteString for XML escaping/character validation, never raw data.
++            # Exceptional/raw caller values retain the general multiline path.
++            if (($cellText -notmatch '[\x00-\x1F]') -and ($cellText -ceq $cellText.Trim())) {
++                $Writer.WriteRaw('<w:p><w:pPr><w:pStyle w:val="TableText" /></w:pPr><w:r><w:t xml:space="preserve">')
++                $Writer.WriteString($cellText)
++                $Writer.WriteRaw('</w:t></w:r></w:p>')
++            }
++            else {
++                Write-DocxParagraph -Writer $Writer -Text $cellText -Style 'TableText'
++            }
+@@ -2692,0 +2939,6 @@
 +    # BEGIN APPROVED ACL EXPORT RECOVERY GAP
 +    if ($script:aclExportsIncompleteCount -gt 0) {
 +        Add-RoleRecoveryGap -List $recoveryGaps -Severity 'High' -Requirement 'Complete recursive NTFS ACL export' -Reason ('{0} recursive ACL export(s) were timed out, skipped, failed, or unfinished. Incomplete files are not complete backups.' -f $script:aclExportsIncompleteCount) -Action 'Review the ACL export results and mapping. Obtain and validate complete backups separately; do not restore .incomplete files.'
 +    }
 +    # END APPROVED ACL EXPORT RECOVERY GAP
 +
-     $restorableArtifacts = New-Object System.Collections.ArrayList
-     $artifactDefinitions = @(
-         [pscustomobject]@{ Purpose = 'Windows Firewall policy'; Path = (Join-Path $paths.Security 'Windows-Firewall-Policy.wfw'); Caution = 'Review before import on replacement hardware.' },
-@@ -2719,7 +2941,7 @@
-         [pscustomobject]@{ Purpose = 'Domain Group Policy backups'; Path = (Join-Path $paths.Roles 'Group-Policy\GPO-Backups'); Caution = 'Restore or import only through supported Group Policy procedures.' },
-         [pscustomobject]@{ Purpose = 'IIS configuration backup'; Path = (Join-Path $paths.Roles 'IIS\IIS-Configuration-Backup'); Caution = 'Does not contain site content, databases, secrets, or private keys.' },
-         [pscustomobject]@{ Purpose = 'Custom scheduled task XML'; Path = (Join-Path $paths.Software 'Scheduled-Task-XML-Custom'); Caution = 'Task passwords are not included and must be re-entered.' },
+@@ -2722 +2974 @@
 -        [pscustomobject]@{ Purpose = 'Recursive NTFS ACL backups'; Path = (Join-Path $paths.Shares 'Recursive-ICACLS-Backups'); Caution = 'Test ICACLS restore against the correct root paths.' },
 +        [pscustomobject]@{ Purpose = 'Recursive NTFS ACL backups'; Path = (Join-Path $paths.Shares 'Recursive-ICACLS-Backups'); Caution = 'Review ICACLS-Mapping.csv: only Completed rows reference complete .acl files. Never restore .incomplete files. Test restore against the correct root paths.' },
-         [pscustomobject]@{ Purpose = 'Local Group Policy files'; Path = (Join-Path $paths.Security 'Local-Group-Policy-Files'); Caution = 'Review applicability before copying to a replacement server.' },
-         [pscustomobject]@{ Purpose = 'Public certificate exports'; Path = (Join-Path $paths.Security 'Public-Certificate-Exports'); Caution = 'Public certificates only. Private keys and PFX files are intentionally not included.' }
-     )) {
-@@ -2950,6 +3172,10 @@
-     Add-ReportTable -Title 'SMB shares' -Rows $shares -Columns @('Name', 'Path', 'Description', 'ScopeName', 'Special', 'Temporary', 'FolderEnumerationMode', 'CachingMode', 'EncryptData', 'ContinuouslyAvailable') -MaxRows 3000
-     Add-ReportTable -Title 'SMB share permissions' -Rows $sharePermissions -Columns @('ShareName', 'AccountName', 'AccessControlType', 'AccessRight', 'Error') -MaxRows 10000
-     Add-ReportTable -Title 'Share-root NTFS permissions' -Rows $rootNtfs -Columns @('ShareName', 'Path', 'Owner', 'IdentityReference', 'AccessControlType', 'FileSystemRights', 'InheritanceFlags', 'PropagationFlags', 'IsInherited', 'Error') -MaxRows 20000
+@@ -2952,0 +3205,4 @@
 +    # BEGIN APPROVED ACL EXPORT REPORT TABLE
 +    Add-ReportTable -Title 'Recursive NTFS ACL export results' -Rows @($script:aclExportResults) -Columns @('ShareName', 'SourcePath', 'Status', 'ElapsedSeconds', 'TimeoutSeconds', 'ExitCode', 'AclFile', 'Note') -MaxRows 3000 -EmptyMessage 'Recursive ACL exports were not selected, or no eligible shares were present.'
 +    if ($script:aclExportsIncompleteCount -gt 0) { Add-ReportParagraph -Text 'One or more recursive ACL exports are incomplete. See the per-share results and ICACLS-Mapping.csv before considering any restore.' -Warning }
 +    # END APPROVED ACL EXPORT REPORT TABLE
-     Add-ReportParagraph -Text 'Share definitions and permissions are not file-data backups. Confirm data backup and restore testing before relying on this inventory.' -Warning
- 
-     Add-ReportHeading -Text '11. Role-Specific Configuration' -Level 1 -PageBreakBefore
-@@ -4553,31 +4779,18 @@
-         ) | Set-Content -Path (Join-Path $paths.Shares 'SMB-Share-Recreation-Guidance.txt') -Encoding UTF8
-     }
- 
+@@ -4555,0 +4812 @@
 +    # BEGIN APPROVED ACL EXPORT INVOCATION
-     if ($IncludeShareAclBackup -or (Test-ExportCategory -Category @('SharesPermissions'))) {
+@@ -4557,24 +4814,10 @@
 -        $aclBackupFolder = Join-Path $paths.Shares 'Recursive-ICACLS-Backups'
 -        New-Item -Path $aclBackupFolder -ItemType Directory -Force | Out-Null
 -        $aclMappings = New-Object System.Collections.ArrayList
@@ -321,26 +313,14 @@
 +    throw 'An owned ACL export child or output stream could not be confirmed stopped. Collection stopped; no completion marker or ZIP will be created. Partial ACL files are incomplete.'
 +}
 +# END APPROVED ACL EXPORT TERMINATION GUARD
- 
- Invoke-Collector -Name 'Existing Windows Server Backup metadata' -Action {
-     if (Get-Command wbadmin.exe -ErrorAction SilentlyContinue) {
-@@ -5730,6 +5943,10 @@
- 
- $collectorCompletion = [pscustomobject]@{
-     Status        = 'Completed'
+@@ -5732,0 +5976,4 @@
 +    # BEGIN APPROVED ACL EXPORT COMPLETION METADATA
 +    IncompleteAclExports = $script:aclExportsIncompleteCount
 +    AclExportStatus = $(if ($script:aclExportsIncompleteCount -gt 0) { 'Incomplete' } else { 'NoIncompleteExports' })
 +    # END APPROVED ACL EXPORT COMPLETION METADATA
-     CompletedAt   = Get-Date
-     ComputerName  = $env:COMPUTERNAME
-     ScriptVersion = $scriptVersion
 --- published-v3.2.10-normalized/Run-Inventory.ps1
 +++ candidate-normalized/Run-Inventory.ps1
-@@ -38,7 +38,12 @@
-     [int]$EventLogDays = 30,
- 
-     [Parameter()]
+@@ -41 +41,6 @@
 -    [switch]$IncludeSensitive
 +    [switch]$IncludeSensitive,
 +
@@ -348,17 +328,8 @@
 +    [Parameter()][ValidateRange(30, 3600)][int]$AclExportTimeoutSeconds = 120,
 +    [Parameter()][string]$AclControlPath = ''
 +    # END APPROVED ACL EXPORT PARAMETERS
- )
- 
- $ErrorActionPreference = 'Stop'
-@@ -153,6 +158,10 @@
-         InventoryCategoryList = $InventoryCategoryList
-         ExportCategoryList = $ExportCategoryList
-         EventLogDays = $EventLogDays
+@@ -155,0 +161,4 @@
 +        # BEGIN APPROVED ACL EXPORT FORWARDING
 +        AclExportTimeoutSeconds = $AclExportTimeoutSeconds
 +        AclControlPath = $AclControlPath
 +        # END APPROVED ACL EXPORT FORWARDING
-     }
- 
-     if ($IncludeDomainInventory) {

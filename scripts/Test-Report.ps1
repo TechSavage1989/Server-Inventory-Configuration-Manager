@@ -1,4 +1,4 @@
-# Exercise the real collector's report functions with synthetic infrastructure data.
+﻿# Exercise the real collector's report functions with synthetic infrastructure data.
 # Parse function definitions only. Never execute the collector's inventory commands.
 [CmdletBinding()]
 param([string]$OutputDirectory=(Join-Path $PSScriptRoot '..\build\report-validation'))
@@ -68,6 +68,16 @@ $routes=@(for($i=1;$i -le 1500;$i++){[pscustomobject]@{Destination=('198.51.'+[M
 Add-ReportTable -Title 'Routing table' -Rows $routes -Columns @('Destination','NextHop','Interface','Metric','Note') -MaxRows 5000
 Add-ReportPreformatted -Title 'Native command output' -Text "First line`nSecond line: preserved whitespace`nLAST-RAW-LINE"
 Add-ReportTable -Title 'Escaping and long text' -Rows @([pscustomobject]@{Name='Unsafe-looking inventory value';Value='<script>window.__reportInjected=1</script><img src="https://example.invalid/tracker" onerror="window.__reportInjected=2"> & quotes "remain text"'},[pscustomobject]@{Name='Long path';Value=('C:\Engineering\'+('LongFolderName\'*45)+'evidence.txt')}) -Columns @('Name','Value')
+# Copy/layout regressions cover values as actually normalized into report blocks.
+Add-ReportTable -Title 'Copy edge cases' -Rows @(
+ [pscustomobject]@{Name='Command';Value='powershell.exe -NoProfile -Command "Get-Item ''C:\Synthetic path\資料''"';Status='Success'},
+ [pscustomobject]@{Name='Array';Value=@('alpha','βeta','資料');Status='Warning'},
+ [pscustomobject]@{Name='Multiline';Value="line one`tquoted `"value`"`nline two";Status='Failed'},
+ [pscustomobject]@{Name='Empty';Value='';Status=''},
+ [pscustomobject]@{Name='Error';Value='[value could not be rendered in consolidated report: synthetic error]';Status='Error'},
+ [pscustomobject]@{Name='Unicode';Value='Résumé – 資料 – Δοκιμή – 😀';Status='Complete'}
+) -Columns @('Name','Value','Status')
+Add-ReportPreformatted -Title 'Copy raw multiline' -Text "First line`n  leading spaces`tcolumn`r`nquoted `"value`"`n資料 😀`nFINAL-COPY-LINE"
 Add-ReportTable -Title 'Truncated source snapshot' -Rows @([pscustomobject]@{Value='first preserved row'},[pscustomobject]@{Value='second preserved row'},[pscustomobject]@{Value='row remains in raw export'}) -Columns @('Value') -MaxRows 2
 Add-ReportHeading -Text '7. Installed Applications and Data Connectivity'
 Add-ReportTable -Title 'Installed applications' -Rows @([pscustomobject]@{Name='Sample management agent';Version='4.2';Publisher='Example';InstallLocation='C:\Program Files\Example'},[pscustomobject]@{Name='Sample backup agent';Version='8.1';Publisher='Example';InstallLocation='C:\Program Files\Backup'}) -Columns @('Name','Version','Publisher','InstallLocation')
