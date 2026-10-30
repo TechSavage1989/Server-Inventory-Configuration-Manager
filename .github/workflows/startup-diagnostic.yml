@@ -1,0 +1,42 @@
+name: Synthetic startup diagnostic (no inventory)
+on:
+  push:
+    branches: [diagnostic/startup-stackoverflow-3210]
+permissions:
+  contents: read
+jobs:
+  startup-self-tests:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2022, windows-2025]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run exact published startup self-tests in an isolated PowerShell 5.1 process
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          New-Item -ItemType Directory build/startup-diagnostic -Force | Out-Null
+          $stdout=Join-Path $PWD 'build/startup-diagnostic/stdout.txt'
+          $stderr=Join-Path $PWD 'build/startup-diagnostic/stderr.txt'
+          $probe=Join-Path $PWD 'scripts/Test-StartupSelfTests.ps1'
+          $collector=Join-Path $PWD 'src/app/Export-ServerInventory.ps1'
+          $arguments='-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "'+$probe+'" -CollectorPath "'+$collector+'"'
+          $child=Start-Process -FilePath "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe" -ArgumentList $arguments -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+          $completed=$child.WaitForExit(60000)
+          if(-not $completed){ $child.Kill(); $child.WaitForExit() }
+          $child.Refresh()
+          $exitCode=$child.ExitCode
+          Get-Content $stdout
+          Get-Content $stderr
+          [pscustomobject]@{Completed=$completed;ExitCode=$exitCode;HostPowerShell=$PSVersionTable.PSVersion.ToString();OS=[Environment]::OSVersion.VersionString;SourceCommit='${{ github.sha }}'} | ConvertTo-Json | Set-Content build/startup-diagnostic/result.json -Encoding UTF8
+          if(-not $completed){throw 'Synthetic startup probe timed out.'}
+          if($exitCode -ne 0){throw ('Synthetic startup probe exited: '+$exitCode)}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: startup-diagnostic-${{ matrix.os }}
+          path: build/startup-diagnostic/
+          retention-days: 7
