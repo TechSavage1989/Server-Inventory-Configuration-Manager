@@ -39,3 +39,27 @@ Write-Host 'BEGIN original startup prefix (terminates before the first CIM inven
 & ([scriptblock]::Create($prefix)) -OutputRoot $syntheticRoot -PackageName 'synthetic-startup' -RunId 'SYNTHETIC' -InventoryCategoryList 'All' -ExportCategoryList 'DHCP;DNS;GroupPolicy;IIS;Firewall;Certificates;ScheduledTasks;SharesPermissions;PrintServices;RRAS;SQLServer;Registry'
 if ($script:transcriptStarted) { Stop-Transcript | Out-Null }
 Write-Host 'PASS original startup prefix; no inventory queries were executed.'
+# Preserve the exact complete script compilation context while preventing inventory.
+# The first inventory operation is an unqualified Get-CimInstance call. A function
+# takes precedence over that cmdlet and throws before any CIM query can occur.
+function global:Get-CimInstance {
+    [CmdletBinding()]
+    param([string]$ClassName)
+    throw 'SYNTHETIC_INVENTORY_BARRIER'
+}
+if ((Get-Command Get-CimInstance).CommandType -ne 'Function') { throw 'Inventory barrier not installed.' }
+Write-Host 'BEGIN byte-identical complete collector with first-query barrier'
+$barrierReached=$false
+try {
+    & $CollectorPath -OutputRoot $syntheticRoot -PackageName 'synthetic-complete-script' -RunId 'SYNTHETIC' -InventoryCategoryList 'All' -ExportCategoryList 'DHCP;DNS;GroupPolicy;IIS;Firewall;Certificates;ScheduledTasks;SharesPermissions;PrintServices;RRAS;SQLServer;Registry'
+}
+catch {
+    if ($_.Exception.Message -ne 'SYNTHETIC_INVENTORY_BARRIER') { throw }
+    $barrierReached=$true
+}
+finally {
+    if ($script:transcriptStarted) { Stop-Transcript | Out-Null }
+    Remove-Item Function:\Get-CimInstance -ErrorAction SilentlyContinue
+}
+if (-not $barrierReached) { throw 'Expected first-inventory barrier was not reached.' }
+Write-Host 'PASS byte-identical complete collector reached the barrier; zero inventory queries executed.'
