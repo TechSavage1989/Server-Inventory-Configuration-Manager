@@ -212,8 +212,20 @@ __REPORT_CSS__
                     foreach ($row in @($block.Rows)) {
                         [void]$builder.AppendLine('<tr>')
                         foreach ($column in @($block.Columns)) {
-                            $value = Get-ReportCellText -InputObject $row -PropertyName $column -MaxLength 2500
-                            $text = ConvertTo-HtmlText $value
+                            # Add-ReportTable snapshots cells as flat strings. Keep a
+                            # fallback for callers supplying raw/custom properties, but
+                            # do not traverse and normalize every snapshot three times.
+                            $property = $null
+                            if ($null -ne $row) { $property = $row.PSObject.Properties[$column] }
+                            if (($property -is [System.Management.Automation.PSNoteProperty]) -and ($property.Value -is [string]) -and ($property.Value.Length -le 2500) -and ($property.Value -notmatch '[\x00-\x1F]') -and ($property.Value -ceq $property.Value.Trim())) {
+                                $value = $property.Value
+                                try { $text = [System.Net.WebUtility]::HtmlEncode($value) }
+                                catch { $text = [System.Security.SecurityElement]::Escape($value) }
+                            }
+                            else {
+                                $value = Get-ReportCellText -InputObject $row -PropertyName $column -MaxLength 2500
+                                $text = ConvertTo-HtmlText $value
+                            }
                             if ($column -match '^(Status|Severity)$') {
                                 $status = ''
                                 if ($value -match '^(Success|Complete|Completed)$') { $status = 'success' }

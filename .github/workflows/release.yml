@@ -67,6 +67,12 @@ jobs:
       - name: Generate real HTML and Word report fixtures
         shell: powershell
         run: .\scripts\Test-Report.ps1
+      - name: Test real saved report values without collection
+        shell: powershell
+        run: .\scripts\Test-ReportValues.ps1
+      - name: Verify optimized report output parity without collection
+        shell: powershell
+        run: .\scripts\Test-ReportPerformance.ps1
       - name: Compile Windows resources
         shell: powershell
         run: python .\scripts\build_resources.py --version '${{ steps.version.outputs.version }}'
@@ -102,6 +108,10 @@ jobs:
           node .\scripts\test_workspace.cjs
           if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
           node .\scripts\test_report.cjs
+          if ($LASTEXITCODE -ne 0) { throw "Report browser validation failed" }
+          node .\scripts\test_report_copy_logic.cjs
+          if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
+          node .\scripts\test_report_copy.cjs
           if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
       - name: Test native replacement and visible health confirmation
         shell: powershell
@@ -131,6 +141,8 @@ jobs:
             build/icon-header-validation.png
             build/shell-icon-*.png
             build/report-validation/
+            build/report-values/
+            build/report-performance/parity/
             build/workspace-validation/
   published-upgrade:
     needs: publish

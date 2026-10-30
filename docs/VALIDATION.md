@@ -1,3 +1,15 @@
+## Unpublished report candidate — local validation, 2026-10-30
+
+- `Test-Source.ps1`, renderer embedding check, baseline verifier, seven collector-provenance negative controls, layout and icon-source tests: passed.
+- Actual synthetic PowerShell report generation: four checks passed (collector parse, self-contained HTML, unchanged shared blocks, identical baseline fixture dataset).
+- `Test-ReportValues.ps1`: actual legacy CSV negative control reproduces `System.String[]`; new array values survive CSV → HTML/Word; scalar formatting/schema, source inputs and full raw CLIXML preserved; bounded collection omissions explicit.
+- `Test-ReportPerformance.ps1`: 52 conversion comparisons and 17 HTML fallback cells byte-identical; Word document XML byte-identical, including raw, null, missing, hashtable, long, Unicode, cyclic and error cases.
+- `test_report_copy_logic.cjs`: ten production-JavaScript logic tests passed for filtering, stable natural sorting/reset, complete TSV, Clipboard API/legacy/manual paths and stale async callbacks. These VM tests are not browser, layout or actual clipboard proof.
+- 80,000-cell synthetic benchmark (four tables × 2,500 rows × eight columns): mean snapshot + HTML + Word time **66.104s → 21.135s**; HTML **23.854s → 1.292s**, Word **29.275s → 8.573s**. All 80,032 cells/headers matched; Word document XML was byte-identical. One discarded warmup and two measured iterations per implementation; Linux PowerShell 7.4.13 only. Full reproducible evidence, hashes and limitations: `docs/verification/report-performance.json`.
+- Not measured: live server collection, output ZIP compression, remote/filesystem latency, Windows PowerShell 5.1, Windows-native UI or the user's actual machine. Timing improvement is not a user-host guarantee.
+- Actual browser/visual/clipboard/print suites are **not run locally**: Chromium launch was blocked by sandbox socket restrictions; the single escalation failed environment setup. Cloud browser also rejected the local-file protocol. No denied path/access was bypassed and no visual pass is claimed. JavaScript syntax and workflow YAML parsing passed; new copy/filter/sort browser tests and value/performance parity gates are wired into both Windows workflows for authorized hosted execution.
+- Source versions advance consistently to 3.2.12; release/VERSION remains 3.2.11 until source CI passes. The user authorized branch validation followed by merge/publication only after passing checks. Published assets remain unchanged. No live customer inventory or private screenshot is in the changes.
+
 ## 3.2.11 published and verified — 2026-10-30
 
 - Release/tag: [v3.2.11](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.11), commit `56969491c44b97df730e55d502d5fa57e4542538`; PR #2 merged with publication authorization.
