@@ -1,14 +1,25 @@
-## 3.2.11 prepublication verification
+## 3.2.11 published and verified — 2026-10-30
+
+- Release/tag: [v3.2.11](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.11), commit `56969491c44b97df730e55d502d5fa57e4542538`; PR #2 merged with publication authorization.
+- Stable EXE: 6,627,328 bytes; SHA-256 `f981f2c557452c6d72469b4b16b88e8522a4e56ed6d11390c47c1fd8ede5a519`. Downloaded bytes identify a clean Go 1.20.14 Windows x64 GUI build at that exact commit.
+- [Exact-release Windows CI](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/41118047135) and [publication/full upgrade](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/41118047397) passed.
+- All 43 actual 3.2.10-to-3.2.11 upgrade checks passed in one run, with no reused timer evidence and zero unexpected dialogs: automatic detection, explicit Download/Install, cross-volume replacement, old-profile closure, guest/extension/sync flags, visible native health, settings, shortcut/icon, actual two-minute focus/five-minute scheduler waits, saved profile/window restoration, staging cleanup and failed-health rollback/relaunch.
+- All 12 public assets were independently downloaded and verified against sizes/digests; all five checksum sidecars match. The latest feed returns 3.2.11 and a genuine conditional HTTP 304. All 12 previous 3.2.10 asset identities/sizes/digests and its release identity/commit remain unchanged.
+- Structured evidence and exact upgrade checks: `release/3.2.11-verification.json`. The upgrade artifact digest is `b7767634362fd318cc3392b9c145cd8beac12d5cdebe9f85e610abad1bdffab1`.
+
+Limits: synthetic data and hosted Windows/Edge testing; the separately confirmed affected Server 2019 startup probe establishes only the targeted startup fix, not completed live inventory. No live server-role collection, customer ACL export, human UAC/desktop interaction, Office visual validation, physical monitor/mixed-DPI, native folder-dialog automation or Chrome guest field testing is claimed. Focus uses a DOM event after a real elapsed wait. The ICACLS bound is not a timeout for all filesystem/SMB operations. SHA-256 provides byte validation, not publisher signing; repository immutable locking remains disabled and published assets must never be replaced.
+
+## Historical 3.2.11 prepublication verification
 
 Full hosted Windows source CI passed at f480504618b0f26f292e5452a28b84f9293391de (run 41115762285) and release-preparation commit 4f45056ea7a752c9df09a265df2dfdea9330531a (run 41116306822). This includes 14 synthetic startup checks, 18 bounded ACL worker checks, standalone probe validation, original provenance and negative controls, report/Word fixtures, clean source archive rebuild, native Go tests/vet, production browser regressions, and real native helper installation/visible health. Neither run collects server inventory.
 
 On 2026-10-30 the user also ran the candidate synthetic probe on the actual affected Server 2019 / Windows PowerShell 5.1.17763.9121 / CLR 4.8.4811.0 host: finished within timeout, child exit 0, all candidate startup checkpoints passed, stderr empty. Payload SHA256 BFA795D71C8D661C004ADD91E3C6D9E37DACE9A40A2E6433047A2F3CB48079DC; getter SHA256 D83AE3F322BD07B722576C6CA0F5F6E4BE702B51E4700D5954E575FD53AFE28F. The finite published getter negative control reproduced identity loss; the candidate retained identity and passed the previously fatal cyclic table snapshot. This confirms the targeted startup fix on that runtime, not full live inventory completion.
 
-The user explicitly authorized publication after validation. Publication and subsequent public-download/real previous-to-new upgrade verification are pending; no published success is claimed by this source note.
+The user explicitly authorized publication after validation. This prepublication note is historical; publication and the full previous-to-new upgrade subsequently passed as recorded above.
 
 # DEVELOPMENT_HANDOFF.md
 
-## 3.2.11 candidate: startup cycle handling and responsive ACL exports (not published)
+## Historical 3.2.11 candidate scope: startup cycle handling and responsive ACL exports
 
 The user authorized a focused build after a recursive permissions export on Server 2025 remained at the SMB collector stage for at least twenty minutes. ICACLS was still running with reported CPU activity; that is not proof of a deadlock. The published code emits no per-share heartbeat and has no timeout for this child. Requested scope is per-share status/elapsed time, a configurable bound, Skip remaining recursive ACL exports/Cancel, and explicit incomplete-export reporting. No live customer inventory, SMB settings change, or termination of the user's running process is authorized by this work. The configured bound covers the owned ICACLS process and bounded child/output cleanup, not every filesystem operation or collector. Synchronous output-folder setup, mapping writes, file promotion, earlier SMB queries and remote filesystem I/O can still wait; the independent application host and whole-collection Cancel remain the escape path.
 
@@ -16,7 +27,7 @@ Separately, the original 3.2.10 synthetic startup helper probe reproduced StackO
 
 The exact published 3.2.10 collector and wrapper are archived under baseline/v3.2.10/collectors, pinned to their published SHA-256 identities. Approved edit regions have separate before/after hashes and a human-readable diff; unchanged bytes and the original 3.0.10 provenance remain protected. The original baseline-verification.json is unchanged. HTML report styling, Word/text rendering, icon, unrelated collectors, updater and release history are not intentionally changed.
 
-Validation status: implementation and candidate validation are in progress. No new Windows-native, UI, timeout/cancellation, affected-2019, source-archive, or upgrade pass is claimed here until exact candidate evidence is recorded. Source version is being prepared as 3.2.11, while release/VERSION and the public feed remain 3.2.10. No release/tag/asset has been created or overwritten. Publication requires separate authorization.
+Historical candidate-stage status (superseded by the published verification above): implementation and candidate validation were in progress. No new Windows-native, UI, timeout/cancellation, affected-2019, source-archive, or upgrade pass is claimed here until exact candidate evidence is recorded. Source version is being prepared as 3.2.11, while release/VERSION and the public feed remain 3.2.10. No release/tag/asset has been created or overwritten. Publication requires separate authorization.
 
 
 ## Collection workspace review: 3.2.10 published
@@ -61,7 +72,7 @@ The maintained Go Windows executable package and unchanged embedded collector/UI
 - Uploaded baseline EXE SHA-256: 572bf173917330a2fde4b4bf67df998f9f29522c8814d5350b50826caf38ee4e.
 - The original v3.0.10 source ZIP was located. Its bundled EXE matches the uploaded baseline exactly; no EXE decompilation was used.
 - Source provenance and original file hashes: docs/verification/baseline-verification.json.
-- Latest published executable: v3.2.10, source commit 24e79e92e50d4eba3f8b6afb492e7b9e3991c322.
+- Latest published executable: v3.2.11, source commit 56969491c44b97df730e55d502d5fa57e4542538. Previous v3.2.10 remains unchanged at 24e79e92e50d4eba3f8b6afb492e7b9e3991c322.
 - Earlier v3.2.9 remains unchanged at commit 96d30c340565e6ea6e2ea68b70ff87b4f4d1894f. Its redesigned HTML report is preserved.
 - Earlier v3.2.8 remains unchanged at commit 2294a921d4a85fbbb1ea5f6e551ad6861973acea. Its desktop/Explorer icon behavior is retained in 3.2.9.
 - Earlier v3.2.7 remains unchanged at commit aabec80e9e8fa95aba8297ca0e6a2941479db8df. Its native EXE icon is correct; 3.2.8 additionally repairs old shortcut icon references and refreshes shell items.
