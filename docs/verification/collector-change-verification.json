@@ -1,0 +1,169 @@
+{
+  "schema_version": 1,
+  "compared_revision": "81e2a0e5a598df6e8edd7bb533e2f02b915a9c7b",
+  "compared_release": "v3.2.10",
+  "approval": "Targeted startup cyclic-table handling and responsive, bounded recursive ACL export; no other collector behavior changes authorized.",
+  "normalization": "Standalone scriptVersion normalized to3.0.0; separately pinned HTML renderer restored to original before region comparison.",
+  "files": {
+    "Export-ServerInventory.ps1": {
+      "archive_path": "baseline/v3.2.10/collectors/Export-ServerInventory.ps1",
+      "archive_sha256": "b072c3cf15f1cef14df397718a311a753cfae0a7b12ebf4380fbed4a2d01c091",
+      "regions": [
+        {
+          "before_start": 3855,
+          "before_end": 3884,
+          "before_start_line_normalized": 112,
+          "before_end_line_normalized": 112,
+          "before_sha256": "9179599f9dc4238c9014e9ed3d942f448b85dfeb326c0dffdadd4a1b5452441a",
+          "after_length": 240,
+          "after_sha256": "9ce4c73131931bf0401dfd05b595d48051218f5f35f7f62f62cdbe9215dfda40",
+          "reason": "Bounded recursive ACL export progress, ownership, control or incomplete-result propagation"
+        },
+        {
+          "before_start": 6930,
+          "before_end": 6930,
+          "before_start_line_normalized": 198,
+          "before_end_line_normalized": 197,
+          "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "after_length": 209,
+          "after_sha256": "2d4bbde868d9f059dbf72013b2333840bf0997880a299425a9bf8bf63f341c2a",
+          "reason": "Bounded recursive ACL export progress, ownership, control or incomplete-result propagation"
+        },
+        {
+          "before_start": 22884,
+          "before_end": 22884,
+          "before_start_line_normalized": 569,
+          "before_end_line_normalized": 568,
+          "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "after_length": 12358,
+          "after_sha256": "0e438958234eb74bc77b4019129b378da45751ef01a4cb7c9f7e511a00b071eb",
+          "reason": "Bounded recursive ACL export progress, ownership, control or incomplete-result propagation"
+        },
+        {
+          "before_start": 64128,
+          "before_end": 64159,
+          "before_start_line_normalized": 1289,
+          "before_end_line_normalized": 1289,
+          "before_sha256": "bd8c120aa58ef96c9075fa6bce5ca7676dc995c29bba754d0c6eda0e134200f2",
+          "after_length": 517,
+          "after_sha256": "035de05dc7dd6fcb6e53ac7abf48891024087b7a0b08a2fc2984ef1813d2f87f",
+          "reason": "Preserve report property collection identity before cyclic/nesting guards"
+        },
+        {
+          "before_start": 137923,
+          "before_end": 137923,
+          "before_start_line_normalized": 2693,
+          "before_end_line_normalized": 2692,
+          "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "after_length": 565,
+          "after_sha256": "41e0a17c78e7bda375e11ae3731219d2e36ed07afb3f957e879426bdd6a4dd44",
+          "reason": "Bounded recursive ACL export progress, ownership, control or incomplete-result propagation"
+        },
+        {
+          "before_start": 142154,
+          "before_end": 142349,
+          "before_start_line_normalized": 2722,
+          "before_end_line_normalized": 2722,
+          "before_sha256": "1ca701cb5090626dbbcc9c45d67bcf804209b9e6c4016f060bcf1bec18fbf561",
+          "after_length": 299,
+          "after_sha256": "9af9212d124385dee25fcb702000fb1b86fa143a00eb7880acefd93d0bad0949",
+          "reason": "Bounded recursive ACL export progress, ownership, control or incomplete-result propagation"
+        },
+        {
+          "before_start": 175090,
+          "before_end": 175090,
+          "before_start_line_normalized": 2953,
+          "before_end_line_normalized": 2952,
+          "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "after_length": 628,
+          "after_sha256": "c27787b24f80136854f4ab764a80bfcc12670e828504c681738498ba905a86a6",
+          "reason": "Bounded recursive ACL export progress, ownership, control or incomplete-result propagation"
+        },
+        {
+          "before_start": 291794,
+          "before_end": 291794,
+          "before_start_line_normalized": 4556,
+          "before_end_line_normalized": 4555,
+          "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "after_length": 43,
+          "after_sha256": "653f9e2add7ac044ae6991d46acf5ec11933c26b0bad9e535c487d133e6df5f8",
+          "reason": "Bounded recursive ACL export progress, ownership, control or incomplete-result propagation"
+        },
+        {
+          "before_start": 291887,
+          "before_end": 292106,
+          "before_start_line_normalized": 4557,
+          "before_end_line_normalized": 4559,
+          "before_sha256": "d72315acd5bc85027410ca732d11c58494bf11c052cc8b202b91d4e5d388d1d0",
+          "after_length": 169,
+          "after_sha256": "ff965805a3568319bc5ccdf2dfc3c87444c3453daf62f2d35dca3f9ae3a93005",
+          "reason": "Bounded recursive ACL export progress, ownership, control or incomplete-result propagation"
+        },
+        {
+          "before_start": 292107,
+          "before_end": 293210,
+          "before_start_line_normalized": 4561,
+          "before_end_line_normalized": 4579,
+          "before_sha256": "4beab5091dd7ef3fc2f0f0080ef7300d4d125e31d2a95d1219816eadc07f931f",
+          "after_length": 270,
+          "after_sha256": "8c997d3616ebf23e47e1b65763080e76c5969a2e6fc90e86acbab8be87144110",
+          "reason": "Bounded recursive ACL export progress, ownership, control or incomplete-result propagation"
+        },
+        {
+          "before_start": 293212,
+          "before_end": 293212,
+          "before_start_line_normalized": 4581,
+          "before_end_line_normalized": 4580,
+          "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "after_length": 44,
+          "after_sha256": "eddc1c5161d844df4fcc5450312036a6014c4e553b5bd026c7437cbabc6e6dc9",
+          "reason": "Bounded recursive ACL export progress, ownership, control or incomplete-result propagation"
+        },
+        {
+          "before_start": 370683,
+          "before_end": 370683,
+          "before_start_line_normalized": 5733,
+          "before_end_line_normalized": 5732,
+          "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "after_length": 281,
+          "after_sha256": "7ef77874ca3ba975233daec7725dabfe82624b080a22b949aaa08d3b3dc73672",
+          "reason": "Bounded recursive ACL export progress, ownership, control or incomplete-result propagation"
+        }
+      ],
+      "normalized_archive_sha256": "0828ac2d0504bbd7270e0e4252a48b7deded6e9832d79c2f413765c4e1be2b19",
+      "normalized_candidate_sha256": "cdcc75b292901562282863a03389f78247c50126d2d47f7323c1a07594926c41"
+    },
+    "Run-Inventory.ps1": {
+      "archive_path": "baseline/v3.2.10/collectors/Run-Inventory.ps1",
+      "archive_sha256": "dfb7922b697bf6110eacd02fff1053ec5b0a3724dd5e4c1d98d6c4dbe45baec7",
+      "regions": [
+        {
+          "before_start": 757,
+          "before_end": 787,
+          "before_start_line_normalized": 41,
+          "before_end_line_normalized": 41,
+          "before_sha256": "aee36cca525a01e7540a214ee2e1b5599da40fbb54202983f1e73bf60304affa",
+          "after_length": 241,
+          "after_sha256": "1b219dfa3d7657991b4a97fff455d4dc4ffda5cf59296d488b5bed26709e72d8",
+          "reason": "Validated ACL timeout and internal run-scoped skip-control forwarding"
+        },
+        {
+          "before_start": 5144,
+          "before_end": 5144,
+          "before_start_line_normalized": 156,
+          "before_end_line_normalized": 155,
+          "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "after_length": 192,
+          "after_sha256": "ade3d253b088e55fd051ca1ab8ec4ac7efec2b00c0c0193d3f7a6eed1045abe0",
+          "reason": "Validated ACL timeout and internal run-scoped skip-control forwarding"
+        }
+      ],
+      "normalized_archive_sha256": "dfb7922b697bf6110eacd02fff1053ec5b0a3724dd5e4c1d98d6c4dbe45baec7",
+      "normalized_candidate_sha256": "98bd8645a7fbc40779c0a5a3a6f1463e585820a32e5be3e35e91c4f3490d497c"
+    }
+  },
+  "reviewed_diff": {
+    "path": "docs/verification/collector-approved-changes.diff",
+    "sha256": "b2c71690e905ec4bae2c6892a5c0356c0170850ba0c6ed427045ce569e150f9a"
+  }
+}

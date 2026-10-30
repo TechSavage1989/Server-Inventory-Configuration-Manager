@@ -31,8 +31,8 @@ import (
 
 const (
 	appName            = "Server Inventory Configuration Manager"
-	appVersion         = "3.2.10"
-	collectorVersion   = "3.2.10"
+	appVersion         = "3.2.11"
+	collectorVersion   = "3.2.11"
 	applicationPageCSP = "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; frame-src 'self'"
 	maximumCollectors  = 49
 
@@ -98,11 +98,12 @@ type browseInfo struct {
 }
 
 type collectionOptions struct {
-	OutputRoot          string   `json:"outputRoot"`
-	InventoryCategories []string `json:"inventoryCategories"`
-	ExportCategories    []string `json:"exportCategories"`
-	EventLogDays        int      `json:"eventLogDays"`
-	IncludeSensitive    bool     `json:"includeSensitive"`
+	OutputRoot              string   `json:"outputRoot"`
+	InventoryCategories     []string `json:"inventoryCategories"`
+	ExportCategories        []string `json:"exportCategories"`
+	EventLogDays            int      `json:"eventLogDays"`
+	AclExportTimeoutSeconds int      `json:"aclExportTimeoutSeconds"`
+	IncludeSensitive        bool     `json:"includeSensitive"`
 }
 
 type logEntry struct {
@@ -111,6 +112,7 @@ type logEntry struct {
 }
 
 type stateResponse struct {
+	ACLExport               aclExportState         `json:"aclExport"`
 	CollectionPreferences   *collectionPreferences `json:"collectionPreferences,omitempty"`
 	AppVersion              string                 `json:"appVersion"`
 	Closing                 bool                   `json:"closing"`
@@ -182,6 +184,7 @@ type completionMarker struct {
 }
 
 type internalState struct {
+	ACLExport       aclExportState
 	Status          string
 	Phase           string
 	Message         string
@@ -227,6 +230,7 @@ type application struct {
 	cmd                     *exec.Cmd
 	launcherLog             *os.File
 	temporaryDirectory      string
+	aclControlPath          string
 	server                  *http.Server
 	shutdown                chan struct{}
 	shutdownOnce            sync.Once
@@ -1040,6 +1044,9 @@ func (a *application) logLauncher(format string, values ...any) {
 }
 
 func (a *application) parseLineLocked(line string) {
+	if a.parseACLExportLineLocked(line) {
+		return
+	}
 	upper := strings.ToUpper(line)
 	if strings.Contains(upper, "[WARN]") {
 		a.state.WarningCount++
@@ -1142,6 +1149,7 @@ func (a *application) snapshot(since int) stateResponse {
 		endedMs = a.state.EndedAt.UnixNano() / int64(time.Millisecond)
 	}
 	return stateResponse{
+		ACLExport:               a.state.ACLExport,
 		CollectionPreferences:   a.collectionPreferences,
 		AppVersion:              appVersion,
 		Closing:                 a.closing,
@@ -1787,6 +1795,7 @@ func (a *application) runCollection(options collectionOptions, packageName, runI
 	}
 	a.mu.Lock()
 	a.temporaryDirectory = temporaryDirectory
+	a.aclControlPath = filepath.Join(temporaryDirectory, "ACL-Control.json")
 	a.state.DiagnosticPath = temporaryDirectory
 	a.mu.Unlock()
 	a.logLauncher("Runtime diagnostics directory: %s", temporaryDirectory)
@@ -1844,6 +1853,8 @@ func (a *application) runCollection(options collectionOptions, packageName, runI
 		"-PackageName", packageName,
 		"-RunId", runID,
 		"-ResultPath", resultPath,
+		"-AclControlPath", filepath.Join(temporaryDirectory, "ACL-Control.json"),
+		"-AclExportTimeoutSeconds", strconv.Itoa(options.AclExportTimeoutSeconds),
 	}
 	arguments = append(arguments,
 		"-InventoryCategoryList", strings.Join(options.InventoryCategories, ";"),
@@ -2033,6 +2044,7 @@ func (a *application) serve(listener net.Listener) error {
 	mux.HandleFunc("/api/start", a.handleStart)
 	mux.HandleFunc("/api/preferences", a.handlePreferences)
 	mux.HandleFunc("/api/cancel", a.handleCancel)
+	mux.HandleFunc("/api/skip-acl-export", a.handleSkipACLExport)
 	mux.HandleFunc("/api/open", a.handleOpen)
 	mux.HandleFunc("/api/ui/ready", a.handleUIReady)
 	mux.HandleFunc("/api/update/check", a.handleUpdateCheck)

@@ -1,5 +1,16 @@
 # DEVELOPMENT_HANDOFF.md
 
+## 3.2.11 candidate: startup cycle handling and responsive ACL exports (not published)
+
+The user authorized a focused build after a recursive permissions export on Server 2025 remained at the SMB collector stage for at least twenty minutes. ICACLS was still running with reported CPU activity; that is not proof of a deadlock. The published code emits no per-share heartbeat and has no timeout for this child. Requested scope is per-share status/elapsed time, a configurable bound, Skip remaining recursive ACL exports/Cancel, and explicit incomplete-export reporting. No live customer inventory, SMB settings change, or termination of the user's running process is authorized by this work. The configured bound covers the owned ICACLS process and bounded child/output cleanup, not every filesystem operation or collector. Synchronous output-folder setup, mapping writes, file promotion, earlier SMB queries and remote filesystem I/O can still wait; the independent application host and whole-collection Cancel remain the escape path.
+
+Separately, the original 3.2.10 synthetic startup helper probe reproduced StackOverflowException on Windows Server 2019 / Windows PowerShell 5.1.17763.9121 / CLR 4.8.4811.0. All earlier probe checkpoints passed; the cyclic table snapshot call at original source line 3525 began but did not return. This establishes a startup report-table path failure before inventory, not a general .NET installation defect. The same original tests and byte-identical wrapper/collector startup passed hosted Server 2022/2025 with CLR 4.8.9363.0; that newer-runtime success does not establish Server 2019 compatibility. A fixed candidate needs confirmation against the affected runtime.
+
+The exact published 3.2.10 collector and wrapper are archived under baseline/v3.2.10/collectors, pinned to their published SHA-256 identities. Approved edit regions have separate before/after hashes and a human-readable diff; unchanged bytes and the original 3.0.10 provenance remain protected. The original baseline-verification.json is unchanged. HTML report styling, Word/text rendering, icon, unrelated collectors, updater and release history are not intentionally changed.
+
+Validation status: implementation and candidate validation are in progress. No new Windows-native, UI, timeout/cancellation, affected-2019, source-archive, or upgrade pass is claimed here until exact candidate evidence is recorded. Source version is being prepared as 3.2.11, while release/VERSION and the public feed remain 3.2.10. No release/tag/asset has been created or overwritten. Publication requires separate authorization.
+
+
 ## Collection workspace review: 3.2.10 published
 
 The user requested a broad review and useful functional/visual improvements. This source adds clearer profile/selection styling, category and description search, expandable exports, scope summaries, saved collection choices, inline action errors, log search/severity filtering/live-follow control, keyboard tabs and compact-window layouts. It corrects forced inventory reselection and the previously unlocked event-history field during collection. See docs/APP_REVIEW.md for findings and behavior.
