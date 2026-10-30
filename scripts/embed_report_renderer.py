@@ -9,9 +9,9 @@ start_marker = b'function Write-ConsolidatedHtmlReport {'
 end_marker = b'function Write-DocxTextRun {'
 
 def renderer():
-    text = (root/'reporting/Write-ConsolidatedHtmlReport.ps1').read_text()
-    text = text.replace('__REPORT_CSS__', (root/'reporting/report.css').read_text().rstrip())
-    text = text.replace('__REPORT_JS__', (root/'reporting/report.js').read_text().rstrip())
+    text = (root/'reporting/Write-ConsolidatedHtmlReport.ps1').read_text(encoding='utf-8')
+    text = text.replace('__REPORT_CSS__', (root/'reporting/report.css').read_text(encoding='utf-8').rstrip())
+    text = text.replace('__REPORT_JS__', (root/'reporting/report.js').read_text(encoding='utf-8').rstrip())
     assert '__REPORT_' not in text
     return (text.rstrip()+'\n\n').encode('utf-8')
 

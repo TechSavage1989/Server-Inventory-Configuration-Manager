@@ -1,4 +1,4 @@
-# Prove fast paths retain conversion and cell output, including fallback inputs.
+﻿# Prove fast paths retain conversion and cell output, including fallback inputs.
 # Functions only: no inventory commands are executed.
 [CmdletBinding()]
 param()

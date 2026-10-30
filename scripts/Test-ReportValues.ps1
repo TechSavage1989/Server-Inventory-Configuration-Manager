@@ -1,4 +1,4 @@
-# Synthetic export-to-report regression. Does not execute inventory collectors.
+﻿# Synthetic export-to-report regression. Does not execute inventory collectors.
 [CmdletBinding()]
 param([string]$OutputDirectory=(Join-Path $PSScriptRoot '../build/report-values'))
 $ErrorActionPreference='Stop'

@@ -1,4 +1,4 @@
-# Synthetic-only timing; loads function definitions, never inventory commands.
+﻿# Synthetic-only timing; loads function definitions, never inventory commands.
 [CmdletBinding()]
 param(
     [string]$SourcePath=(Join-Path $PSScriptRoot '../src/app/Export-ServerInventory.ps1'),

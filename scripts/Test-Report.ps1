@@ -1,4 +1,4 @@
-# Exercise the real collector's report functions with synthetic infrastructure data.
+﻿# Exercise the real collector's report functions with synthetic infrastructure data.
 # Parse function definitions only. Never execute the collector's inventory commands.
 [CmdletBinding()]
 param([string]$OutputDirectory=(Join-Path $PSScriptRoot '..\build\report-validation'))
