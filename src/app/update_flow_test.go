@@ -292,7 +292,15 @@ func TestBinaryVersionBoundaryAndMalformedPE(t *testing.T) {
 	if err := validateDownloadedExecutable(path, appVersion); err != nil {
 		t.Fatal("valid release executable rejected: ", err)
 	}
-	for _, v := range []string{"3.2.0", "3.2.10", "3.2.11"} {
+	// Derive mismatches from the built version so a future release cannot
+	// accidentally become its own negative control (as 3.2.10 once did).
+	parts := strings.Split(appVersion, ".")
+	patch, err := strconv.Atoi(parts[2])
+	if err != nil {
+		t.Fatal(err)
+	}
+	nextVersion := strings.Join(parts[:2], ".") + "." + strconv.Itoa(patch+1)
+	for _, v := range []string{"0.0.0", appVersion + "0", nextVersion} {
 		if validateDownloadedExecutable(path, v) == nil {
 			t.Fatal("wrong exact version accepted", v)
 		}
