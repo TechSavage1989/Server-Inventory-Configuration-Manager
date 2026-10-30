@@ -10,6 +10,10 @@ $SourceRoot = [IO.Path]::GetFullPath($SourceRoot)
 if ($LASTEXITCODE -ne 0) { throw "Repository layout validation failed" }
 & python (Join-Path $SourceRoot "tests/test_layout.py")
 if ($LASTEXITCODE -ne 0) { throw "Repository layout negative controls failed" }
+& python (Join-Path $SourceRoot "tests/test_collector_provenance.py")
+if ($LASTEXITCODE -ne 0) { throw "Collector provenance negative controls failed" }
+& python (Join-Path $SourceRoot "scripts/verify_baseline.py")
+if ($LASTEXITCODE -ne 0) { throw "Protected collector provenance validation failed" }
 
 $mainPath = Join-Path $SourceRoot 'src/app/main.go'
 $updatePath = Join-Path $SourceRoot 'src/app/update.go'

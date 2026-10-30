@@ -1,0 +1,364 @@
+--- published-v3.2.10-normalized/Export-ServerInventory.ps1
++++ candidate-normalized/Export-ServerInventory.ps1
+@@ -109,7 +109,12 @@
+     [switch]$IncludeSensitiveRoleExports,
+ 
+     [Parameter()]
+-    [bool]$CreateZip = $true
++    [bool]$CreateZip = $true,
++
++    # BEGIN APPROVED ACL EXPORT PARAMETERS
++    [Parameter()][ValidateRange(30, 3600)][int]$AclExportTimeoutSeconds = 120,
++    [Parameter()][string]$AclControlPath = ''
++    # END APPROVED ACL EXPORT PARAMETERS
+ )
+ 
+ $ErrorActionPreference = 'Stop'
+@@ -195,6 +200,12 @@
+ $script:transcriptStarted = $false
+ $script:installedFeatures = @()
+ $script:consolidatedReportResult = $null
++# BEGIN APPROVED ACL EXPORT STATE
++$script:aclSkipRemaining = $false
++$script:aclExportResults = @()
++$script:aclExportsIncompleteCount = 0
++$script:aclExportUnsafePending = $false
++# END APPROVED ACL EXPORT STATE
+ 
+ 
+ function ConvertTo-CategorySet {
+@@ -567,6 +578,205 @@
+ 
+ }
+ 
++# BEGIN APPROVED ACL EXPORT HELPERS
++function Initialize-AclExportProcessType {
++    if ('ServerInventory.AclExportProcess' -as [type]) { return }
++    Add-Type -TypeDefinition @'
++using System;
++using System.Diagnostics;
++using System.IO;
++using System.Text;
++using System.Threading.Tasks;
++namespace ServerInventory {
++    public sealed class AclExportProcess : IDisposable {
++        private Process process;
++        private FileStream outputFile, errorFile;
++        private Task outputCopy, errorCopy;
++        private bool started;
++        public bool HasExited { get { return process.HasExited; } }
++        public int Id { get { return process.Id; } }
++        public int ExitCode { get { return process.ExitCode; } }
++        private static string Quote(string value) {
++            if (value == null) value = "";
++            StringBuilder result = new StringBuilder("\"");
++            int slashes = 0;
++            foreach (char c in value) {
++                if (c == '\\') { slashes++; continue; }
++                if (c == '"') { result.Append('\\', slashes * 2 + 1); result.Append(c); slashes = 0; continue; }
++                result.Append('\\', slashes); slashes = 0; result.Append(c);
++            }
++            result.Append('\\', slashes * 2); result.Append('"'); return result.ToString();
++        }
++        public void Start(string executable, string[] arguments, string output, string error) {
++            if (process != null) throw new InvalidOperationException("An ACL export process can only be started once.");
++            outputFile = new FileStream(output, FileMode.CreateNew, FileAccess.Write, FileShare.Read, 1, true);
++            errorFile = new FileStream(error, FileMode.CreateNew, FileAccess.Write, FileShare.Read, 1, true);
++            ProcessStartInfo info = new ProcessStartInfo();
++            info.FileName = executable;
++            StringBuilder args = new StringBuilder();
++            foreach (string argument in arguments) { if (args.Length > 0) args.Append(' '); args.Append(Quote(argument)); }
++            info.Arguments = args.ToString(); info.UseShellExecute = false; info.CreateNoWindow = true;
++            info.RedirectStandardOutput = true; info.RedirectStandardError = true;
++            process = new Process(); process.StartInfo = info;
++            if (!process.Start()) throw new InvalidOperationException("The ACL export process could not start.");
++            started = true;
++            outputCopy = process.StandardOutput.BaseStream.CopyToAsync(outputFile, 65536);
++            errorCopy = process.StandardError.BaseStream.CopyToAsync(errorFile, 65536);
++        }
++        public bool StopOwned() {
++            if (process == null || !started) return true;
++            if (!process.HasExited) process.Kill();
++            return process.WaitForExit(2000);
++        }
++        public bool FinishOutput() {
++            if (!process.HasExited) return false;
++            if (!Task.WaitAll(new Task[] { outputCopy, errorCopy }, 2000)) return false;
++            return true;
++        }
++        public void Dispose() {
++            if (process != null && started && !process.HasExited) { if (!StopOwned()) throw new InvalidOperationException("Owned ACL process termination is still pending."); }
++            Task close = Task.Factory.StartNew(delegate {
++                if (outputFile != null) outputFile.Dispose();
++                if (errorFile != null) errorFile.Dispose();
++                if (process != null) process.Dispose();
++            });
++            if (!close.Wait(2000)) throw new InvalidOperationException("ACL output cleanup is still pending.");
++        }
++    }
++}
++'@ | Out-Null
++}
++
++function Test-AclExportSkipRequested {
++    if ($script:aclSkipRemaining) { return $true }
++    if ([string]::IsNullOrWhiteSpace($AclControlPath) -or [string]::IsNullOrWhiteSpace($RunId)) { return $false }
++    try {
++        $info = New-Object System.IO.FileInfo($AclControlPath)
++        if ($info.Exists -and $info.Length -le 4096) {
++            $control = [IO.File]::ReadAllText($AclControlPath) | ConvertFrom-Json
++            if (([string]$control.RunId -ceq $RunId) -and ($control.SkipRemaining -eq $true)) {
++                $script:aclSkipRemaining = $true
++                return $true
++            }
++        }
++    }
++    catch { } # An absent, partially written, or stale control file is not a skip.
++    return $false
++}
++
++function Write-AclExportStatus {
++    param([string]$State, [int]$ShareIndex, [int]$ShareCount, [string]$ShareName, [int]$ElapsedSeconds, [int]$TimeoutSeconds)
++    $status = [ordered]@{ RunId=$RunId; State=$State; ShareIndex=$ShareIndex; ShareCount=$ShareCount; ShareName=$ShareName; ElapsedSeconds=$ElapsedSeconds; TimeoutSeconds=$TimeoutSeconds }
++    Write-Host ('@@ACL_EXPORT@@' + ($status | ConvertTo-Json -Compress -Depth 3))
++}
++
++function Invoke-BoundedAclProcess {
++    param(
++        [Parameter(Mandatory=$true)][string]$Command,
++        [Parameter(Mandatory=$true)][string[]]$Arguments,
++        [Parameter(Mandatory=$true)][string]$OutputFile,
++        [Parameter(Mandatory=$true)][ValidateRange(1,3600)][int]$TimeoutSeconds,
++        [int]$ShareIndex=1, [int]$ShareCount=1, [string]$ShareName=''
++    )
++    Initialize-AclExportProcessType
++    $process = New-Object ServerInventory.AclExportProcess
++    $watch = [Diagnostics.Stopwatch]::StartNew()
++    $state = 'Failed'; $exitCode = $null; $reason = ''; $nextHeartbeat = 0
++    try {
++        if (Test-AclExportSkipRequested) { $state='Skipped'; $reason='Skipped by the operator before starting.' }
++        else {
++            $process.Start($Command, $Arguments, $OutputFile, ($OutputFile + '.stderr.txt'))
++            while (-not $process.HasExited) {
++                $elapsed = [int][Math]::Floor($watch.Elapsed.TotalSeconds)
++                if ($watch.Elapsed.TotalSeconds -ge $nextHeartbeat) {
++                    Write-AclExportStatus -State 'Running' -ShareIndex $ShareIndex -ShareCount $ShareCount -ShareName $ShareName -ElapsedSeconds $elapsed -TimeoutSeconds $TimeoutSeconds
++                    Write-InventoryLog -Message ('Recursive ACL export: share {0}/{1} ({2}), elapsed {3}s, limit {4}s. File traversal progress is unknown.' -f $ShareIndex,$ShareCount,$ShareName,$elapsed,$TimeoutSeconds)
++                    $nextHeartbeat = $watch.Elapsed.TotalSeconds + 5
++                }
++                if (Test-AclExportSkipRequested) { $state='Skipped'; $reason='Operator skipped the remaining recursive ACL exports.'; break }
++                if ($watch.Elapsed.TotalSeconds -ge $TimeoutSeconds) { $state='TimedOut'; $reason=('Per-share time limit of {0}s reached.' -f $TimeoutSeconds); break }
++                Start-Sleep -Milliseconds 250
++            }
++            if (-not $process.HasExited) {
++                if (-not $process.StopOwned()) { throw 'The owned ACL export process did not stop within two seconds.' }
++            }
++            $exitCode = $process.ExitCode
++            if (-not $process.FinishOutput()) { throw 'ACL export output streams did not finish within two seconds.' }
++            if ($state -ne 'Skipped' -and $state -ne 'TimedOut') {
++                if ($exitCode -eq 0) { $state='Completed' }
++                else { $state='Failed'; $reason=('ICACLS exited with code {0}; the ACL export is incomplete.' -f $exitCode) }
++            }
++        }
++    }
++    catch { $state='Failed'; $reason=$_.Exception.Message }
++    finally {
++        try { $process.Dispose() } catch { $state='Failed'; $reason=('ACL child cleanup failed: ' + $_.Exception.Message); $script:aclSkipRemaining=$true; $script:aclExportUnsafePending=$true }
++        $watch.Stop()
++    }
++    $elapsed = [int][Math]::Floor($watch.Elapsed.TotalSeconds)
++    # Final Completed is emitted by the caller only after the ACL file is validated and promoted.
++    return [pscustomobject]@{ Status=$state; ExitCode=$exitCode; ElapsedSeconds=$elapsed; Reason=$reason }
++}
++
++function Invoke-RecursiveAclExports {
++    param([AllowEmptyCollection()][object[]]$Shares, [Parameter(Mandatory=$true)][string]$Destination)
++    New-Item -Path $Destination -ItemType Directory -Force | Out-Null
++    # Do not Test-Path each share here: a blocked filesystem probe would bypass the native timeout.
++    $selected = @($Shares | Where-Object { (-not $_.Special) -and $_.Path })
++    $mappingPath = Join-Path $Destination 'ICACLS-Mapping.csv'
++    $rows = New-Object System.Collections.ArrayList
++    for ($i=0; $i -lt $selected.Count; $i++) {
++        $name = '{0:D4}-{1}' -f ($i+1),(Get-SafeFileName -Name $selected[$i].Name)
++        [void]$rows.Add([pscustomobject]@{
++            ShareName=$selected[$i].Name; SourcePath=$selected[$i].Path; AclFile=($name+'.acl.incomplete')
++            Status='Incomplete'; ExitCode=$null; ElapsedSeconds=0; TimeoutSeconds=$AclExportTimeoutSeconds
++            Note='Not finished. Do not use an incomplete ACL file for restoration.'
++        })
++    }
++    # Persist unfinished state before starting any child, including when the whole collection is canceled.
++    $rows | Export-Csv -LiteralPath $mappingPath -NoTypeInformation -Encoding UTF8
++    try {
++        for ($i=0; $i -lt $selected.Count; $i++) {
++            $row=$rows[$i]; $share=$selected[$i]
++            if (Test-AclExportSkipRequested) {
++                $row.Status='Skipped'; $row.Note='Operator skipped this recursive ACL export; no complete ACL backup exists.'
++                Write-AclExportStatus -State 'Skipped' -ShareIndex ($i+1) -ShareCount $selected.Count -ShareName $share.Name -ElapsedSeconds 0 -TimeoutSeconds $AclExportTimeoutSeconds
++            }
++            else {
++                $partialPath=Join-Path $Destination $row.AclFile
++                $logPath=Join-Path $Destination ($row.AclFile + '.log.txt')
++                $native=Join-Path $env:SystemRoot 'System32\icacls.exe'
++                Write-InventoryLog -Message ('Starting recursive ACL export: share {0}/{1} ({2}), limit {3}s.' -f ($i+1),$selected.Count,$share.Name,$AclExportTimeoutSeconds)
++                $result=Invoke-BoundedAclProcess -Command $native -Arguments @([string]$share.Path,'/save',$partialPath,'/t','/c','/q') -OutputFile $logPath -TimeoutSeconds $AclExportTimeoutSeconds -ShareIndex ($i+1) -ShareCount $selected.Count -ShareName $share.Name
++                $row.Status=$result.Status; $row.ExitCode=$result.ExitCode; $row.ElapsedSeconds=$result.ElapsedSeconds; $row.Note=$result.Reason
++                if ($row.Status -eq 'Completed') {
++                    $row.Status='Incomplete'
++                    try {
++                    if ((Test-Path -LiteralPath $partialPath -PathType Leaf) -and ((Get-Item -LiteralPath $partialPath).Length -gt 0)) {
++                        $completeName=$row.AclFile.Substring(0,$row.AclFile.Length-'.incomplete'.Length)
++                        Move-Item -LiteralPath $partialPath -Destination (Join-Path $Destination $completeName) -ErrorAction Stop
++                        $row.AclFile=$completeName
++                        $row.Status='Completed'
++                        $row.Note='ICACLS completed successfully. Review its logs and test restore against the correct root before relying on this file.'
++                    }
++                    else { $row.Status='Failed'; $row.Note='ICACLS did not create a nonempty ACL file. No complete ACL backup exists.' }
++                    } catch { $row.Status='Failed'; $row.Note=('ACL file promotion failed: ' + $_.Exception.Message) }
++                }
++            }
++            Write-AclExportStatus -State $row.Status -ShareIndex ($i+1) -ShareCount $selected.Count -ShareName $share.Name -ElapsedSeconds $row.ElapsedSeconds -TimeoutSeconds $AclExportTimeoutSeconds
++            $rows | Export-Csv -LiteralPath $mappingPath -NoTypeInformation -Encoding UTF8
++            if ($row.Status -ne 'Completed') { Write-InventoryLog -Level 'WARN' -Message ('Recursive ACL export incomplete for {0}: {1}. {2}' -f $row.ShareName,$row.Status,$row.Note) }
++            else { Write-InventoryLog -Message ('Completed recursive ACL export: ' + $row.ShareName) }
++        }
++    }
++    finally {
++        $script:aclExportResults=@($rows.ToArray())
++        $script:aclExportsIncompleteCount=@($script:aclExportResults | Where-Object { $_.Status -ne 'Completed' }).Count
++        Write-AclExportStatus -State 'Idle' -ShareIndex 0 -ShareCount $selected.Count -ShareName '' -ElapsedSeconds 0 -TimeoutSeconds $AclExportTimeoutSeconds
++    }
++}
++# END APPROVED ACL EXPORT HELPERS
++
+ function Export-RegistryKey {
+     param(
+         [Parameter(Mandatory = $true)]
+@@ -1286,7 +1496,13 @@
+ 
+     $property = $InputObject.PSObject.Properties[$PropertyName]
+     if ($property) {
+-        return $property.Value
++        # Emit the property as one object, not as a PowerShell pipeline collection.
++        # Enumerating here loses collection identity before ConvertTo-ReportText
++        # can apply its reference/nesting guards. In particular, the startup table
++        # self-test passes a cyclic ArrayList through this helper on Windows 5.1.
++        # A unary-comma envelope is unwrapped once by the pipeline; the original
++        # value (including an empty or cyclic collection) remains intact.
++        return ,$property.Value
+     }
+ 
+     return $null
+@@ -2690,6 +2906,12 @@
+         Add-RoleRecoveryGap -List $recoveryGaps -Severity 'Critical' -Requirement 'File data backup with NTFS metadata' -Reason 'Share definitions and permissions do not contain the actual data.' -Action 'Confirm file data, ownership, ACLs, timestamps, and required alternate streams are protected by backup.'
+     }
+ 
++    # BEGIN APPROVED ACL EXPORT RECOVERY GAP
++    if ($script:aclExportsIncompleteCount -gt 0) {
++        Add-RoleRecoveryGap -List $recoveryGaps -Severity 'High' -Requirement 'Complete recursive NTFS ACL export' -Reason ('{0} recursive ACL export(s) were timed out, skipped, failed, or unfinished. Incomplete files are not complete backups.' -f $script:aclExportsIncompleteCount) -Action 'Review the ACL export results and mapping. Obtain and validate complete backups separately; do not restore .incomplete files.'
++    }
++    # END APPROVED ACL EXPORT RECOVERY GAP
++
+     $restorableArtifacts = New-Object System.Collections.ArrayList
+     $artifactDefinitions = @(
+         [pscustomobject]@{ Purpose = 'Windows Firewall policy'; Path = (Join-Path $paths.Security 'Windows-Firewall-Policy.wfw'); Caution = 'Review before import on replacement hardware.' },
+@@ -2719,7 +2941,7 @@
+         [pscustomobject]@{ Purpose = 'Domain Group Policy backups'; Path = (Join-Path $paths.Roles 'Group-Policy\GPO-Backups'); Caution = 'Restore or import only through supported Group Policy procedures.' },
+         [pscustomobject]@{ Purpose = 'IIS configuration backup'; Path = (Join-Path $paths.Roles 'IIS\IIS-Configuration-Backup'); Caution = 'Does not contain site content, databases, secrets, or private keys.' },
+         [pscustomobject]@{ Purpose = 'Custom scheduled task XML'; Path = (Join-Path $paths.Software 'Scheduled-Task-XML-Custom'); Caution = 'Task passwords are not included and must be re-entered.' },
+-        [pscustomobject]@{ Purpose = 'Recursive NTFS ACL backups'; Path = (Join-Path $paths.Shares 'Recursive-ICACLS-Backups'); Caution = 'Test ICACLS restore against the correct root paths.' },
++        [pscustomobject]@{ Purpose = 'Recursive NTFS ACL backups'; Path = (Join-Path $paths.Shares 'Recursive-ICACLS-Backups'); Caution = 'Review ICACLS-Mapping.csv: only Completed rows reference complete .acl files. Never restore .incomplete files. Test restore against the correct root paths.' },
+         [pscustomobject]@{ Purpose = 'Local Group Policy files'; Path = (Join-Path $paths.Security 'Local-Group-Policy-Files'); Caution = 'Review applicability before copying to a replacement server.' },
+         [pscustomobject]@{ Purpose = 'Public certificate exports'; Path = (Join-Path $paths.Security 'Public-Certificate-Exports'); Caution = 'Public certificates only. Private keys and PFX files are intentionally not included.' }
+     )) {
+@@ -2950,6 +3172,10 @@
+     Add-ReportTable -Title 'SMB shares' -Rows $shares -Columns @('Name', 'Path', 'Description', 'ScopeName', 'Special', 'Temporary', 'FolderEnumerationMode', 'CachingMode', 'EncryptData', 'ContinuouslyAvailable') -MaxRows 3000
+     Add-ReportTable -Title 'SMB share permissions' -Rows $sharePermissions -Columns @('ShareName', 'AccountName', 'AccessControlType', 'AccessRight', 'Error') -MaxRows 10000
+     Add-ReportTable -Title 'Share-root NTFS permissions' -Rows $rootNtfs -Columns @('ShareName', 'Path', 'Owner', 'IdentityReference', 'AccessControlType', 'FileSystemRights', 'InheritanceFlags', 'PropagationFlags', 'IsInherited', 'Error') -MaxRows 20000
++    # BEGIN APPROVED ACL EXPORT REPORT TABLE
++    Add-ReportTable -Title 'Recursive NTFS ACL export results' -Rows @($script:aclExportResults) -Columns @('ShareName', 'SourcePath', 'Status', 'ElapsedSeconds', 'TimeoutSeconds', 'ExitCode', 'AclFile', 'Note') -MaxRows 3000 -EmptyMessage 'Recursive ACL exports were not selected, or no eligible shares were present.'
++    if ($script:aclExportsIncompleteCount -gt 0) { Add-ReportParagraph -Text 'One or more recursive ACL exports are incomplete. See the per-share results and ICACLS-Mapping.csv before considering any restore.' -Warning }
++    # END APPROVED ACL EXPORT REPORT TABLE
+     Add-ReportParagraph -Text 'Share definitions and permissions are not file-data backups. Confirm data backup and restore testing before relying on this inventory.' -Warning
+ 
+     Add-ReportHeading -Text '11. Role-Specific Configuration' -Level 1 -PageBreakBefore
+@@ -4553,31 +4779,18 @@
+         ) | Set-Content -Path (Join-Path $paths.Shares 'SMB-Share-Recreation-Guidance.txt') -Encoding UTF8
+     }
+ 
++    # BEGIN APPROVED ACL EXPORT INVOCATION
+     if ($IncludeShareAclBackup -or (Test-ExportCategory -Category @('SharesPermissions'))) {
+-        $aclBackupFolder = Join-Path $paths.Shares 'Recursive-ICACLS-Backups'
+-        New-Item -Path $aclBackupFolder -ItemType Directory -Force | Out-Null
+-        $aclMappings = New-Object System.Collections.ArrayList
+-
+-        foreach ($share in ($shares | Where-Object { (-not $_.Special) -and $_.Path -and (Test-Path -LiteralPath $_.Path) })) {
+-            $safeShareName = Get-SafeFileName -Name $share.Name
+-            $aclFile = Join-Path $aclBackupFolder ($safeShareName + '.acl')
+-            $aclLog = Join-Path $aclBackupFolder ($safeShareName + '.log.txt')
+-
+-            Invoke-NativeCapture -Command 'icacls.exe' -Arguments @($share.Path, '/save', $aclFile, '/t', '/c', '/q') -OutputFile $aclLog -AllowNonZeroExit | Out-Null
+-            $exitCode = $LASTEXITCODE
+-            if ($null -eq $exitCode) { $exitCode = 0 }
+-
+-            [void]$aclMappings.Add([pscustomobject]@{
+-                ShareName  = $share.Name
+-                SourcePath = $share.Path
+-                AclFile    = Split-Path -Path $aclFile -Leaf
+-                ExitCode   = $exitCode
+-                Note       = 'Review the ICACLS log and test restoration before relying on this file.'
+-            })
+-        }
+-        $aclMappings | Export-Csv -Path (Join-Path $aclBackupFolder 'ICACLS-Mapping.csv') -NoTypeInformation -Encoding UTF8
+-    }
+-}
++        Invoke-RecursiveAclExports -Shares @($shares) -Destination (Join-Path $paths.Shares 'Recursive-ICACLS-Backups')
++    }
++    # END APPROVED ACL EXPORT INVOCATION
++}
++
++# BEGIN APPROVED ACL EXPORT TERMINATION GUARD
++if ($script:aclExportUnsafePending) {
++    throw 'An owned ACL export child or output stream could not be confirmed stopped. Collection stopped; no completion marker or ZIP will be created. Partial ACL files are incomplete.'
++}
++# END APPROVED ACL EXPORT TERMINATION GUARD
+ 
+ Invoke-Collector -Name 'Existing Windows Server Backup metadata' -Action {
+     if (Get-Command wbadmin.exe -ErrorAction SilentlyContinue) {
+@@ -5730,6 +5943,10 @@
+ 
+ $collectorCompletion = [pscustomobject]@{
+     Status        = 'Completed'
++    # BEGIN APPROVED ACL EXPORT COMPLETION METADATA
++    IncompleteAclExports = $script:aclExportsIncompleteCount
++    AclExportStatus = $(if ($script:aclExportsIncompleteCount -gt 0) { 'Incomplete' } else { 'NoIncompleteExports' })
++    # END APPROVED ACL EXPORT COMPLETION METADATA
+     CompletedAt   = Get-Date
+     ComputerName  = $env:COMPUTERNAME
+     ScriptVersion = $scriptVersion
+--- published-v3.2.10-normalized/Run-Inventory.ps1
++++ candidate-normalized/Run-Inventory.ps1
+@@ -38,7 +38,12 @@
+     [int]$EventLogDays = 30,
+ 
+     [Parameter()]
+-    [switch]$IncludeSensitive
++    [switch]$IncludeSensitive,
++
++    # BEGIN APPROVED ACL EXPORT PARAMETERS
++    [Parameter()][ValidateRange(30, 3600)][int]$AclExportTimeoutSeconds = 120,
++    [Parameter()][string]$AclControlPath = ''
++    # END APPROVED ACL EXPORT PARAMETERS
+ )
+ 
+ $ErrorActionPreference = 'Stop'
+@@ -153,6 +158,10 @@
+         InventoryCategoryList = $InventoryCategoryList
+         ExportCategoryList = $ExportCategoryList
+         EventLogDays = $EventLogDays
++        # BEGIN APPROVED ACL EXPORT FORWARDING
++        AclExportTimeoutSeconds = $AclExportTimeoutSeconds
++        AclControlPath = $AclControlPath
++        # END APPROVED ACL EXPORT FORWARDING
+     }
+ 
+     if ($IncludeDomainInventory) {

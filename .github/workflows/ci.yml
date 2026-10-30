@@ -1,7 +1,7 @@
 name: CI
 on:
   push:
-    branches: [main]
+    branches: [main, fix/collection-responsiveness-3211]
   pull_request:
 permissions:
   contents: read
@@ -41,6 +41,23 @@ jobs:
           python .\scripts\embed_report_renderer.py --check
           if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
           python .\scripts\verify_baseline.py
+      - name: Test startup helper cycles without inventory
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory build/startup-helper-validation -Force | Out-Null
+          .\scripts\Test-StartupHelpers.ps1 2>&1 | Tee-Object build/startup-helper-validation/checks.txt
+      - name: Validate standalone candidate startup probe
+        shell: powershell
+        run: |
+          .\scripts\Build-StartupComparisonProbe.ps1
+          .\build\startup-comparison\Run-Comparison.ps1
+          $log=Get-ChildItem build/startup-comparison/Startup-Comparison-*.txt | Select-Object -Last 1
+          $text=Get-Content $log.FullName -Raw
+          if($text -notmatch 'PASS ALL CANDIDATE STARTUP TESTS' -or $text -notmatch 'Child exit code: 0' -or $text -notmatch 'Finished within timeout: True'){throw 'Standalone candidate probe failed'}
+          Compress-Archive build/startup-comparison/* build/ServerInventory-3.2.11-Startup-Candidate-Diagnostic.zip
+      - name: Test bounded recursive ACL workers with synthetic fixtures
+        shell: powershell
+        run: .\scripts\Test-AclExports.ps1
       - name: Generate real HTML and Word report fixtures
         shell: powershell
         run: .\scripts\Test-Report.ps1
@@ -119,5 +136,9 @@ jobs:
             build/shell-icon-*.png
             build/report-validation/
             build/workspace-validation/
+            build/startup-helper-validation/
+            build/startup-comparison/
+            build/ServerInventory-3.2.11-Startup-Candidate-Diagnostic.zip
+            build/acl-validation/
             dist/
 

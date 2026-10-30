@@ -408,13 +408,14 @@ button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visi
                 <label class="category-check"><input type="checkbox" data-export value="Firewall" checked><span><strong>Firewall</strong><small>Importable Windows Firewall policy</small></span></label>
                 <label class="category-check"><input type="checkbox" data-export value="Certificates" checked><span><strong>Public certificates</strong><small>Exports public .CER files only; never private keys or PFX passwords</small></span></label>
                 <label class="category-check"><input type="checkbox" data-export value="ScheduledTasks" checked><span><strong>Scheduled Tasks</strong><small>Task definitions where supported</small></span></label>
-                <label class="category-check"><input type="checkbox" data-export value="SharesPermissions" checked><span><strong>Share / NTFS ACLs</strong><small>Recursive ICACLS permission export; can be slow</small></span></label>
+                <label class="category-check"><input type="checkbox" data-export value="SharesPermissions" checked><span><strong>Share / NTFS ACLs</strong><small>Bounded recursive permission export with per-share progress and Skip</small></span></label>
                 <label class="category-check"><input type="checkbox" data-export value="PrintServices" checked><span><strong>Print services</strong><small>PrintBRM migration export</small></span></label>
                 <label class="category-check"><input type="checkbox" data-export value="RRAS" checked><span><strong>RRAS</strong><small>Routing reconstruction reference</small></span></label>
                 <label class="category-check"><input type="checkbox" data-export value="SQLServer" checked><span><strong>SQL configuration</strong><small>Registry/configuration metadata only, not databases</small></span></label>
                 <label class="category-check"><input type="checkbox" data-export value="Registry" checked><span><strong>Relevant registry exports</strong><small>Selected role and configuration registry branches</small></span></label>
                 <label class="category-check sensitive-choice"><input type="checkbox" data-export value="NPS"><span><strong>NPS full export</strong><small>Requires Sensitive exports below; may include RADIUS shared secrets</small></span></label>
               </div>
+              <div class="event-days category-setting"><label for="aclExportTimeout">Recursive ACL export limit per share</label> <input id="aclExportTimeout" type="number" min="30" max="3600" step="1" value="120" aria-describedby="aclTimeoutHelp"> seconds<div class="helper" id="aclTimeoutHelp">Default: 2 minutes per share. Timed-out or skipped permission exports are marked incomplete; other inventory continues. Increase only when you need longer exports (30–3600 seconds).</div></div>
             </details>
 
             <div class="option-card sensitive-inline"><div class="option-inner" id="cardSensitive"><div class="option-head"><div class="option-title">Allow sensitive exports</div><label class="toggle"><input id="includeSensitive" type="checkbox" aria-label="Allow sensitive exports"><span class="slider"></span></label></div><div class="option-desc">Required for explicitly selected exports that can contain reusable secrets, such as a complete NPS configuration. Passwords, private certificate keys, DPAPI secrets and SQL credentials are never automatically collected.</div></div></div>
@@ -431,6 +432,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visi
         <div class="status-header"><div class="status-left"><div class="status-indicator" id="statusIndicator"></div><div><div class="status-title" id="statusTitle">Ready</div><div class="status-message" id="statusMessage">No collection is running.</div></div></div><div class="elapsed" id="elapsedTime">00:00:00</div></div>
         <div class="progress-track" id="collectionProgress" role="progressbar" aria-label="Estimated collection progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="progress-fill" id="progressFill"></div></div>
         <div class="current-step" id="currentStep">No active collector.</div>
+        <div class="warning-box hidden" id="aclExportPanel" role="status" aria-live="polite"><strong id="aclExportTitle">Recursive permissions export</strong><div id="aclExportDetails"></div><div class="helper" id="aclExportHelp">This is one collection stage, not an estimate of files remaining. You can skip remaining recursive permission exports without stopping other inventory.</div><button class="secondary-button" id="skipACLButton" type="button">Skip remaining ACL exports</button></div>
         <div class="metric-row"><div class="metric"><div class="metric-label">Estimated progress</div><div class="metric-value" id="progressValue">0%</div></div><div class="metric"><div class="metric-label">Sections processed</div><div class="metric-value" id="completedValue">0</div></div><div class="metric"><div class="metric-label">Warnings</div><div class="metric-value" id="warningValue">0</div></div><div class="metric"><div class="metric-label">Errors</div><div class="metric-value" id="errorValue">0</div></div></div>
         <div class="log-toolbar"><div class="log-title">Execution log</div><div class="log-tools"><input id="logSearch" type="search" placeholder="Find in log" aria-label="Find in execution log"><select id="logLevel" aria-label="Log level"><option value="all">All messages</option><option value="issues">Warnings and errors</option><option value="error">Errors only</option></select><label><input id="followLog" type="checkbox" checked> Follow live</label><button class="secondary-button" id="clearLogButton" type="button">Clear view</button></div></div><div class="log-meta"><span id="logCount" role="status">No messages yet</span><span>Filtering does not change saved logs.</span></div><div class="log-view" id="logView" tabindex="0" aria-label="Execution log"></div>
         <div class="collection-actions"><button class="secondary-button danger-button hidden" id="cancelButton" type="button">Cancel collection</button><button class="secondary-button hidden" id="openDiagnosticsButton" type="button">Open diagnostics</button><button class="secondary-button hidden" id="newInventoryButton" type="button">New inventory</button><button class="secondary-button hidden" id="viewReportButton" type="button">View report</button></div>
@@ -470,17 +472,19 @@ button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visi
   var updateUiError = '';
   var installDisabledControls = [];
   var preferencesLoaded = false, preferencesDirty = false, configurationBusy = false;
+  var aclSkipPending = false;
   var logLines = [], scopeSearchWasOpen = false, previousScopeQuery = '';
   var coreCategories = ['Hardware','OperatingSystem','Storage','Networking','WindowsFeaturesRoles','Services','InstalledSoftware','WindowsUpdate','LocalAccounts','Security','TimeNTP','WindowsServerBackup'];
   function notice(message,error){byId('appNoticeText').textContent=message;byId('appNotice').className='app-notice'+(error?' error':'');}
-  function choices(){var inv=getCheckedValues('input[data-inventory]'),days=Number(byId('eventDays').value);if(inv.indexOf('EventLogs')<0&&(!Number.isInteger(days)||days<1||days>365)){days=30;}return {outputRoot:byId('outputPath').value.trim(),inventoryCategories:inv,exportCategories:getCheckedValues('input[data-export]'),eventLogDays:days,includeSensitive:byId('includeSensitive').checked};}
+  function choices(){var inv=getCheckedValues('input[data-inventory]'),days=Number(byId('eventDays').value);if(inv.indexOf('EventLogs')<0&&(!Number.isInteger(days)||days<1||days>365)){days=30;}return {outputRoot:byId('outputPath').value.trim(),inventoryCategories:inv,exportCategories:getCheckedValues('input[data-export]'),eventLogDays:days,aclExportTimeoutSeconds:Number(byId('aclExportTimeout').value),includeSensitive:byId('includeSensitive').checked};}
   function markChoicesDirty(){var invalid=document.querySelectorAll('#configBody [aria-invalid]');for(var i=0;i<invalid.length;i++){invalid[i].removeAttribute('aria-invalid');}preferencesDirty=true;byId('preferencesStatus').textContent='Unsaved choices';}
   function validateChoices(){
-    byId('outputPath').removeAttribute('aria-invalid');byId('eventDays').removeAttribute('aria-invalid');
+    byId('outputPath').removeAttribute('aria-invalid');byId('eventDays').removeAttribute('aria-invalid');byId('aclExportTimeout').removeAttribute('aria-invalid');
     var value=choices(),bad='',field=null;
     if(!/^(?:[a-zA-Z]:[\\/]|\\\\[^\\]+\\[^\\]+)/.test(value.outputRoot)){bad='Choose an absolute output folder, such as C:\\Reports or \\\\server\\share.';field=byId('outputPath');}
     else if(!value.inventoryCategories.length){bad='Select at least one inventory category.';field=byId('presetCore');}
     else if(!Number.isInteger(value.eventLogDays)||value.eventLogDays<1||value.eventLogDays>365){bad='Event history must be a whole number from 1 to 365 days.';field=byId('eventDays');}
+    else if(!Number.isInteger(value.aclExportTimeoutSeconds)||value.aclExportTimeoutSeconds<30||value.aclExportTimeoutSeconds>3600){bad='Recursive ACL export timeout must be a whole number from 30 to 3600 seconds per share.';field=byId('aclExportTimeout');byId('exportPanel').open=true;}
     else if(value.exportCategories.indexOf('NPS')>=0&&!value.includeSensitive){bad='Enable Allow sensitive exports for NPS full export, or deselect that export.';field=byId('includeSensitive');}
     if(bad){notice(bad,true);field.setAttribute('aria-invalid','true');field.focus();return null;}
     return value;
@@ -749,16 +753,39 @@ button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visi
     var progress=byId('updateProgress'); progress.className=update.downloading?'update-progress visible':'update-progress';
     byId('updateProgressFill').style.width=String(update.progress||0)+'%';
   }
+  function renderACLExport(state){
+    var acl=state.aclExport||{},sameRun=!!acl.runId&&acl.runId===state.runId,active=sameRun&&state.running&&acl.state==='Running';
+    var show=sameRun&&(active||acl.incomplete||acl.skipRequested),panel=byId('aclExportPanel'),button=byId('skipACLButton');
+    panel.className=show?'warning-box':'warning-box hidden';
+    byId('aclExportTitle').textContent=active?'Recursive permissions: share '+acl.shareIndex+' of '+acl.shareCount:(acl.incomplete?'Some permission exports are incomplete':'Skipping remaining permission exports');
+    byId('aclExportDetails').textContent=(acl.shareName?acl.shareName+' — ':'')+(active?'Elapsed '+acl.elapsedSeconds+'s / '+acl.timeoutSeconds+'s limit':(acl.state||''))+(acl.skipRequested?' — skip requested':'');
+    byId('aclExportHelp').textContent=acl.incomplete?'Timed-out, failed or skipped ACL files are incomplete and must not be treated as complete permission backups. Other inventory can continue.':'This is one collection stage, not an estimate of files remaining. Skip stops only this run’s recursive permission exports; other inventory continues.';
+    button.className=active?'secondary-button':'secondary-button hidden';button.disabled=!active||!!acl.skipRequested||aclSkipPending;
+    button.textContent=acl.skipRequested||aclSkipPending?'Skip requested…':'Skip remaining ACL exports';
+  }
+  function skipACLExport(){
+    var state=latestState,acl=state&&state.aclExport;
+    if(!state||!state.running||!acl||acl.runId!==state.runId||acl.state!=='Running'||acl.skipRequested||aclSkipPending){return;}
+    aclSkipPending=true;renderACLExport(state);
+    request('POST','/api/skip-acl-export',{expectedRunId:state.runId},function(err){
+      if(!latestState||latestState.runId!==state.runId){return;}
+      aclSkipPending=false;
+      if(err){notice(err,true);}else if(latestState&&latestState.runId===state.runId&&latestState.aclExport){latestState.aclExport.skipRequested=true;notice('Skip requested for remaining recursive ACL exports. Other inventory will continue; skipped exports are incomplete.',false);}
+      if(latestState){renderACLExport(latestState);}
+    });
+  }
   function renderState(state){
     if(state.closing||(state.update&&state.update.status==='installing')){quiesceInterface('installing');return;}
+    if(!latestState||latestState.runId!==state.runId){aclSkipPending=false;}
     latestState=state;
+    renderACLExport(state);
     renderUpdate(state.update,!!state.running);
     if(!preferencesLoaded){
       preferencesLoaded=true;
       if(!preferencesDirty){
         var saved=state.collectionPreferences&&state.collectionPreferences.options;
         byId('outputPath').value=saved?saved.outputRoot:(state.defaultOutputRoot||'');
-        if(saved){setCheckedValues('input[data-export]',[]);setCheckedValues('input[data-inventory]',saved.inventoryCategories||[]);setCheckedValues('input[data-export]',(saved.exportCategories||[]).filter(function(v){return v!=='NPS';}));byId('eventDays').value=saved.eventLogDays||30;byId('includeSensitive').checked=false;byId('preferencesStatus').textContent='Saved choices restored';}
+        if(saved){setCheckedValues('input[data-export]',[]);setCheckedValues('input[data-inventory]',saved.inventoryCategories||[]);setCheckedValues('input[data-export]',(saved.exportCategories||[]).filter(function(v){return v!=='NPS';}));byId('eventDays').value=saved.eventLogDays||30;byId('aclExportTimeout').value=saved.aclExportTimeoutSeconds||120;byId('includeSensitive').checked=false;byId('preferencesStatus').textContent='Saved choices restored';}
       }
     }
     byId('serverName').textContent=state.computerName||'This server'; byId('adminState').textContent=state.isAdministrator?'Administrator':'Not elevated';byId('elevationBadge').textContent=state.isAdministrator?'Administrator':'Not elevated'; byId('powerShellState').textContent=state.powerShellVersion||'Available';
@@ -835,7 +862,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visi
     syncCategoryState();markChoicesDirty();
   });}
   byId('presetMaximum').addEventListener('click',function(){applyPreset('maximum');}); byId('presetInventory').addEventListener('click',function(){applyPreset('inventory');}); byId('presetCore').addEventListener('click',function(){applyPreset('core');}); byId('presetClear').addEventListener('click',function(){applyPreset('clear');});
-  byId('browseButton').addEventListener('click',browseFolder); byId('startButton').addEventListener('click',startCollection); byId('cancelButton').addEventListener('click',function(){request('POST','/api/cancel',{},function(err){if(err){notice(err,true);}});});
+  byId('browseButton').addEventListener('click',browseFolder); byId('startButton').addEventListener('click',startCollection); byId('skipACLButton').addEventListener('click',skipACLExport); byId('cancelButton').addEventListener('click',function(){request('POST','/api/cancel',{},function(err){if(err){notice(err,true);}});});
   byId('clearLogButton').addEventListener('click',clearLogs); byId('openDiagnosticsButton').addEventListener('click',function(){openKind('diagnostics');}); byId('newInventoryButton').addEventListener('click',resetInterface); byId('viewReportButton').addEventListener('click',function(){switchTab('report');openViewer(false);});
   byId('loadPreviousButton').addEventListener('click',loadPrevious); byId('emptyLoadPreviousButton').addEventListener('click',loadPrevious); byId('reopenReportButton').addEventListener('click',function(){openViewer(false);byId('reopenReportButton').className='secondary-button hidden';});
   byId('openHtmlButton').addEventListener('click',function(){openKind('loadedhtml');}); byId('openWordButton').addEventListener('click',function(){openKind('loadeddocx');}); byId('openSummaryButton').addEventListener('click',function(){openKind('loadedsummary');}); byId('openFolderButton').addEventListener('click',function(){openKind('loadedfolder');});
@@ -861,7 +888,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visi
   });
   byId('saveChoicesButton').addEventListener('click',saveChoices);
   byId('dismissNotice').addEventListener('click',function(){byId('appNotice').classList.add('hidden');});
-  byId('outputPath').addEventListener('input',markChoicesDirty);byId('eventDays').addEventListener('input',markChoicesDirty);
+  byId('outputPath').addEventListener('input',markChoicesDirty);byId('eventDays').addEventListener('input',markChoicesDirty);byId('aclExportTimeout').addEventListener('input',markChoicesDirty);
   byId('scopeSearch').addEventListener('input',filterScope);byId('scopeSearchClear').addEventListener('click',function(){byId('scopeSearch').value='';filterScope();byId('scopeSearch').focus();});
   byId('logSearch').addEventListener('input',filterLogs);byId('logLevel').addEventListener('change',filterLogs);byId('followLog').addEventListener('change',filterLogs);
   byId('logView').addEventListener('scroll',function(){var view=this;if(view.scrollHeight-view.scrollTop-view.clientHeight>40){byId('followLog').checked=false;}});

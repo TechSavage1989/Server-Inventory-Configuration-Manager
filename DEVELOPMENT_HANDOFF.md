@@ -1,4 +1,23 @@
+## 3.2.11 prepublication verification
+
+Full hosted Windows source CI passed at f480504618b0f26f292e5452a28b84f9293391de (run 41115762285) and release-preparation commit 4f45056ea7a752c9df09a265df2dfdea9330531a (run 41116306822). This includes 14 synthetic startup checks, 18 bounded ACL worker checks, standalone probe validation, original provenance and negative controls, report/Word fixtures, clean source archive rebuild, native Go tests/vet, production browser regressions, and real native helper installation/visible health. Neither run collects server inventory.
+
+On 2026-10-30 the user also ran the candidate synthetic probe on the actual affected Server 2019 / Windows PowerShell 5.1.17763.9121 / CLR 4.8.4811.0 host: finished within timeout, child exit 0, all candidate startup checkpoints passed, stderr empty. Payload SHA256 BFA795D71C8D661C004ADD91E3C6D9E37DACE9A40A2E6433047A2F3CB48079DC; getter SHA256 D83AE3F322BD07B722576C6CA0F5F6E4BE702B51E4700D5954E575FD53AFE28F. The finite published getter negative control reproduced identity loss; the candidate retained identity and passed the previously fatal cyclic table snapshot. This confirms the targeted startup fix on that runtime, not full live inventory completion.
+
+The user explicitly authorized publication after validation. Publication and subsequent public-download/real previous-to-new upgrade verification are pending; no published success is claimed by this source note.
+
 # DEVELOPMENT_HANDOFF.md
+
+## 3.2.11 candidate: startup cycle handling and responsive ACL exports (not published)
+
+The user authorized a focused build after a recursive permissions export on Server 2025 remained at the SMB collector stage for at least twenty minutes. ICACLS was still running with reported CPU activity; that is not proof of a deadlock. The published code emits no per-share heartbeat and has no timeout for this child. Requested scope is per-share status/elapsed time, a configurable bound, Skip remaining recursive ACL exports/Cancel, and explicit incomplete-export reporting. No live customer inventory, SMB settings change, or termination of the user's running process is authorized by this work. The configured bound covers the owned ICACLS process and bounded child/output cleanup, not every filesystem operation or collector. Synchronous output-folder setup, mapping writes, file promotion, earlier SMB queries and remote filesystem I/O can still wait; the independent application host and whole-collection Cancel remain the escape path.
+
+Separately, the original 3.2.10 synthetic startup helper probe reproduced StackOverflowException on Windows Server 2019 / Windows PowerShell 5.1.17763.9121 / CLR 4.8.4811.0. All earlier probe checkpoints passed; the cyclic table snapshot call at original source line 3525 began but did not return. This establishes a startup report-table path failure before inventory, not a general .NET installation defect. The same original tests and byte-identical wrapper/collector startup passed hosted Server 2022/2025 with CLR 4.8.9363.0; that newer-runtime success does not establish Server 2019 compatibility. A fixed candidate needs confirmation against the affected runtime.
+
+The exact published 3.2.10 collector and wrapper are archived under baseline/v3.2.10/collectors, pinned to their published SHA-256 identities. Approved edit regions have separate before/after hashes and a human-readable diff; unchanged bytes and the original 3.0.10 provenance remain protected. The original baseline-verification.json is unchanged. HTML report styling, Word/text rendering, icon, unrelated collectors, updater and release history are not intentionally changed.
+
+Validation status: implementation and candidate validation are in progress. No new Windows-native, UI, timeout/cancellation, affected-2019, source-archive, or upgrade pass is claimed here until exact candidate evidence is recorded. Source version is being prepared as 3.2.11, while release/VERSION and the public feed remain 3.2.10. No release/tag/asset has been created or overwritten. Publication requires separate authorization.
+
 
 ## Collection workspace review: 3.2.10 published
 

@@ -38,7 +38,12 @@ param(
     [int]$EventLogDays = 30,
 
     [Parameter()]
-    [switch]$IncludeSensitive
+    [switch]$IncludeSensitive,
+
+    # BEGIN APPROVED ACL EXPORT PARAMETERS
+    [Parameter()][ValidateRange(30, 3600)][int]$AclExportTimeoutSeconds = 120,
+    [Parameter()][string]$AclControlPath = ''
+    # END APPROVED ACL EXPORT PARAMETERS
 )
 
 $ErrorActionPreference = 'Stop'
@@ -153,6 +158,10 @@ try {
         InventoryCategoryList = $InventoryCategoryList
         ExportCategoryList = $ExportCategoryList
         EventLogDays = $EventLogDays
+        # BEGIN APPROVED ACL EXPORT FORWARDING
+        AclExportTimeoutSeconds = $AclExportTimeoutSeconds
+        AclControlPath = $AclControlPath
+        # END APPROVED ACL EXPORT FORWARDING
     }
 
     if ($IncludeDomainInventory) {

@@ -23,6 +23,13 @@ const inventoryCategoryNames = "Hardware OperatingSystem Storage Networking DNS 
 const exportCategoryNames = "DHCP DNS GroupPolicy IIS Firewall Certificates ScheduledTasks SharesPermissions PrintServices RRAS SQLServer Registry NPS"
 
 func validateCollectionOptions(options *collectionOptions) error {
+	// Older saved choices and clients omit this field. Unlimited exports are never selected.
+	if options.AclExportTimeoutSeconds == 0 {
+		options.AclExportTimeoutSeconds = 120
+	}
+	if options.AclExportTimeoutSeconds < 30 || options.AclExportTimeoutSeconds > 3600 {
+		return errors.New("Recursive ACL export timeout must be a whole number from 30 to 3600 seconds per share.")
+	}
 	options.OutputRoot = strings.TrimSpace(options.OutputRoot)
 	if options.OutputRoot == "" || !filepath.IsAbs(options.OutputRoot) {
 		return errors.New("Choose an absolute output folder, such as C:\\Reports or \\\\server\\share.")
