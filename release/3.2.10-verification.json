@@ -1,0 +1,287 @@
+{
+  "schema_version": 1,
+  "version": "3.2.10",
+  "status": "source-validated-publication-pending",
+  "source": {
+    "commit": "37bc4ae75c3cd725dd9a16000ab3660bf3e279e9",
+    "run": 41013556970,
+    "job": 123924628725,
+    "url": "https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/41013556970",
+    "conclusion": "success",
+    "artifact_id": 12959275022,
+    "artifact_sha256": "d8ad4a07e68054ab5209aa4074260d0dc138ec741385f30bb61d41698cb45139",
+    "native_tests": [
+      "TestBrowserLaunchIsGuestAndExtensionFree",
+      "TestNativeProcessCommandLineMetadata",
+      "TestBrowserPolicyCannotFallbackToAccountSignin",
+      "TestLegacyBrowserOwnershipRequiresLiveMatchingBackendPID",
+      "TestNativeBrowserClosesModalWithoutLauncherPIDAndPreservesOtherProfile",
+      "TestApplicationPagePolicyPermitsOwnIconsWithoutRemoteImages",
+      "TestIconEndpointsServeApprovedVectorAndRasterAssets",
+      "TestCompiledIconResourcesAndNativeShellExtraction",
+      "TestCollectionPreferencesRoundTripAndConsent",
+      "TestCollectionPreferencesRejectInvalidAndBusyRequests",
+      "TestCollectionPreferencesCorruptionAndWriteFailure",
+      "TestNewAndLegacyReportsKeepAuthenticationAndContentIsolation",
+      "TestExplorerAndDesktopShortcutUseApprovedIcon",
+      "TestManifestEncodingNegativeControl",
+      "TestCachedSameVersionIsNeverCurrentBeforeNetworkSuccess",
+      "TestConditionalRequestsAndETagPoisoning",
+      "TestRateLimitBackoffIncludesManualChecks",
+      "TestCheckSingleFlightAndCooldown",
+      "TestNativeSchedulerAndFocusGate",
+      "TestDownloadStagingAndRejections",
+      "TestBinaryVersionBoundaryAndMalformedPE",
+      "TestInstallBlockedDuringCriticalOperation",
+      "TestSettingsAndOwnedCleanup",
+      "TestStartupRequiresRenderedUI",
+      "TestManifestHostPathAndSizeRestrictions",
+      "TestOldMarkerPrefixAndOverlayNegativeControls",
+      "TestNativeRollbackRestorationAndTampering",
+      "TestCompareVersions",
+      "TestValidateManifest",
+      "TestBinaryIdentityMarker",
+      "TestWindowGeometryRejectsCorruptionAndRecoversOffScreenBounds",
+      "TestExecutableRemembersWindowBoundsMaximizedAndMinimizedClose"
+    ],
+    "workspace": {
+      "status": "passed",
+      "checks": [
+        {
+          "name": "Published 3.2.9 reproduces unstyled cards and an inventory checkbox that cannot be deselected",
+          "result": "passed"
+        },
+        {
+          "name": "Published 3.2.9 reproduces log scroll jumps and an unlocked event-history field during collection",
+          "result": "passed"
+        },
+        {
+          "name": "Selected cards have real borders, profile state and scope summary",
+          "result": "passed"
+        },
+        {
+          "name": "Deselecting inventory clears its dependent export, selecting export restores inventory",
+          "result": "passed"
+        },
+        {
+          "name": "Category search uses descriptions, opens exports and preserves every selection",
+          "result": "passed"
+        },
+        {
+          "name": "Presets and saved choices survive page reopen without persisting sensitive consent",
+          "result": "passed"
+        },
+        {
+          "name": "Inline path, empty-scope, fractional-days and NPS validation sends no start request or modal",
+          "result": "passed"
+        },
+        {
+          "name": "Rejected collection keeps log and choices and reports the error inline",
+          "result": "passed"
+        },
+        {
+          "name": "Application tabs support arrow keys, Home and End with correct selection semantics",
+          "result": "passed"
+        },
+        {
+          "name": "Log search and severity filters retain all received text and safely render markup",
+          "result": "passed"
+        },
+        {
+          "name": "Inspecting older log messages pauses live follow; resuming follows new output",
+          "result": "passed"
+        },
+        {
+          "name": "Small windows retain visible Start and Save actions without horizontal page overflow",
+          "result": "passed"
+        },
+        {
+          "name": "Running state locks all collection settings, including event history",
+          "result": "passed"
+        },
+        {
+          "name": "Accepted collection submits the selected scope once and keeps start/save locked",
+          "result": "passed"
+        }
+      ]
+    },
+    "report": {
+      "status": "passed",
+      "checks": [
+        {
+          "name": "All original table columns, cells, rows and multiline outputs remain available",
+          "result": "passed"
+        },
+        {
+          "name": "Summary opens first with fewer visible tables and navigation links than the original report",
+          "result": "passed"
+        },
+        {
+          "name": "Collection failures and recovery gaps stay expanded ahead of routine datasets",
+          "result": "passed"
+        },
+        {
+          "name": "Readable column labels preserve ordinary words and separate camel-case field names",
+          "result": "passed"
+        },
+        {
+          "name": "Section expand/collapse controls expose all retained rows on request",
+          "result": "passed"
+        },
+        {
+          "name": "Full-report search reveals the last row inside an inactive collapsed dataset",
+          "result": "passed"
+        },
+        {
+          "name": "Search also reveals raw output and supports next, previous, clear and no-match states",
+          "result": "passed"
+        },
+        {
+          "name": "Inventory HTML-like values and search queries remain escaped text with no external requests",
+          "result": "passed"
+        },
+        {
+          "name": "Existing row-limit notices and empty dataset explanations remain visible when opened",
+          "result": "passed"
+        },
+        {
+          "name": "Dataset deep links and keyboard activation open the intended section and details",
+          "result": "passed"
+        },
+        {
+          "name": "Print includes every section and dataset and restores screen expansion state",
+          "result": "passed"
+        },
+        {
+          "name": "Narrow screens use a collapsible section menu without page-level horizontal overflow",
+          "result": "passed"
+        },
+        {
+          "name": "Missing metadata is labelled Not collected instead of zero or healthy",
+          "result": "passed"
+        },
+        {
+          "name": "Standalone saved HTML works offline without a server or external assets",
+          "result": "passed"
+        },
+        {
+          "name": "No-script fallback retains every section and starts with all datasets open",
+          "result": "passed"
+        },
+        {
+          "name": "Application viewer respects the new report layout and reveals collapsed search hits",
+          "result": "passed"
+        },
+        {
+          "name": "Previously generated reports still navigate and search in the unchanged legacy viewer",
+          "result": "passed"
+        },
+        {
+          "name": "Report and viewer execution produces no script errors or external requests",
+          "result": "passed"
+        }
+      ],
+      "data": "Synthetic only",
+      "limitations": [
+        "Browser rendering and actual report functions, without live server collection."
+      ],
+      "tables": 21,
+      "rows": 1545,
+      "negativeControl": {
+        "oldVisibleSubsectionLinks": 27,
+        "newVisibleSubsectionLinks": 8,
+        "oldSummaryTables": 7,
+        "newSummaryTables": 2
+      }
+    },
+    "report_generation": {
+      "status": "passed",
+      "data": "Synthetic only",
+      "rows": 1500,
+      "checks": [
+        "Actual collector parses without errors",
+        "Actual HTML renderer generates a self-contained report",
+        "HTML rendering leaves every shared block unchanged",
+        "Original renderer generates the identical synthetic dataset for comparison",
+        "Unchanged Word generator preserves the final table row and multiline text"
+      ]
+    },
+    "shutdown": {
+      "checks": [
+        {
+          "name": "Published v3.2.3 negative control reproduces the status-0 popup after shutdown",
+          "result": "passed"
+        },
+        {
+          "name": "Fixed page stops polling, aborts in-flight XHRs, and ignores focus/visibility after install acceptance",
+          "result": "passed"
+        },
+        {
+          "name": "Failed manual update action is shown inline with zero modal alerts",
+          "result": "passed"
+        },
+        {
+          "name": "Rejected installation restores the controls and active state polling without modal errors",
+          "result": "passed"
+        }
+      ],
+      "status": "passed",
+      "negativeControlDialogs": [
+        {
+          "type": "alert",
+          "message": "Request failed with status 0."
+        },
+        {
+          "type": "alert",
+          "message": "Request failed with status 0."
+        },
+        {
+          "type": "alert",
+          "message": "Request failed with status 0."
+        },
+        {
+          "type": "alert",
+          "message": "Request failed with status 0."
+        }
+      ]
+    },
+    "icon_policy": {
+      "checks": [
+        {
+          "name": "Published 3.2.6 image policy reproduces a blocked header SVG",
+          "result": "passed"
+        },
+        {
+          "name": "Production policy renders the actual local SVG header image",
+          "result": "passed"
+        },
+        {
+          "name": "Remote images remain blocked by the production policy",
+          "result": "passed"
+        }
+      ],
+      "status": "passed",
+      "negativeControlBlocked": true,
+      "renderedImage": {
+        "complete": true,
+        "width": 512,
+        "height": 512,
+        "path": "/app-icon.svg"
+      },
+      "remoteImagesBlocked": true
+    },
+    "printed_final_row_and_raw_sentinel": true
+  },
+  "initial_source_failure": {
+    "commit": "df7cadad85596fea6b7b36d5f04cefc5664ecc36",
+    "run": 41013218234,
+    "reason": "Historical wrong-version test hard-coded 3.2.10, equal to the new application version. Corrected to derive distinct candidates without changing production binary validation."
+  },
+  "limitations": [
+    "Hosted Windows Server/Edge and Windows PowerShell 5.1; local Linux Chromium and PowerShell 7 are supplementary.",
+    "UI/report fixtures use synthetic data and local fixture API responses with production HTML/CSP. Native executable preference persistence is separately exercised.",
+    "No live server-role inventory, Office visual rendering, human UAC/desktop, native folder dialog automation, physical mixed-DPI/monitor removal, legacy Windows/PowerShell or Chrome guest field validation.",
+    "Offline/HTTP/rate-limit/cache/download-security cases use deterministic native test responses.",
+    "Published focus uses a synthetic DOM focus event after a real elapsed wait."
+  ]
+}
