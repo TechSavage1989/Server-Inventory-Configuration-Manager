@@ -1,6 +1,6 @@
 # Synthetic diagnostic only: never execute the inventory collector's top-level code.
 [CmdletBinding()]
-param([Parameter(Mandatory=$true)][string]$CollectorPath)
+param([Parameter(Mandatory=$true)][string]$CollectorPath, [switch]$WrapperProbe, [string]$WrapperResultPath)
 $ErrorActionPreference = 'Stop'
 $expectedHash = 'B072C3CF15F1CEF14DF397718A311A753CFAE0A7B12EBF4380FBED4A2D01C091'
 $actualHash = (Get-FileHash -LiteralPath $CollectorPath -Algorithm SHA256).Hash
@@ -9,6 +9,25 @@ Write-Host ('PowerShell: ' + $PSVersionTable.PSVersion.ToString())
 Write-Host ('OS: ' + [Environment]::OSVersion.VersionString)
 Write-Host ('64-bit process: ' + [Environment]::Is64BitProcess)
 Write-Host ('Collector SHA256: ' + $actualHash)
+$clrModule=[Diagnostics.Process]::GetCurrentProcess().Modules | Where-Object { $_.ModuleName -eq 'clr.dll' } | Select-Object -First 1
+if ($clrModule) { Write-Host ('Loaded CLR file version: ' + $clrModule.FileVersionInfo.FileVersion) }
+Write-Host ('PowerShell assembly version: ' + [Diagnostics.FileVersionInfo]::GetVersionInfo([Management.Automation.PSObject].Assembly.Location).FileVersion)
+if ($WrapperProbe) {
+    $wrapper=Join-Path (Split-Path -Parent $CollectorPath) 'Run-Inventory.ps1'
+    if ((Get-FileHash -LiteralPath $wrapper -Algorithm SHA256).Hash -ne 'DFB7922B697BF6110EACD02FFF1053EC5B0A3724DD5E4C1D98D6C4DBE45BAEC7') { throw 'Unexpected wrapper bytes.' }
+    if ([string]::IsNullOrWhiteSpace($WrapperResultPath)) { throw 'Wrapper result path is required.' }
+    function global:Get-CimInstance {
+        [CmdletBinding()]
+        param([string]$ClassName)
+        throw 'SYNTHETIC_INVENTORY_BARRIER'
+    }
+    if ((Get-Command Get-CimInstance).CommandType -ne 'Function') { throw 'Inventory barrier not installed.' }
+    $syntheticRoot=Join-Path ([IO.Path]::GetTempPath()) ('inventory-wrapper-'+[Guid]::NewGuid().ToString('N'))
+    Write-Host 'BEGIN byte-identical wrapper and collector with first-query barrier; expected controlled failure'
+    & $wrapper -CollectorPath $CollectorPath -OutputRoot $syntheticRoot -PackageName 'synthetic-wrapper' -RunId 'SYNTHETIC' -ResultPath $WrapperResultPath -InventoryCategoryList 'Hardware;OperatingSystem;Storage;Networking;DNS;DHCP;ActiveDirectory;GroupPolicy;FileServices;SharesPermissions;PrintServices;IIS;SQLServer;HyperV;FailoverClustering;WindowsServerBackup;Certificates;ScheduledTasks;Services;InstalledSoftware;WindowsFeaturesRoles;Firewall;RRAS;NPS;BitLocker;SMB;DFS;WindowsUpdate;EventLogs;LocalAccounts;Power;TimeNTP;Security;RemoteManagement' -ExportCategoryList 'DHCP;DNS;GroupPolicy;IIS;Firewall;Certificates;ScheduledTasks;SharesPermissions;PrintServices;RRAS;SQLServer;Registry' -EventLogDays 30
+    throw 'Wrapper unexpectedly returned instead of terminating with controlled barrier failure.'
+}
+
 $tokens=$null; $parseErrors=$null
 $ast=[Management.Automation.Language.Parser]::ParseFile($CollectorPath,[ref]$tokens,[ref]$parseErrors)
 if ($parseErrors.Count) { throw 'Collector parsing failed.' }

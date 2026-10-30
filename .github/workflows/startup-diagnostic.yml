@@ -10,6 +10,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [windows-2022, windows-2025]
+        mode: [startup, wrapper]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 5
     steps:
@@ -24,6 +25,7 @@ jobs:
           $probe=Join-Path $PWD 'scripts/Test-StartupSelfTests.ps1'
           $collector=Join-Path $PWD 'src/app/Export-ServerInventory.ps1'
           $arguments='-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "'+$probe+'" -CollectorPath "'+$collector+'"'
+          if('${{ matrix.mode }}' -eq 'wrapper') { $arguments+=' -WrapperProbe -WrapperResultPath "'+(Join-Path $PWD 'build/startup-diagnostic/wrapper-result.json')+'"' }
           $startInfo=New-Object System.Diagnostics.ProcessStartInfo
           $startInfo.FileName="$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe"
           $startInfo.Arguments=$arguments
@@ -45,10 +47,15 @@ jobs:
           Get-Content $stderr
           [pscustomobject]@{Completed=$completed;ExitCode=$exitCode;HostPowerShell=$PSVersionTable.PSVersion.ToString();OS=[Environment]::OSVersion.VersionString;SourceCommit='${{ github.sha }}'} | ConvertTo-Json | Set-Content build/startup-diagnostic/result.json -Encoding UTF8
           if(-not $completed){throw 'Synthetic startup probe timed out.'}
-          if($exitCode -ne 0){throw ('Synthetic startup probe exited: '+$exitCode)}
+          if('${{ matrix.mode }}' -eq 'wrapper') {
+            if($exitCode -ne 1){throw ('Expected wrapper barrier exit 1, got '+$exitCode)}
+            $result=Get-Content build/startup-diagnostic/wrapper-result.json -Raw | ConvertFrom-Json
+            if($result.Status -ne 'Failed' -or $result.Message -ne 'SYNTHETIC_INVENTORY_BARRIER'){throw 'Wrapper did not report the expected first-inventory barrier.'}
+            Write-Host 'PASS exact wrapper/collector reached controlled first-query barrier; no inventory query executed.'
+          } elseif($exitCode -ne 0){throw ('Synthetic startup probe exited: '+$exitCode)}
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: startup-diagnostic-${{ matrix.os }}
+          name: startup-diagnostic-${{ matrix.os }}-${{ matrix.mode }}
           path: build/startup-diagnostic/
           retention-days: 7
