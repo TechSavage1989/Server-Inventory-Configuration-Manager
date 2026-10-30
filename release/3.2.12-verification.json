@@ -1,0 +1,477 @@
+{
+  "schema_version": 1,
+  "version": "3.2.12",
+  "status": "published-and-verified",
+  "release_commit": "794cb129424f216c4feca2bc97284dcfffe27b63",
+  "release_id": 429512561,
+  "release_url": "https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.12",
+  "tag": "v3.2.12",
+  "source_ci": {
+    "commit": "cad71a1e5a7c1f3487f0ff24ca39ca6b86e318e4",
+    "run": 41130828407,
+    "conclusion": "success",
+    "artifact_sha256": "6fbb2b52aaa561c72e45bead3214bfe39dc4331b90fe9dea76c2c57fda78aac1"
+  },
+  "exact_release_ci": {
+    "run": 41131912460,
+    "conclusion": "success"
+  },
+  "publication": {
+    "run": 41131912474,
+    "conclusion": "success",
+    "job": 124324668974,
+    "artifact_sha256": "63416618c38726a3cdfb835b18beedd46c684c0b525bd3aae29b89d34732c695"
+  },
+  "published_upgrade": {
+    "job": 124326599240,
+    "artifact_id": 13013493518,
+    "artifact_sha256": "ad36a8dbc33e1750a7000ceaf3ec6aceb86872125401df5c208ed3ed0bd5141d",
+    "report": {
+      "expected": "3.2.12",
+      "previous": "3.2.11",
+      "started": "2026-10-30T21:38:27.949Z",
+      "checks": [
+        {
+          "name": "Public updater feed selects the expected new release",
+          "result": "passed",
+          "time": "2026-10-30T21:38:28.593Z"
+        },
+        {
+          "name": "Previous executable matches the published v3.2.11 checksum",
+          "result": "passed",
+          "time": "2026-10-30T21:38:28.999Z"
+        },
+        {
+          "name": "Published new executable matches its manifest checksum",
+          "result": "passed",
+          "time": "2026-10-30T21:38:29.622Z"
+        },
+        {
+          "name": "Previous executable starts through the desktop shortcut",
+          "result": "passed",
+          "time": "2026-10-30T21:38:33.654Z"
+        },
+        {
+          "name": "Previous published application repairs its desktop icon before the update",
+          "result": "passed",
+          "time": "2026-10-30T21:38:41.106Z"
+        },
+        {
+          "name": "Previous application automatically detects the newly published release",
+          "result": "passed",
+          "time": "2026-10-30T21:38:41.113Z"
+        },
+        {
+          "name": "No automatic download occurs before Download is clicked",
+          "result": "passed",
+          "time": "2026-10-30T21:38:41.113Z"
+        },
+        {
+          "name": "Download through the application completes and stages verified release bytes",
+          "result": "passed",
+          "time": "2026-10-30T21:38:42.997Z"
+        },
+        {
+          "name": "Previous native application browser session is observed before installation",
+          "result": "passed",
+          "time": "2026-10-30T21:38:43.848Z"
+        },
+        {
+          "name": "All browser processes for the old application profile close during the real upgrade",
+          "result": "passed",
+          "time": "2026-10-30T21:38:48.105Z"
+        },
+        {
+          "name": "No unexpected dialog is silently accepted during the upgrade",
+          "result": "passed",
+          "time": "2026-10-30T21:38:48.105Z"
+        },
+        {
+          "name": "Actual new native browser uses guest mode with extensions and sync disabled",
+          "result": "passed",
+          "time": "2026-10-30T21:38:48.892Z"
+        },
+        {
+          "name": "Native helper installs and restarts the new version",
+          "result": "passed",
+          "time": "2026-10-30T21:38:48.898Z"
+        },
+        {
+          "name": "Actual user desktop shortcut now references the persistent approved icon",
+          "result": "passed",
+          "time": "2026-10-30T21:38:49.464Z"
+        },
+        {
+          "name": "Desktop icon repair preserves its target and all existing launch properties",
+          "result": "passed",
+          "time": "2026-10-30T21:38:49.464Z"
+        },
+        {
+          "name": "Unrelated desktop shortcut remains byte-identical",
+          "result": "passed",
+          "time": "2026-10-30T21:38:49.464Z"
+        },
+        {
+          "name": "Windows Explorer resolves the approved rendered pixels for both the installed EXE and actual desktop shortcut",
+          "result": "passed",
+          "time": "2026-10-30T21:38:50.975Z"
+        },
+        {
+          "name": "Updated application serves the exact editable SVG icon",
+          "result": "passed",
+          "time": "2026-10-30T21:38:50.977Z"
+        },
+        {
+          "name": "Application favicon and PNG match the SVG-derived icon assets",
+          "result": "passed",
+          "time": "2026-10-30T21:38:50.981Z"
+        },
+        {
+          "name": "Visible application header loads the new vector icon",
+          "result": "passed",
+          "time": "2026-10-30T21:38:51.016Z"
+        },
+        {
+          "name": "New application confirms a rendered interface and a visible owned native window",
+          "result": "passed",
+          "time": "2026-10-30T21:38:51.016Z"
+        },
+        {
+          "name": "User settings remain byte-identical after the real upgrade",
+          "result": "passed",
+          "time": "2026-10-30T21:38:51.017Z"
+        },
+        {
+          "name": "Exactly the previous published executable is retained for rollback",
+          "result": "passed",
+          "time": "2026-10-30T21:38:51.029Z"
+        },
+        {
+          "name": "Only one rollback executable generation is retained",
+          "result": "passed",
+          "time": "2026-10-30T21:38:51.029Z"
+        },
+        {
+          "name": "Desktop shortcut target remains the same stable executable path",
+          "result": "passed",
+          "time": "2026-10-30T21:38:51.436Z"
+        },
+        {
+          "name": "Installed target bytes match the new public release across staging volumes",
+          "result": "passed",
+          "time": "2026-10-30T21:38:51.445Z"
+        },
+        {
+          "name": "Manual update check succeeds on the new executable",
+          "result": "passed",
+          "time": "2026-10-30T21:38:51.741Z"
+        },
+        {
+          "name": "Short manual-check cooldown prevents another request",
+          "result": "passed",
+          "time": "2026-10-30T21:38:52.365Z"
+        },
+        {
+          "name": "Application focus binding checks again after two minutes",
+          "result": "passed",
+          "time": "2026-10-30T21:40:54.180Z"
+        },
+        {
+          "name": "Native automatic checks continue after five active minutes",
+          "result": "passed",
+          "time": "2026-10-30T21:46:02.422Z"
+        },
+        {
+          "name": "Owned download staging is cleaned after the update",
+          "result": "passed",
+          "time": "2026-10-30T21:46:02.494Z"
+        },
+        {
+          "name": "Real updated application saves collection choices without persistent sensitive consent",
+          "result": "passed",
+          "time": "2026-10-30T21:46:02.865Z"
+        },
+        {
+          "name": "Updated native window automatically saves its moved position and resized bounds",
+          "result": "passed",
+          "time": "2026-10-30T21:46:08.153Z"
+        },
+        {
+          "name": "Desktop shortcut icon remains valid after the application and browser session close",
+          "result": "passed",
+          "time": "2026-10-30T21:46:11.081Z"
+        },
+        {
+          "name": "Existing desktop shortcut launches the updated executable",
+          "result": "passed",
+          "time": "2026-10-30T21:46:11.944Z"
+        },
+        {
+          "name": "Real native window reopens from the stable shortcut at its saved size and position",
+          "result": "passed",
+          "time": "2026-10-30T21:46:17.920Z"
+        },
+        {
+          "name": "Saved collection profile is restored in the visible application after a real shortcut relaunch",
+          "result": "passed",
+          "time": "2026-10-30T21:46:17.944Z"
+        },
+        {
+          "name": "Window geometry persistence leaves inventory settings byte-identical",
+          "result": "passed",
+          "time": "2026-10-30T21:46:17.944Z"
+        },
+        {
+          "name": "Missing healthy-start confirmation triggers the actual native rollback path",
+          "result": "passed",
+          "time": "2026-10-30T21:47:05.716Z"
+        },
+        {
+          "name": "Rollback restores the previous executable bytes at a legacy versioned filename",
+          "result": "passed",
+          "time": "2026-10-30T21:47:05.730Z"
+        },
+        {
+          "name": "Rollback relaunches the previous application",
+          "result": "passed",
+          "time": "2026-10-30T21:47:06.010Z"
+        },
+        {
+          "name": "Rollback preserves user settings",
+          "result": "passed",
+          "time": "2026-10-30T21:47:06.011Z"
+        },
+        {
+          "name": "Fixed application produces no unexpected modal dialogs throughout the test",
+          "result": "passed",
+          "time": "2026-10-30T21:47:06.103Z"
+        }
+      ],
+      "limitations": [
+        "UAC consent transitions were not exercised.",
+        "Playwright drives the application page alongside its visible native Edge window; physical desktop interaction was not performed.",
+        "Offline, HTTP failure, rate limiting, ETag and malicious-file cases use deterministic native Go tests.",
+        "Legacy Windows Server versions and every server-role collector were not exercised."
+      ],
+      "legacyShutdownDialogs": [],
+      "shellIcons": {
+        "executable_matches": true,
+        "pixel_sha256": "c53459e7fc5df2156f07ffb2bb95917688749ff21fd61305683c0d767276247f",
+        "native_shortcut_arrow": true,
+        "shortcut_pixel_sha256": "eb936c2aa7fe2d45e9de9aef9c68b05edb716b352a01164ff73cfca08e443d88",
+        "shortcut_matches": true,
+        "status": "passed"
+      },
+      "volumes": {
+        "target": "D:\\",
+        "staging": "C:\\"
+      },
+      "nativeWindowMoveRequest": {
+        "Bottom": 663,
+        "RequestSent": true,
+        "LegacyNestedWriteValue": 0,
+        "Handle": 131618,
+        "Top": 63,
+        "ShowCmd": 1,
+        "Left": 87,
+        "Right": 987
+      },
+      "nativeWindowAfterMove": {
+        "Bottom": 663,
+        "RequestSent": false,
+        "LegacyNestedWriteValue": 0,
+        "Handle": 131618,
+        "Top": 63,
+        "ShowCmd": 1,
+        "Left": 87,
+        "Right": 987
+      },
+      "savedWindowGeometry": {
+        "schema_version": 1,
+        "normal_bounds": {
+          "Left": 87,
+          "Top": 63,
+          "Right": 987,
+          "Bottom": 663
+        },
+        "maximized": false
+      },
+      "status": "passed",
+      "unexpectedDialogs": [],
+      "completed": "2026-10-30T21:47:08.152Z"
+    }
+  },
+  "public_verification": {
+    "status": "passed",
+    "checked_at": "2026-10-30T21:40:00.477728+00:00",
+    "release_id": 429512561,
+    "assets": [
+      {
+        "id": 693493612,
+        "name": "Application-Preview.png",
+        "size": 111194,
+        "sha256": "33ef7c95d68ba3cc29c9001d7ca5c8882b31b997e925b51370c1f8500b014c34"
+      },
+      {
+        "id": 693493609,
+        "name": "Application-Preview.png.sha256.txt",
+        "size": 91,
+        "sha256": "9c3a6db4a527e1cda376db235e195f95b7f7f9b2a5f5893ad7baf52ebc4a76b3"
+      },
+      {
+        "id": 693493615,
+        "name": "go-test-results.txt",
+        "size": 15040,
+        "sha256": "1af91cd5bf1880047538e29990ff92a58d7bdfce306439eee58f8aa7d59c58cd"
+      },
+      {
+        "id": 693493587,
+        "name": "Report-Preview.png",
+        "size": 110657,
+        "sha256": "e77b443d042abd79683a29cd9eacc9034c4bc3e360d2cd46233095a8e80a71d5"
+      },
+      {
+        "id": 693493586,
+        "name": "Report-Preview.png.sha256.txt",
+        "size": 86,
+        "sha256": "f34e4e3b4afdc61e5a03872b543675a440bc5c259ae4e132412000d4152e036a"
+      },
+      {
+        "id": 693493580,
+        "name": "Server-Inventory-Configuration-Manager-Illustrator.svg",
+        "size": 49437,
+        "sha256": "4eb6eb78435ebaf64dbc5b71c836af8f1b6544235bba3adbfcd0a7e2a7c3a775"
+      },
+      {
+        "id": 693493585,
+        "name": "Server-Inventory-Configuration-Manager-Illustrator.svg.sha256.txt",
+        "size": 122,
+        "sha256": "6a42153cf96f82de5a1440af86e3434c797c018431911eb83aed1924ab2fe71a"
+      },
+      {
+        "id": 693493546,
+        "name": "Server-Inventory-Configuration-Manager.exe",
+        "size": 6641152,
+        "sha256": "fa8b74fec574a8968b74e91aca790aa40e04a8121e5b884eec5604dd0118f049"
+      },
+      {
+        "id": 693493551,
+        "name": "Server-Inventory-Configuration-Manager.exe.sha256.txt",
+        "size": 110,
+        "sha256": "7b2f33d3800787e2dd3d71fb2b84447b77d3f4bd04cabd6c14a0a15be39720ad"
+      },
+      {
+        "id": 693493547,
+        "name": "Server-Inventory-Configuration-Manager.svg",
+        "size": 1969,
+        "sha256": "21d338c351408e8dfd3ce320e50c4e9f6e1429876e3243870cf16398e6ebc576"
+      },
+      {
+        "id": 693493553,
+        "name": "Server-Inventory-Configuration-Manager.svg.sha256.txt",
+        "size": 110,
+        "sha256": "097666cc6bea9d2ed6bc1d46985fbac6bea0248025589ba273f5f1b922ea78ea"
+      },
+      {
+        "id": 693493545,
+        "name": "update-manifest.json",
+        "size": 1410,
+        "sha256": "f53bd47fd9554a0f20d993211385dca8a9c2f08255bf3d5f0f8855af6816f74c"
+      }
+    ],
+    "sidecars_verified": 5,
+    "manifest": {
+      "schema_version": 1,
+      "app_id": "Server-Inventory-Configuration-Manager",
+      "version": "3.2.12",
+      "published_at": "2026-10-30T21:37:33.4967074Z",
+      "release_url": "https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.12",
+      "notes": [
+        "Makes HTML inventory tables compact by default, with horizontal scrolling instead of forced wrapping. Optional wrapping remains available for longer values.",
+        "Adds copy controls for tables, raw text, sections and the full report; individual values remain directly selectable. Copied text preserves complete reported values. A selectable manual-copy panel remains available when browser clipboard permissions prevent automatic copying.",
+        "Adds table filtering and sorting without discarding captured rows. Copying a dataset retains every reported row, including rows hidden by its filter."
+      ],
+      "read_more": true,
+      "asset": {
+        "name": "Server-Inventory-Configuration-Manager.exe",
+        "url": "https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/download/v3.2.12/Server-Inventory-Configuration-Manager.exe",
+        "sha256": "fa8b74fec574a8968b74e91aca790aa40e04a8121e5b884eec5604dd0118f049",
+        "size": 6641152
+      }
+    },
+    "latest_feed_bytes_match": true,
+    "conditional_http_status": 304,
+    "previous_release_unchanged": true
+  },
+  "report_browser": {
+    "status": "passed",
+    "checks": [
+      {
+        "name": "Long paths remain full, selectable and compact with horizontal scrolling",
+        "result": "passed"
+      },
+      {
+        "name": "Wrap toggle expands values deliberately and returns to compact rows",
+        "result": "passed"
+      },
+      {
+        "name": "Table filters retain all data for copy, disclose counts and print every row",
+        "result": "passed"
+      },
+      {
+        "name": "Header sorting is numeric, keyboard accessible and resets original order on third click",
+        "result": "passed"
+      },
+      {
+        "name": "Copy table preserves every command, array, multiline, empty, error and Unicode cell as quoted TSV",
+        "result": "passed"
+      },
+      {
+        "name": "Section/full-report copying includes collapsed datasets, final rows and notices without controls",
+        "result": "passed"
+      },
+      {
+        "name": "Raw multiline copy retains whitespace, tabs, quotes and final Unicode line",
+        "result": "passed"
+      },
+      {
+        "name": "Clipboard rejection uses legacy copy and confirms only after success",
+        "result": "passed"
+      },
+      {
+        "name": "Both automatic paths blocked leave full selected manual text and support keyboard copy/close",
+        "result": "passed"
+      },
+      {
+        "name": "Saved offline HTML with no Clipboard API exposes complete manual-copy fallback",
+        "result": "passed"
+      },
+      {
+        "name": "Manual copy remains keyboard usable and Close is reachable in a 390 by 300 viewport",
+        "result": "passed"
+      },
+      {
+        "name": "Production application iframe retains copy controls and fallback under unchanged CSP",
+        "result": "passed"
+      },
+      {
+        "name": "No script errors or external report requests",
+        "result": "passed"
+      }
+    ],
+    "data": "Synthetic only",
+    "platform": "win32",
+    "limitations": [
+      "Synthetic browser/clipboard tests do not reproduce user enterprise clipboard policies or physical desktop interaction."
+    ],
+    "browserVersion": "155.0.4283.62",
+    "browserSelection": "msedge",
+    "compactRowHeight": 28.59375
+  },
+  "limitations": [
+    "Synthetic data only; no live customer inventory, AD/DHCP diagnosis, Office visual validation, human UAC/physical desktop interaction or legacy Windows field validation.",
+    "Benchmark uses Linux PowerShell 7.4.13 synthetic data and excludes collection, ZIP and network time; not a user-host timing guarantee.",
+    "Existing lossy CSV/HTML cannot recover original array values; fresh collection required.",
+    "SHA256 verifies byte integrity, not publisher signing; release assets must never be replaced."
+  ]
+}

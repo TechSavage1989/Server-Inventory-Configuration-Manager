@@ -1,4 +1,16 @@
-## Unpublished report usability and generation candidate — 2026-10-30
+## 3.2.12 published and verified — 2026-10-30
+
+- [Release v3.2.12](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.12), exact commit `794cb129424f216c4feca2bc97284dcfffe27b63`; PR #4 merged after final source Windows CI passed.
+- Compact selectable tables, optional wrapping, filtering/sorting/reset, complete table/text/section/report copy and keyboard/manual offline fallback are published. Array/list values now survive CSV-backed HTML/Word reporting; existing lossy exports need a fresh collection.
+- [Final source CI](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/41130828407), [exact release CI](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/41131912460), and [publication/full upgrade](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/41131912474) passed. Hosted Windows report/value/parity, 18 report browser checks, 13 copy/filter/sort/offline/small-window checks, native updater and original provenance checks passed. Final source screenshots were inspected: compact rows are approximately 28.6px, long values selectable/scrollable, and manual-copy Close remains reachable in a 390×300 viewport. Printed PDF retains FINALROW-1500 and LAST-RAW-LINE; strengthened filtered-print and keyboard-copy sentinel assertions passed.
+- All 43 actual 3.2.11-to-3.2.12 upgrade checks passed in one run with no reused timer evidence and zero unexpected dialogs: explicit Download/Install/restart, cross-volume replacement, old-profile closure, visible native health, settings, shortcut/icon, actual two-minute focus/five-minute scheduler waits, saved profile/window restoration, staging cleanup and failed-health rollback/relaunch.
+- Stable EXE: 6,641,152 bytes; SHA-256 `fa8b74fec574a8968b74e91aca790aa40e04a8121e5b884eec5604dd0118f049`. Embedded build revision matches the release commit and `vcs.modified=false`. All 12 public assets independently downloaded and verified against sizes/digests, all five checksum sidecars match, latest feed byte-identical and conditional HTTP 304 verified. Previous 3.2.11 release identity/commit and all 12 asset identities/sizes/digests remain unchanged.
+- Structured evidence: `release/3.2.12-verification.json`. Upgrade artifact SHA-256 `ad36a8dbc33e1750a7000ceaf3ec6aceb86872125401df5c208ed3ed0bd5141d`.
+- Synthetic 80,000-cell snapshot + HTML + Word generation benchmark: 66.104s → 21.135s, with all 80,032 cells/headers and Word document XML equivalent. Linux PowerShell 7.4.13 only; excludes live collection, ZIP and network/filesystem latency and is not a user-host timing guarantee.
+
+Limits: synthetic hosted Windows/Edge testing, not live customer inventory, AD/DHCP diagnosis, Office visual validation, physical desktop/mixed-DPI interaction, human UAC consent, or a new legacy Windows field pass. Focus uses a DOM event after a real elapsed wait. No client reports/data were uploaded. SHA-256 verifies bytes, not publisher signing; published assets must never be replaced.
+
+## Historical 3.2.12 report candidate scope — 2026-10-30
 
 Requested scope: copyable report data, compact rows instead of forced column wrapping, more interactive/polished final results, slow final report generation, and DNS address fields rendered as `System.String[]`.
 
