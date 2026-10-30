@@ -89,3 +89,4 @@ jobs:
           & powershell.exe -NoLogo -NoProfile -NonInteractive -File "$timeout/Run-Diagnostic.ps1"
           if($LASTEXITCODE -ne 3 -or $watch.Elapsed.TotalSeconds -gt 15){throw 'Bounded timeout control failed.'}
           Write-Host 'PASS bundle, rejected altered payload, and terminated only the owned timed-out child.'
+          exit 0
