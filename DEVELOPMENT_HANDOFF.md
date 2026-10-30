@@ -1,3 +1,11 @@
+## 3.2.11 prepublication verification
+
+Full hosted Windows source CI passed at f480504618b0f26f292e5452a28b84f9293391de (run 41115762285) and release-preparation commit 4f45056ea7a752c9df09a265df2dfdea9330531a (run 41116306822). This includes 14 synthetic startup checks, 18 bounded ACL worker checks, standalone probe validation, original provenance and negative controls, report/Word fixtures, clean source archive rebuild, native Go tests/vet, production browser regressions, and real native helper installation/visible health. Neither run collects server inventory.
+
+On 2026-10-30 the user also ran the candidate synthetic probe on the actual affected Server 2019 / Windows PowerShell 5.1.17763.9121 / CLR 4.8.4811.0 host: finished within timeout, child exit 0, all candidate startup checkpoints passed, stderr empty. Payload SHA256 BFA795D71C8D661C004ADD91E3C6D9E37DACE9A40A2E6433047A2F3CB48079DC; getter SHA256 D83AE3F322BD07B722576C6CA0F5F6E4BE702B51E4700D5954E575FD53AFE28F. The finite published getter negative control reproduced identity loss; the candidate retained identity and passed the previously fatal cyclic table snapshot. This confirms the targeted startup fix on that runtime, not full live inventory completion.
+
+The user explicitly authorized publication after validation. Publication and subsequent public-download/real previous-to-new upgrade verification are pending; no published success is claimed by this source note.
+
 # DEVELOPMENT_HANDOFF.md
 
 ## 3.2.11 candidate: startup cycle handling and responsive ACL exports (not published)
