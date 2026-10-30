@@ -59,3 +59,33 @@ jobs:
           name: startup-diagnostic-${{ matrix.os }}-${{ matrix.mode }}
           path: build/startup-diagnostic/
           retention-days: 7
+  standalone-bundle:
+    runs-on: windows-2022
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate standalone probe, checksum rejection and bounded timeout
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          $bundle=Join-Path $PWD 'scripts/diagnostics/startup-probe'
+          & powershell.exe -NoLogo -NoProfile -NonInteractive -File "$bundle/Run-Diagnostic.ps1"
+          if($LASTEXITCODE -ne 0){throw 'Standalone bundle failed.'}
+          $report=Get-ChildItem "$bundle/Startup-Diagnostic-*.txt" | Select-Object -First 1
+          if((Get-Content $report.FullName -Raw) -notmatch 'PASS all synthetic startup tests'){throw 'Missing probe success marker.'}
+          Get-Content $report.FullName
+          $negative=Join-Path $env:RUNNER_TEMP 'negative-checksum'
+          Copy-Item $bundle $negative -Recurse
+          Add-Content "$negative/Startup-Probe.ps1" '# negative checksum fixture'
+          & powershell.exe -NoLogo -NoProfile -NonInteractive -File "$negative/Run-Diagnostic.ps1"
+          if($LASTEXITCODE -ne 2){throw 'Modified payload was not rejected.'}
+          $timeout=Join-Path $env:RUNNER_TEMP 'negative-timeout'
+          Copy-Item $bundle $timeout -Recurse
+          Set-Content "$timeout/Startup-Probe.ps1" 'Start-Sleep -Seconds 30' -Encoding UTF8
+          $hash=(Get-FileHash "$timeout/Startup-Probe.ps1" -Algorithm SHA256).Hash
+          $runner=[IO.File]::ReadAllText("$timeout/Run-Diagnostic.ps1").Replace('BFFFA7189BAB9DC4FB99F1DB3F375E5616F708CF2C6B54D885A5865218F81502',$hash).Replace('WaitForExit(60000)','WaitForExit(1000)')
+          [IO.File]::WriteAllText("$timeout/Run-Diagnostic.ps1",$runner)
+          $watch=[Diagnostics.Stopwatch]::StartNew()
+          & powershell.exe -NoLogo -NoProfile -NonInteractive -File "$timeout/Run-Diagnostic.ps1"
+          if($LASTEXITCODE -ne 3 -or $watch.Elapsed.TotalSeconds -gt 15){throw 'Bounded timeout control failed.'}
+          Write-Host 'PASS bundle, rejected altered payload, and terminated only the owned timed-out child.'
