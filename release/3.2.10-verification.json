@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "version": "3.2.10",
-  "status": "source-validated-publication-pending",
+  "status": "published-and-verified",
   "source": {
     "commit": "37bc4ae75c3cd725dd9a16000ab3660bf3e279e9",
     "run": 41013556970,
@@ -283,5 +283,440 @@
     "No live server-role inventory, Office visual rendering, human UAC/desktop, native folder dialog automation, physical mixed-DPI/monitor removal, legacy Windows/PowerShell or Chrome guest field validation.",
     "Offline/HTTP/rate-limit/cache/download-security cases use deterministic native test responses.",
     "Published focus uses a synthetic DOM focus event after a real elapsed wait."
-  ]
+  ],
+  "functional_baseline": "Windows executable v3.0.10",
+  "release_commit": "24e79e92e50d4eba3f8b6afb492e7b9e3991c322",
+  "release_id": 428717504,
+  "release_url": "https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.10",
+  "tag": "v3.2.10",
+  "exact_release_ci": {
+    "run": 41014112454,
+    "job": 123926402691,
+    "conclusion": "success"
+  },
+  "publication": {
+    "run": 41014112612,
+    "job": 123926403178,
+    "conclusion": "success",
+    "artifact_id": 12958806743,
+    "artifact_sha256": "d5772c76de36b438651e4b6ec0926d2bf60cac6d6580ccab32ec36ac62dadfa9"
+  },
+  "published_upgrade": {
+    "run": 41014112612,
+    "job": 123927852012,
+    "conclusion": "success",
+    "artifact": {
+      "id": 12959277838,
+      "name": "published-upgrade-validation",
+      "size_in_bytes": 8561353,
+      "url": "https://api.github.com/repos/TechSavage1989/Server-Inventory-Configuration-Manager/actions/artifacts/12959277838",
+      "archive_download_url": "https://api.github.com/repos/TechSavage1989/Server-Inventory-Configuration-Manager/actions/artifacts/12959277838/zip",
+      "expired": false,
+      "created_at": "2026-10-30T06:40:12Z",
+      "expires_at": "2027-01-28T06:26:41Z",
+      "updated_at": "2026-10-30T06:40:12Z",
+      "digest": "sha256:35b260ec280061022bd18746d3185728103b917ef72bbc19dbd204e0407e0c00",
+      "workflow_run": {
+        "id": 41014112612,
+        "repository_id": 1432828386,
+        "head_repository_id": 1432828386,
+        "head_branch": "main",
+        "head_sha": "24e79e92e50d4eba3f8b6afb492e7b9e3991c322"
+      }
+    },
+    "report": {
+      "expected": "3.2.10",
+      "previous": "3.2.9",
+      "started": "2026-10-30T06:31:42.088Z",
+      "checks": [
+        {
+          "name": "Public updater feed selects the expected new release",
+          "result": "passed",
+          "time": "2026-10-30T06:31:42.602Z"
+        },
+        {
+          "name": "Previous executable matches the published v3.2.9 checksum",
+          "result": "passed",
+          "time": "2026-10-30T06:31:42.934Z"
+        },
+        {
+          "name": "Published new executable matches its manifest checksum",
+          "result": "passed",
+          "time": "2026-10-30T06:31:43.150Z"
+        },
+        {
+          "name": "Previous executable starts through the desktop shortcut",
+          "result": "passed",
+          "time": "2026-10-30T06:31:45.953Z"
+        },
+        {
+          "name": "Previous published application repairs its desktop icon before the update",
+          "result": "passed",
+          "time": "2026-10-30T06:31:51.889Z"
+        },
+        {
+          "name": "Previous application automatically detects the newly published release",
+          "result": "passed",
+          "time": "2026-10-30T06:31:51.896Z"
+        },
+        {
+          "name": "No automatic download occurs before Download is clicked",
+          "result": "passed",
+          "time": "2026-10-30T06:31:51.896Z"
+        },
+        {
+          "name": "Download through the application completes and stages verified release bytes",
+          "result": "passed",
+          "time": "2026-10-30T06:31:53.246Z"
+        },
+        {
+          "name": "Previous native application browser session is observed before installation",
+          "result": "passed",
+          "time": "2026-10-30T06:31:53.808Z"
+        },
+        {
+          "name": "All browser processes for the old application profile close during the real upgrade",
+          "result": "passed",
+          "time": "2026-10-30T06:31:56.800Z"
+        },
+        {
+          "name": "No unexpected dialog is silently accepted during the upgrade",
+          "result": "passed",
+          "time": "2026-10-30T06:31:56.800Z"
+        },
+        {
+          "name": "Actual new native browser uses guest mode with extensions and sync disabled",
+          "result": "passed",
+          "time": "2026-10-30T06:31:57.325Z"
+        },
+        {
+          "name": "Native helper installs and restarts the new version",
+          "result": "passed",
+          "time": "2026-10-30T06:31:57.329Z"
+        },
+        {
+          "name": "Actual user desktop shortcut now references the persistent approved icon",
+          "result": "passed",
+          "time": "2026-10-30T06:31:57.980Z"
+        },
+        {
+          "name": "Desktop icon repair preserves its target and all existing launch properties",
+          "result": "passed",
+          "time": "2026-10-30T06:31:57.981Z"
+        },
+        {
+          "name": "Unrelated desktop shortcut remains byte-identical",
+          "result": "passed",
+          "time": "2026-10-30T06:31:57.981Z"
+        },
+        {
+          "name": "Windows Explorer resolves the approved rendered pixels for both the installed EXE and actual desktop shortcut",
+          "result": "passed",
+          "time": "2026-10-30T06:31:59.380Z"
+        },
+        {
+          "name": "Updated application serves the exact editable SVG icon",
+          "result": "passed",
+          "time": "2026-10-30T06:31:59.382Z"
+        },
+        {
+          "name": "Application favicon and PNG match the SVG-derived icon assets",
+          "result": "passed",
+          "time": "2026-10-30T06:31:59.385Z"
+        },
+        {
+          "name": "Visible application header loads the new vector icon",
+          "result": "passed",
+          "time": "2026-10-30T06:31:59.408Z"
+        },
+        {
+          "name": "New application confirms a rendered interface and a visible owned native window",
+          "result": "passed",
+          "time": "2026-10-30T06:31:59.408Z"
+        },
+        {
+          "name": "User settings remain byte-identical after the real upgrade",
+          "result": "passed",
+          "time": "2026-10-30T06:31:59.409Z"
+        },
+        {
+          "name": "Exactly the previous published executable is retained for rollback",
+          "result": "passed",
+          "time": "2026-10-30T06:31:59.418Z"
+        },
+        {
+          "name": "Only one rollback executable generation is retained",
+          "result": "passed",
+          "time": "2026-10-30T06:31:59.419Z"
+        },
+        {
+          "name": "Desktop shortcut target remains the same stable executable path",
+          "result": "passed",
+          "time": "2026-10-30T06:31:59.703Z"
+        },
+        {
+          "name": "Installed target bytes match the new public release across staging volumes",
+          "result": "passed",
+          "time": "2026-10-30T06:31:59.715Z"
+        },
+        {
+          "name": "Manual update check succeeds on the new executable",
+          "result": "passed",
+          "time": "2026-10-30T06:31:59.996Z"
+        },
+        {
+          "name": "Short manual-check cooldown prevents another request",
+          "result": "passed",
+          "time": "2026-10-30T06:32:00.623Z"
+        },
+        {
+          "name": "Application focus binding checks again after two minutes",
+          "result": "passed",
+          "time": "2026-10-30T06:34:02.355Z"
+        },
+        {
+          "name": "Native automatic checks continue after five active minutes",
+          "result": "passed",
+          "time": "2026-10-30T06:39:11.368Z"
+        },
+        {
+          "name": "Owned download staging is cleaned after the update",
+          "result": "passed",
+          "time": "2026-10-30T06:39:11.425Z"
+        },
+        {
+          "name": "Real updated application saves collection choices without persistent sensitive consent",
+          "result": "passed",
+          "time": "2026-10-30T06:39:11.543Z"
+        },
+        {
+          "name": "Updated native window automatically saves its moved position and resized bounds",
+          "result": "passed",
+          "time": "2026-10-30T06:39:13.349Z"
+        },
+        {
+          "name": "Desktop shortcut icon remains valid after the application and browser session close",
+          "result": "passed",
+          "time": "2026-10-30T06:39:15.157Z"
+        },
+        {
+          "name": "Existing desktop shortcut launches the updated executable",
+          "result": "passed",
+          "time": "2026-10-30T06:39:15.744Z"
+        },
+        {
+          "name": "Real native window reopens from the stable shortcut at its saved size and position",
+          "result": "passed",
+          "time": "2026-10-30T06:39:21.384Z"
+        },
+        {
+          "name": "Saved collection profile is restored in the visible application after a real shortcut relaunch",
+          "result": "passed",
+          "time": "2026-10-30T06:39:21.400Z"
+        },
+        {
+          "name": "Window geometry persistence leaves inventory settings byte-identical",
+          "result": "passed",
+          "time": "2026-10-30T06:39:21.400Z"
+        },
+        {
+          "name": "Missing healthy-start confirmation triggers the actual native rollback path",
+          "result": "passed",
+          "time": "2026-10-30T06:40:07.877Z"
+        },
+        {
+          "name": "Rollback restores the previous executable bytes at a legacy versioned filename",
+          "result": "passed",
+          "time": "2026-10-30T06:40:07.906Z"
+        },
+        {
+          "name": "Rollback relaunches the previous application",
+          "result": "passed",
+          "time": "2026-10-30T06:40:08.172Z"
+        },
+        {
+          "name": "Rollback preserves user settings",
+          "result": "passed",
+          "time": "2026-10-30T06:40:08.173Z"
+        },
+        {
+          "name": "Fixed application produces no unexpected modal dialogs throughout the test",
+          "result": "passed",
+          "time": "2026-10-30T06:40:08.220Z"
+        }
+      ],
+      "limitations": [
+        "UAC consent transitions were not exercised.",
+        "Playwright drives the application page alongside its visible native Edge window; physical desktop interaction was not performed.",
+        "Offline, HTTP failure, rate limiting, ETag and malicious-file cases use deterministic native Go tests.",
+        "Legacy Windows Server versions and every server-role collector were not exercised."
+      ],
+      "legacyShutdownDialogs": [],
+      "shellIcons": {
+        "executable_matches": true,
+        "pixel_sha256": "c53459e7fc5df2156f07ffb2bb95917688749ff21fd61305683c0d767276247f",
+        "native_shortcut_arrow": true,
+        "shortcut_pixel_sha256": "eb936c2aa7fe2d45e9de9aef9c68b05edb716b352a01164ff73cfca08e443d88",
+        "shortcut_matches": true,
+        "status": "passed"
+      },
+      "volumes": {
+        "target": "D:\\",
+        "staging": "C:\\"
+      },
+      "nativeWindowMoveRequest": {
+        "Bottom": 663,
+        "RequestSent": true,
+        "LegacyNestedWriteValue": 0,
+        "Handle": 131656,
+        "Top": 63,
+        "ShowCmd": 1,
+        "Left": 87,
+        "Right": 987
+      },
+      "nativeWindowAfterMove": {
+        "Bottom": 663,
+        "RequestSent": false,
+        "LegacyNestedWriteValue": 0,
+        "Handle": 131656,
+        "Top": 63,
+        "ShowCmd": 1,
+        "Left": 87,
+        "Right": 987
+      },
+      "savedWindowGeometry": {
+        "schema_version": 1,
+        "normal_bounds": {
+          "Left": 87,
+          "Top": 63,
+          "Right": 987,
+          "Bottom": 663
+        },
+        "maximized": false
+      },
+      "status": "passed",
+      "unexpectedDialogs": [],
+      "completed": "2026-10-30T06:40:09.872Z"
+    }
+  },
+  "public_verification": {
+    "version": "3.2.10",
+    "commit": "24e79e92e50d4eba3f8b6afb492e7b9e3991c322",
+    "release_id": 428717504,
+    "assets": [
+      {
+        "id": 691188289,
+        "name": "Application-Preview.png",
+        "size": 111212,
+        "sha256": "ea71ae3b58f09ffac764ae12034b7bd0baa9d1243a0251ed392e5e3172be76b6",
+        "url": "https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/download/v3.2.10/Application-Preview.png"
+      },
+      {
+        "id": 691188295,
+        "name": "Application-Preview.png.sha256.txt",
+        "size": 91,
+        "sha256": "2be1f0db8d8c5a16a9ebf8556d6b702b1c7ceb238d749d310a3f77f63b09ac83",
+        "url": "https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/download/v3.2.10/Application-Preview.png.sha256.txt"
+      },
+      {
+        "id": 691188304,
+        "name": "go-test-results.txt",
+        "size": 14356,
+        "sha256": "91c3d60fdd3c01078a2da688cec8334a9a3aea83579171875cf6ccefb99f55ad",
+        "url": "https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/download/v3.2.10/go-test-results.txt"
+      },
+      {
+        "id": 691188280,
+        "name": "Report-Preview.png",
+        "size": 101139,
+        "sha256": "8eab9e066dca7be579f7aab6bd86fa6cc9d6a2452cf885c432f406af8ab9d46d",
+        "url": "https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/download/v3.2.10/Report-Preview.png"
+      },
+      {
+        "id": 691188282,
+        "name": "Report-Preview.png.sha256.txt",
+        "size": 86,
+        "sha256": "f270bdce0ba1177581e4383a9aa41b15f1a503b8ff77be56963f0faf20606962",
+        "url": "https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/download/v3.2.10/Report-Preview.png.sha256.txt"
+      },
+      {
+        "id": 691188271,
+        "name": "Server-Inventory-Configuration-Manager-Illustrator.svg",
+        "size": 49437,
+        "sha256": "4eb6eb78435ebaf64dbc5b71c836af8f1b6544235bba3adbfcd0a7e2a7c3a775",
+        "url": "https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/download/v3.2.10/Server-Inventory-Configuration-Manager-Illustrator.svg"
+      },
+      {
+        "id": 691188279,
+        "name": "Server-Inventory-Configuration-Manager-Illustrator.svg.sha256.txt",
+        "size": 122,
+        "sha256": "6a42153cf96f82de5a1440af86e3434c797c018431911eb83aed1924ab2fe71a",
+        "url": "https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/download/v3.2.10/Server-Inventory-Configuration-Manager-Illustrator.svg.sha256.txt"
+      },
+      {
+        "id": 691188241,
+        "name": "Server-Inventory-Configuration-Manager.exe",
+        "size": 6598144,
+        "sha256": "8c1de02da5fa4ae4d0d6b94131d9930af7a0b2782e5ecb2f664c873ef6ef2c2e",
+        "url": "https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/download/v3.2.10/Server-Inventory-Configuration-Manager.exe"
+      },
+      {
+        "id": 691188238,
+        "name": "Server-Inventory-Configuration-Manager.exe.sha256.txt",
+        "size": 110,
+        "sha256": "ce134a6f21ed86a7f46c7fe848003c13351e90a808bab308397d48a7ffc66513",
+        "url": "https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/download/v3.2.10/Server-Inventory-Configuration-Manager.exe.sha256.txt"
+      },
+      {
+        "id": 691188236,
+        "name": "Server-Inventory-Configuration-Manager.svg",
+        "size": 1969,
+        "sha256": "21d338c351408e8dfd3ce320e50c4e9f6e1429876e3243870cf16398e6ebc576",
+        "url": "https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/download/v3.2.10/Server-Inventory-Configuration-Manager.svg"
+      },
+      {
+        "id": 691188242,
+        "name": "Server-Inventory-Configuration-Manager.svg.sha256.txt",
+        "size": 110,
+        "sha256": "097666cc6bea9d2ed6bc1d46985fbac6bea0248025589ba273f5f1b922ea78ea",
+        "url": "https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/download/v3.2.10/Server-Inventory-Configuration-Manager.svg.sha256.txt"
+      },
+      {
+        "id": 691188239,
+        "name": "update-manifest.json",
+        "size": 1200,
+        "sha256": "e7186870536f564a66da04c9d16a41c4bce247f6ab97240b49789d3da562994a",
+        "url": "https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/download/v3.2.10/update-manifest.json"
+      }
+    ],
+    "pe": {
+      "machine": "x64",
+      "subsystem": "Windows GUI",
+      "metadata": {
+        "CompanyName": "TechSavage1989",
+        "FileDescription": "Server Inventory Configuration Manager",
+        "FileVersion": "3.2.10",
+        "InternalName": "Server-Inventory-Configuration-Manager",
+        "OriginalFilename": "Server-Inventory-Configuration-Manager.exe",
+        "ProductName": "Server Inventory Configuration Manager",
+        "ProductVersion": "3.2.10"
+      },
+      "vcs": "build/public-3.2.10/Server-Inventory-Configuration-Manager.exe: go1.20.14\n\tpath\tserverinventory/src/app\n\tmod\tserverinventory\t(devel)\t\n\tbuild\t-buildmode=exe\n\tbuild\t-compiler=gc\n\tbuild\t-trimpath=true\n\tbuild\tCGO_ENABLED=1\n\tbuild\tGOARCH=amd64\n\tbuild\tGOOS=windows\n\tbuild\tGOAMD64=v1\n\tbuild\tvcs=git\n\tbuild\tvcs.revision=24e79e92e50d4eba3f8b6afb492e7b9e3991c322\n\tbuild\tvcs.time=2026-10-30T06:26:37Z\n\tbuild\tvcs.modified=false\n"
+    },
+    "feed": {
+      "url": "https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/latest/download/update-manifest.json",
+      "status": 200,
+      "etag": "\"0x8DF364F5C057BA4\"",
+      "conditional_status": 304
+    },
+    "status": "passed"
+  },
+  "previous_release": {
+    "version": "3.2.9",
+    "release_id": 423604457,
+    "tag_commit": "96d30c340565e6ea6e2ea68b70ff87b4f4d1894f",
+    "tag_and_eight_asset_ids_sizes_hashes_unchanged": true
+  },
+  "preview_bytes_equal_validated_publisher_output": true,
+  "publisher_signing": "SHA-256 validates bytes, not publisher signing. GitHub repository immutable flag is disabled; workflows refuse prior version/tag/asset replacement."
 }

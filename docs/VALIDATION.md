@@ -1,10 +1,23 @@
-# Collection workspace 3.2.10: source validated, publication in progress
+# Collection workspace 3.2.10: published and verified
 
-Local Go 1.20.14 Windows cross-build/test compilation/vet, original provenance, report embedding, deterministic icon generation, layout, four shutdown and three image-policy browser checks pass. Fourteen real-browser workspace checks exercise the actual HTML/CSP using synthetic state and retain the exact v3.2.9 negative controls. Hosted source CI passed at commit 37bc4ae75c3cd725dd9a16000ab3660bf3e279e9: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/41013556970. All 32 native tests, 14 workspace checks, 18 report checks, five PowerShell HTML/Word checks, four shutdown and three icon-policy regressions, source archive rebuild and native helper visible health passed. The real executable saved/restored collection choices through native close/reopen. Windows report printing retains the last row and raw-output sentinels. The first source run failed only the historical hard-coded wrong-version fixture; corrected candidates are derived from the built version. The new published v3.2.9-to-v3.2.10 update is pending. No live server collection, human UAC, physical monitor or Office visual validation is claimed.
+Local Go 1.20.14 Windows cross-build/test compilation/vet, original provenance, report embedding, deterministic icon generation, layout, four shutdown and three image-policy browser checks pass. Fourteen real-browser workspace checks exercise the actual HTML/CSP using synthetic state and retain the exact v3.2.9 negative controls. Hosted source CI passed at commit 37bc4ae75c3cd725dd9a16000ab3660bf3e279e9: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/41013556970. All 32 native tests, 14 workspace checks, 18 report checks, five PowerShell HTML/Word checks, four shutdown and three icon-policy regressions, source archive rebuild and native helper visible health passed. The real executable saved/restored collection choices through native close/reopen. Windows report printing retains the last row and raw-output sentinels. The first source run failed only the historical hard-coded wrong-version fixture; corrected candidates are derived from the built version. The full published v3.2.9-to-v3.2.10 update passed all 43 checks; no timer evidence was reused and no unexpected dialogs occurred. No live server collection, human UAC, physical monitor or Office visual validation is claimed.
 
-# Icon source update validation — 2026-10-27
+## Published release 3.2.10 verification
 
-- Published v3.2.9 remains current and unchanged; no new release is required for identical artwork.
+- Release/tag commit: v3.2.10 / 24e79e92e50d4eba3f8b6afb492e7b9e3991c322.
+- Stable EXE: 6,598,144 bytes; SHA-256 8c1de02da5fa4ae4d0d6b94131d9930af7a0b2782e5ecb2f664c873ef6ef2c2e.
+- Release: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.10.
+- Exact-release Windows CI passed: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/41014112454.
+- Publication and full published upgrade passed: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/41014112612.
+- All 43 actual v3.2.9-to-v3.2.10 upgrade checks passed in one full run, with no reused timer evidence and zero unexpected dialogs. Automatic detection, explicit download/validation/staging, cross-volume replacement, old-profile closure, restart, visible native health, settings, shortcut/icon, real two-minute focus and five-minute scheduler waits, window geometry, cleanup, one rollback generation and actual failed-health rollback/relaunch passed. The updated application's Save choices action and visible profile restoration after a real stable-shortcut relaunch also passed.
+- All 12 public assets and checksum files were independently downloaded and verified. PE x64/GUI identity/version metadata and clean embedded Git revision match the tag. Public feed returns the expected manifest and a genuine conditional HTTP 304. The application/report previews match validated publisher screenshots; the Illustrator master is byte-preserved. Earlier v3.2.9 tag, release and all eight asset identities/sizes/digests are unchanged.
+- Structured evidence, complete test names and limits: release/3.2.10-verification.json. SHA-256 is byte validation, not publisher signing. Repository-level immutable locking remains disabled; release workflows reject overwrites.
+
+Limits remain: hosted Windows Server/Edge/PowerShell 5.1 and synthetic UI/report fixtures. No live server-role collection, Office visual validation, human UAC/desktop interaction, native folder-dialog automation, physical mixed-DPI/monitor removal, legacy Windows/PowerShell or Chrome guest field testing. Focus uses a DOM event after a real elapsed wait; network/security error cases use deterministic native responses.
+
+# Historical icon source update validation — 2026-10-27
+
+- At this historical stage, v3.2.9 stayed current because the supplied artwork was visually identical. The source work is included in the later 3.2.10 release; v3.2.9 assets remain unchanged.
 - The exact published EXE SHA-256 is `5483a308e0da37e5e9a518f12b3d344ecf12fb267c4419c50860149394fb53c3`. All ten native icon resource frames match the supplied-master-derived ICO byte for byte; see [structured evidence](verification/2026-10-27-icon-source.json).
 - Original Illustrator master: 49,437 bytes, SHA-256 `4eb6eb78435ebaf64dbc5b71c836af8f1b6544235bba3adbfcd0a7e2a7c3a775`. Master bytes and original historical baseline hashes are preserved.
 - Local passes: converter identity and hostile-input controls; all ten original CSS/runtime render comparisons; deterministic icon regeneration; original collector/report/icon provenance; report-embedding check; layout tests; compile-time resource generation; Go 1.20.14 Windows x64 cross-build and vet. Rendered 16/32/512px images reviewed.
@@ -13,7 +26,7 @@ Local Go 1.20.14 Windows cross-build/test compilation/vet, original provenance, 
 
 # Executable updater validation
 
-## Latest release: v3.2.9
+## Historical release: v3.2.9
 
 - Exact tag/commit: v3.2.9 / 96d30c340565e6ea6e2ea68b70ff87b4f4d1894f.
 - EXE: 6568448 bytes; SHA-256 5483a308e0da37e5e9a518f12b3d344ecf12fb267c4419c50860149394fb53c3.

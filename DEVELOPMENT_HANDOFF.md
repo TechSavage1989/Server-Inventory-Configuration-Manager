@@ -1,17 +1,30 @@
 # DEVELOPMENT_HANDOFF.md
 
-## Collection workspace review: 3.2.10 publication in progress
+## Collection workspace review: 3.2.10 published
 
 The user requested a broad review and useful functional/visual improvements. This source adds clearer profile/selection styling, category and description search, expandable exports, scope summaries, saved collection choices, inline action errors, log search/severity filtering/live-follow control, keyboard tabs and compact-window layouts. It corrects forced inventory reselection and the previously unlocked event-history field during collection. See docs/APP_REVIEW.md for findings and behavior.
 
 Safe choices are stored atomically in Settings/collection.json. Save choices does not run collection or probe/create an output folder. Collection start validates supported categories/dependencies and saves the choices. Sensitive consent and NPS full export are never restored; the existing sensitive-operation confirmation is retained. Existing settings.json, window.json, updater/rollback files and user output remain compatible. Original collectors/report functions/icons are protected by the existing provenance gates; only the standalone collector version changes.
 
-Local checks: Go 1.20.14 Windows cross-build/test compilation/vet, baseline/report/icon/layout checks, four shutdown checks, three icon-policy checks and 14 real-browser workspace checks pass. The exact v3.2.9 HTML reproduces four prior failures. Screenshots at desktop, 800x600 and 390x844 were reviewed. Hosted Windows source CI passed at commit 37bc4ae75c3cd725dd9a16000ab3660bf3e279e9: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/41013556970. All 32 native tests, 14 workspace browser checks, 18 report browser checks, five PowerShell report/Word checks, four shutdown and three icon-policy regressions, native helper install/visible health and source-archive rebuild passed. The Windows printed PDF retains the final-row and raw-output sentinels. Publication and the real published upgrade are pending; cross-compilation alone is not a Windows execution pass. The first hosted source run (41013218234) passed the native preference round trip and real executable save/close/relaunch, but failed an old wrong-version fixture that hard-coded 3.2.10 as invalid. The test now derives distinct versions from appVersion; no production validation is weakened. Source and release/VERSION now select 3.2.10 after corrected source CI passed. The latest published release remains 3.2.9 until the publication job completes.
+Local checks: Go 1.20.14 Windows cross-build/test compilation/vet, baseline/report/icon/layout checks, four shutdown checks, three icon-policy checks and 14 real-browser workspace checks pass. The exact v3.2.9 HTML reproduces four prior failures. Screenshots at desktop, 800x600 and 390x844 were reviewed. Hosted Windows source CI passed at commit 37bc4ae75c3cd725dd9a16000ab3660bf3e279e9: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/41013556970. All 32 native tests, 14 workspace browser checks, 18 report browser checks, five PowerShell report/Word checks, four shutdown and three icon-policy regressions, native helper install/visible health and source-archive rebuild passed. The Windows printed PDF retains the final-row and raw-output sentinels. Publication and the full real previous-to-new upgrade passed; final evidence is recorded below. Cross-compilation alone is not a Windows execution pass. The first hosted source run (41013218234) passed the native preference round trip and real executable save/close/relaunch, but failed an old wrong-version fixture that hard-coded 3.2.10 as invalid. The test now derives distinct versions from appVersion; no production validation is weakened. Source and release/VERSION now select 3.2.10 after corrected source CI passed. The latest published executable is now 3.2.10.
 
+
+## Published release 3.2.10 verification
+
+- Release/tag commit: v3.2.10 / 24e79e92e50d4eba3f8b6afb492e7b9e3991c322.
+- Stable EXE: 6,598,144 bytes; SHA-256 8c1de02da5fa4ae4d0d6b94131d9930af7a0b2782e5ecb2f664c873ef6ef2c2e.
+- Release: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.10.
+- Exact-release Windows CI passed: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/41014112454.
+- Publication and full published upgrade passed: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/41014112612.
+- All 43 actual v3.2.9-to-v3.2.10 upgrade checks passed in one full run, with no reused timer evidence and zero unexpected dialogs. Automatic detection, explicit download/validation/staging, cross-volume replacement, old-profile closure, restart, visible native health, settings, shortcut/icon, real two-minute focus and five-minute scheduler waits, window geometry, cleanup, one rollback generation and actual failed-health rollback/relaunch passed. The updated application's Save choices action and visible profile restoration after a real stable-shortcut relaunch also passed.
+- All 12 public assets and checksum files were independently downloaded and verified. PE x64/GUI identity/version metadata and clean embedded Git revision match the tag. Public feed returns the expected manifest and a genuine conditional HTTP 304. The application/report previews match validated publisher screenshots; the Illustrator master is byte-preserved. Earlier v3.2.9 tag, release and all eight asset identities/sizes/digests are unchanged.
+- Structured evidence, complete test names and limits: release/3.2.10-verification.json. SHA-256 is byte validation, not publisher signing. Repository-level immutable locking remains disabled; release workflows reject overwrites.
+
+Limits remain: hosted Windows Server/Edge/PowerShell 5.1 and synthetic UI/report fixtures. No live server-role collection, Office visual validation, human UAC/desktop interaction, native folder-dialog automation, physical mixed-DPI/monitor removal, legacy Windows/PowerShell or Chrome guest field testing. Focus uses a DOM event after a real elapsed wait; network/security error cases use deterministic native responses.
 
 ## Supplied Illustrator source — 2026-10-27
 
-The user supplied the editable Illustrator SVG for current and future builds. Its original 49,437 bytes (SHA-256 `4eb6eb78435ebaf64dbc5b71c836af8f1b6544235bba3adbfcd0a7e2a7c3a775`) are preserved in `src/app/assets/icons/source/server-inventory-illustrator.svg`, with Git text conversion disabled for that master. No artwork was redesigned. The source renders pixel-identically at all ten icon sizes to the existing approved PNG/ICO. Direct inspection of the downloaded, checksum-pinned published v3.2.9 EXE confirms every native RT_ICON frame matches; evidence is in `docs/verification/2026-10-27-icon-source.json`. Therefore v3.2.9, its tag, assets, application versions and `release/VERSION` remain unchanged rather than publishing a redundant application update.
+The user supplied the editable Illustrator SVG for current and future builds. Its original 49,437 bytes (SHA-256 `4eb6eb78435ebaf64dbc5b71c836af8f1b6544235bba3adbfcd0a7e2a7c3a775`) are preserved in `src/app/assets/icons/source/server-inventory-illustrator.svg`, with Git text conversion disabled for that master. No artwork was redesigned. The source renders pixel-identically at all ten icon sizes to the existing approved PNG/ICO. Direct inspection of the downloaded, checksum-pinned published v3.2.9 EXE confirms every native RT_ICON frame matches; evidence is in `docs/verification/2026-10-27-icon-source.json`. At that stage v3.2.9, its tag, assets, application versions and `release/VERSION` remained unchanged, avoiding a redundant artwork-only release. The later 3.2.10 workspace release includes this source work.
 
 `prepare_icon.py` reads the master without resolving external DTDs/entities, rejects unsupported/active content, removes editor-only metadata and inlines its simple CSS fills/strokes. The generated safe runtime SVG is visually identical; no original editor payload is embedded in the application. `build_icons.cjs --check` verifies its exact derivation, every rendered size against the CSS/vector source, and generated asset hashes. Two converter tests include source identity and ten hostile/unsupported input controls. Both the untouched Illustrator master and safe SVG plus checksums are packaged and publicly verified for future new releases. Native icon/resource/shortcut tests, application CSP tests, baseline collector/report checks and compile-time resource embedding remain required. No finished EXE is patched.
 
@@ -29,7 +42,8 @@ The maintained Go Windows executable package and unchanged embedded collector/UI
 - Uploaded baseline EXE SHA-256: 572bf173917330a2fde4b4bf67df998f9f29522c8814d5350b50826caf38ee4e.
 - The original v3.0.10 source ZIP was located. Its bundled EXE matches the uploaded baseline exactly; no EXE decompilation was used.
 - Source provenance and original file hashes: docs/verification/baseline-verification.json.
-- Latest published executable: v3.2.9, source commit 96d30c340565e6ea6e2ea68b70ff87b4f4d1894f.
+- Latest published executable: v3.2.10, source commit 24e79e92e50d4eba3f8b6afb492e7b9e3991c322.
+- Earlier v3.2.9 remains unchanged at commit 96d30c340565e6ea6e2ea68b70ff87b4f4d1894f. Its redesigned HTML report is preserved.
 - Earlier v3.2.8 remains unchanged at commit 2294a921d4a85fbbb1ea5f6e551ad6861973acea. Its desktop/Explorer icon behavior is retained in 3.2.9.
 - Earlier v3.2.7 remains unchanged at commit aabec80e9e8fa95aba8297ca0e6a2941479db8df. Its native EXE icon is correct; 3.2.8 additionally repairs old shortcut icon references and refreshes shell items.
 - Earlier v3.2.6 remains unchanged at commit 10290a1c6f62808a30ec66fe11ac9281a4439b2f. Its header SVG was blocked by the old application policy and is superseded by 3.2.7.
@@ -38,7 +52,7 @@ The maintained Go Windows executable package and unchanged embedded collector/UI
 - Earlier v3.2.3 remains unchanged at commit 6ee8048539ae429d05f7938e06c2baabdd34fb92.
 - Earlier v3.2.2 remains unchanged at commit ab7fbb783ce4032f951bb717d745f4471ae4d889.
 - Earlier v3.2.1 remains unchanged at commit 54d627d736f11335c8cf6ce4c89649f1c6351289.
-- User confirmation still applies to the v3.0.10 functional baseline. The user reports v3.2.4 improved the browser behavior. v3.2.9 has hosted Windows validation, without a claim of full user field confirmation.
+- User confirmation still applies to the v3.0.10 functional baseline. The user reports v3.2.4 improved the browser behavior. v3.2.10 has hosted Windows validation, without a claim of full user field confirmation.
 - Repository is public: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager.
 
 ## Historical PS1 release and feed
@@ -74,6 +88,7 @@ Inventory/report collection continues to use Windows' built-in PowerShell, prese
 
 All updater data is under %LOCALAPPDATA%/Server Inventory Configuration Manager:
 
+- Settings/collection.json for validated remembered scope/output/event-history choices, excluding sensitive consent and NPS full export
 - Settings/settings.json
 - Settings/window.json for native window placement and maximized state
 - Icons/application-<artwork SHA-256>.ico, persistent artwork for current-user desktop shortcuts
@@ -86,9 +101,9 @@ All updater data is under %LOCALAPPDATA%/Server Inventory Configuration Manager:
 
 User-selected inventory reports remain in their selected output directory. Unknown files are not removed by update cleanup.
 
-## Validation and release status
+## Historical validation and release status: 3.2.9
 
-- Latest release: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.9.
+- Historical release: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.9.
 - Exact tag/commit: v3.2.9 / 96d30c340565e6ea6e2ea68b70ff87b4f4d1894f.
 - Stable EXE: Server-Inventory-Configuration-Manager.exe, 6568448 bytes; SHA-256 5483a308e0da37e5e9a518f12b3d344ecf12fb267c4419c50860149394fb53c3.
 - Editable SVG is unchanged, 1831 bytes; SHA-256 fc9211e88bb1f3d0bc34380c82bdd010456b57e59433650b85ae03cdaaf382cd.
