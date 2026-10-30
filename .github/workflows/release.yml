@@ -59,6 +59,11 @@ jobs:
           python .\scripts\embed_report_renderer.py --check
           if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
           python .\scripts\verify_baseline.py
+      - name: Test startup helpers and bounded ACL exports using synthetic data
+        shell: powershell
+        run: |
+          .\scripts\Test-StartupHelpers.ps1
+          .\scripts\Test-AclExports.ps1
       - name: Generate real HTML and Word report fixtures
         shell: powershell
         run: .\scripts\Test-Report.ps1
