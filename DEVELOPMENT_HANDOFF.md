@@ -1,3 +1,7 @@
+## 3.2.13 release preparation — 2026-11-03
+
+The user requested building and releasing the merged workspace (#7) and report viewer (#8) polish. This branch bumps `appVersion`, `collectorVersion` and the collector `$scriptVersion` to 3.2.13, adds `docs/release-notes/3.2.13.md`, points `scripts/test_published_upgrade.cjs` at the published v3.2.12 executable (SHA-256 `fa8b74fec574a8968b74e91aca790aa40e04a8121e5b884eec5604dd0118f049`, confirmed against the release asset digest), and fixes clipped bullet markers in the update banner's release notes (`.update-notes` overflow). README screenshots made stale by #7/#8 were recaptured from the real interface with synthetic state; `report-executive-summary.png` is refreshed from the 3.2.13 `Report-Preview.png` after publication. Per the release rules, `release/VERSION` changes in a separate publication PR only after this branch's Windows CI passes.
+
 ## Unreleased report viewer polish candidate — 2026-11-03
 
 User-requested second pass on the HTML report page. Only `reporting/report.js` and `reporting/report.css` changed; `scripts/embed_report_renderer.py` re-embedded them into the collector and regenerated `docs/verification/report-verification.json`. The PowerShell template, block data, cell text, Word/text output, CSP and original baseline hashes are unchanged. No version bump and no release.
