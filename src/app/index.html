@@ -305,6 +305,19 @@ button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visi
 @media(max-height:650px) { .hero,.footer { display:none; }.page { padding-top:8px; }.card-subtitle { font-size:11px; }.update-notes { max-height:65px; overflow:auto; } }
 @media(prefers-reduced-motion:reduce) { *,*::before,*::after { transition:none !important; } }
 
+/* Workspace polish: grouped categories, quick actions, shortcuts */
+.link-button{background:none;border:0;padding:2px 4px;margin:0;color:#1f5fbf;font-weight:600;font-size:12px;cursor:pointer;border-radius:5px;text-decoration:underline;text-underline-offset:2px}.link-button:hover{color:#123f85}.link-button:focus-visible{outline:2px solid #2d6fd6;outline-offset:1px}.link-button:disabled{color:#94a0b3;cursor:default;text-decoration:none}
+.category-group{margin-top:14px}.category-group+.category-group{margin-top:16px}.category-group .category-grid{margin-top:8px}.category-group-head{display:flex;align-items:center;gap:10px;padding-bottom:6px;border-bottom:1px solid #e3e8ef}.category-group-title{font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#45526a}.category-group-count{font-size:12px;color:#6a7790;margin-right:auto}
+.category-check.has-export strong::after{content:"+ export";display:inline-block;margin-left:6px;padding:0 6px;border-radius:999px;background:#dfeafe;color:#1f4f9c;font-size:10px;font-weight:700;line-height:16px;vertical-align:1px}
+.profile-summary .link-button{margin-left:6px}
+.metric-action{cursor:pointer;transition:border-color .15s,box-shadow .15s}.metric-action:hover{border-color:#9db8e6;box-shadow:0 1px 4px rgba(31,95,191,.12)}.metric-action:focus-visible{outline:2px solid #2d6fd6;outline-offset:2px}
+.log-view .log-focus{outline:2px solid #e0a12b;outline-offset:-1px;background:rgba(245,200,75,.18)}
+.shortcuts-link{padding:0;margin-top:3px;font-size:11px}
+.shortcuts-dialog{border:1px solid #d6dde8;border-radius:14px;padding:0;width:min(520px,calc(100vw - 32px));max-height:calc(100vh - 32px);color:#172033;box-shadow:0 18px 50px rgba(15,23,42,.28)}.shortcuts-dialog::backdrop{background:rgba(15,23,42,.38)}
+.shortcuts-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;border-bottom:1px solid #e3e8ef}.shortcuts-head h2{margin:0;font-size:16px}
+.shortcuts-list{margin:0;padding:12px 18px 16px;display:grid;grid-template-columns:auto 1fr;gap:9px 16px;align-items:baseline}.shortcuts-list dt{white-space:nowrap;font-size:12px}.shortcuts-list dd{margin:0;color:#45526a;font-size:13px}
+kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df;border-bottom-width:2px;border-radius:5px;background:#f6f8fb;font:600 11px/16px Consolas,"Segoe UI",monospace;text-align:center;color:#172033}
+@media(max-width:560px){.shortcuts-list{grid-template-columns:1fr}.shortcuts-list dd{margin-bottom:6px}}
 </style>
 </head>
 <body>
@@ -315,7 +328,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visi
   </div></div>
 
   <div class="page">
-    <div class="hero"><div><h1>Your server, documented</h1><p>Choose your scope, capture configuration, and explore a complete local report.</p></div><div class="version-block">Interface <strong>v__APP_VERSION__</strong><br>Collector <strong>v__COLLECTOR_VERSION__</strong></div></div>
+    <div class="hero"><div><h1>Your server, documented</h1><p>Choose your scope, capture configuration, and explore a complete local report.</p></div><div class="version-block">Interface <strong>v__APP_VERSION__</strong><br>Collector <strong>v__COLLECTOR_VERSION__</strong><br><button class="link-button shortcuts-link" id="shortcutsButton" type="button" aria-haspopup="dialog">Keyboard shortcuts</button></div></div>
 
     <div class="update-banner" id="updateBanner">
       <div class="update-copy">
@@ -354,46 +367,56 @@ button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visi
             <div style="height:18px"></div>
             <div class="scope-heading"><div><label class="field-label">Collection profile</label><div class="helper">Maximum includes safe exports. Inventory only skips exports. Core covers common server essentials.</div></div><div class="scope-buttons"><button class="secondary-button preset-button" id="presetMaximum" type="button">Maximum capture</button><button class="secondary-button preset-button" id="presetInventory" type="button">Inventory only</button><button class="secondary-button preset-button" id="presetCore" type="button">Core server</button><button class="secondary-button preset-button" id="presetClear" type="button">Clear</button></div></div>
 
-            <div class="profile-summary"><span class="profile-chip" id="profileName">Maximum capture</span><span id="preferencesStatus">Choices are saved when collection starts, or with Save choices.</span></div>
+            <div class="profile-summary"><span class="profile-chip" id="profileName">Maximum capture</span><span id="preferencesStatus">Choices are saved when collection starts, or with Save choices.</span><button class="link-button hidden" id="revertChoicesButton" type="button">Revert to saved</button></div>
             <div class="scope-search"><label for="scopeSearch">Find a category</label><input id="scopeSearch" type="search" placeholder="Search names or descriptions, such as DNS or backup"><button class="secondary-button" id="scopeSearchClear" type="button">Clear search</button><span class="scope-results" id="scopeSearchStatus" role="status"></span></div>
             <div class="scope-empty hidden" id="scopeEmpty">No matching categories. Clear the search to see all choices.</div>
             <div class="scope-panel">
               <div class="scope-panel-head"><div><div class="scope-title">Inventory categories</div><div class="helper">Select the information to query. Unsupported roles or cmdlets are skipped or collected through legacy fallbacks where practical.</div></div><div class="scope-count" id="inventoryCount">0 selected</div></div>
-              <div class="category-grid" id="inventoryCategories">
-                <label class="category-check"><input type="checkbox" data-inventory value="Hardware" checked><span><strong>Hardware</strong><small>System, CPU, memory, firmware, devices, drivers</small></span></label>
-                <label class="category-check"><input type="checkbox" data-inventory value="OperatingSystem" checked><span><strong>Operating system</strong><small>Windows build, activation, environment, boot baseline</small></span></label>
-                <label class="category-check"><input type="checkbox" data-inventory value="Storage" checked><span><strong>Storage</strong><small>Disks, volumes, partitions, pools, iSCSI, MPIO</small></span></label>
-                <label class="category-check"><input type="checkbox" data-inventory value="Networking" checked><span><strong>Networking</strong><small>IP, DNS client, gateways, routes, listeners, adapters</small></span></label>
-                <label class="category-check"><input type="checkbox" data-inventory value="DNS" checked><span><strong>DNS Server</strong><small>Zones, records, forwarders, scavenging, settings</small></span></label>
-                <label class="category-check"><input type="checkbox" data-inventory value="DHCP" checked><span><strong>DHCP Server</strong><small>Scopes, leases, exclusions, reservations, policies, failover</small></span></label>
-                <label class="category-check"><input type="checkbox" data-inventory value="ActiveDirectory" checked><span><strong>Active Directory</strong><small>Topology, FSMO, users, groups, OUs, sites, replication</small></span></label>
-                <label class="category-check"><input type="checkbox" data-inventory value="GroupPolicy" checked><span><strong>Group Policy</strong><small>GPOs, links, permissions, inheritance, effective policy</small></span></label>
-                <label class="category-check"><input type="checkbox" data-inventory value="FileServices" checked><span><strong>File services</strong><small>FSRM, advanced storage, NFS, file-service configuration</small></span></label>
-                <label class="category-check"><input type="checkbox" data-inventory value="SharesPermissions" checked><span><strong>Shares and permissions</strong><small>SMB shares, share ACLs, NTFS roots and optional recursion</small></span></label>
-                <label class="category-check"><input type="checkbox" data-inventory value="PrintServices" checked><span><strong>Print services</strong><small>Queues, drivers, ports and print-server configuration</small></span></label>
-                <label class="category-check"><input type="checkbox" data-inventory value="IIS" checked><span><strong>IIS</strong><small>Sites, pools, bindings, applications, virtual directories</small></span></label>
-                <label class="category-check"><input type="checkbox" data-inventory value="SQLServer" checked><span><strong>SQL Server</strong><small>Instances, databases, files, jobs, backups, ports, metadata</small></span></label>
-                <label class="category-check"><input type="checkbox" data-inventory value="HyperV" checked><span><strong>Hyper-V</strong><small>Host, VMs, disks, switches, adapters and replication</small></span></label>
-                <label class="category-check"><input type="checkbox" data-inventory value="FailoverClustering" checked><span><strong>Failover Clustering</strong><small>Nodes, groups, resources, networks, CSVs, dependencies</small></span></label>
-                <label class="category-check"><input type="checkbox" data-inventory value="WindowsServerBackup" checked><span><strong>Windows Server Backup</strong><small>Policy, schedule, status and available backup versions</small></span></label>
-                <label class="category-check"><input type="checkbox" data-inventory value="Certificates" checked><span><strong>Certificates / AD CS</strong><small>Certificate metadata, stores and CA configuration without keys</small></span></label>
-                <label class="category-check"><input type="checkbox" data-inventory value="ScheduledTasks" checked><span><strong>Scheduled Tasks</strong><small>Tasks, principals, triggers, actions and state</small></span></label>
-                <label class="category-check"><input type="checkbox" data-inventory value="Services" checked><span><strong>Services</strong><small>Accounts, binaries, startup, dependencies and recovery details</small></span></label>
-                <label class="category-check"><input type="checkbox" data-inventory value="InstalledSoftware" checked><span><strong>Installed software / ODBC</strong><small>Applications, components, application folders and data sources</small></span></label>
-                <label class="category-check"><input type="checkbox" data-inventory value="WindowsFeaturesRoles" checked><span><strong>Windows Features / Roles</strong><small>Installed roles, features and management components</small></span></label>
-                <label class="category-check"><input type="checkbox" data-inventory value="Firewall" checked><span><strong>Firewall / IPsec</strong><small>Profiles, rules, filters and policy</small></span></label>
-                <label class="category-check"><input type="checkbox" data-inventory value="RRAS" checked><span><strong>RRAS / Routing</strong><small>Routing, VPN and RemoteAccess configuration when present</small></span></label>
-                <label class="category-check"><input type="checkbox" data-inventory value="NPS" checked><span><strong>NPS / RADIUS</strong><small>Policies, RADIUS clients and configuration summary</small></span></label>
-                <label class="category-check"><input type="checkbox" data-inventory value="BitLocker" checked><span><strong>BitLocker</strong><small>Volume encryption status without recovery keys</small></span></label>
-                <label class="category-check"><input type="checkbox" data-inventory value="SMB" checked><span><strong>SMB configuration</strong><small>Server/client configuration, shares and protocol settings</small></span></label>
-                <label class="category-check"><input type="checkbox" data-inventory value="DFS" checked><span><strong>DFS</strong><small>Namespaces, targets, replication groups and memberships</small></span></label>
-                <label class="category-check"><input type="checkbox" data-inventory value="WindowsUpdate" checked><span><strong>Windows Update / WSUS</strong><small>Hotfixes, packages, update configuration and WSUS metadata</small></span></label>
-                <label class="category-check"><input type="checkbox" data-inventory value="EventLogs" checked><span><strong>Event-log summaries</strong><small>Recent Critical, Error and Warning events</small></span></label>
-                <label class="category-check"><input type="checkbox" data-inventory value="LocalAccounts" checked><span><strong>Local users / groups</strong><small>Accounts, groups, memberships and account policy</small></span></label>
-                <label class="category-check"><input type="checkbox" data-inventory value="Power" checked><span><strong>Power / boot / recovery</strong><small>Power plans, pagefile, boot and Windows Recovery Environment</small></span></label>
-                <label class="category-check"><input type="checkbox" data-inventory value="TimeNTP" checked><span><strong>Time / NTP</strong><small>W32Time configuration, peers and status</small></span></label>
-                <label class="category-check"><input type="checkbox" data-inventory value="Security" checked><span><strong>Security configuration</strong><small>Local policy, audit, Defender, TLS, RDP and security metadata</small></span></label>
-                <label class="category-check"><input type="checkbox" data-inventory value="RemoteManagement" checked><span><strong>Remote management</strong><small>WinRM, PowerShell remoting and HTTP.sys configuration</small></span></label>
+              <div class="category-groups" id="inventoryCategories">
+                <div class="category-group" data-group="platform"><div class="category-group-head"><span class="category-group-title" id="group-platform">Platform and operating system</span><span class="category-group-count" data-group-count></span><button class="link-button" type="button" data-group-toggle aria-describedby="group-platform">Select all</button></div><div class="category-grid">
+                  <label class="category-check"><input type="checkbox" data-inventory value="Hardware" checked><span><strong>Hardware</strong><small>System, CPU, memory, firmware, devices, drivers</small></span></label>
+                  <label class="category-check"><input type="checkbox" data-inventory value="OperatingSystem" checked><span><strong>Operating system</strong><small>Windows build, activation, environment, boot baseline</small></span></label>
+                  <label class="category-check"><input type="checkbox" data-inventory value="Storage" checked><span><strong>Storage</strong><small>Disks, volumes, partitions, pools, iSCSI, MPIO</small></span></label>
+                  <label class="category-check"><input type="checkbox" data-inventory value="Networking" checked><span><strong>Networking</strong><small>IP, DNS client, gateways, routes, listeners, adapters</small></span></label>
+                  <label class="category-check"><input type="checkbox" data-inventory value="Power" checked><span><strong>Power / boot / recovery</strong><small>Power plans, pagefile, boot and Windows Recovery Environment</small></span></label>
+                  <label class="category-check"><input type="checkbox" data-inventory value="TimeNTP" checked><span><strong>Time / NTP</strong><small>W32Time configuration, peers and status</small></span></label>
+                  <label class="category-check"><input type="checkbox" data-inventory value="WindowsFeaturesRoles" checked><span><strong>Windows Features / Roles</strong><small>Installed roles, features and management components</small></span></label>
+                  <label class="category-check"><input type="checkbox" data-inventory value="WindowsUpdate" checked><span><strong>Windows Update / WSUS</strong><small>Hotfixes, packages, update configuration and WSUS metadata</small></span></label>
+                </div></div>
+                <div class="category-group" data-group="workloads"><div class="category-group-head"><span class="category-group-title" id="group-workloads">Workloads and applications</span><span class="category-group-count" data-group-count></span><button class="link-button" type="button" data-group-toggle aria-describedby="group-workloads">Select all</button></div><div class="category-grid">
+                  <label class="category-check"><input type="checkbox" data-inventory value="Services" checked><span><strong>Services</strong><small>Accounts, binaries, startup, dependencies and recovery details</small></span></label>
+                  <label class="category-check"><input type="checkbox" data-inventory value="ScheduledTasks" checked><span><strong>Scheduled Tasks</strong><small>Tasks, principals, triggers, actions and state</small></span></label>
+                  <label class="category-check"><input type="checkbox" data-inventory value="InstalledSoftware" checked><span><strong>Installed software / ODBC</strong><small>Applications, components, application folders and data sources</small></span></label>
+                  <label class="category-check"><input type="checkbox" data-inventory value="IIS" checked><span><strong>IIS</strong><small>Sites, pools, bindings, applications, virtual directories</small></span></label>
+                  <label class="category-check"><input type="checkbox" data-inventory value="SQLServer" checked><span><strong>SQL Server</strong><small>Instances, databases, files, jobs, backups, ports, metadata</small></span></label>
+                  <label class="category-check"><input type="checkbox" data-inventory value="HyperV" checked><span><strong>Hyper-V</strong><small>Host, VMs, disks, switches, adapters and replication</small></span></label>
+                  <label class="category-check"><input type="checkbox" data-inventory value="FailoverClustering" checked><span><strong>Failover Clustering</strong><small>Nodes, groups, resources, networks, CSVs, dependencies</small></span></label>
+                </div></div>
+                <div class="category-group" data-group="identity"><div class="category-group-head"><span class="category-group-title" id="group-identity">Identity and network roles</span><span class="category-group-count" data-group-count></span><button class="link-button" type="button" data-group-toggle aria-describedby="group-identity">Select all</button></div><div class="category-grid">
+                  <label class="category-check"><input type="checkbox" data-inventory value="ActiveDirectory" checked><span><strong>Active Directory</strong><small>Topology, FSMO, users, groups, OUs, sites, replication</small></span></label>
+                  <label class="category-check"><input type="checkbox" data-inventory value="GroupPolicy" checked><span><strong>Group Policy</strong><small>GPOs, links, permissions, inheritance, effective policy</small></span></label>
+                  <label class="category-check"><input type="checkbox" data-inventory value="DNS" checked><span><strong>DNS Server</strong><small>Zones, records, forwarders, scavenging, settings</small></span></label>
+                  <label class="category-check"><input type="checkbox" data-inventory value="DHCP" checked><span><strong>DHCP Server</strong><small>Scopes, leases, exclusions, reservations, policies, failover</small></span></label>
+                  <label class="category-check"><input type="checkbox" data-inventory value="Certificates" checked><span><strong>Certificates / AD CS</strong><small>Certificate metadata, stores and CA configuration without keys</small></span></label>
+                  <label class="category-check"><input type="checkbox" data-inventory value="NPS" checked><span><strong>NPS / RADIUS</strong><small>Policies, RADIUS clients and configuration summary</small></span></label>
+                  <label class="category-check"><input type="checkbox" data-inventory value="RRAS" checked><span><strong>RRAS / Routing</strong><small>Routing, VPN and RemoteAccess configuration when present</small></span></label>
+                </div></div>
+                <div class="category-group" data-group="files"><div class="category-group-head"><span class="category-group-title" id="group-files">File, print and backup</span><span class="category-group-count" data-group-count></span><button class="link-button" type="button" data-group-toggle aria-describedby="group-files">Select all</button></div><div class="category-grid">
+                  <label class="category-check"><input type="checkbox" data-inventory value="FileServices" checked><span><strong>File services</strong><small>FSRM, advanced storage, NFS, file-service configuration</small></span></label>
+                  <label class="category-check"><input type="checkbox" data-inventory value="SharesPermissions" checked><span><strong>Shares and permissions</strong><small>SMB shares, share ACLs, NTFS roots and optional recursion</small></span></label>
+                  <label class="category-check"><input type="checkbox" data-inventory value="SMB" checked><span><strong>SMB configuration</strong><small>Server/client configuration, shares and protocol settings</small></span></label>
+                  <label class="category-check"><input type="checkbox" data-inventory value="DFS" checked><span><strong>DFS</strong><small>Namespaces, targets, replication groups and memberships</small></span></label>
+                  <label class="category-check"><input type="checkbox" data-inventory value="PrintServices" checked><span><strong>Print services</strong><small>Queues, drivers, ports and print-server configuration</small></span></label>
+                  <label class="category-check"><input type="checkbox" data-inventory value="WindowsServerBackup" checked><span><strong>Windows Server Backup</strong><small>Policy, schedule, status and available backup versions</small></span></label>
+                </div></div>
+                <div class="category-group" data-group="security"><div class="category-group-head"><span class="category-group-title" id="group-security">Security, access and diagnostics</span><span class="category-group-count" data-group-count></span><button class="link-button" type="button" data-group-toggle aria-describedby="group-security">Select all</button></div><div class="category-grid">
+                  <label class="category-check"><input type="checkbox" data-inventory value="Security" checked><span><strong>Security configuration</strong><small>Local policy, audit, Defender, TLS, RDP and security metadata</small></span></label>
+                  <label class="category-check"><input type="checkbox" data-inventory value="Firewall" checked><span><strong>Firewall / IPsec</strong><small>Profiles, rules, filters and policy</small></span></label>
+                  <label class="category-check"><input type="checkbox" data-inventory value="BitLocker" checked><span><strong>BitLocker</strong><small>Volume encryption status without recovery keys</small></span></label>
+                  <label class="category-check"><input type="checkbox" data-inventory value="LocalAccounts" checked><span><strong>Local users / groups</strong><small>Accounts, groups, memberships and account policy</small></span></label>
+                  <label class="category-check"><input type="checkbox" data-inventory value="RemoteManagement" checked><span><strong>Remote management</strong><small>WinRM, PowerShell remoting and HTTP.sys configuration</small></span></label>
+                  <label class="category-check"><input type="checkbox" data-inventory value="EventLogs" checked><span><strong>Event-log summaries</strong><small>Recent Critical, Error and Warning events</small></span></label>
+                </div></div>
               </div>
               <div class="event-days category-setting"><label for="eventDays">Event history window</label> <input id="eventDays" type="number" min="1" max="365" value="30"> days</div>
             </div>
@@ -433,9 +456,9 @@ button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visi
         <div class="progress-track" id="collectionProgress" role="progressbar" aria-label="Estimated collection progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="progress-fill" id="progressFill"></div></div>
         <div class="current-step" id="currentStep">No active collector.</div>
         <div class="warning-box hidden" id="aclExportPanel" role="status" aria-live="polite"><strong id="aclExportTitle">Recursive permissions export</strong><div id="aclExportDetails"></div><div class="helper" id="aclExportHelp">This is one collection stage, not an estimate of files remaining. You can skip remaining recursive permission exports without stopping other inventory.</div><button class="secondary-button" id="skipACLButton" type="button">Skip remaining ACL exports</button></div>
-        <div class="metric-row"><div class="metric"><div class="metric-label">Estimated progress</div><div class="metric-value" id="progressValue">0%</div></div><div class="metric"><div class="metric-label">Sections processed</div><div class="metric-value" id="completedValue">0</div></div><div class="metric"><div class="metric-label">Warnings</div><div class="metric-value" id="warningValue">0</div></div><div class="metric"><div class="metric-label">Errors</div><div class="metric-value" id="errorValue">0</div></div></div>
-        <div class="log-toolbar"><div class="log-title">Execution log</div><div class="log-tools"><input id="logSearch" type="search" placeholder="Find in log" aria-label="Find in execution log"><select id="logLevel" aria-label="Log level"><option value="all">All messages</option><option value="issues">Warnings and errors</option><option value="error">Errors only</option></select><label><input id="followLog" type="checkbox" checked> Follow live</label><button class="secondary-button" id="clearLogButton" type="button">Clear view</button></div></div><div class="log-meta"><span id="logCount" role="status">No messages yet</span><span>Filtering does not change saved logs.</span></div><div class="log-view" id="logView" tabindex="0" aria-label="Execution log"></div>
-        <div class="collection-actions"><button class="secondary-button danger-button hidden" id="cancelButton" type="button">Cancel collection</button><button class="secondary-button hidden" id="openDiagnosticsButton" type="button">Open diagnostics</button><button class="secondary-button hidden" id="newInventoryButton" type="button">New inventory</button><button class="secondary-button hidden" id="viewReportButton" type="button">View report</button></div>
+        <div class="metric-row"><div class="metric"><div class="metric-label">Estimated progress</div><div class="metric-value" id="progressValue">0%</div></div><div class="metric"><div class="metric-label">Sections processed</div><div class="metric-value" id="completedValue">0</div></div><div class="metric metric-action" role="button" tabindex="0" data-log-filter="issues" title="Show warnings and errors in the log"><div class="metric-label">Warnings</div><div class="metric-value" id="warningValue">0</div></div><div class="metric metric-action" role="button" tabindex="0" data-log-filter="error" title="Show errors in the log"><div class="metric-label">Errors</div><div class="metric-value" id="errorValue">0</div></div></div>
+        <div class="log-toolbar"><div class="log-title">Execution log</div><div class="log-tools"><input id="logSearch" type="search" placeholder="Find in log" aria-label="Find in execution log"><select id="logLevel" aria-label="Log level"><option value="all">All messages</option><option value="issues">Warnings and errors</option><option value="error">Errors only</option></select><label><input id="followLog" type="checkbox" checked> Follow live</label><button class="secondary-button" id="nextIssueButton" type="button" disabled title="Jump to the next warning or error">Next issue</button><button class="secondary-button" id="copyLogButton" type="button" disabled title="Copy the messages currently shown">Copy</button><button class="secondary-button" id="clearLogButton" type="button">Clear view</button></div></div><div class="log-meta"><span id="logCount" role="status">No messages yet</span><span>Filtering does not change saved logs.</span></div><div class="log-view" id="logView" tabindex="0" aria-label="Execution log"></div>
+        <div class="collection-actions"><button class="secondary-button danger-button hidden" id="cancelButton" type="button">Cancel collection</button><button class="secondary-button hidden" id="openDiagnosticsButton" type="button">Open diagnostics</button><button class="secondary-button hidden" id="newInventoryButton" type="button">New inventory</button><button class="secondary-button hidden" id="viewReportButton" type="button">View report</button><button class="secondary-button hidden" id="openPackageButton" type="button">Open output folder</button><button class="secondary-button hidden" id="showZipButton" type="button">Show ZIP archive</button></div>
       </div></div></div>
     </section>
 
@@ -444,7 +467,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visi
         <div class="report-toolbar" id="reportToolbar">
           <div class="report-ident"><div class="report-name" id="loadedReportName">No report loaded</div><div class="report-path" id="loadedReportPath">Run an inventory or load a previous inventory package.</div></div>
           <div class="report-actions"><button class="secondary-button" id="loadPreviousButton" type="button">Load previous report</button><button class="secondary-button" id="openHtmlButton" type="button" disabled>Open HTML externally</button><button class="secondary-button" id="openWordButton" type="button" disabled>Open Word</button><button class="secondary-button" id="openSummaryButton" type="button" disabled>Open summary</button><button class="secondary-button" id="openFolderButton" type="button" disabled>Open folder</button><button class="secondary-button" id="toggleViewerButton" type="button" disabled>Close report</button><button class="secondary-button" id="collapseReportHeaderButton" type="button" aria-expanded="true">Collapse controls</button></div>
-          <div class="viewer-search"><input id="viewerSearchInput" type="search" placeholder="Search the entire loaded report..." aria-label="Search loaded report"><button class="secondary-button" id="viewerSearchButton" type="button" disabled>Search</button><button class="secondary-button" id="viewerPrevButton" type="button" disabled>Previous</button><button class="secondary-button" id="viewerNextButton" type="button" disabled>Next</button><button class="secondary-button" id="viewerClearButton" type="button" disabled>Clear</button><div class="search-status" id="viewerSearchStatus">Load a report to search it.</div></div>
+          <div class="viewer-search"><input id="viewerSearchInput" type="search" placeholder="Search the entire loaded report (Enter for next match)" aria-label="Search loaded report"><button class="secondary-button" id="viewerSearchButton" type="button" disabled>Search</button><button class="secondary-button" id="viewerPrevButton" type="button" disabled>Previous</button><button class="secondary-button" id="viewerNextButton" type="button" disabled>Next</button><button class="secondary-button" id="viewerClearButton" type="button" disabled>Clear</button><div class="search-status" id="viewerSearchStatus">Load a report to search it.</div></div>
         </div>
         <div class="report-view-shell"><iframe class="report-frame hidden" id="reportFrame" title="Server inventory report viewer" scrolling="no"></iframe><div class="report-empty" id="reportEmpty"><div class="report-empty-inner"><div class="report-empty-title">No report is currently open</div><p id="reportEmptyText">Run a new inventory or load an earlier inventory package to review its consolidated HTML report inside the application.</p><div class="report-empty-actions"><button class="secondary-button" id="emptyLoadPreviousButton" type="button">Load previous report</button><button class="secondary-button hidden" id="reopenReportButton" type="button">Reopen loaded report</button></div><div class="viewer-note">Reports generated by this application provide section navigation inside the viewer. The search bar above searches across all sections, including previous reports.</div></div></div></div>
       </div>
@@ -453,6 +476,20 @@ button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visi
     <div class="footer">All collection and report viewing remains local to this computer. No server inventory is uploaded by the application.</div>
   </div>
 </div>
+<dialog class="shortcuts-dialog" id="shortcutsDialog" aria-labelledby="shortcutsTitle">
+  <div class="shortcuts-head"><h2 id="shortcutsTitle">Keyboard shortcuts</h2><button class="secondary-button" id="shortcutsClose" type="button">Close</button></div>
+  <dl class="shortcuts-list">
+    <dt><kbd>Alt</kbd> + <kbd>1</kbd> / <kbd>2</kbd> / <kbd>3</kbd></dt><dd>Go to Setup, Collection or Report Viewer</dd>
+    <dt><kbd>/</kbd> or <kbd>Ctrl</kbd> + <kbd>K</kbd></dt><dd>Search the current tab: categories, log or report</dd>
+    <dt><kbd>Esc</kbd></dt><dd>Clear the search you are typing in</dd>
+    <dt><kbd>Ctrl</kbd> + <kbd>S</kbd></dt><dd>Save collection choices (Setup)</dd>
+    <dt><kbd>Ctrl</kbd> + <kbd>Enter</kbd></dt><dd>Start collection (Setup)</dd>
+    <dt><kbd>Enter</kbd> / <kbd>Shift</kbd> + <kbd>Enter</kbd></dt><dd>Next / previous report match while searching</dd>
+    <dt><kbd>F3</kbd> / <kbd>Shift</kbd> + <kbd>F3</kbd></dt><dd>Next / previous report match</dd>
+    <dt><kbd>N</kbd></dt><dd>Jump to the next warning or error (Collection)</dd>
+    <dt><kbd>?</kbd></dt><dd>Show this list</dd>
+  </dl>
+</dialog>
 <script>
 (function () {
   var token = '__TOKEN__';
@@ -473,11 +510,24 @@ button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visi
   var installDisabledControls = [];
   var preferencesLoaded = false, preferencesDirty = false, configurationBusy = false;
   var aclSkipPending = false;
+  var viewerLastQuery = '', issueCursor = -1, copyFeedbackTimer = null;
+  var appTitle = 'Server Inventory Configuration Manager';
   var logLines = [], scopeSearchWasOpen = false, previousScopeQuery = '';
   var coreCategories = ['Hardware','OperatingSystem','Storage','Networking','WindowsFeaturesRoles','Services','InstalledSoftware','WindowsUpdate','LocalAccounts','Security','TimeNTP','WindowsServerBackup'];
   function notice(message,error){byId('appNoticeText').textContent=message;byId('appNotice').className='app-notice'+(error?' error':'');}
   function choices(){var inv=getCheckedValues('input[data-inventory]'),days=Number(byId('eventDays').value);if(inv.indexOf('EventLogs')<0&&(!Number.isInteger(days)||days<1||days>365)){days=30;}return {outputRoot:byId('outputPath').value.trim(),inventoryCategories:inv,exportCategories:getCheckedValues('input[data-export]'),eventLogDays:days,aclExportTimeoutSeconds:Number(byId('aclExportTimeout').value),includeSensitive:byId('includeSensitive').checked};}
-  function markChoicesDirty(){var invalid=document.querySelectorAll('#configBody [aria-invalid]');for(var i=0;i<invalid.length;i++){invalid[i].removeAttribute('aria-invalid');}preferencesDirty=true;byId('preferencesStatus').textContent='Unsaved choices';}
+  function markChoicesDirty(){var invalid=document.querySelectorAll('#configBody [aria-invalid]');for(var i=0;i<invalid.length;i++){invalid[i].removeAttribute('aria-invalid');}preferencesDirty=true;byId('preferencesStatus').textContent='Unsaved choices';updateRevertButton();}
+  function savedOptions(){return latestState&&latestState.collectionPreferences&&latestState.collectionPreferences.options||null;}
+  function updateRevertButton(){byId('revertChoicesButton').classList.toggle('hidden',!(preferencesDirty&&savedOptions()));}
+  function applySavedOptions(saved){
+    setCheckedValues('input[data-export]',[]);setCheckedValues('input[data-inventory]',saved.inventoryCategories||[]);setCheckedValues('input[data-export]',(saved.exportCategories||[]).filter(function(v){return v!=='NPS';}));
+    byId('outputPath').value=saved.outputRoot||byId('outputPath').value;byId('eventDays').value=saved.eventLogDays||30;byId('aclExportTimeout').value=saved.aclExportTimeoutSeconds||120;byId('includeSensitive').checked=false;syncCategoryState();
+  }
+  function revertChoices(){
+    var saved=savedOptions();if(!saved||configurationBusy||(latestState&&latestState.running)){return;}
+    applySavedOptions(saved);var invalid=document.querySelectorAll('#configBody [aria-invalid]');for(var i=0;i<invalid.length;i++){invalid[i].removeAttribute('aria-invalid');}
+    preferencesDirty=false;byId('preferencesStatus').textContent='Saved choices restored';updateRevertButton();byId('appNotice').classList.add('hidden');
+  }
   function validateChoices(){
     byId('outputPath').removeAttribute('aria-invalid');byId('eventDays').removeAttribute('aria-invalid');byId('aclExportTimeout').removeAttribute('aria-invalid');
     var value=choices(),bad='',field=null;
@@ -490,16 +540,17 @@ button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visi
     return value;
   }
   function saveChoices(){
-    var value=validateChoices();if(!value||configurationBusy){return;}
+    if(configurationBusy||byId('saveChoicesButton').disabled){return;}var value=validateChoices();if(!value){return;}
     configurationBusy=true;setConfigDisabled(true);
-    request('POST','/api/preferences',value,function(err){configurationBusy=false;setConfigDisabled(!!(latestState&&latestState.running));if(err){notice(err,true);return;}preferencesDirty=false;byId('preferencesStatus').textContent='Choices saved for next time';notice('Collection choices saved. Sensitive permission and NPS full export must be selected again each session.',false);});
+    request('POST','/api/preferences',value,function(err){configurationBusy=false;setConfigDisabled(!!(latestState&&latestState.running));if(err){notice(err,true);return;}preferencesDirty=false;byId('preferencesStatus').textContent='Choices saved for next time';updateRevertButton();notice('Collection choices saved. Sensitive permission and NPS full export must be selected again each session.',false);});
   }
   function filterScope(){
     var query=byId('scopeSearch').value.trim().toLowerCase(),cards=document.querySelectorAll('.category-check'),count=0;
     if(query&&!previousScopeQuery){scopeSearchWasOpen=byId('exportPanel').open;}
     for(var i=0;i<cards.length;i++){var show=!query||cards[i].textContent.toLowerCase().indexOf(query)>=0;cards[i].classList.toggle('hidden',!show);if(show){count++;}}
     if(query){byId('exportPanel').open=true;}else if(previousScopeQuery){byId('exportPanel').open=scopeSearchWasOpen;}
-    byId('scopeSearchStatus').textContent=query?count+' matching choices':'';
+    var groups=document.querySelectorAll('.category-group');for(var g=0;g<groups.length;g++){groups[g].classList.toggle('hidden',!groups[g].querySelector('.category-check:not(.hidden)'));}
+    byId('scopeSearchStatus').textContent=query?count+(count===1?' matching choice':' matching choices'):'';
     byId('scopeEmpty').classList.toggle('hidden',count>0);previousScopeQuery=query;
   }
   function profileLabel(inv,exp){
@@ -580,6 +631,25 @@ button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visi
     byId('cardSensitive').className='option-inner'+(byId('includeSensitive').checked?' enabled':'');
     byId('sensitiveWarning').innerHTML=byId('includeSensitive').checked?'<strong>Sensitive exports allowed.</strong> Only explicitly selected sensitive export modules will use this permission. Protect the resulting package accordingly.':'Sensitive exports are disabled. Normal inventory and safe configuration exports do not require this option.';
     var eventSelected=inv.indexOf('EventLogs')>=0; byId('eventDays').disabled=!eventSelected||configurationBusy||!!(latestState&&latestState.running);
+    byId('eventDays').title=eventSelected?'':'Select Event-log summaries to change the history window.';
+    var invNodes=document.querySelectorAll('input[data-inventory]');
+    for(var ii=0;ii<invNodes.length;ii++){var label=invNodes[ii].parentNode;if(label&&label.classList){label.classList.toggle('has-export',exp.indexOf(invNodes[ii].value)>=0);}}
+    syncGroups();
+  }
+  function syncGroups(){
+    var groups=document.querySelectorAll('.category-group');
+    for(var i=0;i<groups.length;i++){
+      var boxes=groups[i].querySelectorAll('input[data-inventory]'),on=0;for(var j=0;j<boxes.length;j++){if(boxes[j].checked){on++;}}
+      groups[i].querySelector('[data-group-count]').textContent=on+' of '+boxes.length+' selected';
+      groups[i].querySelector('[data-group-toggle]').textContent=on===boxes.length?'Clear group':'Select all';
+    }
+  }
+  function toggleGroup(button){
+    if(configurationBusy||(latestState&&latestState.running)){return;}
+    var group=button.closest('.category-group'),boxes=group.querySelectorAll('input[data-inventory]'),all=true;
+    for(var i=0;i<boxes.length;i++){if(!boxes[i].checked){all=false;}}
+    for(var j=0;j<boxes.length;j++){boxes[j].checked=!all;if(all){var partner=document.querySelector('input[data-export][value="'+boxes[j].value+'"]');if(partner){partner.checked=false;}}}
+    syncCategoryState();markChoicesDirty();
   }
   function setConfigDisabled(disabled){
     disabled=!!disabled||configurationBusy;
@@ -597,9 +667,40 @@ button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visi
   }
   function logSeverity(text){var upper=text.toUpperCase();return upper.indexOf('[ERROR]')>=0||upper.indexOf('FAILED')>=0?'error':(upper.indexOf('[WARN]')>=0?'warn':(upper.indexOf('COMPLETED:')>=0||upper.indexOf('SUCCESS')>=0?'good':'info'));}
   function logMatches(line){var query=byId('logSearch').value.toLowerCase(),level=byId('logLevel').value;return (!query||line.text.toLowerCase().indexOf(query)>=0)&&(level==='all'||(level==='issues'&&(line.level==='warn'||line.level==='error'))||level===line.level);}
-  function updateLogCount(){var shown=byId('logView').querySelectorAll('[data-log-line]:not(.hidden)').length;byId('logCount').textContent=logLines.length?shown+' of '+logLines.length+' messages':'No messages yet';}
+  function updateLogCount(){
+    var shown=byId('logView').querySelectorAll('[data-log-line]:not(.hidden)').length;byId('logCount').textContent=logLines.length?shown+' of '+logLines.length+' messages':'No messages yet';
+    var warn=0,err=0;for(var i=0;i<logLines.length;i++){if(logLines[i].level==='warn'){warn++;}else if(logLines[i].level==='error'){err++;}}
+    var options=byId('logLevel').options;for(var o=0;o<options.length;o++){var base={all:'All messages',issues:'Warnings and errors',error:'Errors only'}[options[o].value];if(base){options[o].textContent=base+(options[o].value==='all'?'':' ('+(options[o].value==='error'?err:warn+err)+')');}}
+    byId('nextIssueButton').disabled=!(warn+err);byId('copyLogButton').disabled=!shown;
+  }
+  function nextIssue(){
+    var children=byId('logView').children,count=children.length;if(!count){return;}
+    for(var step=1;step<=count;step++){
+      var index=(issueCursor+step)%count,node=children[index];
+      if(logLines[index]&&(logLines[index].level==='warn'||logLines[index].level==='error')&&!node.classList.contains('hidden')){
+        var previous=byId('logView').querySelector('.log-focus');if(previous){previous.classList.remove('log-focus');}
+        issueCursor=index;node.classList.add('log-focus');byId('followLog').checked=false;
+        var view=byId('logView');view.scrollTop=Math.max(0,node.offsetTop-view.offsetTop-view.clientHeight/3);
+        byId('logCount').textContent='Issue: message '+(index+1)+' of '+logLines.length;return;
+      }
+    }
+    byId('logCount').textContent='No warnings or errors match the current filter.';
+  }
+  function showLogFilter(level){byId('logLevel').value=level;byId('logSearch').value='';filterLogs();switchTab('collection');issueCursor=-1;nextIssue();}
+  function copyText(text,done){
+    function fallback(){var area=document.createElement('textarea');area.value=text;area.setAttribute('readonly','');area.style.position='fixed';area.style.opacity='0';document.body.appendChild(area);area.select();var ok=false;try{ok=document.execCommand('copy');}catch(e){}document.body.removeChild(area);done(ok);}
+    if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(text).then(function(){done(true);},fallback);}else{fallback();}
+  }
+  function copyLog(){
+    var lines=[];for(var i=0;i<logLines.length;i++){if(logMatches(logLines[i])){lines.push(logLines[i].text);}}if(!lines.length){return;}
+    copyText(lines.join('\r\n'),function(ok){
+      var button=byId('copyLogButton');button.textContent=ok?'Copied '+lines.length:'Copy failed';
+      if(!ok){notice('The log could not be copied automatically. Select text in the log and press Ctrl+C.',true);}
+      if(copyFeedbackTimer!==null){window.clearTimeout(copyFeedbackTimer);}copyFeedbackTimer=window.setTimeout(function(){button.textContent='Copy';copyFeedbackTimer=null;},1800);
+    });
+  }
   function filterLogs(){var children=byId('logView').children;for(var i=0;i<logLines.length;i++){children[i].classList.toggle('hidden',!logMatches(logLines[i]));}updateLogCount();if(byId('followLog').checked){byId('logView').scrollTop=byId('logView').scrollHeight;}}
-  function clearLogs(){logLines=[];byId('logView').textContent='';updateLogCount();}
+  function clearLogs(){logLines=[];issueCursor=-1;byId('logView').textContent='';updateLogCount();}
   function appendLogs(lines) {
     if(!lines||!lines.length){return;}
     var view=byId('logView'),fragment=document.createDocumentFragment();
@@ -667,7 +768,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visi
     byId('viewerClearButton').disabled=!available||!viewerOpen;
   }
   function clearViewerSearch(silent){
-    viewerMatches=[]; viewerMatchIndex=-1;
+    viewerMatches=[]; viewerMatchIndex=-1; viewerLastQuery='';
     var doc=null; try{doc=byId('reportFrame').contentDocument;}catch(e){}
     if(doc){
       var marks=doc.querySelectorAll('mark.app-viewer-match');
@@ -726,7 +827,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visi
     var ql=q.toLowerCase();
     function markNode(node){ var text=node.nodeValue||'', lower=text.toLowerCase(), off=0, at=lower.indexOf(ql); if(at<0){return;} var frag=doc.createDocumentFragment(); while(at>=0){ if(at>off){frag.appendChild(doc.createTextNode(text.substring(off,at)));} var m=doc.createElement('mark'); m.className='app-viewer-match'; m.appendChild(doc.createTextNode(text.substr(at,q.length))); frag.appendChild(m); off=at+q.length; at=lower.indexOf(ql,off);} if(off<text.length){frag.appendChild(doc.createTextNode(text.substring(off)));} node.parentNode.replaceChild(frag,node); }
     for(var r=0;r<roots.length;r++){ var walker=doc.createTreeWalker(roots[r],NodeFilter.SHOW_TEXT,{acceptNode:function(n){var p=n.parentNode;if(!p){return NodeFilter.FILTER_REJECT;}var tag=(p.nodeName||'').toLowerCase();if(tag==='script'||tag==='style'||tag==='mark'||(tag==='button'&&!p.classList.contains('table-sort'))||p.closest('.dataset-tools,.section-actions,.copy-feedback')){return NodeFilter.FILTER_REJECT;}return n.nodeValue&&n.nodeValue.toLowerCase().indexOf(ql)>=0?NodeFilter.FILTER_ACCEPT:NodeFilter.FILTER_REJECT;}},false); var nodes=[],cur; while((cur=walker.nextNode())){nodes.push(cur);} for(var j=0;j<nodes.length;j++){markNode(nodes[j]);} }
-    viewerMatches=Array.prototype.slice.call(doc.querySelectorAll('mark.app-viewer-match'));
+    viewerLastQuery=q;viewerMatches=Array.prototype.slice.call(doc.querySelectorAll('mark.app-viewer-match'));
     if(!viewerMatches.length){byId('viewerSearchStatus').textContent='No matches for "'+q+'".';return;}
     byId('viewerPrevButton').disabled=false; byId('viewerNextButton').disabled=false; revealViewerMatch(0);
   }
@@ -785,7 +886,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visi
       if(!preferencesDirty){
         var saved=state.collectionPreferences&&state.collectionPreferences.options;
         byId('outputPath').value=saved?saved.outputRoot:(state.defaultOutputRoot||'');
-        if(saved){setCheckedValues('input[data-export]',[]);setCheckedValues('input[data-inventory]',saved.inventoryCategories||[]);setCheckedValues('input[data-export]',(saved.exportCategories||[]).filter(function(v){return v!=='NPS';}));byId('eventDays').value=saved.eventLogDays||30;byId('aclExportTimeout').value=saved.aclExportTimeoutSeconds||120;byId('includeSensitive').checked=false;byId('preferencesStatus').textContent='Saved choices restored';}
+        if(saved){applySavedOptions(saved);byId('preferencesStatus').textContent='Saved choices restored';}
       }
     }
     byId('serverName').textContent=state.computerName||'This server'; byId('adminState').textContent=state.isAdministrator?'Administrator':'Not elevated';byId('elevationBadge').textContent=state.isAdministrator?'Administrator':'Not elevated'; byId('powerShellState').textContent=state.powerShellVersion||'Available';
@@ -800,6 +901,9 @@ button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visi
     byId('openDiagnosticsButton').className=state.diagnosticPath?'secondary-button':'secondary-button hidden';
     byId('newInventoryButton').className=(!state.running && state.status!=='idle')?'secondary-button':'secondary-button hidden';
     byId('viewReportButton').className=state.loadedReportAvailable?'secondary-button':'secondary-button hidden';
+    byId('openPackageButton').className=(!state.running&&state.packagePath)?'secondary-button':'secondary-button hidden';
+    byId('showZipButton').className=(!state.running&&state.zipPath)?'secondary-button':'secondary-button hidden';
+    updateWindowTitle(state);updateRevertButton();
     byId('collectionTabBadge').textContent=state.running?'Running':(state.status==='success'?'Complete':(state.status==='failed'?'Failed':(state.status==='canceled'?'Canceled':'Ready')));
     refreshLoadedReport(state,false);
     if(lastStatus!==state.status){
@@ -808,6 +912,10 @@ button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visi
       else if(state.status==='failed'||state.status==='canceled'){switchTab('collection');}
       lastStatus=state.status;
     }
+  }
+  function updateWindowTitle(state){
+    var prefix=state.running?(state.progress||0)+'% Collecting':(state.status==='success'?'Collection complete':(state.status==='failed'?'Collection failed':(state.status==='canceled'?'Collection canceled':'')));
+    var title=prefix?prefix+' \u2014 '+appTitle:appTitle;if(document.title!==title){document.title=title;}
   }
   function poll(){
     if(uiLifecycle!=='active'){return;}
@@ -820,7 +928,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visi
   }
   function browseFolder(){ request('POST','/api/browse',{},function(err,data){if(err){notice(err,true);return;}if(data.path){byId('outputPath').value=data.path;markChoicesDirty();}}); }
   function startCollection(){
-    var body=validateChoices();if(!body||configurationBusy){return;}
+    if(configurationBusy||byId('startButton').disabled){return;}var body=validateChoices();if(!body){return;}
     if(body.includeSensitive&&!window.confirm('Sensitive role exports can contain reusable secrets. Continue only if the output location is appropriately protected.')){return;}
     configurationBusy=true;setConfigDisabled(true);
     request('POST','/api/start',body,function(err,data){configurationBusy=false;setConfigDisabled(!!(latestState&&latestState.running));if(err){notice(err,true);return;}
@@ -869,7 +977,10 @@ button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visi
   byId('toggleViewerButton').addEventListener('click',function(){if(viewerOpen){closeViewer();}else{openViewer(false);}});
   byId('collapseReportHeaderButton').addEventListener('click',function(){setReportHeaderCollapsed(!reportHeaderCollapsed);});
   byId('viewerSearchButton').addEventListener('click',viewerSearch); byId('viewerPrevButton').addEventListener('click',function(){revealViewerMatch(viewerMatchIndex-1);}); byId('viewerNextButton').addEventListener('click',function(){revealViewerMatch(viewerMatchIndex+1);}); byId('viewerClearButton').addEventListener('click',function(){clearViewerSearch(false);});
-  byId('viewerSearchInput').addEventListener('keydown',function(e){if(e.key==='Enter'||e.keyCode===13){e.preventDefault();viewerSearch();}});
+  byId('viewerSearchInput').addEventListener('keydown',function(e){
+    if(e.key==='Enter'||e.keyCode===13){e.preventDefault();var q=(this.value||'').replace(/^\s+|\s+$/g,'');if(q&&q===viewerLastQuery&&viewerMatches.length){revealViewerMatch(viewerMatchIndex+(e.shiftKey?-1:1));}else{viewerSearch();}}
+    else if(e.key==='Escape'&&this.value){e.preventDefault();e.stopPropagation();clearViewerSearch(false);}
+  });
   byId('updateCheckButton').addEventListener('click',function(){checkForUpdates(true,'manual');});
   byId('updateReadMoreButton').addEventListener('click',function(){openKind('updaterelease');});
   byId('updateDownloadButton').addEventListener('click',downloadUpdate);
@@ -893,6 +1004,36 @@ button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visi
   byId('logSearch').addEventListener('input',filterLogs);byId('logLevel').addEventListener('change',filterLogs);byId('followLog').addEventListener('change',filterLogs);
   byId('logView').addEventListener('scroll',function(){var view=this;if(view.scrollHeight-view.scrollTop-view.clientHeight>40){byId('followLog').checked=false;}});
   for(var ti=0;ti<tabButtons.length;ti++){tabButtons[ti].addEventListener('keydown',function(e){var list=Array.prototype.slice.call(tabButtons),index=list.indexOf(this);if(e.key==='ArrowRight'){index=(index+1)%list.length;}else if(e.key==='ArrowLeft'){index=(index+list.length-1)%list.length;}else if(e.key==='Home'){index=0;}else if(e.key==='End'){index=list.length-1;}else{return;}e.preventDefault();list[index].click();list[index].focus();});}
+  byId('revertChoicesButton').addEventListener('click',revertChoices);
+  var groupToggles=document.querySelectorAll('[data-group-toggle]');for(var gt=0;gt<groupToggles.length;gt++){groupToggles[gt].addEventListener('click',function(){toggleGroup(this);});}
+  byId('nextIssueButton').addEventListener('click',nextIssue);byId('copyLogButton').addEventListener('click',copyLog);
+  var metricActions=document.querySelectorAll('[data-log-filter]');for(var ma=0;ma<metricActions.length;ma++){
+    metricActions[ma].addEventListener('click',function(){showLogFilter(this.getAttribute('data-log-filter'));});
+    metricActions[ma].addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();showLogFilter(this.getAttribute('data-log-filter'));}});
+  }
+  byId('openPackageButton').addEventListener('click',function(){openKind('folder');});byId('showZipButton').addEventListener('click',function(){openKind('zip');});
+  byId('scopeSearch').addEventListener('keydown',function(e){if(e.key==='Escape'&&this.value){e.preventDefault();e.stopPropagation();this.value='';filterScope();}});
+  byId('logSearch').addEventListener('keydown',function(e){if(e.key==='Escape'&&this.value){e.preventDefault();e.stopPropagation();this.value='';filterLogs();}});
+  function openShortcuts(){var d=byId('shortcutsDialog');if(d.open){return;}if(d.showModal){d.showModal();}else{d.setAttribute('open','');}byId('shortcutsClose').focus();}
+  function closeShortcuts(){var d=byId('shortcutsDialog');if(d.close){d.close();}else{d.removeAttribute('open');}}
+  byId('shortcutsButton').addEventListener('click',openShortcuts);byId('shortcutsClose').addEventListener('click',closeShortcuts);
+  byId('shortcutsDialog').addEventListener('click',function(e){if(e.target===this){closeShortcuts();}});
+  function isTyping(target){var tag=(target&&target.nodeName||'').toLowerCase();return tag==='input'||tag==='textarea'||tag==='select'||!!(target&&target.isContentEditable);}
+  function focusTabSearch(){var id={setup:'scopeSearch',collection:'logSearch',report:'viewerSearchInput'}[activeTab],input=byId(id);if(input&&!input.disabled){input.focus();if(input.select){input.select();}}}
+  document.addEventListener('keydown',function(e){
+    if(uiLifecycle!=='active'||e.defaultPrevented){return;}
+    if(byId('shortcutsDialog').open){return;}
+    var key=e.key||'',ctrl=e.ctrlKey||e.metaKey,typing=isTyping(e.target);
+    if(e.altKey&&!ctrl&&(key==='1'||key==='2'||key==='3')){e.preventDefault();var tab=['setup','collection','report'][Number(key)-1];switchTab(tab);byId('tabButton'+tab.charAt(0).toUpperCase()+tab.slice(1)).focus();return;}
+    if(ctrl&&!e.altKey&&(key==='s'||key==='S')){e.preventDefault();if(activeTab==='setup'){saveChoices();}return;}
+    if(ctrl&&!e.altKey&&key==='Enter'){if(activeTab==='setup'){e.preventDefault();startCollection();}return;}
+    if(ctrl&&!e.altKey&&(key==='k'||key==='K')){e.preventDefault();focusTabSearch();return;}
+    if(key==='F3'){if(activeTab==='report'&&viewerMatches.length){e.preventDefault();revealViewerMatch(viewerMatchIndex+(e.shiftKey?-1:1));}return;}
+    if(typing||ctrl||e.altKey){return;}
+    if(key==='/'){e.preventDefault();focusTabSearch();}
+    else if(key==='?'){e.preventDefault();openShortcuts();}
+    else if((key==='n'||key==='N')&&activeTab==='collection'){e.preventDefault();nextIssue();}
+  });
   setReportHeaderCollapsed(false); syncCategoryState(); poll();
 }());
 </script>

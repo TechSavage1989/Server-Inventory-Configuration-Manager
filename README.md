@@ -24,7 +24,7 @@ A portable **Windows x64 application** for collecting server inventory, exportin
 | Capture | Review | Keep working |
 | --- | --- | --- |
 | Choose inventory categories and optional configuration exports. | Start with an executive summary and visible collection issues. | Run a portable EXE with an isolated local browser interface. |
-| Search categories, use presets, and save your preferred scope. | Search collapsed report sections and inspect supporting exports. | Keep settings, window placement, and shortcut targets through updates. |
+| Search grouped categories, use presets, and save or revert your preferred scope. | Search collapsed report sections and inspect supporting exports. | Keep settings, window placement, and shortcut targets through updates. |
 | Collect available server-role details without treating missing roles as present. | Open HTML offline, print retained report data, or use Word/text outputs. | Choose when to download, install, and restart. |
 
 ## Screenshots
@@ -64,9 +64,13 @@ Direct links: [Download Windows EXE](https://github.com/TechSavage1989/Server-In
 
 ## How to use
 
-Setup shows the selected profile and exact inventory/export counts. Search by category name or description without altering your selections; optional exports expand when needed. Unchecking an inventory category also clears its dependent export. Saved safe choices return at the next launch. Sensitive permission and NPS full export must be selected again each session.
+Setup shows the selected profile and exact inventory/export counts. Inventory categories are grouped (platform, workloads, identity and network roles, file/print/backup, security and diagnostics), each with a running count and a one-click Select all / Clear group. Categories with an enabled configuration export carry a **+ export** tag. Search by category name or description without altering your selections; optional exports expand when needed and empty groups hide. Unchecking an inventory category also clears its dependent export. Saved safe choices return at the next launch, and **Revert to saved** undoes unsaved edits. Sensitive permission and NPS full export must be selected again each session.
 
-Use the Collection log's search and severity filter to focus on issues. Scrolling back pauses live following; enable Follow live to return to the newest output. Filtering and Clear view do not alter saved diagnostic files.
+Use the Collection log's search and severity filter to focus on issues; the filter shows live warning/error counts. **Next issue** (or `N`) steps through warnings and errors, clicking the Warnings or Errors tile filters the log, and **Copy** copies the messages currently shown. Scrolling back pauses live following; enable Follow live to return to the newest output. Filtering and Clear view do not alter saved diagnostic files. After a run, **Open output folder** and **Show ZIP archive** go straight to the package. The window title shows progress (for example `42% Collecting`) so you can follow a run from the taskbar.
+
+In the Report Viewer search, `Enter` moves to the next match and `Shift+Enter` to the previous one (`F3` / `Shift+F3` also work); `Esc` clears the search.
+
+**Keyboard shortcuts** (press `?` or use the link under the version number): `Alt+1/2/3` switch tabs, `/` or `Ctrl+K` focuses the current tab's search, `Ctrl+S` saves choices and `Ctrl+Enter` starts collection from Setup.
 
 
 New HTML reports lead with a concise executive summary. Collection issues and recovery gaps remain prominent; routine datasets expand on demand. Search includes collapsed sections and raw text. Printing includes all rows retained by the report snapshot; truncation notices still point to complete supporting exports.
