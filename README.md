@@ -29,13 +29,30 @@ A portable **Windows x64 application** for collecting server inventory, exportin
 
 ## Screenshots
 
-**Collection progress with a searchable live log**
+### Capture
 
-<img src="docs/images/collection-progress.png" alt="Collection progress with a searchable live log" width="900">
+<table>
+  <tr><td width="50%"><b>Category search without changing the selected scope</b><br><img src="docs/images/category-search.png" alt="Category search without changing the selected scope" width="440"></td><td width="50%"><b>Optional configuration exports</b><br><img src="docs/images/configuration-exports.png" alt="Optional configuration exports" width="440"></td></tr>
+</table>
+
+### Collection
+
+<table>
+  <tr><td width="50%"><b>Collection progress with a searchable live log</b><br><img src="docs/images/collection-progress.png" alt="Collection progress with a searchable live log" width="440"></td><td width="50%"><b>Log filtered to warnings and errors</b><br><img src="docs/images/log-issues-filter.png" alt="Log filtered to warnings and errors" width="440"></td></tr>
+  <tr><td width="50%"><b>Bounded recursive permission export with Skip</b><br><img src="docs/images/acl-export-progress.png" alt="Bounded recursive permission export with Skip" width="440"></td><td width="50%"><b>Validated collection ready to review</b><br><img src="docs/images/collection-complete.png" alt="Validated collection ready to review" width="440"></td></tr>
+</table>
+
+### Review
 
 **HTML report executive summary**
 
 <img src="docs/images/report-executive-summary.png" alt="HTML report executive summary" width="900">
+
+### Keep working
+
+**Update available with release notes; you choose when to download**
+
+<img src="docs/images/update-available.png" alt="Update available with release notes; you choose when to download" width="900">
 
 ## Download
 
