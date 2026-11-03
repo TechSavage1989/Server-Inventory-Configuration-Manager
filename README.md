@@ -92,6 +92,8 @@ In the Report Viewer search, `Enter` moves to the next match and `Shift+Enter` t
 
 New HTML reports lead with a concise executive summary. Collection issues and recovery gaps remain prominent; routine datasets expand on demand. Search includes collapsed sections and raw text. Printing includes all rows retained by the report snapshot; truncation notices still point to complete supporting exports.
 
+In the report, the section menu shows a badge counting failed, high-severity and warning items so you know where to look first. Numeric columns are right-aligned, empty datasets are dimmed, and each section has **Print section** alongside Print all. Pressing `Enter` again in report search moves to the next match (`Shift+Enter` goes back, `Esc` clears) and the message names the section. `[` and `]` move between sections, `/` focuses search, and a **Back to top** button appears on long sections.
+
 HTML reports work offline without external fonts, libraries, or image services. Existing reports remain readable in the viewer; **generate a new report to get the redesigned layout**. Word, text, and raw outputs remain available.
 
 ## Updates and settings

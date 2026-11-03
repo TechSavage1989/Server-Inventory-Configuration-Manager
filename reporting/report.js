@@ -5,7 +5,7 @@
     var sections = Array.prototype.slice.call(document.querySelectorAll('.report-section'));
     var buttons = Array.prototype.slice.call(document.querySelectorAll('.section-main-button'));
     var details = Array.prototype.slice.call(document.querySelectorAll('details.dataset'));
-    var currentIndex = 0, matches = [], matchIndex = -1, printState = null;
+    var currentIndex = 0, matches = [], matchIndex = -1, printState = null, lastQuery = '';
     function byId(id) { return document.getElementById(id); }
     function parentSection(element) {
         while (element && element !== document) {
@@ -79,7 +79,7 @@
             parent.replaceChild(document.createTextNode(marks[i].textContent), marks[i]);
             parent.normalize();
         }
-        matches = []; matchIndex = -1;
+        matches = []; matchIndex = -1; lastQuery = '';
         root.classList.remove('search-active');
         byId('report-search-prev').disabled = true;
         byId('report-search-next').disabled = true;
@@ -91,13 +91,14 @@
         matchIndex = (index + matches.length) % matches.length;
         matches[matchIndex].classList.add('report-current');
         revealElement(matches[matchIndex]);
-        byId('report-search-message').textContent = 'Match ' + (matchIndex+1) + ' of ' + matches.length + ' across the full report.';
+        var section = parentSection(matches[matchIndex]), button = section ? buttons[indexById(section.id)] : null;
+        byId('report-search-message').textContent = 'Match ' + (matchIndex+1) + ' of ' + matches.length + ' across the full report' + (button ? ' \u2014 ' + button.getAttribute('data-title') : '') + '.';
     }
     function search() {
         clearSearch();
         var query = byId('report-search-input').value.replace(/^\s+|\s+$/g, '');
         if (!query) { return; }
-        root.classList.add('search-active');
+        root.classList.add('search-active'); lastQuery = query;
         var lowerQuery = query.toLowerCase(), nodes = [];
         for (var i=0; i<sections.length; i++) {
             var walker = document.createTreeWalker(sections[i], NodeFilter.SHOW_TEXT, {acceptNode:function(node) {
@@ -130,6 +131,46 @@
         if (!printState) { return; }
         for (var i=0; i<details.length; i++) { details[i].open=printState[i]; }
         printState=null;
+        root.classList.remove('print-section');
+    }
+    // Right-align columns whose populated cells are all numeric (counts, sizes,
+    // percentages). Presentation only: cell text is never changed.
+    var numericCell = /^[-+]?(\d{1,3}(,\d{3})+|\d+)(\.\d+)?\s?(%|[KMGT]i?B|bytes|ms|s|sec)?$/i;
+    function alignNumericColumns(table) {
+        var head = table.tHead && table.tHead.rows[0], body = table.tBodies[0];
+        if (!head || !body || !body.rows.length) { return; }
+        for (var c=0; c<head.cells.length; c++) {
+            if (/version|build|\bid\b|year|phone|port/i.test(head.cells[c].getAttribute('data-original-label') || head.cells[c].textContent)) { continue; }
+            var seen = 0, numeric = true;
+            for (var r=0; r<body.rows.length && numeric; r++) {
+                var cell = body.rows[r].cells[c]; if (!cell) { continue; }
+                var value = cell.textContent.replace(/^\s+|\s+$/g, '');
+                if (!value) { continue; }
+                seen++; numeric = numericCell.test(value);
+            }
+            if (seen && numeric) {
+                head.cells[c].classList.add('num');
+                for (var n=0; n<body.rows.length; n++) { if (body.rows[n].cells[c]) { body.rows[n].cells[c].classList.add('num'); } }
+            }
+        }
+    }
+    // Count items that need attention in each section so the navigation shows
+    // where to look first. Badges live in the navigation, outside searchable
+    // and copyable section content.
+    function addReviewBadges() {
+        for (var i=0; i<buttons.length; i++) {
+            var section = byId(buttons[i].getAttribute('data-section'));
+            if (!section) { continue; }
+            var errors = section.querySelectorAll('.status-error').length, warnings = section.querySelectorAll('.status-warning').length;
+            var total = errors + warnings;
+            if (!total) { continue; }
+            var badge = document.createElement('span');
+            badge.className = 'nav-badge' + (errors ? ' nav-badge-error' : '');
+            badge.textContent = String(total);
+            var description = (errors ? errors + (errors === 1 ? ' failure or high-severity item' : ' failures or high-severity items') : '') + (errors && warnings ? ' and ' : '') + (warnings ? warnings + (warnings === 1 ? ' warning' : ' warnings') : '');
+            badge.title = description; badge.setAttribute('aria-label', description);
+            buttons[i].appendChild(badge);
+        }
     }
     // Read DOM text, not innerText: collapsed panels, horizontal scrolling and
     // search marks must never omit or change the copied report values.
@@ -189,7 +230,13 @@
         button.addEventListener('click',function(){copyText(getText(),button);});container.appendChild(button);return button;
     }
     for(var cs=0;cs<sections.length;cs++) {
-        (function(section){copyButton('Copy section',section.querySelector('.section-actions'),function(){return reportText(section);});}(sections[cs]));
+        (function(section){
+            var actions=section.querySelector('.section-actions');
+            copyButton('Copy section',actions,function(){return reportText(section);});
+            var print=document.createElement('button');print.type='button';print.className='quiet-button print-action';print.textContent='Print section';
+            print.addEventListener('click',function(){var index=indexById(section.id);if(index>=0){activate(index,false,'');}preparePrint();root.classList.add('print-section');window.print();});
+            actions.appendChild(print);
+        }(sections[cs]));
     }
     // This control remains available in the embedded viewer as well as saved HTML.
     copyButton('Copy full report',document.querySelector('.report-brand'),function(){
@@ -228,7 +275,9 @@
             var body=panel.querySelector('.dataset-body'),table=panel.querySelector('table'),pre=panel.querySelector('pre');
             var toolbar=document.createElement('div');toolbar.className='dataset-tools';body.insertBefore(toolbar,body.firstChild);
             copyButton(table?'Copy table': 'Copy text',toolbar,function(){return table?tableText(table):pre?pre.textContent:reportText(body);});
+            if(!table&&!pre&&panel.querySelector('.empty-data')){panel.classList.add('dataset-empty');}
             if(table){
+                alignNumericColumns(table);
                 var wrap=document.createElement('button');wrap.type='button';wrap.className='quiet-button';wrap.textContent='Wrap values';wrap.setAttribute('aria-pressed','false');
                 wrap.addEventListener('click',function(){var on=panel.classList.toggle('wrap-values');wrap.setAttribute('aria-pressed',String(on));wrap.textContent=on?'Compact rows':'Wrap values';});toolbar.appendChild(wrap);
                 var hint=document.createElement('span');hint.className='table-hint';hint.textContent='Select text to copy a value. Scroll sideways for wide tables. Copy table includes all rows.';toolbar.appendChild(hint);
@@ -266,7 +315,29 @@
     byId('toggle-report-nav').addEventListener('click',function() {
         var open=root.classList.toggle('nav-open'); this.setAttribute('aria-expanded',open ? 'true' : 'false');
     });
-    byId('report-search-form').addEventListener('submit',function(event) { event.preventDefault(); search(); });
+    byId('report-search-form').addEventListener('submit',function(event) {
+        event.preventDefault();
+        var query = byId('report-search-input').value.replace(/^\s+|\s+$/g, '');
+        if (query && query === lastQuery && matches.length) { showMatch(matchIndex+1); } else { search(); }
+    });
+    byId('report-search-input').addEventListener('keydown',function(event) {
+        if (event.key === 'Enter' && event.shiftKey && matches.length) { event.preventDefault(); showMatch(matchIndex-1); }
+        else if (event.key === 'Escape' && (this.value || matches.length)) { event.preventDefault(); event.stopPropagation(); clearSearch(); this.value=''; }
+    });
+    function isTyping(target) { var tag=(target&&target.nodeName||'').toLowerCase(); return tag==='input'||tag==='textarea'||tag==='select'||!!(target&&target.isContentEditable); }
+    document.addEventListener('keydown',function(event) {
+        if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey || isTyping(event.target) || !copyPanel.hidden) { return; }
+        var input = byId('report-search-input');
+        if (event.key === '/' && input.offsetParent !== null) { event.preventDefault(); input.focus(); input.select(); }
+        else if (event.key === ']') { event.preventDefault(); activate(currentIndex+1,true,''); }
+        else if (event.key === '[') { event.preventDefault(); activate(currentIndex-1,true,''); }
+    });
+    if (content) {
+        var toTop=document.createElement('button');toTop.type='button';toTop.className='back-to-top';toTop.textContent='Back to top';toTop.hidden=true;
+        toTop.addEventListener('click',function(){content.scrollTop=0;var heading=document.querySelector('.report-section.active .section-title');if(heading){heading.setAttribute('tabindex','-1');heading.focus({preventScroll:true});}});
+        document.querySelector('.report-layout').appendChild(toTop);
+        content.addEventListener('scroll',function(){toTop.hidden=content.scrollTop<400;},{passive:true});
+    }
     byId('report-search-prev').addEventListener('click',function() { showMatch(matchIndex-1); });
     byId('report-search-next').addEventListener('click',function() { showMatch(matchIndex+1); });
     byId('report-search-clear').addEventListener('click',function() { clearSearch(); byId('report-search-input').value=''; });
@@ -275,6 +346,7 @@
     window.addEventListener('hashchange',function() { revealId(window.location.hash.substring(1)); });
     // The native viewer uses this to expose search hits inside collapsed panels.
     window.SICMReport = {revealElement:revealElement,preparePrint:preparePrint,restorePrint:restorePrint};
+    addReviewBadges();
     root.classList.add('report-js');
     var requested = window.location.hash.substring(1);
     if (requested && byId(requested)) { revealId(requested); }
