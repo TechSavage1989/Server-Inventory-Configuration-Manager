@@ -125,6 +125,37 @@ async function newContext(options={}){
   await page.locator('.section-main-button[data-title="Network Configuration"]').click();assert(!(await page.locator('.report-nav').isVisible()));
   await page.screenshot({path:path.join(directory,'report-mobile.png')});
  });
+ await check('Navigation review badges, numeric alignment and empty-dataset styling stay outside report data',async()=>{
+  await page.setViewportSize({width:1440,height:1000});await page.goto(base+'/new');
+  const badge=title=>page.locator('.section-main-button[data-title="'+title+'"] .nav-badge');
+  assert.equal(await badge('Executive Summary').textContent(),'3');assert(await badge('Executive Summary').evaluate(e=>e.classList.contains('nav-badge-error')));
+  assert.equal(await badge('Collection Appendix').textContent(),'1');assert.equal(await badge('Storage Configuration').count(),0);
+  assert.deepStrictEqual(await page.locator('[data-title="Routing table"] th.num').evaluateAll(l=>l.map(e=>e.getAttribute('data-original-label'))),['Metric']);
+  assert.equal(await page.locator('[data-title="Routing table"] td.num').count(),1500);
+  assert(await page.locator('[data-title="DFS namespaces"]').evaluate(e=>e.classList.contains('dataset-empty')));
+  assert.deepStrictEqual(await models(page),oldModels);
+ });
+ await check('Search Enter steps through matches, Shift+Enter goes back, Escape clears and the message names the section',async()=>{
+  const input=page.locator('#report-search-input');await input.fill('Departments');await input.press('Enter');const first=await page.locator('#report-search-message').textContent();
+  assert(first.startsWith('Match 1 of ')&&first.includes('Shares and Permissions'));
+  await input.press('Enter');assert((await page.locator('#report-search-message').textContent()).startsWith('Match 2 of '));
+  await input.press('Shift+Enter');assert.equal(await page.locator('#report-search-message').textContent(),first);
+  await input.press('Escape');assert.equal(await page.locator('mark.report-match').count(),0);assert.equal(await input.inputValue(),'');
+ });
+ await check('Bracket keys move between sections and slash focuses report search',async()=>{
+  await page.locator('.section-main-button[data-title="Executive Summary"]').click();await page.locator('.report-content').focus();
+  await page.keyboard.press(']');assert.notEqual(await page.locator('.report-section.active h2').textContent(),'Executive Summary');
+  await page.keyboard.press('[');assert.equal(await page.locator('.report-section.active h2').textContent(),'Executive Summary');
+  await page.keyboard.press('/');assert.equal(await page.evaluate(()=>document.activeElement.id),'report-search-input');
+ });
+ await check('Print section prints only the active section with all its datasets, then restores the full report',async()=>{
+  await page.locator('.section-main-button[data-title="Network Configuration"]').click();const before=await page.locator('details.dataset').evaluateAll(list=>list.map(x=>x.open));
+  await page.evaluate(()=>{window.print=()=>{}});await page.locator('.report-section.active').getByRole('button',{name:'Print section',exact:true}).click();await page.emulateMedia({media:'print'});
+  assert.equal(await page.locator('.report-section:visible').count(),1);assert.equal(await page.locator('.report-section.active h2').textContent(),'Network Configuration');
+  assert.equal(await page.locator('.report-section.active details[open]').count(),await page.locator('.report-section.active details').count());assert.equal(await page.locator('.nav-badge:visible,.back-to-top:visible,.print-action:visible').count(),0);
+  await page.evaluate(()=>window.SICMReport.restorePrint());assert.equal(await page.locator('.report-section:visible').count(),await page.locator('.report-section').count());await page.emulateMedia({media:'screen'});
+  assert.deepStrictEqual(await page.locator('details.dataset').evaluateAll(list=>list.map(x=>x.open)),before);
+ });
  await check('Missing metadata is labelled Not collected instead of zero or healthy',async()=>{
   await page.goto(base+'/empty');assert.equal(await page.locator('.metric-value').filter({hasText:'Not collected'}).count(),4);assert.equal(await page.locator('.metric-review').count(),0);
  });

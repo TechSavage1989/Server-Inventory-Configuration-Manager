@@ -1,3 +1,15 @@
+## Unreleased report viewer polish candidate — 2026-11-03
+
+User-requested second pass on the HTML report page. Only `reporting/report.js` and `reporting/report.css` changed; `scripts/embed_report_renderer.py` re-embedded them into the collector and regenerated `docs/verification/report-verification.json`. The PowerShell template, block data, cell text, Word/text output, CSP and original baseline hashes are unchanged. No version bump and no release.
+
+- Navigation badges count `.status-error` and `.status-warning` cells per section (failed/high-severity vs warning/unavailable/skipped). They live in the nav, outside searchable/copyable section content, and are hidden in print.
+- Columns whose populated cells are all numeric (optionally with %, KB/MB/GB/TB, ms/s) get a `num` class for right alignment; headers naming versions, builds, IDs, years, phones or ports are skipped. Cell text is untouched.
+- Datasets that only contain the empty-data message get `dataset-empty` (dimmed summary).
+- Search: submitting an unchanged query steps to the next match, Shift+Enter goes back, Esc clears; the message appends the matched section name. Keyboard: `/` focuses search (standalone only), `[`/`]` previous/next section. Back to top appears after 400px of section scrolling.
+- Print section: activates the section, opens all its datasets via the existing print state, and adds `html.print-section` so print CSS shows only that section; `afterprint`/`restorePrint` removes it and restores expansion state.
+
+Validation: `embed_report_renderer.py --check`, `verify_baseline.py` and Python provenance/encoding tests pass. Behaviour and screenshots were checked in Chromium against a scratch Python emulation of the template markup (not committed, not the real PowerShell output). Four new `scripts/test_report.cjs` checks target the real Test-Report.ps1 fixtures but could not be run here (no PowerShell); they and the existing report, copy, value and performance gates must pass in Windows CI.
+
 ## 3.2.12 published and verified — 2026-10-30
 
 - [Release v3.2.12](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.12), exact commit `794cb129424f216c4feca2bc97284dcfffe27b63`; PR #4 merged after final source Windows CI passed.
