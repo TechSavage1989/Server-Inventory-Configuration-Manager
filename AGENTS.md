@@ -75,6 +75,8 @@ This repository follows the shared TechSavage1989 standard in [`docs/REPOSITORY_
 - **Branches:** short-lived `feat/` `fix/` `docs/` `chore/` `release/` branches, one focused change per pull request, merge only on green checks, delete the branch after merging.
 - **Instructions:** this file is the single source of project rules for every tool; `CLAUDE.md` imports it. Add new rules and gotchas here.
 
+The update feed and in-app update banner show the first three `- ` bullets of `docs/release-notes/<version>.md` verbatim as plain text, so keep those three bullets free of Markdown emphasis or code formatting.
+
 README application screenshots in `docs/images/` are captured from the real `src/app/index.html` with the production CSP and synthetic `/api/state` responses at 1440 px wide (1000 px tall unless the existing image is shorter). The interface hides the hero/version row below 650 px of height, so use at least 700 px when the version block should show. `report-executive-summary.png` is the published release's `Report-Preview.png` (real renderer, synthetic data); refresh it after each release that changes the report.
 
 Where this file's project-specific rules differ from the shared standard, this file wins; an enforced check script wins over both.
