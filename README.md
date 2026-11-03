@@ -1,12 +1,23 @@
-<p align="center"><img src="src/app/assets/icons/server-inventory.svg" width="112" alt="Server Inventory Configuration Manager icon"></p>
+<p align="center">
+  <img src="src/app/assets/icons/server-inventory.svg" width="112" alt="Server Inventory Configuration Manager icon">
+</p>
 
 <h1 align="center">Server Inventory Configuration Manager</h1>
-
 <p align="center"><strong>Capture server configuration. Find the important details. Keep a useful handoff.</strong></p>
 
-A portable **Windows x64 application** for collecting server inventory, exporting supported configurations, and reviewing clear, searchable reports.
+<p align="center">
+  <a href="https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/latest">Download</a> ·
+  <a href="#getting-started">Get started</a> ·
+  <a href="#features">Features</a> ·
+  <a href="#screenshots">Screenshots</a> ·
+  <a href="#development">Development</a>
+</p>
 
-<p align="center"><a href="https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/latest/download/Server-Inventory-Configuration-Manager.exe">Download Windows EXE</a> · <a href="https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases">Releases & checksums</a> · <a href="#getting-started">Get started</a> · <a href="#features">Features</a> · <a href="#updates-and-settings">Updates</a> · <a href="#development">Development</a></p>
+<p align="center">
+  <img src="docs/images/hero.png" alt="Server Inventory Configuration Manager main window" width="900">
+</p>
+
+A portable **Windows x64 application** for collecting server inventory, exporting supported configurations, and reviewing clear, searchable reports.
 
 ## Features
 
@@ -16,9 +27,21 @@ A portable **Windows x64 application** for collecting server inventory, exportin
 | Search categories, use presets, and save your preferred scope. | Search collapsed report sections and inspect supporting exports. | Keep settings, window placement, and shortcut targets through updates. |
 | Collect available server-role details without treating missing roles as present. | Open HTML offline, print retained report data, or use Word/text outputs. | Choose when to download, install, and restart. |
 
+## Screenshots
+
+**Collection progress with a searchable live log**
+
+<img src="docs/images/collection-progress.png" alt="Collection progress with a searchable live log" width="900">
+
+**HTML report executive summary**
+
+<img src="docs/images/report-executive-summary.png" alt="HTML report executive summary" width="900">
+
 ## Download
 
 Get the maintained **Windows EXE** from [the current release](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/latest), with its checksum and release notes. The historical PS1 application is not the current product.
+
+Direct links: [Download Windows EXE](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/latest/download/Server-Inventory-Configuration-Manager.exe) · [Releases & checksums](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases)
 
 ## Requirements
 
