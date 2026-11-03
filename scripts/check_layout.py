@@ -3,7 +3,7 @@ from pathlib import Path
 import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
-FILES = {'.gitattributes', '.gitignore', 'README.md', 'AGENTS.md', 'DEVELOPMENT_HANDOFF.md', 'go.mod'}
+FILES = {'.gitattributes', '.gitignore', 'README.md', 'AGENTS.md', 'CLAUDE.md', 'DEVELOPMENT_HANDOFF.md', 'go.mod'}
 DIRECTORIES = {'.github', 'src', 'scripts', 'tests', 'docs', 'baseline', 'legacy', 'release', 'reporting'}
 GENERATED = {'.git', 'build', 'dist'}
 
