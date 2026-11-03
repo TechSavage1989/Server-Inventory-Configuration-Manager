@@ -9,6 +9,17 @@ User-requested second pass on the HTML report page. Only `reporting/report.js` a
 - Print section: activates the section, opens all its datasets via the existing print state, and adds `html.print-section` so print CSS shows only that section; `afterprint`/`restorePrint` removes it and restores expansion state.
 
 Validation: `embed_report_renderer.py --check`, `verify_baseline.py` and Python provenance/encoding tests pass. Behaviour and screenshots were checked in Chromium against a scratch Python emulation of the template markup (not committed, not the real PowerShell output). Four new `scripts/test_report.cjs` checks target the real Test-Report.ps1 fixtures but could not be run here (no PowerShell); they and the existing report, copy, value and performance gates must pass in Windows CI.
+## Unreleased workspace polish candidate — 2026-11-03
+
+User-requested interface polish ("more feature rich and intuitive"). Scope is limited to `src/app/index.html` and `scripts/test_workspace.cjs`, plus README usage notes. No Go, collector, report renderer, updater, icon, settings schema or CSP change; no version bump and no release.
+
+- Setup: the 34 inventory categories are grouped into five labelled groups with per-group counts and Select all / Clear group (clearing also clears dependent exports and respects the busy lock). Inventory cards with an enabled export show a CSS-only `+ export` tag (not part of searchable text). Search hides empty groups; Esc clears it. Revert to saved restores the last saved safe choices (never sensitive consent or NPS). Collector category order is irrelevant: the engine builds a category set.
+- Collection: log severity options show live counts; Next issue / `N` steps through visible warnings and errors; Warnings/Errors tiles filter the log; Copy copies the currently shown messages (clipboard API with execCommand fallback and inline guidance). Finished runs expose Open output folder and Show ZIP archive via the existing `/api/open` kinds `folder` and `zip`.
+- Window title shows `NN% Collecting`, `Collection complete`, `Collection failed` or `Collection canceled` before the full application name, preserving the `server inventory` + `configuration manager` substring match used by native window discovery.
+- Report Viewer search: Enter on an unchanged query moves to the next match, Shift+Enter/F3/Shift+F3 navigate, Esc clears.
+- Keyboard shortcuts (`?` dialog): Alt+1/2/3, `/` or Ctrl+K, Ctrl+S, Ctrl+Enter. Save/Start shortcuts honour the same disabled state as their buttons; the HTML `<dialog>` is not a browser alert/confirm.
+
+Validation (Linux container, Playwright Chromium 1243 via `--executable`, not Edge): `scripts/test_workspace.cjs` 22/22 including six new checks and the unchanged v3.2.9 negative controls; `test_icon_render.cjs` and `test_ui_shutdown.cjs` pass; `verify_baseline.py`, `embed_report_renderer.py --check`, `check_layout.py` and `tests/*.py` pass; `GOOS=windows go vet` and cross-compile succeed. Not run: Windows PowerShell report gates, Edge, native Go tests, real EXE window/upgrade checks. Those remain required Windows CI gates before any release.
 
 ## 3.2.12 published and verified — 2026-10-30
 
