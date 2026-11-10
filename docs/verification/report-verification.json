@@ -7,8 +7,8 @@
   },
   "sources": {
     "reporting/Write-ConsolidatedHtmlReport.ps1": "2b5a6f0349f1a7d76140b62eb021478cee8ef65a808c1aae4099a27ac1cbf6fc",
-    "reporting/report.css": "fa14992bc2e986574877d8d3cf7d70a30280d8f5ab09dea124f0ba745dff1ba5",
+    "reporting/report.css": "0921a5886b63cb6ea96f2b6d9a2ca31dbc586cd85b9383e069516bff08a558c0",
     "reporting/report.js": "0c5282395dab6f8024289fa40c45a1b56cd193c751dc5d030e8373b5d81b5953"
   },
-  "embedded_renderer_sha256": "9bb635a214aa82715351f7f8b96fe45c112bf19bedd3da5da26d66c02f8cd42d"
+  "embedded_renderer_sha256": "57d6966ea2b2768b635f18938804ccbb26a664e819689ecdf8bce84a9dc17f94"
 }

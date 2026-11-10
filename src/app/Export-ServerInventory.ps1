@@ -2130,7 +2130,7 @@ h1 { margin:2px 0 0; font-size:25px; line-height:1.2; font-weight:650; letter-sp
 
 /* Content */
 .report-content { min-width:0; min-height:0; overflow:auto; padding:20px 32px 36px; scroll-behavior:smooth; }
-.reading-width { max-width:1260px; margin:0 auto; }
+.reading-width { max-width:none; margin:0; }
 .section-pager { display:flex; align-items:center; gap:8px; margin-bottom:16px; }
 .pager-label { flex:1; min-width:0; color:var(--faint); font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .pager-button { padding:4px 10px; font-size:12px; }
@@ -2327,7 +2327,7 @@ mark.report-current { background:#ffd570; outline:2px solid #d0952a; }
 .back-to-top { position:absolute; right:24px; bottom:18px; z-index:5; border:1px solid #c8d4e5; background:#fff; color:#2b4466; border-radius:999px; padding:6px 14px; font-size:12px; font-weight:600; box-shadow:0 3px 12px rgba(20,36,58,.16); }
 .back-to-top:hover { background:#f1f5fc; border-color:#a5bde3; }
 .back-to-top[hidden] { display:none; }
-.footer-note { max-width:1260px; margin:28px auto 0; padding-top:14px; border-top:1px solid var(--line); color:var(--muted); font-size:12px; }
+.footer-note { margin:28px 0 0; padding-top:14px; border-top:1px solid var(--line); color:var(--muted); font-size:12px; }
 
 /* Embedded in the application's Report Viewer */
 .embedded-report .standalone-tools { display:none; }
