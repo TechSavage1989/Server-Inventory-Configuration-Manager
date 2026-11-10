@@ -318,6 +318,50 @@ button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visi
 .shortcuts-list{margin:0;padding:12px 18px 16px;display:grid;grid-template-columns:auto 1fr;gap:9px 16px;align-items:baseline}.shortcuts-list dt{white-space:nowrap;font-size:12px}.shortcuts-list dd{margin:0;color:#45526a;font-size:13px}
 kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df;border-bottom-width:2px;border-radius:5px;background:#f6f8fb;font:600 11px/16px Consolas,"Segoe UI",monospace;text-align:center;color:#172033}
 @media(max-width:560px){.shortcuts-list{grid-template-columns:1fr}.shortcuts-list dd{margin-bottom:6px}}
+
+/* Help menu, About and updates dialog. The update bar is shown only while an update exists. */
+.help-menu{position:relative;flex:none;margin-left:10px}
+.help-button{height:32px;padding:0 12px;border-radius:7px;border:1px solid rgba(255,255,255,.24);background:rgba(255,255,255,.08);color:#fff;font-weight:600;font-size:13px;white-space:nowrap}
+.help-button:hover,.help-button[aria-expanded="true"]{background:rgba(255,255,255,.17)}
+.help-button::after{content:"";display:inline-block;margin-left:7px;border:4px solid transparent;border-top-color:#cfd9ea;vertical-align:-2px}
+.help-list{position:absolute;right:0;top:38px;z-index:60;min-width:215px;padding:5px;background:#fff;border:1px solid #cfd8e4;border-radius:9px;box-shadow:0 10px 28px rgba(15,23,42,.24)}
+.help-list button{display:block;width:100%;text-align:left;border:0;background:transparent;color:#1b2942;padding:8px 11px;border-radius:6px;font-size:13px;white-space:nowrap}
+.help-list button:hover,.help-list button:focus{background:#eaf1fc;outline:none}
+.about-body{padding:14px 18px 18px;overflow:auto}.about-name{font-size:15px;font-weight:700;color:#1b2942}.about-versions{color:#596b80;font-size:12px;margin-top:2px}
+.about-update{margin-top:14px;padding:10px 12px;border:1px solid #d7dee7;border-radius:9px;background:#f8fafc}
+.about-update.available{background:#eff6ff;border-color:#93c5fd}.about-update.warning{background:#fffaeb;border-color:#fec84b}.about-update.error{background:#fef3f2;border-color:#fda29b}
+.about-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.about-actions .primary-button{min-width:0;height:auto;min-height:38px}
+.about-body .helper{margin-top:12px;font-size:12px}
+
+/* Low-resolution support (800x600 and 1024x768 consoles, Server 2012 era browsers).
+   Nothing may be clipped out of reach: panels scroll as a last resort and the
+   chrome above the working area shrinks before the working area does. */
+.tab-panel.active{overflow-y:auto;overflow-x:hidden}
+.setup-layout{min-height:250px}.collection-wrap{min-height:300px}.report-tab-wrap{min-height:230px}
+.log-view{min-height:96px}.metric-label{font-size:11px}.tab-badge{font-size:11px}.category-check.has-export strong::after{font-size:11px}
+@media(max-width:800px){.metric-label{font-size:11px;letter-spacing:0}.brand-subtitle{font-size:11px}}
+@media(max-height:720px){
+ .topbar,.topbar-inner{height:46px}.topbar{flex-basis:46px}.brand-subtitle{display:none}.brand-title{font-size:15px}
+ .brand-mark,.brand-mark img{width:28px;height:28px}.brand-mark{flex-basis:28px;margin-right:9px}.help-button{height:28px}.help-list{top:33px}
+ .hero,.footer{display:none}.page{padding-top:8px;padding-bottom:8px}
+ .app-tabs{margin-bottom:8px}.tab-button{height:34px}.app-notice{margin-bottom:8px;padding:6px 10px}
+ .card-header{padding:8px 14px}.card-header .card-subtitle{display:none}.card-body{padding:12px 14px}
+ .setup-action-bar{padding:8px 14px}.primary-button{height:36px;box-shadow:none}.secondary-button{min-height:32px}
+ .sidebar .card{margin-bottom:8px}.server-panel{padding:10px 14px}.server-label{margin-bottom:6px}.info-row{padding:5px 0}.workflow{padding:3px 0}.workflow-step{padding:7px 12px}.workflow-desc{display:none}
+ .status-header{margin-bottom:8px}.status-indicator{box-shadow:none}.current-step{margin-top:8px;padding:5px 10px}
+ .metric-row{margin-top:8px}.metric{padding:4px 10px;display:flex;align-items:baseline;justify-content:space-between;gap:8px}.metric-value{font-size:15px;margin:0}
+ .log-toolbar{margin-top:8px;margin-bottom:6px}.log-meta{display:none}.log-tools input,.log-tools select{height:32px}
+ .collection-actions{margin-top:8px;padding-top:8px}
+ .update-banner{margin-bottom:8px;padding:6px 12px}.update-notes{display:none}.update-actions button{min-height:30px;height:30px}
+ .report-toolbar{padding:6px 10px;gap:6px}.report-path{display:none}.viewer-search{padding-top:6px;margin-top:0}.viewer-search input{height:32px}
+ .setup-layout{min-height:215px}.collection-wrap{min-height:290px}.report-tab-wrap{min-height:215px}
+}
+@media(max-height:720px) and (max-width:800px){.server-panel{padding:6px 12px}.setup-layout{gap:8px}}
+@media(max-height:560px){
+ .card-header{display:none}.collection-wrap>.card>.card-body{padding-top:9px}.status-message{display:none}
+ .log-title{display:none}.log-tools{width:100%}.log-tools input[type=search]{flex:1 1 120px;width:auto}
+ .scope-note #scopeHint{display:none}
+}
 </style>
 </head>
 <body>
@@ -325,19 +369,19 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   <div class="topbar"><div class="topbar-inner">
     <div class="brand"><div class="brand-mark" aria-hidden="true"><img src="/app-icon.svg?v=327" alt="" width="42" height="42"></div><div><div class="brand-title">Server Inventory Configuration Manager</div><div class="brand-subtitle">Configuration capture, documentation, and recovery assistance</div></div></div>
     <div class="top-badges"><div class="badge"><span class="badge-dot"></span>Local interface</div><div class="badge" id="elevationBadge">Checking access</div><div class="badge" id="portableEditionBadge">Portable EXE</div></div>
+    <div class="help-menu" id="helpMenu"><button class="help-button" id="helpMenuButton" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="helpMenuList">Help</button><div class="help-list hidden" id="helpMenuList" role="menu" aria-labelledby="helpMenuButton"><button type="button" role="menuitem" id="helpCheckUpdates">Check for updates…</button><button type="button" role="menuitem" id="helpShortcuts">Keyboard shortcuts</button><button type="button" role="menuitem" id="helpAbout">About</button></div></div>
   </div></div>
 
   <div class="page">
     <div class="hero"><div><h1>Your server, documented</h1><p>Choose your scope, capture configuration, and explore a complete local report.</p></div><div class="version-block">Interface <strong>v__APP_VERSION__</strong><br>Collector <strong>v__COLLECTOR_VERSION__</strong><br><button class="link-button shortcuts-link" id="shortcutsButton" type="button" aria-haspopup="dialog">Keyboard shortcuts</button></div></div>
 
-    <div class="update-banner" id="updateBanner">
+    <div class="update-banner hidden" id="updateBanner" role="region" aria-label="Application update">
       <div class="update-copy">
         <div class="update-title" id="updateTitle">Update status</div>
         <div class="update-status" id="updateStatus">Installed v__APP_VERSION__. Update checks begin after startup.</div>
         <ul class="update-notes hidden" id="updateNotes"></ul>
       </div>
       <div class="update-actions">
-        <button class="secondary-button" id="updateCheckButton" type="button">Check for updates</button>
         <button class="secondary-button hidden" id="updateReadMoreButton" type="button">Read more</button>
         <button class="secondary-button hidden" id="updateDownloadButton" type="button">Download</button>
         <button class="primary-button hidden" id="updateInstallButton" type="button">Install and restart</button>
@@ -490,6 +534,16 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     <dt><kbd>?</kbd></dt><dd>Show this list</dd>
   </dl>
 </dialog>
+<dialog class="shortcuts-dialog" id="aboutDialog" aria-labelledby="aboutTitle">
+  <div class="shortcuts-head"><h2 id="aboutTitle">About and updates</h2><button class="secondary-button" id="aboutClose" type="button">Close</button></div>
+  <div class="about-body">
+    <div class="about-name">Server Inventory Configuration Manager</div>
+    <div class="about-versions">Interface v__APP_VERSION__ · Collector v__COLLECTOR_VERSION__</div>
+    <div class="about-update" id="aboutUpdate" role="status" aria-live="polite"><div class="update-title" id="aboutUpdateTitle">Update status</div><div class="update-status" id="aboutUpdateStatus">Installed v__APP_VERSION__.</div></div>
+    <div class="about-actions"><button class="secondary-button" id="updateCheckButton" type="button">Check for updates</button><button class="primary-button hidden" id="aboutShowUpdate" type="button">Show update</button></div>
+    <div class="helper">Updates are checked automatically while the application is open. Nothing is downloaded or installed until you choose to.</div>
+  </div>
+</dialog>
 <script>
 (function () {
   var token = '__TOKEN__';
@@ -506,7 +560,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   var uiLifecycle = 'active';
   var pollTimer = null;
   var pendingRequests = [];
-  var updateUiError = '';
+  var updateUiError = '', updateCheckError = '';
   var installDisabledControls = [];
   var preferencesLoaded = false, preferencesDirty = false, configurationBusy = false;
   var aclSkipPending = false;
@@ -576,7 +630,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   }
   function showConnectionClosed(){
     quiesceInterface('disconnected');
-    showUpdateActionError('This application window is no longer connected. Close it and use the restarted application window.');
+    notice('This application window is no longer connected. Close it and use the restarted application window.',true);
     byId('updateCheckButton').disabled=true;
     byId('updateDownloadButton').disabled=true;
     byId('updateInstallButton').disabled=true;
@@ -831,12 +885,27 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     if(!viewerMatches.length){byId('viewerSearchStatus').textContent='No matches for "'+q+'".';return;}
     byId('viewerPrevButton').disabled=false; byId('viewerNextButton').disabled=false; revealViewerMatch(0);
   }
+  // The update bar is only for an update that exists (available, downloading, ready or installing).
+  // Routine results such as "Up to date" or a failed check belong to Help > About and updates.
+  function updateExists(update){return !!(update&&(update.available||update.downloading||update.canInstall||update.status==='installing'));}
+  function renderAboutUpdate(update){
+    var kind=updateCheckError?'error':(updateExists(update)?'available':(update.status==='error'||update.status==='offline'?'error':(update.status==='cooldown'?'warning':'')));
+    byId('aboutUpdate').className='about-update'+(kind?' '+kind:'');
+    byId('aboutUpdateTitle').textContent=updateCheckError?'Update check unavailable':(update.title||'Update status');
+    var checked=update.lastCheckUnixMs?' Last checked '+new Date(update.lastCheckUnixMs).toLocaleTimeString()+'.':'';
+    byId('aboutUpdateStatus').textContent=updateCheckError||((update.message||('Installed '+(update.installedVersion||'')))+(update.notice?' '+update.notice:'')+checked);
+    byId('updateCheckButton').disabled=uiLifecycle!=='active'||!update.canCheck||!!update.checking||!!update.downloading;
+    byId('updateCheckButton').textContent=update.checking?'Checking…':'Check for updates';
+    byId('aboutShowUpdate').classList.toggle('hidden',!updateExists(update));
+  }
   function renderUpdate(update, running){
     if(!update){return;}
+    if(updateUiError){latestUpdateState=update;renderAboutUpdate(update);}
     if(updateUiError){showUpdateActionError(updateUiError);return;}
     latestUpdateState=update;
+    renderAboutUpdate(update);
     var banner=byId('updateBanner');
-    banner.className='update-banner'+(update.status==='available'||update.status==='ready'?' available':(update.status==='error'||update.status==='offline'?' error':(update.status==='cooldown'||update.status==='rollback'?' warning':'')));
+    banner.className='update-banner'+(updateExists(update)?'':' hidden')+(update.status==='available'||update.status==='ready'?' available':(update.status==='error'||update.status==='offline'?' error':(update.status==='cooldown'||update.status==='rollback'?' warning':'')));
     byId('updateTitle').textContent=update.title||'Update status';
     byId('updateStatus').textContent=(update.message||('Installed '+(update.installedVersion||'')))+(update.notice?' '+update.notice:'');
     byId('updateInstallButton').title=running?'Finish or cancel the current operation before installing.':'';
@@ -844,7 +913,6 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     var list=update.notes||[];
     for(var i=0;i<list.length && i<3;i++){var li=document.createElement('li');li.textContent=list[i];notes.appendChild(li);}
     notes.className=list.length?'update-notes':'update-notes hidden';
-    byId('updateCheckButton').disabled=!update.canCheck||!!update.checking||!!update.downloading;
     byId('updateReadMoreButton').className=update.readMore&&update.releaseUrl?'secondary-button':'secondary-button hidden';
     byId('updateDownloadButton').className=update.available?'secondary-button':'secondary-button hidden';
     byId('updateDownloadButton').disabled=!update.canDownload||!!update.downloading;
@@ -942,9 +1010,9 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
 
   function checkForUpdates(manual,reason){
     if(uiLifecycle!=='active'){return;}
-    if(manual){updateUiError='';}
+    if(manual){updateCheckError='';}
     request('POST','/api/update/check',{manual:!!manual,reason:reason||''},function(err){
-      if(err&&manual){showUpdateActionError(err);}
+      if(err&&manual){updateCheckError=err;if(latestUpdateState){renderAboutUpdate(latestUpdateState);}else{byId('aboutUpdateTitle').textContent='Update check unavailable';byId('aboutUpdateStatus').textContent=err;byId('aboutUpdate').className='about-update error';}}
     });
   }
   function downloadUpdate(){
@@ -1018,11 +1086,30 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   function closeShortcuts(){var d=byId('shortcutsDialog');if(d.close){d.close();}else{d.removeAttribute('open');}}
   byId('shortcutsButton').addEventListener('click',openShortcuts);byId('shortcutsClose').addEventListener('click',closeShortcuts);
   byId('shortcutsDialog').addEventListener('click',function(e){if(e.target===this){closeShortcuts();}});
+  function openAbout(check){var d=byId('aboutDialog');if(!d.open){if(d.showModal){d.showModal();}else{d.setAttribute('open','');}}byId('aboutClose').focus();if(check){checkForUpdates(true,'manual');}}
+  function closeAbout(){var d=byId('aboutDialog');if(d.close){d.close();}else{d.removeAttribute('open');}}
+  byId('aboutClose').addEventListener('click',closeAbout);byId('aboutDialog').addEventListener('click',function(e){if(e.target===this){closeAbout();}});
+  byId('aboutShowUpdate').addEventListener('click',function(){closeAbout();var target=byId('updateInstallButton').classList.contains('hidden')?byId('updateDownloadButton'):byId('updateInstallButton');if(!target.classList.contains('hidden')&&!target.disabled){target.focus();}});
+  function helpItems(){return Array.prototype.slice.call(byId('helpMenuList').querySelectorAll('button'));}
+  function setHelpMenu(open,focusFirst){byId('helpMenuList').classList.toggle('hidden',!open);byId('helpMenuButton').setAttribute('aria-expanded',open?'true':'false');if(open&&focusFirst){helpItems()[0].focus();}}
+  function helpMenuOpen(){return byId('helpMenuButton').getAttribute('aria-expanded')==='true';}
+  byId('helpMenuButton').addEventListener('click',function(){setHelpMenu(!helpMenuOpen(),false);});
+  byId('helpMenu').addEventListener('keydown',function(e){
+    var items=helpItems(),index=items.indexOf(document.activeElement);
+    if(e.key==='Escape'&&helpMenuOpen()){e.preventDefault();e.stopPropagation();setHelpMenu(false);byId('helpMenuButton').focus();}
+    else if(e.key==='ArrowDown'){e.preventDefault();if(!helpMenuOpen()){setHelpMenu(true,true);}else{items[(index+1)%items.length].focus();}}
+    else if(e.key==='ArrowUp'&&helpMenuOpen()){e.preventDefault();items[(index+items.length-1)%items.length].focus();}
+  });
+  document.addEventListener('click',function(e){if(helpMenuOpen()&&!byId('helpMenu').contains(e.target)){setHelpMenu(false);}});
+  byId('helpMenu').addEventListener('focusout',function(e){if(helpMenuOpen()&&e.relatedTarget&&!this.contains(e.relatedTarget)){setHelpMenu(false);}});
+  byId('helpCheckUpdates').addEventListener('click',function(){setHelpMenu(false);openAbout(true);});
+  byId('helpShortcuts').addEventListener('click',function(){setHelpMenu(false);openShortcuts();});
+  byId('helpAbout').addEventListener('click',function(){setHelpMenu(false);openAbout(false);});
   function isTyping(target){var tag=(target&&target.nodeName||'').toLowerCase();return tag==='input'||tag==='textarea'||tag==='select'||!!(target&&target.isContentEditable);}
   function focusTabSearch(){var id={setup:'scopeSearch',collection:'logSearch',report:'viewerSearchInput'}[activeTab],input=byId(id);if(input&&!input.disabled){input.focus();if(input.select){input.select();}}}
   document.addEventListener('keydown',function(e){
     if(uiLifecycle!=='active'||e.defaultPrevented){return;}
-    if(byId('shortcutsDialog').open){return;}
+    if(byId('shortcutsDialog').open||byId('aboutDialog').open){return;}
     var key=e.key||'',ctrl=e.ctrlKey||e.metaKey,typing=isTyping(e.target);
     if(e.altKey&&!ctrl&&(key==='1'||key==='2'||key==='3')){e.preventDefault();var tab=['setup','collection','report'][Number(key)-1];switchTab(tab);byId('tabButton'+tab.charAt(0).toUpperCase()+tab.slice(1)).focus();return;}
     if(ctrl&&!e.altKey&&(key==='s'||key==='S')){e.preventDefault();if(activeTab==='setup'){saveChoices();}return;}
@@ -1034,7 +1121,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     else if(key==='?'){e.preventDefault();openShortcuts();}
     else if((key==='n'||key==='N')&&activeTab==='collection'){e.preventDefault();nextIssue();}
   });
-  setReportHeaderCollapsed(false); syncCategoryState(); poll();
+  setReportHeaderCollapsed(window.innerHeight<600); syncCategoryState(); poll();
 }());
 </script>
 </body>

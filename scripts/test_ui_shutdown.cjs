@@ -39,7 +39,7 @@ async function check(name,fn){await fn();report.checks.push({name,result:'passed
    await f.page.waitForTimeout(1600);assert.equal(f.alerts.length,0,JSON.stringify(f.alerts));assert.equal(f.after,0,'network activity continued after accepted install');assert(f.accepted);
   }finally{await f.close()}});
   await check('Failed manual update action is shown inline with zero modal alerts',async()=>{const f=await fixture(browser,current,'manual-error');try{
-   await f.page.locator('#updateCheckButton').click();await f.page.waitForTimeout(1400);assert.equal(f.alerts.length,0);assert((await f.page.locator('#updateStatus').textContent()).includes('unavailable'));assert((await f.page.locator('#updateBanner').getAttribute('class')).includes('error'));
+   await f.page.locator('#helpMenuButton').click();await f.page.locator('#helpCheckUpdates').click();await f.page.waitForTimeout(1400);assert.equal(f.alerts.length,0);assert.equal(f.checks,1);assert((await f.page.locator('#aboutUpdateStatus').textContent()).includes('unavailable'));assert((await f.page.locator('#aboutUpdate').getAttribute('class')).includes('error'));assert(await f.page.locator('#updateInstallButton').isVisible(),'a failed check must not hide a ready update');
   }finally{await f.close()}});
   await check('Rejected installation restores the controls and active state polling without modal errors',async()=>{const f=await fixture(browser,current,'reject');try{
    const before=f.states;await f.page.locator('#updateInstallButton').click();await f.page.waitForTimeout(1500);assert.equal(f.alerts.length,0);assert(f.states>before);assert(await f.page.locator('#startButton').isEnabled());assert((await f.page.locator('#updateStatus').textContent()).includes('critical operation'));

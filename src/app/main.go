@@ -74,6 +74,13 @@ var (
 	procSendMessageW         = user32.NewProc("SendMessageW")
 	procSetForegroundWindow  = user32.NewProc("SetForegroundWindow")
 	procBringWindowToTop     = user32.NewProc("BringWindowToTop")
+	procGetForegroundWindow  = user32.NewProc("GetForegroundWindow")
+	procGetWindowThreadPID   = user32.NewProc("GetWindowThreadProcessId")
+	procAttachThreadInput    = user32.NewProc("AttachThreadInput")
+	procAllowSetForeground   = user32.NewProc("AllowSetForegroundWindow")
+	procSetWindowPos         = user32.NewProc("SetWindowPos")
+	procPeekMessageW         = user32.NewProc("PeekMessageW")
+	procGetCurrentThreadId   = syscall.NewLazyDLL("kernel32.dll").NewProc("GetCurrentThreadId")
 	procShowWindow           = user32.NewProc("ShowWindow")
 	procIsIconic             = user32.NewProc("IsIconic")
 	procLoadImageW           = user32.NewProc("LoadImageW")
@@ -334,6 +341,7 @@ func chooseFolder(title string) (string, bool, error) {
 }
 
 func shellOpen(target string) error {
+	allowForegroundHandoff()
 	result, _, callErr := procShellExecuteW.Call(
 		0,
 		uintptr(unsafe.Pointer(utf16Ptr("open"))),
@@ -355,6 +363,8 @@ func shellReveal(target string) error {
 	target = filepath.Clean(strings.TrimSpace(target))
 	owner := findApplicationWindow()
 	bringWindowToFront(owner)
+	existing := explorerWindows()
+	allowForegroundHandoff()
 
 	params := `/select,"` + target + `"`
 	result, _, callErr := procShellExecuteW.Call(
@@ -371,7 +381,7 @@ func shellReveal(target string) error {
 		}
 		return fmt.Errorf("Windows Explorer could not reveal the requested item, ShellExecute result %d", result)
 	}
-	go bringExplorerToFront(target)
+	go bringExplorerToFront(target, existing)
 	return nil
 }
 
@@ -387,6 +397,8 @@ func shellOpenFolder(target string) error {
 
 	owner := findApplicationWindow()
 	bringWindowToFront(owner)
+	existing := explorerWindows()
+	allowForegroundHandoff()
 	params := `"` + target + `"`
 	result, _, callErr := procShellExecuteW.Call(
 		owner,
@@ -402,7 +414,7 @@ func shellOpenFolder(target string) error {
 		}
 		return fmt.Errorf("Windows Explorer could not open the requested folder, ShellExecute result %d", result)
 	}
-	go bringExplorerToFront(target)
+	go bringExplorerToFront(target, existing)
 	return nil
 }
 
@@ -467,45 +479,128 @@ func bringWindowToFront(hwnd uintptr) {
 	procSetForegroundWindow.Call(hwnd)
 }
 
-func bringExplorerToFront(target string) {
+// withForegroundInput runs action while this thread shares the input queue of
+// the current foreground window. The backend is never the foreground process
+// (the guest browser received the click), so Windows otherwise refuses its
+// SetForegroundWindow requests and new windows open behind the application.
+func withForegroundInput(action func()) {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	var message [48]byte
+	procPeekMessageW.Call(uintptr(unsafe.Pointer(&message[0])), 0, 0, 0, 0) // ensure this thread has a message queue
+	current, _, _ := procGetCurrentThreadId.Call()
+	foreground, _, _ := procGetForegroundWindow.Call()
+	var attached uintptr
+	if foreground != 0 {
+		thread, _, _ := procGetWindowThreadPID.Call(foreground, 0)
+		if thread != 0 && thread != current {
+			if ok, _, _ := procAttachThreadInput.Call(current, thread, 1); ok != 0 {
+				attached = thread
+			}
+		}
+	}
+	action()
+	if attached != 0 {
+		procAttachThreadInput.Call(current, attached, 0)
+	}
+}
+
+// allowForegroundHandoff lets the program about to be started through the
+// shell (Explorer, Word, Notepad, the default browser) activate its own window.
+func allowForegroundHandoff() {
+	withForegroundInput(func() { procAllowSetForeground.Call(uintptr(0xFFFFFFFF)) }) // ASFW_ANY
+}
+
+// forceWindowToFront activates hwnd; if activation is still refused it raises
+// the window above the others without leaving it always-on-top.
+func forceWindowToFront(hwnd uintptr) bool {
+	if hwnd == 0 {
+		return false
+	}
+	withForegroundInput(func() {
+		if minimized, _, _ := procIsIconic.Call(hwnd); minimized != 0 {
+			procShowWindow.Call(hwnd, swRestore)
+		}
+		procBringWindowToTop.Call(hwnd)
+		procSetForegroundWindow.Call(hwnd)
+	})
+	if now, _, _ := procGetForegroundWindow.Call(); now == hwnd {
+		return true
+	}
+	const noMoveNoSizeNoActivate = 0x0002 | 0x0001 | 0x0010
+	procSetWindowPos.Call(hwnd, ^uintptr(0), 0, 0, 0, 0, noMoveNoSizeNoActivate) // HWND_TOPMOST
+	procSetWindowPos.Call(hwnd, ^uintptr(1), 0, 0, 0, 0, noMoveNoSizeNoActivate) // HWND_NOTOPMOST
+	return false
+}
+
+// explorerWindows lists visible File Explorer folder windows in Z order.
+func explorerWindows() []uintptr {
+	var windows []uintptr
+	callback := syscall.NewCallback(func(hwnd uintptr, lparam uintptr) uintptr {
+		if visible, _, _ := procIsWindowVisible.Call(hwnd); visible != 0 {
+			className := strings.ToLower(windowClass(hwnd))
+			if className == "cabinetwclass" || className == "explorewclass" {
+				windows = append(windows, hwnd)
+			}
+		}
+		return 1
+	})
+	procEnumWindows.Call(callback, 0)
+	return windows
+}
+
+// chooseExplorerWindow prefers the window Explorer just created for the
+// target. An older window already showing the folder, or a new window whose
+// title is not the folder name (localized or special folders), is accepted
+// only after a short wait so the new, titled window can appear first.
+func chooseExplorerWindow(windows []uintptr, titles []string, known map[uintptr]bool, expectedTitle string, elapsed time.Duration) uintptr {
+	var newMatch, newAny, oldMatch uintptr
+	for i, hwnd := range windows {
+		matches := expectedTitle != "" && strings.Contains(strings.ToLower(titles[i]), expectedTitle)
+		switch {
+		case !known[hwnd] && matches && newMatch == 0:
+			newMatch = hwnd
+		case !known[hwnd] && newAny == 0:
+			newAny = hwnd
+		case known[hwnd] && matches && oldMatch == 0:
+			oldMatch = hwnd
+		}
+	}
+	switch {
+	case newMatch != 0:
+		return newMatch
+	case oldMatch != 0 && elapsed >= 700*time.Millisecond:
+		return oldMatch
+	case newAny != 0 && elapsed >= 1500*time.Millisecond:
+		return newAny
+	}
+	return 0
+}
+
+func bringExplorerToFront(target string, existing []uintptr) {
 	target = filepath.Clean(strings.TrimSpace(target))
 	expectedTitle := strings.ToLower(filepath.Base(target))
 	if info, err := os.Stat(target); err == nil && !info.IsDir() {
 		expectedTitle = strings.ToLower(filepath.Base(filepath.Dir(target)))
 	}
-	deadline := time.Now().Add(4 * time.Second)
-	for time.Now().Before(deadline) {
-		var fallback uintptr
-		var matched uintptr
-		callback := syscall.NewCallback(func(hwnd uintptr, lparam uintptr) uintptr {
-			visible, _, _ := procIsWindowVisible.Call(hwnd)
-			if visible == 0 {
-				return 1
+	known := make(map[uintptr]bool, len(existing))
+	for _, hwnd := range existing {
+		known[hwnd] = true
+	}
+	start := time.Now()
+	for time.Since(start) < 6*time.Second {
+		windows := explorerWindows()
+		titles := make([]string, len(windows))
+		for i, hwnd := range windows {
+			titles[i] = windowText(hwnd)
+		}
+		if hwnd := chooseExplorerWindow(windows, titles, known, expectedTitle, time.Since(start)); hwnd != 0 {
+			for attempt := 0; attempt < 3 && !forceWindowToFront(hwnd); attempt++ {
+				time.Sleep(150 * time.Millisecond)
 			}
-			className := strings.ToLower(windowClass(hwnd))
-			if className != "cabinetwclass" && className != "explorewclass" {
-				return 1
-			}
-			if fallback == 0 {
-				fallback = hwnd
-			}
-			title := strings.ToLower(windowText(hwnd))
-			if expectedTitle != "" && strings.Contains(title, expectedTitle) {
-				matched = hwnd
-				return 0
-			}
-			return 1
-		})
-		procEnumWindows.Call(callback, 0)
-		if matched != 0 {
-			bringWindowToFront(matched)
 			return
 		}
-		if fallback != 0 && expectedTitle == "" {
-			bringWindowToFront(fallback)
-			return
-		}
-		time.Sleep(150 * time.Millisecond)
+		time.Sleep(100 * time.Millisecond)
 	}
 }
 

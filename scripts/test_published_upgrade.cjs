@@ -133,7 +133,8 @@ async function nativeProcess(exe,args,env){const child=spawn(exe,args,{env,windo
  check(sha(await fsp.readFile(target))===manifest.asset.sha256,'Installed target bytes match the new public release across staging volumes');
  await until(async()=>{const s=await state(newURL);return s.update.status==='current'});
  let last=(await state(newURL)).update.lastCheckUnixMs;
- await page.locator('#updateCheckButton').click();await until(async()=>{const s=await state(newURL);return s.update.lastCheckUnixMs>last});
+ check(!await page.locator('#updateBanner').isVisible(),'Update bar is hidden once the new executable is up to date');
+ await page.locator('#helpMenuButton').click();await page.locator('#helpCheckUpdates').click();await until(async()=>{const s=await state(newURL);return s.update.lastCheckUnixMs>last});
  check(true,'Manual update check succeeds on the new executable');last=(await state(newURL)).update.lastCheckUnixMs;
  await page.locator('#updateCheckButton').click();await new Promise(r=>setTimeout(r,600));check((await state(newURL)).update.lastCheckUnixMs===last,'Short manual-check cooldown prevents another request');
  if(reuseEvidence){
