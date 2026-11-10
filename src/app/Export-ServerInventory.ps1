@@ -1863,6 +1863,8 @@ function Write-ConsolidatedHtmlReport {
     $identity = @{}
     $metrics = @{}
     $anchors = @{}
+    $titleAnchors = @{}
+    $roles = New-Object System.Collections.ArrayList
     $entries = New-Object System.Collections.ArrayList
     $currentEntry = [pscustomobject]@{ Id='section-overview'; Title='About this report'; Links=(New-Object System.Collections.ArrayList) }
     [void]$entries.Add($currentEntry)
@@ -1870,6 +1872,8 @@ function Write-ConsolidatedHtmlReport {
     $subsectionNumber = 0
     $summaryId = 'section-overview'
     $subtitle = ''
+    $failureRows = -1
+    $recoveryRows = -1
     $blockList = @($Blocks)
     for ($index = 0; $index -lt $blockList.Count; $index++) {
         $block = $blockList[$index]
@@ -1886,9 +1890,20 @@ function Write-ConsolidatedHtmlReport {
             $anchor = 'section-' + $sectionNumber + '-sub-' + $subsectionNumber
             $anchors[$index] = $anchor
             $label = ''
-            if ([string]$block.Type -eq 'Heading') { $label = [string]$block.Text }
-            else { $label = [string]$block.Title }
-            [void]$currentEntry.Links.Add([pscustomobject]@{ Id=$anchor; Title=$label })
+            $kind = 'dataset'
+            if ([string]$block.Type -eq 'Heading') {
+                $label = [string]$block.Text
+                $kind = 'heading'
+            }
+            else {
+                $label = [string]$block.Title
+                if (-not $titleAnchors.ContainsKey($label)) { $titleAnchors[$label] = $anchor }
+                if ([string]$block.Type -eq 'Table') {
+                    if ([int]$block.DisplayRows -le 0) { $kind = 'empty' }
+                }
+                elseif ([string]::IsNullOrWhiteSpace([string]$block.Text)) { $kind = 'empty' }
+            }
+            [void]$currentEntry.Links.Add([pscustomobject]@{ Id=$anchor; Title=$label; Kind=$kind })
         }
         if ([string]$block.Type -eq 'Table') {
             if ([string]$block.Title -eq 'Server identity and baseline') {
@@ -1897,63 +1912,159 @@ function Write-ConsolidatedHtmlReport {
             if ([string]$block.Title -eq 'Inventory at a glance') {
                 foreach ($row in @($block.Rows)) { $metrics[[string]$row.Area] = [string]$row.Count }
             }
+            if ([string]$block.Title -eq 'Detected critical roles and platforms') {
+                foreach ($row in @($block.Rows)) {
+                    $roleName = [string]$row.Role
+                    if (-not [string]::IsNullOrWhiteSpace($roleName)) { [void]$roles.Add($roleName) }
+                }
+            }
+            if ([string]$block.Title -eq 'Collection failures requiring review') { $failureRows = [int]$block.DisplayRows }
+            if ([string]$block.Title -eq 'Recovery prerequisites and gaps') { $recoveryRows = [int]$block.DisplayRows }
         }
     }
     $serverName = [string]$identity['Computer name']
     if ([string]::IsNullOrWhiteSpace($serverName)) { $serverName = $DocumentTitle }
+    $invariant = [System.Globalization.CultureInfo]::InvariantCulture
     $builder = New-Object System.Text.StringBuilder
 
     function Get-CleanReportTitle {
         param([string]$Text)
         return ($Text -replace '^\d+(\.\d+)*\.?\s+', '')
     }
+    function Write-SummaryOverview {
+        # Derived summary views. Interactive labels are button text so report
+        # search, the viewer search and Copy section keep to the source data.
+        [void]$builder.AppendLine('<div class="overview-grid"><div class="overview-card profile-card"><div class="card-label">Server profile</div><div class="facts">')
+        foreach ($name in @('Operating system','Domain or workgroup','Physical or virtual','Collected')) {
+            $value = [string]$identity[$name]
+            if ([string]::IsNullOrWhiteSpace($value)) { $value = 'Not collected' }
+            [void]$builder.AppendLine('<div><span class="fact-label">' + (ConvertTo-HtmlText $name) + '</span><span class="fact-value">' + (ConvertTo-HtmlText $value) + '</span></div>')
+        }
+        foreach ($name in @('FQDN','Version and build','CPU','Memory','Last boot')) {
+            $value = [string]$identity[$name]
+            if (-not [string]::IsNullOrWhiteSpace($value)) {
+                [void]$builder.AppendLine('<div class="fact-extra"><span class="fact-label">' + (ConvertTo-HtmlText $name) + '</span><span class="fact-value">' + (ConvertTo-HtmlText $value) + '</span></div>')
+            }
+        }
+        [void]$builder.AppendLine('</div>')
+        if ($roles.Count -gt 0) {
+            $rolesAnchor = [string]$titleAnchors['Detected critical roles and platforms']
+            [void]$builder.AppendLine('<div class="role-list"><span class="role-list-label">Detected roles</span>')
+            $shown = 0
+            foreach ($roleName in $roles) {
+                if ($shown -ge 16) { break }
+                $shown++
+                [void]$builder.AppendLine('<button type="button" class="role-chip" data-anchor="' + $rolesAnchor + '" title="Show detected critical roles and platforms">' + (ConvertTo-HtmlText $roleName) + '</button>')
+            }
+            if ($roles.Count -gt $shown) {
+                [void]$builder.AppendLine('<button type="button" class="role-chip role-chip-more" data-anchor="' + $rolesAnchor + '">' + ($roles.Count - $shown) + ' more</button>')
+            }
+            [void]$builder.AppendLine('</div>')
+        }
+        [void]$builder.AppendLine('</div>')
+        $completedText = [string]$metrics['Collectors completed successfully']
+        $failedText = [string]$metrics['Collectors failed or unavailable']
+        [void]$builder.AppendLine('<div class="overview-card health-card"><div class="card-label">Collection health</div>')
+        if (($completedText -match '^\d+$') -and ($failedText -match '^\d+$') -and (([int]$completedText + [int]$failedText) -gt 0)) {
+            $completed = [int]$completedText
+            $failed = [int]$failedText
+            $total = $completed + $failed
+            $percent = [Math]::Floor(($completed * 100) / $total)
+            $okWidth = ([double]$completed * 100 / $total).ToString('0.##', $invariant)
+            $reviewWidth = ([double]$failed * 100 / $total).ToString('0.##', $invariant)
+            $healthClass = 'health-figure'
+            if ($failed -gt 0) { $healthClass += ' health-review' }
+            [void]$builder.AppendLine('<div class="' + $healthClass + '"><span class="health-percent">' + $percent + '%</span><p class="health-caption">of collectors completed (' + $completed + ' of ' + $total + ')</p></div>')
+            [void]$builder.AppendLine('<div class="health-bar" role="img" aria-label="' + $completed + ' collectors completed, ' + $failed + ' need review"><span class="health-ok" style="width:' + $okWidth + '%"></span><span class="health-fail" style="width:' + $reviewWidth + '%"></span></div>')
+            [void]$builder.AppendLine('<div class="health-legend"><span class="legend-ok">' + $completed + ' completed</span><span class="legend-fail">' + $failed + ' need review</span></div>')
+        }
+        else {
+            [void]$builder.AppendLine('<div class="health-figure health-unknown"><span class="health-percent">Not collected</span><p class="health-caption">Collector results were not included in this report.</p></div>')
+        }
+        [void]$builder.AppendLine('<div class="review-links">')
+        for ($reviewIndex=0; $reviewIndex -lt $blockList.Count; $reviewIndex++) {
+            $review = $blockList[$reviewIndex]
+            if (([string]$review.Type -eq 'Table') -and ([int]$review.DisplayRows -gt 0) -and ([string]$review.Title -match '^(Collection failures requiring review|Recovery prerequisites and gaps)$')) {
+                $label = 'collection issues'
+                if ([string]$review.Title -eq 'Recovery prerequisites and gaps') { $label = 'recovery prerequisites or gaps' }
+                if ([int]$review.DisplayRows -eq 1) {
+                    $label = 'collection issue'
+                    if ([string]$review.Title -eq 'Recovery prerequisites and gaps') { $label = 'recovery prerequisite or gap' }
+                }
+                [void]$builder.AppendLine('<button type="button" class="review-link" data-anchor="' + $anchors[$reviewIndex] + '">' + $review.DisplayRows + ' ' + $label + '</button>')
+            }
+        }
+        [void]$builder.AppendLine('</div></div></div><div class="metrics">')
+        foreach ($metric in @(
+            @{Key='Collectors completed successfully'; Label='Collectors completed'; Target='Collector execution status'},
+            @{Key='Collectors failed or unavailable'; Label='Collectors requiring review'; Target='Collection failures requiring review'},
+            @{Key='Detected critical roles and platforms'; Label='Critical roles and platforms'; Target='Detected critical roles and platforms'},
+            @{Key='Installed applications'; Label='Installed applications'; Target='Installed applications'}
+        )) {
+            $value = [string]$metrics[$metric.Key]
+            if ($value -notmatch '^\d+$') { $value = 'Not collected' }
+            $class = 'metric'
+            if (($metric.Key -eq 'Collectors failed or unavailable') -and ($value -match '^[1-9]')) { $class += ' metric-review' }
+            $link = ''
+            $targetAnchor = [string]$titleAnchors[[string]$metric.Target]
+            if (-not [string]::IsNullOrWhiteSpace($targetAnchor)) {
+                $class += ' metric-has-link'
+                $link = '<button type="button" class="metric-link" data-anchor="' + $targetAnchor + '" title="Show ' + (ConvertTo-HtmlText $metric.Target) + '" aria-label="Show ' + (ConvertTo-HtmlText $metric.Target) + '"></button>'
+            }
+            [void]$builder.AppendLine('<div class="' + $class + '"><span class="metric-value">' + (ConvertTo-HtmlText $value) + '</span><span class="metric-label">' + $metric.Label + '</span>' + $link + '</div>')
+        }
+        [void]$builder.AppendLine('</div>')
+        $issueCount = 0
+        if ($failureRows -gt 0) { $issueCount += $failureRows }
+        if ($recoveryRows -gt 0) { $issueCount += $recoveryRows }
+        $attentionClass = 'attention attention-unknown'
+        $attentionTitle = 'Review status'
+        $attentionText = 'Collection failure and recovery-gap results were not included in this report.'
+        if ($issueCount -gt 0) {
+            $attentionClass = 'attention attention-review'
+            $attentionTitle = 'Needs attention'
+            $attentionText = 'Review these items before relying on this inventory for recovery, migration, replacement or rebuild work.'
+        }
+        elseif (($failureRows -eq 0) -and ($recoveryRows -eq 0)) {
+            $attentionClass = 'attention attention-clear'
+            $attentionText = 'No collection failures or recovery prerequisites were recorded.'
+        }
+        elseif ($failureRows -eq 0) {
+            $attentionClass = 'attention attention-clear'
+            $attentionText = 'No collection failures were recorded.'
+        }
+        elseif ($recoveryRows -eq 0) {
+            $attentionClass = 'attention attention-clear'
+            $attentionText = 'No recovery prerequisites or gaps were recorded.'
+        }
+        [void]$builder.AppendLine('<div class="' + $attentionClass + '" id="needs-attention"><div class="attention-head"><h3 class="attention-title">' + $attentionTitle + '</h3><p class="attention-summary">' + $attentionText + '</p></div><div class="attention-items"></div></div>')
+    }
     function Write-CleanReportSection {
         param([string]$Id, [string]$Title)
         $intro = 'Captured settings and detailed inventory.'
-        if ($Id -eq $summaryId) { $intro = 'A quick view of this server and the items that need review.' }
+        if ($Id -eq $summaryId) { $intro = 'Server profile, collection health and the items to review first.' }
+        elseif ($Id -eq 'section-overview') { $intro = 'How this report was produced and how to use it.' }
+        elseif ($Title -match 'Report Contents') { $intro = 'What this report covers.' }
         elseif ($Title -match 'Network') { $intro = 'IP addressing, routing, adapters, and listening services.' }
         elseif ($Title -match 'Storage') { $intro = 'Disks, volumes, paths, and storage configuration.' }
         elseif ($Title -match 'Recovery|Rebuild|Migration') { $intro = 'Review the requirements before planning migration or recovery.' }
         elseif ($Title -match 'Collection Appendix') { $intro = 'Collection results and supporting export references.' }
+        elseif ($Title -match 'Operating System') { $intro = 'Roles, features, updates, startup, backup and recovery configuration.' }
+        elseif ($Title -match 'Hardware') { $intro = 'Processors, memory, firmware, drivers, and devices.' }
+        elseif ($Title -match 'Applications') { $intro = 'Installed software, data sources, and application folders.' }
+        elseif ($Title -match 'Services') { $intro = 'Windows services, dependencies, and scheduled tasks.' }
+        elseif ($Title -match 'Security') { $intro = 'Local accounts, policy, audit, and firewall configuration.' }
+        elseif ($Title -match 'Shares') { $intro = 'SMB configuration, shares, and permissions.' }
+        elseif ($Title -match 'Role-Specific') { $intro = 'Configuration for the server roles detected during collection.' }
+        elseif ($Title -match 'Event') { $intro = 'Recent critical, error, and warning events.' }
+        $kicker = 'Reference'
+        if ($Id -eq $summaryId) { $kicker = 'Overview' }
+        elseif ($Title -match '^(\d+)\.') { $kicker = 'Section ' + ([int]$matches[1]).ToString('00') }
         [void]$builder.AppendLine('<section id="' + $Id + '" class="report-section">')
-        [void]$builder.AppendLine('<h2 class="section-title">' + (ConvertTo-HtmlText (Get-CleanReportTitle $Title)) + '</h2>')
-        [void]$builder.AppendLine('<p class="section-intro">' + $intro + '</p>')
-        if ($Id -eq $summaryId) {
-            [void]$builder.AppendLine('<div class="facts">')
-            foreach ($name in @('Operating system','Domain or workgroup','Physical or virtual','Collected')) {
-                $value = [string]$identity[$name]
-                if ([string]::IsNullOrWhiteSpace($value)) { $value = 'Not collected' }
-                [void]$builder.AppendLine('<div><span class="fact-label">' + (ConvertTo-HtmlText $name) + '</span><span class="fact-value">' + (ConvertTo-HtmlText $value) + '</span></div>')
-            }
-            [void]$builder.AppendLine('</div><div class="metrics">')
-            foreach ($metric in @(
-                @{Key='Collectors completed successfully'; Label='Collectors completed'},
-                @{Key='Collectors failed or unavailable'; Label='Collectors requiring review'},
-                @{Key='Detected critical roles and platforms'; Label='Critical roles and platforms'},
-                @{Key='Installed applications'; Label='Installed applications'}
-            )) {
-                $value = [string]$metrics[$metric.Key]
-                if ($value -notmatch '^\d+$') { $value = 'Not collected' }
-                $class = 'metric'
-                if (($metric.Key -eq 'Collectors failed or unavailable') -and ($value -match '^[1-9]')) { $class += ' metric-review' }
-                [void]$builder.AppendLine('<div class="' + $class + '"><span class="metric-value">' + (ConvertTo-HtmlText $value) + '</span><span class="metric-label">' + $metric.Label + '</span></div>')
-            }
-            [void]$builder.AppendLine('</div><div class="review-links">')
-            for ($reviewIndex=0; $reviewIndex -lt $blockList.Count; $reviewIndex++) {
-                $review = $blockList[$reviewIndex]
-                if (([string]$review.Type -eq 'Table') -and ([int]$review.DisplayRows -gt 0) -and ([string]$review.Title -match '^(Collection failures requiring review|Recovery prerequisites and gaps)$')) {
-                    $label = 'collection issues'
-                    if ([string]$review.Title -eq 'Recovery prerequisites and gaps') { $label = 'recovery prerequisites or gaps' }
-                    if ([int]$review.DisplayRows -eq 1) {
-                        $label = 'collection issue'
-                        if ([string]$review.Title -eq 'Recovery prerequisites and gaps') { $label = 'recovery prerequisite or gap' }
-                    }
-                    [void]$builder.AppendLine('<button type="button" class="review-link" data-anchor="' + $anchors[$reviewIndex] + '">' + $review.DisplayRows + ' ' + $label + '</button>')
-                }
-            }
-            [void]$builder.AppendLine('</div>')
-        }
-        [void]$builder.AppendLine('<div class="section-actions"><button type="button" class="quiet-button" data-details-action="expand">Expand section</button><button type="button" class="quiet-button" data-details-action="collapse">Collapse section</button></div>')
+        [void]$builder.AppendLine('<div class="section-head"><div class="section-kicker">' + $kicker + '</div><h2 class="section-title">' + (ConvertTo-HtmlText (Get-CleanReportTitle $Title)) + '</h2>')
+        [void]$builder.AppendLine('<p class="section-intro">' + $intro + '</p></div>')
+        if ($Id -eq $summaryId) { Write-SummaryOverview }
+        [void]$builder.AppendLine('<div class="section-toolbar"><div class="section-stats"></div><div class="section-actions"><button type="button" class="quiet-button" data-details-action="expand">Expand section</button><button type="button" class="quiet-button" data-details-action="collapse">Collapse section</button></div></div>')
     }
 
     [void]$builder.AppendLine('<!DOCTYPE html><html lang="en" data-report-layout="clean-v1" data-default-section="' + $summaryId + '"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">')
@@ -1961,190 +2072,383 @@ function Write-ConsolidatedHtmlReport {
     $styleBlock = @'
 <style>
 @page { size: landscape; margin: .5in; }
-:root { color-scheme: light; --ink:#182b43; --muted:#617084; --line:#e1e7ee; --blue:#225bc5; --surface:#fff; }
+:root { color-scheme: light; --ink:#14243a; --ink-2:#34475f; --muted:#5a6b80; --faint:#7d8b9c; --line:#e1e6ed; --line-2:#d2dae4; --bg:#f1f3f6; --surface:#fff; --surface-2:#f7f9fb; --blue:#1f5cc0; --blue-ink:#184b9f; --blue-soft:#eaf1fc; --ok:#1d7448; --ok-soft:#e5f3eb; --warn:#975a0d; --warn-soft:#fdf2df; --bad:#b0362f; --bad-soft:#fbe9e8; --navy:#12223a; --navy-2:#1c375c; }
 * { box-sizing:border-box; }
 html,body { height:100%; margin:0; overflow:hidden; }
-body { font:14px/1.55 "Segoe UI",Arial,sans-serif; color:var(--ink); background:#f4f6f9; }
-button,input { font:inherit; }
+body { font:14px/1.5 "Segoe UI",Arial,sans-serif; color:var(--ink); background:var(--bg); -webkit-text-size-adjust:100%; }
+button,input { font:inherit; color:inherit; }
 button { cursor:pointer; }
-button:focus-visible,input:focus-visible,summary:focus-visible,a:focus-visible { outline:3px solid #85afea; outline-offset:3px; }
+button:focus-visible,input:focus-visible,summary:focus-visible,a:focus-visible,.table-wrap:focus-visible,.report-content:focus-visible,.report-nav:focus-visible { outline:3px solid #7aa6ea; outline-offset:2px; }
 button:disabled { cursor:default; opacity:.45; }
 .report-app { height:100%; min-height:0; display:flex; flex-direction:column; }
-.cover { flex:none; display:flex; align-items:center; gap:24px; padding:22px 30px; background:var(--surface); border-bottom:1px solid var(--line); }
+
+/* Cover band */
+.cover { flex:none; display:flex; align-items:center; gap:16px 20px; padding:18px 28px; color:#fff; background:linear-gradient(120deg,var(--navy) 0%,var(--navy-2) 100%); border-bottom:1px solid #0d1a2d; }
+.report-mark { flex:none; width:44px; height:44px; border-radius:11px; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.16); }
+.report-mark svg { width:26px; height:26px; fill:#d9e6fb; }
+.report-mark .mark-led { fill:#52d39a; }
 .report-brand { flex:1; min-width:0; }
-.eyebrow { color:var(--blue); font-size:11px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; }
-h1 { margin:3px 0; font-size:25px; line-height:1.25; letter-spacing:-.025em; overflow-wrap:anywhere; }
-.subtitle { margin:5px 0 0; color:var(--muted); font-size:12px; overflow-wrap:anywhere; }
-.standalone-tools { display:flex; flex-direction:column; align-items:flex-end; gap:5px; max-width:460px; }
-.report-search { display:flex; align-items:center; gap:7px; }
-.report-search input { min-width:100px; width:220px; padding:8px 11px; border:1px solid #ccd5e0; border-radius:7px; background:#fff; color:var(--ink); }
-.quiet-button,.pager-button,.nav-toggle { border:1px solid #d3dce7; background:#fff; color:#34465d; border-radius:7px; padding:7px 11px; white-space:nowrap; }
-.quiet-button:hover,.pager-button:hover:not(:disabled),.nav-toggle:hover { background:#f1f5fc; border-color:#a5bde3; }
+.eyebrow { color:#9ec0f3; font-size:11px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; }
+h1 { margin:2px 0 0; font-size:25px; line-height:1.2; font-weight:650; letter-spacing:-.02em; overflow-wrap:anywhere; }
+.subtitle { margin:4px 0 0; color:#c3d1e5; font-size:12px; overflow-wrap:anywhere; }
+.cover-actions { flex:none; display:flex; flex-direction:column; align-items:flex-end; gap:4px; max-width:240px; }
+.cover .quiet-button,.cover .nav-toggle { background:rgba(255,255,255,.1); border-color:rgba(255,255,255,.28); color:#fff; }
+.cover .quiet-button:hover,.cover .nav-toggle:hover { background:rgba(255,255,255,.18); border-color:rgba(255,255,255,.5); }
+.cover .copy-feedback { color:#c3d1e5; text-align:right; }
+.standalone-tools { flex:none; display:flex; flex-direction:column; align-items:flex-end; gap:5px; max-width:460px; }
+.report-search { display:flex; align-items:center; gap:6px; }
+.report-search input { min-width:100px; width:230px; padding:7px 11px; border:1px solid rgba(255,255,255,.3); border-radius:7px; background:#fff; color:var(--ink); }
+.quiet-button,.pager-button,.nav-toggle { border:1px solid var(--line-2); background:#fff; color:var(--ink-2); border-radius:7px; padding:6px 11px; font-size:12px; line-height:1.4; white-space:nowrap; }
+.quiet-button:hover:not(:disabled),.pager-button:hover:not(:disabled),.nav-toggle:hover { background:#f2f6fc; border-color:#a9bfe3; }
 .search-controls { display:none; gap:6px; align-items:center; }
-.search-message { display:none; font-size:11px; color:var(--muted); min-height:17px; }
+.search-message { display:none; font-size:12px; color:#c3d1e5; min-height:17px; }
 .search-active .search-controls { display:flex; }
 .search-active .search-message { display:block; }
 .nav-toggle { display:none; }
-.report-layout { flex:1; min-height:0; display:grid; grid-template-columns:246px minmax(0,1fr); overflow:hidden; }
-.report-nav { overflow:auto; min-height:0; background:#fafbfd; border-right:1px solid var(--line); padding:24px 14px; }
-.nav-heading { color:#65758c; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.14em; margin:0 12px 12px; }
-.nav-group { margin:3px 0; }
-.section-nav-button { width:100%; display:flex; gap:10px; align-items:baseline; border:0; border-radius:7px; padding:9px 12px; text-align:left; color:#526176; background:transparent; font-size:12px; line-height:1.4; }
-.section-nav-button:hover { color:var(--ink); background:#eef2f7; }
-.section-nav-button.active { color:#184caa; background:#e9f0fd; font-weight:650; }
-.nav-number { flex:0 0 19px; color:#95a1af; font-size:10px; font-variant-numeric:tabular-nums; }
-.active .nav-number { color:#4772b9; }
-.subsection-list { display:none; margin:7px 9px 12px 40px; border-left:1px solid #d7e2f3; padding-left:8px; }
+
+/* Layout and navigation */
+.report-layout { position:relative; flex:1; min-height:0; display:grid; grid-template-columns:252px minmax(0,1fr); overflow:hidden; }
+.report-nav { position:relative; overflow:auto; min-height:0; background:var(--surface); border-right:1px solid var(--line); padding:18px 12px 24px; }
+.nav-heading { color:var(--faint); font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.14em; margin:4px 10px 8px; }
+.nav-group { margin:1px 0; }
+.section-nav-button { position:relative; width:100%; display:flex; gap:9px; align-items:baseline; border:0; border-radius:7px; padding:8px 10px; text-align:left; color:var(--ink-2); background:transparent; font-size:13px; line-height:1.35; }
+.section-nav-button:hover { color:var(--ink); background:#f1f4f8; }
+.section-nav-button.active { color:var(--blue-ink); background:var(--blue-soft); font-weight:650; }
+.section-nav-button.active::before { content:""; position:absolute; left:0; top:7px; bottom:7px; width:3px; border-radius:2px; background:var(--blue); }
+.nav-number { flex:0 0 18px; color:#97a3b2; font-size:11px; font-variant-numeric:tabular-nums; }
+.nav-title { flex:1; min-width:0; }
+.active .nav-number { color:#5583cf; }
+.subsection-list { display:none; margin:3px 4px 10px 37px; border-left:1px solid #d6e1f2; padding-left:6px; }
 .nav-group.active .subsection-list { display:block; }
-.subsection-nav-button { width:100%; border:0; background:transparent; color:#65758c; font-size:11px; line-height:1.4; padding:5px 7px; text-align:left; border-radius:4px; }
-.subsection-nav-button:hover,.subsection-nav-button.active { color:var(--blue); background:#eef3fc; }
-.nav-reference { border-top:1px solid var(--line); margin-top:16px; padding-top:12px; }
-.report-content { min-width:0; min-height:0; overflow:auto; padding:26px 34px 36px; scroll-behavior:smooth; }
-.reading-width { max-width:1320px; margin:0 auto; }
-.section-pager { display:flex; align-items:center; gap:8px; margin-bottom:18px; }
-.pager-label { flex:1; color:var(--muted); font-size:11px; }
-.pager-button { padding:5px 10px; font-size:11px; }
+.subsection-nav-button { width:100%; display:block; border:0; background:transparent; color:var(--muted); font-size:12px; line-height:1.35; padding:4px 8px; text-align:left; border-radius:5px; }
+.subsection-nav-button.subsection-heading { color:var(--ink-2); font-weight:600; margin-top:4px; }
+.report-js .subsection-nav-button.subsection-empty { display:none; }
+.subsection-nav-button:hover,.subsection-nav-button.active { color:var(--blue-ink); background:var(--blue-soft); }
+.nav-reference { border-top:1px solid var(--line); margin-top:14px; padding-top:12px; }
+.nav-badge { flex:none; margin-left:auto; min-width:20px; padding:0 6px; border-radius:999px; background:var(--warn-soft); color:var(--warn); font-size:11px; font-weight:700; line-height:18px; text-align:center; font-variant-numeric:tabular-nums; align-self:center; }
+.nav-badge-error { background:var(--bad-soft); color:var(--bad); }
+
+/* Content */
+.report-content { min-width:0; min-height:0; overflow:auto; padding:20px 32px 36px; scroll-behavior:smooth; }
+.reading-width { max-width:1260px; margin:0 auto; }
+.section-pager { display:flex; align-items:center; gap:8px; margin-bottom:16px; }
+.pager-label { flex:1; min-width:0; color:var(--faint); font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.pager-button { padding:4px 10px; font-size:12px; }
 .report-section { min-width:0; }
 .report-js .report-section { display:none; }
 .report-js .report-section.active { display:block; }
-.section-title { margin:0 0 5px; font-size:25px; line-height:1.3; letter-spacing:-.025em; font-weight:650; }
-.section-intro { color:var(--muted); font-size:12px; margin:0 0 22px; max-width:780px; }
-.section-actions { display:flex; flex-wrap:wrap; gap:7px; margin:0 0 18px; }
-.section-actions .quiet-button { font-size:11px; padding:5px 9px; }
-.facts { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:18px; padding:19px 22px; background:#fff; border:1px solid var(--line); border-radius:10px; margin:18px 0; }
-.fact-label { display:block; margin-bottom:5px; color:#65758c; font-size:10px; font-weight:650; text-transform:uppercase; letter-spacing:.07em; }
-.fact-value { display:block; font-size:12px; font-weight:600; overflow-wrap:anywhere; }
-.metrics { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; margin:18px 0; }
-.metric { border:1px solid var(--line); border-radius:10px; padding:16px 18px; background:#fff; }
-.metric-value { display:block; font-size:28px; line-height:1.15; font-weight:650; letter-spacing:-.035em; margin-bottom:7px; }
-.metric-label { font-size:11px; color:var(--muted); }
-.metric-review .metric-value { color:#ab620d; }
-.review-links { display:flex; flex-wrap:wrap; gap:8px; margin:18px 0 22px; }
+.section-head { margin:0 0 16px; }
+.section-kicker { color:var(--blue); font-size:11px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; margin-bottom:2px; }
+.section-title { margin:0; font-size:26px; line-height:1.25; letter-spacing:-.02em; font-weight:650; }
+.section-intro { color:var(--muted); font-size:13px; margin:4px 0 0; max-width:780px; }
+.section-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:8px 14px; margin:0 0 14px; padding:0 0 12px; border-bottom:1px solid var(--line); }
+.section-stats { flex:1; min-width:180px; color:var(--muted); font-size:12px; }
+.section-stats::before { content:attr(data-stats); }
+.section-actions { display:flex; flex-wrap:wrap; gap:6px; }
+.section-actions .quiet-button { font-size:12px; padding:4px 10px; }
+
+/* Executive summary overview */
+.overview-grid { display:grid; grid-template-columns:minmax(0,1.65fr) minmax(250px,1fr); gap:14px; margin:0 0 14px; }
+.overview-card { background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:16px 18px; box-shadow:0 1px 2px rgba(20,36,58,.04); min-width:0; }
+.card-label { color:var(--faint); font-size:11px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; margin-bottom:12px; }
+.facts { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:12px 20px; }
+.fact-label { display:block; margin-bottom:2px; color:var(--faint); font-size:11px; font-weight:600; }
+.fact-value { display:block; font-size:13px; font-weight:600; color:var(--ink); overflow-wrap:anywhere; }
+.role-list { display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-top:14px; padding-top:12px; border-top:1px solid var(--line); }
+.role-list-label { color:var(--faint); font-size:11px; font-weight:600; margin-right:4px; }
+.role-chip { border:1px solid #c9d8f1; background:var(--blue-soft); color:var(--blue-ink); border-radius:999px; padding:3px 10px; font-size:12px; font-weight:600; }
+.role-chip:hover { background:#dce8fb; border-color:#9fbbe8; }
+.role-chip-more { background:#fff; color:var(--muted); border-color:var(--line-2); }
+.health-figure { display:flex; align-items:baseline; flex-wrap:wrap; gap:4px 10px; }
+.health-percent { font-size:34px; line-height:1.1; font-weight:650; letter-spacing:-.03em; color:var(--ok); }
+.health-review .health-percent { color:var(--warn); }
+.health-unknown .health-percent { font-size:20px; color:var(--muted); }
+.health-caption { margin:0; color:var(--muted); font-size:12px; }
+.health-bar { display:flex; height:10px; margin:14px 0 10px; border-radius:999px; overflow:hidden; background:#e7ebf0; }
+.health-ok { background:#2f9a64; }
+.health-fail { background:#d68a1c; }
+.health-legend { display:flex; flex-wrap:wrap; gap:4px 16px; font-size:12px; color:var(--muted); }
+.health-legend span::before { content:""; display:inline-block; width:8px; height:8px; border-radius:2px; margin-right:6px; vertical-align:0; }
+.legend-ok::before { background:#2f9a64; }
+.legend-fail::before { background:#d68a1c; }
+.metrics { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; margin:0 0 14px; }
+.metric { position:relative; border:1px solid var(--line); border-radius:12px; padding:14px 16px; background:var(--surface); box-shadow:0 1px 2px rgba(20,36,58,.04); min-width:0; }
+.metric-has-link { transition:border-color .15s,box-shadow .15s; }
+.metric-has-link:hover { border-color:#a9bfe3; box-shadow:0 2px 8px rgba(31,92,192,.1); }
+.metric-has-link::after { content:"\203A"; position:absolute; right:14px; top:12px; color:#9aabc2; font-size:18px; line-height:1; }
+.metric-value { display:block; font-size:28px; line-height:1.15; font-weight:650; letter-spacing:-.03em; margin-bottom:4px; font-variant-numeric:tabular-nums; }
+.metric-label { display:block; font-size:12px; color:var(--muted); }
+.metric-review { border-color:#ecd3a8; background:#fffbf4; }
+.metric-review .metric-value { color:var(--warn); }
+.metric-link { position:absolute; inset:0; width:100%; border:0; border-radius:12px; background:transparent; padding:0; }
+.attention { border:1px solid var(--line); border-radius:12px; background:var(--surface); padding:14px 16px; margin:0 0 18px; }
+.attention-head { display:flex; flex-wrap:wrap; align-items:baseline; gap:2px 12px; }
+.attention-title { margin:0; font-size:15px; font-weight:650; letter-spacing:0; }
+.attention-summary { margin:0; color:var(--muted); font-size:12px; }
+.attention-title::before { content:""; display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:8px; background:var(--faint); vertical-align:1px; }
+.attention-review { border-color:#ebd2a6; background:#fffaf1; }
+.attention-review .attention-title::before { background:#d68a1c; }
+.attention-clear { border-color:#c6e4d3; background:#f5fbf7; }
+.attention-clear .attention-title::before { background:#2f9a64; }
+.attention-items:empty { display:none; }
+.attention-items { margin-top:10px; }
+.attention .dataset { margin:8px 0 0; }
+.review-links { display:flex; flex-wrap:wrap; gap:6px; margin:14px 0 0; }
 .review-links:empty { display:none; }
-.review-link { border:1px solid #e9d6b9; color:#875514; background:#fff8ec; padding:7px 11px; border-radius:7px; font-size:12px; }
+.review-link { border:1px solid #e6c995; color:#7f4c0b; background:#fff3de; padding:4px 11px; border-radius:999px; font-size:12px; font-weight:600; }
+.review-link:hover { background:#ffeacb; }
+
+/* Section overview (contents of the active section) */
+.section-overview { display:grid; grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); gap:4px 18px; margin:0 0 18px; padding:12px 14px; background:var(--surface); border:1px solid var(--line); border-radius:12px; }
+.overview-group { min-width:0; padding:2px 0 6px; }
+.overview-group-title { display:block; width:100%; border:0; background:transparent; text-align:left; padding:4px 6px; border-radius:5px; color:var(--ink); font-size:12px; font-weight:700; }
+.overview-group-title:hover { background:#f1f4f8; color:var(--blue-ink); }
+.overview-list { list-style:none; margin:0; padding:0; }
+.overview-list li { margin:0; break-inside:avoid; }
+.section-overview-single { display:block; }
+.section-overview-single .overview-list { column-width:250px; column-gap:22px; }
+.overview-item { width:100%; display:flex; align-items:baseline; gap:8px; border:0; background:transparent; text-align:left; padding:4px 6px; border-radius:5px; color:var(--ink-2); font-size:12px; line-height:1.35; }
+.overview-item::before { content:""; flex:none; width:6px; height:6px; border-radius:50%; background:#b5c3d4; transform:translateY(-1px); }
+.overview-item::after { content:attr(data-count); flex:none; margin-left:auto; color:var(--faint); font-size:11px; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.overview-item:hover { background:var(--blue-soft); color:var(--blue-ink); }
+.overview-item.has-warning::before { background:#d68a1c; }
+.overview-item.has-error::before { background:#c9463d; }
+.overview-item.overview-absent { color:var(--faint); font-style:italic; }
+.overview-item.overview-absent::before { background:transparent; border:1px solid #b5c3d4; }
+
+/* Groups, headings and prose */
+.subsection-group { margin:22px 0 0; }
+.subsection-group:first-child { margin-top:0; }
 .subsection-anchor { scroll-margin-top:16px; }
-h3 { font-size:17px; font-weight:650; margin:28px 0 12px; letter-spacing:-.01em; }
-h4 { font-size:14px; margin:20px 0 10px; }
-p { margin:12px 0; overflow-wrap:anywhere; }
+h3 { font-size:17px; font-weight:650; margin:26px 0 10px; letter-spacing:-.01em; }
+.subsection-group > h3 { display:flex; align-items:center; gap:10px; margin:0 0 10px; padding-top:4px; }
+.subsection-group > h3::after { content:""; flex:1; height:1px; background:var(--line-2); }
+h4 { font-size:14px; margin:18px 0 8px; color:var(--ink-2); }
+p { margin:10px 0; overflow-wrap:anywhere; }
 ul { padding-left:22px; }
-li { margin:7px 0; }
-.notice,.info { padding:12px 16px; border-left:3px solid #d69d43; border-radius:0 7px 7px 0; background:#fff8ec; font-size:12px; }
-.info { border-color:#7197d1; background:#eef4fc; }
-.dataset { background:#fff; border:1px solid var(--line); border-radius:9px; margin:10px 0; scroll-margin-top:16px; }
-.dataset>summary { display:flex; align-items:center; gap:12px; list-style:none; padding:15px 18px; cursor:pointer; font-size:13px; font-weight:600; }
+li { margin:6px 0; }
+.notice,.info { padding:10px 14px; border-left:3px solid #d69d43; border-radius:0 8px 8px 0; background:var(--warn-soft); font-size:13px; }
+.info { border-color:#6f97d6; background:var(--blue-soft); }
+
+/* Datasets */
+.dataset { background:var(--surface); border:1px solid var(--line); border-radius:10px; margin:8px 0; scroll-margin-top:16px; box-shadow:0 1px 2px rgba(20,36,58,.035); }
+.dataset>summary { display:flex; align-items:center; gap:10px; list-style:none; padding:11px 16px; cursor:pointer; font-size:14px; font-weight:600; border-radius:10px; }
 .dataset>summary::-webkit-details-marker { display:none; }
-.dataset>summary::before { content:""; flex:0 0 6px; width:6px; height:6px; border-right:1.5px solid #7b899b; border-bottom:1.5px solid #7b899b; transform:rotate(-45deg); margin-right:2px; }
-.dataset[open]>summary::before { transform:rotate(45deg); margin-top:-3px; }
-.dataset[open]>summary { border-bottom:1px solid var(--line); }
+.dataset>summary::before { content:""; flex:0 0 7px; width:7px; height:7px; border-right:1.6px solid #7b899b; border-bottom:1.6px solid #7b899b; transform:rotate(-45deg); margin:0 3px 0 1px; transition:transform .15s; }
+.dataset[open]>summary::before { transform:rotate(45deg); margin-top:-4px; }
+.dataset>summary:hover { background:var(--surface-2); }
+.dataset[open]>summary { border-bottom:1px solid var(--line); border-radius:10px 10px 0 0; }
 .dataset-title { flex:1; min-width:0; overflow-wrap:anywhere; }
-.dataset-count { color:#65758c; font-size:11px; font-weight:400; white-space:nowrap; }
-.dataset-priority { border-color:#e8d5b3; }
-.dataset-priority>summary { background:#fffbf3; border-radius:8px 8px 0 0; }
-.dataset-body { padding:0 18px 16px; }
-.empty-data { color:#65758c; font-size:12px; padding-top:10px; }
-.table-wrap { overflow:auto; margin:0 -18px; }
-.dataset-long .table-wrap { max-height:60vh; }
-table { width:100%; border-collapse:separate; border-spacing:0; font-size:12px; text-align:left; }
-th { position:sticky; top:0; z-index:1; background:#f4f7fb; color:#617087; font-size:10px; font-weight:650; padding:7px 12px; white-space:nowrap; border-bottom:1px solid var(--line); vertical-align:top; }
-td { padding:5px 12px; border-bottom:1px solid #edf0f4; vertical-align:top; white-space:nowrap; overflow-wrap:normal; min-width:80px; }
+.dataset-count { flex:none; color:var(--muted); background:#eef1f5; border-radius:999px; padding:1px 9px; font-size:11px; font-weight:600; white-space:nowrap; font-variant-numeric:tabular-nums; }
+.dataset-flag { flex:none; border-radius:999px; padding:1px 8px; font-size:11px; font-weight:700; white-space:nowrap; }
+.dataset-flag::before { content:attr(data-label); }
+.dataset-flag-warning { background:var(--warn-soft); color:var(--warn); }
+.dataset-flag-error { background:var(--bad-soft); color:var(--bad); }
+.dataset-priority { border-color:#ebd2a6; }
+.dataset-priority>summary { background:#fffbf3; }
+.dataset-body { padding:0 16px 14px; }
+.empty-data { color:var(--muted); font-size:12px; padding-top:10px; }
+.dataset-empty>summary { color:var(--muted); font-weight:500; }
+.dataset-empty .dataset-count { background:transparent; font-style:italic; font-weight:500; }
+.table-wrap { overflow:auto; margin:0 -16px; border-top:1px solid var(--line); }
+.dataset-long .table-wrap { max-height:62vh; }
+.dataset-text pre { max-height:70vh; }
+table { width:100%; border-collapse:separate; border-spacing:0; font-size:12.5px; text-align:left; }
+th { position:sticky; top:0; z-index:1; background:#f4f6f9; color:var(--ink-2); font-size:11.5px; font-weight:650; padding:7px 12px; white-space:nowrap; border-bottom:1px solid var(--line-2); vertical-align:top; }
+td { padding:6px 12px; border-bottom:1px solid #edf0f4; vertical-align:top; white-space:nowrap; overflow-wrap:normal; min-width:80px; }
+tbody tr:last-child td { border-bottom:0; }
+tbody tr:hover td { background:#f7faff; }
 .report-content,.cover { -webkit-user-select:text; user-select:text; }
 .dataset.wrap-values td { white-space:pre-wrap; overflow-wrap:anywhere; max-width:640px; }
-.dataset-tools { display:flex; flex-wrap:wrap; align-items:center; gap:7px; padding:8px 0; }
-.dataset-tools .quiet-button { font-size:11px; padding:4px 9px; }
-.table-hint { font-size:11px; color:var(--muted); }
-.table-filter { display:flex; align-items:center; gap:7px; font-size:11px; margin-left:auto; }
-.table-filter input { width:180px; min-width:100px; padding:5px 8px; border:1px solid #ccd5e0; border-radius:6px; color:var(--ink); background:#fff; }
-.table-filter-count { flex-basis:100%; font-size:11px; color:var(--muted); }
+th.num,td.num { text-align:right; font-variant-numeric:tabular-nums; }
+th.num .table-sort { text-align:right; }
+.identity-table td:first-child { width:30%; color:var(--muted); }
+
+/* Key/value property sheets and single-record tables. Name/value lists keep
+   compact rows and the optional Wrap values toggle from 3.2.12. */
+.kv-table td:first-child { color:var(--muted); font-weight:600; background:var(--surface-2); border-right:1px solid #edf0f4; }
+.kv-table tbody tr:hover td:first-child { background:#f0f4fa; }
+.kv-table td.num { text-align:left; }
+.record-table { display:grid; grid-template-columns:minmax(150px,32%) minmax(0,1fr); grid-auto-flow:column; }
+.record-table thead,.record-table tbody,.record-table tr { display:contents; }
+.record-table th { position:static; background:transparent; color:var(--muted); font-size:12px; font-weight:600; white-space:normal; overflow-wrap:anywhere; border-bottom:1px solid #edf0f4; padding:6px 12px; }
+.record-table td { white-space:pre-wrap; overflow-wrap:anywhere; min-width:0; border-bottom:1px solid #edf0f4; }
+.record-table th.num,.record-table td.num { text-align:left; }
+.record-table tbody tr:hover td { background:transparent; }
+
+/* Dataset tools */
+.dataset-tools { display:flex; flex-wrap:wrap; align-items:center; gap:6px; padding:9px 0; }
+.dataset-tools .quiet-button { font-size:12px; padding:3px 9px; }
+.table-hint { font-size:11px; color:var(--faint); }
+.table-filter { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--muted); margin-left:auto; }
+.table-filter input { width:190px; min-width:100px; padding:4px 8px; border:1px solid var(--line-2); border-radius:6px; color:var(--ink); background:#fff; }
+.table-filter-count { flex-basis:100%; font-size:12px; color:var(--muted); }
 .table-filter-count:empty { display:none; }
 .table-sort { font:inherit; color:inherit; text-align:left; border:0; padding:0; background:transparent; }
-.table-sort::after { content:" ↕"; color:#8291a6; }
+.table-sort::after { content:" ↕"; color:#8a98aa; }
 th[aria-sort="ascending"] .table-sort::after { content:" ↑"; color:var(--blue); }
 th[aria-sort="descending"] .table-sort::after { content:" ↓"; color:var(--blue); }
 .copy-feedback { flex-basis:100%; font-size:12px; color:var(--muted); }
-.copy-panel { position:fixed; z-index:20; inset:auto 20px 20px; max-height:55vh; overflow:auto; padding:16px; border:1px solid var(--blue); border-radius:9px; background:#fff; box-shadow:0 4px 24px #182b4333; }
+.copy-feedback:empty { display:none; }
+.copy-panel { position:fixed; z-index:20; inset:auto 20px 20px; max-height:55vh; overflow:auto; padding:16px; border:1px solid var(--blue); border-radius:10px; background:#fff; color:var(--ink); box-shadow:0 6px 28px rgba(20,36,58,.25); }
 .copy-panel[hidden] { display:none; }
 .copy-panel textarea { display:block; width:100%; height:22vh; margin:8px 0; resize:vertical; white-space:pre; font:12px/1.4 Consolas,monospace; }
 .copy-panel p { margin:0; }
-.nav-badge { flex:none; margin-left:auto; min-width:20px; padding:0 6px; border-radius:999px; background:#fff1d8; color:#8a5612; font-size:10px; font-weight:700; line-height:18px; text-align:center; font-variant-numeric:tabular-nums; align-self:center; }
-.nav-badge-error { background:#fceceb; color:#a1403d; }
-th.num,td.num { text-align:right; font-variant-numeric:tabular-nums; }
-th.num .table-sort { text-align:right; }
-.dataset-empty>summary { color:#7d8a9b; font-weight:500; }
-.dataset-empty>summary .dataset-count { font-style:italic; }
-.report-layout { position:relative; }
-.back-to-top { position:absolute; right:26px; bottom:20px; z-index:5; border:1px solid #c8d4e5; background:#fff; color:#2b4466; border-radius:999px; padding:7px 14px; font-size:12px; font-weight:600; box-shadow:0 3px 12px #182b4324; }
-.back-to-top:hover { background:#f1f5fc; border-color:#a5bde3; }
-.back-to-top[hidden] { display:none; }
-tbody tr:last-child td { border-bottom:0; }
-tbody tr:hover td { background:#f8faff; }
-.identity-table td:first-child { width:30%; color:#718097; }
-.table-note { font-size:11px; color:#8b682f; background:#fff8eb; padding:8px 10px; margin:12px 0 0; border-radius:5px; }
-.status { display:inline-block; border-radius:4px; padding:2px 7px; font-size:10px; font-weight:600; background:#edf1f7; color:#5b6c82; }
-.status-success { background:#eaf6f0; color:#257452; }
-.status-warning { background:#fff1d8; color:#976018; }
-.status-error { background:#fceceb; color:#aa4744; }
-pre { white-space:pre; overflow:auto; overflow-wrap:normal; font:11px/1.65 Consolas,"Courier New",monospace; color:#3e526b; padding:16px; border-radius:6px; background:#f5f7fa; margin:15px 0 0; }
-.footer-note { max-width:1320px; margin:26px auto 0; padding-top:14px; border-top:1px solid var(--line); color:#65758c; font-size:11px; }
+.table-note { font-size:12px; color:#7f5a1c; background:#fff7e8; padding:7px 10px; margin:12px 0 0; border-radius:6px; }
+.status { display:inline-block; border-radius:999px; padding:1px 9px 1px 8px; font-size:11px; font-weight:650; background:#edf1f6; color:#4d5f76; white-space:nowrap; }
+.status::before { content:""; display:inline-block; width:6px; height:6px; border-radius:50%; margin-right:5px; vertical-align:1px; background:currentColor; opacity:.8; }
+.status-success { background:var(--ok-soft); color:var(--ok); }
+.status-warning { background:var(--warn-soft); color:var(--warn); }
+.status-error { background:var(--bad-soft); color:var(--bad); }
+pre { white-space:pre; overflow:auto; overflow-wrap:normal; font:12px/1.6 Consolas,"Courier New",monospace; color:#2f4560; padding:14px 16px; border-radius:8px; background:#f5f7fa; border:1px solid var(--line); margin:12px 0 0; }
+
+/* "No data" groups */
+.absent-group { margin:12px 0 4px; border:1px dashed var(--line-2); border-radius:10px; background:rgba(255,255,255,.55); }
+.absent-group>summary { display:flex; align-items:center; gap:10px; list-style:none; padding:9px 14px; cursor:pointer; color:var(--muted); font-size:13px; font-weight:600; border-radius:10px; }
+.absent-group>summary::-webkit-details-marker { display:none; }
+.absent-group>summary::before { content:""; flex:0 0 7px; width:7px; height:7px; border-right:1.6px solid #98a5b5; border-bottom:1.6px solid #98a5b5; transform:rotate(-45deg); margin:0 3px 0 1px; }
+.absent-group[open]>summary::before { transform:rotate(45deg); margin-top:-4px; }
+.absent-group>summary:hover { background:#fff; }
+.absent-group .dataset-count { background:transparent; border:1px solid var(--line-2); font-style:normal; }
+.absent-body { padding:0 14px 10px; }
+.absent-note { margin:0 0 6px; color:var(--muted); font-size:12px; }
+.absent-list { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); column-gap:22px; align-items:start; }
+.absent-group .dataset { margin:0; border:0; border-top:1px solid var(--line); border-radius:0; box-shadow:none; background:transparent; }
+.absent-group .dataset>summary { padding:6px 2px; font-size:13px; border-radius:0; }
+.absent-group .dataset>summary:hover { background:transparent; color:var(--ink); }
+.absent-group .dataset[open]>summary { border-bottom:0; }
+.absent-group .dataset-count { padding:0 6px; }
+.absent-group .dataset-body { padding:0 2px 8px 22px; }
+.absent-group .empty-data { margin:0; padding-top:0; }
+.absent-group .dataset-tools { display:none; }
+
 mark.report-match { background:#fff1b6; color:inherit; padding:0; }
 mark.report-current { background:#ffd570; outline:2px solid #d0952a; }
+.back-to-top { position:absolute; right:24px; bottom:18px; z-index:5; border:1px solid #c8d4e5; background:#fff; color:#2b4466; border-radius:999px; padding:6px 14px; font-size:12px; font-weight:600; box-shadow:0 3px 12px rgba(20,36,58,.16); }
+.back-to-top:hover { background:#f1f5fc; border-color:#a5bde3; }
+.back-to-top[hidden] { display:none; }
+.footer-note { max-width:1260px; margin:28px auto 0; padding-top:14px; border-top:1px solid var(--line); color:var(--muted); font-size:12px; }
+
+/* Embedded in the application's Report Viewer */
 .embedded-report .standalone-tools { display:none; }
-.embedded-report .cover { padding:15px 24px; }
-.embedded-report h1 { font-size:21px; }
-.embedded-report .report-content { padding:22px 28px 30px; }
-html:not(.report-js) .report-nav,html:not(.report-js) .section-pager,html:not(.report-js) .section-actions,html:not(.report-js) .standalone-tools { display:none; }
+.embedded-report .cover { padding:10px 20px; gap:10px 14px; }
+.embedded-report .report-mark { width:34px; height:34px; border-radius:9px; }
+.embedded-report .report-mark svg { width:20px; height:20px; }
+.embedded-report .eyebrow { font-size:11px; letter-spacing:.1em; }
+.embedded-report h1 { font-size:19px; }
+.embedded-report .subtitle { margin-top:1px; }
+.embedded-report .report-content { padding:18px 24px 30px; }
+
+html:not(.report-js) .report-nav,html:not(.report-js) .section-pager,html:not(.report-js) .section-toolbar,html:not(.report-js) .standalone-tools,html:not(.report-js) .attention-items { display:none; }
 html:not(.report-js) .report-layout { grid-template-columns:minmax(0,1fr); }
+html:not(.report-js) .report-section { padding-bottom:28px; margin-bottom:28px; border-bottom:2px solid var(--line-2); }
+
+@media(max-width:1180px) {
+ .metrics { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
 @media(max-width:1050px) {
- .cover { padding:18px 22px; gap:16px; }
- .report-search input { width:160px; }
- .report-layout { grid-template-columns:215px minmax(0,1fr); }
- .report-content { padding:22px; }
- .facts { grid-template-columns:repeat(2,minmax(0,1fr)); }
- .metric { padding:14px; }
+ .cover { padding:14px 22px; }
+ .report-search input { width:200px; }
+ .report-layout { grid-template-columns:220px minmax(0,1fr); }
+ .report-content,.embedded-report .report-content { padding:18px 22px 30px; }
+ .section-title { font-size:23px; }
+}
+@media(max-width:1050px) and (min-width:761px),(max-height:620px) {
+ .subtitle { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+}
+@media(max-width:900px) {
+ .overview-grid { grid-template-columns:minmax(0,1fr); }
+ .health-card { order:-1; }
 }
 @media(max-width:760px) {
- .cover,.embedded-report .cover { flex-wrap:wrap; padding:14px 16px; gap:12px; }
- h1,.embedded-report h1 { font-size:20px; }
- .nav-toggle { display:block; min-height:40px; }
- .standalone-tools { flex-basis:100%; align-items:stretch; max-width:none; }
+ .cover,.embedded-report .cover { flex-wrap:wrap; padding:10px 14px; gap:8px 10px; }
+ .report-mark,.embedded-report .report-mark { width:32px; height:32px; border-radius:8px; }
+ .report-mark svg,.embedded-report .report-mark svg { width:19px; height:19px; }
+ .eyebrow { display:none; }
+ h1,.embedded-report h1 { font-size:18px; }
+ .report-brand { flex:1 1 240px; }
+ .cover-actions { order:3; flex-direction:row; align-items:center; flex-wrap:wrap; max-width:none; }
+ .cover .copy-feedback { text-align:left; }
+ .nav-toggle { display:block; order:4; min-height:34px; }
+ .standalone-tools { order:5; flex-basis:100%; align-items:stretch; max-width:none; }
  .report-search { flex-wrap:wrap; }
  .report-search input { flex:1; width:100px; }
  .search-controls { flex-wrap:wrap; }
  .report-layout { grid-template-columns:minmax(0,1fr); grid-template-rows:auto minmax(0,1fr); }
- .report-nav { display:none; grid-row:1; border-right:0; border-bottom:1px solid var(--line); max-height:38vh; padding:14px; }
+ .report-nav { display:none; grid-row:1; border-right:0; border-bottom:1px solid var(--line); max-height:45vh; padding:10px; box-shadow:0 6px 14px rgba(20,36,58,.08); }
  .nav-open .report-nav { display:block; }
- .report-content,.embedded-report .report-content { grid-row:2; padding:18px 16px 28px; }
- .section-title { font-size:22px; }
- .metrics { grid-template-columns:repeat(2,minmax(0,1fr)); }
- .metric-value { font-size:25px; }
- .section-nav-button { min-height:40px; }
- .dataset>summary { padding:13px 14px; }
- .dataset-count { white-space:normal; text-align:right; max-width:100px; }
- .dataset-body { padding:0 14px 14px; }
- .table-wrap { margin:0 -14px; }
+ .report-content,.embedded-report .report-content { grid-row:2; padding:14px 14px 28px; }
+ .section-title { font-size:21px; }
+ .section-pager { gap:6px; margin-bottom:12px; }
+ .metrics { gap:8px; }
+ .metric { padding:12px; }
+ .metric-value { font-size:23px; }
+ .health-percent { font-size:28px; }
+ .section-nav-button { min-height:36px; }
+ .dataset>summary { padding:10px 12px; font-size:13px; }
+ .dataset-body { padding:0 12px 12px; }
+ .table-wrap { margin:0 -12px; }
+ .table-hint { display:none; }
+ .table-filter { margin-left:0; flex:1 1 100%; }
+ .table-filter input { flex:1; }
+ .section-overview { grid-template-columns:minmax(0,1fr); }
+ .back-to-top { right:14px; bottom:12px; }
 }
-@media(prefers-reduced-motion:reduce) { .report-content { scroll-behavior:auto; } }
+@media(max-width:460px) {
+ .metrics { grid-template-columns:minmax(0,1fr); }
+ .facts { grid-template-columns:minmax(0,1fr); }
+ .pager-button { padding:4px 8px; }
+ .report-content,.embedded-report .report-content { padding:12px 10px 24px; }
+}
+@media(max-height:620px) {
+ .cover,.embedded-report .cover { padding-top:8px; padding-bottom:8px; }
+ .eyebrow { display:none; }
+ h1,.embedded-report h1 { font-size:18px; }
+ .report-mark,.embedded-report .report-mark { width:30px; height:30px; }
+ .report-content,.embedded-report .report-content { padding-top:12px; }
+ .section-pager { margin-bottom:10px; }
+ .section-head { margin-bottom:10px; }
+ .section-title { font-size:21px; }
+ .dataset-long .table-wrap { max-height:none; }
+}
+@media(max-height:460px) {
+ .subtitle { display:none; }
+ .section-intro { display:none; }
+}
+@media(prefers-reduced-motion:reduce) { .report-content { scroll-behavior:auto; } .dataset>summary::before { transition:none; } }
 @media print {
  html,body { height:auto!important; overflow:visible!important; background:#fff; }
+ body { font-size:11px; }
  .report-app,.report-layout,.report-content,.reading-width { display:block!important; height:auto!important; max-height:none!important; overflow:visible!important; padding:0!important; }
- .cover { padding:0 0 20px!important; margin-bottom:18px; }
- .report-nav,.section-pager,.section-actions,.standalone-tools,.nav-toggle,.review-links,.dataset-tools,.copy-feedback,.copy-panel,.copy-action { display:none!important; }
+ .cover { color:var(--ink); background:#fff!important; border:0; border-bottom:2px solid var(--ink); padding:0 0 14px!important; margin-bottom:18px; }
+ .eyebrow { display:block!important; color:var(--blue); }
+ .subtitle { display:block!important; color:var(--muted); }
+ .report-mark { background:var(--navy)!important; border:0; }
+ .report-nav,.section-pager,.section-toolbar,.section-overview,.standalone-tools,.cover-actions,.nav-toggle,.review-links,.dataset-tools,.copy-feedback,.copy-panel,.copy-action,.metric-link,.role-chip-more { display:none!important; }
  .report-js .report-section,.report-section { display:block!important; margin:0 0 30px; break-before:page; }
  .reading-width>.report-section:first-of-type { break-before:auto; }
- .dataset,.facts,.metric { box-shadow:none; }
+ .section-intro { display:block!important; }
+ .overview-card,.metric,.attention,.dataset { box-shadow:none; }
+ .overview-grid { grid-template-columns:minmax(0,1.6fr) minmax(0,1fr); break-inside:avoid; }
+ .metrics { grid-template-columns:repeat(4,minmax(0,1fr)); break-inside:avoid; }
+ .metric-has-link::after { display:none; }
  .dataset { border-radius:0; border-color:#ccc; }
- .dataset>summary { cursor:default; }
- .dataset>summary::before { display:none; }
- .dataset-body,.table-wrap { display:block!important; overflow:visible!important; max-height:none!important; }
+ .dataset>summary,.absent-group>summary { cursor:default; }
+ .dataset>summary::before,.absent-group>summary::before { display:none; }
+ .absent-group { border-style:solid; }
+ .dataset-body,.table-wrap,.dataset-text pre { display:block!important; overflow:visible!important; max-height:none!important; }
+ .record-table { display:grid!important; }
  th { position:static; }
  thead { display:table-header-group; }
+ .record-table thead,.record-table tr { display:contents!important; }
  tr { break-inside:avoid; }
  tr[hidden] { display:table-row!important; }
  .table-sort::after { display:none; }
- td,.dataset.wrap-values td { min-width:0; max-width:none; white-space:pre-wrap; overflow-wrap:anywhere; font-size:9px; padding:6px 8px; }
+ td,.dataset.wrap-values td { min-width:0; max-width:none; white-space:pre-wrap; overflow-wrap:anywhere; font-size:9px; padding:5px 8px; }
  pre { white-space:pre-wrap; overflow-wrap:anywhere; overflow:visible; }
- th { white-space:normal; font-size:9px; padding:7px 8px; }
- .notice,.info { break-inside:avoid; }
- .back-to-top,.print-action,.nav-badge { display:none!important; }
+ th { white-space:normal; font-size:9px; padding:6px 8px; }
+ .notice,.info,.attention { break-inside:avoid; }
+ .back-to-top,.print-action,.nav-badge,.dataset-flag { display:none!important; }
  html.print-section .report-section:not(.active) { display:none!important; }
  html.print-section .report-section.active { break-before:auto; }
  mark { background:none!important; outline:0!important; }
@@ -2152,8 +2456,8 @@ html:not(.report-js) .report-layout { grid-template-columns:minmax(0,1fr); }
 </style>
 '@
     [void]$builder.AppendLine($styleBlock)
-    [void]$builder.AppendLine('</head><body><div class="report-app"><header class="cover"><div class="report-brand"><div class="eyebrow">Server inventory / configuration snapshot</div>')
-    [void]$builder.AppendLine('<h1>' + (ConvertTo-HtmlText $serverName) + '</h1><p class="subtitle">' + (ConvertTo-HtmlText $subtitle) + '</p></div>')
+    [void]$builder.AppendLine('</head><body><div class="report-app"><header class="cover"><div class="report-mark" aria-hidden="true"><svg viewBox="0 0 32 32" width="32" height="32" focusable="false"><rect x="5" y="5" width="22" height="7" rx="2"/><rect x="5" y="13.5" width="22" height="7" rx="2"/><rect x="5" y="22" width="22" height="5" rx="2"/><circle class="mark-led" cx="9" cy="8.5" r="1.2"/><circle class="mark-led" cx="9" cy="17" r="1.2"/></svg></div><div class="report-brand"><div class="eyebrow">Server inventory / configuration snapshot</div>')
+    [void]$builder.AppendLine('<h1>' + (ConvertTo-HtmlText $serverName) + '</h1><p class="subtitle">' + (ConvertTo-HtmlText $subtitle) + '</p></div><div class="cover-actions"></div>')
     [void]$builder.AppendLine('<button class="nav-toggle" id="toggle-report-nav" aria-controls="report-nav" aria-expanded="false" type="button">Sections</button>')
     [void]$builder.AppendLine('<div class="standalone-tools"><form id="report-search-form" class="report-search" role="search"><input id="report-search-input" type="search" aria-label="Search the full report" placeholder="Search the full report"><button class="quiet-button" type="submit">Find</button><button id="report-print" class="quiet-button" type="button">Print all</button></form>')
     [void]$builder.AppendLine('<div class="search-controls"><button id="report-search-prev" class="quiet-button" type="button" disabled>Previous match</button><button id="report-search-next" class="quiet-button" type="button" disabled>Next match</button><button id="report-search-clear" class="quiet-button" type="button">Clear</button></div><div id="report-search-message" class="search-message" role="status" aria-live="polite">Search every section, including collapsed details.</div></div></header>')
@@ -2168,11 +2472,14 @@ html:not(.report-js) .report-layout { grid-template-columns:minmax(0,1fr); }
         $title = Get-CleanReportTitle $entry.Title
         $number = ''
         if ($entry.Title -match '^(\d+)\.') { $number = ([int]$matches[1]).ToString('00') }
-        [void]$builder.AppendLine('<div class="nav-group"><button type="button" class="section-nav-button section-main-button" data-section="' + $entry.Id + '" data-title="' + (ConvertTo-HtmlText $title) + '"><span class="nav-number" aria-hidden="true">' + $number + '</span><span>' + (ConvertTo-HtmlText $title) + '</span></button>')
+        [void]$builder.AppendLine('<div class="nav-group"><button type="button" class="section-nav-button section-main-button" data-section="' + $entry.Id + '" data-title="' + (ConvertTo-HtmlText $title) + '"><span class="nav-number" aria-hidden="true">' + $number + '</span><span class="nav-title">' + (ConvertTo-HtmlText $title) + '</span></button>')
         if ($entry.Links.Count -gt 0) {
             [void]$builder.AppendLine('<div class="subsection-list">')
             foreach ($link in $entry.Links) {
-                [void]$builder.AppendLine('<button type="button" class="subsection-nav-button" data-anchor="' + $link.Id + '">' + (ConvertTo-HtmlText (Get-CleanReportTitle $link.Title)) + '</button>')
+                $linkClass = 'subsection-nav-button'
+                if ($link.Kind -eq 'heading') { $linkClass += ' subsection-heading' }
+                elseif ($link.Kind -eq 'empty') { $linkClass += ' subsection-empty' }
+                [void]$builder.AppendLine('<button type="button" class="' + $linkClass + '" data-anchor="' + $link.Id + '">' + (ConvertTo-HtmlText (Get-CleanReportTitle $link.Title)) + '</button>')
             }
             [void]$builder.AppendLine('</div>')
         }
@@ -2184,11 +2491,13 @@ html:not(.report-js) .report-layout { grid-template-columns:minmax(0,1fr); }
     $sectionNumber = 0
     $datasetInSection = 0
     $currentId = 'section-overview'
+    $groupOpen = $false
     for ($index = 0; $index -lt $blockList.Count; $index++) {
         $block = $blockList[$index]
         $type = [string]$block.Type
         if ($type -eq 'Title') { continue }
         if (($type -eq 'Heading') -and ([int]$block.Level -eq 1)) {
+            if ($groupOpen) { [void]$builder.AppendLine('</div>'); $groupOpen = $false }
             [void]$builder.AppendLine('</section>')
             $sectionNumber++
             $datasetInSection = 0
@@ -2200,6 +2509,12 @@ html:not(.report-js) .report-layout { grid-template-columns:minmax(0,1fr); }
             'Heading' {
                 $tag = 'h3'
                 if ([int]$block.Level -gt 2) { $tag = 'h4' }
+                else {
+                    # Level-2 headings group the datasets that follow them.
+                    if ($groupOpen) { [void]$builder.AppendLine('</div>') }
+                    [void]$builder.AppendLine('<div class="subsection-group">')
+                    $groupOpen = $true
+                }
                 [void]$builder.AppendLine('<' + $tag + ' id="' + $anchors[$index] + '" class="subsection-anchor">' + (ConvertTo-HtmlText $block.Text) + '</' + $tag + '>')
             }
             'Paragraph' {
@@ -2227,8 +2542,11 @@ html:not(.report-js) .report-layout { grid-template-columns:minmax(0,1fr); }
                     if ([int]$block.DisplayRows -eq 1) { $count = '1 row' }
                     if ([int]$block.TotalRows -gt [int]$block.DisplayRows) { $count = [string]$block.DisplayRows + ' of ' + [string]$block.TotalRows + ' rows' }
                     if ([int]$block.DisplayRows -gt 15) { $class += ' dataset-long' }
+                    if ([int]$block.DisplayRows -le 0) { $class += ' dataset-empty'; $count = 'No data' }
                     if (($currentId -ne $summaryId) -and ($datasetInSection -eq 1) -and ([int]$block.DisplayRows -gt 0) -and ([int]$block.DisplayRows -le 8) -and (@($block.Columns).Count -le 5)) { $openByDefault = $true }
                 }
+                elseif ([string]::IsNullOrWhiteSpace([string]$block.Text)) { $class += ' dataset-empty'; $count = 'No data' }
+                else { $class += ' dataset-text' }
                 $openText = 'false'
                 if ($openByDefault) { $openText = 'true' }
                 # Render open in the source for no-script and print fallbacks;
@@ -2285,6 +2603,7 @@ html:not(.report-js) .report-layout { grid-template-columns:minmax(0,1fr); }
             }
         }
     }
+    if ($groupOpen) { [void]$builder.AppendLine('</div>') }
     [void]$builder.AppendLine('</section></div><footer class="footer-note">Sensitive infrastructure documentation. This inventory is a configuration snapshot, not a backup. Supporting exports retain raw data and reusable artifacts.</footer></main></div></div>')
     $scriptBlock = @'
 <script>
@@ -2292,11 +2611,17 @@ html:not(.report-js) .report-layout { grid-template-columns:minmax(0,1fr); }
     'use strict';
     var root = document.documentElement;
     var content = document.querySelector('.report-content');
+    var nav = document.getElementById('report-nav');
     var sections = Array.prototype.slice.call(document.querySelectorAll('.report-section'));
     var buttons = Array.prototype.slice.call(document.querySelectorAll('.section-main-button'));
     var details = Array.prototype.slice.call(document.querySelectorAll('details.dataset'));
-    var currentIndex = 0, matches = [], matchIndex = -1, printState = null, lastQuery = '';
+    var summaryId = root.getAttribute('data-default-section');
+    var currentIndex = 0, matches = [], matchIndex = -1, printState = null, lastQuery = '', absentCount = 0;
     function byId(id) { return document.getElementById(id); }
+    function toArray(list) { return Array.prototype.slice.call(list); }
+    function formatNumber(value) { return String(value).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
+    function plural(count, one, many) { return formatNumber(count) + ' ' + (count === 1 ? one : many); }
+    function cleanTitle(text) { return String(text || '').replace(/^\s+|\s+$/g, '').replace(/^\d+(\.\d+)*\.?\s+/, ''); }
     function parentSection(element) {
         while (element && element !== document) {
             if (element.classList && element.classList.contains('report-section')) { return element; }
@@ -2314,6 +2639,16 @@ html:not(.report-js) .report-layout { grid-template-columns:minmax(0,1fr); }
         for (var i=0; i<buttons.length; i++) { if (buttons[i].getAttribute('data-section') === id) { return i; } }
         return -1;
     }
+    function keepNavButtonVisible(button) {
+        if (!nav || !button || nav.offsetParent === null || nav.clientHeight === 0) { return; }
+        var top = button.offsetTop, bottom = top + button.offsetHeight;
+        if (top < nav.scrollTop + 8) { nav.scrollTop = Math.max(0, top - 24); }
+        else if (bottom > nav.scrollTop + nav.clientHeight - 8) { nav.scrollTop = bottom - nav.clientHeight + 24; }
+    }
+    function markSubsectionLink(anchor) {
+        var links = document.querySelectorAll('.subsection-nav-button');
+        for (var k=0; k<links.length; k++) { links[k].classList.toggle('active', !!anchor && links[k].getAttribute('data-anchor') === anchor); }
+    }
     function activate(index, updateHash, anchor) {
         if (!buttons.length) { return; }
         currentIndex = Math.max(0, Math.min(index, buttons.length-1));
@@ -2329,8 +2664,7 @@ html:not(.report-js) .report-layout { grid-template-columns:minmax(0,1fr); }
             buttons[j].setAttribute('aria-current', active ? 'page' : 'false');
             buttons[j].parentNode.classList.toggle('active', active);
         }
-        var links = document.querySelectorAll('.subsection-nav-button');
-        for (var k=0; k<links.length; k++) { links[k].classList.toggle('active', links[k].getAttribute('data-anchor') === anchor); }
+        markSubsectionLink(anchor);
         byId('section-label').textContent = buttons[currentIndex].getAttribute('data-title') + ' / ' + (currentIndex+1) + ' of ' + buttons.length;
         byId('previous-section').disabled = currentIndex === 0;
         byId('next-section').disabled = currentIndex === buttons.length-1;
@@ -2344,6 +2678,7 @@ html:not(.report-js) .report-layout { grid-template-columns:minmax(0,1fr); }
         } else if (content) { content.scrollTop = 0; }
         root.classList.remove('nav-open');
         byId('toggle-report-nav').setAttribute('aria-expanded', 'false');
+        keepNavButtonVisible(buttons[currentIndex]);
     }
     function revealElement(element) {
         var section = parentSection(element);
@@ -2351,7 +2686,7 @@ html:not(.report-js) .report-layout { grid-template-columns:minmax(0,1fr); }
         var panel=element.closest&&element.closest('details.dataset');
         if(panel&&panel.clearTableFilter){panel.clearTableFilter();}
         var index = indexById(section.id);
-        if (index >= 0) { activate(index, false, ''); }
+        if (index >= 0 && index !== currentIndex) { activate(index, false, ''); }
         openParents(element);
         try { element.scrollIntoView({block:'center',inline:'nearest'}); }
         catch (error) { element.scrollIntoView(true); }
@@ -2362,6 +2697,8 @@ html:not(.report-js) .report-layout { grid-template-columns:minmax(0,1fr); }
         var section = parentSection(element);
         if (section) { activate(indexById(section.id), true, element === section ? '' : id); }
     }
+
+    // Search -------------------------------------------------------------
     function clearSearch() {
         var marks = document.querySelectorAll('mark.report-match');
         for (var i=0; i<marks.length; i++) {
@@ -2393,7 +2730,7 @@ html:not(.report-js) .report-layout { grid-template-columns:minmax(0,1fr); }
         for (var i=0; i<sections.length; i++) {
             var walker = document.createTreeWalker(sections[i], NodeFilter.SHOW_TEXT, {acceptNode:function(node) {
                 var tag = node.parentNode && node.parentNode.nodeName;
-                if (node.parentElement.closest('.dataset-tools,.section-actions,.copy-feedback') || tag === 'SCRIPT' || tag === 'STYLE' || (tag === 'BUTTON' && !node.parentElement.classList.contains('table-sort')) || tag === 'MARK') { return NodeFilter.FILTER_REJECT; }
+                if (node.parentElement.closest('.dataset-tools,.section-actions,.section-toolbar,.section-overview,.copy-feedback') || tag === 'SCRIPT' || tag === 'STYLE' || (tag === 'BUTTON' && !node.parentElement.classList.contains('table-sort')) || tag === 'MARK') { return NodeFilter.FILTER_REJECT; }
                 return node.nodeValue.toLowerCase().indexOf(lowerQuery) >= 0 ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
             }}, false);
             var node; while ((node = walker.nextNode())) { nodes.push(node); }
@@ -2412,17 +2749,20 @@ html:not(.report-js) .report-layout { grid-template-columns:minmax(0,1fr); }
         if (!matches.length) { byId('report-search-message').textContent='No matches for "' + query + '".'; return; }
         byId('report-search-prev').disabled=false; byId('report-search-next').disabled=false; showMatch(0);
     }
+
+    // Print: every collapsible panel (datasets and "No data" groups) opens.
     function preparePrint() {
         if (printState) { return; }
-        printState = details.map(function(detail) { return detail.open; });
-        for (var i=0; i<details.length; i++) { details[i].open=true; }
+        printState = toArray(document.querySelectorAll('details')).map(function(detail) { return [detail, detail.open]; });
+        for (var i=0; i<printState.length; i++) { printState[i][0].open=true; }
     }
     function restorePrint() {
         if (!printState) { return; }
-        for (var i=0; i<details.length; i++) { details[i].open=printState[i]; }
+        for (var i=0; i<printState.length; i++) { printState[i][0].open=printState[i][1]; }
         printState=null;
         root.classList.remove('print-section');
     }
+
     // Right-align columns whose populated cells are all numeric (counts, sizes,
     // percentages). Presentation only: cell text is never changed.
     var numericCell = /^[-+]?(\d{1,3}(,\d{3})+|\d+)(\.\d+)?\s?(%|[KMGT]i?B|bytes|ms|s|sec)?$/i;
@@ -2444,6 +2784,12 @@ html:not(.report-js) .report-layout { grid-template-columns:minmax(0,1fr); }
             }
         }
     }
+    function issueCounts(container) {
+        return {errors:container.querySelectorAll('td .status-error').length, warnings:container.querySelectorAll('td .status-warning').length};
+    }
+    function issueDescription(counts) {
+        return (counts.errors ? counts.errors + (counts.errors === 1 ? ' failure or high-severity item' : ' failures or high-severity items') : '') + (counts.errors && counts.warnings ? ' and ' : '') + (counts.warnings ? counts.warnings + (counts.warnings === 1 ? ' warning' : ' warnings') : '');
+    }
     // Count items that need attention in each section so the navigation shows
     // where to look first. Badges live in the navigation, outside searchable
     // and copyable section content.
@@ -2451,17 +2797,17 @@ html:not(.report-js) .report-layout { grid-template-columns:minmax(0,1fr); }
         for (var i=0; i<buttons.length; i++) {
             var section = byId(buttons[i].getAttribute('data-section'));
             if (!section) { continue; }
-            var errors = section.querySelectorAll('.status-error').length, warnings = section.querySelectorAll('.status-warning').length;
-            var total = errors + warnings;
+            var counts = issueCounts(section), total = counts.errors + counts.warnings;
             if (!total) { continue; }
             var badge = document.createElement('span');
-            badge.className = 'nav-badge' + (errors ? ' nav-badge-error' : '');
+            badge.className = 'nav-badge' + (counts.errors ? ' nav-badge-error' : '');
             badge.textContent = String(total);
-            var description = (errors ? errors + (errors === 1 ? ' failure or high-severity item' : ' failures or high-severity items') : '') + (errors && warnings ? ' and ' : '') + (warnings ? warnings + (warnings === 1 ? ' warning' : ' warnings') : '');
-            badge.title = description; badge.setAttribute('aria-label', description);
+            badge.title = issueDescription(counts); badge.setAttribute('aria-label', issueDescription(counts));
             buttons[i].appendChild(badge);
         }
     }
+
+    // Copy ---------------------------------------------------------------
     // Read DOM text, not innerText: collapsed panels, horizontal scrolling and
     // search marks must never omit or change the copied report values.
     function tableText(table) {
@@ -2472,23 +2818,31 @@ html:not(.report-js) .report-layout { grid-template-columns:minmax(0,1fr); }
             }).join('\t');
         }).join('\r\n');
     }
+    function partsText(item) {
+        return Array.prototype.filter.call(item.children,function(part){return part.tagName!=='BUTTON';}).map(function(part){return part.textContent;}).join(': ');
+    }
     function reportText(container) {
         var chunks=[];
         function visit(node) {
-            if (node.nodeType !== 1 || node.matches('button,.dataset-tools,.section-actions,.copy-feedback,.review-links')) { return; }
+            if (node.nodeType !== 1 || node.matches('button,.dataset-tools,.section-toolbar,.section-overview,.copy-feedback,.review-links,.role-list,.health-legend,.health-bar')) { return; }
             if (node.tagName === 'TABLE') { chunks.push(tableText(node)); return; }
-            if (node.tagName === 'SUMMARY') { chunks.push(node.querySelector('.dataset-title').textContent+' ('+node.querySelector('.dataset-count').textContent+')'); return; }
-            if (node.matches('.facts,.metrics')) {
-                chunks.push(Array.prototype.map.call(node.children,function(item){return Array.prototype.map.call(item.children,function(part){return part.textContent;}).join(': ');}).join('\r\n'));return;
+            if (node.tagName === 'SUMMARY') {
+                var title=node.querySelector('.dataset-title'),count=node.querySelector('.dataset-count');
+                chunks.push((title?title.textContent:node.textContent)+(count?' ('+count.textContent+')':''));return;
+            }
+            if (node.matches('.facts,.metrics')) { chunks.push(Array.prototype.map.call(node.children,partsText).join('\r\n'));return; }
+            if (node.matches('.health-figure')) {
+                var percent=node.querySelector('.health-percent'),caption=node.querySelector('.health-caption');
+                chunks.push('Collection health: '+(percent?percent.textContent:'')+(caption?' '+caption.textContent:''));return;
             }
             if (node.matches('h1,h2,h3,h4,p,li,pre')) { chunks.push(node.textContent); return; }
             for (var i=0;i<node.children.length;i++) { visit(node.children[i]); }
         }
         visit(container); return chunks.join('\r\n\r\n');
     }
+    var coverActions=document.querySelector('.cover-actions')||document.querySelector('.report-brand');
     var copyFeedback=document.createElement('div');
     copyFeedback.className='copy-feedback';copyFeedback.setAttribute('role','status');copyFeedback.setAttribute('aria-live','polite');
-    document.querySelector('.report-brand').appendChild(copyFeedback);
     var copyPanel=document.createElement('div');copyPanel.className='copy-panel';copyPanel.hidden=true;
     copyPanel.setAttribute('role','region');copyPanel.setAttribute('aria-label','Manual report copy');
     var copyHelp=document.createElement('p');copyHelp.textContent='Automatic copy is unavailable. The complete text is selected below. Press Ctrl+C (Command+C on Mac), then Close.';
@@ -2519,6 +2873,11 @@ html:not(.report-js) .report-layout { grid-template-columns:minmax(0,1fr); }
         var button=document.createElement('button');button.type='button';button.className='quiet-button copy-action';button.textContent=label;
         button.addEventListener('click',function(){copyText(getText(),button);});container.appendChild(button);return button;
     }
+    // This control remains available in the embedded viewer as well as saved HTML.
+    copyButton('Copy full report',coverActions,function(){
+        return document.querySelector('h1').textContent+'\r\n'+document.querySelector('.subtitle').textContent+'\r\n\r\n'+sections.map(reportText).join('\r\n\r\n');
+    });
+    coverActions.appendChild(copyFeedback);
     for(var cs=0;cs<sections.length;cs++) {
         (function(section){
             var actions=section.querySelector('.section-actions');
@@ -2528,10 +2887,8 @@ html:not(.report-js) .report-layout { grid-template-columns:minmax(0,1fr); }
             actions.appendChild(print);
         }(sections[cs]));
     }
-    // This control remains available in the embedded viewer as well as saved HTML.
-    copyButton('Copy full report',document.querySelector('.report-brand'),function(){
-        return document.querySelector('h1').textContent+'\r\n'+document.querySelector('.subtitle').textContent+'\r\n\r\n'+sections.map(reportText).join('\r\n\r\n');
-    });
+
+    // Tables -------------------------------------------------------------
     function enhanceTable(panel,table,toolbar) {
         var rows=Array.prototype.slice.call(table.tBodies[0].rows),searchRows=null;
         var filterLabel=document.createElement('label');filterLabel.className='table-filter';filterLabel.textContent='Filter rows ';
@@ -2560,43 +2917,131 @@ html:not(.report-js) .report-layout { grid-template-columns:minmax(0,1fr); }
             });
         });
     }
-    for(var cd=0;cd<details.length;cd++) {
-        (function(panel){
-            var body=panel.querySelector('.dataset-body'),table=panel.querySelector('table'),pre=panel.querySelector('pre');
-            var toolbar=document.createElement('div');toolbar.className='dataset-tools';body.insertBefore(toolbar,body.firstChild);
-            copyButton(table?'Copy table': 'Copy text',toolbar,function(){return table?tableText(table):pre?pre.textContent:reportText(body);});
-            if(!table&&!pre&&panel.querySelector('.empty-data')){panel.classList.add('dataset-empty');}
-            if(table){
-                alignNumericColumns(table);
-                var wrap=document.createElement('button');wrap.type='button';wrap.className='quiet-button';wrap.textContent='Wrap values';wrap.setAttribute('aria-pressed','false');
-                wrap.addEventListener('click',function(){var on=panel.classList.toggle('wrap-values');wrap.setAttribute('aria-pressed',String(on));wrap.textContent=on?'Compact rows':'Wrap values';});toolbar.appendChild(wrap);
-                var hint=document.createElement('span');hint.className='table-hint';hint.textContent='Select text to copy a value. Scroll sideways for wide tables. Copy table includes all rows.';toolbar.appendChild(hint);
-                enhanceTable(panel,table,toolbar);
-            }
-        }(details[cd]));
-    }
-    for (var d=0; d<details.length; d++) { details[d].open=details[d].getAttribute('data-default-open') === 'true'; }
-    // Put actionable findings ahead of routine datasets without changing the
-    // underlying blocks or discarding their original section/anchor identities.
-    var summarySection=byId(root.getAttribute('data-default-section'));
-    if(summarySection){
-        var cursor=summarySection.querySelector('.section-actions');
-        var priorityPanels=summarySection.querySelectorAll('.dataset-priority');
-        for(var p=0;cursor&&p<priorityPanels.length;p++){
-            cursor.parentNode.insertBefore(priorityPanels[p],cursor.nextSibling);cursor=priorityPanels[p];
+    function enhanceDataset(panel) {
+        var body=panel.querySelector('.dataset-body'),table=panel.querySelector('table'),pre=panel.querySelector('pre');
+        var toolbar=document.createElement('div');toolbar.className='dataset-tools';body.insertBefore(toolbar,body.firstChild);
+        copyButton(table?'Copy table': 'Copy text',toolbar,function(){return table?tableText(table):pre?pre.textContent:reportText(body);});
+        if(!table&&!pre&&panel.querySelector('.empty-data')){panel.classList.add('dataset-empty');}
+        if(!table){return;}
+        var rows=toArray(table.tBodies[0].rows),labels=toArray(table.tHead.rows[0].cells).map(function(cell){return cell.getAttribute('data-original-label')||cell.textContent;});
+        // Two-column name/value lists are styled as property sheets (still compact
+        // rows with optional wrapping); a single wide record is transposed visually.
+        // Table rows, cells and order are unchanged.
+        if(labels.length===2&&/^value$/i.test(labels[1])){table.classList.add('kv-table');panel.classList.add('dataset-properties');}
+        else if(rows.length===1&&labels.length>=3){table.classList.add('record-table');panel.classList.add('dataset-properties');table.style.gridTemplateRows='repeat('+labels.length+', auto)';}
+        alignNumericColumns(table);
+        var counts=issueCounts(panel);
+        if(counts.errors||counts.warnings){
+            var flag=document.createElement('span');flag.className='dataset-flag dataset-flag-'+(counts.errors?'error':'warning');
+            flag.setAttribute('data-label',(counts.errors+counts.warnings)+' to review');flag.title=issueDescription(counts);flag.setAttribute('aria-label',issueDescription(counts));
+            var summaryCount=panel.querySelector('summary .dataset-count');summaryCount.parentNode.insertBefore(flag,summaryCount);
         }
+        if(table.classList.contains('record-table')){return;}
+        var wrap=document.createElement('button');wrap.type='button';wrap.className='quiet-button';wrap.textContent='Wrap values';wrap.setAttribute('aria-pressed','false');
+        wrap.addEventListener('click',function(){var on=panel.classList.toggle('wrap-values');wrap.setAttribute('aria-pressed',String(on));wrap.textContent=on?'Compact rows':'Wrap values';});toolbar.appendChild(wrap);
+        var hint=document.createElement('span');hint.className='table-hint';hint.textContent='Select text to copy a value. Copy table includes all rows.';toolbar.appendChild(hint);
+        if(rows.length>1){enhanceTable(panel,table,toolbar);}
     }
+    for(var cd=0;cd<details.length;cd++) { enhanceDataset(details[cd]); }
+    for (var d=0; d<details.length; d++) { details[d].open=details[d].getAttribute('data-default-open') === 'true'; }
+
+    // Hierarchy ----------------------------------------------------------
+    // Put actionable findings in the summary's attention panel without
+    // changing the underlying blocks or their original section/anchor identities.
+    var summarySection=byId(summaryId);
+    if(summarySection){
+        var attentionItems=summarySection.querySelector('.attention-items');
+        var priorityPanels=summarySection.querySelectorAll('.dataset-priority');
+        for(var p=0;attentionItems&&p<priorityPanels.length;p++){ attentionItems.appendChild(priorityPanels[p]); }
+    }
+    // Datasets that returned nothing move into one quiet group per section or
+    // subsection. They stay in the DOM for search, copy and print.
+    var defaultEmptyMessage='No data was collected or the component is not present.';
+    function groupEmptyDatasets(container) {
+        var empties=toArray(container.children).filter(function(child){return child.tagName==='DETAILS'&&child.classList.contains('dataset-empty');});
+        if(!empties.length){return;}
+        absentCount++;
+        var group=document.createElement('details');group.className='absent-group';group.id='no-data-'+absentCount;
+        var summary=document.createElement('summary');
+        var title=document.createElement('span');title.className='dataset-title';title.textContent='No data collected';
+        var count=document.createElement('span');count.className='dataset-count';count.textContent=plural(empties.length,'dataset','datasets');
+        summary.appendChild(title);summary.appendChild(count);group.appendChild(summary);
+        var body=document.createElement('div');body.className='absent-body';
+        var note=document.createElement('p');note.className='absent-note';
+        note.textContent='These datasets were checked but returned no rows. The component may be absent or unconfigured, or its collector may have failed; see the collection results.';
+        body.appendChild(note);
+        var list=document.createElement('div');list.className='absent-list';
+        // Only explanations that differ from the standard "no data" text start open.
+        empties.forEach(function(panel){var message=panel.querySelector('.empty-data');panel.open=!!message&&message.textContent!==defaultEmptyMessage;list.appendChild(panel);});
+        body.appendChild(list);group.appendChild(body);container.appendChild(group);
+    }
+    function addOverviewItem(list,panel) {
+        var item=document.createElement('li'),button=document.createElement('button'),counts=issueCounts(panel);
+        button.type='button';button.className='overview-item'+(counts.errors?' has-error':(counts.warnings?' has-warning':''));
+        button.setAttribute('data-anchor',panel.id);button.textContent=panel.getAttribute('data-title');
+        var countText=panel.querySelector('summary .dataset-count').textContent.replace(/\d{4,}/g,formatNumber);
+        button.setAttribute('data-count',countText);button.setAttribute('aria-label',panel.getAttribute('data-title')+', '+countText+(counts.errors||counts.warnings?', '+issueDescription(counts):''));
+        item.appendChild(button);list.appendChild(item);
+    }
+    function buildOverview(section) {
+        var panels=toArray(section.querySelectorAll('details.dataset'));
+        var withData=panels.filter(function(panel){return !panel.classList.contains('dataset-empty');});
+        var rows=0;withData.forEach(function(panel){var table=panel.querySelector('table');if(table){rows+=table.tBodies[0].rows.length;}});
+        var stats=section.querySelector('.section-stats');
+        if(stats&&panels.length){
+            var parts=[plural(panels.length,'dataset','datasets')];
+            if(withData.length!==panels.length){parts.push(formatNumber(withData.length)+' with data');}
+            if(rows){parts.push(plural(rows,'table row','table rows'));}
+            var counts=issueCounts(section);if(counts.errors+counts.warnings){parts.push(formatNumber(counts.errors+counts.warnings)+' to review');}
+            stats.setAttribute('data-stats',parts.join(' \u00b7 '));
+        }
+        if(section.id===summaryId||panels.length<4){return;}
+        var overview=document.createElement('nav');overview.className='section-overview';overview.setAttribute('aria-label','In this section');
+        var containers=[section].concat(toArray(section.querySelectorAll('.subsection-group')));
+        containers.forEach(function(container){
+            var heading=container===section?null:container.querySelector('.subsection-anchor');
+            var owned=panels.filter(function(panel){var group=panel.closest('.subsection-group');return container===section?!group:group===container;});
+            var filled=owned.filter(function(panel){return !panel.classList.contains('dataset-empty');});
+            if(!owned.length&&!heading){return;}
+            var block=document.createElement('div');block.className='overview-group';
+            if(heading){var title=document.createElement('button');title.type='button';title.className='overview-group-title';title.setAttribute('data-anchor',heading.id);title.textContent=cleanTitle(heading.textContent);block.appendChild(title);}
+            var list=document.createElement('ul');list.className='overview-list';
+            filled.forEach(function(panel){addOverviewItem(list,panel);});
+            var absent=null;for(var c=0;c<container.children.length;c++){if(container.children[c].classList.contains('absent-group')){absent=container.children[c];}}
+            if(absent&&owned.length>filled.length){
+                var item=document.createElement('li'),button=document.createElement('button');button.type='button';button.className='overview-item overview-absent';
+                button.setAttribute('data-anchor',absent.id);button.textContent=plural(owned.length-filled.length,'dataset','datasets')+' with no data';
+                item.appendChild(button);list.appendChild(item);
+            }
+            if(list.children.length){block.appendChild(list);}
+            if(block.children.length){overview.appendChild(block);}
+        });
+        if(!overview.children.length){return;}
+        if(overview.children.length===1){overview.classList.add('section-overview-single');}
+        var toolbar=section.querySelector('.section-toolbar');
+        toolbar.parentNode.insertBefore(overview,toolbar.nextSibling);
+    }
+    for(var gs=0;gs<sections.length;gs++){
+        var section=sections[gs];
+        groupEmptyDatasets(section);
+        var groups=section.querySelectorAll('.subsection-group');
+        for(var gg=0;gg<groups.length;gg++){groupEmptyDatasets(groups[gg]);}
+        buildOverview(section);
+    }
+
+    // Navigation and interaction -----------------------------------------
     for (var b=0; b<buttons.length; b++) {
         (function(index) { buttons[index].addEventListener('click',function() { activate(index,true,''); }); }(b));
     }
-    var jumpButtons = document.querySelectorAll('[data-anchor]');
-    for (var j=0; j<jumpButtons.length; j++) {
-        (function(button) { button.addEventListener('click',function() { revealId(button.getAttribute('data-anchor')); }); }(jumpButtons[j]));
-    }
+    document.addEventListener('click',function(event) {
+        var target=event.target&&event.target.closest?event.target.closest('[data-anchor]'):null;
+        if(!target||target.tagName!=='BUTTON'){return;}
+        event.preventDefault();revealId(target.getAttribute('data-anchor'));
+    });
     var expandButtons = document.querySelectorAll('[data-details-action]');
     for (var e=0; e<expandButtons.length; e++) {
         (function(button) { button.addEventListener('click',function() {
-            var section=parentSection(button), panels=section.querySelectorAll('details.dataset');
+            var section=parentSection(button), panels=section.querySelectorAll('details');
             for (var i=0; i<panels.length; i++) { panels[i].open=button.getAttribute('data-details-action') === 'expand'; }
         }); }(expandButtons[e]));
     }
@@ -2622,11 +3067,26 @@ html:not(.report-js) .report-layout { grid-template-columns:minmax(0,1fr); }
         else if (event.key === ']') { event.preventDefault(); activate(currentIndex+1,true,''); }
         else if (event.key === '[') { event.preventDefault(); activate(currentIndex-1,true,''); }
     });
+    // Highlight the subsection currently at the top of the reading pane.
+    var spyPending=false;
+    function updateSpy() {
+        spyPending=false;
+        if(!content||!buttons.length){return;}
+        var links=buttons[currentIndex].parentNode.querySelectorAll('.subsection-nav-button'),limit=content.getBoundingClientRect().top+96,best=null,bestTop=-Infinity;
+        if(content.scrollTop<8){markSubsectionLink('');return;}
+        for(var i=0;i<links.length;i++){
+            var target=byId(links[i].getAttribute('data-anchor'));
+            if(!target||target.offsetParent===null){continue;}
+            var top=target.getBoundingClientRect().top;
+            if(top<=limit&&top>bestTop){best=links[i];bestTop=top;}
+        }
+        markSubsectionLink(best?best.getAttribute('data-anchor'):'');
+    }
     if (content) {
         var toTop=document.createElement('button');toTop.type='button';toTop.className='back-to-top';toTop.textContent='Back to top';toTop.hidden=true;
         toTop.addEventListener('click',function(){content.scrollTop=0;var heading=document.querySelector('.report-section.active .section-title');if(heading){heading.setAttribute('tabindex','-1');heading.focus({preventScroll:true});}});
         document.querySelector('.report-layout').appendChild(toTop);
-        content.addEventListener('scroll',function(){toTop.hidden=content.scrollTop<400;},{passive:true});
+        content.addEventListener('scroll',function(){toTop.hidden=content.scrollTop<400;if(!spyPending){spyPending=true;window.requestAnimationFrame(updateSpy);}},{passive:true});
     }
     byId('report-search-prev').addEventListener('click',function() { showMatch(matchIndex-1); });
     byId('report-search-next').addEventListener('click',function() { showMatch(matchIndex+1); });
@@ -2640,7 +3100,7 @@ html:not(.report-js) .report-layout { grid-template-columns:minmax(0,1fr); }
     root.classList.add('report-js');
     var requested = window.location.hash.substring(1);
     if (requested && byId(requested)) { revealId(requested); }
-    else { activate(indexById(root.getAttribute('data-default-section')),false,''); }
+    else { activate(indexById(summaryId),false,''); }
 }());
 </script>
 '@

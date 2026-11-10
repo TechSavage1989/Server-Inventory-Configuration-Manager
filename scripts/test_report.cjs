@@ -103,7 +103,42 @@ async function newContext(options={}){
  await check('Existing row-limit notices and empty dataset explanations remain visible when opened',async()=>{
   await page.locator('.section-main-button[data-title="Network Configuration"]').click();
   const panel=page.locator('[data-title="Truncated source snapshot"]');await panel.locator('summary').click();assert((await panel.textContent()).includes('2 of 3 rows'));assert((await panel.textContent()).includes('complete dataset remains'));
-  await page.locator('.section-main-button[data-title="Role-Specific Configuration"]').click();await page.locator('[data-title="DFS namespaces"] summary').click();assert(await page.locator('[data-title="DFS namespaces"] .empty-data').isVisible());
+  await page.locator('.section-main-button[data-title="Role-Specific Configuration"]').click();
+  const absent=page.locator('.report-section.active .absent-group');assert.equal(await absent.count(),1);assert.equal(await absent.evaluate(e=>e.open),false);
+  assert.equal(await absent.locator('[data-title="DFS namespaces"]').count(),1);assert(!(await page.locator('[data-title="DFS namespaces"] .empty-data').isVisible()));
+  await absent.locator(':scope > summary').click();await page.locator('[data-title="DFS namespaces"] summary').click();assert(await page.locator('[data-title="DFS namespaces"] .empty-data').isVisible());
+ });
+ await check('Executive summary links health, review items, metrics and detected roles to their datasets',async()=>{
+  await page.locator('.section-main-button[data-title="Executive Summary"]').click();
+  assert.equal(await page.locator('.health-percent').textContent(),'97%');
+  assert.deepStrictEqual(await page.locator('.health-card .review-link').allTextContents(),['2 collection issues','1 recovery prerequisite or gap']);
+  assert.deepStrictEqual(await page.locator('.role-chip').allTextContents(),['File Server','DFS Namespaces','Print Server']);
+  assert.equal(await page.locator('.attention-review .attention-items .dataset-priority').count(),2);
+  await page.locator('.metric-has-link').filter({hasText:'Installed applications'}).locator('.metric-link').click();
+  assert.equal(await page.locator('.report-section.active h2').textContent(),'Installed Applications and Data Connectivity');
+  assert.equal(await page.locator('[data-title="Installed applications"][open]').count(),1);
+  await page.locator('.section-main-button[data-title="Executive Summary"]').click();await page.locator('.role-chip').first().click();
+  assert.equal(await page.locator('[data-title="Detected critical roles and platforms"][open]').count(),1);
+ });
+ await check('Section contents group datasets under their headings and jump to collapsed datasets',async()=>{
+  await page.locator('.section-main-button[data-title="Network Configuration"]').click();
+  const overview=page.locator('.report-section.active .section-overview');
+  assert.deepStrictEqual(await overview.locator('.overview-group-title').allTextContents(),['IP Addressing and DNS','Routing and gateways']);
+  assert.equal(await overview.locator('.overview-item.has-error').count(),1);assert.equal(await page.locator('[data-title="Copy edge cases"] .dataset-flag-error').count(),1);
+  await page.locator('.report-section.active [data-details-action="collapse"]').click();assert.equal(await page.locator('[data-title="Truncated source snapshot"][open]').count(),0);
+  await overview.locator('.overview-item',{hasText:'Truncated source snapshot'}).click();assert.equal(await page.locator('[data-title="Truncated source snapshot"][open]').count(),1);
+  assert((await page.locator('.report-section.active .section-stats').getAttribute('data-stats')).includes('1,511 table rows'));
+ });
+ await check('Scroll position highlights the current subsection in the navigation',async()=>{
+  await page.locator('.report-section.active [data-details-action="expand"]').click();
+  await page.evaluate(()=>{const c=document.querySelector('.report-content'),t=document.querySelector('[data-title="Copy edge cases"]');c.style.scrollBehavior='auto';c.scrollTop+=t.getBoundingClientRect().top-c.getBoundingClientRect().top-8;});
+  await page.waitForTimeout(150);assert.equal(await page.locator('.nav-group.active .subsection-nav-button.active').textContent(),'Copy edge cases');
+ });
+ await check('Name/value and single-record tables read as property sheets without changing table data',async()=>{
+  assert(await page.locator('[data-title="Server identity and baseline"] table').evaluate(t=>t.classList.contains('kv-table')));
+  assert(await page.locator('[data-title="Operating system settings"] table').evaluate(t=>t.classList.contains('kv-table')));
+  const record=page.locator('[data-title="Processor configuration"] table');assert(await record.evaluate(t=>t.classList.contains('record-table')));
+  assert.deepStrictEqual(await models(page),oldModels);
  });
  await check('Dataset deep links and keyboard activation open the intended section and details',async()=>{
   const id=await page.locator('[data-title="Routing table"]').getAttribute('id');await page.goto(base+'/new#'+id);assert.equal(await page.locator('[data-title="Routing table"][open]').count(),1);
@@ -124,6 +159,31 @@ async function newContext(options={}){
   await page.locator('#toggle-report-nav').click();assert(await page.locator('.report-nav').isVisible());
   await page.locator('.section-main-button[data-title="Network Configuration"]').click();assert(!(await page.locator('.report-nav').isVisible()));
   await page.screenshot({path:path.join(directory,'report-mobile.png')});
+ });
+ await check('Server 2012-era screen sizes keep report text legible and controls reachable, standalone and embedded',async()=>{
+  // 1008x690 and 784x522 are the viewports left by 1024x768 and 800x600 screens; 760x420 and 990x560 approximate the viewer frame.
+  for(const size of [{width:1008,height:690},{width:784,height:522},{width:760,height:420,embedded:true},{width:990,height:560,embedded:true}]){
+   await page.setViewportSize({width:size.width,height:size.height});await page.goto(base+'/new');
+   if(size.embedded){await page.evaluate(()=>document.documentElement.classList.add('embedded-report'));}
+   for(const title of ['Executive Summary','Network Configuration']){
+    if(await page.locator('#toggle-report-nav').isVisible()){await page.locator('#toggle-report-nav').click();}
+    await page.locator('.section-main-button[data-title="'+title+'"]').click();
+    await page.locator('.report-section.active [data-details-action="expand"]').click();
+    const result=await page.evaluate(()=>{
+     const small=new Set(),walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);let checked=0,node;
+     while((node=walker.nextNode())){
+      const element=node.parentElement;if(!node.nodeValue.trim()||!element||!element.getClientRects().length)continue;
+      checked++;const fontSize=parseFloat(getComputedStyle(element).fontSize);if(fontSize<11)small.add(element.tagName+'.'+element.className+':'+fontSize);
+     }
+     const actions=document.querySelector('.report-section.active .section-actions').getBoundingClientRect();
+     return {small:Array.from(small),checked,overflow:document.documentElement.scrollWidth>window.innerWidth+1,actionsInside:actions.width>0&&actions.right<=window.innerWidth+1};
+    });
+    const label=JSON.stringify(size)+' '+title;
+    assert(result.checked>40,label);assert.deepStrictEqual(result.small,[],label);assert(!result.overflow,label);assert(result.actionsInside,label);
+   }
+   await page.screenshot({path:path.join(directory,'report-'+size.width+'x'+size.height+(size.embedded?'-embedded':'')+'.png')});
+  }
+  await page.setViewportSize({width:1440,height:1000});
  });
  await check('Navigation review badges, numeric alignment and empty-dataset styling stay outside report data',async()=>{
   await page.setViewportSize({width:1440,height:1000});await page.goto(base+'/new');
