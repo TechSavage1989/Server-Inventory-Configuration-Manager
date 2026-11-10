@@ -31,8 +31,8 @@ import (
 
 const (
 	appName            = "Server Inventory Configuration Manager"
-	appVersion         = "3.2.13"
-	collectorVersion   = "3.2.13"
+	appVersion         = "3.2.14"
+	collectorVersion   = "3.2.14"
 	applicationPageCSP = "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; frame-src 'self'"
 	maximumCollectors  = 49
 
