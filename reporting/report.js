@@ -322,11 +322,28 @@
         else if(rows.length===1&&labels.length>=3){table.classList.add('record-table');panel.classList.add('dataset-properties');table.style.gridTemplateRows='repeat('+labels.length+', auto)';}
         alignNumericColumns(table);
         var counts=issueCounts(panel);
-        if(counts.errors||counts.warnings){
-            var flag=document.createElement('span');flag.className='dataset-flag dataset-flag-'+(counts.errors?'error':'warning');
-            flag.setAttribute('data-label',(counts.errors+counts.warnings)+' to review');flag.title=issueDescription(counts);flag.setAttribute('aria-label',issueDescription(counts));
-            var summaryCount=panel.querySelector('summary .dataset-count');summaryCount.parentNode.insertBefore(flag,summaryCount);
-        }
+        // Header flags are buttons: each click opens the dataset and jumps to the
+        // next failed/high-severity row (red) or warning row (amber). Their labels
+        // are CSS-generated so search and copy keep returning only source data.
+        var summaryCount=panel.querySelector('summary .dataset-count');
+        [['error',counts.errors,' error',' errors',{errors:counts.errors,warnings:0}],['warning',counts.warnings,' warning',' warnings',{errors:0,warnings:counts.warnings}]].forEach(function(kind){
+            if(!kind[1]){return;}
+            var flag=document.createElement('button'),cursor=-1;flag.type='button';flag.className='dataset-flag dataset-flag-'+kind[0];
+            var about=issueDescription(kind[4]);
+            flag.setAttribute('data-label',kind[1]+(kind[1]===1?kind[2]:kind[3]));flag.title=about+'. Click to jump to '+(kind[1]===1?'it':'the next one')+'.';flag.setAttribute('aria-label',about+'. Jump to '+(kind[1]===1?'it':'the next one')+'.');
+            flag.addEventListener('click',function(event){
+                // Inside <summary>: do not let the click toggle the dataset closed.
+                event.preventDefault();event.stopPropagation();
+                var cells=panel.querySelectorAll('td .status-'+kind[0]);if(!cells.length){return;}
+                if(panel.clearTableFilter){panel.clearTableFilter();}
+                openParents(panel);
+                var marked=panel.querySelectorAll('tr.issue-focus');for(var m=0;m<marked.length;m++){marked[m].classList.remove('issue-focus');}
+                cursor=(cursor+1)%cells.length;
+                var row=cells[cursor].closest('tr');row.classList.add('issue-focus');
+                try { row.scrollIntoView({block:'center',inline:'nearest'}); } catch (error) { row.scrollIntoView(true); }
+            });
+            summaryCount.parentNode.insertBefore(flag,summaryCount);
+        });
         if(table.classList.contains('record-table')){return;}
         var wrap=document.createElement('button');wrap.type='button';wrap.className='quiet-button';wrap.textContent='Wrap values';wrap.setAttribute('aria-pressed','false');
         wrap.addEventListener('click',function(){var on=panel.classList.toggle('wrap-values');wrap.setAttribute('aria-pressed',String(on));wrap.textContent=on?'Compact rows':'Wrap values';});toolbar.appendChild(wrap);

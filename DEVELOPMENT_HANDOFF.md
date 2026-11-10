@@ -1,3 +1,7 @@
+## Unreleased: jump from a dataset header to its errors and warnings — 2026-11-10
+
+User feedback on 3.2.15: a 457-row table showed "1 to review" in its header with no way to find the row. The header flag is now two buttons, a red **N errors** (failed or high-severity rows) and an amber **N warnings**. A click opens the dataset, clears its row filter, scrolls to the next matching row and highlights it; further clicks cycle. The buttons sit inside `<summary>` and cancel the default toggle so a click never closes the dataset. Labels are CSS-generated (`data-label`), so search and copy still return only source data. Only `reporting/report.js` and `report.css` changed; re-embedded, `report-verification.json` regenerated. One new check in `scripts/test_report.cjs` (29/29 against the scratch emulation in Chromium; `test_report_copy.cjs` 13/13). Real renderer and Edge run in Windows CI. Not released.
+
 ## 3.2.15 published and verified — 2026-11-10
 
 - [Release v3.2.15](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.15), tag and target commit `32395da1ca5819ca80b4c36538b997b267692d39` (publication PR #20, changing only `release/VERSION`). Source: full-width report, single-value copy and Copy path #18; release preparation #19.
