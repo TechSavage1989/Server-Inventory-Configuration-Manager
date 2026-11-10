@@ -1,3 +1,14 @@
+## 3.2.15 published and verified — 2026-11-10
+
+- [Release v3.2.15](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.15), tag and target commit `32395da1ca5819ca80b4c36538b997b267692d39` (publication PR #20, changing only `release/VERSION`). Source: full-width report, single-value copy and Copy path #18; release preparation #19.
+- [Publish run](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/42761931769) passed in one attempt: build, native tests, report/workspace browser gates, publication, `Verify-PublicRelease.ps1`, and the published-upgrade job.
+- All 45 actual 3.2.14-to-3.2.15 upgrade checks passed in one run (05:29–05:38 UTC) with real two-minute focus and five-minute scheduler waits, no reused timer evidence and zero unexpected dialogs: automatic detection, explicit Download/Install/restart, old-profile closure, guest/extension/sync flags, shortcut/icon repair, settings and window restoration, manual check through the Help menu, staging cleanup and failed-health rollback/relaunch.
+- Stable EXE: 6,717,440 bytes; SHA-256 `762d067ac1d03db4bb27b6f62438020b805e8081561dd8325f526b4d09d19dc1` (release asset digest). All 12 assets are published; the v3.2.14 release still has its 12 assets and the same EXE digest.
+- `docs/images/report-executive-summary.png` is the published 3.2.15 `Report-Preview.png` (SHA-256 `7f7fed747baae132709c473680bb953226042c8dc858a8ad695fd06c2a0d2295`, downloaded from the release asset; byte-identical to the 3.2.14 preview because the preview viewport is narrower than the old width cap).
+- #19 also widened `TestRateLimitBackoffIncludesManualChecks` by one second: the cache stores whole RFC 3339 seconds, so the 600 s backoff could read as just under 599 s and fail intermittently.
+
+Limits: synthetic hosted Windows/Edge testing, not live customer inventory, physical desktop/mixed-DPI interaction, human UAC consent or a legacy Windows field pass. Bringing folder windows to the front has only the automated hosted check. The single-value Copy control is pointer-only. CI artifacts were not downloaded, so no `release/3.2.15-verification.json` exists; the job logs above are the evidence. No client data was uploaded.
+
 ## 3.2.15 release preparation — 2026-11-10
 
 The user asked on 2026-11-10 to release the full-width report, single-value copy and Copy path changes (#18). This branch bumps `appVersion`, `collectorVersion` and the collector `$scriptVersion` to 3.2.15, adds `docs/release-notes/3.2.15.md` (first three bullets free of Markdown) and points `scripts/test_published_upgrade.cjs` at the published v3.2.14 executable (SHA-256 `e67fa8ad85431eec68f33f852769670b40731ae8fd7dae1025d6b784d87d4b9a`, 6,714,880 bytes, from the release asset digest). `release/VERSION` changes in a separate publication PR after this branch's Windows CI passes.
