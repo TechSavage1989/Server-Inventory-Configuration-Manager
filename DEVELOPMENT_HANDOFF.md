@@ -1,3 +1,16 @@
+## 3.2.15 release preparation — 2026-11-10
+
+The user asked on 2026-11-10 to release the full-width report, single-value copy and Copy path changes (#18). This branch bumps `appVersion`, `collectorVersion` and the collector `$scriptVersion` to 3.2.15, adds `docs/release-notes/3.2.15.md` (first three bullets free of Markdown) and points `scripts/test_published_upgrade.cjs` at the published v3.2.14 executable (SHA-256 `e67fa8ad85431eec68f33f852769670b40731ae8fd7dae1025d6b784d87d4b9a`, 6,714,880 bytes, from the release asset digest). `release/VERSION` changes in a separate publication PR after this branch's Windows CI passes.
+
+## 3.2.14 published and verified — 2026-11-10
+
+- [Release v3.2.14](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.14), tag and target commit `c84ccbaa78de8feabcdaa7ad6172efa756060a2a` (publication PR #16, changing only `release/VERSION`). Source: interface changes #13, report redesign #14, release preparation #15.
+- [Publish run](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/42757003387): build, native tests, browser gates, publication and `Verify-PublicRelease.ps1` passed. Its published-upgrade job failed after 32 passed checks because the test script left the new modal About and updates dialog open (harness defect from #13, fixed in #17; no application defect).
+- [Full validation run](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/42759040416) against the unchanged published files (04:58–05:07 UTC): all 45 actual 3.2.13-to-3.2.14 checks passed in one run with real two-minute focus and five-minute scheduler waits and no reused timer evidence, including saved choices, native window move/relaunch and failed-health rollback/relaunch.
+- Stable EXE: 6,714,880 bytes; SHA-256 `e67fa8ad85431eec68f33f852769670b40731ae8fd7dae1025d6b784d87d4b9a` (release asset digest). All 12 assets are published; the v3.2.13 release still has its 12 assets and the same EXE digest.
+
+Limits: synthetic hosted Windows/Edge testing, not live customer inventory, physical desktop/mixed-DPI interaction, human UAC consent or a legacy Windows field pass. Bringing folder windows to the front has only the automated hosted check. CI artifacts were not downloaded, so no `release/3.2.14-verification.json` exists; the job logs above are the evidence. No client data was uploaded.
+
 ## Unreleased: report fills the window — 2026-11-10
 
 User feedback on the published 3.2.14 report in a 2000 px wide window: content was capped at 1260 px and centered, so wide tables wrapped while the margins stayed empty. `reporting/report.css` no longer caps `.reading-width` or the footer; prose intros keep their own 780 px limit. Re-embedded; `report-verification.json` regenerated. Checked with the scratch Python emulation in Chromium at 1960 px (content 1708 px, datasets 1660 px); the real renderer and Edge run in Windows CI. Not released: 3.2.14 keeps the capped layout until a later version ships this.
