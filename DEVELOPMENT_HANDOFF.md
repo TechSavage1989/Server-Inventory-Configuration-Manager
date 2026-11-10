@@ -1,3 +1,13 @@
+## 3.2.16 published and verified — 2026-11-10
+
+- [Release v3.2.16](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.16), tag and target commit `ed8a03822f2ff7593842667e9471b8ba59d6cef0` (publication PR #24, changing only `release/VERSION`). Source: dataset-header error/warning jump buttons #22; release preparation #23.
+- [Publish run](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/42766460695) passed in one attempt: build, native tests, report/workspace browser gates, publication, `Verify-PublicRelease.ps1`, and the published-upgrade job.
+- All 45 actual 3.2.15-to-3.2.16 upgrade checks passed in one run (06:13–06:22 UTC) with real two-minute focus and five-minute scheduler waits, no reused timer evidence and zero unexpected dialogs.
+- Stable EXE: 6,719,488 bytes; SHA-256 `89eb16091d028caf16b5efadd8f66e9c2612b95d3e9bfe36eaaa705b80b706a5` (release asset digest). All 12 assets are published; the v3.2.15 release still has its 12 assets and the same EXE digest.
+- `docs/images/report-executive-summary.png` is the published 3.2.16 `Report-Preview.png` (SHA-256 `557ed3772566202f43dbdb7ada73352afacd1c8381c8be8a8f472891b1fdee3a`, downloaded from the release asset).
+
+Limits: synthetic hosted Windows/Edge testing, not live customer inventory, physical desktop/mixed-DPI interaction, human UAC consent or a legacy Windows field pass. Bringing folder windows to the front has only the automated hosted check. CI artifacts were not downloaded, so no `release/3.2.16-verification.json` exists; the job logs above are the evidence. No client data was uploaded.
+
 ## 3.2.16 release preparation — 2026-11-10
 
 The user approved a full release of the dataset-header error/warning jump buttons (#22) on 2026-11-10. This branch bumps `appVersion`, `collectorVersion` and the collector `$scriptVersion` to 3.2.16, adds `docs/release-notes/3.2.16.md` (first three bullets free of Markdown) and points `scripts/test_published_upgrade.cjs` at the published v3.2.15 executable (SHA-256 `762d067ac1d03db4bb27b6f62438020b805e8081561dd8325f526b4d09d19dc1`, 6,717,440 bytes, from the release asset digest). `release/VERSION` changes in a separate publication PR after this branch's Windows CI passes.
