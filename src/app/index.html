@@ -220,6 +220,8 @@ body { height: 100vh; }
 .report-empty { width: 100%; height: 100%; min-height: 0; overflow-y: auto; }
 .report-toolbar.collapsed { min-height: 46px; padding: 6px 10px; flex-wrap: nowrap; }
 .report-toolbar.collapsed .report-path, .report-toolbar.collapsed .viewer-search { display: none; }
+.report-path-row { display: flex; align-items: center; gap: 8px; min-width: 0; }.report-path-row .report-path { min-width: 0; }.report-path-row .link-button { flex: none; font-size: 11px; padding: 0 4px; }
+.report-toolbar.collapsed .report-path-row { display: none; }
 .report-toolbar.collapsed .report-ident { flex: 1 1 auto; min-width: 0; }
 .report-toolbar.collapsed .report-actions { flex: 0 0 auto; }
 .report-toolbar.collapsed .report-actions > button:not(#collapseReportHeaderButton) { display: none; }
@@ -353,7 +355,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
  .log-toolbar{margin-top:8px;margin-bottom:6px}.log-meta{display:none}.log-tools input,.log-tools select{height:32px}
  .collection-actions{margin-top:8px;padding-top:8px}
  .update-banner{margin-bottom:8px;padding:6px 12px}.update-notes{display:none}.update-actions button{min-height:30px;height:30px}
- .report-toolbar{padding:6px 10px;gap:6px}.report-path{display:none}.viewer-search{padding-top:6px;margin-top:0}.viewer-search input{height:32px}
+ .report-toolbar{padding:6px 10px;gap:6px}.report-path-row{display:none}.viewer-search{padding-top:6px;margin-top:0}.viewer-search input{height:32px}
  .setup-layout{min-height:215px}.collection-wrap{min-height:290px}.report-tab-wrap{min-height:215px}
 }
 @media(max-height:720px) and (max-width:800px){.server-panel{padding:6px 12px}.setup-layout{gap:8px}}
@@ -509,7 +511,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     <section class="tab-panel" id="tabReport" role="tabpanel" aria-labelledby="tabButtonReport">
       <div class="report-tab-wrap">
         <div class="report-toolbar" id="reportToolbar">
-          <div class="report-ident"><div class="report-name" id="loadedReportName">No report loaded</div><div class="report-path" id="loadedReportPath">Run an inventory or load a previous inventory package.</div></div>
+          <div class="report-ident"><div class="report-name" id="loadedReportName">No report loaded</div><div class="report-path-row"><div class="report-path" id="loadedReportPath">Run an inventory or load a previous inventory package.</div><button class="link-button hidden" id="copyReportPathButton" type="button" title="Copy the report file path">Copy path</button></div></div>
           <div class="report-actions"><button class="secondary-button" id="loadPreviousButton" type="button">Load previous report</button><button class="secondary-button" id="openHtmlButton" type="button" disabled>Open HTML externally</button><button class="secondary-button" id="openWordButton" type="button" disabled>Open Word</button><button class="secondary-button" id="openSummaryButton" type="button" disabled>Open summary</button><button class="secondary-button" id="openFolderButton" type="button" disabled>Open folder</button><button class="secondary-button" id="toggleViewerButton" type="button" disabled>Close report</button><button class="secondary-button" id="collapseReportHeaderButton" type="button" aria-expanded="true">Collapse controls</button></div>
           <div class="viewer-search"><input id="viewerSearchInput" type="search" placeholder="Search the entire loaded report (Enter for next match)" aria-label="Search loaded report"><button class="secondary-button" id="viewerSearchButton" type="button" disabled>Search</button><button class="secondary-button" id="viewerPrevButton" type="button" disabled>Previous</button><button class="secondary-button" id="viewerNextButton" type="button" disabled>Next</button><button class="secondary-button" id="viewerClearButton" type="button" disabled>Clear</button><div class="search-status" id="viewerSearchStatus">Load a report to search it.</div></div>
         </div>
@@ -851,6 +853,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     byId('reportTabBadge').textContent=state.loadedReportAvailable?'Ready':'None';
     byId('loadedReportName').textContent=state.loadedReportAvailable?(state.loadedReportName||'Loaded inventory report'):'No report loaded';
     byId('loadedReportPath').textContent=state.loadedReportAvailable?(state.loadedReportPath||''):'Run an inventory or load a previous inventory package.';
+    byId('copyReportPathButton').classList.toggle('hidden',!(state.loadedReportAvailable&&state.loadedReportPath));
     if(state.loadedReportAvailable && (loadedReportSerial!==state.loadedReportSerial)){
       loadedReportSerial=state.loadedReportSerial; viewerOpen=true; byId('reopenReportButton').className='secondary-button hidden'; openViewer(true);
     } else if(state.loadedReportAvailable && autoOpen && !viewerOpen){ openViewer(false); }
@@ -1074,6 +1077,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   for(var ti=0;ti<tabButtons.length;ti++){tabButtons[ti].addEventListener('keydown',function(e){var list=Array.prototype.slice.call(tabButtons),index=list.indexOf(this);if(e.key==='ArrowRight'){index=(index+1)%list.length;}else if(e.key==='ArrowLeft'){index=(index+list.length-1)%list.length;}else if(e.key==='Home'){index=0;}else if(e.key==='End'){index=list.length-1;}else{return;}e.preventDefault();list[index].click();list[index].focus();});}
   byId('revertChoicesButton').addEventListener('click',revertChoices);
   var groupToggles=document.querySelectorAll('[data-group-toggle]');for(var gt=0;gt<groupToggles.length;gt++){groupToggles[gt].addEventListener('click',function(){toggleGroup(this);});}
+  byId('copyReportPathButton').addEventListener('click',function(){var button=this,path=latestState&&latestState.loadedReportPath;if(!path){return;}copyText(path,function(ok){button.textContent=ok?'Copied':'Copy failed';if(!ok){notice('The path could not be copied automatically. Select it and press Ctrl+C.',true);}window.setTimeout(function(){button.textContent='Copy path';},1600);});});
   byId('nextIssueButton').addEventListener('click',nextIssue);byId('copyLogButton').addEventListener('click',copyLog);
   var metricActions=document.querySelectorAll('[data-log-filter]');for(var ma=0;ma<metricActions.length;ma++){
     metricActions[ma].addEventListener('click',function(){showLogFilter(this.getAttribute('data-log-filter'));});

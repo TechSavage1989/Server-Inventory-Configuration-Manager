@@ -140,6 +140,13 @@ async function newContext(options={}){
   const record=page.locator('[data-title="Processor configuration"] table');assert(await record.evaluate(t=>t.classList.contains('record-table')));
   assert.deepStrictEqual(await models(page),oldModels);
  });
+ await check('Hovering a value offers a one-click copy control that stays outside the table data',async()=>{
+  const cell=page.locator('[data-title="Server identity and baseline"] tbody td').nth(1);await cell.evaluate(e=>window.SICMReport.revealElement(e));const expected=await cell.textContent();await cell.hover();
+  const copy=page.locator('.cell-copy');await copy.waitFor({state:'visible'});assert.equal(await copy.evaluate(b=>!!b.closest('table,.report-section')),false);
+  await page.evaluate(()=>{window.__cellCopied=null;navigator.clipboard.writeText=t=>{window.__cellCopied=t;return Promise.resolve();};});
+  await copy.click();await page.waitForFunction(()=>window.__cellCopied!==null);assert.equal(await page.evaluate(()=>window.__cellCopied),expected);
+  await page.mouse.move(2,2);assert.deepStrictEqual(await models(page),oldModels);
+ });
  await check('Dataset deep links and keyboard activation open the intended section and details',async()=>{
   const id=await page.locator('[data-title="Routing table"]').getAttribute('id');await page.goto(base+'/new#'+id);assert.equal(await page.locator('[data-title="Routing table"][open]').count(),1);
   await page.locator('[data-title="Routing table"] summary').focus();await page.keyboard.press('Enter');assert.equal(await page.locator('[data-title="Routing table"][open]').count(),0);

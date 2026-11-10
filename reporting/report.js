@@ -473,6 +473,26 @@
         }
         markSubsectionLink(best?best.getAttribute('data-anchor'):'');
     }
+    // One floating control copies the single value under the pointer. It lives
+    // outside the tables, so cell text, search and Copy table are unchanged.
+    var copyLayout=document.querySelector('.report-layout');
+    if (copyLayout && content) {
+        var cellCopy=document.createElement('button'),cellTarget=null;
+        cellCopy.type='button';cellCopy.className='cell-copy';cellCopy.textContent='Copy';cellCopy.hidden=true;cellCopy.setAttribute('aria-label','Copy this value');
+        copyLayout.appendChild(cellCopy);
+        var hideCellCopy=function(){cellCopy.hidden=true;cellTarget=null;};
+        copyLayout.addEventListener('mouseover',function(event){
+            if(event.target===cellCopy){return;}
+            var cell=event.target.closest?event.target.closest('tbody td,.fact-value'):null;
+            if(!cell||!cell.textContent.replace(/\s+/g,'')){hideCellCopy();return;}
+            var box=cell.getBoundingClientRect(),frame=copyLayout.getBoundingClientRect();
+            cellTarget=cell;cellCopy.style.top=(box.top-frame.top+1)+'px';
+            cellCopy.style.left=Math.max(0,Math.min(box.right,frame.right-18)-frame.left-48)+'px';cellCopy.hidden=false;
+        });
+        copyLayout.addEventListener('mouseleave',hideCellCopy);
+        content.addEventListener('scroll',hideCellCopy,{passive:true});
+        cellCopy.addEventListener('click',function(){if(cellTarget){copyText(cellTarget.textContent,cellCopy);}});
+    }
     if (content) {
         var toTop=document.createElement('button');toTop.type='button';toTop.className='back-to-top';toTop.textContent='Back to top';toTop.hidden=true;
         toTop.addEventListener('click',function(){content.scrollTop=0;var heading=document.querySelector('.report-section.active .section-title');if(heading){heading.setAttribute('tabindex','-1');heading.focus({preventScroll:true});}});
