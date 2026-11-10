@@ -141,7 +141,9 @@ func TestRateLimitBackoffIncludesManualChecks(t *testing.T) {
 			waitCheck(t, a)
 			cache, _ := a.readUpdateCache()
 			until, _ := time.Parse(time.RFC3339, cache.BackoffUntilUTC)
-			if time.Until(until) < 599*time.Second {
+			// The cache stores whole seconds (RFC 3339), so up to one second is lost to
+			// truncation before the elapsed test time is subtracted.
+			if time.Until(until) < 598*time.Second {
 				t.Fatal("Retry-After was shortened")
 			}
 			a.update.lastManual = time.Time{}
