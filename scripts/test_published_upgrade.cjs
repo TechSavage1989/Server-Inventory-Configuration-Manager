@@ -137,6 +137,8 @@ async function nativeProcess(exe,args,env){const child=spawn(exe,args,{env,windo
  await page.locator('#helpMenuButton').click();await page.locator('#helpCheckUpdates').click();await until(async()=>{const s=await state(newURL);return s.update.lastCheckUnixMs>last});
  check(true,'Manual update check succeeds on the new executable');last=(await state(newURL)).update.lastCheckUnixMs;
  await page.locator('#updateCheckButton').click();await new Promise(r=>setTimeout(r,600));check((await state(newURL)).update.lastCheckUnixMs===last,'Short manual-check cooldown prevents another request');
+ // The manual check runs inside the modal About and updates dialog; close it so later workspace clicks are not blocked.
+ await page.locator('#aboutClose').click();check(!await page.locator('#aboutDialog').isVisible(),'About and updates dialog closes after the manual check');
  if(reuseEvidence){
   const focus='Application focus binding checks again after two minutes',timer='Native automatic checks continue after five active minutes';
   if(reuseEvidence.version!==expected||reuseEvidence.sha256!==manifest.asset.sha256||![focus,timer].every(name=>reuseEvidence.report.checks.some(c=>c.name===name&&c.result==='passed')))throw Error('Timer evidence does not match the exact published executable');
