@@ -36,6 +36,8 @@ Read this file and DEVELOPMENT_HANDOFF.md before making changes.
 
 17. The 2026-10-30 report candidate is user-requested source work, not a published release. Preserve compact/selectable HTML, full-data copy including collapsed/filtered rows, optional wrap, table filtering/sorting, offline/manual clipboard fallback and print completeness. Keep array-valued CSV fields flattened with explicit existing safety-limit notices and raw CLIXML intact. Run scripts/Test-ReportValues.ps1, scripts/Test-ReportPerformance.ps1, scripts/test_report_copy_logic.cjs and scripts/test_report_copy.cjs in addition to existing report gates. Generation fast paths must preserve exact cell text and Word document XML, including raw/error fallbacks; never cache already-lossy type names as recovered data. Do not claim a browser/native pass from VM logic tests or Linux PowerShell fixtures.
 
+21. The 2026-11-10 report redesign is user-requested. Summary labels derived from report data (health figures, contents entries, review flags) must be button text or CSS-generated text so search, the viewer's search and copy return only source data. Empty datasets keep `dataset-empty` in the source and stay searchable, copyable and printable inside their collapsed group. `enhanceTable(panel,table,toolbar)` must stay self-contained because `scripts/test_report_copy_logic.cjs` extracts it. Use only Chrome/Edge 109 features in `reporting/`.
+
 ## Build and validate
 
 Use Go 1.20.14, Python 3, and Windows PowerShell for build validation. The updater itself has no PowerShell/runtime dependency. The original inventory engine still uses built-in Windows PowerShell with the baseline process-scoped collector invocation.

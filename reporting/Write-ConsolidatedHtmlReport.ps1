@@ -10,6 +10,8 @@ function Write-ConsolidatedHtmlReport {
     $identity = @{}
     $metrics = @{}
     $anchors = @{}
+    $titleAnchors = @{}
+    $roles = New-Object System.Collections.ArrayList
     $entries = New-Object System.Collections.ArrayList
     $currentEntry = [pscustomobject]@{ Id='section-overview'; Title='About this report'; Links=(New-Object System.Collections.ArrayList) }
     [void]$entries.Add($currentEntry)
@@ -17,6 +19,8 @@ function Write-ConsolidatedHtmlReport {
     $subsectionNumber = 0
     $summaryId = 'section-overview'
     $subtitle = ''
+    $failureRows = -1
+    $recoveryRows = -1
     $blockList = @($Blocks)
     for ($index = 0; $index -lt $blockList.Count; $index++) {
         $block = $blockList[$index]
@@ -33,9 +37,20 @@ function Write-ConsolidatedHtmlReport {
             $anchor = 'section-' + $sectionNumber + '-sub-' + $subsectionNumber
             $anchors[$index] = $anchor
             $label = ''
-            if ([string]$block.Type -eq 'Heading') { $label = [string]$block.Text }
-            else { $label = [string]$block.Title }
-            [void]$currentEntry.Links.Add([pscustomobject]@{ Id=$anchor; Title=$label })
+            $kind = 'dataset'
+            if ([string]$block.Type -eq 'Heading') {
+                $label = [string]$block.Text
+                $kind = 'heading'
+            }
+            else {
+                $label = [string]$block.Title
+                if (-not $titleAnchors.ContainsKey($label)) { $titleAnchors[$label] = $anchor }
+                if ([string]$block.Type -eq 'Table') {
+                    if ([int]$block.DisplayRows -le 0) { $kind = 'empty' }
+                }
+                elseif ([string]::IsNullOrWhiteSpace([string]$block.Text)) { $kind = 'empty' }
+            }
+            [void]$currentEntry.Links.Add([pscustomobject]@{ Id=$anchor; Title=$label; Kind=$kind })
         }
         if ([string]$block.Type -eq 'Table') {
             if ([string]$block.Title -eq 'Server identity and baseline') {
@@ -44,63 +59,159 @@ function Write-ConsolidatedHtmlReport {
             if ([string]$block.Title -eq 'Inventory at a glance') {
                 foreach ($row in @($block.Rows)) { $metrics[[string]$row.Area] = [string]$row.Count }
             }
+            if ([string]$block.Title -eq 'Detected critical roles and platforms') {
+                foreach ($row in @($block.Rows)) {
+                    $roleName = [string]$row.Role
+                    if (-not [string]::IsNullOrWhiteSpace($roleName)) { [void]$roles.Add($roleName) }
+                }
+            }
+            if ([string]$block.Title -eq 'Collection failures requiring review') { $failureRows = [int]$block.DisplayRows }
+            if ([string]$block.Title -eq 'Recovery prerequisites and gaps') { $recoveryRows = [int]$block.DisplayRows }
         }
     }
     $serverName = [string]$identity['Computer name']
     if ([string]::IsNullOrWhiteSpace($serverName)) { $serverName = $DocumentTitle }
+    $invariant = [System.Globalization.CultureInfo]::InvariantCulture
     $builder = New-Object System.Text.StringBuilder
 
     function Get-CleanReportTitle {
         param([string]$Text)
         return ($Text -replace '^\d+(\.\d+)*\.?\s+', '')
     }
+    function Write-SummaryOverview {
+        # Derived summary views. Interactive labels are button text so report
+        # search, the viewer search and Copy section keep to the source data.
+        [void]$builder.AppendLine('<div class="overview-grid"><div class="overview-card profile-card"><div class="card-label">Server profile</div><div class="facts">')
+        foreach ($name in @('Operating system','Domain or workgroup','Physical or virtual','Collected')) {
+            $value = [string]$identity[$name]
+            if ([string]::IsNullOrWhiteSpace($value)) { $value = 'Not collected' }
+            [void]$builder.AppendLine('<div><span class="fact-label">' + (ConvertTo-HtmlText $name) + '</span><span class="fact-value">' + (ConvertTo-HtmlText $value) + '</span></div>')
+        }
+        foreach ($name in @('FQDN','Version and build','CPU','Memory','Last boot')) {
+            $value = [string]$identity[$name]
+            if (-not [string]::IsNullOrWhiteSpace($value)) {
+                [void]$builder.AppendLine('<div class="fact-extra"><span class="fact-label">' + (ConvertTo-HtmlText $name) + '</span><span class="fact-value">' + (ConvertTo-HtmlText $value) + '</span></div>')
+            }
+        }
+        [void]$builder.AppendLine('</div>')
+        if ($roles.Count -gt 0) {
+            $rolesAnchor = [string]$titleAnchors['Detected critical roles and platforms']
+            [void]$builder.AppendLine('<div class="role-list"><span class="role-list-label">Detected roles</span>')
+            $shown = 0
+            foreach ($roleName in $roles) {
+                if ($shown -ge 16) { break }
+                $shown++
+                [void]$builder.AppendLine('<button type="button" class="role-chip" data-anchor="' + $rolesAnchor + '" title="Show detected critical roles and platforms">' + (ConvertTo-HtmlText $roleName) + '</button>')
+            }
+            if ($roles.Count -gt $shown) {
+                [void]$builder.AppendLine('<button type="button" class="role-chip role-chip-more" data-anchor="' + $rolesAnchor + '">' + ($roles.Count - $shown) + ' more</button>')
+            }
+            [void]$builder.AppendLine('</div>')
+        }
+        [void]$builder.AppendLine('</div>')
+        $completedText = [string]$metrics['Collectors completed successfully']
+        $failedText = [string]$metrics['Collectors failed or unavailable']
+        [void]$builder.AppendLine('<div class="overview-card health-card"><div class="card-label">Collection health</div>')
+        if (($completedText -match '^\d+$') -and ($failedText -match '^\d+$') -and (([int]$completedText + [int]$failedText) -gt 0)) {
+            $completed = [int]$completedText
+            $failed = [int]$failedText
+            $total = $completed + $failed
+            $percent = [Math]::Floor(($completed * 100) / $total)
+            $okWidth = ([double]$completed * 100 / $total).ToString('0.##', $invariant)
+            $reviewWidth = ([double]$failed * 100 / $total).ToString('0.##', $invariant)
+            $healthClass = 'health-figure'
+            if ($failed -gt 0) { $healthClass += ' health-review' }
+            [void]$builder.AppendLine('<div class="' + $healthClass + '"><span class="health-percent">' + $percent + '%</span><p class="health-caption">of collectors completed (' + $completed + ' of ' + $total + ')</p></div>')
+            [void]$builder.AppendLine('<div class="health-bar" role="img" aria-label="' + $completed + ' collectors completed, ' + $failed + ' need review"><span class="health-ok" style="width:' + $okWidth + '%"></span><span class="health-fail" style="width:' + $reviewWidth + '%"></span></div>')
+            [void]$builder.AppendLine('<div class="health-legend"><span class="legend-ok">' + $completed + ' completed</span><span class="legend-fail">' + $failed + ' need review</span></div>')
+        }
+        else {
+            [void]$builder.AppendLine('<div class="health-figure health-unknown"><span class="health-percent">Not collected</span><p class="health-caption">Collector results were not included in this report.</p></div>')
+        }
+        [void]$builder.AppendLine('<div class="review-links">')
+        for ($reviewIndex=0; $reviewIndex -lt $blockList.Count; $reviewIndex++) {
+            $review = $blockList[$reviewIndex]
+            if (([string]$review.Type -eq 'Table') -and ([int]$review.DisplayRows -gt 0) -and ([string]$review.Title -match '^(Collection failures requiring review|Recovery prerequisites and gaps)$')) {
+                $label = 'collection issues'
+                if ([string]$review.Title -eq 'Recovery prerequisites and gaps') { $label = 'recovery prerequisites or gaps' }
+                if ([int]$review.DisplayRows -eq 1) {
+                    $label = 'collection issue'
+                    if ([string]$review.Title -eq 'Recovery prerequisites and gaps') { $label = 'recovery prerequisite or gap' }
+                }
+                [void]$builder.AppendLine('<button type="button" class="review-link" data-anchor="' + $anchors[$reviewIndex] + '">' + $review.DisplayRows + ' ' + $label + '</button>')
+            }
+        }
+        [void]$builder.AppendLine('</div></div></div><div class="metrics">')
+        foreach ($metric in @(
+            @{Key='Collectors completed successfully'; Label='Collectors completed'; Target='Collector execution status'},
+            @{Key='Collectors failed or unavailable'; Label='Collectors requiring review'; Target='Collection failures requiring review'},
+            @{Key='Detected critical roles and platforms'; Label='Critical roles and platforms'; Target='Detected critical roles and platforms'},
+            @{Key='Installed applications'; Label='Installed applications'; Target='Installed applications'}
+        )) {
+            $value = [string]$metrics[$metric.Key]
+            if ($value -notmatch '^\d+$') { $value = 'Not collected' }
+            $class = 'metric'
+            if (($metric.Key -eq 'Collectors failed or unavailable') -and ($value -match '^[1-9]')) { $class += ' metric-review' }
+            $link = ''
+            $targetAnchor = [string]$titleAnchors[[string]$metric.Target]
+            if (-not [string]::IsNullOrWhiteSpace($targetAnchor)) {
+                $class += ' metric-has-link'
+                $link = '<button type="button" class="metric-link" data-anchor="' + $targetAnchor + '" title="Show ' + (ConvertTo-HtmlText $metric.Target) + '" aria-label="Show ' + (ConvertTo-HtmlText $metric.Target) + '"></button>'
+            }
+            [void]$builder.AppendLine('<div class="' + $class + '"><span class="metric-value">' + (ConvertTo-HtmlText $value) + '</span><span class="metric-label">' + $metric.Label + '</span>' + $link + '</div>')
+        }
+        [void]$builder.AppendLine('</div>')
+        $issueCount = 0
+        if ($failureRows -gt 0) { $issueCount += $failureRows }
+        if ($recoveryRows -gt 0) { $issueCount += $recoveryRows }
+        $attentionClass = 'attention attention-unknown'
+        $attentionTitle = 'Review status'
+        $attentionText = 'Collection failure and recovery-gap results were not included in this report.'
+        if ($issueCount -gt 0) {
+            $attentionClass = 'attention attention-review'
+            $attentionTitle = 'Needs attention'
+            $attentionText = 'Review these items before relying on this inventory for recovery, migration, replacement or rebuild work.'
+        }
+        elseif (($failureRows -eq 0) -and ($recoveryRows -eq 0)) {
+            $attentionClass = 'attention attention-clear'
+            $attentionText = 'No collection failures or recovery prerequisites were recorded.'
+        }
+        elseif ($failureRows -eq 0) {
+            $attentionClass = 'attention attention-clear'
+            $attentionText = 'No collection failures were recorded.'
+        }
+        elseif ($recoveryRows -eq 0) {
+            $attentionClass = 'attention attention-clear'
+            $attentionText = 'No recovery prerequisites or gaps were recorded.'
+        }
+        [void]$builder.AppendLine('<div class="' + $attentionClass + '" id="needs-attention"><div class="attention-head"><h3 class="attention-title">' + $attentionTitle + '</h3><p class="attention-summary">' + $attentionText + '</p></div><div class="attention-items"></div></div>')
+    }
     function Write-CleanReportSection {
         param([string]$Id, [string]$Title)
         $intro = 'Captured settings and detailed inventory.'
-        if ($Id -eq $summaryId) { $intro = 'A quick view of this server and the items that need review.' }
+        if ($Id -eq $summaryId) { $intro = 'Server profile, collection health and the items to review first.' }
+        elseif ($Id -eq 'section-overview') { $intro = 'How this report was produced and how to use it.' }
+        elseif ($Title -match 'Report Contents') { $intro = 'What this report covers.' }
         elseif ($Title -match 'Network') { $intro = 'IP addressing, routing, adapters, and listening services.' }
         elseif ($Title -match 'Storage') { $intro = 'Disks, volumes, paths, and storage configuration.' }
         elseif ($Title -match 'Recovery|Rebuild|Migration') { $intro = 'Review the requirements before planning migration or recovery.' }
         elseif ($Title -match 'Collection Appendix') { $intro = 'Collection results and supporting export references.' }
+        elseif ($Title -match 'Operating System') { $intro = 'Roles, features, updates, startup, backup and recovery configuration.' }
+        elseif ($Title -match 'Hardware') { $intro = 'Processors, memory, firmware, drivers, and devices.' }
+        elseif ($Title -match 'Applications') { $intro = 'Installed software, data sources, and application folders.' }
+        elseif ($Title -match 'Services') { $intro = 'Windows services, dependencies, and scheduled tasks.' }
+        elseif ($Title -match 'Security') { $intro = 'Local accounts, policy, audit, and firewall configuration.' }
+        elseif ($Title -match 'Shares') { $intro = 'SMB configuration, shares, and permissions.' }
+        elseif ($Title -match 'Role-Specific') { $intro = 'Configuration for the server roles detected during collection.' }
+        elseif ($Title -match 'Event') { $intro = 'Recent critical, error, and warning events.' }
+        $kicker = 'Reference'
+        if ($Id -eq $summaryId) { $kicker = 'Overview' }
+        elseif ($Title -match '^(\d+)\.') { $kicker = 'Section ' + ([int]$matches[1]).ToString('00') }
         [void]$builder.AppendLine('<section id="' + $Id + '" class="report-section">')
-        [void]$builder.AppendLine('<h2 class="section-title">' + (ConvertTo-HtmlText (Get-CleanReportTitle $Title)) + '</h2>')
-        [void]$builder.AppendLine('<p class="section-intro">' + $intro + '</p>')
-        if ($Id -eq $summaryId) {
-            [void]$builder.AppendLine('<div class="facts">')
-            foreach ($name in @('Operating system','Domain or workgroup','Physical or virtual','Collected')) {
-                $value = [string]$identity[$name]
-                if ([string]::IsNullOrWhiteSpace($value)) { $value = 'Not collected' }
-                [void]$builder.AppendLine('<div><span class="fact-label">' + (ConvertTo-HtmlText $name) + '</span><span class="fact-value">' + (ConvertTo-HtmlText $value) + '</span></div>')
-            }
-            [void]$builder.AppendLine('</div><div class="metrics">')
-            foreach ($metric in @(
-                @{Key='Collectors completed successfully'; Label='Collectors completed'},
-                @{Key='Collectors failed or unavailable'; Label='Collectors requiring review'},
-                @{Key='Detected critical roles and platforms'; Label='Critical roles and platforms'},
-                @{Key='Installed applications'; Label='Installed applications'}
-            )) {
-                $value = [string]$metrics[$metric.Key]
-                if ($value -notmatch '^\d+$') { $value = 'Not collected' }
-                $class = 'metric'
-                if (($metric.Key -eq 'Collectors failed or unavailable') -and ($value -match '^[1-9]')) { $class += ' metric-review' }
-                [void]$builder.AppendLine('<div class="' + $class + '"><span class="metric-value">' + (ConvertTo-HtmlText $value) + '</span><span class="metric-label">' + $metric.Label + '</span></div>')
-            }
-            [void]$builder.AppendLine('</div><div class="review-links">')
-            for ($reviewIndex=0; $reviewIndex -lt $blockList.Count; $reviewIndex++) {
-                $review = $blockList[$reviewIndex]
-                if (([string]$review.Type -eq 'Table') -and ([int]$review.DisplayRows -gt 0) -and ([string]$review.Title -match '^(Collection failures requiring review|Recovery prerequisites and gaps)$')) {
-                    $label = 'collection issues'
-                    if ([string]$review.Title -eq 'Recovery prerequisites and gaps') { $label = 'recovery prerequisites or gaps' }
-                    if ([int]$review.DisplayRows -eq 1) {
-                        $label = 'collection issue'
-                        if ([string]$review.Title -eq 'Recovery prerequisites and gaps') { $label = 'recovery prerequisite or gap' }
-                    }
-                    [void]$builder.AppendLine('<button type="button" class="review-link" data-anchor="' + $anchors[$reviewIndex] + '">' + $review.DisplayRows + ' ' + $label + '</button>')
-                }
-            }
-            [void]$builder.AppendLine('</div>')
-        }
-        [void]$builder.AppendLine('<div class="section-actions"><button type="button" class="quiet-button" data-details-action="expand">Expand section</button><button type="button" class="quiet-button" data-details-action="collapse">Collapse section</button></div>')
+        [void]$builder.AppendLine('<div class="section-head"><div class="section-kicker">' + $kicker + '</div><h2 class="section-title">' + (ConvertTo-HtmlText (Get-CleanReportTitle $Title)) + '</h2>')
+        [void]$builder.AppendLine('<p class="section-intro">' + $intro + '</p></div>')
+        if ($Id -eq $summaryId) { Write-SummaryOverview }
+        [void]$builder.AppendLine('<div class="section-toolbar"><div class="section-stats"></div><div class="section-actions"><button type="button" class="quiet-button" data-details-action="expand">Expand section</button><button type="button" class="quiet-button" data-details-action="collapse">Collapse section</button></div></div>')
     }
 
     [void]$builder.AppendLine('<!DOCTYPE html><html lang="en" data-report-layout="clean-v1" data-default-section="' + $summaryId + '"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">')
@@ -111,8 +222,8 @@ __REPORT_CSS__
 </style>
 '@
     [void]$builder.AppendLine($styleBlock)
-    [void]$builder.AppendLine('</head><body><div class="report-app"><header class="cover"><div class="report-brand"><div class="eyebrow">Server inventory / configuration snapshot</div>')
-    [void]$builder.AppendLine('<h1>' + (ConvertTo-HtmlText $serverName) + '</h1><p class="subtitle">' + (ConvertTo-HtmlText $subtitle) + '</p></div>')
+    [void]$builder.AppendLine('</head><body><div class="report-app"><header class="cover"><div class="report-mark" aria-hidden="true"><svg viewBox="0 0 32 32" width="32" height="32" focusable="false"><rect x="5" y="5" width="22" height="7" rx="2"/><rect x="5" y="13.5" width="22" height="7" rx="2"/><rect x="5" y="22" width="22" height="5" rx="2"/><circle class="mark-led" cx="9" cy="8.5" r="1.2"/><circle class="mark-led" cx="9" cy="17" r="1.2"/></svg></div><div class="report-brand"><div class="eyebrow">Server inventory / configuration snapshot</div>')
+    [void]$builder.AppendLine('<h1>' + (ConvertTo-HtmlText $serverName) + '</h1><p class="subtitle">' + (ConvertTo-HtmlText $subtitle) + '</p></div><div class="cover-actions"></div>')
     [void]$builder.AppendLine('<button class="nav-toggle" id="toggle-report-nav" aria-controls="report-nav" aria-expanded="false" type="button">Sections</button>')
     [void]$builder.AppendLine('<div class="standalone-tools"><form id="report-search-form" class="report-search" role="search"><input id="report-search-input" type="search" aria-label="Search the full report" placeholder="Search the full report"><button class="quiet-button" type="submit">Find</button><button id="report-print" class="quiet-button" type="button">Print all</button></form>')
     [void]$builder.AppendLine('<div class="search-controls"><button id="report-search-prev" class="quiet-button" type="button" disabled>Previous match</button><button id="report-search-next" class="quiet-button" type="button" disabled>Next match</button><button id="report-search-clear" class="quiet-button" type="button">Clear</button></div><div id="report-search-message" class="search-message" role="status" aria-live="polite">Search every section, including collapsed details.</div></div></header>')
@@ -127,11 +238,14 @@ __REPORT_CSS__
         $title = Get-CleanReportTitle $entry.Title
         $number = ''
         if ($entry.Title -match '^(\d+)\.') { $number = ([int]$matches[1]).ToString('00') }
-        [void]$builder.AppendLine('<div class="nav-group"><button type="button" class="section-nav-button section-main-button" data-section="' + $entry.Id + '" data-title="' + (ConvertTo-HtmlText $title) + '"><span class="nav-number" aria-hidden="true">' + $number + '</span><span>' + (ConvertTo-HtmlText $title) + '</span></button>')
+        [void]$builder.AppendLine('<div class="nav-group"><button type="button" class="section-nav-button section-main-button" data-section="' + $entry.Id + '" data-title="' + (ConvertTo-HtmlText $title) + '"><span class="nav-number" aria-hidden="true">' + $number + '</span><span class="nav-title">' + (ConvertTo-HtmlText $title) + '</span></button>')
         if ($entry.Links.Count -gt 0) {
             [void]$builder.AppendLine('<div class="subsection-list">')
             foreach ($link in $entry.Links) {
-                [void]$builder.AppendLine('<button type="button" class="subsection-nav-button" data-anchor="' + $link.Id + '">' + (ConvertTo-HtmlText (Get-CleanReportTitle $link.Title)) + '</button>')
+                $linkClass = 'subsection-nav-button'
+                if ($link.Kind -eq 'heading') { $linkClass += ' subsection-heading' }
+                elseif ($link.Kind -eq 'empty') { $linkClass += ' subsection-empty' }
+                [void]$builder.AppendLine('<button type="button" class="' + $linkClass + '" data-anchor="' + $link.Id + '">' + (ConvertTo-HtmlText (Get-CleanReportTitle $link.Title)) + '</button>')
             }
             [void]$builder.AppendLine('</div>')
         }
@@ -143,11 +257,13 @@ __REPORT_CSS__
     $sectionNumber = 0
     $datasetInSection = 0
     $currentId = 'section-overview'
+    $groupOpen = $false
     for ($index = 0; $index -lt $blockList.Count; $index++) {
         $block = $blockList[$index]
         $type = [string]$block.Type
         if ($type -eq 'Title') { continue }
         if (($type -eq 'Heading') -and ([int]$block.Level -eq 1)) {
+            if ($groupOpen) { [void]$builder.AppendLine('</div>'); $groupOpen = $false }
             [void]$builder.AppendLine('</section>')
             $sectionNumber++
             $datasetInSection = 0
@@ -159,6 +275,12 @@ __REPORT_CSS__
             'Heading' {
                 $tag = 'h3'
                 if ([int]$block.Level -gt 2) { $tag = 'h4' }
+                else {
+                    # Level-2 headings group the datasets that follow them.
+                    if ($groupOpen) { [void]$builder.AppendLine('</div>') }
+                    [void]$builder.AppendLine('<div class="subsection-group">')
+                    $groupOpen = $true
+                }
                 [void]$builder.AppendLine('<' + $tag + ' id="' + $anchors[$index] + '" class="subsection-anchor">' + (ConvertTo-HtmlText $block.Text) + '</' + $tag + '>')
             }
             'Paragraph' {
@@ -186,8 +308,11 @@ __REPORT_CSS__
                     if ([int]$block.DisplayRows -eq 1) { $count = '1 row' }
                     if ([int]$block.TotalRows -gt [int]$block.DisplayRows) { $count = [string]$block.DisplayRows + ' of ' + [string]$block.TotalRows + ' rows' }
                     if ([int]$block.DisplayRows -gt 15) { $class += ' dataset-long' }
+                    if ([int]$block.DisplayRows -le 0) { $class += ' dataset-empty'; $count = 'No data' }
                     if (($currentId -ne $summaryId) -and ($datasetInSection -eq 1) -and ([int]$block.DisplayRows -gt 0) -and ([int]$block.DisplayRows -le 8) -and (@($block.Columns).Count -le 5)) { $openByDefault = $true }
                 }
+                elseif ([string]::IsNullOrWhiteSpace([string]$block.Text)) { $class += ' dataset-empty'; $count = 'No data' }
+                else { $class += ' dataset-text' }
                 $openText = 'false'
                 if ($openByDefault) { $openText = 'true' }
                 # Render open in the source for no-script and print fallbacks;
@@ -244,6 +369,7 @@ __REPORT_CSS__
             }
         }
     }
+    if ($groupOpen) { [void]$builder.AppendLine('</div>') }
     [void]$builder.AppendLine('</section></div><footer class="footer-note">Sensitive infrastructure documentation. This inventory is a configuration snapshot, not a backup. Supporting exports retain raw data and reusable artifacts.</footer></main></div></div>')
     $scriptBlock = @'
 <script>
@@ -255,4 +381,3 @@ __REPORT_JS__
     $encoding = New-Object System.Text.UTF8Encoding($true)
     [System.IO.File]::WriteAllText($Path, $builder.ToString(), $encoding)
 }
-
