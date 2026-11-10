@@ -1,3 +1,7 @@
+## 3.2.16 release preparation — 2026-11-10
+
+The user approved a full release of the dataset-header error/warning jump buttons (#22) on 2026-11-10. This branch bumps `appVersion`, `collectorVersion` and the collector `$scriptVersion` to 3.2.16, adds `docs/release-notes/3.2.16.md` (first three bullets free of Markdown) and points `scripts/test_published_upgrade.cjs` at the published v3.2.15 executable (SHA-256 `762d067ac1d03db4bb27b6f62438020b805e8081561dd8325f526b4d09d19dc1`, 6,717,440 bytes, from the release asset digest). `release/VERSION` changes in a separate publication PR after this branch's Windows CI passes.
+
 ## Unreleased: jump from a dataset header to its errors and warnings — 2026-11-10
 
 User feedback on 3.2.15: a 457-row table showed "1 to review" in its header with no way to find the row. The header flag is now two buttons, a red **N errors** (failed or high-severity rows) and an amber **N warnings**. A click opens the dataset, clears its row filter, scrolls to the next matching row and highlights it; further clicks cycle. The buttons sit inside `<summary>` and cancel the default toggle so a click never closes the dataset. Labels are CSS-generated (`data-label`), so search and copy still return only source data. Only `reporting/report.js` and `report.css` changed; re-embedded, `report-verification.json` regenerated. One new check in `scripts/test_report.cjs` (29/29 against the scratch emulation in Chromium; `test_report_copy.cjs` 13/13). Real renderer and Edge run in Windows CI. Not released.
