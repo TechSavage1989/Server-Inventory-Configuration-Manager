@@ -2240,7 +2240,10 @@ li { margin:6px 0; }
 .dataset[open]>summary { border-bottom:1px solid var(--line); border-radius:10px 10px 0 0; }
 .dataset-title { flex:1; min-width:0; overflow-wrap:anywhere; }
 .dataset-count { flex:none; color:var(--muted); background:#eef1f5; border-radius:999px; padding:1px 9px; font-size:11px; font-weight:600; white-space:nowrap; font-variant-numeric:tabular-nums; }
-.dataset-flag { flex:none; border-radius:999px; padding:1px 8px; font-size:11px; font-weight:700; white-space:nowrap; }
+.dataset-flag { flex:none; border:1px solid transparent; border-radius:999px; padding:1px 9px; font-size:11px; font-weight:700; line-height:18px; white-space:nowrap; cursor:pointer; }
+.dataset-flag-error:hover { border-color:var(--bad); }
+.dataset-flag-warning:hover { border-color:var(--warn); }
+tbody tr.issue-focus td { background:#fff6d6; box-shadow:inset 0 2px 0 #d0952a, inset 0 -2px 0 #d0952a; }
 .dataset-flag::before { content:attr(data-label); }
 .dataset-flag-warning { background:var(--warn-soft); color:var(--warn); }
 .dataset-flag-error { background:var(--bad-soft); color:var(--bad); }
@@ -2934,11 +2937,28 @@ html:not(.report-js) .report-section { padding-bottom:28px; margin-bottom:28px; 
         else if(rows.length===1&&labels.length>=3){table.classList.add('record-table');panel.classList.add('dataset-properties');table.style.gridTemplateRows='repeat('+labels.length+', auto)';}
         alignNumericColumns(table);
         var counts=issueCounts(panel);
-        if(counts.errors||counts.warnings){
-            var flag=document.createElement('span');flag.className='dataset-flag dataset-flag-'+(counts.errors?'error':'warning');
-            flag.setAttribute('data-label',(counts.errors+counts.warnings)+' to review');flag.title=issueDescription(counts);flag.setAttribute('aria-label',issueDescription(counts));
-            var summaryCount=panel.querySelector('summary .dataset-count');summaryCount.parentNode.insertBefore(flag,summaryCount);
-        }
+        // Header flags are buttons: each click opens the dataset and jumps to the
+        // next failed/high-severity row (red) or warning row (amber). Their labels
+        // are CSS-generated so search and copy keep returning only source data.
+        var summaryCount=panel.querySelector('summary .dataset-count');
+        [['error',counts.errors,' error',' errors',{errors:counts.errors,warnings:0}],['warning',counts.warnings,' warning',' warnings',{errors:0,warnings:counts.warnings}]].forEach(function(kind){
+            if(!kind[1]){return;}
+            var flag=document.createElement('button'),cursor=-1;flag.type='button';flag.className='dataset-flag dataset-flag-'+kind[0];
+            var about=issueDescription(kind[4]);
+            flag.setAttribute('data-label',kind[1]+(kind[1]===1?kind[2]:kind[3]));flag.title=about+'. Click to jump to '+(kind[1]===1?'it':'the next one')+'.';flag.setAttribute('aria-label',about+'. Jump to '+(kind[1]===1?'it':'the next one')+'.');
+            flag.addEventListener('click',function(event){
+                // Inside <summary>: do not let the click toggle the dataset closed.
+                event.preventDefault();event.stopPropagation();
+                var cells=panel.querySelectorAll('td .status-'+kind[0]);if(!cells.length){return;}
+                if(panel.clearTableFilter){panel.clearTableFilter();}
+                openParents(panel);
+                var marked=panel.querySelectorAll('tr.issue-focus');for(var m=0;m<marked.length;m++){marked[m].classList.remove('issue-focus');}
+                cursor=(cursor+1)%cells.length;
+                var row=cells[cursor].closest('tr');row.classList.add('issue-focus');
+                try { row.scrollIntoView({block:'center',inline:'nearest'}); } catch (error) { row.scrollIntoView(true); }
+            });
+            summaryCount.parentNode.insertBefore(flag,summaryCount);
+        });
         if(table.classList.contains('record-table')){return;}
         var wrap=document.createElement('button');wrap.type='button';wrap.className='quiet-button';wrap.textContent='Wrap values';wrap.setAttribute('aria-pressed','false');
         wrap.addEventListener('click',function(){var on=panel.classList.toggle('wrap-values');wrap.setAttribute('aria-pressed',String(on));wrap.textContent=on?'Compact rows':'Wrap values';});toolbar.appendChild(wrap);

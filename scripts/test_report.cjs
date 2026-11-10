@@ -147,6 +147,15 @@ async function newContext(options={}){
   await copy.click();await page.waitForFunction(()=>window.__cellCopied!==null);assert.equal(await page.evaluate(()=>window.__cellCopied),expected);
   await page.mouse.move(2,2);assert.deepStrictEqual(await models(page),oldModels);
  });
+ await check('Dataset header error and warning buttons jump to each affected row without closing the dataset',async()=>{
+  const panel=page.locator('[data-title="Collection failures requiring review"]');await panel.evaluate(e=>window.SICMReport.revealElement(e));await panel.evaluate(e=>{e.open=false;});
+  const error=panel.locator('summary .dataset-flag-error'),warning=panel.locator('summary .dataset-flag-warning');assert.equal(await error.evaluate(b=>b.tagName),'BUTTON');
+  await error.click();assert(await panel.evaluate(e=>e.open),'the error button must open its dataset');
+  const focused=()=>panel.locator('tr.issue-focus');assert.equal(await focused().count(),1);assert.equal(await focused().locator('.status-error').count(),1);assert(await focused().isVisible());
+  await error.click();assert(await panel.evaluate(e=>e.open),'a second click must not close the dataset');assert.equal(await focused().count(),1);
+  if(await warning.count()){await warning.click();assert.equal(await focused().count(),1);assert.equal(await focused().locator('.status-warning').count(),1);}
+  assert.deepStrictEqual(await models(page),oldModels);
+ });
  await check('Dataset deep links and keyboard activation open the intended section and details',async()=>{
   const id=await page.locator('[data-title="Routing table"]').getAttribute('id');await page.goto(base+'/new#'+id);assert.equal(await page.locator('[data-title="Routing table"][open]').count(),1);
   await page.locator('[data-title="Routing table"] summary').focus();await page.keyboard.press('Enter');assert.equal(await page.locator('[data-title="Routing table"][open]').count(),0);
