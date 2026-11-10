@@ -1,3 +1,13 @@
+## 3.2.16 published and verified — 2026-11-10
+
+- [Release v3.2.16](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.16), tag and target commit `ed8a03822f2ff7593842667e9471b8ba59d6cef0` (publication PR #24, changing only `release/VERSION`). Source: dataset-header error/warning jump buttons #22; release preparation #23.
+- [Publish run](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/42766460695) passed in one attempt: build, native tests, report/workspace browser gates, publication, `Verify-PublicRelease.ps1`, and the published-upgrade job.
+- All 45 actual 3.2.15-to-3.2.16 upgrade checks passed in one run (06:13–06:22 UTC) with real two-minute focus and five-minute scheduler waits, no reused timer evidence and zero unexpected dialogs.
+- Stable EXE: 6,719,488 bytes; SHA-256 `89eb16091d028caf16b5efadd8f66e9c2612b95d3e9bfe36eaaa705b80b706a5` (release asset digest). All 12 assets are published; the v3.2.15 release still has its 12 assets and the same EXE digest.
+- `docs/images/report-executive-summary.png` is the published 3.2.16 `Report-Preview.png` (SHA-256 `557ed3772566202f43dbdb7ada73352afacd1c8381c8be8a8f472891b1fdee3a`, downloaded from the release asset).
+
+Limits: synthetic hosted Windows/Edge testing, not live customer inventory, physical desktop/mixed-DPI interaction, human UAC consent or a legacy Windows field pass. Bringing folder windows to the front has only the automated hosted check. CI artifacts were not downloaded, so no `release/3.2.16-verification.json` exists; the job logs above are the evidence. No client data was uploaded.
+
 ## 3.2.15 published and verified — 2026-11-10
 
 - [Release v3.2.15](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.15), tag and target commit `32395da1ca5819ca80b4c36538b997b267692d39` (publication PR #20, changing only `release/VERSION`). Source: full-width report, single-value copy and Copy path #18; release preparation #19.
