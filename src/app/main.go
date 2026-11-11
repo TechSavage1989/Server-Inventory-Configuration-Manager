@@ -654,16 +654,25 @@ func openInterfaceURL(address, profile string) (*exec.Cmd, string, error) {
 	if err := writeBrowserOwner(profile); err != nil {
 		return nil, "", err
 	}
+	found := 0
+	var blocked, failed []string
 	for _, candidate := range browserCandidates() {
-		if info, err := os.Stat(candidate); err != nil || info.IsDir() || !guestModeAllowed(candidate) {
+		if info, err := os.Stat(candidate); err != nil || info.IsDir() {
+			continue
+		}
+		found++
+		if policy := guestPolicyBlock(candidate); policy != "" {
+			blocked = append(blocked, browserDisplayName(candidate)+" guest browsing is turned off by policy ("+policy+").")
 			continue
 		}
 		command := exec.Command(candidate, browserArguments(address, profile)...)
-		if err := command.Start(); err == nil {
+		err := command.Start()
+		if err == nil {
 			return command, profile, nil
 		}
+		failed = append(failed, browserDisplayName(candidate)+" could not be started from "+candidate+": "+err.Error())
 	}
-	return nil, "", errors.New("A supported Edge or Chrome guest session could not be opened. The application will not open your personal browser profile. Guest mode may be disabled by browser policy.")
+	return nil, "", browserLaunchError(found, blocked, failed)
 }
 
 func powershellPath() string {

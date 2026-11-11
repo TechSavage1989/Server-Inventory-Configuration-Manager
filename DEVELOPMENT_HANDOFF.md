@@ -1,3 +1,7 @@
+## Unreleased: guest-session launch failures name their cause — 2026-11-11
+
+User report on 3.2.16: "The application interface could not open in a private guest session ... Guest mode may be disabled by browser policy." The launcher code is unchanged since 3.2.13; the message covered three different failures without saying which. `openInterfaceURL` now reports the actual cause: no Edge/Chrome found (with install guidance), guest browsing turned off by policy (naming the hive, key and values, e.g. `HKEY_LOCAL_MACHINE\Software\Policies\Microsoft\Edge: BrowserGuestModeEnabled=0`), or the browser process failing to start (path and Windows error). Browser discovery also reads the `App Paths` registrations for `msedge.exe`/`chrome.exe` (HKLM and HKCU), which installers write, so installs outside the six standard folders are found; standard folders stay first and duplicates are ignored. Guest-only behaviour is unchanged: no personal-profile fallback and no policy changes. New pure-function tests in `browser_windows_test.go`; `GOOS=windows go vet` and a Windows test-binary build pass here. Native tests run in Windows CI. Not released.
+
 ## 3.2.16 published and verified — 2026-11-10
 
 - [Release v3.2.16](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.16), tag and target commit `ed8a03822f2ff7593842667e9471b8ba59d6cef0` (publication PR #24, changing only `release/VERSION`). Source: dataset-header error/warning jump buttons #22; release preparation #23.
