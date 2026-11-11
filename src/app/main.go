@@ -673,6 +673,8 @@ func openInterfaceURL(address, profile string) (*exec.Cmd, string, error) {
 		}
 		failed = append(failed, browserDisplayName(candidate)+" could not be started from "+candidate+": "+err.Error())
 	}
+	// No browser ever used this app-owned profile folder; do not leave it behind.
+	_ = os.RemoveAll(profile)
 	return nil, "", browserLaunchError(found, blocked, failed)
 }
 
