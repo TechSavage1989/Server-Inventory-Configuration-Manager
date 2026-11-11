@@ -1319,6 +1319,9 @@ func (a *application) writeHealthMarker(token string, visible bool) {
 }
 
 func (a *application) ownApplicationWindow() uintptr {
+	if host := a.builtInWindow(); host != nil {
+		return host.visibleWindow()
+	}
 	a.mu.Lock()
 	profile := a.browserProfileDirectory
 	a.mu.Unlock()
@@ -1333,6 +1336,10 @@ func (a *application) ownApplicationWindow() uintptr {
 	return 0
 }
 func (a *application) closeOwnApplicationWindow() {
+	if host := a.builtInWindow(); host != nil {
+		host.close(10 * time.Second)
+		return
+	}
 	a.mu.Lock()
 	profile := a.browserProfileDirectory
 	a.mu.Unlock()

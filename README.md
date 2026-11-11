@@ -64,7 +64,7 @@ Direct links: [Download Windows EXE](https://github.com/TechSavage1989/Server-In
 
 - **Windows x64**, with Windows Server 2012+ as the compatibility target. Older Windows/PowerShell and individual server roles still require field validation; see [docs/VALIDATION.md](docs/VALIDATION.md).
 - **Built-in Windows PowerShell** for inventory collection and the permissions required to query/export the selected scope. Run with administrator rights for administrator-only data.
-- **Microsoft Edge or Chrome** with guest browsing permitted by your organization. The app does not bypass browser policies. Version 109, the last release for Windows Server 2012 and 2012 R2, is supported.
+- **Microsoft Edge or Chrome**, version 109 or later (109 is the last release for Windows Server 2012 and 2012 R2). Where company policy turns off guest browsing, or no supported browser is installed, the app opens in its own built-in window instead. That needs the **Microsoft Edge WebView2 Runtime**, which is part of Windows 10 and 11 and a separate free install from Microsoft on Windows Server 2012–2019. The app never changes browser policies.
 - A display of **800×600 or larger**. On small screens the header and panels become compact so the settings, log and report stay reachable.
 - A writable application location and output folder. Go, Python, and Node.js are **build tools**, not normal application requirements.
 
@@ -113,7 +113,8 @@ Reports stay in the selected output folder. Updates preserve your executable pat
 
 ### Desktop behavior
 
-- **Isolated browser session:** Edge/Chrome runs in an app-owned guest profile with extensions and account sync disabled. The app never falls back to your personal profile or changes browser settings/policies. If guest mode is blocked, it reports the limitation.
+- **Isolated browser session:** Edge/Chrome runs in an app-owned guest profile with extensions and account sync disabled. The app never falls back to your personal profile or changes browser settings/policies.
+- **Built-in window on managed PCs:** if guest browsing is turned off by policy or no supported browser is found, the interface opens in a built-in window (Microsoft Edge WebView2) with its own data folder under `%LOCALAPPDATA%\Server Inventory Configuration Manager\Runtime\WebView2`. If WebView2 is not installed either, the app says why it could not open, including the exact blocking policy.
 - **Remembered window:** the last usable position, size, and maximized state are saved separately in `Settings/window.json`. Minimized windows reopen normally or maximized; off-screen positions move into an available work area.
 - **Consistent icon:** the editable SVG is compiled into the EXE. Targeted shell notifications and exact-target shortcut icon repairs preserve launch properties, leave unrelated shortcuts alone, and do not restart Explorer.
 

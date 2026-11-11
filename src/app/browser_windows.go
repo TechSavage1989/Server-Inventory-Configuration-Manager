@@ -477,6 +477,10 @@ func browserCandidates() []string {
 	return mergeBrowserPaths(result, registeredBrowserPaths())
 }
 func (a *application) closeApplicationBrowser() error {
+	if host := a.builtInWindow(); host != nil {
+		host.close(10 * time.Second)
+		return nil
+	}
 	a.mu.Lock()
 	profile := a.browserProfileDirectory
 	a.mu.Unlock()

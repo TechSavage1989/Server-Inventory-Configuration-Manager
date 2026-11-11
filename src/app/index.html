@@ -986,7 +986,9 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   }
   function updateWindowTitle(state){
     var prefix=state.running?(state.progress||0)+'% Collecting':(state.status==='success'?'Collection complete':(state.status==='failed'?'Collection failed':(state.status==='canceled'?'Collection canceled':'')));
-    var title=prefix?prefix+' \u2014 '+appTitle:appTitle;if(document.title!==title){document.title=title;}
+    var title=prefix?prefix+' \u2014 '+appTitle:appTitle;if(document.title!==title){document.title=title;
+      // The built-in WebView2 window takes its native title from the page.
+      try{if(window.chrome&&window.chrome.webview&&window.chrome.webview.postMessage){window.chrome.webview.postMessage(JSON.stringify({title:title}));}}catch(e){}}
   }
   function poll(){
     if(uiLifecycle!=='active'){return;}

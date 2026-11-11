@@ -243,6 +243,7 @@ type application struct {
 	shutdownOnce            sync.Once
 	lastClientActivity      time.Time
 	browserCmd              *exec.Cmd
+	webView                 *webViewHost
 	browserProfileDirectory string
 	loadedReportPath        string
 	loadedReportPackage     string
@@ -2085,6 +2086,11 @@ func (a *application) idleMonitor() {
 			running := a.state.Running
 			idleFor := time.Since(a.lastClientActivity)
 			activeCommand := a.cmd
+			// The built-in window's close is authoritative; a minimized window's
+			// throttled page must not be mistaken for a closed one.
+			if a.webView != nil && a.webView.alive() {
+				idleFor = 0
+			}
 			if idleFor > 30*time.Second && running {
 				a.state.CancelRequested = true
 			}
@@ -2218,10 +2224,19 @@ func main() {
 	}
 	browserCmd, browserProfileDirectory, openErr := openInterfaceURL(url, filepath.Join(runtimeDir, "Browser-"+app.token))
 	if openErr != nil {
-		messageBox("The application interface could not open in a private guest session.\r\n\r\n"+openErr.Error(), appName, mbOK|mbIconError)
-		app.stopServer()
-		_ = os.Remove(urlFile)
-		return
+		// Managed PCs often turn off guest browsing. Show the same interface in
+		// the built-in WebView2 window instead of any personal browser profile.
+		host, hostErr := startWebViewHost(app, url, filepath.Join(runtimeDir, "WebView2"), windowIconPath)
+		if hostErr != nil {
+			messageBox("The application interface could not open.\r\n\r\nA private Edge or Chrome guest window was not available:\r\n"+openErr.Error()+"\r\n\r\nThe built-in window is also unavailable: "+hostErr.Error()+". Installing the Microsoft Edge WebView2 Runtime, or allowing guest browsing, lets the application open.", appName, mbOK|mbIconError)
+			app.stopServer()
+			_ = os.Remove(urlFile)
+			return
+		}
+		app.mu.Lock()
+		app.webView = host
+		app.mu.Unlock()
+		app.logUpdate("Opened the interface in the built-in window because no guest browser window was available: %v", strings.ReplaceAll(openErr.Error(), "\r\n", " "))
 	} else if browserCmd != nil {
 		app.mu.Lock()
 		app.browserCmd = browserCmd
@@ -2229,7 +2244,9 @@ func main() {
 		app.mu.Unlock()
 	}
 
-	go applyBrowserWindowIcon(windowIconPath)
+	if app.builtInWindow() == nil {
+		go applyBrowserWindowIcon(windowIconPath)
+	}
 	go app.confirmHealthyWindowAndMark(healthToken)
 	// The authenticated UI-ready event starts the scheduler after the first paint.
 
