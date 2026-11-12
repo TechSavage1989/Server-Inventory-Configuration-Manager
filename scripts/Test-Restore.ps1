@@ -100,19 +100,23 @@ if (-not $SkipRoles) {
     Add-Printer -Name 'SICM Restore Printer' -DriverName 'Generic / Text Only' -PortName 'SICM_TEST_PORT'
     $printBrm = Join-Path $env:SystemRoot 'System32\spool\tools\PrintBrm.exe'
     $printerExport = Get-PackagePath ('08-Role-Specific\Print-Server\' + $computer + '.printerExport')
-    # PrintBrm.exe exits with 0 even when the remote (-s) form fails because
-    # no printer is shared (print$ unavailable), so fall back to the local form.
-    foreach ($arguments in @(@('-s', ('\\' + $computer), '-b', '-f', $printerExport), @('-b', '-f', $printerExport))) {
-        if (Test-Path -LiteralPath $printerExport) { break }
-        Write-Host ('PrintBrm ' + ($arguments -join ' '))
-        $output = & $printBrm @arguments 2>&1
-        Write-Host ('  exit ' + $LASTEXITCODE); $output | ForEach-Object { Write-Host ('  ' + $_) }
-    }
-    if (-not (Test-Path -LiteralPath $printerExport)) {
-        Get-ChildItem -LiteralPath (Split-Path $printerExport -Parent) -Force | ForEach-Object { Write-Host ('  folder: ' + $_.Name + ' ' + $_.Length) }
-        Get-WinEvent -LogName 'Microsoft-Windows-PrintBRM/Admin' -MaxEvents 20 -ErrorAction SilentlyContinue | ForEach-Object { Write-Host ('  PrintBRM event ' + $_.Id + ': ' + $_.Message) }
-    }
-    Assert (Test-Path -LiteralPath $printerExport) 'PrintBRM wrote the printer export'
+    # Negative control: the remote form the collector used before 3.2.19 exits 0
+    # but writes nothing when no printer is shared.
+    $remoteExport = Join-Path $work 'remote-form.printerExport'
+    $remoteOutput = (& $printBrm -s ('\\' + $computer) -b -f $remoteExport 2>&1 | Out-String)
+    Assert (($LASTEXITCODE -eq 0) -and -not (Test-Path -LiteralPath $remoteExport) -and ($remoteOutput -match '0x80043333')) 'Old PrintBRM -s form exits 0 without an export when no printer is shared'
+    # The real collector, limited to print services, must now write the export.
+    $collectorOut = Join-Path $work 'collector'
+    New-Item -ItemType Directory -Path $collectorOut -Force | Out-Null
+    $collector = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\src\app\Export-ServerInventory.ps1'))
+    & $powerShell -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "& '$collector' -OutputRoot '$collectorOut' -InventoryCategoryList 'PrintServices' -ExportCategoryList 'PrintServices' -CreateZip `$false" *> (Join-Path $OutputDirectory 'collector.log')
+    $collected = @(Get-ChildItem -LiteralPath $collectorOut -Recurse -Filter ($computer + '.printerExport') -File)
+    $collectedLog = @(Get-ChildItem -LiteralPath $collectorOut -Recurse -Filter 'PrintBRM-Export.log' -File)
+    if ($collectedLog.Count) { Get-Content -LiteralPath $collectedLog[0].FullName | ForEach-Object { Write-Host ('  collector PrintBRM: ' + $_) } }
+    Assert ($collected.Count -eq 1 -and $collected[0].Length -gt 0) 'Collector writes the PrintBRM printer export on a server with no shared printer'
+    Assert (-not ((Get-Content -LiteralPath $collectedLog[0].FullName -Raw) -match '0x8[0-9A-Fa-f]{7}')) 'Collector PrintBRM export reports no error code'
+    # Restore printers from the file the real collector produced.
+    Copy-Item -LiteralPath $collected[0].FullName -Destination $printerExport
 
     # IIS (appcmd add backup, copied out of inetsrv\backup).
     $appCmd = Join-Path $env:SystemRoot 'System32\inetsrv\appcmd.exe'

@@ -6206,7 +6206,22 @@ if ($detectedRoleNames -contains 'Print Server') {
         $printBrm = Join-Path $env:SystemRoot 'System32\spool\tools\PrintBrm.exe'
         if ((Test-Path -LiteralPath $printBrm) -and (Test-ExportCategory -Category @('PrintServices'))) {
             $printerExport = Join-Path $rolePath ($env:COMPUTERNAME + '.printerExport')
-            Invoke-NativeCapture -Command $printBrm -Arguments @('-s', ('\\' + $env:COMPUTERNAME), '-b', '-f', $printerExport) -OutputFile (Join-Path $rolePath 'PrintBRM-Export.log')
+            # BEGIN APPROVED PRINTBRM LOCAL EXPORT
+            # PrintBrm -s \\server exits 0 without writing a file when no printer is
+            # shared (error 0x80043333, print$ unavailable). Back up the local spooler
+            # directly, and report an export PrintBRM did not finish as a warning.
+            $printBrmLog = Join-Path $rolePath 'PrintBRM-Export.log'
+            Invoke-NativeCapture -Command $printBrm -Arguments @('-b', '-f', $printerExport) -OutputFile $printBrmLog -AllowNonZeroExit
+            $printBrmOutput = ''
+            if (Test-Path -LiteralPath $printBrmLog) { $printBrmOutput = [string](Get-Content -LiteralPath $printBrmLog -Raw) }
+            # PrintBRM text is localized; its error code (0x8xxxxxxx) and the file are not.
+            if (-not (Test-Path -LiteralPath $printerExport)) {
+                Write-InventoryLog -Level 'WARN' -Message 'PrintBRM did not write the printer migration export. See Print-Server\PrintBRM-Export.log.'
+            }
+            elseif ($printBrmOutput -match '0x8[0-9A-Fa-f]{7}') {
+                Write-InventoryLog -Level 'WARN' -Message ('PrintBRM reported error ' + $Matches[0] + ' during the printer migration export; it may be incomplete. See Print-Server\PrintBRM-Export.log.')
+            }
+            # END APPROVED PRINTBRM LOCAL EXPORT
             'Restore reference: use PrintBRM/Print Management during an approved recovery operation and validate queues, ports, drivers, defaults, sharing, and test pages after import.' | Set-Content -Path (Join-Path $rolePath 'RESTORE-GUIDANCE.txt') -Encoding UTF8
         }
     }

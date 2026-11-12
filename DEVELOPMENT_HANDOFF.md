@@ -1,3 +1,10 @@
+## Unreleased: printer migration export fix — 2026-11-12
+
+The owner approved fixing the collector's PrintBRM export (only print drivers are in scope for restore; no other driver export). `PrintBrm -s \\server -b` exits 0 with error 0x80043333 and writes no file when no printer is shared (print$ unavailable), reproduced on hosted Windows Server 2025, so packages from such servers had no printer migration export. The collector now runs the local form (`PrintBrm -b -f`), allows a nonzero exit, and logs a warning when no export was written or PrintBRM prints an error code. Checks use the file and the `0x8xxxxxxx` code because PrintBRM text is localized; the restore engine's PrintBRM check was changed the same way (it previously required the English success phrase).
+
+- Collector provenance: one new reviewed region (normalized archive line 5043, `BEGIN/END APPROVED PRINTBRM LOCAL EXPORT`) in `docs/verification/collector-change-verification.json`, its hunk added to `collector-approved-changes.diff` and the diff hash updated; existing regions and hunks are unchanged. `scripts/verify_baseline.py` and `tests/test_collector_provenance.py` pass.
+- `scripts/Test-Restore.ps1` now reproduces the old `-s` failure as a negative control, runs the real collector limited to print services on the unshared print server, requires its export with no error code, and restores printers from that collector-produced file.
+
 ## 3.2.18 release preparation — 2026-11-12
 
 Publishing the Restore tab (#30) under the owner's standing approval (AGENTS rule 16). This branch bumps `appVersion`, `collectorVersion` and the collector `$scriptVersion` to 3.2.18, adds `docs/release-notes/3.2.18.md` (first three bullets free of Markdown) and points `scripts/test_published_upgrade.cjs` at the published v3.2.17 executable (SHA-256 `9dc5f53e22c95c9ce87982f2e9f673f1c0cab4f38a15a231c9594928ff70794f`, release asset digest). `release/VERSION` changes in a separate publication PR after this source CI passes.
