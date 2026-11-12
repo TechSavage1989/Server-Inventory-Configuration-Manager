@@ -404,23 +404,27 @@ func (a *application) startMigrateAction(action string) (int, string) {
 		return http.StatusConflict, "An update is being installed."
 	}
 	a.mu.Lock()
-	defer a.mu.Unlock()
-	refuse := func(status int, message string) (int, string) {
-		a.endCriticalOperation()
-		return status, message
-	}
+	refusal := ""
 	switch {
 	case a.state.Running:
-		return refuse(http.StatusConflict, "A collection is running. Wait for it to finish first.")
+		refusal = "A collection is running. Wait for it to finish first."
 	case a.restoreBusyLocked():
-		return refuse(http.StatusConflict, "A restore is running. Wait for it to finish first.")
+		refusal = "A restore is running. Wait for it to finish first."
 	case a.migrateBusyLocked():
-		return refuse(http.StatusConflict, "A migration step is already running.")
+		refusal = "A migration step is already running."
+	default:
+		a.migrate.action = action
+		a.migrate.cancelRequested = false
+		a.migrate.startedAt = time.Now()
+		a.migrate.endedAt = time.Time{}
 	}
-	a.migrate.action = action
-	a.migrate.cancelRequested = false
-	a.migrate.startedAt = time.Now()
-	a.migrate.endedAt = time.Time{}
+	a.mu.Unlock()
+	// endCriticalOperation takes a.mu, so release the claim only after
+	// unlocking.
+	if refusal != "" {
+		a.endCriticalOperation()
+		return http.StatusConflict, refusal
+	}
 	return 0, ""
 }
 
