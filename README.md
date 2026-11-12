@@ -17,7 +17,7 @@
   <img src="docs/images/hero.png" alt="Server Inventory and Migration Manager main window" width="900">
 </p>
 
-A portable **Windows x64 application** for collecting server inventory, exporting supported configurations, and reviewing clear, searchable reports.
+A portable **Windows x64 application** for collecting server inventory, exporting supported configurations, reviewing clear, searchable reports, restoring configuration, and moving file shares to a new server.
 
 ## Features
 
@@ -27,6 +27,7 @@ A portable **Windows x64 application** for collecting server inventory, exportin
 | Search grouped categories, use presets, and save or revert your preferred scope. | Search collapsed report sections and inspect supporting exports. | Keep settings, window placement, and shortcut targets through updates. |
 | Collect available server-role details without treating missing roles as present. | Open HTML offline, print retained report data, or use Word/text outputs. | Choose when to download, install, and restart. |
 | Export DHCP, NPS, print, IIS, DNS, firewall, registry and more for recovery. | See what a package can restore onto this server, and why anything cannot. | Restore chosen configuration with a rollback copy saved first. |
+| Move file shares from an old server: files, NTFS permissions and share settings. | Check space, folders and accounts before copying, and verify after cutover. | Copy while users keep working, then cut over with one final copy. |
 
 ## Screenshots
 
@@ -53,6 +54,12 @@ A portable **Windows x64 application** for collecting server inventory, exportin
 
 <table>
   <tr><td width="50%"><b>Choose what to restore, with each blocked item's reason</b><br><img src="docs/images/restore-choose.png" alt="Choose what to restore, with each blocked item's reason" width="440"></td><td width="50%"><b>Restore progress, one item at a time</b><br><img src="docs/images/restore-progress.png" alt="Restore progress, one item at a time" width="440"></td></tr>
+</table>
+
+### Migrate
+
+<table>
+  <tr><td width="50%"><b>Choose shares and where they go, checked before anything is copied</b><br><img src="docs/images/migrate-choose.png" alt="Choose shares and where they go, checked before anything is copied" width="440"></td><td width="50%"><b>Copy while users keep working; copy again for changes</b><br><img src="docs/images/migrate-copy.png" alt="Copy while users keep working; copy again for changes" width="440"></td></tr>
 </table>
 
 ### Keep working
@@ -95,7 +102,7 @@ Use the Collection log's search and severity filter to focus on issues; the filt
 
 In the Report Viewer search, `Enter` moves to the next match and `Shift+Enter` to the previous one (`F3` / `Shift+F3` also work); `Esc` clears the search.
 
-**Keyboard shortcuts** (press `?` or choose **Help → Keyboard shortcuts**): `Alt+1/2/3/4` switch tabs, `/` or `Ctrl+K` focuses the current tab's search, `Ctrl+S` saves choices and `Ctrl+Enter` starts collection from Setup.
+**Keyboard shortcuts** (press `?` or choose **Help → Keyboard shortcuts**): `Alt+1/2/3/4/5` switch tabs, `/` or `Ctrl+K` focuses the current tab's search, `Ctrl+S` saves choices and `Ctrl+Enter` starts collection from Setup.
 
 
 New HTML reports open on an executive summary: the server profile and detected roles, collection health with links to each collection issue and recovery gap, and inventory counts that jump to their datasets. Items that need attention stay expanded at the top; routine datasets expand on demand. Each section starts with a contents panel that groups its datasets under their headings, shows row counts and marks datasets with failures or warnings. Datasets that returned no data are gathered into one collapsed **No data collected** group instead of a long run of empty entries. Name/value lists and single-record tables read as property sheets. Search includes collapsed sections and raw text. Hover any value and choose **Copy** to copy just that value; **Copy table**, **Copy section** and **Copy full report** copy more, and **Copy path** in the Report Viewer copies the report file location. The report uses the full window width. Printing includes all rows retained by the report snapshot; truncation notices still point to complete supporting exports.
@@ -126,6 +133,23 @@ The **Restore** tab puts configuration from an inventory package back onto a ser
 Restoring needs administrator rights. Review each component's warnings, select the items you need, and type the server's name to confirm. Components run in a fixed, safe order and the restore stops at the first failure. Before each item changes anything, its current configuration is saved to a rollback folder under `%LOCALAPPDATA%\Server Inventory Configuration Manager\Restore-Rollback\`, with an `UNDO.txt` in each component folder; **Open rollback folder** goes straight to it. **Stop after this item** never interrupts an item part way through. Collection, updates and closing the app wait until a restore finishes.
 
 Device drivers other than print drivers, Active Directory, SQL Server, RRAS, AD CS and Hyper-V are not restored; the package keeps their reference exports. Private keys were never exported, so certificates that need one must come from a protected PFX. Restoring onto a different server shows extra warnings for each component.
+
+## Move file shares to a new server
+
+The **Migrate** tab (Alt+5) moves file shares from an old server to the server you run the application on. Run it as administrator on the **new** server, with administrator rights on the old one too.
+
+1. **Connect:** type the old server's name. Every share except administrative shares (C$, ADMIN$, IPC$) is listed with its folder and permissions. System shares such as NETLOGON or print$ are shown but not ticked.
+2. **Choose shares:** tick the shares to move and choose the new folder and share name for each (defaults: `D:\Shares\<name>` on the drive with the most free space, same share name). **Check plan** measures each share and checks that the old folder can be read, the new folder is empty, there is enough free space, and which permissions name accounts that won't exist here.
+3. **Copy:** copies files, folders, timestamps, attributes and NTFS permissions with Robocopy while users keep working. **Copy again** as often as you like; each pass copies only what changed and removes what was deleted on the old server. A copy never runs into a folder that already holds other files.
+4. **Cut over:** ask users to stop using the old shares, then type this server's name to confirm. A final copy runs, the shares are created here with the old share settings and share permissions, and the old and new folders are compared.
+
+After cutover, three optional steps help users find the new shares:
+
+- **Make old shares read-only**, so nobody keeps saving to the old server. Their previous permissions are saved and **Undo** puts them back.
+- **Find DFS links** that point at the old server, with the new path for each (domain servers with the DFS Management tools).
+- **Give this server the old server's name**, so existing mapped drives and shortcuts keep working. This is only offered once the old server no longer answers on the network. It adds the name with `netdom` (DNS and Active Directory), needs Domain Admin rights and a restart, and can be undone with the command saved in the logs folder.
+
+Logs and the saved plan are kept under `%LOCALAPPDATA%\Server Inventory Configuration Manager\Migrations\<old server>\`, so a migration can continue after the application is closed. The old server is never changed except by the optional read-only step. Collection, restore, updates and closing the application wait while a migration step runs.
 
 ## Updates and settings
 

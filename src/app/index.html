@@ -383,6 +383,53 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
 .restore-dialog-actions{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:8px;padding:10px 18px 14px;border-top:1px solid #e3e8ef}
 .restore-dialog-error{margin-top:8px;color:#a33b3b;font-size:12px;font-weight:600}
 .danger-primary{background:#c2412d;box-shadow:none}.danger-primary:hover:not(:disabled){background:#a63523}
+/* Migrate: a four-step file share move from an old server to this server. */
+#migrateBody{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden}
+.migrate-steps{display:flex;flex-wrap:wrap;gap:6px 18px;margin:0 0 12px;padding:0;list-style:none}
+.migrate-steps li{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:650;color:#596b80}
+.migrate-steps li .step-num{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:#e8edf4;color:#52647c;font-size:12px;font-weight:700}
+.migrate-steps li.current{color:#1b2942}.migrate-steps li.current .step-num{background:#2563eb;color:#fff}
+.migrate-steps li.done .step-num{background:#e8f7ef;color:#1d6b43}
+.migrate-section{border:1px solid #dbe3ed;border-radius:10px;padding:12px 14px;margin-top:12px;background:#fff}
+.migrate-section.inactive{background:#f8fafc}.migrate-section.inactive .migrate-section-title{color:#5d6b7d}
+.migrate-section-title{margin:0;font-size:14px;font-weight:700;color:#1b2942}
+.migrate-help{margin:4px 0 0;font-size:12px;color:#52647c}
+.migrate-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:10px}
+.migrate-row input[type=text]{flex:1 1 220px;min-width:0;max-width:360px;height:34px;box-sizing:border-box;border:1px solid #bcc9d9;border-radius:7px;padding:0 10px;font:inherit;font-size:13px}
+.migrate-inline-status{margin-top:8px;font-size:12px;color:#52647c}.migrate-inline-status:empty{display:none}.migrate-inline-status.error{color:#a33b3b;font-weight:600}
+.migrate-shares{margin-top:10px;border:1px solid #e0e6ee;border-radius:9px;overflow:hidden}
+.migrate-share{padding:9px 12px;border-top:1px solid #edf1f6}.migrate-share:first-child{border-top:0}.migrate-share.selected{background:#f7faff}
+.migrate-share-head{display:flex;align-items:flex-start;gap:9px;cursor:pointer}
+.migrate-share-head input{margin-top:3px;width:16px;height:16px;flex:none;accent-color:#2563eb}
+.migrate-share-main{flex:1 1 auto;min-width:0}
+.migrate-share-name{font-size:13px;font-weight:700;color:#1b2942;overflow-wrap:anywhere}
+.migrate-share-path{display:block;font-size:12px;font-weight:400;color:#596b80;overflow-wrap:anywhere}
+.migrate-dest{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:8px 12px;margin:8px 0 0 25px}
+.migrate-dest label{display:block;font-size:12px;font-weight:650;color:#334156;min-width:0}
+.migrate-dest input{display:block;width:100%;box-sizing:border-box;height:32px;margin-top:4px;border:1px solid #bcc9d9;border-radius:7px;padding:0 9px;font:inherit;font-size:12px;font-weight:400;color:#1b2942}
+.migrate-notes{margin:6px 0 0 25px;padding-left:16px;font-size:12px}.migrate-notes li{margin:2px 0}
+.migrate-notes .warn{color:#74551f}.migrate-notes .problem{color:#8c2626;font-weight:600}
+.migrate-check{margin:6px 0 0 25px;display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;font-size:12px;color:#52647c}
+.migrate-space{margin-top:8px;font-size:12px;color:#52647c}.migrate-space div{margin-top:2px}.migrate-space .bad{color:#8c2626;font-weight:600}
+.migrate-run{margin-top:10px;border:1px solid #e0e6ee;border-radius:9px;overflow:hidden}
+.migrate-run-row{padding:8px 12px;border-top:1px solid #edf1f6;font-size:12px}.migrate-run-row:first-child{border-top:0}
+.migrate-run-top{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px}
+.migrate-run-name{font-weight:650;color:#23334b;overflow-wrap:anywhere}.migrate-run-detail{flex:1 1 200px;min-width:0;color:#596b80;overflow-wrap:anywhere}
+.migrate-bar{height:6px;margin-top:6px;border-radius:999px;background:#edf1f7;overflow:hidden}.migrate-bar span{display:block;height:100%;background:#2563eb;border-radius:999px}
+.run-chip.run-copying,.run-chip.run-checking,.run-chip.run-sharing,.run-chip.run-verifying{background:#e8f0fe;color:#245eae}
+.run-chip.run-done,.run-chip.run-ready{background:#e8f7ef;color:#1d6b43}.run-chip.run-blocked,.run-chip.run-attention{background:#fff1d8;color:#8a5612}
+.migrate-after{margin-top:12px}.migrate-after>summary,.migrate-log-block>summary{cursor:pointer;font-size:13px;font-weight:700;color:#1f5fbf;padding:4px 0}
+.migrate-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:8px}
+.migrate-card{border:1px solid #dbe3ed;border-radius:10px;padding:11px 12px;background:#fff;min-width:0;font-size:12px;color:#52647c}
+.migrate-card h4{margin:0 0 4px;font-size:13px;color:#1b2942}
+.migrate-table{width:100%;margin-top:8px;border-collapse:collapse;font-size:12px;table-layout:fixed}.migrate-table th,.migrate-table td{text-align:left;padding:4px 6px;border-top:1px solid #edf1f6;overflow-wrap:anywhere;vertical-align:top}.migrate-table th{color:#334156;font-weight:650}
+.migrate-guidance{margin-top:10px;font-size:12px;color:#52647c}
+.migrate-log-block{margin-top:12px}.migrate-log{min-height:110px;max-height:240px;overflow:auto;margin-top:6px}
+.migrate-detail{margin-top:6px;font-size:11px;color:#6a7a8e}
+@media(max-width:900px){.migrate-cards{grid-template-columns:1fr}.migrate-dest{grid-template-columns:1fr}
+ /* Five tabs: keep each label and its status badge on one line. */
+ .tab-button{min-width:0;flex:1 1 auto;padding:0 8px;white-space:nowrap}.tab-badge{margin-left:4px;padding:1px 5px}}
+@media(max-height:720px){.migrate-section{margin-top:8px;padding:9px 11px}.migrate-steps{margin-bottom:6px}.migrate-log{max-height:150px;min-height:80px}}
 @media(max-width:900px){.restore-components{grid-template-columns:1fr}.restore-facts{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:520px){.restore-facts{grid-template-columns:1fr}}
 @media(max-height:720px){.restore-log{max-height:160px;min-height:90px}.restore-facts{margin-top:10px;padding:8px 10px}.restore-components{margin-top:10px}.restore-dialog-body{max-height:calc(100vh - 120px)}}
@@ -448,6 +495,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       <button class="tab-button" id="tabButtonCollection" role="tab" aria-controls="tabCollection" aria-selected="false" tabindex="-1" type="button" data-tab="collection">Collection <span class="tab-badge" id="collectionTabBadge">Ready</span></button>
       <button class="tab-button" id="tabButtonReport" role="tab" aria-controls="tabReport" aria-selected="false" tabindex="-1" type="button" data-tab="report">Report Viewer <span class="tab-badge" id="reportTabBadge">None</span></button>
       <button class="tab-button" id="tabButtonRestore" role="tab" aria-controls="tabRestore" aria-selected="false" tabindex="-1" type="button" data-tab="restore">Restore <span class="tab-badge" id="restoreTabBadge">Ready</span></button>
+      <button class="tab-button" id="tabButtonMigrate" role="tab" aria-controls="tabMigrate" aria-selected="false" tabindex="-1" type="button" data-tab="migrate">Migrate <span class="tab-badge" id="migrateTabBadge">Ready</span></button>
     </div>
 
     <div class="app-notice hidden" id="appNotice" role="status"><span id="appNoticeText"></span><button type="button" id="dismissNotice" aria-label="Dismiss message">Dismiss</button></div>
@@ -600,13 +648,67 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       </div></div>
     </section>
 
+    <section class="tab-panel" id="tabMigrate" role="tabpanel" aria-labelledby="tabButtonMigrate">
+      <div class="restore-wrap"><div class="card">
+        <div class="card-header"><div><div class="card-title">Move file shares to this server</div><div class="card-subtitle">Copy shares, files and permissions from an old server, then switch users over. The old server is not changed unless you choose an optional step at the end.</div></div></div>
+        <div class="card-body" id="migrateBody">
+          <ol class="migrate-steps" id="migrateSteps" aria-label="Migration steps"><li data-step="1"><span class="step-num">1</span>Connect</li><li data-step="2"><span class="step-num">2</span>Choose shares</li><li data-step="3"><span class="step-num">3</span>Copy</li><li data-step="4"><span class="step-num">4</span>Cut over</li></ol>
+          <div class="restore-alert danger hidden" id="migrateAdminNotice"><strong>Run the application as administrator to move shares.</strong> Every step needs administrator rights on this server and on the old server.</div>
+          <div class="restore-status" id="migrateMessage" role="status" aria-live="polite"></div>
+          <section class="migrate-section" id="migrateStepConnect" aria-labelledby="migrateConnectTitle">
+            <h3 class="migrate-section-title" id="migrateConnectTitle">1. Connect to the old server</h3>
+            <p class="migrate-help">Type the name of the server the shares are on now. This server is the new one.</p>
+            <div class="migrate-row"><input type="text" id="migrateSource" aria-label="Old server name" placeholder="Old server name, for example FS01" autocomplete="off" spellcheck="false"><button class="primary-button" id="migrateConnect" type="button" disabled>Connect</button><button class="secondary-button hidden" id="migrateReset" type="button">Start over</button></div>
+            <div class="migrate-inline-status" id="migrateConnectStatus" role="status" aria-live="polite"></div>
+            <div class="restore-facts hidden" id="migrateFacts"><div><span class="restore-fact-label">Old server</span><span class="restore-fact-value" id="migrateFactSource"></span></div><div><span class="restore-fact-label">New server (this one)</span><span class="restore-fact-value" id="migrateFactTarget"></span></div><div><span class="restore-fact-label">Shares found</span><span class="restore-fact-value" id="migrateFactShares"></span></div><div><span class="restore-fact-label">Shares copied</span><span class="restore-fact-value" id="migrateFactCopies"></span></div></div>
+            <ul class="restore-warnings hidden" id="migrateSourceWarnings"></ul>
+          </section>
+          <section class="migrate-section inactive" id="migrateStepChoose" aria-labelledby="migrateChooseTitle">
+            <h3 class="migrate-section-title" id="migrateChooseTitle">2. Choose shares</h3>
+            <p class="migrate-help">Tick the shares to move and choose where each one goes on this server. Then check the plan: it measures each share and checks free space and permissions. Nothing is copied yet.</p>
+            <div class="migrate-shares hidden" id="migrateShares"></div>
+            <div class="migrate-space hidden" id="migrateSpace"></div>
+            <div class="migrate-row"><button class="secondary-button" id="migrateCheck" type="button" disabled>Check plan</button><span class="migrate-help" id="migrateSelectionSummary"></span></div>
+            <div class="migrate-inline-status" id="migrateCheckStatus" role="status" aria-live="polite"></div>
+          </section>
+          <section class="migrate-section inactive" id="migrateStepCopy" aria-labelledby="migrateCopyTitle">
+            <h3 class="migrate-section-title" id="migrateCopyTitle">3. Copy</h3>
+            <p class="migrate-help">Users can keep working on the old server while you copy. Each copy after the first brings over only what changed, so copy again as often as you like.</p>
+            <div class="migrate-run hidden" id="migrateRun"></div>
+            <div class="migrate-row"><button class="primary-button" id="migrateCopy" type="button" disabled>Copy now</button></div>
+            <div class="migrate-detail">Copies files, folders, timestamps and NTFS permissions with Robocopy. Files removed from the old share are also removed from the copy.</div>
+          </section>
+          <section class="migrate-section inactive" id="migrateStepCutover" aria-labelledby="migrateCutoverTitle">
+            <h3 class="migrate-section-title" id="migrateCutoverTitle">4. Cut over</h3>
+            <p class="migrate-help">Ask users to stop using the old shares first. Cutover makes a final copy, creates the shares on this server with the old share settings and permissions, and compares the old and new files.</p>
+            <div class="migrate-run hidden" id="migrateCutoverRun"></div>
+            <div class="migrate-row"><button class="primary-button danger-primary" id="migrateCutover" type="button" disabled>Cut over&hellip;</button></div>
+          </section>
+          <details class="migrate-after hidden" id="migrateAfter" open>
+            <summary>After cutover (optional)</summary>
+            <div class="migrate-cards">
+              <div class="migrate-card"><h4>Make the old shares read-only</h4><div id="migrateReadOnlyText">Stops anyone saving new files on the old server by mistake. The old permissions are saved so you can undo this.</div><div class="migrate-row"><button class="secondary-button" id="migrateReadOnly" type="button">Make read-only&hellip;</button><button class="secondary-button hidden" id="migrateReadOnlyUndo" type="button">Undo</button></div></div>
+              <div class="migrate-card"><h4>Find DFS links to update</h4><div>Lists DFS namespace links that still point at the old server, with the new path to use.</div><div class="migrate-row"><button class="secondary-button" id="migrateDfs" type="button">Find DFS links</button></div><div id="migrateDfsResult"></div></div>
+              <div class="migrate-card"><h4>Give this server the old server's name</h4><div>Lets old paths that use the old server's name keep working. Only after the old server is shut down.</div><div class="migrate-row"><button class="secondary-button" id="migrateAliasCheck" type="button">Check</button><button class="secondary-button hidden" id="migrateAlias" type="button">Add name&hellip;</button></div><div id="migrateAliasResult"></div></div>
+            </div>
+            <div class="migrate-guidance">Then update mapped drives, logon scripts, Group Policy drive maps and shortcuts that use the old server's name, unless you gave this server that name.</div>
+          </details>
+          <details class="migrate-log-block" id="migrateLogBlock">
+            <summary>Migration log</summary>
+            <div class="log-view migrate-log" id="migrateLog" tabindex="0" aria-label="Migration log"></div>
+          </details>
+        </div>
+        <div class="action-bar setup-action-bar"><div class="scope-note"><span id="migrateFooter">The old server is not changed unless you choose an optional step.</span></div><div class="setup-actions"><button class="secondary-button danger-button hidden" id="migrateStop" type="button">Stop</button><button class="secondary-button" id="migrateOpenLogs" type="button">Open logs folder</button></div></div>
+      </div></div>
+    </section>
+
     <div class="footer">All collection and report viewing remains local to this computer. No server inventory is uploaded by the application.</div>
   </div>
 </div>
 <dialog class="shortcuts-dialog" id="shortcutsDialog" aria-labelledby="shortcutsTitle">
   <div class="shortcuts-head"><h2 id="shortcutsTitle">Keyboard shortcuts</h2><button class="secondary-button" id="shortcutsClose" type="button">Close</button></div>
   <dl class="shortcuts-list">
-    <dt><kbd>Alt</kbd> + <kbd>1</kbd> / <kbd>2</kbd> / <kbd>3</kbd> / <kbd>4</kbd></dt><dd>Go to Setup, Collection, Report Viewer or Restore</dd>
+    <dt><kbd>Alt</kbd> + <kbd>1</kbd> / <kbd>2</kbd> / <kbd>3</kbd> / <kbd>4</kbd> / <kbd>5</kbd></dt><dd>Go to Setup, Collection, Report Viewer, Restore or Migrate</dd>
     <dt><kbd>/</kbd> or <kbd>Ctrl</kbd> + <kbd>K</kbd></dt><dd>Search the current tab: categories, log or report</dd>
     <dt><kbd>Esc</kbd></dt><dd>Clear the search you are typing in</dd>
     <dt><kbd>Ctrl</kbd> + <kbd>S</kbd></dt><dd>Save collection choices (Setup)</dd>
@@ -630,6 +732,17 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     <div class="restore-dialog-error hidden" id="restoreDialogError" role="alert"></div>
   </div>
   <div class="restore-dialog-actions"><button class="secondary-button" id="restoreDialogCancel" type="button">Cancel</button><button class="primary-button danger-primary" id="restoreConfirmButton" type="button" disabled>Restore now</button></div>
+</dialog>
+<dialog class="shortcuts-dialog restore-dialog" id="migrateDialog" aria-labelledby="migrateDialogTitle">
+  <div class="shortcuts-head"><h2 id="migrateDialogTitle">Confirm</h2></div>
+  <div class="restore-dialog-body">
+    <div class="restore-alert danger hidden" id="migrateDialogAlert"></div>
+    <div id="migrateDialogText"></div>
+    <label class="restore-confirm-label" for="migrateConfirmInput" id="migrateConfirmLabel">Type the name to confirm</label>
+    <input class="restore-confirm-input" id="migrateConfirmInput" type="text" autocomplete="off" spellcheck="false">
+    <div class="restore-dialog-error hidden" id="migrateDialogError" role="alert"></div>
+  </div>
+  <div class="restore-dialog-actions"><button class="secondary-button" id="migrateDialogCancel" type="button">Cancel</button><button class="primary-button danger-primary" id="migrateConfirmButton" type="button" disabled>Confirm</button></div>
 </dialog>
 <dialog class="shortcuts-dialog" id="aboutDialog" aria-labelledby="aboutTitle">
   <div class="shortcuts-head"><h2 id="aboutTitle">About and updates</h2><button class="secondary-button" id="aboutClose" type="button">Close</button></div>
@@ -758,7 +871,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   }
   function switchTab(name) {
     activeTab = name;
-    var names = ['setup','collection','report','restore'];
+    var names = ['setup','collection','report','restore','migrate'];
     for (var i=0;i<names.length;i++) {
       var n=names[i];
       byId('tab'+n.charAt(0).toUpperCase()+n.slice(1)).className = 'tab-panel' + (n===name ? ' active' : '');
@@ -803,8 +916,8 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     syncCategoryState();markChoicesDirty();
   }
   function setConfigDisabled(disabled){
-    // A running restore also locks collection; the server enforces the same rule.
-    disabled=!!disabled||configurationBusy||restoreIsRunning(latestState&&latestState.restore);
+    // A running restore or migration step also locks collection; the server enforces the same rule.
+    disabled=!!disabled||configurationBusy||restoreIsRunning(latestState&&latestState.restore)||migrateIsRunning();
     var nodes=document.querySelectorAll('#configBody input,#configBody button'); for(var i=0;i<nodes.length;i++){nodes[i].disabled=disabled;}
     byId('startButton').disabled=!!disabled;byId('saveChoicesButton').disabled=!!disabled;
     byId('configBody').className=disabled?'card-body locked':'card-body'; if(!disabled){syncCategoryState();}
@@ -1049,6 +1162,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     renderACLExport(state);
     renderUpdate(state.update,!!state.running);
     renderRestore(state);
+    renderMigrate(state);
     if(!preferencesLoaded){
       preferencesLoaded=true;
       if(!preferencesDirty){
@@ -1212,9 +1326,9 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   function focusTabSearch(){var id={setup:'scopeSearch',collection:'logSearch',report:'viewerSearchInput'}[activeTab],input=byId(id);if(input&&!input.disabled){input.focus();if(input.select){input.select();}}}
   document.addEventListener('keydown',function(e){
     if(uiLifecycle!=='active'||e.defaultPrevented){return;}
-    if(byId('shortcutsDialog').open||byId('aboutDialog').open||byId('restoreDialog').open){return;}
+    if(byId('shortcutsDialog').open||byId('aboutDialog').open||byId('restoreDialog').open||byId('migrateDialog').open){return;}
     var key=e.key||'',ctrl=e.ctrlKey||e.metaKey,typing=isTyping(e.target);
-    if(e.altKey&&!ctrl&&(key==='1'||key==='2'||key==='3'||key==='4')){e.preventDefault();var tab=['setup','collection','report','restore'][Number(key)-1];switchTab(tab);byId('tabButton'+tab.charAt(0).toUpperCase()+tab.slice(1)).focus();return;}
+    if(e.altKey&&!ctrl&&(key==='1'||key==='2'||key==='3'||key==='4'||key==='5')){e.preventDefault();var tab=['setup','collection','report','restore','migrate'][Number(key)-1];switchTab(tab);byId('tabButton'+tab.charAt(0).toUpperCase()+tab.slice(1)).focus();return;}
     if(ctrl&&!e.altKey&&(key==='s'||key==='S')){e.preventDefault();if(activeTab==='setup'){saveChoices();}return;}
     if(ctrl&&!e.altKey&&key==='Enter'){if(activeTab==='setup'){e.preventDefault();startCollection();}return;}
     if(ctrl&&!e.altKey&&(key==='k'||key==='K')){e.preventDefault();focusTabSearch();return;}
@@ -1233,7 +1347,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   function restoreFinished(r){return !!(r&&(r.status==='succeeded'||r.status==='failed'||r.status==='canceled'));}
   function restoreState(){return (latestState&&latestState.restore)||null;}
   function restoreScan(){var r=restoreState();return r&&r.scan&&r.status!=='scanning'?r.scan:null;}
-  function restoreLocked(){var r=restoreState();return restoreBusy||restoreIsRunning(r)||!!(r&&r.status==='scanning')||!!(latestState&&latestState.running);}
+  function restoreLocked(){var r=restoreState();return restoreBusy||restoreIsRunning(r)||!!(r&&r.status==='scanning')||!!(latestState&&latestState.running)||migrateIsRunning();}
   function trimText(value){return String(value||'').replace(/^\s+|\s+$/g,'');}
   function restoreItemsOf(component){
     var items=component.items||[];
@@ -1321,8 +1435,8 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     var r=restoreState()||{},scan=restoreScan(),running=restoreIsRunning(r),collecting=!!(latestState&&latestState.running);
     var progressView=!byId('restoreProgress').classList.contains('hidden'),packages=r.packages||{},locked=restoreLocked(),review=byId('restoreReviewButton');
     review.classList.toggle('hidden',progressView);
-    review.disabled=!scan||!scan.isAdministrator||!restoreSelectedPlan().length||running||collecting||restoreBusy||r.status==='scanning';
-    review.title=!scan?'Choose an inventory package first.':(!scan.isAdministrator?'Run the application as administrator to restore.':(collecting?'Wait for the collection to finish first.':''));
+    review.disabled=!scan||!scan.isAdministrator||!restoreSelectedPlan().length||running||collecting||restoreBusy||r.status==='scanning'||migrateIsRunning();
+    review.title=!scan?'Choose an inventory package first.':(!scan.isAdministrator?'Run the application as administrator to restore.':(collecting?'Wait for the collection to finish first.':(migrateIsRunning()?'Wait for the file migration step to finish first.':'')));
     byId('restoreUseLatest').disabled=locked||!packages.lastCollection;byId('restoreUseLoaded').disabled=locked||!packages.loadedReport;byId('restoreBrowse').disabled=locked;
     byId('restoreUseLatest').title=packages.lastCollection||'No collection has finished yet.';
     byId('restoreUseLoaded').title=packages.loadedReport||'Load a report in the Report Viewer first.';
@@ -1445,6 +1559,269 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   });
   byId('restoreOpenRollback').addEventListener('click',function(){openKind('restorerollback');});
   byId('restoreAgainButton').addEventListener('click',function(){restoreShowChooser=true;if(latestState){renderRestore(latestState);}byId('restoreReviewButton').focus();});
+  // ---- Migrate tab ---------------------------------------------------------
+  // The server owns migration state (state.migrate). This view keeps only the
+  // operator's share choices, rebuilt when a different old server is read.
+  var migrateDiscoveryKey='',migrateSelection={},migrateOrder=[],migrateBusy=false,migrateLogKey='',migrateRunKey='',migrateCutKey='',migrateDialogAction=null;
+  var migrateCancelable={discover:true,precheck:true,sync:true,cutover:true,dfs:true,aliascheck:true};
+  var migrateStatusLabels={planned:'Not copied',checking:'Checking',ready:'Ready',blocked:'Needs attention',copying:'Copying',succeeded:'Copied',failed:'Failed',skipped:'Skipped',canceled:'Stopped',sharing:'Creating share',verifying:'Comparing',done:'Live',attention:'Check again',readonly:'Read-only',restored:'Restored'};
+  function migrateState(){return (latestState&&latestState.migrate)||null;}
+  function migrateIsRunning(){var m=migrateState();return !!(m&&m.running);}
+  function migrateDiscovery(){var m=migrateState();return m&&m.discovery&&m.action!=='discover'?m.discovery:null;}
+  function migrateAdmin(){return !!(latestState&&latestState.isAdministrator);}
+  function migrateLocked(){return migrateBusy||migrateIsRunning()||!!(latestState&&latestState.running)||restoreIsRunning(latestState&&latestState.restore)||!migrateAdmin();}
+  function formatBytesShort(value){var n=Number(value)||0,units=['bytes','KB','MB','GB','TB','PB'],i=0;while(n>=1024&&i<units.length-1){n=n/1024;i++;}return (i===0?String(n):(n>=100?n.toFixed(0):n.toFixed(1)))+' '+units[i];}
+  function formatCount(value){var n=Math.round(Number(value)||0),s=String(n);return s.replace(/\B(?=(\d{3})+(?!\d))/g,',');}
+  function migrateDefaultDrive(discovery){
+    var best=null;(discovery.volumes||[]).forEach(function(v){var drive=String(v.drive||'').toUpperCase();if(!/^[A-Z]:$/.test(drive)||drive==='C:'){return;}if(!best||Number(v.freeBytes)>Number(best.freeBytes)){best={drive:drive,freeBytes:v.freeBytes};}});
+    return best?best.drive:'C:';
+  }
+  function migratePlanFor(name){var m=migrateState(),plan=(m&&m.plan)||[];for(var i=0;i<plan.length;i++){if(String(plan[i].name).toLowerCase()===String(name).toLowerCase()){return plan[i];}}return null;}
+  function migrateSelectedShares(){return migrateOrder.filter(function(name){return migrateSelection[name]&&migrateSelection[name].on;}).map(function(name){var s=migrateSelection[name];return {name:name,destName:trimText(s.destName),destPath:trimText(s.destPath)};});}
+  // The posted plan is current when the server's plan has the same shares, names and folders.
+  function migratePlanDirty(){
+    var m=migrateState(),plan=(m&&m.plan)||[],chosen=migrateSelectedShares();
+    if(plan.length!==chosen.length){return true;}
+    for(var i=0;i<chosen.length;i++){var p=migratePlanFor(chosen[i].name);if(!p||String(p.destName)!==chosen[i].destName||String(p.destPath).toLowerCase()!==chosen[i].destPath.toLowerCase()){return true;}}
+    return false;
+  }
+  function buildMigrateShares(discovery){
+    var host=byId('migrateShares'),shares=discovery.shares||[],drive=migrateDefaultDrive(discovery),m=migrateState(),saved=(m&&m.plan)||[];
+    host.textContent='';migrateSelection={};migrateOrder=[];
+    shares.forEach(function(share){
+      var name=String(share.name),plan=migratePlanFor(name),selectable=!!share.remotePath;
+      migrateOrder.push(name);
+      migrateSelection[name]={on:selectable&&(saved.length?!!plan:!share.system),destName:plan?plan.destName:name,destPath:plan?plan.destPath:drive+'\\Shares\\'+name.replace(/\$$/,'')};
+      var row=el('div','migrate-share');row.setAttribute('data-migrate-row',name);
+      var head=el('label','migrate-share-head'),box=document.createElement('input');box.type='checkbox';box.setAttribute('data-migrate-share',name);box.disabled=!selectable;
+      box.addEventListener('change',function(){migrateSelection[name].on=this.checked;syncMigrateShares();});
+      var main=el('span','migrate-share-main'),title=el('span','migrate-share-name',name);main.appendChild(title);
+      if(share.system){main.appendChild(document.createTextNode(' '));main.appendChild(el('span','impact-chip impact-high','System share'));}
+      main.appendChild(el('span','migrate-share-path','Old folder: '+(share.path||'unknown')));
+      head.appendChild(box);head.appendChild(main);row.appendChild(head);
+      var dest=el('div','migrate-dest');dest.setAttribute('data-migrate-dest-block',name);
+      var pathLabel=el('label','','New folder on this server'),pathInput=document.createElement('input');pathInput.type='text';pathInput.setAttribute('data-migrate-dest',name);pathInput.spellcheck=false;pathInput.autocomplete='off';pathInput.value=migrateSelection[name].destPath;
+      pathInput.addEventListener('input',function(){migrateSelection[name].destPath=this.value;syncMigrateButtons();});pathLabel.appendChild(pathInput);
+      var nameLabel=el('label','','New share name'),nameInput=document.createElement('input');nameInput.type='text';nameInput.setAttribute('data-migrate-destname',name);nameInput.spellcheck=false;nameInput.autocomplete='off';nameInput.value=migrateSelection[name].destName;
+      nameInput.addEventListener('input',function(){migrateSelection[name].destName=this.value;syncMigrateButtons();});nameLabel.appendChild(nameInput);
+      dest.appendChild(pathLabel);dest.appendChild(nameLabel);row.appendChild(dest);
+      if(share.warnings&&share.warnings.length){var ul=el('ul','migrate-notes');share.warnings.forEach(function(w){ul.appendChild(el('li','warn',w));});row.appendChild(ul);}
+      var check=el('div','migrate-check hidden');check.setAttribute('data-migrate-check',name);row.appendChild(check);
+      host.appendChild(row);
+    });
+    if(!shares.length){host.appendChild(el('div','restore-empty','No file shares were found on the old server.'));}
+  }
+  function renderMigrateCheck(name,row){
+    var box=row.querySelector('[data-migrate-check]'),plan=migratePlanFor(name),check=plan&&plan.precheck,sel=migrateSelection[name];
+    box.textContent='';var old=row.querySelector('.migrate-notes.check');if(old){row.removeChild(old);}
+    if(!check||!sel||!sel.on){box.classList.add('hidden');return;}
+    box.classList.remove('hidden');
+    box.appendChild(el('span','run-chip '+(check.ok?'run-ready':'run-blocked'),check.ok?'Ready':'Needs attention'));
+    box.appendChild(el('span','',formatCount(check.files)+' files, '+formatBytesShort(check.bytes)));
+    var shown={};Array.prototype.forEach.call(row.querySelectorAll('.migrate-notes li'),function(li){shown[li.textContent]=true;});
+    var notes=(check.problems||[]).map(function(t){return {t:t,c:'problem'};}).concat((check.warnings||[]).filter(function(t){return !shown[t];}).map(function(t){return {t:t,c:'warn'};}));
+    if(notes.length){var ul=el('ul','migrate-notes check');notes.forEach(function(n){ul.appendChild(el('li',n.c,n.t));});row.appendChild(ul);}
+  }
+  function syncMigrateShares(){
+    var locked=migrateLocked(),count=0;
+    migrateOrder.forEach(function(name){
+      var row=document.querySelector('[data-migrate-row="'+name.replace(/"/g,'\\"')+'"]');if(!row){return;}
+      var sel=migrateSelection[name],box=row.querySelector('input[data-migrate-share]');box.checked=!!sel.on;
+      var share=null;(migrateDiscovery()&&migrateDiscovery().shares||[]).forEach(function(s){if(s.name===name){share=s;}});
+      box.disabled=locked||!(share&&share.remotePath);if(sel.on){count++;}
+      row.className='migrate-share'+(sel.on?' selected':'');
+      row.querySelector('[data-migrate-dest-block]').classList.toggle('hidden',!sel.on);
+      var inputs=row.querySelectorAll('[data-migrate-dest-block] input');for(var i=0;i<inputs.length;i++){inputs[i].disabled=locked;}
+      renderMigrateCheck(name,row);
+    });
+    byId('migrateSelectionSummary').textContent=count?(count===1?'1 share selected.':count+' shares selected.'):'No shares selected.';
+    syncMigrateButtons();
+  }
+  function migrateSetStatus(id,message,error){var box=byId(id);box.textContent=message||'';box.className='migrate-inline-status'+(error?' error':'');}
+  function syncMigrateButtons(){
+    var m=migrateState()||{},locked=migrateLocked(),discovery=migrateDiscovery(),dirty=migratePlanDirty(),chosen=migrateSelectedShares(),anySynced=false,anyCreated=false;
+    ((m.plan)||[]).forEach(function(p){if(p.previouslySynced){anySynced=true;}if(p.createdShare){anyCreated=true;}});
+    byId('migrateSource').disabled=locked;byId('migrateConnect').disabled=locked||!trimText(byId('migrateSource').value);
+    byId('migrateReset').classList.toggle('hidden',!(m.source||discovery));byId('migrateReset').disabled=locked;
+    byId('migrateCheck').disabled=locked||!discovery||!chosen.length;byId('migrateCheck').textContent=m.prechecked&&!dirty?'Check plan again':'Check plan';
+    var copy=byId('migrateCopy');copy.disabled=locked||!m.canCopy||dirty;copy.textContent=anySynced?'Copy again':'Copy now';
+    copy.title=dirty&&discovery?'Check the plan after changing it.':(!m.canCopy?'Check the plan, and fix any problem it finds, first.':'');
+    var cut=byId('migrateCutover');cut.disabled=locked||!m.canCutover||dirty;cut.title=!m.canCutover?'Copy every selected share at least once first.':'';
+    var stop=byId('migrateStop');stop.classList.toggle('hidden',!(m.running&&migrateCancelable[m.action]));stop.disabled=!!m.cancelRequested;stop.textContent=m.cancelRequested?'Stopping…':'Stop';
+    byId('migrateOpenLogs').disabled=!m.workPath;
+    byId('migrateAfter').classList.toggle('hidden',!anyCreated);
+    byId('migrateReadOnly').classList.toggle('hidden',!!m.sourceReadOnly);byId('migrateReadOnly').disabled=locked;
+    byId('migrateReadOnlyUndo').classList.toggle('hidden',!m.sourceReadOnly);byId('migrateReadOnlyUndo').disabled=locked;
+    byId('migrateDfs').disabled=locked;byId('migrateAliasCheck').disabled=locked;
+    var alias=byId('migrateAlias');alias.classList.toggle('hidden',!(m.alias&&m.alias.possible&&!m.aliasAdded));alias.disabled=locked;
+    var steps=[!!discovery,!!(m.prechecked&&m.canCopy&&!dirty),!!m.canCutover&&!dirty,anyCreated],current=-1,items=byId('migrateSteps').children;
+    for(var i=0;i<steps.length;i++){if(!steps[i]&&current<0){current=i;}}
+    for(var j=0;j<items.length;j++){items[j].className=steps[j]&&(current<0||j<current)?'done':(j===current?'current':'');if(j===current){items[j].setAttribute('aria-current','step');}else{items[j].removeAttribute('aria-current');}}
+    ['migrateStepChoose','migrateStepCopy','migrateStepCutover'].forEach(function(id,index){byId(id).className='migrate-section'+((index===0?!!discovery:(index===1?!!m.canCopy:!!m.canCutover))?'':' inactive');});
+    byId('migrateBody').className='card-body'+(locked&&!migrateIsRunning()&&migrateAdmin()?' locked':'');
+  }
+  function renderMigrateRun(m){
+    var plan=m.plan||[],key=JSON.stringify(plan.map(function(p){return [p.name,p.destPath,p.status,p.message,p.percent,p.processed,p.expected,p.lastSyncUnixMs,p.previouslySynced];}));
+    var host=byId('migrateRun');host.classList.toggle('hidden',!plan.length);
+    if(key!==migrateRunKey){
+      migrateRunKey=key;host.textContent='';
+      plan.forEach(function(p){
+        var row=el('div','migrate-run-row');row.setAttribute('data-migrate-run',p.name);row.setAttribute('data-status',p.status||'');
+        var top=el('div','migrate-run-top'),status=p.status||'planned';
+        if(status==='planned'&&p.previouslySynced){status='succeeded';}
+        top.appendChild(el('span','run-chip run-'+status,migrateStatusLabels[status]||status));
+        top.appendChild(el('span','migrate-run-name',p.name+' → '+p.destPath));
+        var detail=p.message||'';if(p.lastSyncUnixMs){detail=(detail?detail+' ':'')+'Last copied '+new Date(p.lastSyncUnixMs).toLocaleString()+'.';}
+        if(detail){top.appendChild(el('span','migrate-run-detail',detail));}
+        row.appendChild(top);
+        if(status==='copying'){var bar=el('div','migrate-bar'),fill=el('span','');fill.style.width=Math.max(0,Math.min(100,Number(p.percent)||0))+'%';bar.setAttribute('role','progressbar');bar.setAttribute('aria-valuenow',String(Number(p.percent)||0));bar.setAttribute('aria-valuemin','0');bar.setAttribute('aria-valuemax','100');bar.appendChild(fill);row.appendChild(bar);
+          row.appendChild(el('div','migrate-run-detail',formatCount(p.processed)+(p.expected?' of about '+formatCount(p.expected):'')+' files processed'));}
+        host.appendChild(row);
+      });
+    }
+    var created=plan.filter(function(p){return p.createdShare;}),cut=byId('migrateCutoverRun'),computer=(latestState&&latestState.computerName)||'this server',ckey=JSON.stringify(created.map(function(p){return [p.name,p.destName,p.status,p.verified,p.message];}))+computer;
+    cut.classList.toggle('hidden',!created.length);
+    if(ckey!==migrateCutKey){
+      migrateCutKey=ckey;cut.textContent='';
+      created.forEach(function(p){
+        var row=el('div','migrate-run-row');row.setAttribute('data-migrate-cut',p.name);var top=el('div','migrate-run-top');
+        top.appendChild(el('span','run-chip '+(p.verified?'run-done':'run-attention'),p.verified?'Live and verified':'Check again'));
+        top.appendChild(el('span','migrate-run-name','\\\\'+computer+'\\'+p.destName));
+        top.appendChild(el('span','migrate-run-detail',p.verified?'Matches the old share.':(p.message||'Some files differ. Run the cutover again to copy them.')));
+        row.appendChild(top);cut.appendChild(row);
+      });
+    }
+  }
+  function renderMigrateAfter(m){
+    var dfs=byId('migrateDfsResult');dfs.textContent='';
+    if(m.dfs){
+      dfs.appendChild(el('div','migrate-guidance',m.dfs.message||''));
+      if((m.dfs.targets||[]).length){
+        var table=el('table','migrate-table'),head=el('tr','');['DFS link','Points at now','Change to'].forEach(function(t){head.appendChild(el('th','',t));});var thead=el('thead','');thead.appendChild(head);table.appendChild(thead);
+        var body=el('tbody','');m.dfs.targets.forEach(function(t){var tr=el('tr','');[t.namespacePath,t.target,t.suggested||'Not part of this move'].forEach(function(v){tr.appendChild(el('td','',v));});body.appendChild(tr);});table.appendChild(body);dfs.appendChild(table);
+      }
+    }
+    var alias=byId('migrateAliasResult');alias.textContent='';
+    if(m.aliasAdded){alias.appendChild(el('div','migrate-guidance','This server now also answers to '+m.aliasAdded+'. Restart this server for it to take effect.'));}
+    else if(m.alias){
+      if(m.alias.possible){alias.appendChild(el('div','migrate-guidance','Ready: this server can take the name '+(m.alias.oldName||'')+'.'));}
+      else{var ul=el('ul','migrate-notes');(m.alias.reasons||[]).forEach(function(r){ul.appendChild(el('li','problem',r));});alias.appendChild(ul);}
+    }
+    byId('migrateReadOnlyText').textContent=m.sourceReadOnly?'The old shares are read-only. Their previous permissions are saved; Undo puts them back.':'Stops anyone saving new files on the old server by mistake. The old permissions are saved so you can undo this.';
+  }
+  function renderMigrateLog(m){
+    var logs=m.logs||[],log=byId('migrateLog'),key=logs.length+':'+(logs.length?logs[logs.length-1].index:'');
+    if(key===migrateLogKey){return;}
+    migrateLogKey=key;var follow=log.scrollHeight-log.scrollTop-log.clientHeight<40,fragment=document.createDocumentFragment();log.textContent='';
+    if(!logs.length){log.appendChild(el('div','log-empty','No migration messages yet.'));}
+    logs.forEach(function(line){var u=String(line.text||'').toUpperCase();fragment.appendChild(el('div',u.indexOf('[ERROR]')>=0?'log-line-error':(u.indexOf('[WARN')>=0?'log-line-warn':''),line.text));});
+    log.appendChild(fragment);if(follow){log.scrollTop=log.scrollHeight;}
+  }
+  function renderMigrate(state){
+    var m=state.migrate||{status:'idle',plan:[],logs:[]};
+    var badges={discovering:'Connecting',checking:'Checking',copying:'Copying',cuttingover:'Cutting over',working:'Working',failed:'Failed',discoverfailed:'Failed',canceled:'Stopped',copied:'Copied',cutover:'Done',checked:'Checked',discovered:'Connected'};
+    byId('migrateTabBadge').textContent=badges[m.status]||(m.running?'Working':'Ready');
+    byId('migrateAdminNotice').classList.toggle('hidden',!!state.isAdministrator);
+    var message=byId('migrateMessage');message.textContent=m.message||'';message.className='restore-status'+(m.status==='failed'||m.status==='discoverfailed'?' error':'');
+    var source=byId('migrateSource');if(m.source&&document.activeElement!==source&&!source.value){source.value=m.source;}
+    var discovery=migrateDiscovery();
+    if(discovery){
+      var key=JSON.stringify([discovery.source,(discovery.shares||[]).map(function(s){return [s.name,s.path,s.system,s.remotePath,s.warnings];})]);
+      if(key!==migrateDiscoveryKey){migrateDiscoveryKey=key;buildMigrateShares(discovery);}
+      byId('migrateFactSource').textContent=discovery.source+(discovery.sourceFqdn&&discovery.sourceFqdn!==discovery.source?' ('+discovery.sourceFqdn+')':'');
+      byId('migrateFactTarget').textContent=discovery.currentComputer||state.computerName||'This server';
+      byId('migrateFactShares').textContent=String((discovery.shares||[]).length);
+      byId('migrateFactCopies').textContent=String(((m.plan)||[]).filter(function(p){return p.previouslySynced;}).length)+' of '+String(((m.plan)||[]).length);
+      var warn=byId('migrateSourceWarnings');warn.textContent='';(discovery.warnings||[]).forEach(function(w){warn.appendChild(el('li','',w));});warn.classList.toggle('hidden',!(discovery.warnings||[]).length);
+      byId('migrateFacts').classList.remove('hidden');byId('migrateShares').classList.remove('hidden');
+    }else{
+      migrateDiscoveryKey='';migrateSelection={};migrateOrder=[];byId('migrateShares').textContent='';byId('migrateShares').classList.add('hidden');byId('migrateFacts').classList.add('hidden');byId('migrateSourceWarnings').classList.add('hidden');
+    }
+    var space=byId('migrateSpace');space.textContent='';
+    (m.space||[]).forEach(function(d){space.appendChild(el('div',d.ok?'':'bad','Drive '+String(d.drive).replace(/:$/,'')+': needs about '+formatBytesShort(d.neededBytes)+', '+formatBytesShort(d.freeBytes)+' free'+(d.ok?'.':'. Not enough space.')));});
+    space.classList.toggle('hidden',!(m.space||[]).length||!discovery);
+    renderMigrateRun(m);renderMigrateAfter(m);renderMigrateLog(m);syncMigrateShares();
+  }
+  function migratePost(path,body,statusId,done){
+    if(migrateBusy){return;}
+    migrateBusy=true;syncMigrateButtons();if(statusId){migrateSetStatus(statusId,'',false);}
+    request('POST',path,body,function(err,data){migrateBusy=false;if(err){if(statusId){migrateSetStatus(statusId,err,true);}else{notice(err,true);}syncMigrateButtons();if(done){done(err);}return;}if(done){done(null,data);}syncMigrateButtons();});
+  }
+  function migrateMarkRunning(action,status,message){var m=migrateState();if(m){m.running=true;m.action=action;m.status=status;m.message=message;m.cancelRequested=false;}if(latestState){renderMigrate(latestState);setConfigDisabled(!!latestState.running);}}
+  function connectMigrate(){
+    var source=trimText(byId('migrateSource').value);if(!source||migrateLocked()){return;}
+    migratePost('/api/migrate/discover',{source:source},'migrateConnectStatus',function(err){if(!err){migrateMarkRunning('discover','discovering','Connecting to '+source+'.');}});
+  }
+  function checkMigratePlan(){
+    var shares=migrateSelectedShares();if(!shares.length||migrateLocked()){return;}
+    migratePost('/api/migrate/plan',{shares:shares},'migrateCheckStatus',function(err){
+      if(err){return;}
+      migratePost('/api/migrate/precheck',{},'migrateCheckStatus',function(err2){if(!err2){migrateMarkRunning('precheck','checking','Checking the old shares, this server\'s folders and free space.');}});
+    });
+  }
+  function openMigrateDialog(options){
+    migrateDialogAction=options;
+    byId('migrateDialogTitle').textContent=options.title;
+    var text=byId('migrateDialogText');text.textContent='';
+    (options.paragraphs||[]).forEach(function(p){text.appendChild(el('p','',p));});
+    if(options.list&&options.list.length){var ul=el('ul','');options.list.forEach(function(item){ul.appendChild(el('li','',item));});text.appendChild(ul);}
+    var alert=byId('migrateDialogAlert');alert.textContent=options.alert||'';alert.classList.toggle('hidden',!options.alert);
+    byId('migrateConfirmLabel').textContent=options.label+': '+options.expected;
+    byId('migrateConfirmButton').textContent=options.button;
+    byId('migrateConfirmInput').value='';byId('migrateConfirmInput').disabled=false;byId('migrateConfirmButton').disabled=true;byId('migrateDialogCancel').disabled=false;byId('migrateDialogError').classList.add('hidden');
+    var d=byId('migrateDialog');if(d.showModal){d.showModal();}else{d.setAttribute('open','');}
+    byId('migrateConfirmInput').focus();
+  }
+  function migrateDialogMatches(){var a=migrateDialogAction;return !!(a&&trimText(byId('migrateConfirmInput').value).toLowerCase()===String(a.expected).toLowerCase());}
+  function closeMigrateDialog(){if(migrateBusy){return;}var d=byId('migrateDialog');if(d.close){d.close();}else{d.removeAttribute('open');}migrateDialogAction=null;}
+  function confirmMigrateDialog(){
+    var a=migrateDialogAction;if(!a||!migrateDialogMatches()||migrateBusy){return;}
+    var body={};body[a.field]=trimText(byId('migrateConfirmInput').value);
+    migrateBusy=true;byId('migrateConfirmButton').disabled=true;byId('migrateDialogCancel').disabled=true;byId('migrateConfirmInput').disabled=true;byId('migrateDialogError').classList.add('hidden');
+    request('POST',a.path,body,function(err){
+      migrateBusy=false;byId('migrateDialogCancel').disabled=false;byId('migrateConfirmInput').disabled=false;
+      if(err){var box=byId('migrateDialogError');box.textContent=err;box.classList.remove('hidden');byId('migrateConfirmButton').disabled=!migrateDialogMatches();return;}
+      var after=a.after;closeMigrateDialog();if(after){after();}
+    });
+  }
+  function migrateShortName(name){return String(name||'').split('.')[0];}
+  byId('migrateSource').addEventListener('input',syncMigrateButtons);
+  byId('migrateSource').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();connectMigrate();}});
+  byId('migrateConnect').addEventListener('click',connectMigrate);
+  byId('migrateReset').addEventListener('click',function(){migratePost('/api/migrate/reset',{},'migrateConnectStatus',function(err){if(err){return;}byId('migrateSource').value='';migrateDiscoveryKey='';migrateRunKey='';migrateCutKey='';if(latestState){latestState.migrate={status:'idle',plan:[],logs:[],space:[]};renderMigrate(latestState);}byId('migrateSource').focus();});});
+  byId('migrateCheck').addEventListener('click',checkMigratePlan);
+  byId('migrateCopy').addEventListener('click',function(){if(this.disabled){return;}migratePost('/api/migrate/sync',{},null,function(err){if(!err){migrateMarkRunning('sync','copying','Copying.');}});});
+  byId('migrateCutover').addEventListener('click',function(){
+    if(this.disabled){return;}var m=migrateState()||{},computer=(latestState&&latestState.computerName)||'';
+    openMigrateDialog({title:'Cut over to this server',path:'/api/migrate/cutover',field:'confirmComputerName',expected:computer,label:"Type this server's name to confirm",button:'Cut over now',
+      alert:'Ask users to stop using the old shares now. Files they change during cutover may need another pass.',
+      paragraphs:['This makes a final copy, then creates these shares on this server with the old share settings and permissions, and compares the old and new files. The old server is not changed.'],
+      list:(m.plan||[]).map(function(p){return p.name+' → \\\\'+computer+'\\'+p.destName+' ('+p.destPath+')';}),
+      after:function(){migrateMarkRunning('cutover','cuttingover','Final copy, then creating the shares here and comparing.');}});
+  });
+  byId('migrateReadOnly').addEventListener('click',function(){
+    var m=migrateState()||{},old=migrateShortName(m.source);
+    openMigrateDialog({title:'Make the old shares read-only',path:'/api/migrate/source-readonly',field:'confirmSourceName',expected:old,label:"Type the old server's name to confirm",button:'Make read-only',
+      paragraphs:['People can still open files on '+old+' but cannot save changes there. The old share permissions are saved first, and Undo puts them back.'],list:(m.plan||[]).map(function(p){return p.name;}),
+      after:function(){migrateMarkRunning('readonly','working','Making the old shares read-only.');}});
+  });
+  byId('migrateReadOnlyUndo').addEventListener('click',function(){migratePost('/api/migrate/source-restore',{},null,function(err){if(!err){migrateMarkRunning('restoresource','working','Putting back the old shares\' permissions.');}});});
+  byId('migrateDfs').addEventListener('click',function(){migratePost('/api/migrate/dfs',{},null,function(err){if(!err){migrateMarkRunning('dfs','working','Looking for DFS links that point at the old server.');}});});
+  byId('migrateAliasCheck').addEventListener('click',function(){migratePost('/api/migrate/alias-check',{},null,function(err){if(!err){migrateMarkRunning('aliascheck','working','Checking whether this server can take over the old server\'s name.');}});});
+  byId('migrateAlias').addEventListener('click',function(){
+    var m=migrateState()||{},alias=m.alias||{},old=alias.oldName||migrateShortName(m.source);
+    openMigrateDialog({title:"Give this server the old server's name",path:'/api/migrate/alias',field:'confirmOldName',expected:old,label:"Type the old server's name to confirm",button:'Add name',
+      alert:'This changes DNS and Active Directory. It needs Domain Admin rights, and this server must be restarted afterwards.',
+      paragraphs:['Only do this after '+old+' is shut down for good and removed from DNS. Old paths such as \\\\'+old+'\\Share will then open the shares on this server.'],
+      after:function(){migrateMarkRunning('alias','working','Adding the old server\'s name to this server.');}});
+  });
+  byId('migrateStop').addEventListener('click',function(){var button=this;button.disabled=true;request('POST','/api/migrate/cancel',{},function(err){if(err){button.disabled=false;notice(err,true);return;}var m=migrateState();if(m){m.cancelRequested=true;}syncMigrateButtons();});});
+  byId('migrateOpenLogs').addEventListener('click',function(){openKind('migrationlogs');});
+  byId('migrateConfirmInput').addEventListener('input',function(){byId('migrateConfirmButton').disabled=!migrateDialogMatches()||migrateBusy;});
+  byId('migrateConfirmInput').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();if(!byId('migrateConfirmButton').disabled){confirmMigrateDialog();}}});
+  byId('migrateConfirmButton').addEventListener('click',confirmMigrateDialog);
+  byId('migrateDialogCancel').addEventListener('click',closeMigrateDialog);
+  byId('migrateDialog').addEventListener('cancel',function(e){if(migrateBusy){e.preventDefault();}});
   setReportHeaderCollapsed(window.innerHeight<600); syncCategoryState(); poll();
 }());
 </script>

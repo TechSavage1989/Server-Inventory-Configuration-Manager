@@ -1,3 +1,13 @@
+## Unreleased: file server migration (Migrate tab) — 2026-11-12
+
+User request: "a tool that can facilitate moving files and shares from one server to another with a very simple and straightforward to understand interface". Owner choices: live copy from the old server, all after-cutover options, every share except administrative shares. AGENTS rule 24 records the rules.
+
+- `src/app/Migrate-FileShares.ps1` modes: Discover (Win32_Share plus Get-SmbShare/Get-SmbShareAccess over a DCOM CIM session), Precheck (reachability, empty destination, free space, local-account/orphaned-SID warnings, Robocopy `/L` size estimate), Sync (`/MIR /COPYALL /DCOPY:DAT /B /MT:16`, progress from the UTF-16 log, stop between files), Cutover (final sync, New-SmbShare with the old settings and share ACL, `/L` verification), SourceReadOnly/SourceRestore, DfsReport, AliasCheck/Alias (`netdom computername /add`).
+- `src/app/migrate.go`: `/api/migrate/discover|plan|precheck|sync|cutover|source-readonly|source-restore|dfs|alias-check|alias|cancel|reset`, `migrate` in `/api/state`, `/api/open` kind `migrationlogs`, saved state per source. `restore.go` gained shared `runEngineProcess` and `prepareRestoreEngineNamed`.
+- Migrate tab in `src/app/index.html` (Alt+5): four steps plus after-cutover cards; `scripts/test_workspace.cjs` covers it including low resolution.
+- `scripts/Test-Migration.ps1` (CI job `migration`): 36 real checks with the runner as both servers.
+
+Not covered: two real servers (CI uses one machine as both), a domain (DFS report and the alias step are only exercised in their refusal paths), Windows Server 2012/2012 R2 sources, very large shares and long cutovers.
 ## 3.2.19 published and verified — 2026-11-12
 
 - [Release v3.2.19](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.19), tag and target commit `9582047dea3ed09f1754822f51cc02db2c6828a9` (publication PR #36, changing only `release/VERSION`). Source: printer migration export fix #34; release preparation #35.
