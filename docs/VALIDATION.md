@@ -1,3 +1,13 @@
+## 3.2.18 published and verified — 2026-11-12
+
+- [Release v3.2.18](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.18), tag and target commit `4c7ad410edb3f2c9f35a430eaf1b6e469989c02a` (publication PR #32, changing only `release/VERSION`). Source: Restore tab #30; release preparation #31.
+- [Publish run](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/43159658380) passed in one attempt: build, native tests, browser gates, publication, `Verify-PublicRelease.ps1` (05:11–05:16 UTC), and the published-upgrade job (05:16–05:25 UTC).
+- All 45 actual 3.2.17-to-3.2.18 upgrade checks passed in one run with zero unexpected dialogs.
+- Source CI on #30 and #31 included the `restore` job: 49 real restore round-trip checks on hosted Windows Server 2025 with DHCP, DNS, IIS, NPS and Print Server installed, plus stop-before-start and tampered-file negative controls.
+- Stable EXE: 7,338,496 bytes; SHA-256 `7ab1d64fb574083f110ecfe233203b2ee70088116aeefac71c710e5ceb37eac4` (release asset digest). All 12 assets are published; the v3.2.17 release still has its 12 assets and the same EXE digest. `Report-Preview.png` is unchanged (SHA-256 `557ed377…fee3a`), so `docs/images/report-executive-summary.png` is unchanged.
+
+Limits: synthetic hosted Windows testing, not live customer inventory or a real server. Group Policy restore, restoring onto a different server, Windows Server 2012/2012 R2, a company-managed PC and human UAC consent were not exercised. CI artifacts were not downloaded, so no `release/3.2.18-verification.json` exists; the job logs above are the evidence. No client data was uploaded.
+
 ## 3.2.17 published and verified — 2026-11-12
 
 - [Release v3.2.17](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.17), tag and target commit `a861039ffd9c74d872ad2788e17cc613a21095f4` (publication PR #28, changing only `release/VERSION`). Source: built-in WebView2 window when guest browsing is blocked #26; release preparation #27.

@@ -1,3 +1,13 @@
+## 3.2.18 published and verified — 2026-11-12
+
+- [Release v3.2.18](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.18), tag and target commit `4c7ad410edb3f2c9f35a430eaf1b6e469989c02a` (publication PR #32, changing only `release/VERSION`). Source: Restore tab #30; release preparation #31.
+- [Publish run](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/43159658380) passed in one attempt: build, native tests, browser gates, publication, `Verify-PublicRelease.ps1` (05:11–05:16 UTC), and the published-upgrade job (05:16–05:25 UTC).
+- All 45 actual 3.2.17-to-3.2.18 upgrade checks passed in one run with zero unexpected dialogs.
+- Source CI on #30 and #31 included the `restore` job: 49 real restore round-trip checks on hosted Windows Server 2025 with DHCP, DNS, IIS, NPS and Print Server installed, plus stop-before-start and tampered-file negative controls.
+- Stable EXE: 7,338,496 bytes; SHA-256 `7ab1d64fb574083f110ecfe233203b2ee70088116aeefac71c710e5ceb37eac4` (release asset digest). All 12 assets are published; the v3.2.17 release still has its 12 assets and the same EXE digest. `Report-Preview.png` is unchanged (SHA-256 `557ed377…fee3a`), so `docs/images/report-executive-summary.png` is unchanged.
+
+Limits: synthetic hosted Windows testing, not live customer inventory or a real server. Group Policy restore, restoring onto a different server, Windows Server 2012/2012 R2, a company-managed PC and human UAC consent were not exercised. CI artifacts were not downloaded, so no `release/3.2.18-verification.json` exists; the job logs above are the evidence. No client data was uploaded.
+
 ## 3.2.18 release preparation — 2026-11-12
 
 Publishing the Restore tab (#30) under the owner's standing approval (AGENTS rule 16). This branch bumps `appVersion`, `collectorVersion` and the collector `$scriptVersion` to 3.2.18, adds `docs/release-notes/3.2.18.md` (first three bullets free of Markdown) and points `scripts/test_published_upgrade.cjs` at the published v3.2.17 executable (SHA-256 `9dc5f53e22c95c9ce87982f2e9f673f1c0cab4f38a15a231c9594928ff70794f`, release asset digest). `release/VERSION` changes in a separate publication PR after this source CI passes.
@@ -12,7 +22,7 @@ User request: "Build in full restore features for backup content like DHCP, NPS,
 - Windows Server 2016+ findings, each reproduced on the hosted runner: `Import-DhcpServer` always re-applies NAP server settings and the server refuses them (`Set-DhcpServerSetting -NapEnabled` fails even unchanged), and the import schema requires those elements, so the engine applies server settings, classes, option definitions and server options itself and imports scopes with `-ScopeId`; real server-level policies, filters, failover, superscopes, multicast and DHCPv6 are reported for review. `PrintBrm -s \\server` exits 0 with error 0x80043333 when no printer is shared, so the engine uses the local form and reads PrintBRM output instead of the exit code. A new DNS Server on the runner boots from file and refuses zone creation until `dnscmd /config /bootmethod 3`.
 - `scripts/Test-Restore.ps1` (CI job `restore`) installs DHCP, DNS, IIS, NPS and Print Server on the disposable runner, builds a synthetic package the way the collector exports, changes everything, and restores it: 49 checks including stop-before-start and tampered-file negative controls. Go tests cover selection validation, events, start refusals and a real-engine scan with tampered, unlisted and out-of-key registry files.
 
-Not covered: Group Policy restore (the runner is not domain-joined; only its unavailable state is checked), restore onto a different server, Windows Server 2012/2012 R2, and device drivers other than print drivers (not captured by the collector yet). The collector's own `PrintBrm -s` call has the same silent-failure problem; fixing it needs an approved collector region change.
+Not covered: Group Policy restore (the runner is not domain-joined; only its unavailable state is checked), restore onto a different server, Windows Server 2012/2012 R2, and device drivers other than print drivers (the owner decided on 2026-11-12 that only print drivers are needed, for printer migrations; do not add other driver export or restore). The collector's own `PrintBrm -s` call has the same silent-failure problem; fixing it needs an approved collector region change.
 
 ## 3.2.17 published and verified — 2026-11-12
 
