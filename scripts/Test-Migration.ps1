@@ -154,3 +154,5 @@ foreach ($name in @($oldName, $newName)) { Remove-SmbShare -Name $name -Force -E
 Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
 Write-Host ('Migration validation passed: {0} checks.' -f $checks.Count)
 $checks | Set-Content -LiteralPath (Join-Path $OutputDirectory 'checks.txt') -Encoding UTF8
+# The last engine run was an expected refusal; report success explicitly.
+exit 0
