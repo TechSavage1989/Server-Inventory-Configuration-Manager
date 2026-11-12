@@ -133,7 +133,7 @@ if (-not $SkipRoles) {
     $dhcpExport = Get-PackagePath '08-Role-Specific\DHCP\DHCP-Configuration-and-Leases.xml'
     $raw = Get-Content -LiteralPath $dhcpExport -Raw
     Write-Host ('DHCP export head: ' + ($raw.Substring(0, [Math]::Min(300, $raw.Length)) -replace '\s+', ' '))
-    $ipv4 = [regex]::Match($raw, '(?s)<IPv4>.*?<Scopes>').Value
+    $ipv4 = [regex]::Match($raw, '(?s)<IPv4[^>]*>.*?<(Scopes|OptionDefinitions|OptionValues)').Value
     Write-Host ('DHCP IPv4 server section: ' + ($ipv4 -replace '\s+', ' '))
     $diag = Join-Path $work 'dhcp-diag'; New-Item -ItemType Directory -Path $diag -Force | Out-Null
     $variants = [ordered]@{}
@@ -141,9 +141,14 @@ if (-not $SkipRoles) {
     $variants['nps-action-removed'] = [regex]::Replace($raw, '<NpsUnreachableAction>[^<]*</NpsUnreachableAction>\s*', '')
     $variants['nap-enabled-removed'] = [regex]::Replace($raw, '<NapEnabled>[^<]*</NapEnabled>\s*', '')
     $variants['both-server-removed'] = [regex]::Replace([regex]::Replace($raw, '<NapEnabled>[^<]*</NapEnabled>\s*', ''), '<NpsUnreachableAction>[^<]*</NpsUnreachableAction>\s*', '')
+    foreach ($setting in @(@{ NapEnabled = $false }, @{ NpsUnreachableAction = 'Full' }, @{ ConflictDetectionAttempts = 0 }, @{ ActivatePolicies = $true })) {
+        try { Set-DhcpServerv4Setting -ComputerName $computer @setting -ErrorAction Stop; Write-Host ('DHCP setting ' + (($setting.Keys | ForEach-Object { $_ + '=' + $setting[$_] }) -join ',') + ': OK') }
+        catch { $m = $_.Exception.Message; try { $m += ' | ' + [string]$_.Exception.ErrorData.CimInstanceProperties['error_WindowsErrorMessage'].Value } catch { }; Write-Host ('DHCP setting ' + (($setting.Keys | ForEach-Object { $_ + '=' + $setting[$_] }) -join ',') + ': ' + $m) }
+    }
+    Get-DhcpServerv4Setting -ComputerName $computer | Format-List * | Out-String | ForEach-Object { Write-Host ('DHCP current settings: ' + ($_ -replace '\s+', ' ')) }
     foreach ($name in $variants.Keys) {
         $path = Join-Path $diag ($name + '.xml')
-        [IO.File]::WriteAllText($path, $variants[$name], [Text.Encoding]::Unicode)
+        [IO.File]::WriteAllText($path, $variants[$name], (New-Object Text.UTF8Encoding($false)))
         try { Import-DhcpServer -ComputerName $computer -File $path -BackupPath (Join-Path $diag ($name + '-backup')) -Leases -ScopeOverwrite -Force -ErrorAction Stop; Write-Host ('DHCP import variant ' + $name + ': OK') }
         catch { Write-Host ('DHCP import variant ' + $name + ': ' + $_.Exception.Message) }
         try { Import-DhcpServer -ComputerName $computer -File $path -BackupPath (Join-Path $diag ($name + '-backup2')) -Leases -ScopeOverwrite -ScopeId 10.250.0.0 -Force -ErrorAction Stop; Write-Host ('DHCP scope-only import variant ' + $name + ': OK') }
