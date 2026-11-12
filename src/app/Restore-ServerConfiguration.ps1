@@ -245,6 +245,7 @@ function Get-DhcpComponent {
     elseif (-not (Test-ServiceInstalled 'DHCPServer') -or -not (Test-CommandAvailable 'Import-DhcpServer' 'DhcpServer')) { $blocked = 'The DHCP Server role is not installed on this server. Install it, and authorize it in Active Directory if needed, first.' }
     else { $blocked = Test-PackageFile -FullPath $file }
     $warnings = @('Scopes, options, reservations, policies and leases from the package replace the matching ones on this server.', 'The DHCP database is also backed up by Import-DhcpServer before the import.')
+    if ([Environment]::OSVersion.Version.Major -ge 10) { $warnings += 'Network Access Protection settings in the export are left out: Windows Server 2016 and later no longer support NAP.' }
     if (-not $script:SameComputer) { $warnings += 'Restoring onto a different server: authorize this server for DHCP in Active Directory and review failover relationships and server bindings afterwards.' }
     $item = New-RestoreItem -Id 'dhcp' -Title 'DHCP configuration and leases' -Detail 'DHCP-Configuration-and-Leases.xml' -BlockedReason $blocked -Data @{ file = $file }
     return New-RestoreComponent -Id 'dhcp' -Title 'DHCP Server' -Description 'Scopes, options, reservations, exclusions, policies and leases.' -Impact 'high' -Warnings $warnings -Items @($item)
