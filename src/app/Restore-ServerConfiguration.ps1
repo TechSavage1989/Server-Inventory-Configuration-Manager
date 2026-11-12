@@ -533,11 +533,27 @@ function Restore-Nps {
     Import-NpsConfiguration -Path $Data.file
 }
 
+function Wait-PrintBrmEngine {
+    # PrintBrm.exe can return while PrintBrmEngine.exe is still writing or
+    # applying the migration file, so wait for the engine before going on.
+    param([string]$What)
+    $deadline = (Get-Date).AddMinutes(60)
+    while (@(Get-Process -Name 'PrintBrmEngine' -ErrorAction SilentlyContinue).Count -gt 0) {
+        if ((Get-Date) -gt $deadline) { throw ($What + ' did not finish within 60 minutes.') }
+        Start-Sleep -Seconds 2
+    }
+}
+
 function Restore-Printers {
     param([hashtable]$Data, [string]$Rollback)
     $printBrm = Join-Path $env:SystemRoot 'System32\spool\tools\PrintBrm.exe'
-    Assert-Native -FilePath $printBrm -Arguments @('-B', '-F', (Join-Path $Rollback 'Current-Printers.printerExport')) -What 'Saving the current printers'
+    Wait-PrintBrmEngine -What 'An earlier printer migration'
+    $snapshot = Join-Path $Rollback 'Current-Printers.printerExport'
+    Assert-Native -FilePath $printBrm -Arguments @('-B', '-F', $snapshot) -What 'Saving the current printers'
+    Wait-PrintBrmEngine -What 'Saving the current printers'
+    if (-not (Test-Path -LiteralPath $snapshot)) { throw 'PrintBRM did not save the current printers, so the restore was not started.' }
     Assert-Native -FilePath $printBrm -Arguments @('-R', '-F', $Data.file, '-O', 'FORCE') -What 'PrintBRM restore'
+    Wait-PrintBrmEngine -What 'PrintBRM restore'
 }
 
 function Restore-Iis {

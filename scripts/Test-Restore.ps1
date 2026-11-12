@@ -99,7 +99,12 @@ if (-not $SkipRoles) {
     Add-PrinterPort -Name 'SICM_TEST_PORT' -PrinterHostAddress '192.0.2.9'
     Add-Printer -Name 'SICM Restore Printer' -DriverName 'Generic / Text Only' -PortName 'SICM_TEST_PORT'
     $printBrm = Join-Path $env:SystemRoot 'System32\spool\tools\PrintBrm.exe'
-    Invoke-Checked $printBrm @('-s', ('\\' + $computer), '-b', '-f', (Get-PackagePath ('08-Role-Specific\Print-Server\' + $computer + '.printerExport')))
+    $printerExport = Get-PackagePath ('08-Role-Specific\Print-Server\' + $computer + '.printerExport')
+    Invoke-Checked $printBrm @('-s', ('\\' + $computer), '-b', '-f', $printerExport)
+    # PrintBrm.exe can return before PrintBrmEngine.exe has written the file.
+    $deadline = (Get-Date).AddMinutes(10)
+    while (@(Get-Process -Name 'PrintBrmEngine' -ErrorAction SilentlyContinue).Count -gt 0 -and (Get-Date) -lt $deadline) { Start-Sleep -Seconds 2 }
+    Assert (Test-Path -LiteralPath $printerExport) 'PrintBRM wrote the printer export'
 
     # IIS (appcmd add backup, copied out of inetsrv\backup).
     $appCmd = Join-Path $env:SystemRoot 'System32\inetsrv\appcmd.exe'
