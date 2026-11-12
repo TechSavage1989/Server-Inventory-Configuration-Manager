@@ -74,6 +74,7 @@ function Invoke-Native {
         $code = $LASTEXITCODE
     }
     finally { $ErrorActionPreference = $previous }
+    $script:LastNativeOutput = (@($output) | ForEach-Object { [string]$_ }) -join "`n"
     foreach ($line in @($output)) {
         $text = ([string]$line).TrimEnd()
         if ($text) { Write-Log 'INFO' ('  ' + $text) }
@@ -544,15 +545,25 @@ function Wait-PrintBrmEngine {
     }
 }
 
+function Assert-PrintBrmSucceeded {
+    # PrintBrm.exe can exit with 0 after reporting an error, so read its output.
+    param([string]$What)
+    if ($script:LastNativeOutput -match 'error occurred' -or $script:LastNativeOutput -notmatch 'Successfully finished operation') {
+        throw ($What + ' did not finish successfully. See the PrintBRM output above and the Microsoft-Windows-PrintBRM/Admin event log.')
+    }
+}
+
 function Restore-Printers {
     param([hashtable]$Data, [string]$Rollback)
     $printBrm = Join-Path $env:SystemRoot 'System32\spool\tools\PrintBrm.exe'
     Wait-PrintBrmEngine -What 'An earlier printer migration'
     $snapshot = Join-Path $Rollback 'Current-Printers.printerExport'
     Assert-Native -FilePath $printBrm -Arguments @('-B', '-F', $snapshot) -What 'Saving the current printers'
+    Assert-PrintBrmSucceeded -What 'Saving the current printers'
     Wait-PrintBrmEngine -What 'Saving the current printers'
     if (-not (Test-Path -LiteralPath $snapshot)) { throw 'PrintBRM did not save the current printers, so the restore was not started.' }
     Assert-Native -FilePath $printBrm -Arguments @('-R', '-F', $Data.file, '-O', 'FORCE') -What 'PrintBRM restore'
+    Assert-PrintBrmSucceeded -What 'PrintBRM restore'
     Wait-PrintBrmEngine -What 'PrintBRM restore'
 }
 
