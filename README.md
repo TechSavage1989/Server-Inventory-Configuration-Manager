@@ -110,7 +110,7 @@ The **Restore** tab puts configuration from an inventory package back onto a ser
 
 | Component | What is restored | How |
 | --- | --- | --- |
-| DHCP Server | Scopes, options, reservations, policies and leases | `Import-DhcpServer` |
+| DHCP Server | Scopes, options, reservations, policies and leases; server options, classes and option definitions | `Import-DhcpServer` (on Windows Server 2016+, scopes only, with server settings applied separately because the import's NAP settings are refused) |
 | Network Policy Server | RADIUS clients, shared secrets and policies (only from packages collected with sensitive exports allowed) | `Import-NpsConfiguration` |
 | Printers and print drivers | Print queues, drivers, ports and processors | PrintBRM |
 | IIS | Sites, bindings, application pools, applications | `appcmd restore backup` |
