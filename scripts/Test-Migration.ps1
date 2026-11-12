@@ -26,7 +26,7 @@ function Invoke-Engine([string]$Mode, [hashtable]$Arguments, [string]$Name) {
     $log = Join-Path $OutputDirectory ($Name + '.log')
     $result = Join-Path $OutputDirectory ($Name + '.json')
     $list = @('-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', $engine, '-Mode', $Mode, '-ResultPath', $result, '-WorkPath', $work)
-    foreach ($key in $Arguments.Keys) { $list += @('-' + $key, $Arguments[$key]) }
+    foreach ($key in $Arguments.Keys) { $list += @(('-' + $key), $Arguments[$key]) }
     # Engine errors on stderr must be recorded, not end this script.
     $previous = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
