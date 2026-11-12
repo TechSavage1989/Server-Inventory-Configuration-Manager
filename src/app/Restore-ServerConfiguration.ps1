@@ -580,9 +580,11 @@ function Restore-DhcpServerLevel {
     }
 
     $notApplied = @()
-    foreach ($name in @('Policies', 'Filters', 'FailoverRelationships', 'SuperScopes', 'MulticastScopes')) {
+    # Count real entries, not the empty containers every export carries.
+    $sections = [ordered]@{ Policies = 'Policy'; Filters = 'Filter'; FailoverRelationships = 'Failover'; SuperScopes = 'SuperScope'; MulticastScopes = 'MulticastScope' }
+    foreach ($name in $sections.Keys) {
         $section = @(Get-XmlChildren $IPv4 $name)
-        if ($section.Count -and @($section[0].ChildNodes | Where-Object { $_.NodeType -eq 'Element' }).Count) { $notApplied += $name }
+        if ($section.Count -and $section[0].SelectNodes(('.//*[local-name()="{0}"]' -f $sections[$name])).Count) { $notApplied += $name }
     }
     if ($notApplied.Count) { Write-Log 'WARN' ('Not restored on this Windows version, review and re-create them: server-level DHCP ' + ($notApplied -join ', ') + '.') }
 }
@@ -610,7 +612,8 @@ function Restore-Dhcp {
         Import-DhcpServer -ComputerName $script:ComputerName -File $Data.file -BackupPath $backupPath -Leases -ScopeOverwrite -ScopeId $scopeIds -Force
         Write-Log 'INFO' ('Imported {0} DHCP scope(s) with their options, reservations, exclusions, policies and leases.' -f $scopeIds.Count)
     }
-    if (@(Get-XmlChildren $xml.DocumentElement 'IPv6').Count -and @((Get-XmlChildren $xml.DocumentElement 'IPv6')[0].ChildNodes).Count) { Write-Log 'WARN' 'DHCPv6 configuration in the export is not restored on this Windows version; review it in the DHCP console.' }
+    $ipv6 = @(Get-XmlChildren $xml.DocumentElement 'IPv6')
+    if ($ipv6.Count -and ($ipv6[0].SelectNodes('.//*[local-name()="Scope"]').Count -or $ipv6[0].SelectNodes('.//*[local-name()="OptionValue"]').Count)) { Write-Log 'WARN' 'DHCPv6 configuration in the export is not restored on this Windows version; review it in the DHCP console.' }
 }
 
 function Restore-Nps {
