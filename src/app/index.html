@@ -335,6 +335,58 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
 .about-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.about-actions .primary-button{min-width:0;height:auto;min-height:38px}
 .about-body .helper{margin-top:12px;font-size:12px}
 
+/* Restore: choose a package, pick components, confirm by typing the server name. */
+.restore-wrap{width:100%;max-width:1220px;height:100%;min-height:0;margin:0 auto;overflow:hidden}
+.restore-wrap>.card{height:100%;min-height:0;margin-bottom:0;display:flex;flex-direction:column;overflow:hidden}
+.restore-wrap>.card>.card-header{flex:0 0 auto}
+#restoreBody{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden}
+.restore-source-actions{display:flex;flex-wrap:wrap;gap:8px}
+.restore-path{margin-top:8px;font-size:12px;color:#34465f;overflow-wrap:anywhere}
+.restore-status{margin-top:6px;font-size:12px;color:#52647c}.restore-status:empty{display:none}.restore-status.error{color:#a33b3b;font-weight:600}
+.restore-facts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px 16px;margin-top:14px;padding:12px 14px;border:1px solid #dbe3ed;border-radius:9px;background:#fbfcfe}
+.restore-facts div{min-width:0}.restore-fact-label{display:block;font-size:11px;color:#596b80;font-weight:650;text-transform:uppercase;letter-spacing:.04em}.restore-fact-value{display:block;font-size:13px;font-weight:600;color:#1b2942;overflow-wrap:anywhere}
+.restore-alert{margin-top:12px;padding:10px 12px;border-radius:8px;font-size:12px;border:1px solid #f0cf8a;background:#fff9ea;color:#74551f}
+.restore-alert.danger{border-color:#f0b4b4;background:#fff2f2;color:#8c2626}.restore-alert.ok{border-color:#a9ddbf;background:#effaf3;color:#1d6b43}
+.restore-alert strong{font-weight:700}
+.restore-components{margin-top:14px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.restore-component{border:1px solid #dbe3ed;border-radius:10px;padding:11px 12px;background:#fff;min-width:0}
+.restore-component.selected{border-color:#a6c3f1;background:#f7faff}.restore-component.unavailable{background:#f8fafc}
+.restore-head{display:flex;align-items:flex-start;gap:9px;cursor:pointer}.restore-component.unavailable .restore-head{cursor:default}
+.restore-head input{margin-top:3px;width:16px;height:16px;flex:0 0 auto;accent-color:#2563eb}
+.restore-title{flex:1 1 auto;min-width:0;font-size:13px;font-weight:700;color:#1b2942}
+.restore-component.unavailable .restore-title{color:#5d6b7d}
+.impact-chip{display:inline-block;flex:none;font-size:11px;font-weight:700;padding:0 8px;border-radius:999px;line-height:18px;white-space:nowrap}
+.impact-high{background:#fff1d8;color:#8a5612}.impact-domain{background:#fceceb;color:#a1403d}
+.restore-desc{margin:5px 0 0 25px;font-size:12px;color:#52647c}
+.restore-blocked{margin:6px 0 0 25px;font-size:12px;color:#8c2626;font-weight:600}
+.restore-warnings{margin:6px 0 0 25px;padding-left:16px;font-size:12px;color:#74551f}.restore-warnings li{margin:2px 0}
+.restore-items{margin:8px 0 0 25px}.restore-items>summary{cursor:pointer;font-size:12px;color:#1f5fbf;font-weight:600}
+.restore-item{display:flex;gap:8px;align-items:flex-start;margin-top:6px;font-size:12px;cursor:pointer}.restore-item input{margin-top:2px;flex:none;accent-color:#2563eb}
+.restore-item span{min-width:0}.restore-item strong{display:block;font-weight:600;color:#23334b;overflow-wrap:anywhere}.restore-item small{display:block;font-size:11px;color:#596b80;overflow-wrap:anywhere}.restore-item em{display:block;font-style:normal;font-size:11px;color:#8c2626}
+.restore-item.unavailable{cursor:default}.restore-item.unavailable strong{color:#5d6b7d}
+.restore-empty{margin-top:14px;padding:14px;border:1px dashed #cbd5e1;border-radius:9px;color:#596b80;font-size:12px}
+.restore-run-message{font-size:12px;color:#52647c;margin-top:2px}
+.restore-run-items{margin-top:12px;border:1px solid #e0e6ee;border-radius:9px;overflow:hidden}
+.restore-run-row{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 10px;padding:7px 10px;border-top:1px solid #edf1f6;font-size:12px}.restore-run-row:first-child{border-top:0}
+.restore-run-row .run-title{flex:0 1 auto;min-width:0;font-weight:600;color:#23334b;overflow-wrap:anywhere}.restore-run-row .run-message{flex:1 1 200px;min-width:0;color:#596b80;overflow-wrap:anywhere}
+.run-chip{flex:none;font-size:11px;font-weight:700;padding:0 8px;border-radius:999px;line-height:18px;background:#edf1f7;color:#52647c;white-space:nowrap;min-width:96px;text-align:center}
+.run-chip.run-snapshot,.run-chip.run-restoring{background:#e8f0fe;color:#245eae}.run-chip.run-succeeded{background:#e8f7ef;color:#1d6b43}.run-chip.run-failed{background:#fceceb;color:#a33b3b}.run-chip.run-skipped,.run-chip.run-canceled{background:#fff1d8;color:#8a5612}
+.restore-log-toolbar{margin-top:12px}
+.restore-log{min-height:120px;max-height:280px;overflow:auto}
+.restore-dialog{width:640px;max-width:calc(100vw - 24px)}
+.restore-dialog-body{padding:12px 18px 14px;overflow:auto;max-height:calc(100vh - 150px);font-size:13px;color:#23334b}
+.restore-dialog-body ul{margin:6px 0 10px;padding-left:18px}.restore-dialog-body li{margin:3px 0}
+.restore-dialog-body p{margin:8px 0}.restore-dialog-body>.restore-alert{margin:0 0 10px}
+.restore-wrap .scope-note span{display:block}
+.restore-confirm-label{display:block;margin-top:10px;font-size:12px;font-weight:650;color:#334156}
+.restore-confirm-input{display:block;box-sizing:border-box;width:100%;height:34px;margin-top:6px;border:1px solid #bcc9d9;border-radius:7px;padding:0 10px;font:inherit}
+.restore-dialog-actions{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:8px;padding:10px 18px 14px;border-top:1px solid #e3e8ef}
+.restore-dialog-error{margin-top:8px;color:#a33b3b;font-size:12px;font-weight:600}
+.danger-primary{background:#c2412d;box-shadow:none}.danger-primary:hover:not(:disabled){background:#a63523}
+@media(max-width:900px){.restore-components{grid-template-columns:1fr}.restore-facts{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:520px){.restore-facts{grid-template-columns:1fr}}
+@media(max-height:720px){.restore-log{max-height:160px;min-height:90px}.restore-facts{margin-top:10px;padding:8px 10px}.restore-components{margin-top:10px}.restore-dialog-body{max-height:calc(100vh - 120px)}}
+
 /* Low-resolution support (800x600 and 1024x768 consoles, Server 2012 era browsers).
    Nothing may be clipped out of reach: panels scroll as a last resort and the
    chrome above the working area shrinks before the working area does. */
@@ -395,6 +447,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       <button class="tab-button active" id="tabButtonSetup" role="tab" aria-controls="tabSetup" aria-selected="true" tabindex="0" type="button" data-tab="setup">Setup</button>
       <button class="tab-button" id="tabButtonCollection" role="tab" aria-controls="tabCollection" aria-selected="false" tabindex="-1" type="button" data-tab="collection">Collection <span class="tab-badge" id="collectionTabBadge">Ready</span></button>
       <button class="tab-button" id="tabButtonReport" role="tab" aria-controls="tabReport" aria-selected="false" tabindex="-1" type="button" data-tab="report">Report Viewer <span class="tab-badge" id="reportTabBadge">None</span></button>
+      <button class="tab-button" id="tabButtonRestore" role="tab" aria-controls="tabRestore" aria-selected="false" tabindex="-1" type="button" data-tab="restore">Restore <span class="tab-badge" id="restoreTabBadge">Ready</span></button>
     </div>
 
     <div class="app-notice hidden" id="appNotice" role="status"><span id="appNoticeText"></span><button type="button" id="dismissNotice" aria-label="Dismiss message">Dismiss</button></div>
@@ -519,13 +572,41 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       </div>
     </section>
 
+    <section class="tab-panel" id="tabRestore" role="tabpanel" aria-labelledby="tabButtonRestore">
+      <div class="restore-wrap"><div class="card">
+        <div class="card-header"><div><div class="card-title">Restore configuration</div><div class="card-subtitle">Restore configuration exports from an inventory package onto this server. Nothing changes until you review and confirm.</div></div></div>
+        <div class="card-body" id="restoreBody">
+          <div id="restoreChooser">
+            <div class="field-label" id="restorePackageLabel">Inventory package</div>
+            <div class="restore-source-actions" role="group" aria-labelledby="restorePackageLabel"><button class="secondary-button" id="restoreUseLatest" type="button" disabled>Use latest collection</button><button class="secondary-button" id="restoreUseLoaded" type="button" disabled>Use loaded report</button><button class="secondary-button" id="restoreBrowse" type="button">Browse for package folder&hellip;</button></div>
+            <div class="restore-path" id="restorePackagePath">No package selected. Choose the inventory package folder that holds the configuration exports.</div>
+            <div class="restore-status" id="restoreStatus" role="status" aria-live="polite"></div>
+            <div class="hidden" id="restoreSummary">
+              <div class="restore-facts"><div><span class="restore-fact-label">Source server</span><span class="restore-fact-value" id="restoreSource"></span></div><div><span class="restore-fact-label">Collected</span><span class="restore-fact-value" id="restoreCollected"></span></div><div><span class="restore-fact-label">Restoring onto</span><span class="restore-fact-value" id="restoreTarget"></span></div><div><span class="restore-fact-label">Package integrity</span><span class="restore-fact-value" id="restoreIntegrity"></span></div></div>
+              <div class="restore-alert danger hidden" id="restoreMismatch" role="alert"></div>
+              <div class="restore-alert hidden" id="restoreIntegrityNotice"></div>
+              <div class="restore-alert danger hidden" id="restoreAdminNotice"><strong>Run the application as administrator to restore.</strong> You can review the package, but restoring configuration needs administrator rights.</div>
+              <div class="restore-components" id="restoreComponents"></div>
+            </div>
+          </div>
+          <div class="hidden" id="restoreProgress">
+            <div class="status-header"><div class="status-left"><div class="status-indicator" id="restoreIndicator"></div><div><div class="status-title" id="restoreRunTitle">Restoring configuration</div><div class="restore-run-message" id="restoreRunMessage"></div></div></div><div class="elapsed" id="restoreElapsed">00:00:00</div></div>
+            <div class="restore-run-items" id="restoreRunItems"></div>
+            <div class="log-toolbar restore-log-toolbar"><div class="log-title">Restore log</div></div>
+            <div class="log-view restore-log" id="restoreLog" tabindex="0" aria-label="Restore log"></div>
+          </div>
+        </div>
+        <div class="action-bar setup-action-bar"><div class="scope-note"><span id="restoreSelectionSummary">No items selected.</span><span id="restoreHint">The current configuration is saved to a rollback folder before each item.</span></div><div class="setup-actions"><button class="secondary-button danger-button hidden" id="restoreCancelButton" type="button">Stop after current item</button><button class="secondary-button hidden" id="restoreOpenRollback" type="button">Open rollback folder</button><button class="secondary-button hidden" id="restoreAgainButton" type="button">Restore again</button><button class="primary-button" id="restoreReviewButton" type="button" disabled>Review restore</button></div></div>
+      </div></div>
+    </section>
+
     <div class="footer">All collection and report viewing remains local to this computer. No server inventory is uploaded by the application.</div>
   </div>
 </div>
 <dialog class="shortcuts-dialog" id="shortcutsDialog" aria-labelledby="shortcutsTitle">
   <div class="shortcuts-head"><h2 id="shortcutsTitle">Keyboard shortcuts</h2><button class="secondary-button" id="shortcutsClose" type="button">Close</button></div>
   <dl class="shortcuts-list">
-    <dt><kbd>Alt</kbd> + <kbd>1</kbd> / <kbd>2</kbd> / <kbd>3</kbd></dt><dd>Go to Setup, Collection or Report Viewer</dd>
+    <dt><kbd>Alt</kbd> + <kbd>1</kbd> / <kbd>2</kbd> / <kbd>3</kbd> / <kbd>4</kbd></dt><dd>Go to Setup, Collection, Report Viewer or Restore</dd>
     <dt><kbd>/</kbd> or <kbd>Ctrl</kbd> + <kbd>K</kbd></dt><dd>Search the current tab: categories, log or report</dd>
     <dt><kbd>Esc</kbd></dt><dd>Clear the search you are typing in</dd>
     <dt><kbd>Ctrl</kbd> + <kbd>S</kbd></dt><dd>Save collection choices (Setup)</dd>
@@ -535,6 +616,20 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     <dt><kbd>N</kbd></dt><dd>Jump to the next warning or error (Collection)</dd>
     <dt><kbd>?</kbd></dt><dd>Show this list</dd>
   </dl>
+</dialog>
+<dialog class="shortcuts-dialog restore-dialog" id="restoreDialog" aria-labelledby="restoreDialogTitle">
+  <div class="shortcuts-head"><h2 id="restoreDialogTitle">Review restore</h2></div>
+  <div class="restore-dialog-body">
+    <div class="restore-alert danger hidden" id="restoreDialogMismatch"></div>
+    <div><strong>These items will be restored onto this server, in this order:</strong></div>
+    <ul id="restoreDialogList"></ul>
+    <div class="hidden" id="restoreDialogWarningsBlock"><strong>Read these warnings first:</strong><ul id="restoreDialogWarnings"></ul></div>
+    <p>Before each item, the current configuration is saved to a rollback folder so you can undo it.</p>
+    <label class="restore-confirm-label" for="restoreConfirmInput" id="restoreConfirmLabel">Type this server's name to confirm</label>
+    <input class="restore-confirm-input" id="restoreConfirmInput" type="text" autocomplete="off" spellcheck="false">
+    <div class="restore-dialog-error hidden" id="restoreDialogError" role="alert"></div>
+  </div>
+  <div class="restore-dialog-actions"><button class="secondary-button" id="restoreDialogCancel" type="button">Cancel</button><button class="primary-button danger-primary" id="restoreConfirmButton" type="button" disabled>Restore now</button></div>
 </dialog>
 <dialog class="shortcuts-dialog" id="aboutDialog" aria-labelledby="aboutTitle">
   <div class="shortcuts-head"><h2 id="aboutTitle">About and updates</h2><button class="secondary-button" id="aboutClose" type="button">Close</button></div>
@@ -663,7 +758,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   }
   function switchTab(name) {
     activeTab = name;
-    var names = ['setup','collection','report'];
+    var names = ['setup','collection','report','restore'];
     for (var i=0;i<names.length;i++) {
       var n=names[i];
       byId('tab'+n.charAt(0).toUpperCase()+n.slice(1)).className = 'tab-panel' + (n===name ? ' active' : '');
@@ -708,7 +803,8 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     syncCategoryState();markChoicesDirty();
   }
   function setConfigDisabled(disabled){
-    disabled=!!disabled||configurationBusy;
+    // A running restore also locks collection; the server enforces the same rule.
+    disabled=!!disabled||configurationBusy||restoreIsRunning(latestState&&latestState.restore);
     var nodes=document.querySelectorAll('#configBody input,#configBody button'); for(var i=0;i<nodes.length;i++){nodes[i].disabled=disabled;}
     byId('startButton').disabled=!!disabled;byId('saveChoicesButton').disabled=!!disabled;
     byId('configBody').className=disabled?'card-body locked':'card-body'; if(!disabled){syncCategoryState();}
@@ -952,6 +1048,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     latestState=state;
     renderACLExport(state);
     renderUpdate(state.update,!!state.running);
+    renderRestore(state);
     if(!preferencesLoaded){
       preferencesLoaded=true;
       if(!preferencesDirty){
@@ -1115,9 +1212,9 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   function focusTabSearch(){var id={setup:'scopeSearch',collection:'logSearch',report:'viewerSearchInput'}[activeTab],input=byId(id);if(input&&!input.disabled){input.focus();if(input.select){input.select();}}}
   document.addEventListener('keydown',function(e){
     if(uiLifecycle!=='active'||e.defaultPrevented){return;}
-    if(byId('shortcutsDialog').open||byId('aboutDialog').open){return;}
+    if(byId('shortcutsDialog').open||byId('aboutDialog').open||byId('restoreDialog').open){return;}
     var key=e.key||'',ctrl=e.ctrlKey||e.metaKey,typing=isTyping(e.target);
-    if(e.altKey&&!ctrl&&(key==='1'||key==='2'||key==='3')){e.preventDefault();var tab=['setup','collection','report'][Number(key)-1];switchTab(tab);byId('tabButton'+tab.charAt(0).toUpperCase()+tab.slice(1)).focus();return;}
+    if(e.altKey&&!ctrl&&(key==='1'||key==='2'||key==='3'||key==='4')){e.preventDefault();var tab=['setup','collection','report','restore'][Number(key)-1];switchTab(tab);byId('tabButton'+tab.charAt(0).toUpperCase()+tab.slice(1)).focus();return;}
     if(ctrl&&!e.altKey&&(key==='s'||key==='S')){e.preventDefault();if(activeTab==='setup'){saveChoices();}return;}
     if(ctrl&&!e.altKey&&key==='Enter'){if(activeTab==='setup'){e.preventDefault();startCollection();}return;}
     if(ctrl&&!e.altKey&&(key==='k'||key==='K')){e.preventDefault();focusTabSearch();return;}
@@ -1127,6 +1224,227 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     else if(key==='?'){e.preventDefault();openShortcuts();}
     else if((key==='n'||key==='N')&&activeTab==='collection'){e.preventDefault();nextIssue();}
   });
+  // ---- Restore tab ---------------------------------------------------------
+  // The server owns restore state (state.restore); this view keeps only the
+  // current selection, rebuilt whenever a different package scan arrives.
+  var restoreScanKey='',restoreSelection={},restoreShowChooser=false,restoreLogKey='',restoreRunKey='',restoreBusy=false;
+  var restoreStatusLabels={pending:'Waiting',snapshot:'Saving rollback',restoring:'Restoring',succeeded:'Restored',failed:'Failed',skipped:'Skipped',canceled:'Stopped'};
+  function restoreIsRunning(r){return !!(r&&r.status==='running');}
+  function restoreFinished(r){return !!(r&&(r.status==='succeeded'||r.status==='failed'||r.status==='canceled'));}
+  function restoreState(){return (latestState&&latestState.restore)||null;}
+  function restoreScan(){var r=restoreState();return r&&r.scan&&r.status!=='scanning'?r.scan:null;}
+  function restoreLocked(){var r=restoreState();return restoreBusy||restoreIsRunning(r)||!!(r&&r.status==='scanning')||!!(latestState&&latestState.running);}
+  function trimText(value){return String(value||'').replace(/^\s+|\s+$/g,'');}
+  function restoreItemsOf(component){
+    var items=component.items||[];
+    if(items.length){return items;}
+    return [{id:component.id,title:component.title,detail:'',available:component.available,blockedReason:component.blockedReason,defaultSelected:true}];
+  }
+  function restoreSelectedPlan(){
+    var scan=restoreScan(),plan=[];if(!scan){return plan;}
+    (scan.components||[]).forEach(function(c){
+      var chosen=restoreSelection[c.id];if(!chosen||!c.available){return;}
+      var ids=restoreItemsOf(c).filter(function(item){return item.available&&chosen[item.id];}).map(function(item){return item.id;});
+      if(ids.length){plan.push({component:c,items:ids});}
+    });
+    return plan;
+  }
+  function setRestoreComponent(component,on){
+    delete restoreSelection[component.id];
+    if(!on){return;}
+    var items=restoreItemsOf(component).filter(function(item){return item.available;});
+    var defaults=items.filter(function(item){return item.defaultSelected;});
+    var pick=defaults.length?defaults:items,map={};
+    pick.forEach(function(item){map[item.id]=true;});
+    if(pick.length){restoreSelection[component.id]=map;}
+  }
+  function setRestoreItem(component,itemId,on){
+    var map=restoreSelection[component.id]||{},any=false;
+    if(on){map[itemId]=true;}else{delete map[itemId];}
+    for(var k in map){if(Object.prototype.hasOwnProperty.call(map,k)){any=true;}}
+    if(any){restoreSelection[component.id]=map;}else{delete restoreSelection[component.id];}
+  }
+  function el(tag,className,text){var node=document.createElement(tag);if(className){node.className=className;}if(text!==undefined&&text!==null){node.textContent=text;}return node;}
+  function impactChip(impact){
+    if(impact==='high'){return el('span','impact-chip impact-high','High impact');}
+    if(impact==='domain'){return el('span','impact-chip impact-domain','Affects the whole domain');}
+    return null;
+  }
+  function buildRestoreComponents(scan){
+    var host=byId('restoreComponents'),components=scan.components||[];host.textContent='';
+    if(!components.length){host.appendChild(el('div','restore-empty','This package has no configuration exports that can be restored. Run a collection with the matching exports selected first.'));return;}
+    components.forEach(function(c){
+      var card=el('div','restore-component'+(c.available?'':' unavailable'));card.setAttribute('data-component',c.id);
+      var head=el('label','restore-head'),box=document.createElement('input');
+      box.type='checkbox';box.setAttribute('data-restore-component',c.id);box.disabled=!c.available;box.setAttribute('aria-describedby','restoreDesc-'+c.id);
+      box.addEventListener('change',function(){setRestoreComponent(c,this.checked);syncRestoreChecks();});
+      head.appendChild(box);head.appendChild(el('span','restore-title',c.title));
+      var chip=impactChip(c.impact);if(chip){head.appendChild(chip);}
+      card.appendChild(head);
+      var desc=el('div','restore-desc',c.description||'');desc.id='restoreDesc-'+c.id;card.appendChild(desc);
+      if(!c.available&&c.blockedReason){card.appendChild(el('div','restore-blocked',c.blockedReason));}
+      if(c.warnings&&c.warnings.length){var ul=el('ul','restore-warnings');c.warnings.forEach(function(w){ul.appendChild(el('li','',w));});card.appendChild(ul);}
+      var items=c.items||[];
+      if(items.length>1){
+        var details=el('details','restore-items'),summary=el('summary','');summary.setAttribute('data-restore-summary',c.id);details.appendChild(summary);
+        items.forEach(function(item){
+          var row=el('label','restore-item'+(item.available?'':' unavailable')),check=document.createElement('input'),text=el('span','');
+          check.type='checkbox';check.setAttribute('data-restore-item',item.id);check.setAttribute('data-restore-parent',c.id);
+          check.addEventListener('change',function(){setRestoreItem(c,item.id,this.checked);syncRestoreChecks();});
+          text.appendChild(el('strong','',item.title));if(item.detail){text.appendChild(el('small','',item.detail));}
+          if(!item.available&&item.blockedReason){text.appendChild(el('em','',item.blockedReason));}
+          row.appendChild(check);row.appendChild(text);details.appendChild(row);
+        });
+        card.appendChild(details);
+      }
+      host.appendChild(card);
+    });
+  }
+  function syncRestoreChecks(){
+    var scan=restoreScan(),locked=restoreLocked(),count=0,plan;
+    if(scan){(scan.components||[]).forEach(function(c){
+      var map=restoreSelection[c.id]||{},card=document.querySelector('.restore-component[data-component="'+c.id+'"]');if(!card){return;}
+      var box=card.querySelector('input[data-restore-component]'),items=restoreItemsOf(c),available=items.filter(function(i){return i.available;}),on=0,byItem={};
+      available.forEach(function(i){if(map[i.id]){on++;}});
+      items.forEach(function(i){byItem[i.id]=i;});
+      box.checked=on>0;box.indeterminate=on>0&&on<available.length&&(c.items||[]).length>1;box.disabled=!c.available||locked;
+      card.className='restore-component'+(c.available?'':' unavailable')+(on>0?' selected':'');
+      var checks=card.querySelectorAll('input[data-restore-item]');
+      for(var i=0;i<checks.length;i++){var item=byItem[checks[i].getAttribute('data-restore-item')];checks[i].checked=!!(item&&map[item.id]);checks[i].disabled=!c.available||!item||!item.available||locked;}
+      var summary=card.querySelector('[data-restore-summary]');if(summary){summary.textContent=on+' of '+items.length+' items selected';}
+    });}
+    plan=restoreSelectedPlan();plan.forEach(function(entry){count+=entry.items.length;});
+    byId('restoreSelectionSummary').textContent=count?(count===1?'1 item':count+' items')+' in '+(plan.length===1?'1 component':plan.length+' components')+' selected.':'No items selected.';
+    updateRestoreButtons();
+  }
+  function updateRestoreButtons(){
+    var r=restoreState()||{},scan=restoreScan(),running=restoreIsRunning(r),collecting=!!(latestState&&latestState.running);
+    var progressView=!byId('restoreProgress').classList.contains('hidden'),packages=r.packages||{},locked=restoreLocked(),review=byId('restoreReviewButton');
+    review.classList.toggle('hidden',progressView);
+    review.disabled=!scan||!scan.isAdministrator||!restoreSelectedPlan().length||running||collecting||restoreBusy||r.status==='scanning';
+    review.title=!scan?'Choose an inventory package first.':(!scan.isAdministrator?'Run the application as administrator to restore.':(collecting?'Wait for the collection to finish first.':''));
+    byId('restoreUseLatest').disabled=locked||!packages.lastCollection;byId('restoreUseLoaded').disabled=locked||!packages.loadedReport;byId('restoreBrowse').disabled=locked;
+    byId('restoreUseLatest').title=packages.lastCollection||'No collection has finished yet.';
+    byId('restoreUseLoaded').title=packages.loadedReport||'Load a report in the Report Viewer first.';
+    var cancel=byId('restoreCancelButton');cancel.classList.toggle('hidden',!running);cancel.disabled=!!r.cancelRequested||restoreBusy;
+    cancel.textContent=r.cancelRequested?'Stopping after current item…':'Stop after current item';
+    byId('restoreOpenRollback').classList.toggle('hidden',!(r.rollbackPath&&!running&&progressView));
+    byId('restoreAgainButton').classList.toggle('hidden',!(progressView&&restoreFinished(r)));
+    byId('restoreBody').className='card-body'+(locked&&!progressView?' locked':'');
+  }
+  function renderRestoreSummary(scan){
+    byId('restoreSource').textContent=scan.sourceComputer||'Unknown';byId('restoreCollected').textContent=scan.collectedAt||'Unknown';
+    byId('restoreTarget').textContent=scan.currentComputer||'This server';byId('restoreIntegrity').textContent=scan.manifestVerified?'Verified':'Not verified';
+    var mismatch=byId('restoreMismatch');mismatch.textContent='';
+    if(scan.sameComputer===false){mismatch.appendChild(el('strong','','Different server. '));mismatch.appendChild(document.createTextNode('This package came from '+(scan.sourceComputer||'another server')+'; you are restoring onto '+(scan.currentComputer||'this server')+'. Check that every item applies to this server.'));}
+    mismatch.classList.toggle('hidden',scan.sameComputer!==false);
+    var integrity=byId('restoreIntegrityNotice');integrity.textContent=scan.manifestMessage||'';integrity.className='restore-alert'+(scan.manifestVerified?' ok':'')+(scan.manifestMessage?'':' hidden');
+    byId('restoreAdminNotice').classList.toggle('hidden',!!scan.isAdministrator);
+  }
+  function renderRestoreProgress(r){
+    var items=r.items||[],host=byId('restoreRunItems'),key=JSON.stringify(items);
+    if(key!==restoreRunKey){
+      restoreRunKey=key;host.textContent='';
+      if(!items.length){host.appendChild(el('div','restore-run-row','Preparing the restore…'));}
+      items.forEach(function(item){
+        var row=el('div','restore-run-row');row.setAttribute('data-restore-run',item.component+':'+item.id);row.setAttribute('data-status',item.status);
+        row.appendChild(el('span','run-chip run-'+item.status,restoreStatusLabels[item.status]||item.status));
+        row.appendChild(el('span','run-title',item.title));
+        if(item.message){row.appendChild(el('span','run-message',item.message));}
+        host.appendChild(row);
+      });
+    }
+    var titles={running:'Restoring configuration',succeeded:'Restore complete',failed:'Restore finished with failures',canceled:'Restore stopped'};
+    byId('restoreRunTitle').textContent=titles[r.status]||'Restore';byId('restoreRunMessage').textContent=r.message||'';
+    byId('restoreIndicator').className='status-indicator'+({running:' running',succeeded:' success',failed:' failed'}[r.status]||'');
+    byId('restoreElapsed').textContent=r.startedAtUnixMs?formatElapsed((r.endedAtUnixMs||Date.now())-r.startedAtUnixMs):'00:00:00';
+    var logs=r.logs||[],log=byId('restoreLog'),logKey=logs.length+':'+(logs.length?logs[logs.length-1].index:'');
+    if(logKey!==restoreLogKey){
+      restoreLogKey=logKey;var follow=log.scrollHeight-log.scrollTop-log.clientHeight<40,fragment=document.createDocumentFragment();log.textContent='';
+      if(!logs.length){log.appendChild(el('div','log-empty','No restore messages yet.'));}
+      logs.forEach(function(line){var u=String(line.text||'').toUpperCase();fragment.appendChild(el('div',u.indexOf('[ERROR]')>=0?'log-line-error':(u.indexOf('[WARN')>=0?'log-line-warn':(u.indexOf('[OK]')>=0?'log-line-good':'')),line.text));});
+      log.appendChild(fragment);if(follow){log.scrollTop=log.scrollHeight;}
+    }
+  }
+  function renderRestore(state){
+    var r=state.restore||{status:'idle',packages:{},items:[],logs:[]};
+    byId('restoreTabBadge').textContent={running:'Running',succeeded:'Done',failed:'Failed',scanfailed:'Failed',canceled:'Stopped',scanning:'Reading'}[r.status]||'Ready';
+    if(r.status==='running'){restoreShowChooser=false;}
+    var showProgress=(restoreIsRunning(r)||restoreFinished(r))&&!restoreShowChooser;
+    byId('restoreChooser').classList.toggle('hidden',showProgress);byId('restoreProgress').classList.toggle('hidden',!showProgress);
+    byId('restoreHint').classList.toggle('hidden',showProgress);byId('restoreSelectionSummary').classList.toggle('hidden',showProgress);
+    var status=byId('restoreStatus');
+    if(r.status==='scanning'){status.textContent=r.message||'Reading the package…';status.className='restore-status';}
+    else if(r.status==='scanfailed'){status.textContent=r.message||'The package could not be read.';status.className='restore-status error';}
+    else if(!restoreBusy&&status.getAttribute('data-local')!=='1'){status.textContent='';status.className='restore-status';}
+    if(r.packagePath){byId('restorePackagePath').textContent=r.packagePath;}
+    var scan=restoreScan();
+    if(scan){
+      var key=JSON.stringify(scan);
+      if(key!==restoreScanKey){restoreScanKey=key;restoreSelection={};buildRestoreComponents(scan);}
+      renderRestoreSummary(scan);byId('restoreSummary').classList.remove('hidden');
+    }else{restoreScanKey='';restoreSelection={};byId('restoreComponents').textContent='';byId('restoreSummary').classList.add('hidden');}
+    if(showProgress){renderRestoreProgress(r);}
+    syncRestoreChecks();
+  }
+  function restoreLocalStatus(message,error){var status=byId('restoreStatus');status.textContent=message;status.className='restore-status'+(error?' error':'');status.setAttribute('data-local',message&&error?'1':'0');}
+  function scanRestorePackage(path){
+    if(!path||restoreLocked()){return;}
+    restoreBusy=true;restoreShowChooser=true;restoreLocalStatus('Reading the package…',false);byId('restorePackagePath').textContent=path;updateRestoreButtons();
+    request('POST','/api/restore/scan',{packagePath:path},function(err){restoreBusy=false;restoreLocalStatus(err||'',!!err);updateRestoreButtons();});
+  }
+  function browseRestorePackage(){
+    if(restoreLocked()){return;}
+    restoreBusy=true;updateRestoreButtons();
+    request('POST','/api/restore/browse',{},function(err,data){restoreBusy=false;updateRestoreButtons();if(err){restoreLocalStatus(err,true);return;}if(data&&data.selected&&data.path){scanRestorePackage(data.path);}});
+  }
+  function restoreConfirmMatches(){var scan=restoreScan(),typed=trimText(byId('restoreConfirmInput').value);return !!(scan&&scan.currentComputer&&typed.toLowerCase()===String(scan.currentComputer).toLowerCase());}
+  function openRestoreDialog(){
+    var scan=restoreScan(),plan=restoreSelectedPlan(),list=byId('restoreDialogList'),warnings=byId('restoreDialogWarnings'),seen={};
+    if(!scan||!plan.length||byId('restoreReviewButton').disabled){return;}
+    list.textContent='';warnings.textContent='';
+    plan.forEach(function(entry){
+      var c=entry.component,li=el('li',''),chip=impactChip(c.impact);li.appendChild(el('strong','',c.title));
+      if((c.items||[]).length>1){li.appendChild(document.createTextNode(': '+c.items.filter(function(i){return entry.items.indexOf(i.id)>=0;}).map(function(i){return i.title;}).join(', ')));}
+      if(chip){li.appendChild(document.createTextNode(' '));li.appendChild(chip);}
+      list.appendChild(li);
+      (c.warnings||[]).forEach(function(w){if(!seen[w]){seen[w]=true;warnings.appendChild(el('li','',w));}});
+    });
+    byId('restoreDialogWarningsBlock').classList.toggle('hidden',!warnings.children.length);
+    var mismatch=byId('restoreDialogMismatch');mismatch.textContent='This package came from '+(scan.sourceComputer||'another server')+'; you are restoring onto '+(scan.currentComputer||'this server')+'.';mismatch.classList.toggle('hidden',scan.sameComputer!==false);
+    byId('restoreConfirmLabel').textContent="Type this server's name to confirm: "+(scan.currentComputer||'');
+    byId('restoreConfirmInput').value='';byId('restoreConfirmInput').disabled=false;byId('restoreConfirmButton').disabled=true;byId('restoreDialogError').classList.add('hidden');
+    var d=byId('restoreDialog');if(d.showModal){d.showModal();}else{d.setAttribute('open','');}
+    byId('restoreConfirmInput').focus();
+  }
+  function closeRestoreDialog(){var d=byId('restoreDialog');if(restoreBusy){return;}if(d.close){d.close();}else{d.removeAttribute('open');}}
+  function startRestore(){
+    var scan=restoreScan(),plan=restoreSelectedPlan(),r=restoreState()||{};
+    if(!scan||!plan.length||!restoreConfirmMatches()||restoreBusy||restoreLocked()){return;}
+    var body={packagePath:r.packagePath||scan.packagePath||'',components:plan.map(function(entry){return {id:entry.component.id,items:entry.items};}),confirmComputerName:trimText(byId('restoreConfirmInput').value)};
+    restoreBusy=true;byId('restoreConfirmButton').disabled=true;byId('restoreDialogCancel').disabled=true;byId('restoreConfirmInput').disabled=true;byId('restoreDialogError').classList.add('hidden');
+    request('POST','/api/restore/start',body,function(err){
+      restoreBusy=false;byId('restoreDialogCancel').disabled=false;byId('restoreConfirmInput').disabled=false;
+      if(err){var box=byId('restoreDialogError');box.textContent=err;box.classList.remove('hidden');byId('restoreConfirmButton').disabled=!restoreConfirmMatches();return;}
+      closeRestoreDialog();restoreShowChooser=false;restoreRunKey='';restoreLogKey='';
+      if(latestState&&latestState.restore){latestState.restore.status='running';latestState.restore.items=[];latestState.restore.logs=[];latestState.restore.message='Starting the restore…';renderRestore(latestState);setConfigDisabled(!!latestState.running);}
+    });
+  }
+  byId('restoreUseLatest').addEventListener('click',function(){var r=restoreState();scanRestorePackage(r&&r.packages&&r.packages.lastCollection);});
+  byId('restoreUseLoaded').addEventListener('click',function(){var r=restoreState();scanRestorePackage(r&&r.packages&&r.packages.loadedReport);});
+  byId('restoreBrowse').addEventListener('click',browseRestorePackage);
+  byId('restoreReviewButton').addEventListener('click',openRestoreDialog);
+  byId('restoreConfirmInput').addEventListener('input',function(){byId('restoreConfirmButton').disabled=!restoreConfirmMatches()||restoreBusy;});
+  byId('restoreConfirmInput').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();if(!byId('restoreConfirmButton').disabled){startRestore();}}});
+  byId('restoreConfirmButton').addEventListener('click',startRestore);
+  byId('restoreDialogCancel').addEventListener('click',closeRestoreDialog);
+  byId('restoreDialog').addEventListener('cancel',function(e){if(restoreBusy){e.preventDefault();}});
+  byId('restoreCancelButton').addEventListener('click',function(){
+    var button=this;button.disabled=true;
+    request('POST','/api/restore/cancel',{},function(err){if(err){button.disabled=false;notice(err,true);return;}if(latestState&&latestState.restore){latestState.restore.cancelRequested=true;}updateRestoreButtons();});
+  });
+  byId('restoreOpenRollback').addEventListener('click',function(){openKind('restorerollback');});
+  byId('restoreAgainButton').addEventListener('click',function(){restoreShowChooser=true;if(latestState){renderRestore(latestState);}byId('restoreReviewButton').focus();});
   setReportHeaderCollapsed(window.innerHeight<600); syncCategoryState(); poll();
 }());
 </script>

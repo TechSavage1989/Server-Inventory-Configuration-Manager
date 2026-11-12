@@ -49,6 +49,12 @@ A portable **Windows x64 application** for collecting server inventory, exportin
 
 <img src="docs/images/report-executive-summary.png" alt="HTML report executive summary" width="900">
 
+### Restore
+
+<table>
+  <tr><td width="50%"><b>Choose what to restore, with each blocked item's reason</b><br><img src="docs/images/restore-choose.png" alt="Choose what to restore, with each blocked item's reason" width="440"></td><td width="50%"><b>Restore progress, one item at a time</b><br><img src="docs/images/restore-progress.png" alt="Restore progress, one item at a time" width="440"></td></tr>
+</table>
+
 ### Keep working
 
 **Update available with release notes; you choose when to download**

@@ -87,6 +87,7 @@ type restoreStateResponse struct {
 	Items           []restoreItemState `json:"items"`
 	Logs            []logEntry         `json:"logs"`
 	RollbackPath    string             `json:"rollbackPath"`
+	CancelRequested bool               `json:"cancelRequested"`
 	StartedAtUnixMs int64              `json:"startedAtUnixMs"`
 	EndedAtUnixMs   int64              `json:"endedAtUnixMs"`
 }
@@ -111,6 +112,7 @@ type restoreRuntime struct {
 	startedAt    time.Time
 	endedAt      time.Time
 	finalEvent   string
+	cancelAsked  bool
 }
 
 // Caller holds a.mu.
@@ -151,6 +153,7 @@ func (a *application) restoreSnapshotLocked() restoreStateResponse {
 		Items:           items,
 		Logs:            logs,
 		RollbackPath:    a.restore.rollbackPath,
+		CancelRequested: a.restore.cancelAsked && a.restore.status == "running",
 		StartedAtUnixMs: toMillis(a.restore.startedAt),
 		EndedAtUnixMs:   toMillis(a.restore.endedAt),
 	}
@@ -678,6 +681,7 @@ func (a *application) handleRestoreCancel(response http.ResponseWriter, request 
 		return
 	}
 	cancelPath := a.restore.cancelPath
+	a.restore.cancelAsked = true
 	a.restore.message = "Stopping after the current item finishes."
 	a.appendRestoreLogLocked(time.Now().Format("2006-01-02 15:04:05") + " [GUI] Stop requested; the restore stops after the current item.")
 	a.mu.Unlock()
