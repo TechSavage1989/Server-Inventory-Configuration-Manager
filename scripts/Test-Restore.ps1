@@ -129,6 +129,26 @@ if (-not $SkipRoles) {
     Restart-Service DHCPServer
     Add-DhcpServerv4Scope -Name 'SICM Restore Scope' -StartRange 10.250.0.10 -EndRange 10.250.0.50 -SubnetMask 255.255.255.0
     Export-DhcpServer -ComputerName $computer -File (Get-PackagePath '08-Role-Specific\DHCP\DHCP-Configuration-and-Leases.xml') -Leases -Force
+    # TEMPORARY DIAGNOSTIC: find which DHCP import form Windows Server 2025 accepts.
+    $dhcpExport = Get-PackagePath '08-Role-Specific\DHCP\DHCP-Configuration-and-Leases.xml'
+    $raw = Get-Content -LiteralPath $dhcpExport -Raw
+    Write-Host ('DHCP export head: ' + ($raw.Substring(0, [Math]::Min(300, $raw.Length)) -replace '\s+', ' '))
+    $ipv4 = [regex]::Match($raw, '(?s)<IPv4>.*?<Scopes>').Value
+    Write-Host ('DHCP IPv4 server section: ' + ($ipv4 -replace '\s+', ' '))
+    $diag = Join-Path $work 'dhcp-diag'; New-Item -ItemType Directory -Path $diag -Force | Out-Null
+    $variants = [ordered]@{}
+    $variants['as-exported'] = $raw
+    $variants['nps-action-removed'] = [regex]::Replace($raw, '<NpsUnreachableAction>[^<]*</NpsUnreachableAction>\s*', '')
+    $variants['nap-enabled-removed'] = [regex]::Replace($raw, '<NapEnabled>[^<]*</NapEnabled>\s*', '')
+    $variants['both-server-removed'] = [regex]::Replace([regex]::Replace($raw, '<NapEnabled>[^<]*</NapEnabled>\s*', ''), '<NpsUnreachableAction>[^<]*</NpsUnreachableAction>\s*', '')
+    foreach ($name in $variants.Keys) {
+        $path = Join-Path $diag ($name + '.xml')
+        [IO.File]::WriteAllText($path, $variants[$name], [Text.Encoding]::Unicode)
+        try { Import-DhcpServer -ComputerName $computer -File $path -BackupPath (Join-Path $diag ($name + '-backup')) -Leases -ScopeOverwrite -Force -ErrorAction Stop; Write-Host ('DHCP import variant ' + $name + ': OK') }
+        catch { Write-Host ('DHCP import variant ' + $name + ': ' + $_.Exception.Message) }
+        try { Import-DhcpServer -ComputerName $computer -File $path -BackupPath (Join-Path $diag ($name + '-backup2')) -Leases -ScopeOverwrite -ScopeId 10.250.0.0 -Force -ErrorAction Stop; Write-Host ('DHCP scope-only import variant ' + $name + ': OK') }
+        catch { Write-Host ('DHCP scope-only import variant ' + $name + ': ' + $_.Exception.Message) }
+    }
 
     # NPS (full configuration export; contains a synthetic shared secret).
     $secret = [Guid]::NewGuid().ToString('N')
