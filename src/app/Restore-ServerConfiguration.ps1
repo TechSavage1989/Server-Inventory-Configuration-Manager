@@ -530,12 +530,14 @@ function Restore-Dhcp {
         # Import-DhcpServer rejects any export that carries NAP settings, even
         # one taken from this server. Import a copy without them.
         [xml]$xml = Get-Content -LiteralPath $file -Raw
-        $napNodes = @($xml.SelectNodes('//*') | Where-Object { $_.LocalName -like 'Nap*' -or $_.LocalName -eq 'NpsUnreachableAction' })
+        # Only the server-level NAP settings are refused; the per-scope fields
+        # are required by the import schema and stay.
+        $napNodes = @($xml.SelectNodes('//*') | Where-Object { ($_.LocalName -eq 'NapEnabled' -or $_.LocalName -eq 'NpsUnreachableAction') -and $_.ParentNode.LocalName -eq 'IPv4' })
         if ($napNodes.Count -gt 0) {
             foreach ($node in $napNodes) { [void]$node.ParentNode.RemoveChild($node) }
             $file = Join-Path $Rollback 'Import-DHCP-Configuration-without-NAP.xml'
             $xml.Save($file)
-            Write-Log 'INFO' ('Removed {0} Network Access Protection settings, which this Windows version no longer supports, from a copy of the DHCP export.' -f $napNodes.Count)
+            Write-Log 'INFO' ('Removed {0} server-level Network Access Protection settings ({1}), which this Windows version no longer supports, from a copy of the DHCP export.' -f $napNodes.Count, (($napNodes | ForEach-Object { $_.LocalName }) -join ', '))
         }
     }
     Import-DhcpServer -ComputerName $script:ComputerName -File $file -BackupPath (Join-Path $Rollback 'DHCP-Database-Backup') -Leases -ScopeOverwrite -Force
