@@ -142,10 +142,10 @@ if (-not $SkipRoles) {
     $variants['nap-enabled-removed'] = [regex]::Replace($raw, '<NapEnabled>[^<]*</NapEnabled>\s*', '')
     $variants['both-server-removed'] = [regex]::Replace([regex]::Replace($raw, '<NapEnabled>[^<]*</NapEnabled>\s*', ''), '<NpsUnreachableAction>[^<]*</NpsUnreachableAction>\s*', '')
     foreach ($setting in @(@{ NapEnabled = $false }, @{ NpsUnreachableAction = 'Full' }, @{ ConflictDetectionAttempts = 0 }, @{ ActivatePolicies = $true })) {
-        try { Set-DhcpServerv4Setting -ComputerName $computer @setting -ErrorAction Stop; Write-Host ('DHCP setting ' + (($setting.Keys | ForEach-Object { $_ + '=' + $setting[$_] }) -join ',') + ': OK') }
+        try { Set-DhcpServerSetting -ComputerName $computer @setting -ErrorAction Stop; Write-Host ('DHCP setting ' + (($setting.Keys | ForEach-Object { $_ + '=' + $setting[$_] }) -join ',') + ': OK') }
         catch { $m = $_.Exception.Message; try { $m += ' | ' + [string]$_.Exception.ErrorData.CimInstanceProperties['error_WindowsErrorMessage'].Value } catch { }; Write-Host ('DHCP setting ' + (($setting.Keys | ForEach-Object { $_ + '=' + $setting[$_] }) -join ',') + ': ' + $m) }
     }
-    Get-DhcpServerv4Setting -ComputerName $computer | Format-List * | Out-String | ForEach-Object { Write-Host ('DHCP current settings: ' + ($_ -replace '\s+', ' ')) }
+    try { Get-DhcpServerSetting -ComputerName $computer | Format-List * | Out-String | ForEach-Object { Write-Host ("DHCP current settings: " + ($_ -replace "\s+", " ")) } } catch { Write-Host ("DHCP settings read failed: " + $_.Exception.Message) }
     foreach ($name in $variants.Keys) {
         $path = Join-Path $diag ($name + '.xml')
         [IO.File]::WriteAllText($path, $variants[$name], (New-Object Text.UTF8Encoding($false)))
