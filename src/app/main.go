@@ -58,7 +58,7 @@ const (
 	lrLoadFromFile = 0x0010
 )
 
-//go:embed Export-ServerInventory.ps1 Run-Inventory.ps1 index.html favicon.ico app-icon.png assets/icons/server-inventory.svg
+//go:embed Export-ServerInventory.ps1 Run-Inventory.ps1 Restore-ServerConfiguration.ps1 index.html favicon.ico app-icon.png assets/icons/server-inventory.svg
 var embeddedPayloads embed.FS
 
 var (
@@ -159,6 +159,7 @@ type stateResponse struct {
 	LoadedReportSummaryPath string                 `json:"loadedReportSummaryPath"`
 	LoadedReportName        string                 `json:"loadedReportName"`
 	LoadedReportSerial      uint64                 `json:"loadedReportSerial"`
+	Restore                 restoreStateResponse   `json:"restore"`
 	Logs                    []logEntry             `json:"logs"`
 	NextLogIndex            int                    `json:"nextLogIndex"`
 }
@@ -251,6 +252,7 @@ type application struct {
 	loadedReportSummaryPath string
 	loadedReportName        string
 	loadedReportSerial      uint64
+	restore                 restoreRuntime
 }
 
 func utf16Ptr(value string) *uint16 {
@@ -1296,6 +1298,7 @@ func (a *application) snapshot(since int) stateResponse {
 		LoadedReportSummaryPath: a.loadedReportSummaryPath,
 		LoadedReportName:        a.loadedReportName,
 		LoadedReportSerial:      a.loadedReportSerial,
+		Restore:                 a.restoreSnapshotLocked(),
 		Logs:                    logs,
 		NextLogIndex:            a.nextLogIndex,
 	}
@@ -1494,6 +1497,11 @@ func (a *application) handleStart(response http.ResponseWriter, request *http.Re
 		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "A server inventory collection is already running."})
 		return
 	}
+	if a.restoreBusyLocked() {
+		a.mu.Unlock()
+		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "A restore is running. Wait for it to finish before collecting."})
+		return
+	}
 	a.mu.Unlock()
 
 	runID, err := randomHex(16)
@@ -1510,6 +1518,11 @@ func (a *application) handleStart(response http.ResponseWriter, request *http.Re
 	if a.state.Running || a.installing {
 		a.mu.Unlock()
 		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "A server inventory collection is already running."})
+		return
+	}
+	if a.restoreBusyLocked() {
+		a.mu.Unlock()
+		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "A restore is running. Wait for it to finish before collecting."})
 		return
 	}
 	a.state = internalState{
@@ -1594,6 +1607,7 @@ func (a *application) handleOpen(response http.ResponseWriter, request *http.Req
 	loadedReportPackage := a.loadedReportPackage
 	loadedReportDocxPath := a.loadedReportDocxPath
 	loadedReportSummaryPath := a.loadedReportSummaryPath
+	restoreRollbackPath := a.restore.rollbackPath
 	a.mu.Unlock()
 	var target string
 	var urlTarget string
@@ -1624,6 +1638,8 @@ func (a *application) handleOpen(response http.ResponseWriter, request *http.Req
 		target = loadedReportDocxPath
 	case "loadedsummary":
 		target = loadedReportSummaryPath
+	case "restorerollback":
+		target = restoreRollbackPath
 	case "updaterelease":
 		a.update.mu.Lock()
 		manifest := a.update.currentManifest
@@ -1658,7 +1674,7 @@ func (a *application) handleOpen(response http.ResponseWriter, request *http.Req
 	var err error
 	if reveal {
 		err = shellReveal(target)
-	} else if strings.EqualFold(input.Kind, "folder") || strings.EqualFold(input.Kind, "outputroot") || strings.EqualFold(input.Kind, "diagnostics") || strings.EqualFold(input.Kind, "loadedfolder") {
+	} else if strings.EqualFold(input.Kind, "folder") || strings.EqualFold(input.Kind, "outputroot") || strings.EqualFold(input.Kind, "diagnostics") || strings.EqualFold(input.Kind, "loadedfolder") || strings.EqualFold(input.Kind, "restorerollback") {
 		err = shellOpenFolder(target)
 	} else {
 		err = shellOpen(target)
@@ -1757,9 +1773,14 @@ func (a *application) handleShutdown(response http.ResponseWriter, request *http
 	}
 	a.mu.Lock()
 	running := a.state.Running
+	restoring := a.restore.status == "running"
 	a.mu.Unlock()
 	if running {
 		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "The application cannot close while collection is running. Cancel the collection first."})
+		return
+	}
+	if restoring {
+		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "The application cannot close while a restore is running. Stop the restore and wait for the current item to finish."})
 		return
 	}
 	writeJSON(response, http.StatusOK, map[string]any{"ok": true})
@@ -2060,6 +2081,9 @@ func (a *application) stopServer() {
 		a.mu.Lock()
 		a.closing = true
 		a.mu.Unlock()
+		// A restore is never cut off part way through an item. If the window
+		// closes during one, ask it to stop after the current item and wait.
+		a.stopRestoreAndWait()
 		a.stopWindowPersistence()
 		// Keep the local backend alive until its owned browser windows are gone.
 		// A modal page dialog must not leave an orphaned old app window.
@@ -2091,6 +2115,11 @@ func (a *application) idleMonitor() {
 			// The built-in window's close is authoritative; a minimized window's
 			// throttled page must not be mistaken for a closed one.
 			if a.webView != nil && a.webView.alive() {
+				idleFor = 0
+			}
+			// Never abandon a restore part way through an item: wait for the
+			// engine to finish even if the interface has gone away.
+			if a.restore.status == "running" {
 				idleFor = 0
 			}
 			if idleFor > 30*time.Second && running {
@@ -2158,6 +2187,10 @@ func (a *application) serve(listener net.Listener) error {
 	mux.HandleFunc("/api/cancel", a.handleCancel)
 	mux.HandleFunc("/api/skip-acl-export", a.handleSkipACLExport)
 	mux.HandleFunc("/api/open", a.handleOpen)
+	mux.HandleFunc("/api/restore/browse", a.handleRestoreBrowse)
+	mux.HandleFunc("/api/restore/scan", a.handleRestoreScan)
+	mux.HandleFunc("/api/restore/start", a.handleRestoreStart)
+	mux.HandleFunc("/api/restore/cancel", a.handleRestoreCancel)
 	mux.HandleFunc("/api/ui/ready", a.handleUIReady)
 	mux.HandleFunc("/api/update/check", a.handleUpdateCheck)
 	mux.HandleFunc("/api/update/download", a.handleUpdateDownload)

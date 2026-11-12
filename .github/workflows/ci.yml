@@ -156,3 +156,22 @@ jobs:
             build/acl-validation/
             dist/
 
+  restore:
+    # Real restore round trips: installs DHCP, DNS, IIS, NPS and Print Server on
+    # the disposable runner, exports synthetic configuration the way the
+    # collector does, changes it, and restores it with the embedded engine.
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore engine round trips
+        shell: powershell
+        run: .\scripts\Test-Restore.ps1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: restore-validation
+          path: |
+            build/restore-validation/*.log
+            build/restore-validation/checks.txt
+            build/restore-validation/scan.json
