@@ -27,8 +27,10 @@ function Invoke-Engine([string]$Mode, [hashtable]$Arguments, [string]$Name) {
     $result = Join-Path $OutputDirectory ($Name + '.json')
     $list = @('-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', $engine, '-Mode', $Mode, '-ResultPath', $result, '-WorkPath', $work)
     foreach ($key in $Arguments.Keys) { $list += @('-' + $key, $Arguments[$key]) }
-    & $powerShell @list *> $log
-    $code = $LASTEXITCODE
+    # Engine errors on stderr must be recorded, not end this script.
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try { & $powerShell @list *> $log; $code = $LASTEXITCODE } finally { $ErrorActionPreference = $previous }
     Get-Content -LiteralPath $log | Where-Object { $_ -notmatch '"event":"progress"' } | ForEach-Object { Write-Host ('  ' + $_) }
     $json = $null
     if (Test-Path -LiteralPath $result) { $json = Get-Content -LiteralPath $result -Raw | ConvertFrom-Json }
