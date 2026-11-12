@@ -1,3 +1,12 @@
+## 3.2.20 published and verified — 2026-11-12
+
+- [Release v3.2.20](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.20) ("Server Inventory and Migration Manager 3.2.20"), tag and target commit `99ba2fa723876bd24e0e9055095385f33a2cd109` (publication PR #41, changing only `release/VERSION`). Source: rename #37; file server migration #38; release preparation #40.
+- [Publish run](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/43171886169) passed in one attempt: publish job 06:58–07:05 UTC, published-upgrade job 07:05–07:14 UTC.
+- All 45 actual 3.2.19-to-3.2.20 upgrade checks passed in one run with zero unexpected dialogs, across the rename: the published 3.2.19 updater accepted the renamed build (unchanged ProductName) and the window was found under its new title. Source CI on #38 and #40 included the 36-check migration round trip and the 51-check restore round trip.
+- Stable EXE: 7,680,000 bytes; SHA-256 `ebb1030eb09325bb9210c7a569c865909dae58414ed53f922cbd51d0a10bcb7d` (release asset digest). All 12 assets are published; the v3.2.19 release still has its 12 assets and the same EXE digest. `Report-Preview.png` is unchanged, so `docs/images/report-executive-summary.png` is unchanged.
+
+Limits: synthetic hosted Windows Server 2025 testing; migration between two separate servers, domain DFS/alias paths, Windows Server 2012/2012 R2 and a company-managed PC were not exercised. CI artifacts were not downloaded; the job logs above are the evidence. No client data was uploaded.
+
 ## 3.2.19 published and verified — 2026-11-12
 
 - [Release v3.2.19](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.19), tag and target commit `9582047dea3ed09f1754822f51cc02db2c6828a9` (publication PR #36, changing only `release/VERSION`). Source: printer migration export fix #34; release preparation #35.
