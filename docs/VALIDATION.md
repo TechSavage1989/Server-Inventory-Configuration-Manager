@@ -1,3 +1,12 @@
+## 3.2.17 published and verified — 2026-11-12
+
+- [Release v3.2.17](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.17), tag and target commit `a861039ffd9c74d872ad2788e17cc613a21095f4` (publication PR #28, changing only `release/VERSION`). Source: built-in WebView2 window when guest browsing is blocked #26; release preparation #27.
+- [Publish run](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/43128816889) passed in one attempt: build, native tests (including `TestExecutableUsesBuiltInWindowWhenGuestBrowsingIsBlocked` with WebView2 Runtime 156.0.4314.58), browser gates, publication, `Verify-PublicRelease.ps1`, and the published-upgrade job.
+- All 45 actual 3.2.16-to-3.2.17 upgrade checks passed in one run (00:43–00:53 UTC) with real two-minute focus and five-minute scheduler waits, no reused timer evidence and zero unexpected dialogs. The hosted runner allows guest browsing, so the upgrade exercised the guest-browser path; the built-in window path is covered by the native test above.
+- Stable EXE: 7,186,944 bytes (+467,456 from 3.2.16, the WebView2 dependency); SHA-256 `9dc5f53e22c95c9ce87982f2e9f673f1c0cab4f38a15a231c9594928ff70794f` (release asset digest). All 12 assets are published; the v3.2.16 release still has its 12 assets and the same EXE digest. `Report-Preview.png` is unchanged from 3.2.16, so `docs/images/report-executive-summary.png` is unchanged.
+
+Limits: synthetic hosted Windows/Edge/WebView2 testing, not live customer inventory, a real company-managed PC, physical desktop/mixed-DPI interaction, human UAC consent or a legacy Windows field pass. Bringing folder windows to the front has only the automated hosted check. CI artifacts were not downloaded, so no `release/3.2.17-verification.json` exists; the job logs above are the evidence. No client data was uploaded.
+
 ## 3.2.16 published and verified — 2026-11-10
 
 - [Release v3.2.16](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.16), tag and target commit `ed8a03822f2ff7593842667e9471b8ba59d6cef0` (publication PR #24, changing only `release/VERSION`). Source: dataset-header error/warning jump buttons #22; release preparation #23.
