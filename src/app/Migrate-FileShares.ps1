@@ -179,7 +179,11 @@ function Invoke-RobocopyRun {
     # Runs Robocopy as a child process, reports progress from its log, and
     # stops it when the operator asks. Robocopy can always be run again.
     param([string]$From, [string]$To, [string[]]$Options, [string]$LogPath, [string]$ShareName, [uint64]$ExpectedFiles)
-    $arguments = @('"' + $From + '"', '"' + $To + '"') + $Options + @('/UNILOG:"' + $LogPath + '"')
+    # Start-Process joins arguments with spaces, so quote any that contain one
+    # (for example the excluded folder "System Volume Information").
+    $quoted = @()
+    foreach ($option in $Options) { if ($option -match '\s' -and $option -notmatch '^".*"$') { $quoted += ('"' + $option + '"') } else { $quoted += $option } }
+    $arguments = @('"' + $From + '"', '"' + $To + '"') + $quoted + @('/UNILOG:"' + $LogPath + '"')
     Write-Log 'INFO' ('Running: robocopy ' + ($arguments -join ' '))
     $process = Start-Process -FilePath $script:Robocopy -ArgumentList $arguments -PassThru -WindowStyle Hidden
     $position = 0L; $lines = 0L; $lastReport = Get-Date

@@ -175,3 +175,22 @@ jobs:
             build/restore-validation/*.log
             build/restore-validation/checks.txt
             build/restore-validation/scan.json
+  migration:
+    # Real file share migration round trip on the disposable runner (it is both
+    # the old and the new server): discover, check, copy, copy again, cutover,
+    # old-share read-only and undo.
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: File share migration round trip
+        shell: powershell
+        run: .\scripts\Test-Migration.ps1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: migration-validation
+          path: |
+            build/migration-validation/*.log
+            build/migration-validation/*.json
+            build/migration-validation/checks.txt
