@@ -1,3 +1,7 @@
+## 3.2.19 release preparation — 2026-11-12
+
+Publishing the owner-approved printer migration export fix (#34) under the standing approval (AGENTS rule 16). This branch bumps `appVersion`, `collectorVersion` and the collector `$scriptVersion` to 3.2.19, adds `docs/release-notes/3.2.19.md` (first three bullets free of Markdown) and points `scripts/test_published_upgrade.cjs` at the published v3.2.18 executable (SHA-256 `7ab1d64fb574083f110ecfe233203b2ee70088116aeefac71c710e5ceb37eac4`, release asset digest). `release/VERSION` changes in a separate publication PR after this source CI passes.
+
 ## Unreleased: printer migration export fix — 2026-11-12
 
 The owner approved fixing the collector's PrintBRM export (only print drivers are in scope for restore; no other driver export). `PrintBrm -s \\server -b` exits 0 with error 0x80043333 and writes no file when no printer is shared (print$ unavailable), reproduced on hosted Windows Server 2025, so packages from such servers had no printer migration export. The collector now runs the local form (`PrintBrm -b -f`), allows a nonzero exit, and logs a warning when no export was written or PrintBRM prints an error code. Checks use the file and the `0x8xxxxxxx` code because PrintBRM text is localized; the restore engine's PrintBRM check was changed the same way (it previously required the English success phrase).
