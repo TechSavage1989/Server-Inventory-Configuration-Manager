@@ -1,3 +1,9 @@
+## Unreleased: printer migration export fix — 2026-11-12
+
+The owner approved fixing the collector's PrintBRM export (only print drivers are in scope for restore; no other driver export). `PrintBrm -s \\server -b` exits 0 with error 0x80043333 and writes no file when no printer is shared (print$ unavailable), reproduced on hosted Windows Server 2025, so packages from such servers had no printer migration export. The collector now runs the local form (`PrintBrm -b -f`), allows a nonzero exit, and logs a warning when no export was written or PrintBRM prints an error code. Checks use the file and the `0x8xxxxxxx` code because PrintBRM text is localized; the restore engine's PrintBRM check was changed the same way (it previously required the English success phrase).
+
+- Collector provenance: one new reviewed region (normalized archive line 5043, `BEGIN/END APPROVED PRINTBRM LOCAL EXPORT`) in `docs/verification/collector-change-verification.json`, its hunk added to `collector-approved-changes.diff` and the diff hash updated; existing regions and hunks are unchanged. `scripts/verify_baseline.py` and `tests/test_collector_provenance.py` pass.
+- `scripts/Test-Restore.ps1` now reproduces the old `-s` failure as a negative control, runs the real collector limited to print services on the unshared print server, requires its export with no error code, and restores printers from that collector-produced file.
 ## 3.2.18 published and verified — 2026-11-12
 
 - [Release v3.2.18](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.18), tag and target commit `4c7ad410edb3f2c9f35a430eaf1b6e469989c02a` (publication PR #32, changing only `release/VERSION`). Source: Restore tab #30; release preparation #31.

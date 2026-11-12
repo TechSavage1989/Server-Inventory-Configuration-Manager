@@ -627,8 +627,9 @@ function Restore-Nps {
 function Assert-PrintBrmSucceeded {
     # PrintBrm.exe can exit with 0 after reporting an error, so read its output.
     param([string]$What)
-    if ($script:LastNativeOutput -match 'error occurred' -or $script:LastNativeOutput -notmatch 'Successfully finished operation') {
-        throw ($What + ' did not finish successfully. See the PrintBRM output above and the Microsoft-Windows-PrintBRM/Admin event log.')
+    # PrintBRM text is localized; its error code (0x8xxxxxxx) is not.
+    if ($script:LastNativeOutput -match '0x8[0-9A-Fa-f]{7}') {
+        throw ($What + ' reported error ' + $Matches[0] + '. See the PrintBRM output above and the Microsoft-Windows-PrintBRM/Admin event log.')
     }
 }
 

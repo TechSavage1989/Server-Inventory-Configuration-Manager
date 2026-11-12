@@ -313,6 +313,24 @@
 +    throw 'An owned ACL export child or output stream could not be confirmed stopped. Collection stopped; no completion marker or ZIP will be created. Partial ACL files are incomplete.'
 +}
 +# END APPROVED ACL EXPORT TERMINATION GUARD
+@@ -5043 +5286,16 @@
+-            Invoke-NativeCapture -Command $printBrm -Arguments @('-s', ('\\' + $env:COMPUTERNAME), '-b', '-f', $printerExport) -OutputFile (Join-Path $rolePath 'PrintBRM-Export.log')
++            # BEGIN APPROVED PRINTBRM LOCAL EXPORT
++            # PrintBrm -s \\server exits 0 without writing a file when no printer is
++            # shared (error 0x80043333, print$ unavailable). Back up the local spooler
++            # directly, and report an export PrintBRM did not finish as a warning.
++            $printBrmLog = Join-Path $rolePath 'PrintBRM-Export.log'
++            Invoke-NativeCapture -Command $printBrm -Arguments @('-b', '-f', $printerExport) -OutputFile $printBrmLog -AllowNonZeroExit
++            $printBrmOutput = ''
++            if (Test-Path -LiteralPath $printBrmLog) { $printBrmOutput = [string](Get-Content -LiteralPath $printBrmLog -Raw) }
++            # PrintBRM text is localized; its error code (0x8xxxxxxx) and the file are not.
++            if (-not (Test-Path -LiteralPath $printerExport)) {
++                Write-InventoryLog -Level 'WARN' -Message 'PrintBRM did not write the printer migration export. See Print-Server\PrintBRM-Export.log.'
++            }
++            elseif ($printBrmOutput -match '0x8[0-9A-Fa-f]{7}') {
++                Write-InventoryLog -Level 'WARN' -Message ('PrintBRM reported error ' + $Matches[0] + ' during the printer migration export; it may be incomplete. See Print-Server\PrintBRM-Export.log.')
++            }
++            # END APPROVED PRINTBRM LOCAL EXPORT
 @@ -5732,0 +5976,4 @@
 +    # BEGIN APPROVED ACL EXPORT COMPLETION METADATA
 +    IncompleteAclExports = $script:aclExportsIncompleteCount

@@ -2,7 +2,7 @@
   "schema_version": 1,
   "compared_revision": "81e2a0e5a598df6e8edd7bb533e2f02b915a9c7b",
   "compared_release": "v3.2.10",
-  "approval": "Previously approved startup cyclic-table handling and bounded ACL export, plus user-requested final-report performance improvements and preservation of actual collection values in CSV-backed reports. No unrelated collector behavior changes authorized.",
+  "approval": "Previously approved startup cyclic-table handling and bounded ACL export, plus user-requested final-report performance improvements, preservation of actual collection values in CSV-backed reports, and the user-approved (2026-11-12) printer migration export fix so PrintBRM backs up the local spooler and a missing export is reported. No unrelated collector behavior changes authorized.",
   "normalization": "Standalone scriptVersion normalized to3.0.0; separately pinned HTML renderer restored to original before region comparison.",
   "files": {
     "Export-ServerInventory.ps1": {
@@ -150,6 +150,16 @@
           "reason": "Bounded recursive ACL export progress, ownership, control or incomplete-result propagation"
         },
         {
+          "before_start": 323242,
+          "before_end": 323425,
+          "before_start_line_normalized": 5043,
+          "before_end_line_normalized": 5043,
+          "before_sha256": "08c4a954cca4a3afb5b9a22ae626858a1d0386704f0467d2bfc8fdb6b948bc7b",
+          "after_length": 1325,
+          "after_sha256": "0420b8ac1e9b629237ba3d9277e89418ca358ea0e7c3f40194af3986cabb6047",
+          "reason": "Printer migration export: back up the local spooler with PrintBRM (the -s \\\\server form exits 0 without a file when no printer is shared) and warn when no export was written or PrintBRM reports an error code"
+        },
+        {
           "before_start": 370683,
           "before_end": 370683,
           "before_start_line_normalized": 5733,
@@ -194,6 +204,6 @@
   },
   "reviewed_diff": {
     "path": "docs/verification/collector-approved-changes.diff",
-    "sha256": "2db0ecea0fc12389e42ede16d70030816a68565367d18462a768a8bac99dbe9e"
+    "sha256": "8cf83cca79c19f4431f9b77d2b838c819faf3ee6edb256eb231553237ce73d64"
   }
 }
