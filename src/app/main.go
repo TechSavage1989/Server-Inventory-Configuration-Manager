@@ -30,7 +30,11 @@ import (
 )
 
 const (
+	// appName is the stable identity: the per-user settings folder, the Windows
+	// ProductName that published updaters require, and older window titles.
+	// displayName is the name people see.
 	appName            = "Server Inventory Configuration Manager"
+	displayName        = "Server Inventory and Migration Manager"
 	appVersion         = "3.2.19"
 	collectorVersion   = "3.2.19"
 	applicationPageCSP = "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; frame-src 'self'"
@@ -446,6 +450,14 @@ func windowClass(hwnd uintptr) string {
 	return syscall.UTF16ToString(buffer)
 }
 
+// isApplicationTitle matches this application's window titles under the
+// current name and the name earlier versions used, so a rollback to an older
+// version is still recognised.
+func isApplicationTitle(title string) bool {
+	title = strings.ToLower(title)
+	return strings.Contains(title, strings.ToLower(displayName)) || strings.Contains(title, strings.ToLower(appName))
+}
+
 func findApplicationWindow() uintptr {
 	var found uintptr
 	callback := syscall.NewCallback(func(hwnd uintptr, lparam uintptr) uintptr {
@@ -453,8 +465,7 @@ func findApplicationWindow() uintptr {
 		if visible == 0 {
 			return 1
 		}
-		title := strings.ToLower(windowText(hwnd))
-		if !strings.Contains(title, "server inventory") || !strings.Contains(title, "configuration manager") {
+		if !isApplicationTitle(windowText(hwnd)) {
 			return 1
 		}
 		found = hwnd
@@ -628,8 +639,7 @@ func applyBrowserWindowIcon(iconPath string) {
 			if visible == 0 {
 				return 1
 			}
-			title := strings.ToLower(windowText(hwnd))
-			if !strings.Contains(title, "server inventory") || !strings.Contains(title, "configuration manager") {
+			if !isApplicationTitle(windowText(hwnd)) {
 				return 1
 			}
 			className := strings.ToLower(windowClass(hwnd))
@@ -2209,7 +2219,7 @@ func (a *application) serve(listener net.Listener) error {
 	go func() {
 		err := a.server.Serve(listener)
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
-			messageBox("The local web interface stopped unexpectedly.\r\n\r\n"+err.Error(), appName, mbOK|mbIconError)
+			messageBox("The local web interface stopped unexpectedly.\r\n\r\n"+err.Error(), displayName, mbOK|mbIconError)
 			a.stopServer()
 		}
 	}()
@@ -2225,25 +2235,25 @@ func main() {
 
 	if !isAdministrator() {
 		if err := relaunchElevated(); err != nil {
-			messageBox("Administrator rights are required.\r\n\r\n"+err.Error(), appName, mbOK|mbIconError)
+			messageBox("Administrator rights are required.\r\n\r\n"+err.Error(), displayName, mbOK|mbIconError)
 		}
 		return
 	}
 
 	app, err := newApplication()
 	if err != nil {
-		messageBox("The application could not initialize.\r\n\r\n"+err.Error(), appName, mbOK|mbIconError)
+		messageBox("The application could not initialize.\r\n\r\n"+err.Error(), displayName, mbOK|mbIconError)
 		return
 	}
 
 	listener, err := net.Listen("tcp4", "127.0.0.1:0")
 	if err != nil {
-		messageBox("The local web interface could not start.\r\n\r\n"+err.Error(), appName, mbOK|mbIconError)
+		messageBox("The local web interface could not start.\r\n\r\n"+err.Error(), displayName, mbOK|mbIconError)
 		return
 	}
 	if err := app.serve(listener); err != nil {
 		_ = listener.Close()
-		messageBox("The local web interface could not start.\r\n\r\n"+err.Error(), appName, mbOK|mbIconError)
+		messageBox("The local web interface could not start.\r\n\r\n"+err.Error(), displayName, mbOK|mbIconError)
 		return
 	}
 
@@ -2263,7 +2273,7 @@ func main() {
 		// the built-in WebView2 window instead of any personal browser profile.
 		host, hostErr := startWebViewHost(app, url, filepath.Join(runtimeDir, "WebView2"), windowIconPath)
 		if hostErr != nil {
-			messageBox("The application interface could not open.\r\n\r\nA private Edge or Chrome guest window was not available:\r\n"+openErr.Error()+"\r\n\r\nThe built-in window is also unavailable: "+hostErr.Error()+". Installing the Microsoft Edge WebView2 Runtime, or allowing guest browsing, lets the application open.", appName, mbOK|mbIconError)
+			messageBox("The application interface could not open.\r\n\r\nA private Edge or Chrome guest window was not available:\r\n"+openErr.Error()+"\r\n\r\nThe built-in window is also unavailable: "+hostErr.Error()+". Installing the Microsoft Edge WebView2 Runtime, or allowing guest browsing, lets the application open.", displayName, mbOK|mbIconError)
 			app.stopServer()
 			_ = os.Remove(urlFile)
 			return

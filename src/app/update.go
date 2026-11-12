@@ -1329,7 +1329,7 @@ func (a *application) ownApplicationWindow() uintptr {
 		return 0
 	}
 	for _, window := range scopedBrowserWindows(profile) {
-		if strings.Contains(strings.ToLower(windowText(window)), strings.ToLower(appName)) {
+		if isApplicationTitle(windowText(window)) {
 			return window
 		}
 	}

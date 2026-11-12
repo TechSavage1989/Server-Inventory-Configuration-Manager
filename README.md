@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="src/app/assets/icons/server-inventory.svg" width="112" alt="Server Inventory Configuration Manager icon">
+  <img src="src/app/assets/icons/server-inventory.svg" width="112" alt="Server Inventory and Migration Manager icon">
 </p>
 
-<h1 align="center">Server Inventory Configuration Manager</h1>
+<h1 align="center">Server Inventory and Migration Manager</h1>
 <p align="center"><strong>Capture server configuration. Find the important details. Keep a useful handoff.</strong></p>
 
 <p align="center">
@@ -14,7 +14,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/hero.png" alt="Server Inventory Configuration Manager main window" width="900">
+  <img src="docs/images/hero.png" alt="Server Inventory and Migration Manager main window" width="900">
 </p>
 
 A portable **Windows x64 application** for collecting server inventory, exporting supported configurations, and reviewing clear, searchable reports.
@@ -140,6 +140,8 @@ Settings, logs, cache, staging, rollback, and browser-session files live under:
 ```
 
 Reports stay in the selected output folder. Updates preserve your executable path and shortcut targets.
+
+The application was renamed from Server Inventory Configuration Manager to **Server Inventory and Migration Manager** in 3.2.20. The executable (`Server-Inventory-Configuration-Manager.exe`), the settings folder above and the download address keep their original names, so existing copies keep updating themselves and keep their settings and shortcuts.
 
 ### Desktop behavior
 
