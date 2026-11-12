@@ -127,7 +127,7 @@ func webViewRuntimeUnavailable() string {
 // names the application, so window discovery and dialog owners keep working.
 func webViewTitle(title string) string {
 	title = strings.TrimSpace(title)
-	if title == "" || len(title) > 200 || strings.ContainsAny(title, "\r\n\x00") || !strings.Contains(strings.ToLower(title), strings.ToLower(appName)) {
+	if title == "" || len(title) > 200 || strings.ContainsAny(title, "\r\n\x00") || !isApplicationTitle(title) {
 		return ""
 	}
 	return title
@@ -173,7 +173,7 @@ func (h *webViewHost) run(address, dataDir, iconPath string) {
 	}
 	instance, _, _ := wvGetModuleHandleW.Call(0)
 	className, _ := syscall.UTF16PtrFromString(webViewClassName)
-	title, _ := syscall.UTF16PtrFromString(appName)
+	title, _ := syscall.UTF16PtrFromString(displayName)
 	var bigIcon, smallIcon uintptr
 	if iconPtr, err := syscall.UTF16PtrFromString(iconPath); err == nil && iconPath != "" {
 		bigIcon, _, _ = procLoadImageW.Call(0, uintptr(unsafe.Pointer(iconPtr)), imageIcon, 64, 64, lrLoadFromFile)

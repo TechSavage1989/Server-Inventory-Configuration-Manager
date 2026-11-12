@@ -19,12 +19,13 @@ import (
 )
 
 func TestWebViewTitleOnlyAcceptsApplicationTitles(t *testing.T) {
-	for _, accepted := range []string{appName, "42% Collecting \u2014 " + appName, "  Collection complete \u2014 " + appName + "  "} {
+	// The current name and the name of earlier versions are both accepted.
+	for _, accepted := range []string{displayName, appName, "42% Collecting \u2014 " + displayName, "  Collection complete \u2014 " + displayName + "  "} {
 		if webViewTitle(accepted) == "" {
 			t.Fatal("application title rejected:", accepted)
 		}
 	}
-	for _, rejected := range []string{"", "Untitled", "Evil\r\n" + appName, strings.Repeat("x", 190) + appName} {
+	for _, rejected := range []string{"", "Untitled", "Server Inventory", "Evil\r\n" + displayName, strings.Repeat("x", 190) + displayName} {
 		if webViewTitle(rejected) != "" {
 			t.Fatal("title that hides the application name accepted:", rejected)
 		}
@@ -158,7 +159,7 @@ func TestExecutableUsesBuiltInWindowWhenGuestBrowsingIsBlocked(t *testing.T) {
 		hwnd = builtInWindowOf(command.Process.Pid)
 		return hwnd != 0
 	})
-	if title := windowText(hwnd); !strings.Contains(title, appName) {
+	if title := windowText(hwnd); !strings.Contains(title, displayName) {
 		t.Fatal("built-in window title does not name the application:", title)
 	}
 	if visible, _, _ := procIsWindowVisible.Call(hwnd); visible == 0 {

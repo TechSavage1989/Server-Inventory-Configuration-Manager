@@ -38,3 +38,5 @@ Write-Host "SHA-256: $hash"
 $versionInfo=[Diagnostics.FileVersionInfo]::GetVersionInfo($ExecutablePath)
 if($versionInfo.FileVersion -ne $ExpectedVersion -or $versionInfo.ProductVersion -ne $ExpectedVersion){throw 'Windows version metadata mismatch.'}
 if($versionInfo.ProductName -ne 'Server Inventory Configuration Manager' -or $versionInfo.OriginalFilename -ne 'Server-Inventory-Configuration-Manager.exe'){throw 'Windows application identity metadata mismatch.'}
+# ProductName stays the update identity published updaters require; the visible name is FileDescription.
+if($versionInfo.FileDescription -ne 'Server Inventory and Migration Manager'){throw 'Windows file description does not show the application name.'}

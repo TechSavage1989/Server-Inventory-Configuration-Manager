@@ -8,7 +8,7 @@ param(
     [string]$CancelPath
 )
 
-# Restores configuration from a Server Inventory Configuration Manager package
+# Restores configuration from a Server Inventory and Migration Manager package
 # onto this server. Scan reports what can be restored and why anything cannot.
 # Restore runs only the items the operator confirmed, in a fixed order, saves
 # the current configuration of each item to the rollback folder first, uses
@@ -747,7 +747,7 @@ function Restore-Gpo {
     $existing = $null
     try { $existing = Get-GPO -Guid $guid -ErrorAction Stop } catch { }
     if ($existing) {
-        Backup-GPO -Guid $guid -Path $Rollback -Comment 'Before Server Inventory Configuration Manager restore' | Out-Null
+        Backup-GPO -Guid $guid -Path $Rollback -Comment 'Before Server Inventory and Migration Manager restore' | Out-Null
         Restore-GPO -BackupId $Data.backupId.Trim('{}') -Path $Data.folder | Out-Null
     }
     else {
@@ -816,7 +816,7 @@ function Invoke-RestorePlan {
     }
     if ($queue.Count -eq 0) { throw 'No restore items were selected.' }
     New-Item -Path $RollbackPath -ItemType Directory -Force | Out-Null
-    $readme = "Server Inventory Configuration Manager restore`r`nPackage: $($script:Package)`r`nServer: $($script:ComputerName)`r`nStarted: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')`r`n`r`nEach folder holds the configuration saved just before that component was restored.`r`n"
+    $readme = "Server Inventory and Migration Manager restore`r`nPackage: $($script:Package)`r`nServer: $($script:ComputerName)`r`nStarted: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')`r`n`r`nEach folder holds the configuration saved just before that component was restored.`r`n"
     Write-Utf8File -Path (Join-Path $RollbackPath 'README.txt') -Text $readme
     Write-RestoreEvent @{ event = 'plan'; items = @($queue | ForEach-Object { @{ component = $_.component; id = $_.id; title = $_.title } }) }
     $failed = $false

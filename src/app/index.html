@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Server Inventory Configuration Manager</title>
+<title>Server Inventory and Migration Manager</title>
 <link rel="icon" type="image/x-icon" href="/favicon.ico?v=327">
 <link rel="icon" type="image/png" sizes="256x256" href="/app-icon.png?v=327">
 <link rel="apple-touch-icon" sizes="256x256" href="/app-icon.png?v=327">
@@ -421,7 +421,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
 <body>
 <div class="shell">
   <div class="topbar"><div class="topbar-inner">
-    <div class="brand"><div class="brand-mark" aria-hidden="true"><img src="/app-icon.svg?v=327" alt="" width="42" height="42"></div><div><div class="brand-title">Server Inventory Configuration Manager</div><div class="brand-subtitle">Configuration capture, documentation, and recovery assistance</div></div></div>
+    <div class="brand"><div class="brand-mark" aria-hidden="true"><img src="/app-icon.svg?v=327" alt="" width="42" height="42"></div><div><div class="brand-title">Server Inventory and Migration Manager</div><div class="brand-subtitle">Configuration capture, documentation, and recovery assistance</div></div></div>
     <div class="top-badges"><div class="badge"><span class="badge-dot"></span>Local interface</div><div class="badge" id="elevationBadge">Checking access</div><div class="badge" id="portableEditionBadge">Portable EXE</div></div>
     <div class="help-menu" id="helpMenu"><button class="help-button" id="helpMenuButton" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="helpMenuList">Help</button><div class="help-list hidden" id="helpMenuList" role="menu" aria-labelledby="helpMenuButton"><button type="button" role="menuitem" id="helpCheckUpdates">Check for updates…</button><button type="button" role="menuitem" id="helpShortcuts">Keyboard shortcuts</button><button type="button" role="menuitem" id="helpAbout">About</button></div></div>
   </div></div>
@@ -634,7 +634,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
 <dialog class="shortcuts-dialog" id="aboutDialog" aria-labelledby="aboutTitle">
   <div class="shortcuts-head"><h2 id="aboutTitle">About and updates</h2><button class="secondary-button" id="aboutClose" type="button">Close</button></div>
   <div class="about-body">
-    <div class="about-name">Server Inventory Configuration Manager</div>
+    <div class="about-name">Server Inventory and Migration Manager</div>
     <div class="about-versions">Interface v__APP_VERSION__ · Collector v__COLLECTOR_VERSION__</div>
     <div class="about-update" id="aboutUpdate" role="status" aria-live="polite"><div class="update-title" id="aboutUpdateTitle">Update status</div><div class="update-status" id="aboutUpdateStatus">Installed v__APP_VERSION__.</div></div>
     <div class="about-actions"><button class="secondary-button" id="updateCheckButton" type="button">Check for updates</button><button class="primary-button hidden" id="aboutShowUpdate" type="button">Show update</button></div>
@@ -662,7 +662,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   var preferencesLoaded = false, preferencesDirty = false, configurationBusy = false;
   var aclSkipPending = false;
   var viewerLastQuery = '', issueCursor = -1, copyFeedbackTimer = null;
-  var appTitle = 'Server Inventory Configuration Manager';
+  var appTitle = 'Server Inventory and Migration Manager';
   var logLines = [], scopeSearchWasOpen = false, previousScopeQuery = '';
   var coreCategories = ['Hardware','OperatingSystem','Storage','Networking','WindowsFeaturesRoles','Services','InstalledSoftware','WindowsUpdate','LocalAccounts','Security','TimeNTP','WindowsServerBackup'];
   function notice(message,error){byId('appNoticeText').textContent=message;byId('appNotice').className='app-notice'+(error?' error':'');}

@@ -164,10 +164,10 @@ async function check(name,fn){await fn();report.checks.push({name,result:'passed
   await f.page.locator('#logLevel').selectOption('all');await f.page.locator('#copyLogButton').click();await f.page.waitForTimeout(100);assert.equal((await f.page.evaluate(()=>navigator.clipboard.readText())).split('\r\n').length,5);
  }finally{await f.close();}});
  await check('Window title reports progress and completion while keeping the native window-match name',async()=>{const f=await fixture(browser);try{
-  assert.equal(await f.page.title(),'Server Inventory Configuration Manager');
-  f.state.running=true;f.state.status='running';f.state.progress=42;await f.page.waitForTimeout(1100);assert.equal(await f.page.title(),'42% Collecting \u2014 Server Inventory Configuration Manager');
+  assert.equal(await f.page.title(),'Server Inventory and Migration Manager');
+  f.state.running=true;f.state.status='running';f.state.progress=42;await f.page.waitForTimeout(1100);assert.equal(await f.page.title(),'42% Collecting \u2014 Server Inventory and Migration Manager');
   f.state.running=false;f.state.status='success';f.state.packagePath='C:\\Reports\\SRV';f.state.zipPath='C:\\Reports\\SRV.zip';await f.page.waitForTimeout(1100);
-  const title=(await f.page.title()).toLowerCase();assert(title.includes('server inventory')&&title.includes('configuration manager')&&title.startsWith('collection complete'));
+  const title=(await f.page.title()).toLowerCase();assert(title.includes('server inventory and migration manager')&&title.startsWith('collection complete'));
   await f.page.locator('#tabButtonCollection').click();await f.page.locator('#openPackageButton').click();await f.page.locator('#showZipButton').click();await f.page.waitForTimeout(100);assert.deepEqual(f.opens,['folder','zip']);
  }finally{await f.close();}});
  await check('Keyboard shortcuts switch tabs, focus search, show help and start collection',async()=>{const f=await fixture(browser);try{

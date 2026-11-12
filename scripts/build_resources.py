@@ -16,7 +16,7 @@ def version_info(version):
     if any(v<0 or v>65535 for v in [major,minor,patch]):raise ValueError('version outside Windows metadata range')
     ms=(major<<16)|minor;ls=patch<<16
     fixed=struct.pack('<13I',0xfeef04bd,0x10000,ms,ls,ms,ls,0x3f,0,0x40004,1,0,0,0)
-    values={'CompanyName':'TechSavage1989','FileDescription':'Server Inventory Configuration Manager','FileVersion':version,'InternalName':'Server-Inventory-Configuration-Manager','OriginalFilename':'Server-Inventory-Configuration-Manager.exe','ProductName':'Server Inventory Configuration Manager','ProductVersion':version}
+    values={'CompanyName':'TechSavage1989','FileDescription':'Server Inventory and Migration Manager','FileVersion':version,'InternalName':'Server-Inventory-Configuration-Manager','OriginalFilename':'Server-Inventory-Configuration-Manager.exe','ProductName':'Server Inventory Configuration Manager','ProductVersion':version}
     table=block('040904b0',children=[block(k,wide(v),text=True) for k,v in values.items()])
     strings=block('StringFileInfo',children=[table])
     variables=block('VarFileInfo',children=[block('Translation',struct.pack('<HH',1033,1200))])
