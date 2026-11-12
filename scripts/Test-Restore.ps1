@@ -116,7 +116,17 @@ if (-not $SkipRoles) {
 
     # DNS (file-backed primary zone copied from %windir%\System32\dns).
     $zone = 'sicm-restore.example'
-    Add-DnsServerPrimaryZone -Name $zone -ZoneFile ($zone + '.dns')
+    # A freshly installed DNS Server can refuse zone creation until it has
+    # finished starting and created its data folder.
+    New-Item -ItemType Directory -Path (Join-Path $env:SystemRoot 'System32\dns') -Force | Out-Null
+    $created = $false
+    for ($attempt = 1; $attempt -le 12 -and -not $created; $attempt++) {
+        try { Get-DnsServerSetting -All | Out-Null; Add-DnsServerPrimaryZone -Name $zone -ZoneFile ($zone + '.dns'); $created = $true }
+        catch { Write-Host ('DNS zone creation attempt {0} failed: {1}' -f $attempt, $_.Exception.Message); Restart-Service DNS -ErrorAction SilentlyContinue; Start-Sleep -Seconds 5 }
+    }
+    if (-not $created) {
+        Invoke-Checked dnscmd.exe @('/zoneadd', $zone, '/primary', '/file', ($zone + '.dns'))
+    }
     Add-DnsServerResourceRecordA -ZoneName $zone -Name 'app01' -IPv4Address '192.0.2.20'
     Invoke-Checked dnscmd.exe @('/zonewriteback', $zone)
     $zoneFolder = Get-PackagePath ('08-Role-Specific\DNS\Zone-' + $zone + '\placeholder')
