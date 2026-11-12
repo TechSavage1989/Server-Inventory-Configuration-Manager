@@ -1,3 +1,12 @@
+## 3.2.19 published and verified — 2026-11-12
+
+- [Release v3.2.19](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.19), tag and target commit `9582047dea3ed09f1754822f51cc02db2c6828a9` (publication PR #36, changing only `release/VERSION`). Source: printer migration export fix #34; release preparation #35.
+- [Publish run](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/43166694792) passed in one attempt: publish job 06:14–06:20 UTC, published-upgrade job 06:20–06:29 UTC.
+- All 45 actual 3.2.18-to-3.2.19 upgrade checks passed in one run with zero unexpected dialogs. Source CI on #34 included 51 restore checks, among them the real collector writing a PrintBRM export on an unshared print server and the old `-s` form reproducing the missing export.
+- Stable EXE: 7,339,520 bytes; SHA-256 `3cf2be895eeb8bba3b690353975f40750d357e9dd66141d15dac68ab583c0268` (release asset digest). All 12 assets are published; the v3.2.18 release still has its 12 assets and the same EXE digest.
+
+Limits: synthetic hosted Windows Server 2025 testing, not a real print server, non-English Windows, Windows Server 2012/2012 R2 or a company-managed PC. CI artifacts were not downloaded; the job logs above are the evidence. No client data was uploaded.
+
 ## 3.2.19 release preparation — 2026-11-12
 
 Publishing the owner-approved printer migration export fix (#34) under the standing approval (AGENTS rule 16). This branch bumps `appVersion`, `collectorVersion` and the collector `$scriptVersion` to 3.2.19, adds `docs/release-notes/3.2.19.md` (first three bullets free of Markdown) and points `scripts/test_published_upgrade.cjs` at the published v3.2.18 executable (SHA-256 `7ab1d64fb574083f110ecfe233203b2ee70088116aeefac71c710e5ceb37eac4`, release asset digest). `release/VERSION` changes in a separate publication PR after this source CI passes.
