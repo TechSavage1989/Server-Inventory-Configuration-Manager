@@ -16,11 +16,19 @@ function restoreScanFixture(){return {sourceComputer:'FS-OLD-07',currentComputer
   {id:'reg-spooler',title:'Spooler settings',detail:'HKLM\\SYSTEM\\CurrentControlSet\\Services\\Spooler',available:true,blockedReason:'',defaultSelected:false},
   {id:'reg-wsus',title:'Windows Update policy',detail:'HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsUpdate',available:false,blockedReason:'The export file is missing from the package.',defaultSelected:true}]},
  {id:'Printers',title:'Printers and drivers',description:'Print queues, ports and printer settings.',impact:'normal',available:true,blockedReason:'',warnings:[],items:[{id:'Printers-all',title:'Print queues and ports',detail:'',available:true,blockedReason:'',defaultSelected:true}]}]};}
+// Synthetic file migration discovery: fictional old server, one system share, one share on a non-local path.
+function migrateDiscoveryFixture(){return {source:'FS-OLD-07',sourceFqdn:'fs-old-07.example.com',currentComputer:'SRV-DEMO-01',sameServer:false,isAdministrator:true,
+ shares:[
+  {name:'Finance',path:'E:\\Data\\Finance',description:'Finance team',system:false,remotePath:'\\\\FS-OLD-07\\E$\\Data\\Finance',access:[{account:'EXAMPLE\\Finance',type:'Allow',right:'Change'}],warnings:['Permissions name local accounts of the old server, which do not exist here: FS-OLD-07\\Scanner. <b>not markup</b>']},
+  {name:'Projects',path:'E:\\Data\\Projects',description:'',system:false,remotePath:'\\\\FS-OLD-07\\E$\\Data\\Projects',access:[],warnings:[]},
+  {name:'NETLOGON',path:'C:\\Windows\\SYSVOL\\sysvol\\example.com\\SCRIPTS',description:'Logon server share',system:true,remotePath:'\\\\FS-OLD-07\\C$\\Windows\\SYSVOL\\sysvol\\example.com\\SCRIPTS',access:[],warnings:['System share. It is normally re-created by its role.']}],
+ localShares:['ADMIN$','C$'],volumes:[{drive:'C:',freeBytes:900e9,sizeBytes:1000e9},{drive:'D:',freeBytes:400e9,sizeBytes:500e9},{drive:'F:',freeBytes:100e9,sizeBytes:200e9}],warnings:[]};}
+function migrateIdle(){return {running:false,action:'',status:'idle',message:'',source:'',discovery:null,plan:[],space:[],prechecked:false,canCopy:false,canCutover:false,dfs:null,alias:null,sourceReadOnly:false,aliasAdded:'',logs:[],workPath:'',cancelRequested:false,startedAtUnixMs:0,endedAtUnixMs:0};}
 async function fixture(browser,old=false){
- let saved=null,started=[],saveCalls=0,rejectStart=false,skipRequests=[],opens=[],restoreReject=null;
- const logs=[],dialogs=[],errors=[],restoreCalls={browse:0,scan:[],start:[],cancel:0,tokens:[]};
+ let saved=null,started=[],saveCalls=0,rejectStart=false,skipRequests=[],opens=[],restoreReject=null,migrateReject={};
+ const logs=[],dialogs=[],errors=[],restoreCalls={browse:0,scan:[],start:[],cancel:0,tokens:[]},migrateCalls=[];
  const state={status:'idle',phase:'Ready',running:false,computerName:'SRV-DEMO-01',isAdministrator:true,powerShellVersion:'5.1',defaultOutputRoot:'C:\\Reports',update:{status:'current',title:'Up to date',message:'Installed v3.2.10. Latest v3.2.10.',canCheck:true},
-  restore:{status:'idle',packages:{lastCollection:'',loadedReport:''},items:[],logs:[]}};
+  restore:{status:'idle',packages:{lastCollection:'',loadedReport:''},items:[],logs:[]},migrate:migrateIdle()};
  const html=fs.readFileSync(old?'tests/fixtures/index-v3.2.9.html':'src/app/index.html','utf8').replaceAll('__TOKEN__','workspace-test').replaceAll('__APP_VERSION__','3.2.10').replaceAll('__COLLECTOR_VERSION__','3.2.10');
  const server=http.createServer(async(req,res)=>{
   const url=new URL(req.url,'http://localhost');
@@ -43,6 +51,19 @@ async function fixture(browser,old=false){
    if(action==='start'){restoreCalls.start.push(data);if(restoreReject){send(400,{error:restoreReject});return;}state.restore={...state.restore,status:'running',message:'Restoring.',startedAtUnixMs:Date.now(),rollbackPath:'',items:[],logs:[]};send(202,{ok:true});return;}
    if(action==='cancel'){restoreCalls.cancel++;state.restore.cancelRequested=true;send(202,{ok:true});return;}
   }
+  if(url.pathname.startsWith('/api/migrate/')){
+   let body='';for await(const chunk of req)body+=chunk;const data=body?JSON.parse(body):{},action=url.pathname.slice(13);migrateCalls.push({action,body:data,token:req.headers['x-app-token']});
+   if(migrateReject[action]){send(400,{error:migrateReject[action]});return;}
+   const m=state.migrate;
+   if(action==='discover'){Object.assign(m,{running:true,action:'discover',status:'discovering',message:'Connecting to '+data.source+'.',source:data.source});send(202,{ok:true});return;}
+   if(action==='plan'){m.plan=data.shares.map(s=>({...s,status:'planned',message:'',percent:0,processed:0,expected:0,precheck:null,previouslySynced:false,lastSyncUnixMs:0,createdShare:false,verified:false}));m.prechecked=false;m.canCopy=false;m.canCutover=false;send(200,{ok:true});return;}
+   if(action==='precheck'){Object.assign(m,{running:true,action:'precheck',status:'checking'});send(202,{ok:true});return;}
+   if(action==='sync'){Object.assign(m,{running:true,action:'sync',status:'copying'});send(202,{ok:true});return;}
+   if(action==='cutover'){Object.assign(m,{running:true,action:'cutover',status:'cuttingover'});send(202,{ok:true});return;}
+   if(action==='cancel'){m.cancelRequested=true;send(202,{ok:true});return;}
+   if(action==='reset'){state.migrate=migrateIdle();send(200,{ok:true});return;}
+   send(202,{ok:true});return;
+  }
   if(url.pathname==='/api/open'){let body='';for await(const chunk of req)body+=chunk;opens.push(JSON.parse(body).kind);send(200,{ok:true});return;}
   if(url.pathname==='/report/current'){res.writeHead(200,{'Content-Type':'text/html'});res.end('<!DOCTYPE html><html><head><title>Synthetic</title></head><body><div class="report-content"><section class="report-section active" id="s1"><p>alpha one</p><p>beta</p><p>alpha two</p><p>alpha three</p></section></div></body></html>');return;}
   if(url.pathname==='/api/skip-acl-export'){let body='';for await(const chunk of req)body+=chunk;skipRequests.push(JSON.parse(body));state.aclExport.skipRequested=true;send(202,{ok:true});return;}
@@ -53,7 +74,7 @@ async function fixture(browser,old=false){
  await new Promise(r=>server.listen(0,'127.0.0.1',r));const context=await browser.newContext({viewport:{width:1440,height:1000}}),page=await context.newPage();
  page.on('dialog',async d=>{dialogs.push(d.message());await d.dismiss();});page.on('pageerror',e=>errors.push(e.message));
  const url='http://127.0.0.1:'+server.address().port+'/';await page.goto(url);await page.waitForFunction(()=>document.querySelector('#serverName').textContent==='SRV-DEMO-01');
- return {page,context,state,logs,dialogs,errors,started,skipRequests,opens,restoreCalls,rejectRestore(message){restoreReject=message},get saved(){return saved},get saveCalls(){return saveCalls},reject(){rejectStart=true},async close(){assert.deepEqual(errors,[]);await context.close();await new Promise(r=>server.close(r));}};
+ return {page,context,state,logs,dialogs,errors,started,skipRequests,opens,restoreCalls,migrateCalls,rejectMigrate(action,message){migrateReject[action]=message},rejectRestore(message){restoreReject=message},get saved(){return saved},get saveCalls(){return saveCalls},reject(){rejectStart=true},async close(){assert.deepEqual(errors,[]);await context.close();await new Promise(r=>server.close(r));}};
 }
 async function check(name,fn){await fn();report.checks.push({name,result:'passed'});console.log('PASS: '+name);}
 (async()=>{const browser=await chromium.launch(executable?{executablePath:executable,headless:true,args:['--no-sandbox']}:{channel:'msedge',headless:true});try{
@@ -98,7 +119,7 @@ async function check(name,fn){await fn();report.checks.push({name,result:'passed
    await f.page.locator('#presetCore').click();f.logs.push('[INFO] Existing diagnostic detail');await f.page.waitForTimeout(1100);f.reject();await f.page.locator('#startButton').click();await f.page.waitForFunction(()=>document.querySelector('#appNotice').textContent.includes('not writable'));assert((await f.page.locator('#logView').textContent()).includes('Existing diagnostic'));assert.equal(await f.page.locator('#profileName').textContent(),'Core server');assert.deepEqual(f.dialogs,[]);
   });
   await check('Application tabs support arrow keys, Home and End with correct selection semantics',async()=>{
-   await f.page.locator('#tabButtonSetup').focus();await f.page.keyboard.press('ArrowRight');assert.equal(await f.page.locator('#tabButtonCollection').getAttribute('aria-selected'),'true');await f.page.keyboard.press('End');assert.equal(await f.page.locator('#tabButtonRestore').getAttribute('aria-selected'),'true');await f.page.keyboard.press('ArrowLeft');assert.equal(await f.page.locator('#tabButtonReport').getAttribute('aria-selected'),'true');await f.page.keyboard.press('Home');assert.equal(await f.page.locator('#tabButtonSetup').getAttribute('aria-selected'),'true');
+   await f.page.locator('#tabButtonSetup').focus();await f.page.keyboard.press('ArrowRight');assert.equal(await f.page.locator('#tabButtonCollection').getAttribute('aria-selected'),'true');await f.page.keyboard.press('End');assert.equal(await f.page.locator('#tabButtonMigrate').getAttribute('aria-selected'),'true');await f.page.keyboard.press('ArrowLeft');assert.equal(await f.page.locator('#tabButtonRestore').getAttribute('aria-selected'),'true');await f.page.keyboard.press('ArrowLeft');assert.equal(await f.page.locator('#tabButtonReport').getAttribute('aria-selected'),'true');await f.page.keyboard.press('Home');assert.equal(await f.page.locator('#tabButtonSetup').getAttribute('aria-selected'),'true');
   });
   await check('Log search and severity filters retain all received text and safely render markup',async()=>{
    await f.page.locator('#tabButtonCollection').click();f.logs.push('[WARN] DNS slow','[ERROR] Access denied','[INFO] <img src=x onerror=alert(1)>');for(let i=0;i<100;i++)f.logs.push('[INFO] Row '+i);await f.page.waitForTimeout(1100);
@@ -215,7 +236,7 @@ async function check(name,fn){await fn();report.checks.push({name,result:'passed
  await check('Restore tab: Alt+4, arrow keys and the shortcuts list reach it; package buttons follow available packages',async()=>{const f=await fixture(browser);try{
   assert.equal(await f.page.locator('#restoreTabBadge').textContent(),'Ready');
   await f.page.keyboard.press('Alt+4');assert.equal(await f.page.locator('#tabButtonRestore').getAttribute('aria-selected'),'true');assert(await f.page.locator('#tabRestore').isVisible());
-  assert.equal(await f.page.evaluate(()=>document.activeElement.id),'tabButtonRestore');await f.page.keyboard.press('ArrowRight');assert.equal(await f.page.locator('#tabButtonSetup').getAttribute('aria-selected'),'true');await f.page.keyboard.press('ArrowLeft');assert.equal(await f.page.locator('#tabButtonRestore').getAttribute('aria-selected'),'true');
+  assert.equal(await f.page.evaluate(()=>document.activeElement.id),'tabButtonRestore');await f.page.keyboard.press('ArrowRight');assert.equal(await f.page.locator('#tabButtonMigrate').getAttribute('aria-selected'),'true');await f.page.keyboard.press('ArrowLeft');assert.equal(await f.page.locator('#tabButtonRestore').getAttribute('aria-selected'),'true');
   assert(/Restore/.test(await f.page.locator('#shortcutsDialog').textContent()));
   assert(await f.page.locator('#restoreUseLatest').isDisabled());assert(await f.page.locator('#restoreUseLoaded').isDisabled());assert(await f.page.locator('#restoreReviewButton').isDisabled());assert(await f.page.locator('#restoreBrowse').isEnabled());
   f.state.restore.packages={lastCollection:'',loadedReport:'C:\\Reports\\Loaded'};await f.page.waitForTimeout(1100);assert(await f.page.locator('#restoreUseLatest').isDisabled());assert(await f.page.locator('#restoreUseLoaded').isEnabled());
@@ -282,9 +303,106 @@ async function check(name,fn){await fn();report.checks.push({name,result:'passed
   await f.page.locator('#restoreAgainButton').click();assert(await f.page.locator('#restoreChooser').isVisible());assert(!await f.page.locator('#restoreProgress').isVisible());await f.page.waitForTimeout(1100);assert(await f.page.locator('#restoreChooser').isVisible(),'stays on the component list across polls');
   assert.equal(await f.page.locator('.restore-component').count(),5);assert(await f.page.locator('#restoreReviewButton').isVisible());assert.deepEqual(f.dialogs,[]);
  }finally{await f.close();}});
+ const shots=out;try{fs.mkdirSync(shots,{recursive:true});}catch(e){}
+ const migrateConnect=async f=>{
+  await f.page.keyboard.press('Alt+5');await f.page.locator('#migrateSource').fill('FS-OLD-07');await f.page.locator('#migrateConnect').click();
+  await f.page.waitForFunction(()=>document.querySelector('#migrateTabBadge').textContent==='Connecting');
+  Object.assign(f.state.migrate,{running:false,action:'',status:'discovered',message:'Found 3 share(s) on FS-OLD-07.',source:'FS-OLD-07',discovery:migrateDiscoveryFixture(),workPath:'C:\\Users\\admin\\AppData\\Local\\Server Inventory Configuration Manager\\Migrations\\FS-OLD-07'});
+  await f.page.waitForFunction(()=>document.querySelectorAll('.migrate-share').length===3);
+ };
+ const migrateChecked=f=>{const m=f.state.migrate;Object.assign(m,{running:false,action:'',status:'checked',message:'Everything is ready to copy.',prechecked:true,canCopy:true,space:[{drive:'D:',neededBytes:268435456000,freeBytes:400e9,ok:true}]});
+  m.plan.forEach((p,i)=>{p.status='ready';p.precheck={ok:true,problems:[],warnings:i===0?['Permissions name local accounts of the old server, which do not exist here: FS-OLD-07\\Scanner.']:[],files:i===0?120345:5400,bytes:i===0?214748364800:53687091200};});};
+ const migrateCalls=(f,action)=>f.migrateCalls.filter(c=>c.action===action);
+ await check('Migrate tab: Alt+5 reaches it; Connect posts the server name; shares get editable defaults and system shares start unticked',async()=>{const f=await fixture(browser);try{
+  assert.equal(await f.page.locator('#migrateTabBadge').textContent(),'Ready');
+  await f.page.keyboard.press('Alt+5');assert.equal(await f.page.locator('#tabButtonMigrate').getAttribute('aria-selected'),'true');assert(await f.page.locator('#tabMigrate').isVisible());assert.equal(await f.page.evaluate(()=>document.activeElement.id),'tabButtonMigrate');
+  assert(/Restore or Migrate/.test(await f.page.locator('#shortcutsDialog').textContent()));
+  assert(await f.page.locator('#migrateConnect').isDisabled(),'Connect needs a server name');assert(await f.page.locator('#migrateCheck').isDisabled());assert(await f.page.locator('#migrateCopy').isDisabled());assert(await f.page.locator('#migrateCutover').isDisabled());
+  assert.equal(await f.page.locator('#migrateSteps li.current').getAttribute('data-step'),'1');
+  await migrateConnect(f);assert.deepEqual(migrateCalls(f,'discover').map(c=>c.body),[{source:'FS-OLD-07'}]);
+  assert.equal(await f.page.locator('#migrateTabBadge').textContent(),'Connected');assert.equal(await f.page.locator('#migrateFactSource').textContent(),'FS-OLD-07 (fs-old-07.example.com)');assert.equal(await f.page.locator('#migrateFactShares').textContent(),'3');
+  assert(await f.page.locator('input[data-migrate-share="Finance"]').isChecked());assert(await f.page.locator('input[data-migrate-share="Projects"]').isChecked());assert(!await f.page.locator('input[data-migrate-share="NETLOGON"]').isChecked(),'system share unticked by default');
+  assert.equal(await f.page.locator('[data-migrate-row="NETLOGON"] .impact-chip').textContent(),'System share');assert(!await f.page.locator('[data-migrate-row="NETLOGON"] [data-migrate-dest-block]').isVisible(),'unticked rows hide destination fields');
+  assert.equal(await f.page.locator('input[data-migrate-dest="Finance"]').inputValue(),'D:\\Shares\\Finance','largest non-system volume');assert.equal(await f.page.locator('input[data-migrate-destname="Finance"]').inputValue(),'Finance');
+  assert(/<b>not markup<\/b>/.test(await f.page.locator('[data-migrate-row="Finance"] .migrate-notes').textContent()));assert.equal(await f.page.locator('.migrate-notes b').count(),0);
+  await f.page.locator('input[data-migrate-dest="Projects"]').fill('F:\\Team\\Projects');await f.page.locator('input[data-migrate-destname="Projects"]').fill('TeamProjects');await f.page.locator('input[data-migrate-share="NETLOGON"]').check();
+  await f.page.waitForTimeout(1100);assert.equal(await f.page.locator('input[data-migrate-dest="Projects"]').inputValue(),'F:\\Team\\Projects','edits survive polls');assert(await f.page.locator('input[data-migrate-share="NETLOGON"]').isChecked());
+  assert.equal(await f.page.locator('#migrateSelectionSummary').textContent(),'3 shares selected.');assert.equal(await f.page.locator('#migrateSteps li.current').getAttribute('data-step'),'2');
+  f.state.isAdministrator=false;await f.page.waitForTimeout(1100);assert(await f.page.locator('#migrateAdminNotice').isVisible());assert(await f.page.locator('#migrateCheck').isDisabled(),'not elevated');
+  f.state.isAdministrator=true;await f.page.waitForTimeout(1100);assert(await f.page.locator('#migrateCheck').isEnabled());assert(f.migrateCalls.every(c=>c.token==='workspace-test'));assert.deepEqual(f.dialogs,[]);
+ }finally{await f.close();}});
+ await check('Check plan posts the exact plan then the check; Copy waits for a passing check and an unchanged plan',async()=>{const f=await fixture(browser);try{
+  await migrateConnect(f);await f.page.locator('input[data-migrate-dest="Projects"]').fill('D:\\Shares\\Projects2');
+  f.rejectMigrate('plan','The new folder for Projects overlaps another share\'s new folder.');await f.page.locator('#migrateCheck').click();
+  await f.page.waitForFunction(()=>document.querySelector('#migrateCheckStatus').classList.contains('error'));assert.equal(await f.page.locator('#migrateCheckStatus').textContent(),'The new folder for Projects overlaps another share\'s new folder.');assert.equal(migrateCalls(f,'precheck').length,0,'no check after a rejected plan');
+  f.rejectMigrate('plan',null);await f.page.locator('#migrateCheck').click();await f.page.waitForFunction(()=>document.querySelector('#migrateTabBadge').textContent==='Checking');
+  assert.deepEqual(migrateCalls(f,'plan')[1].body,{shares:[{name:'Finance',destName:'Finance',destPath:'D:\\Shares\\Finance'},{name:'Projects',destName:'Projects',destPath:'D:\\Shares\\Projects2'}]});assert.deepEqual(migrateCalls(f,'precheck').map(c=>c.body),[{}]);
+  assert(await f.page.locator('#migrateCheck').isDisabled(),'inputs lock while checking');assert(await f.page.locator('input[data-migrate-dest="Finance"]').isDisabled());assert(await f.page.locator('#migrateStop').isVisible());
+  assert(await f.page.locator('#migrateCopy').isDisabled());migrateChecked(f);await f.page.waitForTimeout(1100);
+  assert(await f.page.locator('#migrateCopy').isEnabled());assert.equal(await f.page.locator('#migrateCopy').textContent(),'Copy now');assert(await f.page.locator('#migrateCutover').isDisabled(),'cut over waits for a copy');
+  assert.deepEqual(await f.page.locator('[data-migrate-check] .run-chip').allTextContents(),['Ready','Ready']);assert((await f.page.locator('[data-migrate-check="Finance"]').textContent()).includes('120,345 files, 200 GB'));
+  {const t=await f.page.locator('#migrateSpace').textContent();assert(t.includes('Drive D: needs about 250 GB, 373 GB free.'),t);}assert.equal(await f.page.locator('#migrateSteps li.current').getAttribute('data-step'),'3');
+  await f.page.setViewportSize({width:1440,height:1000});await f.page.locator('#migrateStepChoose').scrollIntoViewIfNeeded();await f.page.screenshot({path:shots+'/migrate-step2-1440x1000.png'});
+  await f.page.locator('input[data-migrate-destname="Finance"]').fill('Finance2');assert(await f.page.locator('#migrateCopy').isDisabled(),'changing the plan needs a new check');assert.equal(await f.page.locator('#migrateCheck').textContent(),'Check plan');
+  await f.page.locator('input[data-migrate-destname="Finance"]').fill('Finance');assert(await f.page.locator('#migrateCopy').isEnabled());assert.equal(await f.page.locator('#migrateCheck').textContent(),'Check plan again');
+  f.state.migrate.plan[1].precheck={ok:false,problems:['The new folder D:\\Shares\\Projects2 already contains files.'],warnings:[],files:0,bytes:0};f.state.migrate.canCopy=false;await f.page.waitForTimeout(1100);
+  assert(await f.page.locator('#migrateCopy').isDisabled());assert.equal(await f.page.locator('[data-migrate-check="Projects"] .run-chip').textContent(),'Needs attention');assert(/already contains files/.test(await f.page.locator('[data-migrate-row="Projects"] .problem').textContent()));assert.deepEqual(f.dialogs,[]);
+ }finally{await f.close();}});
+ await check('Copy shows per-share progress, Stop sends cancel, other work locks, and cut over needs this server\'s typed name',async()=>{const f=await fixture(browser);try{
+  await migrateConnect(f);await f.page.locator('#migrateCheck').click();await f.page.waitForFunction(()=>document.querySelector('#migrateTabBadge').textContent==='Checking');migrateChecked(f);await f.page.waitForTimeout(1100);
+  await f.page.locator('#migrateCopy').click();await f.page.waitForFunction(()=>document.querySelector('#migrateTabBadge').textContent==='Copying');assert.equal(migrateCalls(f,'sync').length,1);assert.deepEqual(migrateCalls(f,'sync')[0].body,{});
+  const m=f.state.migrate;m.plan[0].status='copying';m.plan[0].percent=42;m.plan[0].processed=50544;m.plan[0].expected=120345;m.plan[0].message='Copying changes.';m.plan[1].status='planned';
+  m.logs=Array.from({length:60},(_,i)=>({index:i,text:(i===59?'2026-11-12 10:00:00 [ERROR] ':'2026-11-12 10:00:00 [INFO] ')+'Migration message '+i}));await f.page.waitForTimeout(1100);
+  assert.equal(await f.page.locator('[data-migrate-run="Finance"] .migrate-bar').getAttribute('aria-valuenow'),'42');assert((await f.page.locator('[data-migrate-run="Finance"]').textContent()).includes('50,544 of about 120,345 files processed'));
+  assert.deepEqual(await f.page.locator('#migrateRun .run-chip').allTextContents(),['Copying','Not copied']);
+  await f.page.locator('#migrateLogBlock summary').click();assert.equal(await f.page.locator('#migrateLog .log-line-error').count(),1);assert(await f.page.locator('#migrateLog').evaluate(e=>e.scrollHeight-e.scrollTop-e.clientHeight<5),'log follows newest output');
+  await f.page.setViewportSize({width:1440,height:1000});await f.page.locator('#migrateStepCopy').scrollIntoViewIfNeeded();await f.page.screenshot({path:shots+'/migrate-step3-1440x1000.png'});
+  await f.page.keyboard.press('Alt+1');assert(await f.page.locator('#startButton').isDisabled(),'Start collection is locked during a migration step');await f.page.keyboard.press('Control+Enter');await f.page.waitForTimeout(300);assert.equal(f.started.length,0);
+  await f.page.keyboard.press('Alt+5');await f.page.locator('#migrateStop').click();await f.page.waitForTimeout(300);assert.equal(migrateCalls(f,'cancel').length,1);assert(await f.page.locator('#migrateStop').isDisabled());assert.equal(await f.page.locator('#migrateStop').textContent(),'Stopping\u2026');
+  Object.assign(m,{running:false,action:'',status:'copied',message:'Copy finished.',cancelRequested:false,canCutover:true});m.plan.forEach(p=>{p.status='succeeded';p.previouslySynced=true;p.lastSyncUnixMs=Date.now();p.message='1,204 file(s) copied, 3 removed that no longer exist on the old server.';});await f.page.waitForTimeout(1100);
+  assert(!await f.page.locator('#migrateStop').isVisible());assert.equal(await f.page.locator('#migrateCopy').textContent(),'Copy again');assert(await f.page.locator('#migrateCutover').isEnabled());assert.equal(await f.page.locator('#migrateSteps li.current').getAttribute('data-step'),'4');
+  await f.page.keyboard.press('Alt+1');assert(await f.page.locator('#startButton').isEnabled(),'collection unlocks after the step');await f.page.keyboard.press('Alt+5');
+  await f.page.locator('#migrateCutover').click();const dialog=f.page.locator('#migrateDialog');assert(await dialog.isVisible());assert.equal(await f.page.evaluate(()=>document.activeElement.id),'migrateConfirmInput');
+  const text=await dialog.textContent();assert(text.includes('Ask users to stop using the old shares now.'));assert(text.includes('Finance \u2192 \\\\SRV-DEMO-01\\Finance (D:\\Shares\\Finance)'));assert.equal(await f.page.locator('#migrateConfirmLabel').textContent(),"Type this server's name to confirm: SRV-DEMO-01");
+  const confirm=f.page.locator('#migrateConfirmButton');assert(await confirm.isDisabled());await f.page.locator('#migrateConfirmInput').fill('FS-OLD-07');assert(await confirm.isDisabled(),'the old server name is not accepted');
+  await f.page.locator('#migrateConfirmInput').fill('srv-demo-01');assert(await confirm.isEnabled(),'case-insensitive match');
+  f.rejectMigrate('cutover','A collection is running. Wait for it to finish first.');await confirm.click();await f.page.waitForFunction(()=>!document.querySelector('#migrateDialogError').classList.contains('hidden'));assert(await dialog.isVisible());assert.equal(await f.page.locator('#migrateDialogError').textContent(),'A collection is running. Wait for it to finish first.');
+  f.rejectMigrate('cutover',null);await confirm.click();await f.page.waitForFunction(()=>!document.querySelector('#migrateDialog').open);assert.deepEqual(migrateCalls(f,'cutover').map(c=>c.body),[{confirmComputerName:'srv-demo-01'},{confirmComputerName:'srv-demo-01'}]);
+  await f.page.waitForTimeout(1100);assert.equal(await f.page.locator('#migrateTabBadge').textContent(),'Cutting over');assert(await f.page.locator('#migrateCutover').isDisabled());assert.deepEqual(f.dialogs,[]);
+ }finally{await f.close();}});
+ await check('After cutover: new share paths, read-only with typed old name and Undo, DFS links, the name check and the add-name dialog',async()=>{const f=await fixture(browser);try{
+  await migrateConnect(f);await f.page.locator('#migrateCheck').click();await f.page.waitForFunction(()=>document.querySelector('#migrateTabBadge').textContent==='Checking');migrateChecked(f);
+  const m=f.state.migrate;assert(!await f.page.locator('#migrateAfter').isVisible(),'hidden before cutover');
+  Object.assign(m,{status:'cutover',message:'Cutover complete.',canCutover:true});m.plan[0]=Object.assign(m.plan[0],{status:'done',previouslySynced:true,createdShare:true,verified:true,message:'120,345 file(s) match.'});m.plan[1]=Object.assign(m.plan[1],{status:'attention',previouslySynced:true,createdShare:true,verified:false,message:'2 file(s) differ.'});
+  await f.page.waitForTimeout(1100);assert(await f.page.locator('#migrateAfter').isVisible());assert.equal(await f.page.locator('#migrateTabBadge').textContent(),'Done');
+  assert.deepEqual(await f.page.locator('#migrateCutoverRun .run-chip').allTextContents(),['Live and verified','Check again']);assert.equal(await f.page.locator('[data-migrate-cut="Finance"] .migrate-run-name').textContent(),'\\\\SRV-DEMO-01\\Finance');
+  await f.page.locator('#migrateReadOnly').click();assert(await f.page.locator('#migrateDialog').isVisible());assert.equal(await f.page.locator('#migrateConfirmLabel').textContent(),"Type the old server's name to confirm: FS-OLD-07");
+  await f.page.locator('#migrateConfirmInput').fill('SRV-DEMO-01');assert(await f.page.locator('#migrateConfirmButton').isDisabled());await f.page.locator('#migrateConfirmInput').fill('fs-old-07');await f.page.locator('#migrateConfirmButton').click();
+  await f.page.waitForFunction(()=>!document.querySelector('#migrateDialog').open);assert.deepEqual(migrateCalls(f,'source-readonly').map(c=>c.body),[{confirmSourceName:'fs-old-07'}]);
+  Object.assign(m,{running:false,action:'',status:'readonly',sourceReadOnly:true});await f.page.waitForTimeout(1100);assert(!await f.page.locator('#migrateReadOnly').isVisible());assert(await f.page.locator('#migrateReadOnlyUndo').isVisible());
+  await f.page.locator('#migrateReadOnlyUndo').click();await f.page.waitForTimeout(300);assert.deepEqual(migrateCalls(f,'source-restore').map(c=>c.body),[{}]);
+  Object.assign(m,{running:false,action:'',status:'restoredsource',sourceReadOnly:false});await f.page.waitForTimeout(1100);
+  await f.page.locator('#migrateDfs').click();await f.page.waitForTimeout(300);assert.equal(migrateCalls(f,'dfs').length,1);
+  Object.assign(m,{running:false,action:'',status:'dfschecked',dfs:{available:true,message:'1 DFS link(s) point at the old server.',targets:[{namespacePath:'\\\\example.com\\Files\\Finance',target:'\\\\FS-OLD-07\\Finance',suggested:'\\\\SRV-DEMO-01\\Finance'}]}});await f.page.waitForTimeout(1100);
+  assert.deepEqual(await f.page.locator('#migrateDfsResult td').allTextContents(),['\\\\example.com\\Files\\Finance','\\\\FS-OLD-07\\Finance','\\\\SRV-DEMO-01\\Finance']);
+  await f.page.locator('#migrateAliasCheck').click();await f.page.waitForTimeout(300);assert.equal(migrateCalls(f,'alias-check').length,1);
+  Object.assign(m,{running:false,action:'',status:'aliaschecked',alias:{possible:false,reasons:['The old server FS-OLD-07 still answers on the network.'],oldName:'FS-OLD-07',oldFqdn:'fs-old-07.example.com',thisFqdn:'srv-demo-01.example.com'}});await f.page.waitForTimeout(1100);
+  assert(/still answers/.test(await f.page.locator('#migrateAliasResult').textContent()));assert(!await f.page.locator('#migrateAlias').isVisible(),'Add name waits for a passing check');
+  m.alias.possible=true;m.alias.reasons=[];await f.page.waitForTimeout(1100);assert(await f.page.locator('#migrateAlias').isVisible());
+  await f.page.locator('#migrateAlias').click();const text=await f.page.locator('#migrateDialog').textContent();assert(text.includes('This changes DNS and Active Directory. It needs Domain Admin rights'));assert(text.includes('restarted'));
+  await f.page.locator('#migrateConfirmInput').fill('FS-OLD-07');await f.page.locator('#migrateConfirmButton').click();await f.page.waitForFunction(()=>!document.querySelector('#migrateDialog').open);assert.deepEqual(migrateCalls(f,'alias').map(c=>c.body),[{confirmOldName:'FS-OLD-07'}]);
+  Object.assign(m,{running:false,action:'',status:'aliasadded',aliasAdded:'fs-old-07.example.com'});await f.page.waitForTimeout(1100);assert(/Restart this server/.test(await f.page.locator('#migrateAliasResult').textContent()));assert(!await f.page.locator('#migrateAlias').isVisible());
+  await f.page.locator('#migrateOpenLogs').click();await f.page.waitForTimeout(300);assert.deepEqual(f.opens,['migrationlogs']);
+  await f.page.locator('#migrateReset').click();await f.page.waitForTimeout(1100);assert.equal(migrateCalls(f,'reset').length,1);assert.equal(await f.page.locator('.migrate-share').count(),0);assert.equal(await f.page.locator('#migrateSource').inputValue(),'');
+  assert(f.migrateCalls.every(c=>c.token==='workspace-test'));assert.deepEqual(f.dialogs,[]);
+ }finally{await f.close();}});
  await check('Low-resolution windows (800x600 and 1024x768 screens) keep every workspace reachable and legible',async()=>{const f=await fixture(browser);try{
   for(let i=0;i<40;i++)f.logs.push('[INFO] Message '+i);
   f.state.restore={status:'ready',packages:{lastCollection:'C:\\Reports\\SRV-DEMO-01',loadedReport:''},packagePath:'C:\\Reports\\SRV-DEMO-01',scan:restoreScanFixture(),items:[],logs:[]};
+  f.state.migrate=Object.assign(migrateIdle(),{status:'cutover',message:'Cutover complete. The shares are live on this server and match the old ones.',source:'FS-OLD-07',discovery:migrateDiscoveryFixture(),prechecked:true,canCopy:true,canCutover:true,workPath:'C:\\Migrations\\FS-OLD-07',
+   space:[{drive:'D:',neededBytes:268435456000,freeBytes:400e9,ok:true}],logs:[{index:0,text:'2026-11-12 10:00:00 [INFO] Final copy before creating the shares.'}],
+   plan:[{name:'Finance',destName:'Finance',destPath:'D:\\Shares\\Finance',status:'done',message:'120,345 file(s) match.',percent:0,processed:0,expected:0,precheck:{ok:true,problems:[],warnings:['Permissions name local accounts of the old server.'],files:120345,bytes:214748364800},previouslySynced:true,lastSyncUnixMs:Date.now(),createdShare:true,verified:true},
+         {name:'Projects',destName:'Projects',destPath:'D:\\Shares\\Projects',status:'copying',message:'Copying changes.',percent:40,processed:2000,expected:5000,precheck:{ok:true,problems:[],warnings:[],files:5000,bytes:53687091200},previouslySynced:true,lastSyncUnixMs:Date.now(),createdShare:false,verified:false}]});
   // Viewports left by 800x600, 1024x768 and 1366x768 screens after the taskbar and window frame.
   for(const size of [{width:784,height:522},{width:1008,height:690},{width:1350,height:690}]){for(const withUpdate of [false,true]){
    f.state.update=withUpdate?{status:'available',title:'Update available',message:'Installed 3.2.10. Latest 99.0.0.',available:true,canCheck:true,canDownload:true,notes:['One','Two','Three']}:{status:'current',title:'Up to date',message:'Installed.',canCheck:true};
@@ -303,6 +421,14 @@ async function check(name,fn){await fn();report.checks.push({name,result:'passed
    await f.page.locator('#restoreReviewButton').click();await inView('#restoreConfirmInput',24);await inView('#restoreConfirmButton',28);assert.deepEqual(await smallText(),[],label+' restore dialog text below 10.5px');
    if(size.width===784&&!withUpdate){await f.page.screenshot({path:out+'/restore-review-800x600.png'});}
    await f.page.locator('#restoreDialogCancel').click();assert(!await f.page.locator('#restoreDialog').isVisible());await registry.locator('input[data-restore-component]').uncheck();
+   await f.page.locator('#tabButtonMigrate').click();await f.page.locator('#migrateBody').evaluate(e=>e.scrollTop=0);await inView('#migrateBody',withUpdate?110:150);await inView('#migrateOpenLogs',24);await inView('#migrateSource',24);
+   await f.page.locator('#migrateLogBlock summary').evaluate(e=>{if(!e.parentNode.open)e.click();});
+   for(const target of ['#migrateCheck','#migrateCopy','#migrateCutover','#migrateAliasCheck','#migrateLog']){await f.page.locator(target).scrollIntoViewIfNeeded();await inView(target,target==='#migrateLog'?60:24);}
+   assert.deepEqual(await smallText(),[],label+' migrate text below 10.5px');assert(await f.page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),label+' migrate overflow');
+   assert(await f.page.locator('#migrateBody').evaluate(e=>e.scrollWidth<=e.clientWidth+1),label+' migrate panel overflow');
+   if(size.width===784&&!withUpdate){await f.page.locator('#migrateBody').evaluate(e=>e.scrollTop=0);await f.page.screenshot({path:out+'/migrate-800x600.png'});}
+   await f.page.locator('#migrateCutover').scrollIntoViewIfNeeded();await f.page.locator('#migrateCutover').click();await inView('#migrateConfirmInput',24);await inView('#migrateConfirmButton',28);assert.deepEqual(await smallText(),[],label+' migrate dialog text below 10.5px');
+   await f.page.locator('#migrateDialogCancel').click();assert(!await f.page.locator('#migrateDialog').isVisible());
    const small=await f.page.evaluate(()=>Array.from(document.querySelectorAll('body *')).filter(e=>e.offsetParent&&e.childNodes.length&&Array.from(e.childNodes).some(n=>n.nodeType===3&&n.nodeValue.trim())&&parseFloat(getComputedStyle(e).fontSize)<10.5).map(e=>e.className||e.id||e.tagName));assert.deepEqual(small,[],label+' text below 10.5px');
    if(size.width===784&&!withUpdate){await f.page.locator('#tabButtonCollection').click();await f.page.screenshot({path:out+'/collection-800x600.png'});await f.page.locator('#tabButtonSetup').click();await f.page.screenshot({path:out+'/setup-800x600.png'});}
   }}
