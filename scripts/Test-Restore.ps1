@@ -115,18 +115,34 @@ if (-not $SkipRoles) {
     Export-NpsConfiguration -Path (Get-PackagePath '08-Role-Specific\NPS\NPS-FULL-CONFIG-SENSITIVE.xml')
 
     # DNS (file-backed primary zone copied from %windir%\System32\dns).
-    $zone = 'sicm-restore.example'
     # A freshly installed DNS Server can refuse zone creation until it has
-    # finished starting and created its data folder.
+    # finished starting, and the runner image may boot DNS from a boot file.
+    # Switch to registry boot, then try a few ordinary zone names.
     New-Item -ItemType Directory -Path (Join-Path $env:SystemRoot 'System32\dns') -Force | Out-Null
-    $created = $false
-    for ($attempt = 1; $attempt -le 12 -and -not $created; $attempt++) {
-        try { Get-DnsServerSetting -All | Out-Null; Add-DnsServerPrimaryZone -Name $zone -ZoneFile ($zone + '.dns'); $created = $true }
-        catch { Write-Host ('DNS zone creation attempt {0} failed: {1}' -f $attempt, $_.Exception.Message); Restart-Service DNS -ErrorAction SilentlyContinue; Start-Sleep -Seconds 5 }
+    & dnscmd.exe /config /bootmethod 3 2>&1 | ForEach-Object { Write-Host ('  dnscmd: ' + $_) }
+    Restart-Service DNS
+    Write-Host ('OS: ' + (Get-CimInstance Win32_OperatingSystem).Caption + ' ' + [Environment]::OSVersion.Version)
+    & dnscmd.exe /info 2>&1 | Select-Object -First 40 | ForEach-Object { Write-Host ('  dnscmd /info: ' + $_) }
+    $zone = $null
+    foreach ($candidate in @('restoretest.example.com', 'sicmrestore.test', 'sicm-restore.example')) {
+        for ($attempt = 1; $attempt -le 4 -and -not $zone; $attempt++) {
+            try { Add-DnsServerPrimaryZone -Name $candidate -ZoneFile ($candidate + '.dns') -ErrorAction Stop; $zone = $candidate }
+            catch {
+                $detail = $_.Exception.Message
+                if ($_.Exception.InnerException) { $detail += ' | ' + $_.Exception.InnerException.Message }
+                if ($_.Exception.ErrorData) { $detail += ' | ' + ($_.Exception.ErrorData | Out-String).Trim() }
+                Write-Host ('DNS zone {0} attempt {1} failed: {2}' -f $candidate, $attempt, $detail)
+                Start-Sleep -Seconds 5
+            }
+        }
+        if ($zone) { break }
     }
-    if (-not $created) {
-        Invoke-Checked dnscmd.exe @('/zoneadd', $zone, '/primary', '/file', ($zone + '.dns'))
+    if (-not $zone) {
+        & dnscmd.exe /zoneadd restoretest.example.com /primary 2>&1 | ForEach-Object { Write-Host ('  dnscmd /zoneadd: ' + $_) }
+        Get-WinEvent -LogName 'DNS Server' -MaxEvents 20 -ErrorAction SilentlyContinue | ForEach-Object { Write-Host ('  DNS event ' + $_.Id + ': ' + $_.Message) }
+        throw 'The DNS Server on this runner refused every test zone.'
     }
+    Write-Host ('Created test zone ' + $zone)
     Add-DnsServerResourceRecordA -ZoneName $zone -Name 'app01' -IPv4Address '192.0.2.20'
     Invoke-Checked dnscmd.exe @('/zonewriteback', $zone)
     $zoneFolder = Get-PackagePath ('08-Role-Specific\DNS\Zone-' + $zone + '\placeholder')
