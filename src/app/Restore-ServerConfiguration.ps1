@@ -768,6 +768,10 @@ function Invoke-RestorePlan {
         catch {
             $failed = $true
             $message = $_.Exception.Message
+            # CIM-based cmdlets (DHCP, DNS) keep the useful part of the error
+            # in the inner exception or error data.
+            if ($_.Exception.InnerException -and $_.Exception.InnerException.Message -and $_.Exception.InnerException.Message -ne $message) { $message += ' ' + $_.Exception.InnerException.Message }
+            try { if ($_.Exception.ErrorData -and $_.Exception.ErrorData.CimInstanceProperties['error_WindowsErrorMessage']) { $message += ' ' + [string]$_.Exception.ErrorData.CimInstanceProperties['error_WindowsErrorMessage'].Value } } catch { }
             Write-Log 'ERROR' ('Failed: Restore ' + $entry.component + ' - ' + $entry.title + ': ' + $message)
             Write-RestoreEvent @{ event = 'item'; component = $entry.component; id = $entry.id; status = 'failed'; message = $message }
         }

@@ -124,6 +124,11 @@ if (-not $SkipRoles) {
     Invoke-Checked $appCmd @('delete', 'backup', 'SICM_RestoreValidation')
 
     # DHCP (Export-DhcpServer with leases).
+    # Finish DHCP post-install configuration as Server Manager does on a real
+    # server: security groups, then mark configuration complete.
+    Add-DhcpServerSecurityGroup -ComputerName $computer
+    Set-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\ServerManager\Roles\12' -Name 'ConfigurationState' -Value 2 -ErrorAction SilentlyContinue
+    Restart-Service DHCPServer
     Add-DhcpServerv4Scope -Name 'SICM Restore Scope' -StartRange 10.250.0.10 -EndRange 10.250.0.50 -SubnetMask 255.255.255.0
     Export-DhcpServer -ComputerName $computer -File (Get-PackagePath '08-Role-Specific\DHCP\DHCP-Configuration-and-Leases.xml') -Leases -Force
 
