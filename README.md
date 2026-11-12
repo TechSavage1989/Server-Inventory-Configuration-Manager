@@ -26,6 +26,7 @@ A portable **Windows x64 application** for collecting server inventory, exportin
 | Choose inventory categories and optional configuration exports. | Start with an executive summary and visible collection issues. | Run a portable EXE with an isolated local browser interface. |
 | Search grouped categories, use presets, and save or revert your preferred scope. | Search collapsed report sections and inspect supporting exports. | Keep settings, window placement, and shortcut targets through updates. |
 | Collect available server-role details without treating missing roles as present. | Open HTML offline, print retained report data, or use Word/text outputs. | Choose when to download, install, and restart. |
+| Export DHCP, NPS, print, IIS, DNS, firewall, registry and more for recovery. | See what a package can restore onto this server, and why anything cannot. | Restore chosen configuration with a rollback copy saved first. |
 
 ## Screenshots
 
@@ -76,7 +77,7 @@ Direct links: [Download Windows EXE](https://github.com/TechSavage1989/Server-In
 4. Use **Save choices** to remember the configuration, or start collection to save and run it. In **Collection**, search the log, filter warnings/errors, or pause **Follow live** to inspect earlier output.
 5. Open **Report Viewer**, inspect collection failures/recovery gaps first, then search the details and supporting files in your output folder.
 
-> **Protect your exports.** Inventory and configuration files can contain sensitive infrastructure information. Review the scope and sensitive-data options before collecting; store and share the output securely. Configuration exports and recovery references are not a substitute for a tested backup, and no restore runs automatically.
+> **Protect your exports.** Inventory and configuration files can contain sensitive infrastructure information. Review the scope and sensitive-data options before collecting; store and share the output securely. Configuration exports and recovery references are not a substitute for a tested backup, and no restore runs unless you choose it on the **Restore** tab and confirm it.
 
 **Coming from an older version?** The original v3.0.10 EXE and historical v3.1.0 PS1 application need one manual download of the maintained EXE. The PS1 application is historical—not the current product or build baseline. Existing executable updates preserve the installed path, including custom filenames.
 
@@ -88,7 +89,7 @@ Use the Collection log's search and severity filter to focus on issues; the filt
 
 In the Report Viewer search, `Enter` moves to the next match and `Shift+Enter` to the previous one (`F3` / `Shift+F3` also work); `Esc` clears the search.
 
-**Keyboard shortcuts** (press `?` or choose **Help → Keyboard shortcuts**): `Alt+1/2/3` switch tabs, `/` or `Ctrl+K` focuses the current tab's search, `Ctrl+S` saves choices and `Ctrl+Enter` starts collection from Setup.
+**Keyboard shortcuts** (press `?` or choose **Help → Keyboard shortcuts**): `Alt+1/2/3/4` switch tabs, `/` or `Ctrl+K` focuses the current tab's search, `Ctrl+S` saves choices and `Ctrl+Enter` starts collection from Setup.
 
 
 New HTML reports open on an executive summary: the server profile and detected roles, collection health with links to each collection issue and recovery gap, and inventory counts that jump to their datasets. Items that need attention stay expanded at the top; routine datasets expand on demand. Each section starts with a contents panel that groups its datasets under their headings, shows row counts and marks datasets with failures or warnings. Datasets that returned no data are gathered into one collapsed **No data collected** group instead of a long run of empty entries. Name/value lists and single-record tables read as property sheets. Search includes collapsed sections and raw text. Hover any value and choose **Copy** to copy just that value; **Copy table**, **Copy section** and **Copy full report** copy more, and **Copy path** in the Report Viewer copies the report file location. The report uses the full window width. Printing includes all rows retained by the report snapshot; truncation notices still point to complete supporting exports.
@@ -96,6 +97,29 @@ New HTML reports open on an executive summary: the server profile and detected r
 In the report, the section menu shows a badge counting failed, high-severity and warning items so you know where to look first, and it highlights the subsection you are reading. A table with problems shows **errors** and **warnings** buttons in its header: click one to jump to the affected row, and click again for the next. Numeric columns are right-aligned, and each section has **Print section** alongside Print all. The report stays legible on 800 × 600 and 1024 × 768 screens, standalone or in the Report Viewer. Pressing `Enter` again in report search moves to the next match (`Shift+Enter` goes back, `Esc` clears) and the message names the section. `[` and `]` move between sections, `/` focuses search, and a **Back to top** button appears on long sections.
 
 HTML reports work offline without external fonts, libraries, or image services. Existing reports remain readable in the viewer; **generate a new report to get the redesigned layout**. Word, text, and raw outputs remain available.
+
+## Restore configuration
+
+The **Restore** tab puts configuration from an inventory package back onto a server: after a failed change, or onto a rebuilt or replacement server. Choose the package folder (your last collection or the loaded report's package are one click away), and the app checks it against its `SHA256-Manifest.csv` and against this server. Each component then shows what it would restore, or exactly why it cannot (for example, the role is not installed, the export was not selected when the package was collected, or a file changed after collection).
+
+| Component | What is restored | How |
+| --- | --- | --- |
+| DHCP Server | Scopes, options, reservations, policies and leases | `Import-DhcpServer` |
+| Network Policy Server | RADIUS clients, shared secrets and policies (only from packages collected with sensitive exports allowed) | `Import-NpsConfiguration` |
+| Printers and print drivers | Print queues, drivers, ports and processors | PrintBRM |
+| IIS | Sites, bindings, application pools, applications | `appcmd restore backup` |
+| DNS | Primary zones missing from this server, with their records | DNS Server cmdlets |
+| Group Policy | Domain GPOs from Backup-GPO (nothing selected by default) | `Restore-GPO` / `Import-GPO` |
+| Windows Firewall | All rules and profile settings | `netsh advfirewall import` |
+| Certificates | Public certificates missing from their original store | `Import-Certificate` |
+| Scheduled tasks | Custom tasks (not tasks that store a password) | `Register-ScheduledTask` |
+| Share permissions | Complete recursive NTFS permission saves | `icacls /restore` |
+| Registry settings | Exported HKLM branches such as TLS, Remote Desktop and SMB (nothing selected by default) | `reg import` |
+| Local security policy | Password, lockout and audit policy, security options, user rights | `secedit /configure` |
+
+Restoring needs administrator rights. Review each component's warnings, select the items you need, and type the server's name to confirm. Components run in a fixed, safe order and the restore stops at the first failure. Before each item changes anything, its current configuration is saved to a rollback folder under `%LOCALAPPDATA%\Server Inventory Configuration Manager\Restore-Rollback\`, with an `UNDO.txt` in each component folder; **Open rollback folder** goes straight to it. **Stop after this item** never interrupts an item part way through. Collection, updates and closing the app wait until a restore finishes.
+
+Device drivers other than print drivers, Active Directory, SQL Server, RRAS, AD CS and Hyper-V are not restored; the package keeps their reference exports. Private keys were never exported, so certificates that need one must come from a protected PFX. Restoring onto a different server shows extra warnings for each component.
 
 ## Updates and settings
 
