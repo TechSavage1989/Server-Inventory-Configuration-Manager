@@ -1,3 +1,7 @@
+## 3.2.20 release preparation — 2026-11-12
+
+Publishing the rename (#37) and the file server migration tool (#38) under the owner's standing approval (AGENTS rule 16). This branch bumps `appVersion`, `collectorVersion` and the collector `$scriptVersion` to 3.2.20, adds `docs/release-notes/3.2.20.md` (first three bullets free of Markdown) and points `scripts/test_published_upgrade.cjs` at the published v3.2.19 executable (SHA-256 `3cf2be895eeb8bba3b690353975f40750d357e9dd66141d15dac68ab583c0268`, release asset digest). The upgrade test accepts the old and new window titles. `release/VERSION` changes in a separate publication PR after this source CI passes.
+
 ## Unreleased: file server migration (Migrate tab) — 2026-11-12
 
 User request: "a tool that can facilitate moving files and shares from one server to another with a very simple and straightforward to understand interface". Owner choices: live copy from the old server, all after-cutover options, every share except administrative shares. AGENTS rule 24 records the rules.
