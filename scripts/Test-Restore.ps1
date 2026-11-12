@@ -100,15 +100,13 @@ if (-not $SkipRoles) {
     Add-Printer -Name 'SICM Restore Printer' -DriverName 'Generic / Text Only' -PortName 'SICM_TEST_PORT'
     $printBrm = Join-Path $env:SystemRoot 'System32\spool\tools\PrintBrm.exe'
     $printerExport = Get-PackagePath ('08-Role-Specific\Print-Server\' + $computer + '.printerExport')
-    # PrintBrm.exe can return before PrintBrmEngine.exe has written the file,
-    # and some runner images need the local form without -s. Log everything.
+    # PrintBrm.exe exits with 0 even when the remote (-s) form fails because
+    # no printer is shared (print$ unavailable), so fall back to the local form.
     foreach ($arguments in @(@('-s', ('\\' + $computer), '-b', '-f', $printerExport), @('-b', '-f', $printerExport))) {
         if (Test-Path -LiteralPath $printerExport) { break }
         Write-Host ('PrintBrm ' + ($arguments -join ' '))
         $output = & $printBrm @arguments 2>&1
         Write-Host ('  exit ' + $LASTEXITCODE); $output | ForEach-Object { Write-Host ('  ' + $_) }
-        $deadline = (Get-Date).AddMinutes(10)
-        while (@(Get-Process -Name 'PrintBrmEngine' -ErrorAction SilentlyContinue).Count -gt 0 -and (Get-Date) -lt $deadline) { Start-Sleep -Seconds 2 }
     }
     if (-not (Test-Path -LiteralPath $printerExport)) {
         Get-ChildItem -LiteralPath (Split-Path $printerExport -Parent) -Force | ForEach-Object { Write-Host ('  folder: ' + $_.Name + ' ' + $_.Length) }

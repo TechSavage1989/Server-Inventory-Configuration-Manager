@@ -523,7 +523,21 @@ function Restore-Dhcp {
     Import-Module DhcpServer -ErrorAction Stop
     Export-DhcpServer -ComputerName $script:ComputerName -File (Join-Path $Rollback 'Current-DHCP-Configuration-and-Leases.xml') -Leases -Force
     Write-Log 'INFO' 'Saved the current DHCP configuration and leases.'
-    Import-DhcpServer -ComputerName $script:ComputerName -File $Data.file -BackupPath (Join-Path $Rollback 'DHCP-Database-Backup') -Leases -ScopeOverwrite -Force
+    $file = $Data.file
+    if ([Environment]::OSVersion.Version.Major -ge 10) {
+        # Windows Server 2016 and later removed Network Access Protection, and
+        # Import-DhcpServer rejects any export that carries NAP settings, even
+        # one taken from this server. Import a copy without them.
+        [xml]$xml = Get-Content -LiteralPath $file -Raw
+        $napNodes = @($xml.SelectNodes('//*') | Where-Object { $_.LocalName -like 'Nap*' -or $_.LocalName -eq 'NpsUnreachableAction' })
+        if ($napNodes.Count -gt 0) {
+            foreach ($node in $napNodes) { [void]$node.ParentNode.RemoveChild($node) }
+            $file = Join-Path $Rollback 'Import-DHCP-Configuration-without-NAP.xml'
+            $xml.Save($file)
+            Write-Log 'INFO' ('Removed {0} Network Access Protection settings, which this Windows version no longer supports, from a copy of the DHCP export.' -f $napNodes.Count)
+        }
+    }
+    Import-DhcpServer -ComputerName $script:ComputerName -File $file -BackupPath (Join-Path $Rollback 'DHCP-Database-Backup') -Leases -ScopeOverwrite -Force
 }
 
 function Restore-Nps {
@@ -532,17 +546,6 @@ function Restore-Nps {
     Export-NpsConfiguration -Path (Join-Path $Rollback 'Current-NPS-CONFIG-SENSITIVE.xml')
     Write-Log 'WARN' 'Saved the current NPS configuration; it contains shared secrets.'
     Import-NpsConfiguration -Path $Data.file
-}
-
-function Wait-PrintBrmEngine {
-    # PrintBrm.exe can return while PrintBrmEngine.exe is still writing or
-    # applying the migration file, so wait for the engine before going on.
-    param([string]$What)
-    $deadline = (Get-Date).AddMinutes(60)
-    while (@(Get-Process -Name 'PrintBrmEngine' -ErrorAction SilentlyContinue).Count -gt 0) {
-        if ((Get-Date) -gt $deadline) { throw ($What + ' did not finish within 60 minutes.') }
-        Start-Sleep -Seconds 2
-    }
 }
 
 function Assert-PrintBrmSucceeded {
@@ -556,15 +559,12 @@ function Assert-PrintBrmSucceeded {
 function Restore-Printers {
     param([hashtable]$Data, [string]$Rollback)
     $printBrm = Join-Path $env:SystemRoot 'System32\spool\tools\PrintBrm.exe'
-    Wait-PrintBrmEngine -What 'An earlier printer migration'
     $snapshot = Join-Path $Rollback 'Current-Printers.printerExport'
     Assert-Native -FilePath $printBrm -Arguments @('-B', '-F', $snapshot) -What 'Saving the current printers'
     Assert-PrintBrmSucceeded -What 'Saving the current printers'
-    Wait-PrintBrmEngine -What 'Saving the current printers'
     if (-not (Test-Path -LiteralPath $snapshot)) { throw 'PrintBRM did not save the current printers, so the restore was not started.' }
     Assert-Native -FilePath $printBrm -Arguments @('-R', '-F', $Data.file, '-O', 'FORCE') -What 'PrintBRM restore'
     Assert-PrintBrmSucceeded -What 'PrintBRM restore'
-    Wait-PrintBrmEngine -What 'PrintBRM restore'
 }
 
 function Restore-Iis {
