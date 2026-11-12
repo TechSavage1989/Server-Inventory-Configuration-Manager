@@ -1,3 +1,7 @@
+## 3.2.18 release preparation — 2026-11-12
+
+Publishing the Restore tab (#30) under the owner's standing approval (AGENTS rule 16). This branch bumps `appVersion`, `collectorVersion` and the collector `$scriptVersion` to 3.2.18, adds `docs/release-notes/3.2.18.md` (first three bullets free of Markdown) and points `scripts/test_published_upgrade.cjs` at the published v3.2.17 executable (SHA-256 `9dc5f53e22c95c9ce87982f2e9f673f1c0cab4f38a15a231c9594928ff70794f`, release asset digest). `release/VERSION` changes in a separate publication PR after this source CI passes.
+
 ## Unreleased: Restore tab — 2026-11-12
 
 User request: "Build in full restore features for backup content like DHCP, NPS, Printers and Print IIS, Drivers, Registry, etc. Make it a UI restore feature set." AGENTS rule 22 records the rules.
