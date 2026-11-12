@@ -65,6 +65,9 @@ $thumbprint = $certificate.Thumbprint
 $certFile = Get-PackagePath ('06-Accounts-Policy-Security\Public-Certificate-Exports\CN=SICM Restore Test_' + $thumbprint + '.cer')
 [IO.File]::WriteAllBytes($certFile, $certificate.Export([Security.Cryptography.X509Certificates.X509ContentType]::Cert))
 Remove-Item -LiteralPath ('Cert:\LocalMachine\My\' + $thumbprint) -DeleteKey
+# New-SelfSignedCertificate also places a copy in the intermediate CA store.
+Get-ChildItem -LiteralPath 'Cert:\LocalMachine\CA' | Where-Object { $_.Thumbprint -eq $thumbprint } | Remove-Item
+Assert (-not (Test-Path -LiteralPath ('Cert:\LocalMachine\CA\' + $thumbprint))) 'Test certificate starts absent from LocalMachine\CA'
 @([pscustomobject]@{ StorePath = 'LocalMachine\CA'; Subject = 'CN=SICM Restore Test'; Thumbprint = $thumbprint }) |
     Export-Csv -LiteralPath (Get-PackagePath '06-Accounts-Policy-Security\Local-Machine-Certificates.csv') -NoTypeInformation -Encoding UTF8
 
