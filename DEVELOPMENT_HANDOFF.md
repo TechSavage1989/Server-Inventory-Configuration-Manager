@@ -1,3 +1,7 @@
+## 3.2.17 release preparation — 2026-11-12
+
+The owner asked to publish the built-in WebView2 window (#26) and gave standing approval to publish future user-requested changes once source CI passes (recorded in AGENTS rule 16). This branch bumps `appVersion`, `collectorVersion` and the collector `$scriptVersion` to 3.2.17, adds `docs/release-notes/3.2.17.md` (first three bullets free of Markdown) and points `scripts/test_published_upgrade.cjs` at the published v3.2.16 executable (SHA-256 `89eb16091d028caf16b5efadd8f66e9c2612b95d3e9bfe36eaaa705b80b706a5`, 6,719,488 bytes, from the release asset digest). The published-upgrade test exercises the guest-browser path because the hosted runner allows guest browsing; the built-in window is covered by `TestExecutableUsesBuiltInWindowWhenGuestBrowsingIsBlocked`. `release/VERSION` changes in a separate publication PR after this branch's Windows CI passes.
+
 ## Unreleased: built-in window when guest browsing is blocked — 2026-11-11
 
 User report on 3.2.16 from a domain-joined, company-managed desktop: "The application interface could not open in a private guest session." Company policy (most likely `BrowserGuestModeEnabled=0` or forced sign-in) blocks the guest Edge/Chrome window the app requires, and rule 10 forbids a personal-profile fallback. The user chose a built-in window (Microsoft Edge WebView2) for that case.
