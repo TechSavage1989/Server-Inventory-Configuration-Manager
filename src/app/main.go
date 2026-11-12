@@ -62,7 +62,7 @@ const (
 	lrLoadFromFile = 0x0010
 )
 
-//go:embed Export-ServerInventory.ps1 Run-Inventory.ps1 Restore-ServerConfiguration.ps1 index.html favicon.ico app-icon.png assets/icons/server-inventory.svg
+//go:embed Export-ServerInventory.ps1 Run-Inventory.ps1 Restore-ServerConfiguration.ps1 Migrate-FileShares.ps1 index.html favicon.ico app-icon.png assets/icons/server-inventory.svg
 var embeddedPayloads embed.FS
 
 var (
@@ -164,6 +164,7 @@ type stateResponse struct {
 	LoadedReportName        string                 `json:"loadedReportName"`
 	LoadedReportSerial      uint64                 `json:"loadedReportSerial"`
 	Restore                 restoreStateResponse   `json:"restore"`
+	Migrate                 migrateStateResponse   `json:"migrate"`
 	Logs                    []logEntry             `json:"logs"`
 	NextLogIndex            int                    `json:"nextLogIndex"`
 }
@@ -257,6 +258,7 @@ type application struct {
 	loadedReportName        string
 	loadedReportSerial      uint64
 	restore                 restoreRuntime
+	migrate                 migrateRuntime
 }
 
 func utf16Ptr(value string) *uint16 {
@@ -1309,6 +1311,7 @@ func (a *application) snapshot(since int) stateResponse {
 		LoadedReportName:        a.loadedReportName,
 		LoadedReportSerial:      a.loadedReportSerial,
 		Restore:                 a.restoreSnapshotLocked(),
+		Migrate:                 a.migrateSnapshotLocked(),
 		Logs:                    logs,
 		NextLogIndex:            a.nextLogIndex,
 	}
@@ -1512,6 +1515,11 @@ func (a *application) handleStart(response http.ResponseWriter, request *http.Re
 		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "A restore is running. Wait for it to finish before collecting."})
 		return
 	}
+	if a.migrateBusyLocked() {
+		a.mu.Unlock()
+		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "A file migration step is running. Wait for it to finish before collecting."})
+		return
+	}
 	a.mu.Unlock()
 
 	runID, err := randomHex(16)
@@ -1533,6 +1541,11 @@ func (a *application) handleStart(response http.ResponseWriter, request *http.Re
 	if a.restoreBusyLocked() {
 		a.mu.Unlock()
 		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "A restore is running. Wait for it to finish before collecting."})
+		return
+	}
+	if a.migrateBusyLocked() {
+		a.mu.Unlock()
+		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "A file migration step is running. Wait for it to finish before collecting."})
 		return
 	}
 	a.state = internalState{
@@ -1618,6 +1631,7 @@ func (a *application) handleOpen(response http.ResponseWriter, request *http.Req
 	loadedReportDocxPath := a.loadedReportDocxPath
 	loadedReportSummaryPath := a.loadedReportSummaryPath
 	restoreRollbackPath := a.restore.rollbackPath
+	migrateWorkPath := a.migrateWorkPath(a.migrate.source)
 	a.mu.Unlock()
 	var target string
 	var urlTarget string
@@ -1650,6 +1664,8 @@ func (a *application) handleOpen(response http.ResponseWriter, request *http.Req
 		target = loadedReportSummaryPath
 	case "restorerollback":
 		target = restoreRollbackPath
+	case "migrationlogs":
+		target = migrateWorkPath
 	case "updaterelease":
 		a.update.mu.Lock()
 		manifest := a.update.currentManifest
@@ -1684,7 +1700,7 @@ func (a *application) handleOpen(response http.ResponseWriter, request *http.Req
 	var err error
 	if reveal {
 		err = shellReveal(target)
-	} else if strings.EqualFold(input.Kind, "folder") || strings.EqualFold(input.Kind, "outputroot") || strings.EqualFold(input.Kind, "diagnostics") || strings.EqualFold(input.Kind, "loadedfolder") || strings.EqualFold(input.Kind, "restorerollback") {
+	} else if strings.EqualFold(input.Kind, "folder") || strings.EqualFold(input.Kind, "outputroot") || strings.EqualFold(input.Kind, "diagnostics") || strings.EqualFold(input.Kind, "loadedfolder") || strings.EqualFold(input.Kind, "restorerollback") || strings.EqualFold(input.Kind, "migrationlogs") {
 		err = shellOpenFolder(target)
 	} else {
 		err = shellOpen(target)
@@ -1784,6 +1800,7 @@ func (a *application) handleShutdown(response http.ResponseWriter, request *http
 	a.mu.Lock()
 	running := a.state.Running
 	restoring := a.restore.status == "running"
+	migrating := a.migrate.action != ""
 	a.mu.Unlock()
 	if running {
 		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "The application cannot close while collection is running. Cancel the collection first."})
@@ -1791,6 +1808,10 @@ func (a *application) handleShutdown(response http.ResponseWriter, request *http
 	}
 	if restoring {
 		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "The application cannot close while a restore is running. Stop the restore and wait for the current item to finish."})
+		return
+	}
+	if migrating {
+		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "The application cannot close while a file migration step is running. Stop it first; a stopped copy continues where it left off next time."})
 		return
 	}
 	writeJSON(response, http.StatusOK, map[string]any{"ok": true})
@@ -2094,6 +2115,7 @@ func (a *application) stopServer() {
 		// A restore is never cut off part way through an item. If the window
 		// closes during one, ask it to stop after the current item and wait.
 		a.stopRestoreAndWait()
+		a.stopMigrateAndWait()
 		a.stopWindowPersistence()
 		// Keep the local backend alive until its owned browser windows are gone.
 		// A modal page dialog must not leave an orphaned old app window.
@@ -2129,7 +2151,7 @@ func (a *application) idleMonitor() {
 			}
 			// Never abandon a restore part way through an item: wait for the
 			// engine to finish even if the interface has gone away.
-			if a.restore.status == "running" {
+			if a.restore.status == "running" || a.migrate.action != "" {
 				idleFor = 0
 			}
 			if idleFor > 30*time.Second && running {
@@ -2201,6 +2223,18 @@ func (a *application) serve(listener net.Listener) error {
 	mux.HandleFunc("/api/restore/scan", a.handleRestoreScan)
 	mux.HandleFunc("/api/restore/start", a.handleRestoreStart)
 	mux.HandleFunc("/api/restore/cancel", a.handleRestoreCancel)
+	mux.HandleFunc("/api/migrate/discover", a.handleMigrateDiscover)
+	mux.HandleFunc("/api/migrate/plan", a.handleMigratePlan)
+	mux.HandleFunc("/api/migrate/precheck", a.handleMigratePrecheck)
+	mux.HandleFunc("/api/migrate/sync", a.handleMigrateSync)
+	mux.HandleFunc("/api/migrate/cutover", a.handleMigrateCutover)
+	mux.HandleFunc("/api/migrate/source-readonly", a.handleMigrateSourceReadOnly)
+	mux.HandleFunc("/api/migrate/source-restore", a.handleMigrateSourceRestore)
+	mux.HandleFunc("/api/migrate/dfs", a.handleMigrateDfs)
+	mux.HandleFunc("/api/migrate/alias-check", a.handleMigrateAliasCheck)
+	mux.HandleFunc("/api/migrate/alias", a.handleMigrateAlias)
+	mux.HandleFunc("/api/migrate/cancel", a.handleMigrateCancel)
+	mux.HandleFunc("/api/migrate/reset", a.handleMigrateReset)
 	mux.HandleFunc("/api/ui/ready", a.handleUIReady)
 	mux.HandleFunc("/api/update/check", a.handleUpdateCheck)
 	mux.HandleFunc("/api/update/download", a.handleUpdateDownload)

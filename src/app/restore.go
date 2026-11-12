@@ -235,6 +235,22 @@ func (a *application) applyRestoreLineLocked(line string) {
 }
 
 func (a *application) runRestoreEngine(command *exec.Cmd, apply func(string)) error {
+	err := a.runEngineProcess(command, apply, func(started *exec.Cmd) {
+		a.mu.Lock()
+		a.restore.cmd = started
+		a.mu.Unlock()
+	})
+	a.mu.Lock()
+	if a.restore.cmd == command {
+		a.restore.cmd = nil
+	}
+	a.mu.Unlock()
+	return err
+}
+
+// runEngineProcess runs an embedded PowerShell engine hidden, passes each
+// output line to apply, and reports the started process to onStart.
+func (a *application) runEngineProcess(command *exec.Cmd, apply func(string), onStart func(*exec.Cmd)) error {
 	command.SysProcAttr = &syscall.SysProcAttr{HideWindow: true, CreationFlags: createNoWindow}
 	stdout, err := command.StdoutPipe()
 	if err != nil {
@@ -247,9 +263,7 @@ func (a *application) runRestoreEngine(command *exec.Cmd, apply func(string)) er
 	if err := command.Start(); err != nil {
 		return err
 	}
-	a.mu.Lock()
-	a.restore.cmd = command
-	a.mu.Unlock()
+	onStart(command)
 	var readers sync.WaitGroup
 	scan := func(reader io.Reader) {
 		defer readers.Done()
@@ -264,15 +278,16 @@ func (a *application) runRestoreEngine(command *exec.Cmd, apply func(string)) er
 	go scan(stderr)
 	waitErr := command.Wait()
 	readers.Wait()
-	a.mu.Lock()
-	if a.restore.cmd == command {
-		a.restore.cmd = nil
-	}
-	a.mu.Unlock()
 	return waitErr
 }
 
 func (a *application) prepareRestoreEngine(prefix string) (directory, script string, err error) {
+	return a.prepareRestoreEngineNamed(prefix, restoreEngineName)
+}
+
+// prepareRestoreEngineNamed writes an embedded engine script, verified by
+// SHA-256, into a new private runtime folder.
+func (a *application) prepareRestoreEngineNamed(prefix, engineName string) (directory, script string, err error) {
 	runtimeRoot := filepath.Join(a.update.appDataRoot, "Runtime")
 	if err := os.MkdirAll(runtimeRoot, 0700); err != nil {
 		return "", "", err
@@ -281,8 +296,8 @@ func (a *application) prepareRestoreEngine(prefix string) (directory, script str
 	if err != nil {
 		return "", "", err
 	}
-	script = filepath.Join(directory, restoreEngineName)
-	if _, err := writeEmbeddedFile(restoreEngineName, script); err != nil {
+	script = filepath.Join(directory, engineName)
+	if _, err := writeEmbeddedFile(engineName, script); err != nil {
 		_ = os.RemoveAll(directory)
 		return "", "", err
 	}
@@ -535,6 +550,10 @@ func (a *application) handleRestoreStart(response http.ResponseWriter, request *
 	}
 	if a.restoreBusyLocked() {
 		fail(http.StatusConflict, "A restore or package check is already running.")
+		return
+	}
+	if a.migrateBusyLocked() {
+		fail(http.StatusConflict, "A file migration step is running. Wait for it to finish before restoring.")
 		return
 	}
 	if a.restore.scan == nil || !strings.EqualFold(a.restore.packagePath, packagePath) {
