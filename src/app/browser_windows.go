@@ -330,12 +330,19 @@ func closeOrphanedApplicationBrowsers() {
 		_ = closeScopedBrowser(profile)
 	}
 }
-func guestModeAllowed(browser string) bool {
+
+// guestPolicyBlock names the policy that turns off guest browsing for this
+// browser, or returns "" when a guest session is allowed.
+func guestPolicyBlock(browser string) string {
 	vendor := "Microsoft\\Edge"
 	if strings.EqualFold(filepath.Base(browser), "chrome.exe") {
 		vendor = "Google\\Chrome"
 	}
-	for _, root := range []syscall.Handle{syscall.HKEY_LOCAL_MACHINE, syscall.HKEY_CURRENT_USER} {
+	for _, hive := range []struct {
+		root syscall.Handle
+		name string
+	}{{syscall.HKEY_LOCAL_MACHINE, "HKEY_LOCAL_MACHINE"}, {syscall.HKEY_CURRENT_USER, "HKEY_CURRENT_USER"}} {
+		root := hive.root
 		var key syscall.Handle
 		if syscall.RegOpenKeyEx(root, syscall.StringToUTF16Ptr("Software\\Policies\\"+vendor), 0, syscall.KEY_READ, &key) != nil {
 			continue
@@ -352,10 +359,106 @@ func guestModeAllowed(browser string) bool {
 		}
 		syscall.RegCloseKey(key)
 		if browserPolicyDisallowsGuest(values) {
-			return false
+			return hive.name + "\\Software\\Policies\\" + vendor + ": " + describeGuestPolicy(values)
 		}
 	}
-	return true
+	return ""
+}
+
+func describeGuestPolicy(values map[string]uint32) string {
+	var parts []string
+	for _, name := range []string{"BrowserGuestModeEnabled", "BrowserSignin", "ForceBrowserSignin"} {
+		if value, ok := values[name]; ok {
+			parts = append(parts, fmt.Sprintf("%s=%d", name, value))
+		}
+	}
+	return strings.Join(parts, ", ")
+}
+
+func browserDisplayName(path string) string {
+	if strings.EqualFold(filepath.Base(path), "chrome.exe") {
+		return "Google Chrome"
+	}
+	return "Microsoft Edge"
+}
+
+// browserLaunchError explains why no guest session opened: no supported
+// browser found, guest mode turned off by policy, or Windows refused to start
+// the browser. The wording is shown to the user in a message box.
+func browserLaunchError(found int, blocked, failed []string) error {
+	if found == 0 {
+		return errors.New("Microsoft Edge or Google Chrome is required to show the interface, and neither was found on this computer. Install Microsoft Edge or Google Chrome, then start the application again.")
+	}
+	var lines []string
+	for _, reason := range blocked {
+		lines = append(lines, reason)
+	}
+	for _, reason := range failed {
+		lines = append(lines, reason)
+	}
+	message := strings.Join(lines, "\r\n\r\n")
+	if len(blocked) > 0 {
+		message += "\r\n\r\nThe application only opens in a private guest session and never uses your personal browser profile. Ask your administrator to allow guest mode, or install another supported browser."
+	}
+	return errors.New(message)
+}
+
+// mergeBrowserPaths keeps the standard locations first and adds registered
+// installs (App Paths) that are not already listed, ignoring case.
+func mergeBrowserPaths(standard, registered []string) []string {
+	result := append([]string(nil), standard...)
+	for _, path := range registered {
+		path = filepath.Clean(strings.Trim(strings.TrimSpace(path), `"`))
+		if path == "." || !filepath.IsAbs(path) {
+			continue
+		}
+		duplicate := false
+		for _, existing := range result {
+			if strings.EqualFold(filepath.Clean(existing), path) {
+				duplicate = true
+				break
+			}
+		}
+		if !duplicate {
+			result = append(result, path)
+		}
+	}
+	return result
+}
+
+var procExpandEnvironmentStringsW = kernel32.NewProc("ExpandEnvironmentStringsW")
+
+// registeredBrowserPaths reads the App Paths entries that installers write,
+// which find Edge or Chrome installed outside the standard folders.
+func registeredBrowserPaths() []string {
+	var result []string
+	for _, root := range []syscall.Handle{syscall.HKEY_LOCAL_MACHINE, syscall.HKEY_CURRENT_USER} {
+		for _, exe := range []string{"msedge.exe", "chrome.exe"} {
+			var key syscall.Handle
+			if syscall.RegOpenKeyEx(root, syscall.StringToUTF16Ptr("Software\\Microsoft\\Windows\\CurrentVersion\\App Paths\\"+exe), 0, syscall.KEY_READ, &key) != nil {
+				continue
+			}
+			var kind uint32
+			buffer := make([]uint16, 1024)
+			size := uint32(len(buffer) * 2)
+			err := syscall.RegQueryValueEx(key, nil, nil, &kind, (*byte)(unsafe.Pointer(&buffer[0])), &size)
+			syscall.RegCloseKey(key)
+			if err != nil || (kind != syscall.REG_SZ && kind != syscall.REG_EXPAND_SZ) {
+				continue
+			}
+			value := syscall.UTF16ToString(buffer)
+			if kind == syscall.REG_EXPAND_SZ {
+				expanded := make([]uint16, 2048)
+				if n, _, _ := procExpandEnvironmentStringsW.Call(uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(value))), uintptr(unsafe.Pointer(&expanded[0])), uintptr(len(expanded))); n > 0 && int(n) <= len(expanded) {
+					value = syscall.UTF16ToString(expanded)
+				}
+			}
+			if strings.EqualFold(filepath.Base(strings.Trim(value, `"`)), exe) {
+				result = append(result, value)
+			}
+		}
+	}
+	return result
 }
 func browserPolicyDisallowsGuest(values map[string]uint32) bool {
 	guest, configured := values["BrowserGuestModeEnabled"]
@@ -371,9 +474,13 @@ func browserCandidates() []string {
 			result = append(result, filepath.Join(root, relative))
 		}
 	}
-	return result
+	return mergeBrowserPaths(result, registeredBrowserPaths())
 }
 func (a *application) closeApplicationBrowser() error {
+	if host := a.builtInWindow(); host != nil {
+		host.close(10 * time.Second)
+		return nil
+	}
 	a.mu.Lock()
 	profile := a.browserProfileDirectory
 	a.mu.Unlock()

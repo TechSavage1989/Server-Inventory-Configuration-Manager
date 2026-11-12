@@ -48,6 +48,31 @@ func TestNativeProcessCommandLineMetadata(t *testing.T) {
 		t.Fatalf("unexpected process arguments: %v", args)
 	}
 }
+func TestBrowserLaunchErrorNamesTheActualReason(t *testing.T) {
+	if msg := browserLaunchError(0, nil, nil).Error(); !strings.Contains(msg, "neither was found") {
+		t.Fatal("missing-browser case not explained:", msg)
+	}
+	blocked := browserLaunchError(1, []string{"Microsoft Edge guest browsing is turned off by policy (HKEY_LOCAL_MACHINE\\Software\\Policies\\Microsoft\\Edge: BrowserGuestModeEnabled=0)."}, nil).Error()
+	if !strings.Contains(blocked, "BrowserGuestModeEnabled=0") || !strings.Contains(blocked, "never uses your personal browser profile") {
+		t.Fatal("policy case does not name the policy:", blocked)
+	}
+	failed := browserLaunchError(1, nil, []string{"Google Chrome could not be started from C:\\x\\chrome.exe: access denied"}).Error()
+	if !strings.Contains(failed, "access denied") || strings.Contains(failed, "administrator") {
+		t.Fatal("start failure is not reported as such:", failed)
+	}
+	if got := describeGuestPolicy(map[string]uint32{"BrowserSignin": 2, "BrowserGuestModeEnabled": 0}); got != "BrowserGuestModeEnabled=0, BrowserSignin=2" {
+		t.Fatal("unexpected policy description:", got)
+	}
+}
+
+func TestRegisteredBrowserPathsAreMergedWithoutDuplicates(t *testing.T) {
+	standard := []string{`C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe`}
+	merged := mergeBrowserPaths(standard, []string{`"c:\program files (x86)\microsoft\edge\application\msedge.exe"`, `D:\Apps\Chrome\chrome.exe`, `relative\chrome.exe`, ``})
+	if len(merged) != 2 || merged[0] != standard[0] || merged[1] != `D:\Apps\Chrome\chrome.exe` {
+		t.Fatal("unexpected merged browser paths:", merged)
+	}
+}
+
 func TestBrowserPolicyCannotFallbackToAccountSignin(t *testing.T) {
 	for _, policy := range []map[string]uint32{{"BrowserGuestModeEnabled": 0}, {"BrowserSignin": 2}, {"ForceBrowserSignin": 1}} {
 		if !browserPolicyDisallowsGuest(policy) {

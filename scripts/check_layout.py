@@ -3,7 +3,7 @@ from pathlib import Path
 import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
-FILES = {'.gitattributes', '.gitignore', 'README.md', 'AGENTS.md', 'CLAUDE.md', 'DEVELOPMENT_HANDOFF.md', 'go.mod'}
+FILES = {'.gitattributes', '.gitignore', 'README.md', 'AGENTS.md', 'CLAUDE.md', 'DEVELOPMENT_HANDOFF.md', 'go.mod', 'go.sum'}
 DIRECTORIES = {'.github', 'src', 'scripts', 'tests', 'docs', 'baseline', 'legacy', 'release', 'reporting'}
 GENERATED = {'.git', 'build', 'dist'}
 
@@ -31,7 +31,7 @@ def main():
     missing = [p for p in required if not (ROOT / p).is_file()]
     if missing:
         raise SystemExit('Missing layout inputs: ' + ', '.join(missing))
-    print('Repository layout verified: 15 intentional root entries; application inputs stay together.')
+    print('Repository layout verified: 16 intentional root entries; application inputs stay together.')
 
 if __name__ == '__main__':
     main()

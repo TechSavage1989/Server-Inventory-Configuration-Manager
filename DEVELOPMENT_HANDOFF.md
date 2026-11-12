@@ -1,3 +1,15 @@
+## Unreleased: built-in window when guest browsing is blocked — 2026-11-11
+
+User report on 3.2.16 from a domain-joined, company-managed desktop: "The application interface could not open in a private guest session." Company policy (most likely `BrowserGuestModeEnabled=0` or forced sign-in) blocks the guest Edge/Chrome window the app requires, and rule 10 forbids a personal-profile fallback. The user chose a built-in window (Microsoft Edge WebView2) for that case.
+
+- Launch errors now name the cause: no Edge/Chrome found, guest browsing turned off by policy (hive, key and values), or the browser failing to start. Browser discovery also reads `App Paths` registrations.
+- `src/app/webview_windows.go` adds a fallback host, used only when no guest window can open. It is a native window (class `ServerInventoryConfigurationManagerWindow`) on a dedicated locked thread with per-monitor DPI awareness, the app icon, remembered placement restored before showing, and a centred 92% default size (capped at 1600x1000). WebView2 uses the app-owned data folder `Runtime/WebView2`; dev tools are off, right-click and script dialogs stay on. The page sends its title through `chrome.webview.postMessage`, and the host only accepts titles that still name the application. Closing the window ends the app immediately with the same collection-cancel behaviour as the idle path; idle shutdown is skipped while the window is open.
+- Integration: `ownApplicationWindow` (health confirmation, window persistence), `closeApplicationBrowser`/`closeOwnApplicationWindow` (shutdown, update install) and the idle monitor handle the built-in window.
+- Dependency: `github.com/wailsapp/go-webview2` v1.0.23 (MIT, `go 1.20`) and `golang.org/x/sys` v0.27.0. Its default loader finds the installed runtime through the registry and loads Microsoft's `EmbeddedBrowserWebView.dll` normally; the in-memory loader is behind the `native_webview2loader` build tag and is not built. The component calls `os.Exit` when its error callback returns, so the host intercepts errors, reports them, and shuts down cleanly. The EXE grows by about 1.4 MB.
+- Tests: title filter, default bounds, and `TestExecutableUsesBuiltInWindowWhenGuestBrowsingIsBlocked`. That test sets `BrowserGuestModeEnabled=0` for Edge and Chrome under HKCU, starts the real EXE, requires a healthy start in the built-in window with no browser profile, checks the logged policy reason, and requires the app to end when the window closes. It skips when the WebView2 Runtime is missing, so check the CI log shows it ran.
+
+Validated here: `GOOS=windows go vet`, Windows EXE and test-binary cross-compiles, dependency audit (no Go 1.21+ APIs, no embedded DLL in the EXE). Not validated: any run on Windows, which is this PR's CI, and a real managed PC. Not released.
+
 ## 3.2.16 published and verified — 2026-11-10
 
 - [Release v3.2.16](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.16), tag and target commit `ed8a03822f2ff7593842667e9471b8ba59d6cef0` (publication PR #24, changing only `release/VERSION`). Source: dataset-header error/warning jump buttons #22; release preparation #23.
