@@ -1,3 +1,12 @@
+## 3.2.20 published and verified — 2026-11-12
+
+- [Release v3.2.20](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.20) ("Server Inventory and Migration Manager 3.2.20"), tag and target commit `99ba2fa723876bd24e0e9055095385f33a2cd109` (publication PR #41, changing only `release/VERSION`). Source: rename #37; file server migration #38; release preparation #40.
+- [Publish run](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/43171886169) passed in one attempt: publish job 06:58–07:05 UTC, published-upgrade job 07:05–07:14 UTC.
+- All 45 actual 3.2.19-to-3.2.20 upgrade checks passed in one run with zero unexpected dialogs, across the rename: the published 3.2.19 updater accepted the renamed build (unchanged ProductName) and the window was found under its new title. Source CI on #38 and #40 included the 36-check migration round trip and the 51-check restore round trip.
+- Stable EXE: 7,680,000 bytes; SHA-256 `ebb1030eb09325bb9210c7a569c865909dae58414ed53f922cbd51d0a10bcb7d` (release asset digest). All 12 assets are published; the v3.2.19 release still has its 12 assets and the same EXE digest. `Report-Preview.png` is unchanged, so `docs/images/report-executive-summary.png` is unchanged.
+
+Limits: synthetic hosted Windows Server 2025 testing; migration between two separate servers, domain DFS/alias paths, Windows Server 2012/2012 R2 and a company-managed PC were not exercised. CI artifacts were not downloaded; the job logs above are the evidence. No client data was uploaded.
+
 ## 3.2.20 release preparation — 2026-11-12
 
 Publishing the rename (#37) and the file server migration tool (#38) under the owner's standing approval (AGENTS rule 16). This branch bumps `appVersion`, `collectorVersion` and the collector `$scriptVersion` to 3.2.20, adds `docs/release-notes/3.2.20.md` (first three bullets free of Markdown) and points `scripts/test_published_upgrade.cjs` at the published v3.2.19 executable (SHA-256 `3cf2be895eeb8bba3b690353975f40750d357e9dd66141d15dac68ab583c0268`, release asset digest). The upgrade test accepts the old and new window titles. `release/VERSION` changes in a separate publication PR after this source CI passes.
