@@ -128,32 +128,9 @@ if (-not $SkipRoles) {
     Set-ItemProperty -Path 'HKLM:\SOFTWARE\Microsoft\ServerManager\Roles\12' -Name 'ConfigurationState' -Value 2 -ErrorAction SilentlyContinue
     Restart-Service DHCPServer
     Add-DhcpServerv4Scope -Name 'SICM Restore Scope' -StartRange 10.250.0.10 -EndRange 10.250.0.50 -SubnetMask 255.255.255.0
+    Set-DhcpServerv4OptionValue -ComputerName $computer -OptionId 6 -Value '192.0.2.53' -Force
+    Add-DhcpServerv4Class -ComputerName $computer -Name 'SICM Restore Class' -Type User -Data 'SICMTEST' -Description 'Synthetic restore class'
     Export-DhcpServer -ComputerName $computer -File (Get-PackagePath '08-Role-Specific\DHCP\DHCP-Configuration-and-Leases.xml') -Leases -Force
-    # TEMPORARY DIAGNOSTIC: find which DHCP import form Windows Server 2025 accepts.
-    $dhcpExport = Get-PackagePath '08-Role-Specific\DHCP\DHCP-Configuration-and-Leases.xml'
-    $raw = Get-Content -LiteralPath $dhcpExport -Raw
-    Write-Host ('DHCP export head: ' + ($raw.Substring(0, [Math]::Min(300, $raw.Length)) -replace '\s+', ' '))
-    $ipv4 = [regex]::Match($raw, '(?s)<IPv4[^>]*>.*?<(Scopes|OptionDefinitions|OptionValues)').Value
-    Write-Host ('DHCP IPv4 server section: ' + ($ipv4 -replace '\s+', ' '))
-    $diag = Join-Path $work 'dhcp-diag'; New-Item -ItemType Directory -Path $diag -Force | Out-Null
-    $variants = [ordered]@{}
-    $variants['as-exported'] = $raw
-    $variants['nps-action-removed'] = [regex]::Replace($raw, '<NpsUnreachableAction>[^<]*</NpsUnreachableAction>\s*', '')
-    $variants['nap-enabled-removed'] = [regex]::Replace($raw, '<NapEnabled>[^<]*</NapEnabled>\s*', '')
-    $variants['both-server-removed'] = [regex]::Replace([regex]::Replace($raw, '<NapEnabled>[^<]*</NapEnabled>\s*', ''), '<NpsUnreachableAction>[^<]*</NpsUnreachableAction>\s*', '')
-    foreach ($setting in @(@{ NapEnabled = $false }, @{ NpsUnreachableAction = 'Full' }, @{ ConflictDetectionAttempts = 0 }, @{ ActivatePolicies = $true })) {
-        try { Set-DhcpServerSetting -ComputerName $computer @setting -ErrorAction Stop; Write-Host ('DHCP setting ' + (($setting.Keys | ForEach-Object { $_ + '=' + $setting[$_] }) -join ',') + ': OK') }
-        catch { $m = $_.Exception.Message; try { $m += ' | ' + [string]$_.Exception.ErrorData.CimInstanceProperties['error_WindowsErrorMessage'].Value } catch { }; Write-Host ('DHCP setting ' + (($setting.Keys | ForEach-Object { $_ + '=' + $setting[$_] }) -join ',') + ': ' + $m) }
-    }
-    try { Get-DhcpServerSetting -ComputerName $computer | Format-List * | Out-String | ForEach-Object { Write-Host ("DHCP current settings: " + ($_ -replace "\s+", " ")) } } catch { Write-Host ("DHCP settings read failed: " + $_.Exception.Message) }
-    foreach ($name in $variants.Keys) {
-        $path = Join-Path $diag ($name + '.xml')
-        [IO.File]::WriteAllText($path, $variants[$name], (New-Object Text.UTF8Encoding($false)))
-        try { Import-DhcpServer -ComputerName $computer -File $path -BackupPath (Join-Path $diag ($name + '-backup')) -Leases -ScopeOverwrite -Force -ErrorAction Stop; Write-Host ('DHCP import variant ' + $name + ': OK') }
-        catch { Write-Host ('DHCP import variant ' + $name + ': ' + $_.Exception.Message) }
-        try { Import-DhcpServer -ComputerName $computer -File $path -BackupPath (Join-Path $diag ($name + '-backup2')) -Leases -ScopeOverwrite -ScopeId 10.250.0.0 -Force -ErrorAction Stop; Write-Host ('DHCP scope-only import variant ' + $name + ': OK') }
-        catch { Write-Host ('DHCP scope-only import variant ' + $name + ': ' + $_.Exception.Message) }
-    }
 
     # NPS (full configuration export; contains a synthetic shared secret).
     $secret = [Guid]::NewGuid().ToString('N')
@@ -218,6 +195,8 @@ if (-not $SkipRoles) {
     Remove-Printer -Name 'SICM Restore Printer'
     Invoke-Checked $appCmd @('delete', 'apppool', 'SICM-Restore-Pool')
     Remove-DhcpServerv4Scope -ScopeId 10.250.0.0 -Force
+    Remove-DhcpServerv4OptionValue -ComputerName $computer -OptionId 6
+    Remove-DhcpServerv4Class -ComputerName $computer -Name 'SICM Restore Class' -Type User
     Remove-NpsRadiusClient -Name 'SICM-Restore-Client'
     Remove-DnsServerZone -Name $zone -Force
     Remove-Item -LiteralPath (Join-Path $env:SystemRoot ('System32\dns\' + $zone + '.dns')) -Force -ErrorAction SilentlyContinue
@@ -298,6 +277,8 @@ if (-not $SkipRoles) {
     Assert ((Get-Service W3SVC).Status -eq 'Running') 'IIS running after restore'
     Assert (Test-Path -LiteralPath (Join-Path $rollback 'iis\Current-IIS-Configuration\applicationHost.config')) 'IIS rollback configuration saved'
     Assert ([bool](Get-DhcpServerv4Scope -ScopeId 10.250.0.0 -ErrorAction SilentlyContinue)) 'DHCP scope restored'
+    Assert ([string]((Get-DhcpServerv4OptionValue -ComputerName $computer -OptionId 6 -ErrorAction SilentlyContinue).Value) -eq '192.0.2.53') 'DHCP server-level option restored'
+    Assert ([bool](Get-DhcpServerv4Class -ComputerName $computer -Name 'SICM Restore Class' -ErrorAction SilentlyContinue)) 'DHCP user class restored'
     Assert (Test-Path -LiteralPath (Join-Path $rollback 'dhcp\Current-DHCP-Configuration-and-Leases.xml')) 'DHCP rollback export saved'
     Assert ([bool](Get-NpsRadiusClient | Where-Object { $_.Name -eq 'SICM-Restore-Client' })) 'NPS RADIUS client restored'
     Assert (Test-Path -LiteralPath (Join-Path $rollback 'nps\Current-NPS-CONFIG-SENSITIVE.xml')) 'NPS rollback export saved'

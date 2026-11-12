@@ -245,7 +245,7 @@ function Get-DhcpComponent {
     elseif (-not (Test-ServiceInstalled 'DHCPServer') -or -not (Test-CommandAvailable 'Import-DhcpServer' 'DhcpServer')) { $blocked = 'The DHCP Server role is not installed on this server. Install it, and authorize it in Active Directory if needed, first.' }
     else { $blocked = Test-PackageFile -FullPath $file }
     $warnings = @('Scopes, options, reservations, policies and leases from the package replace the matching ones on this server.', 'The DHCP database is also backed up by Import-DhcpServer before the import.')
-    if ([Environment]::OSVersion.Version.Major -ge 10) { $warnings += 'Network Access Protection settings in the export are left out: Windows Server 2016 and later no longer support NAP.' }
+    if ([Environment]::OSVersion.Version.Major -ge 10) { $warnings += 'On Windows Server 2016 and later, scopes and server settings, classes, option definitions and options are restored; NAP settings are left out, and server-level policies, filters, failover and DHCPv6 are listed for you to re-create.' }
     if (-not $script:SameComputer) { $warnings += 'Restoring onto a different server: authorize this server for DHCP in Active Directory and review failover relationships and server bindings afterwards.' }
     $item = New-RestoreItem -Id 'dhcp' -Title 'DHCP configuration and leases' -Detail 'DHCP-Configuration-and-Leases.xml' -BlockedReason $blocked -Data @{ file = $file }
     return New-RestoreComponent -Id 'dhcp' -Title 'DHCP Server' -Description 'Scopes, options, reservations, exclusions, policies and leases.' -Impact 'high' -Warnings $warnings -Items @($item)
@@ -519,28 +519,98 @@ function Remove-ItemData {
 
 # ------------------------------------------------------------ restore ops ----
 
+function Get-XmlChildText {
+    param($Node, [string]$Name)
+    $child = @($Node.ChildNodes | Where-Object { $_.LocalName -eq $Name })
+    if ($child.Count -eq 0) { return '' }
+    return [string]$child[0].InnerText
+}
+
+function Get-XmlChildren {
+    param($Node, [string]$Name)
+    if (-not $Node) { return @() }
+    return @($Node.ChildNodes | Where-Object { $_.LocalName -eq $Name })
+}
+
+function Restore-DhcpServerLevel {
+    # Applies the IPv4 server-level part of a DHCP export without the
+    # Network Access Protection settings that Windows Server 2016 and later
+    # refuse. Scopes are imported separately.
+    param($IPv4)
+    $settings = @{}
+    $conflict = Get-XmlChildText $IPv4 'ConflictDetectionAttempts'
+    if ($conflict -ne '') { $settings['ConflictDetectionAttempts'] = [uint32]$conflict }
+    $activate = Get-XmlChildText $IPv4 'ActivatePolicies'
+    if ($activate -ne '') { $settings['ActivatePolicies'] = ($activate -eq 'true') }
+    if ($settings.Count -gt 0) { Set-DhcpServerSetting -ComputerName $script:ComputerName @settings; Write-Log 'INFO' ('Applied DHCP server settings: ' + (($settings.Keys | Sort-Object) -join ', ')) }
+
+    $existingClasses = @{}
+    foreach ($class in @(Get-DhcpServerv4Class -ComputerName $script:ComputerName)) { $existingClasses[$class.Type + '|' + $class.Name] = $true }
+    foreach ($class in (Get-XmlChildren (@(Get-XmlChildren $IPv4 'Classes'))[0] 'Class')) {
+        $name = Get-XmlChildText $class 'Name'; $type = Get-XmlChildText $class 'Type'
+        if (-not $name -or $existingClasses.ContainsKey($type + '|' + $name)) { continue }
+        $data = (Get-XmlChildText $class 'Data') -replace '^0x', ''
+        Add-DhcpServerv4Class -ComputerName $script:ComputerName -Name $name -Type $type -Data ([Text.Encoding]::ASCII.GetString([byte[]]@(for ($i = 0; $i -lt $data.Length; $i += 2) { [Convert]::ToByte($data.Substring($i, 2), 16) }))) -Description (Get-XmlChildText $class 'Description')
+        Write-Log 'INFO' ('Added DHCP class ' + $name)
+    }
+
+    $existingDefinitions = @{}
+    foreach ($definition in @(Get-DhcpServerv4OptionDefinition -ComputerName $script:ComputerName -All)) { $existingDefinitions[[string]$definition.VendorClass + '|' + $definition.OptionId] = $true }
+    foreach ($definition in (Get-XmlChildren (@(Get-XmlChildren $IPv4 'OptionDefinitions'))[0] 'OptionDefinition')) {
+        $id = Get-XmlChildText $definition 'OptionId'; $vendor = Get-XmlChildText $definition 'VendorClass'
+        if (-not $id -or $existingDefinitions.ContainsKey($vendor + '|' + $id)) { continue }
+        $arguments = @{ ComputerName = $script:ComputerName; Name = (Get-XmlChildText $definition 'Name'); OptionId = [uint32]$id; Type = (Get-XmlChildText $definition 'Type'); MultiValued = ((Get-XmlChildText $definition 'MultiValued') -eq 'true') }
+        if ($vendor) { $arguments['VendorClass'] = $vendor }
+        $description = Get-XmlChildText $definition 'Description'; if ($description) { $arguments['Description'] = $description }
+        $defaults = @(Get-XmlChildren $definition 'DefaultValue' | ForEach-Object { [string]$_.InnerText } | Where-Object { $_ -ne '' })
+        if ($defaults.Count) { $arguments['DefaultValue'] = $defaults }
+        Add-DhcpServerv4OptionDefinition @arguments
+        Write-Log 'INFO' ('Added DHCP option definition ' + $id + ' ' + $arguments['Name'])
+    }
+
+    foreach ($option in (Get-XmlChildren (@(Get-XmlChildren $IPv4 'OptionValues'))[0] 'OptionValue')) {
+        $id = Get-XmlChildText $option 'OptionId'
+        $values = @(Get-XmlChildren $option 'Value' | ForEach-Object { [string]$_.InnerText })
+        if (-not $id -or $values.Count -eq 0) { continue }
+        $arguments = @{ ComputerName = $script:ComputerName; OptionId = [uint32]$id; Value = $values; Force = $true }
+        $vendor = Get-XmlChildText $option 'VendorClass'; if ($vendor) { $arguments['VendorClass'] = $vendor }
+        $user = Get-XmlChildText $option 'UserClass'; if ($user) { $arguments['UserClass'] = $user }
+        Set-DhcpServerv4OptionValue @arguments
+        Write-Log 'INFO' ('Set DHCP server option ' + $id)
+    }
+
+    $notApplied = @()
+    foreach ($name in @('Policies', 'Filters', 'FailoverRelationships', 'SuperScopes', 'MulticastScopes')) {
+        $section = @(Get-XmlChildren $IPv4 $name)
+        if ($section.Count -and @($section[0].ChildNodes | Where-Object { $_.NodeType -eq 'Element' }).Count) { $notApplied += $name }
+    }
+    if ($notApplied.Count) { Write-Log 'WARN' ('Not restored on this Windows version, review and re-create them: server-level DHCP ' + ($notApplied -join ', ') + '.') }
+}
+
 function Restore-Dhcp {
     param([hashtable]$Data, [string]$Rollback)
     Import-Module DhcpServer -ErrorAction Stop
     Export-DhcpServer -ComputerName $script:ComputerName -File (Join-Path $Rollback 'Current-DHCP-Configuration-and-Leases.xml') -Leases -Force
     Write-Log 'INFO' 'Saved the current DHCP configuration and leases.'
-    $file = $Data.file
-    if ([Environment]::OSVersion.Version.Major -ge 10) {
-        # Windows Server 2016 and later removed Network Access Protection, and
-        # Import-DhcpServer rejects any export that carries NAP settings, even
-        # one taken from this server. Import a copy without them.
-        [xml]$xml = Get-Content -LiteralPath $file -Raw
-        # Only the server-level NAP settings are refused; the per-scope fields
-        # are required by the import schema and stay.
-        $napNodes = @($xml.SelectNodes('//*') | Where-Object { ($_.LocalName -eq 'NapEnabled' -or $_.LocalName -eq 'NpsUnreachableAction') -and $_.ParentNode.LocalName -eq 'IPv4' })
-        if ($napNodes.Count -gt 0) {
-            foreach ($node in $napNodes) { [void]$node.ParentNode.RemoveChild($node) }
-            $file = Join-Path $Rollback 'Import-DHCP-Configuration-without-NAP.xml'
-            $xml.Save($file)
-            Write-Log 'INFO' ('Removed {0} server-level Network Access Protection settings ({1}), which this Windows version no longer supports, from a copy of the DHCP export.' -f $napNodes.Count, (($napNodes | ForEach-Object { $_.LocalName }) -join ', '))
-        }
+    $backupPath = Join-Path $Rollback 'DHCP-Database-Backup'
+    if ([Environment]::OSVersion.Version.Major -lt 10) {
+        Import-DhcpServer -ComputerName $script:ComputerName -File $Data.file -BackupPath $backupPath -Leases -ScopeOverwrite -Force
+        return
     }
-    Import-DhcpServer -ComputerName $script:ComputerName -File $file -BackupPath (Join-Path $Rollback 'DHCP-Database-Backup') -Leases -ScopeOverwrite -Force
+    # Windows Server 2016 and later: Import-DhcpServer always re-applies the
+    # removed Network Access Protection settings and the server refuses them,
+    # even for an export taken from this server. Apply the server level here
+    # without NAP, then import the scopes on their own.
+    [xml]$xml = Get-Content -LiteralPath $Data.file -Raw
+    $ipv4 = @(Get-XmlChildren $xml.DocumentElement 'IPv4')
+    if ($ipv4.Count -eq 0) { throw 'The DHCP export has no IPv4 configuration.' }
+    Restore-DhcpServerLevel -IPv4 $ipv4[0]
+    $scopeIds = @(Get-XmlChildren (@(Get-XmlChildren $ipv4[0] 'Scopes'))[0] 'Scope' | ForEach-Object { Get-XmlChildText $_ 'ScopeId' } | Where-Object { $_ })
+    if ($scopeIds.Count -gt 0) {
+        Import-DhcpServer -ComputerName $script:ComputerName -File $Data.file -BackupPath $backupPath -Leases -ScopeOverwrite -ScopeId $scopeIds -Force
+        Write-Log 'INFO' ('Imported {0} DHCP scope(s) with their options, reservations, exclusions, policies and leases.' -f $scopeIds.Count)
+    }
+    if (@(Get-XmlChildren $xml.DocumentElement 'IPv6').Count -and @((Get-XmlChildren $xml.DocumentElement 'IPv6')[0].ChildNodes).Count) { Write-Log 'WARN' 'DHCPv6 configuration in the export is not restored on this Windows version; review it in the DHCP console.' }
 }
 
 function Restore-Nps {
