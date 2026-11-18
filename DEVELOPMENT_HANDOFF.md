@@ -1,3 +1,7 @@
+## 3.2.22 release preparation — 2026-11-18
+
+Publishing Migrate Connect as another account (#48) under the owner's standing approval (AGENTS rule 16). This branch bumps `appVersion`, `collectorVersion` and the collector `$scriptVersion` to 3.2.22, adds `docs/release-notes/3.2.22.md` (first three bullets free of Markdown) and points `scripts/test_published_upgrade.cjs` at the published v3.2.21 executable (SHA-256 `ffbfe9e4e5cd688724dd359a307a525ea0b4e91284fc883839eee3c3cc29b03c`, release asset digest). `release/VERSION` changes in a separate publication PR after this source CI passes. `Report-Preview.png` should be unchanged.
+
 ## Unreleased: Migrate Connect as another account — 2026-11-18
 
 User request (screenshot of "Windows refused access on hopper" while running as a local administrator on the new server): offer a credential prompt for the old server. The Connect step now has **Connect as: This Windows account / Another account** with user name and password fields, opened automatically (and focused) when a step reports access denied.
