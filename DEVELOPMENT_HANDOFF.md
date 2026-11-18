@@ -1,3 +1,10 @@
+## Unreleased: TCP/IP and activation in the executive summary profile — 2026-11-18
+
+User request: include TCP/IP information and activation status in the executive summary server profile. The collector's "Server identity and baseline" table (HTML, Word and text) gains Activation status, IPv4 addresses, IPv6 addresses, IP assignment, Default gateway and DNS servers, derived only from data the collection already saves (IP-Addresses, Routes, DNS-Client-Server-Addresses, IP-Interfaces, Windows-Activation-Metadata; legacy WMI fallbacks included). Loopback, APIPA and link-local addresses are left out. The HTML profile card shows activation, IPv4, gateway and DNS with the other headline facts, and IP assignment and IPv6 only when present.
+
+- Collector provenance: two new reviewed insertion regions (`BEGIN/END APPROVED PROFILE NETWORK AND ACTIVATION` and `... ROWS`) with their diff hunks; existing regions unchanged. Renderer re-embedded; `report-verification.json` updated.
+- Tests: `Test-ReportValues.ps1` runs the collector's own block against synthetic saved exports (modern, legacy WMI and missing data, licensed and grace-period activation); `test_report.cjs` checks the profile card; the `Test-Report.ps1` fixture (and so `Report-Preview.png`) includes the new rows.
+
 ## 3.2.20 published and verified — 2026-11-12
 
 - [Release v3.2.20](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.20) ("Server Inventory and Migration Manager 3.2.20"), tag and target commit `99ba2fa723876bd24e0e9055095385f33a2cd109` (publication PR #41, changing only `release/VERSION`). Source: rename #37; file server migration #38; release preparation #40.
