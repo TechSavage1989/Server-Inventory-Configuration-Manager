@@ -5,7 +5,10 @@ param(
     [string]$PlanPath,
     [string]$ResultPath,
     [string]$WorkPath,
-    [string]$CancelPath
+    [string]$CancelPath,
+    # Reads one JSON line {"user":..,"password":..} from standard input: the
+    # account used for the old server. Never passed on the command line.
+    [switch]$CredentialFromInput
 )
 
 # Moves file shares from an old server to this server. Runs on the new server.
@@ -15,6 +18,9 @@ param(
 # share settings and permissions, and verifies the copy. The old server is
 # changed only by the separate SourceReadOnly step, which saves the previous
 # share permissions first so SourceRestore can put them back.
+# With -CredentialFromInput, the old server is reached with that account for
+# remote management (CIM) and for files (an SMB connection made for this run
+# and removed when it ends); otherwise with the account running this engine.
 # Compatible with Windows PowerShell 3.0 (Windows Server 2012) and later.
 
 $ErrorActionPreference = 'Stop'
@@ -55,6 +61,95 @@ function Test-IsThisServer {
     return $short -eq $script:ComputerName -or $Name -eq 'localhost' -or $Name -eq '127.0.0.1'
 }
 
+$script:SourceCredential = $null
+$script:SourceAccount = ''
+$script:SourceConnection = $null
+
+function Read-SourceCredential {
+    if (-not $CredentialFromInput) { return }
+    $line = [Console]::In.ReadLine()
+    $data = $null
+    if ($line) { $data = ConvertFrom-Json -InputObject $line }
+    $line = $null
+    if (-not $data -or -not [string]$data.user -or -not [string]$data.password) { throw 'The account for the old server was not provided.' }
+    $script:SourceAccount = [string]$data.user
+    $script:SourceCredential = New-Object System.Management.Automation.PSCredential($script:SourceAccount, (ConvertTo-SecureString -String ([string]$data.password) -AsPlainText -Force))
+    $data = $null
+}
+
+function Get-AccountLabel {
+    if ($script:SourceAccount) { return $script:SourceAccount }
+    return 'this Windows account'
+}
+
+function Write-AccessDenied {
+    # Tells the interface to offer the Connect as account fields.
+    Write-MigrateEvent @{ event = 'accessDenied'; message = '' }
+}
+
+function Get-AccessDeniedAdvice {
+    param([string]$Name)
+    if ($script:SourceAccount) {
+        return ('Check the user name and password, and that ' + $script:SourceAccount + ' is an administrator on ' + $Name + '.')
+    }
+    return ('Under Connect as, choose Another account and enter an account that is an administrator on ' + $Name + ', for example DOMAIN\admin, then connect again. A local account with the same name and password is not enough: Windows removes administrator rights from local accounts over the network.')
+}
+
+function Connect-SourceFiles {
+    # Opens an SMB connection to the old server with the Connect as account, so
+    # Test-Path, Get-Acl and Robocopy reach its administrative shares with it.
+    # The connection belongs to this run and is removed by Disconnect-SourceFiles.
+    param([string]$Name)
+    if (-not $script:SourceCredential -or (Test-IsThisServer $Name)) { return }
+    if (-not ('SicmSourceConnection' -as [type])) {
+        Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+public static class SicmSourceConnection {
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    public class NetResource {
+        public int Scope; public int Type; public int DisplayType; public int Usage;
+        public string LocalName; public string RemoteName; public string Comment; public string Provider;
+    }
+    [DllImport("mpr.dll", CharSet = CharSet.Unicode)]
+    private static extern int WNetAddConnection2(NetResource resource, string password, string user, int flags);
+    [DllImport("mpr.dll", CharSet = CharSet.Unicode)]
+    private static extern int WNetCancelConnection2(string name, int flags, bool force);
+    public static int Connect(string remote, string user, string password) {
+        NetResource resource = new NetResource();
+        resource.RemoteName = remote;
+        return WNetAddConnection2(resource, password, user, 4); // CONNECT_TEMPORARY
+    }
+    public static int Disconnect(string remote) { return WNetCancelConnection2(remote, 0, true); }
+}
+'@
+    }
+    $remote = '\\' + $Name + '\IPC$'
+    $code = [SicmSourceConnection]::Connect($remote, $script:SourceAccount, $script:SourceCredential.GetNetworkCredential().Password)
+    if ($code -eq 0) {
+        $script:SourceConnection = $remote
+        Write-Log 'INFO' ('Opened a file connection to ' + $Name + ' as ' + $script:SourceAccount + '.')
+        return
+    }
+    $reason = (New-Object System.ComponentModel.Win32Exception($code)).Message
+    if ($code -eq 1219) {
+        Write-Log 'WARN' ('Windows already has a file connection to ' + $Name + ' under another account, so it is used instead of ' + $script:SourceAccount + '. To use ' + $script:SourceAccount + ', close File Explorer windows and mapped drives that use ' + $Name + ' (net use lists them) and run this step again.')
+        return
+    }
+    if (@(5, 86, 1326, 1327, 1328, 1329, 1330, 1331, 1907, 1909) -contains $code) {
+        Write-AccessDenied
+        throw ($Name + ' did not accept ' + $script:SourceAccount + ' for file access: ' + $reason + ' ' + (Get-AccessDeniedAdvice $Name))
+    }
+    throw ('Could not open a file connection to ' + $Name + ' as ' + $script:SourceAccount + ': ' + $reason + ' Check that ' + $Name + ' is on and that File and Printer Sharing is allowed in its firewall.')
+}
+
+function Disconnect-SourceFiles {
+    if ($script:SourceConnection) {
+        [void][SicmSourceConnection]::Disconnect($script:SourceConnection)
+        $script:SourceConnection = $null
+    }
+}
+
 function New-SourceCimSession {
     # Tries WinRM first (enabled by default on Windows Server 2012 and later),
     # then DCOM with packet privacy, which Windows' DCOM hardening updates
@@ -65,11 +160,13 @@ function New-SourceCimSession {
     foreach ($protocol in @('WinRM', 'DCOM')) {
         $session = $null
         try {
-            if ($protocol -eq 'WinRM') { $session = New-CimSession -ComputerName $Name -ErrorAction Stop }
+            $arguments = @{ ComputerName = $Name; ErrorAction = 'Stop' }
+            if ($script:SourceCredential) { $arguments['Credential'] = $script:SourceCredential }
             # The DCOM parameter set: -PacketPrivacy cannot be combined with -Protocol.
-            else { $session = New-CimSession -ComputerName $Name -SessionOption (New-CimSessionOption -PacketPrivacy -Impersonation Impersonate) -ErrorAction Stop }
+            if ($protocol -eq 'DCOM') { $arguments['SessionOption'] = New-CimSessionOption -PacketPrivacy -Impersonation Impersonate }
+            $session = New-CimSession @arguments
             [void](Get-CimInstance -CimSession $session -ClassName Win32_OperatingSystem -ErrorAction Stop)
-            Write-Log 'INFO' ('Connected to ' + $Name + ' over ' + $protocol + '.')
+            Write-Log 'INFO' ('Connected to ' + $Name + ' over ' + $protocol + ' as ' + (Get-AccountLabel) + '.')
             return $session
         }
         catch {
@@ -78,8 +175,9 @@ function New-SourceCimSession {
         }
     }
     $details = $failures -join ' | '
-    if ($details -match 'Access is denied|0x80070005|E_ACCESSDENIED') {
-        throw ('Windows refused access on ' + $Name + '. Run this application with an account that is an administrator on ' + $Name + ', for example a domain account in its Administrators group. A local account with the same name and password is not enough: Windows removes administrator rights from local accounts over the network. (' + $details + ')')
+    if ($details -match 'Access is denied|0x80070005|E_ACCESSDENIED|0x8009030e|0x8009030c|0x80090311|logon session does not exist|user name or password') {
+        Write-AccessDenied
+        throw ('Windows refused access on ' + $Name + ' for ' + (Get-AccountLabel) + '. ' + (Get-AccessDeniedAdvice $Name) + ' (' + $details + ')')
     }
     throw ('Could not connect to ' + $Name + '. Check that it is on and reachable, and that remote management is allowed: WinRM (run winrm quickconfig on ' + $Name + ') or the Windows Management Instrumentation rules in Windows Firewall. (' + $details + ')')
 }
@@ -275,7 +373,7 @@ function Invoke-Precheck {
         $item = @{ name = [string]$share.name; ok = $true; problems = @(); warnings = @(); files = 0; bytes = 0 }
         $from = ''
         try { $from = Get-ShareSource -Plan $plan -Share $share } catch { $item.problems += $_.Exception.Message }
-        if ($from -and -not (Test-Path -LiteralPath $from)) { $item.problems += ('The old folder ' + $from + ' cannot be reached. Check that you are an administrator on the old server and its administrative shares are enabled.') }
+        if ($from -and -not (Test-Path -LiteralPath $from)) { $item.problems += ('The old folder ' + $from + ' cannot be reached with ' + (Get-AccountLabel) + '. Check that the account is an administrator on the old server (choose it under Connect as and connect again) and that the old server''s administrative shares are enabled.') }
         $dest = [string]$share.destPath
         $drive = $dest.Substring(0, 2).ToUpperInvariant()
         if (-not (Test-Path -LiteralPath ($drive + '\'))) { $item.problems += ('Drive ' + $drive + ' does not exist on this server.') }
@@ -584,11 +682,12 @@ function Invoke-Alias {
 
 try {
     if ($WorkPath -and -not (Test-Path -LiteralPath $WorkPath)) { New-Item -Path $WorkPath -ItemType Directory -Force | Out-Null }
+    Read-SourceCredential
     switch ($Mode) {
         'Discover' { Invoke-Discover }
-        'Precheck' { Invoke-Precheck }
-        'Sync' { Invoke-Sync }
-        'Cutover' { Invoke-Cutover }
+        'Precheck' { Connect-SourceFiles (Read-Plan).source; Invoke-Precheck }
+        'Sync' { Connect-SourceFiles (Read-Plan).source; Invoke-Sync }
+        'Cutover' { Connect-SourceFiles (Read-Plan).source; Invoke-Cutover }
         'SourceReadOnly' { Invoke-SourceReadOnly }
         'SourceRestore' { Invoke-SourceRestore }
         'DfsReport' { Invoke-DfsReport }
@@ -602,3 +701,4 @@ catch {
     Write-MigrateEvent @{ event = 'error'; message = $_.Exception.Message }
     exit 3
 }
+finally { Disconnect-SourceFiles }

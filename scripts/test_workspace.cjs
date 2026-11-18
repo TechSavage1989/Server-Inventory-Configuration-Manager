@@ -23,7 +23,7 @@ function migrateDiscoveryFixture(){return {source:'FS-OLD-07',sourceFqdn:'fs-old
   {name:'Projects',path:'E:\\Data\\Projects',description:'',system:false,remotePath:'\\\\FS-OLD-07\\E$\\Data\\Projects',access:[],warnings:[]},
   {name:'NETLOGON',path:'C:\\Windows\\SYSVOL\\sysvol\\example.com\\SCRIPTS',description:'Logon server share',system:true,remotePath:'\\\\FS-OLD-07\\C$\\Windows\\SYSVOL\\sysvol\\example.com\\SCRIPTS',access:[],warnings:['System share. It is normally re-created by its role.']}],
  localShares:['ADMIN$','C$'],volumes:[{drive:'C:',freeBytes:900e9,sizeBytes:1000e9},{drive:'D:',freeBytes:400e9,sizeBytes:500e9},{drive:'F:',freeBytes:100e9,sizeBytes:200e9}],warnings:[]};}
-function migrateIdle(){return {running:false,action:'',status:'idle',message:'',source:'',discovery:null,plan:[],space:[],prechecked:false,canCopy:false,canCutover:false,dfs:null,alias:null,sourceReadOnly:false,aliasAdded:'',logs:[],workPath:'',cancelRequested:false,startedAtUnixMs:0,endedAtUnixMs:0};}
+function migrateIdle(){return {running:false,action:'',status:'idle',message:'',source:'',discovery:null,plan:[],space:[],prechecked:false,canCopy:false,canCutover:false,dfs:null,alias:null,sourceReadOnly:false,aliasAdded:'',logs:[],workPath:'',cancelRequested:false,startedAtUnixMs:0,endedAtUnixMs:0,account:'',accessDenied:false};}
 async function fixture(browser,old=false){
  let saved=null,started=[],saveCalls=0,rejectStart=false,skipRequests=[],opens=[],restoreReject=null,migrateReject={};
  const logs=[],dialogs=[],errors=[],restoreCalls={browse:0,scan:[],start:[],cancel:0,tokens:[]},migrateCalls=[];
@@ -55,7 +55,7 @@ async function fixture(browser,old=false){
    let body='';for await(const chunk of req)body+=chunk;const data=body?JSON.parse(body):{},action=url.pathname.slice(13);migrateCalls.push({action,body:data,token:req.headers['x-app-token']});
    if(migrateReject[action]){send(400,{error:migrateReject[action]});return;}
    const m=state.migrate;
-   if(action==='discover'){Object.assign(m,{running:true,action:'discover',status:'discovering',message:'Connecting to '+data.source+'.',source:data.source});send(202,{ok:true});return;}
+   if(action==='discover'){Object.assign(m,{running:true,action:'discover',status:'discovering',message:'Connecting to '+data.source+'.',source:data.source,account:data.user||''});send(202,{ok:true});return;}
    if(action==='plan'){m.plan=data.shares.map(s=>({...s,status:'planned',message:'',percent:0,processed:0,expected:0,precheck:null,previouslySynced:false,lastSyncUnixMs:0,createdShare:false,verified:false}));m.prechecked=false;m.canCopy=false;m.canCutover=false;send(200,{ok:true});return;}
    if(action==='precheck'){Object.assign(m,{running:true,action:'precheck',status:'checking'});send(202,{ok:true});return;}
    if(action==='sync'){Object.assign(m,{running:true,action:'sync',status:'copying'});send(202,{ok:true});return;}
@@ -395,6 +395,31 @@ async function check(name,fn){await fn();report.checks.push({name,result:'passed
   await f.page.locator('#migrateOpenLogs').click();await f.page.waitForTimeout(300);assert.deepEqual(f.opens,['migrationlogs']);
   await f.page.locator('#migrateReset').click();await f.page.waitForTimeout(1100);assert.equal(migrateCalls(f,'reset').length,1);assert.equal(await f.page.locator('.migrate-share').count(),0);assert.equal(await f.page.locator('#migrateSource').inputValue(),'');
   assert(f.migrateCalls.every(c=>c.token==='workspace-test'));assert.deepEqual(f.dialogs,[]);
+ }finally{await f.close();}});
+ await check('Migrate Connect as offers another account, sends it only to Connect and asks for it after access is denied',async()=>{const f=await fixture(browser);try{
+  await f.page.keyboard.press('Alt+5');await f.page.locator('#migrateSource').fill('FS-OLD-07');
+  assert(await f.page.locator('#migrateAccountCurrent').isChecked());assert(!await f.page.locator('#migrateAccountFields').isVisible(),'account fields start hidden');
+  await f.page.locator('#migrateConnect').click();await f.page.waitForFunction(()=>document.querySelector('#migrateTabBadge').textContent==='Connecting');
+  assert.deepEqual(migrateCalls(f,'discover').map(c=>c.body),[{source:'FS-OLD-07'}],'this Windows account sends no account');
+  Object.assign(f.state.migrate,{running:false,action:'',status:'discoverfailed',message:'Windows refused access on FS-OLD-07 for this Windows account.',accessDenied:true,endedAtUnixMs:Date.now()});
+  await f.page.waitForFunction(()=>document.querySelector('#migrateAccountOther').checked&&!document.querySelector('#migrateAccountFields').classList.contains('hidden'));
+  assert.equal(await f.page.evaluate(()=>document.activeElement.id),'migrateUser','access denied focuses the user name');
+  assert.equal(await f.page.locator('#migratePassword').getAttribute('type'),'password');assert.equal(await f.page.locator('#migratePassword').getAttribute('autocomplete'),'new-password');
+  await f.page.locator('#migrateConnect').click();assert(/Type the user name of an administrator on FS-OLD-07/.test(await f.page.locator('#migrateConnectStatus').textContent()));
+  await f.page.locator('#migrateUser').fill('EXAMPLE\\admin');await f.page.locator('#migrateConnect').click();assert.equal(await f.page.locator('#migrateConnectStatus').textContent(),'Type the password for EXAMPLE\\admin.');
+  assert.equal(await f.page.evaluate(()=>document.activeElement.id),'migratePassword');assert.equal(migrateCalls(f,'discover').length,1,'nothing sent without a password');
+  await f.page.locator('#migratePassword').fill('Synthetic-Pa55');await f.page.locator('#migratePassword').press('Enter');await f.page.waitForFunction(()=>document.querySelector('#migrateTabBadge').textContent==='Connecting');
+  assert.deepEqual(migrateCalls(f,'discover')[1].body,{source:'FS-OLD-07',user:'EXAMPLE\\admin',password:'Synthetic-Pa55'});assert.equal(await f.page.locator('#migratePassword').inputValue(),'','the password leaves the page after Connect');
+  Object.assign(f.state.migrate,{running:false,action:'',status:'discovered',message:'Found 3 share(s) on FS-OLD-07.',accessDenied:false,discovery:migrateDiscoveryFixture()});
+  await f.page.waitForFunction(()=>document.querySelectorAll('.migrate-share').length===3);
+  assert.equal(await f.page.locator('#migratePassword').getAttribute('placeholder'),'Password (kept for this session)');
+  await f.page.locator('#migrateConnect').click();await f.page.waitForFunction(()=>document.querySelector('#migrateTabBadge').textContent==='Connecting');
+  assert.deepEqual(migrateCalls(f,'discover')[2].body,{source:'FS-OLD-07',user:'EXAMPLE\\admin',password:''},'reconnecting reuses the held password');
+  assert(await f.page.locator('#migrateUser').isDisabled()&&await f.page.locator('#migrateAccountCurrent').isDisabled(),'account inputs lock while busy');
+  Object.assign(f.state.migrate,{running:false,action:'',status:'discovered'});await f.page.waitForTimeout(1100);
+  await f.page.locator('#migrateReset').click();await f.page.waitForTimeout(1100);
+  assert(await f.page.locator('#migrateAccountCurrent').isChecked());assert.equal(await f.page.locator('#migrateUser').inputValue(),'');assert(!await f.page.locator('#migrateAccountFields').isVisible());
+  assert.deepEqual(f.dialogs,[]);
  }finally{await f.close();}});
  await check('Low-resolution windows (800x600 and 1024x768 screens) keep every workspace reachable and legible',async()=>{const f=await fixture(browser);try{
   for(let i=0;i<40;i++)f.logs.push('[INFO] Message '+i);

@@ -1,3 +1,12 @@
+## Unreleased: Migrate Connect as another account — 2026-11-18
+
+User request (screenshot of "Windows refused access on hopper" while running as a local administrator on the new server): offer a credential prompt for the old server. The Connect step now has **Connect as: This Windows account / Another account** with user name and password fields, opened automatically (and focused) when a step reports access denied.
+
+- `src/app/migrate.go`: `/api/migrate/discover` accepts `user`/`password`; `resolveMigrateAccount` validates them (DOMAIN\user, user@domain or user; up to 256 characters; no NUL) and reuses a held password only for the same user and source. The account is passed to the source-touching modes (Discover, Precheck, Sync, Cutover, SourceReadOnly, SourceRestore) as one JSON line on standard input with `-CredentialFromInput`. The state response carries `account` (user name only) and `accessDenied`.
+- `src/app/Migrate-FileShares.ps1`: CIM sessions use `-Credential` (WinRM, then DCOM with packet privacy); Precheck, Sync and Cutover first open an SMB connection to `\\<old>\IPC$` with `WNetAddConnection2` (Add-Type) so Test-Path, Get-Acl and Robocopy use the account, and remove it in the engine's `finally`. An existing connection under another account (1219) is logged as a warning and used. Messages name the account and say what to do.
+- Tests: Go `TestMigrateConnectAsAccountStaysInMemory` (validation, stdin only for source modes, no password in state.json or the state response, Start over clears it); `test_workspace.cjs` Connect as check; `Test-Migration.ps1` creates a synthetic local administrator, enables remote UAC tokens and WinRM TrustedHosts on the disposable runner, discovers and checks through the runner's IP with the account, checks the file connection is removed, checks wrong-password messages for CIM and files, and that no output file contains either password.
+- Limits: a real domain account against a separate old server (the reported case) is not exercised in CI.
+
 ## 3.2.21 published and verified — 2026-11-18
 
 - [Release v3.2.21](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.21) ("Server Inventory and Migration Manager 3.2.21"), tag and target commit `0d2c18c43e7f39d6c46b838b42171bf84a27d80c` (publication PR #46, changing only `release/VERSION`). Source: executive summary TCP/IP and activation #43; Migrate connection (WinRM then DCOM with packet privacy, plain access-denied guidance) and first-start idle grace #45; release preparation #44.

@@ -3,6 +3,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -149,6 +150,12 @@ type migrateRuntime struct {
 	logFile         *os.File
 	startedAt       time.Time
 	endedAt         time.Time
+	// account and password are the optional Connect as account for the old
+	// server. They live only in memory for this source: never in state.json,
+	// the state response (only the user name), logs or a command line.
+	account      string
+	password     string
+	accessDenied bool
 }
 
 type migrateStateResponse struct {
@@ -172,8 +179,12 @@ type migrateStateResponse struct {
 	CancelRequested bool                `json:"cancelRequested"`
 	StartedAtUnixMs int64               `json:"startedAtUnixMs"`
 	EndedAtUnixMs   int64               `json:"endedAtUnixMs"`
+	Account         string              `json:"account"`
+	AccessDenied    bool                `json:"accessDenied"`
 }
 
+// migrateUserPattern accepts user, DOMAIN\user and user@domain.example.
+var migrateUserPattern = regexp.MustCompile(`^(?:[A-Za-z0-9][A-Za-z0-9.\-]{0,62}\\)?[^\\/"\[\]:;|=,+*?<>@\x00-\x1f]{1,104}(?:@[A-Za-z0-9][A-Za-z0-9.\-]{0,252})?$`)
 var migrateSourcePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9.\-]{0,252}$`)
 var migrateShareNamePattern = regexp.MustCompile(`^[^\\/:*?"<>|\[\]+=;,]{1,80}$`)
 var migrateDestPathPattern = regexp.MustCompile(`^[A-Za-z]:\\[^<>"|?*]+$`)
@@ -257,6 +268,8 @@ func (a *application) migrateSnapshotLocked() migrateStateResponse {
 		CancelRequested: a.migrate.cancelRequested && a.migrate.action != "",
 		StartedAtUnixMs: toMillis(a.migrate.startedAt),
 		EndedAtUnixMs:   toMillis(a.migrate.endedAt),
+		Account:         a.migrate.account,
+		AccessDenied:    a.migrate.accessDenied,
 	}
 }
 
@@ -305,6 +318,8 @@ func (a *application) applyMigrateLineLocked(line string) {
 	switch event.Event {
 	case "error":
 		a.migrate.message = event.Message
+	case "accessDenied":
+		a.migrate.accessDenied = true
 	case "progress", "share":
 		for index := range a.migrate.plan {
 			share := &a.migrate.plan[index]
@@ -415,6 +430,7 @@ func (a *application) startMigrateAction(action string) (int, string) {
 	default:
 		a.migrate.action = action
 		a.migrate.cancelRequested = false
+		a.migrate.accessDenied = false
 		a.migrate.startedAt = time.Now()
 		a.migrate.endedAt = time.Time{}
 	}
@@ -463,8 +479,15 @@ func (a *application) runMigrateEngine(mode, source string, plan []byte) (result
 			a.migrate.logFile = file
 		}
 	}
+	input := a.migrateCredentialInputLocked(mode)
 	a.mu.Unlock()
+	if input != nil {
+		arguments = append(arguments, "-CredentialFromInput")
+	}
 	command := exec.Command(a.powerShellPath, arguments...)
+	if input != nil {
+		command.Stdin = bytes.NewReader(input)
+	}
 	waitErr := a.runEngineProcess(command, func(line string) {
 		a.mu.Lock()
 		a.applyMigrateLineLocked(line)
@@ -480,6 +503,44 @@ func (a *application) runMigrateEngine(mode, source string, plan []byte) (result
 	}
 	result, _ = os.ReadFile(resultPath)
 	return stripUTF8BOM(result), exitCode, nil
+}
+
+// migrateSourceModes are the engine modes that reach the old server and so
+// use the Connect as account when one is set.
+var migrateSourceModes = map[string]bool{"Discover": true, "Precheck": true, "Sync": true, "Cutover": true, "SourceReadOnly": true, "SourceRestore": true}
+
+// migrateCredentialInputLocked returns the standard-input line that hands the
+// Connect as account to the engine, or nil to use the application's own
+// account. Caller holds a.mu.
+func (a *application) migrateCredentialInputLocked(mode string) []byte {
+	if !migrateSourceModes[mode] || a.migrate.account == "" || a.migrate.password == "" {
+		return nil
+	}
+	line, err := json.Marshal(map[string]string{"user": a.migrate.account, "password": a.migrate.password})
+	if err != nil {
+		return nil
+	}
+	return append(line, '\n')
+}
+
+// resolveMigrateAccount decides the Connect as account for a Connect request.
+// An empty user name means this Windows account. An empty password keeps the
+// password already held for the same user on the same source.
+func resolveMigrateAccount(current migrateRuntime, source, user, password string) (account, secret string, err error) {
+	user = strings.TrimSpace(user)
+	if user == "" {
+		return "", "", nil
+	}
+	if len(user) > 256 || len(password) > 256 || strings.ContainsRune(password, 0) || !migrateUserPattern.MatchString(user) {
+		return "", "", errors.New("Type the user name as DOMAIN\\user or user@domain, and a password of up to 256 characters.")
+	}
+	if password == "" {
+		if strings.EqualFold(current.source, source) && strings.EqualFold(current.account, user) && current.password != "" {
+			return current.account, current.password, nil
+		}
+		return "", "", fmt.Errorf("Type the password for %s.", user)
+	}
+	return user, password, nil
 }
 
 // finishMigrateAction ends an engine run started with startMigrateAction.
@@ -529,7 +590,9 @@ func (a *application) handleMigrateDiscover(response http.ResponseWriter, reques
 		return
 	}
 	var input struct {
-		Source string `json:"source"`
+		Source   string `json:"source"`
+		User     string `json:"user"`
+		Password string `json:"password"`
 	}
 	if !decodeMigrateRequest(response, request, &input) || !a.requireMigrateAdmin(response) {
 		return
@@ -537,6 +600,14 @@ func (a *application) handleMigrateDiscover(response http.ResponseWriter, reques
 	source := strings.Trim(strings.TrimSpace(input.Source), `\`)
 	if !migrateSourcePattern.MatchString(source) {
 		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "Type the old server's name, for example FS01 or fs01.example.com."})
+		return
+	}
+	a.mu.Lock()
+	account, secret, accountErr := resolveMigrateAccount(a.migrate, source, input.User, input.Password)
+	a.mu.Unlock()
+	input.Password = ""
+	if accountErr != nil {
+		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": accountErr.Error()})
 		return
 	}
 	if status, message := a.startMigrateAction("discover"); status != 0 {
@@ -548,8 +619,12 @@ func (a *application) handleMigrateDiscover(response http.ResponseWriter, reques
 		a.migrate = migrateRuntime{action: "discover", startedAt: time.Now()}
 	}
 	a.migrate.source = source
+	a.migrate.account, a.migrate.password = account, secret
 	a.migrate.status = "discovering"
 	a.migrate.message = "Connecting to " + source + "."
+	if account != "" {
+		a.migrate.message = "Connecting to " + source + " as " + account + "."
+	}
 	a.mu.Unlock()
 	go func() {
 		result, code, err := a.runMigrateEngine("Discover", source, nil)

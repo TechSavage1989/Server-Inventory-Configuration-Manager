@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -148,5 +150,91 @@ func TestCollectionRestoreAndCloseWaitForMigration(t *testing.T) {
 	a.handleRestoreStart(recorder, httptest.NewRequest(http.MethodPost, "/api/restore/start?token=migrate-test", bytes.NewReader(data)))
 	if recorder.Code != http.StatusConflict || !strings.Contains(recorder.Body.String(), "migration") {
 		t.Fatal("restore accepted during a migration step:", recorder.Code, recorder.Body.String())
+	}
+}
+
+func TestMigrateConnectAsAccountStaysInMemory(t *testing.T) {
+	const secret = "Synthetic-Pa55word!"
+	current := migrateRuntime{source: "FS-OLD-07", account: `EXAMPLE\admin`, password: secret}
+	for _, test := range []struct {
+		source, user, password, wantAccount, wantSecret string
+		ok                                              bool
+	}{
+		{"FS-OLD-07", "", "", "", "", true},
+		{"FS-OLD-07", `  EXAMPLE\admin `, "", `EXAMPLE\admin`, secret, true},
+		{"FS-OLD-07", `example\ADMIN`, "", `EXAMPLE\admin`, secret, true},
+		{"FS-OLD-07", "admin@example.test", "new", "admin@example.test", "new", true},
+		{"FS-OLD-07", "Backup Operator", "x", "Backup Operator", "x", true},
+		{"FS-OTHER", `EXAMPLE\admin`, "", "", "", false},
+		{"FS-OLD-07", `EXAMPLE\other`, "", "", "", false},
+		{"FS-OLD-07", `bad"name`, "x", "", "", false},
+		{"FS-OLD-07", "admin\r\nInjected", "x", "", "", false},
+		{"FS-OLD-07", `EXAMPLE\admin`, "a\x00b", "", "", false},
+		{"FS-OLD-07", strings.Repeat("a", 257), "x", "", "", false},
+	} {
+		account, password, err := resolveMigrateAccount(current, test.source, test.user, test.password)
+		if (err == nil) != test.ok || account != test.wantAccount || password != test.wantSecret {
+			t.Fatalf("%q/%q: got %q %q %v", test.source, test.user, account, password, err)
+		}
+		if err != nil && strings.Contains(err.Error(), secret) {
+			t.Fatal("an error message contains the password")
+		}
+	}
+
+	a := &application{token: "migrate-test", computerName: "SRV-DEMO-01", admin: true, shutdown: make(chan struct{})}
+	a.update.appDataRoot = t.TempDir()
+	a.migrate = current
+	a.migrate.plan = []migrateShareState{{Name: "Finance", DestName: "Finance", DestPath: `D:\Shares\Finance`}}
+	for mode, want := range map[string]bool{"Discover": true, "Precheck": true, "Sync": true, "Cutover": true, "SourceReadOnly": true, "SourceRestore": true, "DfsReport": false, "AliasCheck": false, "Alias": false} {
+		input := a.migrateCredentialInputLocked(mode)
+		if (input != nil) != want {
+			t.Fatalf("%s: credential input %v, want %v", mode, input != nil, want)
+		}
+		if input != nil {
+			var line map[string]string
+			if !bytes.HasSuffix(input, []byte("\n")) || json.Unmarshal(input, &line) != nil || line["user"] != `EXAMPLE\admin` || line["password"] != secret || bytes.Count(input, []byte("\n")) != 1 {
+				t.Fatalf("%s: unexpected input line %q", mode, input)
+			}
+		}
+	}
+	a.migrateSaveLocked()
+	saved, err := os.ReadFile(filepath.Join(a.migrateWorkPath("FS-OLD-07"), "state.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot, _ := json.Marshal(a.migrateSnapshotLocked())
+	for name, data := range map[string][]byte{"state.json": saved, "state response": snapshot} {
+		if bytes.Contains(data, []byte(secret)) {
+			t.Fatalf("%s contains the password", name)
+		}
+	}
+	if !bytes.Contains(snapshot, []byte(`"account":"EXAMPLE\\admin"`)) || bytes.Contains(saved, []byte("admin")) {
+		t.Fatalf("the state response names the account and state.json does not: %s / %s", snapshot, saved)
+	}
+	a.applyMigrateLineLocked(migrateEventPrefix + `{"event":"accessDenied","message":""}`)
+	if !a.migrate.accessDenied {
+		t.Fatal("accessDenied event was not recorded")
+	}
+
+	call := func(body map[string]any) (int, string) {
+		data, _ := json.Marshal(body)
+		recorder := httptest.NewRecorder()
+		a.handleMigrateDiscover(recorder, httptest.NewRequest(http.MethodPost, "/?token=migrate-test", bytes.NewReader(data)))
+		return recorder.Code, recorder.Body.String()
+	}
+	if code, text := call(map[string]any{"source": "FS-OTHER", "user": `EXAMPLE\admin`}); code != http.StatusBadRequest || !strings.Contains(text, `password for EXAMPLE\\admin`) {
+		t.Fatal("a held password was reused for another server:", code, text)
+	}
+	if code, text := call(map[string]any{"source": "FS-OLD-07", "user": "bad|name", "password": secret}); code != http.StatusBadRequest || strings.Contains(text, secret) {
+		t.Fatal("an invalid user name was accepted:", code, text)
+	}
+	if a.migrate.action != "" || a.migrate.account != `EXAMPLE\admin` {
+		t.Fatal("a refused Connect changed the migration")
+	}
+	a.migrate.action = ""
+	recorder := httptest.NewRecorder()
+	a.handleMigrateReset(recorder, httptest.NewRequest(http.MethodPost, "/?token=migrate-test", nil))
+	if a.migrate.account != "" || a.migrate.password != "" {
+		t.Fatal("Start over kept the account")
 	}
 }
