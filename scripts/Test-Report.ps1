@@ -34,6 +34,12 @@ $identity=@(
  [pscustomobject]@{Field='Memory';Value='32 GB'},
  [pscustomobject]@{Field='CPU';Value='1 socket, 8 cores'},
  [pscustomobject]@{Field='Version and build';Value='21H2 / 20348'},
+ [pscustomobject]@{Field='Activation status';Value='Licensed (activated) - Windows(R), ServerDatacenter edition'},
+ [pscustomobject]@{Field='IPv4 addresses';Value='192.0.2.21/24 (Ethernet0)'},
+ [pscustomobject]@{Field='IPv6 addresses';Value='None found'},
+ [pscustomobject]@{Field='IP assignment';Value='Static (Ethernet0)'},
+ [pscustomobject]@{Field='Default gateway';Value='192.0.2.1 (Ethernet0)'},
+ [pscustomobject]@{Field='DNS servers';Value='192.0.2.53; 192.0.2.54'},
  [pscustomobject]@{Field='Last boot';Value='2026-10-19 04:15'}
 )
 Add-ReportTable -Title 'Server identity and baseline' -Rows $identity -Columns @('Field','Value')

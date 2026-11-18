@@ -2,7 +2,7 @@
   "schema_version": 1,
   "compared_revision": "81e2a0e5a598df6e8edd7bb533e2f02b915a9c7b",
   "compared_release": "v3.2.10",
-  "approval": "Previously approved startup cyclic-table handling and bounded ACL export, plus user-requested final-report performance improvements, preservation of actual collection values in CSV-backed reports, and the user-approved (2026-11-12) printer migration export fix so PrintBRM backs up the local spooler and a missing export is reported. No unrelated collector behavior changes authorized.",
+  "approval": "Previously approved startup cyclic-table handling and bounded ACL export, plus user-requested final-report performance improvements, preservation of actual collection values in CSV-backed reports, and the user-approved (2026-11-12) printer migration export fix so PrintBRM backs up the local spooler and a missing export is reported.; and the user-requested (2026-11-18) executive summary TCP/IP and activation status facts. No unrelated collector behavior changes authorized.",
   "normalization": "Standalone scriptVersion normalized to3.0.0; separately pinned HTML renderer restored to original before region comparison.",
   "files": {
     "Export-ServerInventory.ps1": {
@@ -98,6 +98,26 @@
           "after_length": 299,
           "after_sha256": "9af9212d124385dee25fcb702000fb1b86fa143a00eb7880acefd93d0bad0949",
           "reason": "Bounded recursive ACL export progress, ownership, control or incomplete-result propagation"
+        },
+        {
+          "before_start": 143188,
+          "before_end": 143188,
+          "before_start_line_normalized": 2735,
+          "before_end_line_normalized": 2734,
+          "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "after_length": 4008,
+          "after_sha256": "b37da9a913127771c1e59fbea4c46173d9c36a5b983a511fc0a4ec802ad142f2",
+          "reason": "Executive summary profile TCP/IP and activation facts (user-requested 2026-11-18): derive values from data this collection already saved"
+        },
+        {
+          "before_start": 144175,
+          "before_end": 144175,
+          "before_start_line_normalized": 2750,
+          "before_end_line_normalized": 2749,
+          "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "after_length": 784,
+          "after_sha256": "df23812ae5b17f6681df1a3cecca11edb32d6f9460527d75676860f1a278899e",
+          "reason": "Executive summary profile TCP/IP and activation rows in the server identity table (user-requested 2026-11-18)"
         },
         {
           "before_start": 175090,
@@ -204,6 +224,6 @@
   },
   "reviewed_diff": {
     "path": "docs/verification/collector-approved-changes.diff",
-    "sha256": "8cf83cca79c19f4431f9b77d2b838c819faf3ee6edb256eb231553237ce73d64"
+    "sha256": "f30e4f09f23abff3481672b5c0de2748373fae8231421780f77b9505f4a1bd59"
   }
 }

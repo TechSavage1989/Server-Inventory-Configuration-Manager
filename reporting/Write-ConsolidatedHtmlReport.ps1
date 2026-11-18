@@ -82,14 +82,14 @@ function Write-ConsolidatedHtmlReport {
         # Derived summary views. Interactive labels are button text so report
         # search, the viewer search and Copy section keep to the source data.
         [void]$builder.AppendLine('<div class="overview-grid"><div class="overview-card profile-card"><div class="card-label">Server profile</div><div class="facts">')
-        foreach ($name in @('Operating system','Domain or workgroup','Physical or virtual','Collected')) {
+        foreach ($name in @('Operating system','Activation status','Domain or workgroup','Physical or virtual','IPv4 addresses','Default gateway','DNS servers','Collected')) {
             $value = [string]$identity[$name]
             if ([string]::IsNullOrWhiteSpace($value)) { $value = 'Not collected' }
             [void]$builder.AppendLine('<div><span class="fact-label">' + (ConvertTo-HtmlText $name) + '</span><span class="fact-value">' + (ConvertTo-HtmlText $value) + '</span></div>')
         }
-        foreach ($name in @('FQDN','Version and build','CPU','Memory','Last boot')) {
+        foreach ($name in @('FQDN','Version and build','IP assignment','IPv6 addresses','CPU','Memory','Last boot')) {
             $value = [string]$identity[$name]
-            if (-not [string]::IsNullOrWhiteSpace($value)) {
+            if (-not [string]::IsNullOrWhiteSpace($value) -and $value -ne 'None found' -and $value -ne 'Not collected') {
                 [void]$builder.AppendLine('<div class="fact-extra"><span class="fact-label">' + (ConvertTo-HtmlText $name) + '</span><span class="fact-value">' + (ConvertTo-HtmlText $value) + '</span></div>')
             }
         }

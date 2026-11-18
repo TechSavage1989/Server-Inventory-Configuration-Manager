@@ -61,4 +61,55 @@ foreach($value in @('192.0.2.10; 2001:db8::10','192.0.2.10; 198.51.100.5','2001:
  if(-not $xml.Contains($value)){throw "DOCX missing $value"}
 }
 [ordered]@{status='passed';data='Synthetic only';checks=@('Real CSV negative control','DNS arrays and generic lists','Scalar formatting and schema parity','Explicit nesting/cycle/long-list limits','Unmodified full CLIXML and input','CSV-to-report values','HTML and DOCX actual values');limitations=@('Run on current PowerShell runtime; Windows PowerShell CI still required.')}|ConvertTo-Json -Depth 5|Set-Content -LiteralPath (Join-Path $OutputDirectory 'results.json') -Encoding UTF8
+
+# Executive summary TCP/IP and activation facts: run the collector's own
+# approved block against synthetic saved exports.
+$collectorText=[IO.File]::ReadAllText((Join-Path $root 'src/app/Export-ServerInventory.ps1'))
+$profileStart=$collectorText.IndexOf('    # BEGIN APPROVED PROFILE NETWORK AND ACTIVATION')
+$profileEnd=$collectorText.IndexOf('    # END APPROVED PROFILE NETWORK AND ACTIVATION',$profileStart)
+if($profileStart -lt 0 -or $profileEnd -lt 0){throw 'Profile network and activation block not found'}
+$profileBlock=[scriptblock]::Create($collectorText.Substring($profileStart,$profileEnd-$profileStart))
+$paths=@{System=(Join-Path $OutputDirectory 'profile-system')};New-Item -ItemType Directory -Path $paths.System -Force|Out-Null
+function Test-Profile($Addresses,$Routes,$Dns,$Interfaces,$Activation){
+ Remove-Item -Path (Join-Path $paths.System 'Windows-Activation-Metadata.*') -ErrorAction SilentlyContinue
+ if($null -ne $Activation){Save-ObjectData -InputObject $Activation -BasePath (Join-Path $paths.System 'Windows-Activation-Metadata')}
+ $script:ipAddresses=@($Addresses);$script:routes=@($Routes);$script:dnsClients=@($Dns);$script:ipInterfaces=@($Interfaces)
+ $ipAddresses=$script:ipAddresses;$routes=$script:routes;$dnsClients=$script:dnsClients;$ipInterfaces=$script:ipInterfaces
+ . $profileBlock
+ [ordered]@{Activation=(& $profileText $profileActivation $activationEmpty);IPv4=(& $profileText $profileIPv4 'None found');IPv6=(& $profileText $profileIPv6 'None found');Assignment=(& $profileText $profileAssignment 'Not collected');Gateway=(& $profileText $profileGateways 'None found');Dns=(& $profileText $profileDns 'None found')}
+}
+$modern=Test-Profile -Addresses @(
+ [pscustomobject]@{IPAddress='192.0.2.10';PrefixLength='24';InterfaceAlias='Ethernet0';AddressFamily='IPv4'},
+ [pscustomobject]@{IPAddress='127.0.0.1';PrefixLength='8';InterfaceAlias='Loopback Pseudo-Interface 1';AddressFamily='IPv4'},
+ [pscustomobject]@{IPAddress='169.254.10.1';PrefixLength='16';InterfaceAlias='Ethernet1';AddressFamily='IPv4'},
+ [pscustomobject]@{IPAddress='fe80::1%5';PrefixLength='64';InterfaceAlias='Ethernet0';AddressFamily='IPv6'},
+ [pscustomobject]@{IPAddress='2001:db8::10';PrefixLength='64';InterfaceAlias='Ethernet0';AddressFamily='IPv6'}
+) -Routes @(
+ [pscustomobject]@{DestinationPrefix='0.0.0.0/0';NextHop='192.0.2.1';InterfaceAlias='Ethernet0'},
+ [pscustomobject]@{DestinationPrefix='192.0.2.0/24';NextHop='0.0.0.0';InterfaceAlias='Ethernet0'},
+ [pscustomobject]@{DestinationPrefix='::/0';NextHop='::';InterfaceAlias='Ethernet0'}
+) -Dns @(
+ [pscustomobject]@{InterfaceAlias='Ethernet0';AddressFamily='IPv4';ServerAddresses='192.0.2.53; 192.0.2.54'},
+ [pscustomobject]@{InterfaceAlias='Ethernet0';AddressFamily='IPv6';ServerAddresses='2001:db8::53'},
+ [pscustomobject]@{InterfaceAlias='Loopback Pseudo-Interface 1';AddressFamily='IPv4';ServerAddresses='127.0.0.1'}
+) -Interfaces @(
+ [pscustomobject]@{InterfaceAlias='Ethernet0';AddressFamily='IPv4';Dhcp='Disabled'},
+ [pscustomobject]@{InterfaceAlias='Loopback Pseudo-Interface 1';AddressFamily='IPv4';Dhcp='Disabled'}
+) -Activation @([pscustomobject]@{Name='Windows(R), ServerStandard edition';Description='Windows(R) Operating System, VOLUME_KMSCLIENT channel';LicenseStatus=1;GracePeriodRemaining=259200;PartialProductKey='XXXXX'})
+Assert-Equal $modern.IPv4 '192.0.2.10/24 (Ethernet0)' 'Profile IPv4 skips loopback and APIPA'
+Assert-Equal $modern.IPv6 '2001:db8::10/64 (Ethernet0)' 'Profile IPv6 skips link-local'
+Assert-Equal $modern.Gateway '192.0.2.1 (Ethernet0)' 'Profile default gateway skips on-link and empty IPv6 routes'
+Assert-Equal $modern.Dns '192.0.2.53; 192.0.2.54' 'Profile DNS servers for addressed IPv4 interfaces'
+Assert-Equal $modern.Assignment 'Static (Ethernet0)' 'Profile IP assignment'
+Assert-Equal $modern.Activation 'Licensed (activated) - Windows(R), ServerStandard edition' 'Profile activation licensed'
+$legacy=Test-Profile -Addresses @([pscustomobject]@{IPAddress='192.0.2.20';PrefixLength='';InterfaceAlias='Intel(R) PRO/1000';AddressFamily='IPv4'}) -Routes @([pscustomobject]@{DestinationPrefix='0.0.0.0 mask 0.0.0.0';NextHop='192.0.2.1';InterfaceAlias='11'}) -Dns @() -Interfaces @([pscustomobject]@{InterfaceAlias='Intel(R) PRO/1000';AddressFamily='IPv4';Dhcp='True'}) -Activation @([pscustomobject]@{Name='Windows(R), ServerDatacenter edition';LicenseStatus=2;GracePeriodRemaining=43200})
+Assert-Equal $legacy.IPv4 '192.0.2.20 (Intel(R) PRO/1000)' 'Profile IPv4 from the legacy WMI collector'
+Assert-Equal $legacy.Gateway '192.0.2.1 (11)' 'Profile gateway from the legacy WMI route table'
+Assert-Equal $legacy.Assignment 'DHCP (Intel(R) PRO/1000)' 'Profile DHCP from the legacy WMI collector'
+Assert-Equal $legacy.Dns 'None found' 'Profile DNS without data'
+Assert-Equal $legacy.Activation 'Initial grace period, 30 day(s) left - Windows(R), ServerDatacenter edition' 'Profile activation grace period'
+$none=Test-Profile -Addresses @() -Routes @() -Dns @() -Interfaces @() -Activation $null
+Assert-Equal $none.Activation 'Not collected' 'Profile activation when the activation collector did not run'
+Assert-Equal $none.IPv4 'None found' 'Profile IPv4 without data'
+Write-Host 'PASS: executive summary TCP/IP and activation facts from saved exports'
 Write-Host 'PASS: array-valued CSV, HTML, Word and raw CLIXML regression'

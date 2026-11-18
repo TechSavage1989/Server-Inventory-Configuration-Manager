@@ -134,6 +134,17 @@ async function newContext(options={}){
   await page.evaluate(()=>{const c=document.querySelector('.report-content'),t=document.querySelector('[data-title="Copy edge cases"]');c.style.scrollBehavior='auto';c.scrollTop+=t.getBoundingClientRect().top-c.getBoundingClientRect().top-8;});
   await page.waitForTimeout(150);assert.equal(await page.locator('.nav-group.active .subsection-nav-button.active').textContent(),'Copy edge cases');
  });
+ await check('Server profile shows activation status and TCP/IP facts, hiding empty extras',async()=>{
+  const facts=await page.locator('.profile-card .facts > div').evaluateAll(rows=>rows.map(r=>[r.querySelector('.fact-label').textContent,r.querySelector('.fact-value').textContent]));
+  const map=Object.fromEntries(facts);
+  assert.equal(map['Activation status'],'Licensed (activated) - Windows(R), ServerDatacenter edition');
+  assert.equal(map['IPv4 addresses'],'192.0.2.21/24 (Ethernet0)');
+  assert.equal(map['Default gateway'],'192.0.2.1 (Ethernet0)');
+  assert.equal(map['DNS servers'],'192.0.2.53; 192.0.2.54');
+  assert.equal(map['IP assignment'],'Static (Ethernet0)');
+  assert(!('IPv6 addresses' in map),'IPv6 "None found" stays out of the profile');
+  assert.deepEqual(facts.slice(0,4).map(f=>f[0]),['Operating system','Activation status','Domain or workgroup','Physical or virtual']);
+ });
  await check('Name/value and single-record tables read as property sheets without changing table data',async()=>{
   assert(await page.locator('[data-title="Server identity and baseline"] table').evaluate(t=>t.classList.contains('kv-table')));
   assert(await page.locator('[data-title="Operating system settings"] table').evaluate(t=>t.classList.contains('kv-table')));

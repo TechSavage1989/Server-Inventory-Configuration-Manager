@@ -1935,14 +1935,14 @@ function Write-ConsolidatedHtmlReport {
         # Derived summary views. Interactive labels are button text so report
         # search, the viewer search and Copy section keep to the source data.
         [void]$builder.AppendLine('<div class="overview-grid"><div class="overview-card profile-card"><div class="card-label">Server profile</div><div class="facts">')
-        foreach ($name in @('Operating system','Domain or workgroup','Physical or virtual','Collected')) {
+        foreach ($name in @('Operating system','Activation status','Domain or workgroup','Physical or virtual','IPv4 addresses','Default gateway','DNS servers','Collected')) {
             $value = [string]$identity[$name]
             if ([string]::IsNullOrWhiteSpace($value)) { $value = 'Not collected' }
             [void]$builder.AppendLine('<div><span class="fact-label">' + (ConvertTo-HtmlText $name) + '</span><span class="fact-value">' + (ConvertTo-HtmlText $value) + '</span></div>')
         }
-        foreach ($name in @('FQDN','Version and build','CPU','Memory','Last boot')) {
+        foreach ($name in @('FQDN','Version and build','IP assignment','IPv6 addresses','CPU','Memory','Last boot')) {
             $value = [string]$identity[$name]
-            if (-not [string]::IsNullOrWhiteSpace($value)) {
+            if (-not [string]::IsNullOrWhiteSpace($value) -and $value -ne 'None found' -and $value -ne 'Not collected') {
                 [void]$builder.AppendLine('<div class="fact-extra"><span class="fact-label">' + (ConvertTo-HtmlText $name) + '</span><span class="fact-value">' + (ConvertTo-HtmlText $value) + '</span></div>')
             }
         }
@@ -3907,6 +3907,64 @@ function New-ConsolidatedServerReport {
         }
     }
 
+    # BEGIN APPROVED PROFILE NETWORK AND ACTIVATION
+    # Executive summary TCP/IP and activation facts, derived only from data
+    # this collection already saved. Each value says plainly when nothing was
+    # found or collected.
+    $profileText = {
+        param($Items, [string]$Empty)
+        $list = @($Items | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) } | Select-Object -Unique)
+        if ($list.Count -eq 0) { return $Empty }
+        if ($list.Count -gt 6) { return (($list[0..5] -join '; ') + ('; and {0} more' -f ($list.Count - 6))) }
+        return ($list -join '; ')
+    }
+    $profileIsIPv4 = { param($Family) [string]$Family -eq 'IPv4' -or [string]$Family -eq '2' }
+    $profileIPv4 = @(); $profileIPv6 = @(); $profileAliases = @{}
+    foreach ($address in $ipAddresses) {
+        $ip = [string]$address.IPAddress
+        if ([string]::IsNullOrWhiteSpace($ip) -or $ip -match '^(127\.|169\.254\.|::1$|fe80:)') { continue }
+        $text = $ip
+        if (-not [string]::IsNullOrWhiteSpace([string]$address.PrefixLength)) { $text += '/' + [string]$address.PrefixLength }
+        if (-not [string]::IsNullOrWhiteSpace([string]$address.InterfaceAlias)) { $text += ' (' + [string]$address.InterfaceAlias + ')' }
+        if ((& $profileIsIPv4 $address.AddressFamily) -or ($ip -notmatch ':')) { $profileIPv4 += $text; $profileAliases[[string]$address.InterfaceAlias] = $true }
+        else { $profileIPv6 += $text }
+    }
+    $profileGateways = @(foreach ($route in $routes) {
+        $prefix = [string]$route.DestinationPrefix
+        $hop = [string]$route.NextHop
+        if (($prefix -eq '0.0.0.0/0' -or $prefix -eq '::/0' -or $prefix -eq '0.0.0.0 mask 0.0.0.0') -and $hop -and $hop -ne '0.0.0.0' -and $hop -ne '::') {
+            $text = $hop
+            if (-not [string]::IsNullOrWhiteSpace([string]$route.InterfaceAlias)) { $text += ' (' + [string]$route.InterfaceAlias + ')' }
+            $text
+        }
+    })
+    $profileDns = @(foreach ($client in $dnsClients) {
+        if (-not (& $profileIsIPv4 $client.AddressFamily)) { continue }
+        if ($profileAliases.Count -and -not $profileAliases.ContainsKey([string]$client.InterfaceAlias)) { continue }
+        foreach ($server in ([string]$client.ServerAddresses -split '[;,\s{}]+')) { if ($server) { $server } }
+    })
+    $profileAssignment = @(foreach ($interface in $ipInterfaces) {
+        if (-not (& $profileIsIPv4 $interface.AddressFamily) -or -not $profileAliases.ContainsKey([string]$interface.InterfaceAlias)) { continue }
+        $dhcp = [string]$interface.Dhcp
+        if ($dhcp -eq 'Enabled' -or $dhcp -eq 'True' -or $dhcp -eq '1') { 'DHCP (' + [string]$interface.InterfaceAlias + ')' }
+        elseif ($dhcp) { 'Static (' + [string]$interface.InterfaceAlias + ')' }
+    })
+    $activationNames = @{ '0' = 'Unlicensed'; '1' = 'Licensed (activated)'; '2' = 'Initial grace period'; '3' = 'Additional grace period'; '4' = 'Non-genuine grace period'; '5' = 'Notification (not activated)'; '6' = 'Extended grace period' }
+    $activationPath = Join-Path $paths.System 'Windows-Activation-Metadata'
+    $profileActivation = @(foreach ($license in @(Get-ReportData -BasePath $activationPath)) {
+        $code = ([string]$license.LicenseStatus).Trim()
+        $state = [string]$activationNames[$code]
+        if (-not $state) { $state = 'Unknown status ' + $code }
+        $minutes = 0
+        [void][int]::TryParse(([string]$license.GracePeriodRemaining).Trim(), [ref]$minutes)
+        if ($code -ne '1' -and $minutes -gt 0) { $state += (', {0} day(s) left' -f [Math]::Floor($minutes / 1440)) }
+        if (-not [string]::IsNullOrWhiteSpace([string]$license.Name)) { $state += ' - ' + [string]$license.Name }
+        $state
+    })
+    $activationEmpty = 'Not collected'
+    if ((Test-Path -LiteralPath ($activationPath + '.csv')) -or (Test-Path -LiteralPath ($activationPath + '.clixml'))) { $activationEmpty = 'No Windows license with a product key found' }
+    # END APPROVED PROFILE NETWORK AND ACTIVATION
+
     $platformType = 'Physical server or undetermined'
     if ($summary.IsVirtualMachine) {
         $platformType = 'Virtual machine'
@@ -3922,6 +3980,14 @@ function New-ConsolidatedServerReport {
         [pscustomobject]@{ Field = 'Serial number'; Value = $summary.SerialNumber },
         [pscustomobject]@{ Field = 'Operating system'; Value = $summary.OperatingSystem },
         [pscustomobject]@{ Field = 'Version and build'; Value = (($summary.Version, $summary.BuildNumber) -join ' / ') },
+        # BEGIN APPROVED PROFILE NETWORK AND ACTIVATION ROWS
+        [pscustomobject]@{ Field = 'Activation status'; Value = (& $profileText $profileActivation $activationEmpty) },
+        [pscustomobject]@{ Field = 'IPv4 addresses'; Value = (& $profileText $profileIPv4 'None found') },
+        [pscustomobject]@{ Field = 'IPv6 addresses'; Value = (& $profileText $profileIPv6 'None found') },
+        [pscustomobject]@{ Field = 'IP assignment'; Value = (& $profileText $profileAssignment 'Not collected') },
+        [pscustomobject]@{ Field = 'Default gateway'; Value = (& $profileText $profileGateways 'None found') },
+        [pscustomobject]@{ Field = 'DNS servers'; Value = (& $profileText $profileDns 'None found') },
+        # END APPROVED PROFILE NETWORK AND ACTIVATION ROWS
         [pscustomobject]@{ Field = 'Windows PowerShell'; Value = $summary.PowerShellVersion },
         [pscustomobject]@{ Field = 'Collector compatibility'; Value = $summary.CompatibilityMode },
         [pscustomobject]@{ Field = 'Architecture'; Value = $summary.OSArchitecture },
