@@ -1,3 +1,7 @@
+## 3.2.21 release preparation — 2026-11-18
+
+Publishing the executive summary TCP/IP and activation profile (#43) and the Migrate connection and first-start grace fixes (#45) under the owner's standing approval (AGENTS rule 16). This branch bumps `appVersion`, `collectorVersion` and the collector `$scriptVersion` to 3.2.21, adds `docs/release-notes/3.2.21.md` (first three bullets free of Markdown) and points `scripts/test_published_upgrade.cjs` at the published v3.2.20 executable (SHA-256 `ebb1030eb09325bb9210c7a569c865909dae58414ed53f922cbd51d0a10bcb7d`, release asset digest). `release/VERSION` changes in a separate publication PR after this source CI passes. `Report-Preview.png` changes with this release, so refresh `docs/images/report-executive-summary.png` from it afterwards.
+
 ## Unreleased: TCP/IP and activation in the executive summary profile — 2026-11-18
 
 User request: include TCP/IP information and activation status in the executive summary server profile. The collector's "Server identity and baseline" table (HTML, Word and text) gains Activation status, IPv4 addresses, IPv6 addresses, IP assignment, Default gateway and DNS servers, derived only from data the collection already saves (IP-Addresses, Routes, DNS-Client-Server-Addresses, IP-Interfaces, Windows-Activation-Metadata; legacy WMI fallbacks included). Loopback, APIPA and link-local addresses are left out. The HTML profile card shows activation, IPv4, gateway and DNS with the other headline facts, and IP assignment and IPv6 only when present.
