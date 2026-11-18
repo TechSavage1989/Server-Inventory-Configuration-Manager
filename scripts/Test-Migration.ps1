@@ -67,6 +67,13 @@ Assert (@($discover.result.shares | Where-Object { $_.name -match '\$$' -and $_.
 Assert ($share.folderEnumerationMode -eq 'AccessBased' -and $share.cachingMode -eq 'None' -and $share.description -eq 'Synthetic finance share') 'Discover reads the share settings'
 Assert (@($share.access).Count -eq 4 -and @($share.access | Where-Object { $_.type -eq 'Deny' -and $_.account -match 'Guests' }).Count -eq 1) 'Discover reads the share permissions, including a deny'
 Assert ($discover.result.sameServer -and $discover.result.isAdministrator) 'Discover reports this server and administrator rights'
+# The same server through its network address takes the remote path: a
+# WinRM or packet-privacy DCOM session and admin-share folder paths.
+$address = @(Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.IPAddress -notmatch '^(127\.|169\.254\.)' } | Select-Object -First 1)[0].IPAddress
+$remote = Invoke-Engine 'Discover' @{ Source = $address } 'discover-remote'
+$remoteShare = @($remote.result.shares | Where-Object { $_.name -eq $oldName })[0]
+Assert ($remote.code -eq 0 -and -not $remote.result.sameServer -and $remote.log -match 'Connected to .* over (WinRM|DCOM)') ('Discover through the network address uses a remote management session: ' + (($remote.log -split "`n" | Where-Object { $_ -match 'Connected to|ERROR' }) -join ' '))
+Assert ([bool]$remoteShare -and $remoteShare.remotePath -eq ('\\' + $address + '\C$\SICM-Migration\Old\Finance') -and @($remoteShare.access).Count -eq 4) 'Remote discovery reads the share, its admin-share path and its permissions'
 $missing = Invoke-Engine 'Discover' @{ Source = 'sicm-no-such-server.invalid' } 'discover-missing'
 Assert ($missing.code -ne 0 -and $missing.log -match 'could not be found') 'An unknown server name is reported plainly'
 

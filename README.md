@@ -136,7 +136,7 @@ Device drivers other than print drivers, Active Directory, SQL Server, RRAS, AD 
 
 ## Move file shares to a new server
 
-The **Migrate** tab (Alt+5) moves file shares from an old server to the server you run the application on. Run it as administrator on the **new** server, with administrator rights on the old one too.
+The **Migrate** tab (Alt+5) moves file shares from an old server to the server you run the application on. Run it as administrator on the **new** server, signed in with an account that is also an administrator on the old one, normally a domain account. A local account with the same name and password is not enough, because Windows removes administrator rights from local accounts over the network. The old server must allow remote management: WinRM (on by default since Windows Server 2012) or the Windows Management Instrumentation firewall rules.
 
 1. **Connect:** type the old server's name. Every share except administrative shares (C$, ADMIN$, IPC$) is listed with its folder and permissions. System shares such as NETLOGON or print$ are shown but not ticked.
 2. **Choose shares:** tick the shares to move and choose the new folder and share name for each (defaults: `D:\Shares\<name>` on the drive with the most free space, same share name). **Check plan** measures each share and checks that the old folder can be read, the new folder is empty, there is enough free space, and which permissions name accounts that won't exist here.
