@@ -1,3 +1,12 @@
+## 3.2.22 published and verified — 2026-11-18
+
+- [Release v3.2.22](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.22) ("Server Inventory and Migration Manager 3.2.22"), tag and target commit `4335ac5736a2bd0f659994d9d116a47f748f4dba` (publication PR #50, changing only `release/VERSION`). Source: Migrate Connect as another account #48; release preparation #49.
+- [Publish run](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/44362051361) passed in one attempt: publish job 17:44–17:51 UTC, published-upgrade job 17:51–18:00 UTC.
+- All 45 actual 3.2.21-to-3.2.22 upgrade checks passed in one run with zero unexpected dialogs. Source CI on #48 and #49 passed windows, restore and migration; the migration round trip (46 checks) connected with a synthetic local administrator over WinRM and SMB, removed the file connection afterwards, reported wrong passwords for CIM and files, and found no password in any output file.
+- Stable EXE: 7,700,992 bytes; SHA-256 `096a72f879d8173560a5b03b74e6d9568f6ff832f5a4d9237c65c0319cf2112b` (release asset digest). All 12 assets are published; the v3.2.21 release still has its 12 assets and the same EXE digest. `Report-Preview.png` is unchanged from 3.2.21, so `docs/images/report-executive-summary.png` is unchanged.
+
+Limits: synthetic hosted Windows Server 2025 testing with the runner as both servers; a domain account against a separate old server (the reported case), Windows Server 2012/2012 R2 and a company-managed PC were not exercised. CI artifacts were not downloaded; the job logs above are the evidence. No client data was uploaded.
+
 ## 3.2.22 release preparation — 2026-11-18
 
 Publishing Migrate Connect as another account (#48) under the owner's standing approval (AGENTS rule 16). This branch bumps `appVersion`, `collectorVersion` and the collector `$scriptVersion` to 3.2.22, adds `docs/release-notes/3.2.22.md` (first three bullets free of Markdown) and points `scripts/test_published_upgrade.cjs` at the published v3.2.21 executable (SHA-256 `ffbfe9e4e5cd688724dd359a307a525ea0b4e91284fc883839eee3c3cc29b03c`, release asset digest). `release/VERSION` changes in a separate publication PR after this source CI passes. `Report-Preview.png` should be unchanged.
