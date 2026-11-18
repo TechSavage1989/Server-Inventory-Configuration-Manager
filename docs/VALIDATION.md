@@ -1,3 +1,12 @@
+## 3.2.21 published and verified — 2026-11-18
+
+- [Release v3.2.21](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.21) ("Server Inventory and Migration Manager 3.2.21"), tag and target commit `0d2c18c43e7f39d6c46b838b42171bf84a27d80c` (publication PR #46, changing only `release/VERSION`). Source: executive summary TCP/IP and activation #43; Migrate connection (WinRM then DCOM with packet privacy, plain access-denied guidance) and first-start idle grace #45; release preparation #44.
+- [Publish run](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/44349538962) passed in one attempt: publish job 16:38–16:44 UTC, published-upgrade job 16:44–16:53 UTC.
+- All 45 actual 3.2.20-to-3.2.21 upgrade checks passed in one run with zero unexpected dialogs. Source CI on #45 and #44 passed windows, restore and migration; the migration round trip (38 checks) now includes discovery through the runner's network address, which connected over DCOM, and the WebView2 built-in window test passed on runtime 157 with the startup grace.
+- Stable EXE: 7,686,656 bytes; SHA-256 `ffbfe9e4e5cd688724dd359a307a525ea0b4e91284fc883839eee3c3cc29b03c` (release asset digest). All 12 assets are published; the v3.2.20 release still has its 12 assets and the same EXE digest. `Report-Preview.png` (SHA-256 `19b5d809a70c6fe68c10219a2c10fd3a9462c119dcf7653364164fd886724085`) changed, and `docs/images/report-executive-summary.png` is refreshed from it.
+
+Limits: synthetic hosted Windows Server 2025 testing; a live collection on Windows Server 2012/2012 R2, migration between two separate domain servers (the reported access-denied case) and a company-managed PC were not exercised. CI artifacts were not downloaded; the job logs above are the evidence. No client data was uploaded.
+
 ## 3.2.20 published and verified — 2026-11-12
 
 - [Release v3.2.20](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.20) ("Server Inventory and Migration Manager 3.2.20"), tag and target commit `99ba2fa723876bd24e0e9055095385f33a2cd109` (publication PR #41, changing only `release/VERSION`). Source: rename #37; file server migration #38; release preparation #40.
