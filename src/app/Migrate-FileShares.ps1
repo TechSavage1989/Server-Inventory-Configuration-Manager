@@ -66,7 +66,8 @@ function New-SourceCimSession {
         $session = $null
         try {
             if ($protocol -eq 'WinRM') { $session = New-CimSession -ComputerName $Name -ErrorAction Stop }
-            else { $session = New-CimSession -ComputerName $Name -SessionOption (New-CimSessionOption -Protocol Dcom -PacketPrivacy -Impersonation Impersonate) -ErrorAction Stop }
+            # The DCOM parameter set: -PacketPrivacy cannot be combined with -Protocol.
+            else { $session = New-CimSession -ComputerName $Name -SessionOption (New-CimSessionOption -PacketPrivacy -Impersonation Impersonate) -ErrorAction Stop }
             [void](Get-CimInstance -CimSession $session -ClassName Win32_OperatingSystem -ErrorAction Stop)
             Write-Log 'INFO' ('Connected to ' + $Name + ' over ' + $protocol + '.')
             return $session
