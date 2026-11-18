@@ -131,7 +131,7 @@ public static class SicmSourceConnection {
         Write-Log 'INFO' ('Opened a file connection to ' + $Name + ' as ' + $script:SourceAccount + '.')
         return
     }
-    $reason = (New-Object System.ComponentModel.Win32Exception($code)).Message
+    $reason = ([string](New-Object System.ComponentModel.Win32Exception($code)).Message).Trim().TrimEnd('.') + '.'
     if ($code -eq 1219) {
         Write-Log 'WARN' ('Windows already has a file connection to ' + $Name + ' under another account, so it is used instead of ' + $script:SourceAccount + '. To use ' + $script:SourceAccount + ', close File Explorer windows and mapped drives that use ' + $Name + ' (net use lists them) and run this step again.')
         return
