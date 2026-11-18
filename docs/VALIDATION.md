@@ -1,3 +1,12 @@
+## 3.2.22 published and verified — 2026-11-18
+
+- [Release v3.2.22](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.22) ("Server Inventory and Migration Manager 3.2.22"), tag and target commit `4335ac5736a2bd0f659994d9d116a47f748f4dba` (publication PR #50, changing only `release/VERSION`). Source: Migrate Connect as another account #48; release preparation #49.
+- [Publish run](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/44362051361) passed in one attempt: publish job 17:44–17:51 UTC, published-upgrade job 17:51–18:00 UTC.
+- All 45 actual 3.2.21-to-3.2.22 upgrade checks passed in one run with zero unexpected dialogs. Source CI on #48 and #49 passed windows, restore and migration; the migration round trip (46 checks) connected with a synthetic local administrator over WinRM and SMB, removed the file connection afterwards, reported wrong passwords for CIM and files, and found no password in any output file.
+- Stable EXE: 7,700,992 bytes; SHA-256 `096a72f879d8173560a5b03b74e6d9568f6ff832f5a4d9237c65c0319cf2112b` (release asset digest). All 12 assets are published; the v3.2.21 release still has its 12 assets and the same EXE digest. `Report-Preview.png` is unchanged from 3.2.21, so `docs/images/report-executive-summary.png` is unchanged.
+
+Limits: synthetic hosted Windows Server 2025 testing with the runner as both servers; a domain account against a separate old server (the reported case), Windows Server 2012/2012 R2 and a company-managed PC were not exercised. CI artifacts were not downloaded; the job logs above are the evidence. No client data was uploaded.
+
 ## 3.2.21 published and verified — 2026-11-18
 
 - [Release v3.2.21](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.21) ("Server Inventory and Migration Manager 3.2.21"), tag and target commit `0d2c18c43e7f39d6c46b838b42171bf84a27d80c` (publication PR #46, changing only `release/VERSION`). Source: executive summary TCP/IP and activation #43; Migrate connection (WinRM then DCOM with packet privacy, plain access-denied guidance) and first-start idle grace #45; release preparation #44.
