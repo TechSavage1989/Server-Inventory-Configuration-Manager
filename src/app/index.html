@@ -395,7 +395,10 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
 .migrate-section-title{margin:0;font-size:14px;font-weight:700;color:#1b2942}
 .migrate-help{margin:4px 0 0;font-size:12px;color:#52647c}
 .migrate-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:10px}
-.migrate-row input[type=text]{flex:1 1 220px;min-width:0;max-width:360px;height:34px;box-sizing:border-box;border:1px solid #bcc9d9;border-radius:7px;padding:0 10px;font:inherit;font-size:13px}
+.migrate-row input[type=text],.migrate-row input[type=password]{flex:1 1 220px;min-width:0;max-width:360px;height:34px;box-sizing:border-box;border:1px solid #bcc9d9;border-radius:7px;padding:0 10px;font:inherit;font-size:13px}
+.migrate-account{display:flex;flex-wrap:wrap;align-items:center;gap:6px 16px;margin-top:10px;font-size:12px;color:#334156}.migrate-account-label{font-weight:650}
+.migrate-account label{display:inline-flex;align-items:center;gap:6px;cursor:pointer}.migrate-account input{width:15px;height:15px;margin:0;accent-color:#2563eb}
+.migrate-account-fields .migrate-row{margin-top:8px}
 .migrate-inline-status{margin-top:8px;font-size:12px;color:#52647c}.migrate-inline-status:empty{display:none}.migrate-inline-status.error{color:#a33b3b;font-weight:600}
 .migrate-shares{margin-top:10px;border:1px solid #e0e6ee;border-radius:9px;overflow:hidden}
 .migrate-share{padding:9px 12px;border-top:1px solid #edf1f6}.migrate-share:first-child{border-top:0}.migrate-share.selected{background:#f7faff}
@@ -659,6 +662,8 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
             <h3 class="migrate-section-title" id="migrateConnectTitle">1. Connect to the old server</h3>
             <p class="migrate-help">Type the name of the server the shares are on now. This server is the new one.</p>
             <div class="migrate-row"><input type="text" id="migrateSource" aria-label="Old server name" placeholder="Old server name, for example FS01" autocomplete="off" spellcheck="false"><button class="primary-button" id="migrateConnect" type="button" disabled>Connect</button><button class="secondary-button hidden" id="migrateReset" type="button">Start over</button></div>
+            <div class="migrate-account" id="migrateAccount" role="radiogroup" aria-labelledby="migrateAccountLabel"><span class="migrate-account-label" id="migrateAccountLabel">Connect as</span><label><input type="radio" name="migrateAccountMode" id="migrateAccountCurrent" value="current" checked>This Windows account</label><label><input type="radio" name="migrateAccountMode" id="migrateAccountOther" value="other">Another account</label></div>
+            <div class="migrate-account-fields hidden" id="migrateAccountFields"><div class="migrate-row"><input type="text" id="migrateUser" aria-label="User name for the old server" placeholder="User name, for example DOMAIN\admin" autocomplete="off" spellcheck="false" maxlength="256"><input type="password" id="migratePassword" aria-label="Password for the old server" placeholder="Password" autocomplete="new-password" maxlength="256"></div><div class="migrate-detail">An administrator on the old server. Used only to reach the old server, for every step. The password is kept in memory until you close the application or start over, and is never saved.</div></div>
             <div class="migrate-inline-status" id="migrateConnectStatus" role="status" aria-live="polite"></div>
             <div class="restore-facts hidden" id="migrateFacts"><div><span class="restore-fact-label">Old server</span><span class="restore-fact-value" id="migrateFactSource"></span></div><div><span class="restore-fact-label">New server (this one)</span><span class="restore-fact-value" id="migrateFactTarget"></span></div><div><span class="restore-fact-label">Shares found</span><span class="restore-fact-value" id="migrateFactShares"></span></div><div><span class="restore-fact-label">Shares copied</span><span class="restore-fact-value" id="migrateFactCopies"></span></div></div>
             <ul class="restore-warnings hidden" id="migrateSourceWarnings"></ul>
@@ -1562,7 +1567,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   // ---- Migrate tab ---------------------------------------------------------
   // The server owns migration state (state.migrate). This view keeps only the
   // operator's share choices, rebuilt when a different old server is read.
-  var migrateDiscoveryKey='',migrateSelection={},migrateOrder=[],migrateBusy=false,migrateLogKey='',migrateRunKey='',migrateCutKey='',migrateDialogAction=null;
+  var migrateDiscoveryKey='',migrateSelection={},migrateOrder=[],migrateBusy=false,migrateLogKey='',migrateRunKey='',migrateCutKey='',migrateDialogAction=null,migrateAccessKey='';
   var migrateCancelable={discover:true,precheck:true,sync:true,cutover:true,dfs:true,aliascheck:true};
   var migrateStatusLabels={planned:'Not copied',checking:'Checking',ready:'Ready',blocked:'Needs attention',copying:'Copying',succeeded:'Copied',failed:'Failed',skipped:'Skipped',canceled:'Stopped',sharing:'Creating share',verifying:'Comparing',done:'Live',attention:'Check again',readonly:'Read-only',restored:'Restored'};
   function migrateState(){return (latestState&&latestState.migrate)||null;}
@@ -1642,6 +1647,10 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     var m=migrateState()||{},locked=migrateLocked(),discovery=migrateDiscovery(),dirty=migratePlanDirty(),chosen=migrateSelectedShares(),anySynced=false,anyCreated=false;
     ((m.plan)||[]).forEach(function(p){if(p.previouslySynced){anySynced=true;}if(p.createdShare){anyCreated=true;}});
     byId('migrateSource').disabled=locked;byId('migrateConnect').disabled=locked||!trimText(byId('migrateSource').value);
+    ['migrateAccountCurrent','migrateAccountOther','migrateUser','migratePassword'].forEach(function(id){byId(id).disabled=locked;});
+    var other=byId('migrateAccountOther').checked;byId('migrateAccountFields').classList.toggle('hidden',!other);
+    var held=!!(m.account&&other&&trimText(byId('migrateUser').value).toLowerCase()===String(m.account).toLowerCase());
+    byId('migratePassword').placeholder=held?'Password (kept for this session)':'Password';
     byId('migrateReset').classList.toggle('hidden',!(m.source||discovery));byId('migrateReset').disabled=locked;
     byId('migrateCheck').disabled=locked||!discovery||!chosen.length;byId('migrateCheck').textContent=m.prechecked&&!dirty?'Check plan again':'Check plan';
     var copy=byId('migrateCopy');copy.disabled=locked||!m.canCopy||dirty;copy.textContent=anySynced?'Copy again':'Copy now';
@@ -1724,6 +1733,13 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     byId('migrateAdminNotice').classList.toggle('hidden',!!state.isAdministrator);
     var message=byId('migrateMessage');message.textContent=m.message||'';message.className='restore-status'+(m.status==='failed'||m.status==='discoverfailed'?' error':'');
     var source=byId('migrateSource');if(m.source&&document.activeElement!==source&&!source.value){source.value=m.source;}
+    var user=byId('migrateUser');
+    if(m.account&&!user.value&&document.activeElement!==user){user.value=m.account;byId('migrateAccountOther').checked=true;}
+    var accessKey=m.accessDenied&&!m.running?String(m.endedAtUnixMs||1):'',focusTarget=null;
+    if(accessKey&&accessKey!==migrateAccessKey){
+      migrateAccessKey=accessKey;byId('migrateAccountOther').checked=true;
+      if(activeTab==='migrate'){focusTarget=trimText(user.value)?byId('migratePassword'):user;}
+    }
     var discovery=migrateDiscovery();
     if(discovery){
       var key=JSON.stringify([discovery.source,(discovery.shares||[]).map(function(s){return [s.name,s.path,s.system,s.remotePath,s.warnings];})]);
@@ -1741,6 +1757,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     (m.space||[]).forEach(function(d){space.appendChild(el('div',d.ok?'':'bad','Drive '+String(d.drive).replace(/:$/,'')+': needs about '+formatBytesShort(d.neededBytes)+', '+formatBytesShort(d.freeBytes)+' free'+(d.ok?'.':'. Not enough space.')));});
     space.classList.toggle('hidden',!(m.space||[]).length||!discovery);
     renderMigrateRun(m);renderMigrateAfter(m);renderMigrateLog(m);syncMigrateShares();
+    if(focusTarget&&!focusTarget.disabled){focusTarget.focus();}
   }
   function migratePost(path,body,statusId,done){
     if(migrateBusy){return;}
@@ -1750,7 +1767,15 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   function migrateMarkRunning(action,status,message){var m=migrateState();if(m){m.running=true;m.action=action;m.status=status;m.message=message;m.cancelRequested=false;}if(latestState){renderMigrate(latestState);setConfigDisabled(!!latestState.running);}}
   function connectMigrate(){
     var source=trimText(byId('migrateSource').value);if(!source||migrateLocked()){return;}
-    migratePost('/api/migrate/discover',{source:source},'migrateConnectStatus',function(err){if(!err){migrateMarkRunning('discover','discovering','Connecting to '+source+'.');}});
+    var body={source:source},m=migrateState()||{},label=source;
+    if(byId('migrateAccountOther').checked){
+      var user=trimText(byId('migrateUser').value),password=byId('migratePassword').value;
+      if(!user){migrateSetStatus('migrateConnectStatus','Type the user name of an administrator on '+source+', for example DOMAIN\\admin.',true);byId('migrateUser').focus();return;}
+      var held=m.account&&String(m.account).toLowerCase()===user.toLowerCase()&&String(m.source||'').toLowerCase()===source.toLowerCase();
+      if(!password&&!held){migrateSetStatus('migrateConnectStatus','Type the password for '+user+'.',true);byId('migratePassword').focus();return;}
+      body.user=user;body.password=password;label=source+' as '+user;
+    }
+    migratePost('/api/migrate/discover',body,'migrateConnectStatus',function(err){byId('migratePassword').value='';if(!err){migrateMarkRunning('discover','discovering','Connecting to '+label+'.');}});
   }
   function checkMigratePlan(){
     var shares=migrateSelectedShares();if(!shares.length||migrateLocked()){return;}
@@ -1788,7 +1813,10 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   byId('migrateSource').addEventListener('input',syncMigrateButtons);
   byId('migrateSource').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();connectMigrate();}});
   byId('migrateConnect').addEventListener('click',connectMigrate);
-  byId('migrateReset').addEventListener('click',function(){migratePost('/api/migrate/reset',{},'migrateConnectStatus',function(err){if(err){return;}byId('migrateSource').value='';migrateDiscoveryKey='';migrateRunKey='';migrateCutKey='';if(latestState){latestState.migrate={status:'idle',plan:[],logs:[],space:[]};renderMigrate(latestState);}byId('migrateSource').focus();});});
+  ['migrateAccountCurrent','migrateAccountOther'].forEach(function(id){byId(id).addEventListener('change',function(){syncMigrateButtons();if(byId('migrateAccountOther').checked){byId('migrateUser').focus();}});});
+  byId('migrateUser').addEventListener('input',syncMigrateButtons);
+  ['migrateUser','migratePassword'].forEach(function(id){byId(id).addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();connectMigrate();}});});
+  byId('migrateReset').addEventListener('click',function(){migratePost('/api/migrate/reset',{},'migrateConnectStatus',function(err){if(err){return;}byId('migrateSource').value='';byId('migrateUser').value='';byId('migratePassword').value='';byId('migrateAccountCurrent').checked=true;migrateAccessKey='';migrateDiscoveryKey='';migrateRunKey='';migrateCutKey='';if(latestState){latestState.migrate={status:'idle',plan:[],logs:[],space:[]};renderMigrate(latestState);}byId('migrateSource').focus();});});
   byId('migrateCheck').addEventListener('click',checkMigratePlan);
   byId('migrateCopy').addEventListener('click',function(){if(this.disabled){return;}migratePost('/api/migrate/sync',{},null,function(err){if(!err){migrateMarkRunning('sync','copying','Copying.');}});});
   byId('migrateCutover').addEventListener('click',function(){

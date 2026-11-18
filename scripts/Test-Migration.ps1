@@ -22,7 +22,7 @@ $powerShell = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powersh
 $work = Join-Path $OutputDirectory 'work'
 $checks = New-Object Collections.ArrayList
 function Assert([bool]$Condition, [string]$Description) { if (-not $Condition) { throw ('FAIL ' + $Description) }; [void]$checks.Add($Description); Write-Host ('PASS ' + $Description) }
-function Invoke-Engine([string]$Mode, [hashtable]$Arguments, [string]$Name) {
+function Invoke-Engine([string]$Mode, [hashtable]$Arguments, [string]$Name, [string]$InputLine) {
     $log = Join-Path $OutputDirectory ($Name + '.log')
     $result = Join-Path $OutputDirectory ($Name + '.json')
     $list = @('-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', $engine, '-Mode', $Mode, '-ResultPath', $result, '-WorkPath', $work)
@@ -30,7 +30,11 @@ function Invoke-Engine([string]$Mode, [hashtable]$Arguments, [string]$Name) {
     # Engine errors on stderr must be recorded, not end this script.
     $previous = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
-    try { & $powerShell @list *> $log; $code = $LASTEXITCODE } finally { $ErrorActionPreference = $previous }
+    try {
+        # The Connect as account reaches the engine on standard input only.
+        if ($InputLine) { $InputLine | & $powerShell @($list + '-CredentialFromInput') *> $log } else { & $powerShell @list *> $log }
+        $code = $LASTEXITCODE
+    } finally { $ErrorActionPreference = $previous }
     Get-Content -LiteralPath $log | Where-Object { $_ -notmatch '"event":"progress"' } | ForEach-Object { Write-Host ('  ' + $_) }
     $json = $null
     if (Test-Path -LiteralPath $result) { $json = Get-Content -LiteralPath $result -Raw | ConvertFrom-Json }
@@ -155,6 +159,48 @@ $alias = Invoke-Engine 'AliasCheck' @{ PlanPath = $plan } 'alias-check'
 Assert ($alias.code -eq 0 -and -not $alias.result.possible -and @($alias.result.reasons).Count -ge 1) 'Taking over the old name is refused while it is unsafe'
 $aliasRun = Invoke-Engine 'Alias' @{ PlanPath = $plan } 'alias'
 Assert ($aliasRun.code -ne 0) 'The alias step itself also refuses when the check fails'
+
+# --- Connect as another account ----------------------------------------------------------
+# A synthetic local administrator stands in for a domain administrator of the
+# old server. Remote UAC would strip a local account's administrator rights over
+# the network, so this disposable runner allows them; WinRM with an explicit
+# account to an IP address needs the address in TrustedHosts.
+$accountName = 'sicm-migrate'
+$account = $env:COMPUTERNAME + '\' + $accountName
+$secret = 'Sicm-' + [guid]::NewGuid().ToString('N').Substring(0, 20) + '-a1!'
+$wrongSecret = 'Wrong-' + [guid]::NewGuid().ToString('N').Substring(0, 12)
+if (Get-LocalUser -Name $accountName -ErrorAction SilentlyContinue) { Remove-LocalUser -Name $accountName }
+New-LocalUser -Name $accountName -Password (ConvertTo-SecureString -String $secret -AsPlainText -Force) -PasswordNeverExpires -AccountNeverExpires | Out-Null
+Add-LocalGroupMember -Group 'Administrators' -Member $accountName
+$policy = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'
+Set-ItemProperty -LiteralPath $policy -Name 'LocalAccountTokenFilterPolicy' -Value 1 -Type DWord
+Enable-PSRemoting -Force -SkipNetworkProfileCheck | Out-Null
+Set-Item -Path 'WSMan:\localhost\Client\TrustedHosts' -Value $address -Force
+$credentialLine = ConvertTo-Json -InputObject @{ user = $account; password = $secret } -Compress
+$wrongLine = ConvertTo-Json -InputObject @{ user = $account; password = $wrongSecret } -Compress
+$asAccount = Invoke-Engine 'Discover' @{ Source = $address } 'discover-account' $credentialLine
+$accountShare = @($asAccount.result.shares | Where-Object { $_.name -eq $oldName })[0]
+Assert ($asAccount.code -eq 0 -and $asAccount.log -match ('Connected to ' + [regex]::Escape($address) + ' over (WinRM|DCOM) as ' + [regex]::Escape($account))) ('Discover connects with the Connect as account: ' + (($asAccount.log -split "`n" | Where-Object { $_ -match 'Connected to|ERROR' }) -join ' '))
+Assert ([bool]$accountShare -and @($accountShare.access).Count -eq 4) 'The Connect as account reads the share and its permissions'
+$accountPlan = Join-Path $OutputDirectory 'plan-account.json'
+$accountFolder = Join-Path $root 'New\Account'
+$item = @{}
+foreach ($property in $accountShare.PSObject.Properties) { $item[$property.Name] = $property.Value }
+$item['destName'] = 'SICMAccount'; $item['destPath'] = $accountFolder; $item['previouslySynced'] = $false; $item['createdShare'] = $false; $item['expectedFiles'] = 0
+ConvertTo-Json -InputObject @{ source = $address; sourceFqdn = $address; shares = @($item) } -Depth 6 | Set-Content -LiteralPath $accountPlan -Encoding UTF8
+$accountCheck = Invoke-Engine 'Precheck' @{ PlanPath = $accountPlan } 'precheck-account' $credentialLine
+Assert ($accountCheck.code -eq 0 -and $accountCheck.log -match ('Opened a file connection to ' + [regex]::Escape($address) + ' as ' + [regex]::Escape($account))) ('Check opens a file connection with the Connect as account: ' + (($accountCheck.log -split "`n" | Where-Object { $_ -match 'file connection|ERROR|WARN' }) -join ' '))
+Assert ($accountCheck.result.shares[0].ok -and [int]$accountCheck.result.shares[0].files -eq 43) 'Robocopy measures the old share through the admin share with that account'
+Assert (-not (((& net.exe use) -join ' ') -match [regex]::Escape('\\' + $address))) 'The file connection is removed when the step ends'
+$denied = Invoke-Engine 'Discover' @{ Source = $address } 'discover-wrong-password' $wrongLine
+Assert ($denied.code -ne 0 -and $denied.log -match ('refused access on ' + [regex]::Escape($address) + ' for ' + [regex]::Escape($account)) -and $denied.log -match '"event":"accessDenied"') ('A wrong password is reported as refused access and asks for the account: ' + (($denied.log -split "`n" | Where-Object { $_ -match 'ERROR' }) -join ' '))
+$deniedFiles = Invoke-Engine 'Precheck' @{ PlanPath = $accountPlan } 'precheck-wrong-password' $wrongLine
+Assert ($deniedFiles.code -ne 0 -and $deniedFiles.log -match ('did not accept ' + [regex]::Escape($account) + ' for file access') -and $deniedFiles.log -match '"event":"accessDenied"') ('A wrong password for file access is reported plainly: ' + (($deniedFiles.log -split "`n" | Where-Object { $_ -match 'ERROR' }) -join ' '))
+$leaked = @(Get-ChildItem -LiteralPath $OutputDirectory -Recurse -File | Where-Object { $_.Name -notmatch '^plan' } | Where-Object { $text = [IO.File]::ReadAllText($_.FullName); $text.Contains($secret) -or $text.Contains($wrongSecret) })
+Assert ($leaked.Count -eq 0) ('No log, result or work file contains the password: ' + (($leaked | ForEach-Object { $_.Name }) -join ', '))
+Remove-LocalUser -Name $accountName -ErrorAction SilentlyContinue
+Remove-ItemProperty -LiteralPath $policy -Name 'LocalAccountTokenFilterPolicy' -ErrorAction SilentlyContinue
+Set-Item -Path 'WSMan:\localhost\Client\TrustedHosts' -Value '' -Force
 
 # --- Clean up ----------------------------------------------------------------------------------
 foreach ($name in @($oldName, $newName)) { Remove-SmbShare -Name $name -Force -ErrorAction SilentlyContinue }
