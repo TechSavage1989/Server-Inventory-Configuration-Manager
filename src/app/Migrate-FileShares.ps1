@@ -56,10 +56,32 @@ function Test-IsThisServer {
 }
 
 function New-SourceCimSession {
+    # Tries WinRM first (enabled by default on Windows Server 2012 and later),
+    # then DCOM with packet privacy, which Windows' DCOM hardening updates
+    # require. Each session is checked with a real query before it is used.
     param([string]$Name)
     if (Test-IsThisServer $Name) { return $null }
-    $option = New-CimSessionOption -Protocol Dcom
-    return New-CimSession -ComputerName $Name -SessionOption $option -ErrorAction Stop
+    $failures = @()
+    foreach ($protocol in @('WinRM', 'DCOM')) {
+        $session = $null
+        try {
+            if ($protocol -eq 'WinRM') { $session = New-CimSession -ComputerName $Name -ErrorAction Stop }
+            # The DCOM parameter set: -PacketPrivacy cannot be combined with -Protocol.
+            else { $session = New-CimSession -ComputerName $Name -SessionOption (New-CimSessionOption -PacketPrivacy -Impersonation Impersonate) -ErrorAction Stop }
+            [void](Get-CimInstance -CimSession $session -ClassName Win32_OperatingSystem -ErrorAction Stop)
+            Write-Log 'INFO' ('Connected to ' + $Name + ' over ' + $protocol + '.')
+            return $session
+        }
+        catch {
+            $failures += ($protocol + ': ' + $_.Exception.Message.Trim())
+            if ($session) { Remove-CimSession -CimSession $session -ErrorAction SilentlyContinue }
+        }
+    }
+    $details = $failures -join ' | '
+    if ($details -match 'Access is denied|0x80070005|E_ACCESSDENIED') {
+        throw ('Windows refused access on ' + $Name + '. Run this application with an account that is an administrator on ' + $Name + ', for example a domain account in its Administrators group. A local account with the same name and password is not enough: Windows removes administrator rights from local accounts over the network. (' + $details + ')')
+    }
+    throw ('Could not connect to ' + $Name + '. Check that it is on and reachable, and that remote management is allowed: WinRM (run winrm quickconfig on ' + $Name + ') or the Windows Management Instrumentation rules in Windows Firewall. (' + $details + ')')
 }
 
 function Get-ShareAccessEntries {
@@ -93,11 +115,11 @@ function Invoke-Discover {
     $result = @{ source = $name; sourceFqdn = $name; currentComputer = $script:ComputerName; sameServer = (Test-IsThisServer $name); isAdministrator = (Test-Administrator); shares = @(); localShares = @(); volumes = @(); warnings = @() }
     try { $result.sourceFqdn = [System.Net.Dns]::GetHostEntry($name).HostName } catch { throw ('The server name ' + $name + ' could not be found in DNS.') }
     $session = $null
-    try { $session = New-SourceCimSession $name } catch { throw ('Could not connect to ' + $name + ' for share details: ' + $_.Exception.Message + ' Check that the server is on, that you are an administrator there, and that Windows Firewall allows remote management (WMI).') }
+    $session = New-SourceCimSession $name
     try {
-        $wmi = @{ Class = 'Win32_Share'; ErrorAction = 'Stop' }
-        if (-not $result.sameServer) { $wmi['ComputerName'] = $name }
-        $raw = @(Get-WmiObject @wmi)
+        $wmi = @{ ClassName = 'Win32_Share'; ErrorAction = 'Stop' }
+        if ($session) { $wmi['CimSession'] = $session }
+        $raw = @(Get-CimInstance @wmi)
         $details = @{}
         $smbArgs = @{ ErrorAction = 'SilentlyContinue' }
         if ($session) { $smbArgs['CimSession'] = $session }

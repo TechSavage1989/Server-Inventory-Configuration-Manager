@@ -40,6 +40,11 @@ const (
 	applicationPageCSP = "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; frame-src 'self'"
 	maximumCollectors  = 49
 
+	// The application ends when its interface has made no request for this
+	// long, and allows longer before the interface has painted for the first time.
+	idleShutdownAfter = 30 * time.Second
+	idleStartupGrace  = 3 * time.Minute
+
 	mbOK              = 0x00000000
 	mbIconError       = 0x00000010
 	mbIconInformation = 0x00000040
@@ -2154,11 +2159,18 @@ func (a *application) idleMonitor() {
 			if a.restore.status == "running" || a.migrate.action != "" {
 				idleFor = 0
 			}
-			if idleFor > 30*time.Second && running {
+			// Until the interface has painted once, a slow browser or a first
+			// WebView2 start (which can take over 30 seconds) is still opening
+			// it, so allow longer before treating the interface as closed.
+			limit := idleShutdownAfter
+			if !a.uiReady {
+				limit = idleStartupGrace
+			}
+			if idleFor > limit && running {
 				a.state.CancelRequested = true
 			}
 			a.mu.Unlock()
-			if idleFor > 30*time.Second {
+			if idleFor > limit {
 				if running && activeCommand != nil && activeCommand.Process != nil {
 					terminateProcessTree(activeCommand.Process.Pid)
 				}
