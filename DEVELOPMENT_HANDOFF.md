@@ -1,3 +1,12 @@
+## Unreleased: report generation failed on DHCP servers — 2026-11-20
+
+User report: a full collection on a domain controller running DHCP (fictional name withheld) failed at "Consolidated inventory report generation" with "Cannot process command because of one or more missing mandatory parameters: Columns". No HTML, Word or text report was written.
+
+- Cause: three DHCP tables in the collector's report assembly (`DHCP policies`, `DHCP scope statistics`, `DHCP bindings`) called `Add-ReportTable` without its mandatory `-Columns`. The line only runs when DHCP scopes exist, and Windows PowerShell running non-interactively fails the call instead of prompting. The defect is in the published 3.2.10 collector archive too (it predates this fork); CI fixtures had no DHCP scopes.
+- Fix: column lists for each table (policies: Name, ScopeId, Enabled, ProcessingOrder, Condition, LeaseDuration, Description; statistics: ScopeId, InUse, Free, PercentageInUse, Reserved, Pending, SuperscopeName; bindings: InterfaceAlias, IPAddress, SubnetMask, BindingState). Recorded as a reviewed region in `docs/verification/collector-change-verification.json` with its hunk in `collector-approved-changes.diff`; no other collector bytes changed.
+- Guard: `scripts/Test-Report.ps1` now parses the collector and fails if any call to one of its own functions leaves out a mandatory parameter (named, non-splatted, non-positional calls). Negative control: the same check must find exactly these three DHCP calls in the published 3.2.10 collector.
+- The same run also logged `REG EXPORT ... Invalid key name` under Routing and Remote Access and an Active Directory health warning ("The format of the specified domain name is invalid"); both are collector warnings that did not stop the run and are not changed here.
+
 ## 3.2.23 published and verified — 2026-11-20
 
 - [Release v3.2.23](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.23) ("Server Inventory and Migration Manager 3.2.23"), tag and target commit `860ee648c0cb51f4feec6247ec5b9a46f7857afd` (publication PR #54, changing only `release/VERSION`). Source: Migrate folder picker and functional shares #52; release preparation #53.

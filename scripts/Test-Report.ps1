@@ -10,6 +10,50 @@ New-Item -ItemType Directory -Path $OutputDirectory -Force | Out-Null
 $tokens=$null;$parseErrors=$null
 $ast=[Management.Automation.Language.Parser]::ParseFile((Join-Path $root 'src/app/Export-ServerInventory.ps1'),[ref]$tokens,[ref]$parseErrors)
 if($parseErrors.Count){throw ('Collector parse errors: '+($parseErrors -join '; '))}
+# Every call to one of the collector's own functions must bind that
+# function's mandatory parameters. A missing one only fails when that line
+# runs (for example the DHCP tables on a DHCP server), so check statically.
+function Get-MissingMandatoryArguments([Management.Automation.Language.ScriptBlockAst]$Script) {
+ $mandatory=@{}
+ foreach($definition in $Script.FindAll({param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst]},$true)){
+  $parameters=@()
+  if($definition.Body.ParamBlock){$parameters=@($definition.Body.ParamBlock.Parameters)}elseif($definition.Parameters){$parameters=@($definition.Parameters)}
+  $names=@()
+  foreach($parameter in $parameters){
+   foreach($attribute in @($parameter.Attributes|Where-Object{$_ -is [Management.Automation.Language.AttributeAst] -and $_.TypeName.Name -eq 'Parameter'})){
+    foreach($argument in @($attribute.NamedArguments)){
+     if($argument.ArgumentName -eq 'Mandatory' -and ($argument.ExpressionOmitted -or $argument.Argument.Extent.Text -eq '$true')){$names+=$parameter.Name.VariablePath.UserPath}
+    }
+   }
+  }
+  if($names.Count){$mandatory[$definition.Name]=$names}
+ }
+ $missing=@()
+ foreach($call in $Script.FindAll({param($node) $node -is [Management.Automation.Language.CommandAst]},$true)){
+  $name=$call.GetCommandName()
+  if(-not $name -or -not $mandatory.ContainsKey($name)){continue}
+  $elements=@($call.CommandElements|Select-Object -Skip 1)
+  if(@($elements|Where-Object{$_ -is [Management.Automation.Language.VariableExpressionAst] -and $_.Splatted}).Count){continue}
+  $given=@($elements|Where-Object{$_ -is [Management.Automation.Language.CommandParameterAst]}|ForEach-Object{$_.ParameterName})
+  $positional=0;$previousWasSwitchless=$false
+  for($i=0;$i -lt $elements.Count;$i++){
+   $element=$elements[$i]
+   if($element -is [Management.Automation.Language.CommandParameterAst]){if(-not $element.Argument -and $i+1 -lt $elements.Count -and -not ($elements[$i+1] -is [Management.Automation.Language.CommandParameterAst])){$i++};continue}
+   $positional++
+  }
+  if($positional){continue}
+  foreach($required in $mandatory[$name]){
+   if(-not @($given|Where-Object{$required.StartsWith($_,[StringComparison]::OrdinalIgnoreCase)}).Count){$missing+=('{0} line {1}: {2} without -{3}' -f $name,$call.Extent.StartLineNumber,(($call.Extent.Text -split "`n")[0]).Trim().Substring(0,[Math]::Min(60,(($call.Extent.Text -split "`n")[0]).Trim().Length)),$required)}
+  }
+ }
+ return ,$missing
+}
+$missingArguments=Get-MissingMandatoryArguments $ast
+if($missingArguments.Count){throw ('Collector calls miss mandatory arguments: '+($missingArguments -join '; '))}
+$archivedTokens=$null;$archivedErrors=$null
+$archivedAst=[Management.Automation.Language.Parser]::ParseFile((Join-Path $root 'baseline/v3.2.10/collectors/Export-ServerInventory.ps1'),[ref]$archivedTokens,[ref]$archivedErrors)
+$archivedMissing=@(Get-MissingMandatoryArguments $archivedAst)
+if($archivedMissing.Count -ne 3 -or @($archivedMissing|Where-Object{$_ -match "^Add-ReportTable .*DHCP (policies|scope statistics|bindings).* without -Columns$"}).Count -ne 3){throw ('The mandatory-argument check did not find the three DHCP tables in the published 3.2.10 collector: '+($archivedMissing -join '; '))}
 $names=@('ConvertTo-ReportAtomicText','ConvertTo-ReportText','ConvertTo-ReportMultilineText','Get-ReportPropertyValue','Get-ReportCellText','Add-ReportTitle','Add-ReportHeading','Add-ReportParagraph','Add-ReportBullets','Add-ReportPreformatted','Add-ReportTable','ConvertTo-HtmlText','ConvertTo-HtmlMultilineText','Write-ConsolidatedHtmlReport','Write-DocxTextRun','Write-DocxParagraph','Write-DocxTable','Write-ConsolidatedDocxReport')
 foreach($name in $names){
  $function=$ast.FindAll({param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst]},$true)|Where-Object{$_.Name -eq $name}|Select-Object -First 1
@@ -111,7 +155,7 @@ Write-ConsolidatedHtmlReport -Path (Join-Path $OutputDirectory 'empty-report.htm
 # Render the exact original function against the identical block snapshot.
 Invoke-Expression ([IO.File]::ReadAllText((Join-Path $root 'baseline/v3.0.10/reports/Write-ConsolidatedHtmlReport.ps1')))
 Write-ConsolidatedHtmlReport -Path (Join-Path $OutputDirectory 'baseline-report.html') -Blocks $script:reportBlocks -DocumentTitle $title
-$checks=@('Actual collector parses without errors','Actual HTML renderer generates a self-contained report','HTML rendering leaves every shared block unchanged','Original renderer generates the identical synthetic dataset for comparison')
+$checks=@('Actual collector parses without errors','Every collector call binds its mandatory parameters (negative control: the three DHCP tables in published 3.2.10)','Actual HTML renderer generates a self-contained report','HTML rendering leaves every shared block unchanged','Original renderer generates the identical synthetic dataset for comparison')
 if($env:OS -eq 'Windows_NT'){
  Add-Type -AssemblyName System.IO.Compression.FileSystem
  Write-ConsolidatedDocxReport -Path (Join-Path $OutputDirectory 'sample-report.docx') -Blocks $script:reportBlocks -DocumentTitle $title -SubjectText 'Synthetic fixture'
