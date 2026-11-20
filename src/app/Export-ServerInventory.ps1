@@ -4235,9 +4235,9 @@ function New-ConsolidatedServerReport {
         Add-ReportTable -Title 'Scope options' -Rows (Get-ReportData -BasePath (Join-Path $paths.Roles 'DHCP\IPv4-Scope-Options')) -Columns @('ScopeId', 'OptionId', 'Name', 'Type', 'Value', 'VendorClass', 'UserClass', 'PolicyName') -MaxRows 20000
         Add-ReportTable -Title 'DHCP allow and deny filters' -Rows (Get-ReportData -BasePath (Join-Path $paths.Roles 'DHCP\IPv4-Filters')) -Columns @('List', 'MacAddress', 'Description') -MaxRows 10000
         Add-ReportTable -Title 'DHCP exclusion ranges' -Rows (Get-ReportData -BasePath (Join-Path $paths.Roles 'DHCP\IPv4-Exclusion-Ranges')) -Columns @('ScopeId','StartRange','EndRange') -MaxRows 10000
-        Add-ReportTable -Title 'DHCP policies' -Rows (Get-ReportData -BasePath (Join-Path $paths.Roles 'DHCP\IPv4-Policies')) -MaxRows 10000
-        Add-ReportTable -Title 'DHCP scope statistics' -Rows (Get-ReportData -BasePath (Join-Path $paths.Roles 'DHCP\IPv4-Scope-Statistics')) -MaxRows 5000
-        Add-ReportTable -Title 'DHCP bindings' -Rows (Get-ReportData -BasePath (Join-Path $paths.Roles 'DHCP\IPv4-Bindings')) -MaxRows 1000
+        Add-ReportTable -Title 'DHCP policies' -Rows (Get-ReportData -BasePath (Join-Path $paths.Roles 'DHCP\IPv4-Policies')) -Columns @('Name', 'ScopeId', 'Enabled', 'ProcessingOrder', 'Condition', 'LeaseDuration', 'Description') -MaxRows 10000
+        Add-ReportTable -Title 'DHCP scope statistics' -Rows (Get-ReportData -BasePath (Join-Path $paths.Roles 'DHCP\IPv4-Scope-Statistics')) -Columns @('ScopeId', 'InUse', 'Free', 'PercentageInUse', 'Reserved', 'Pending', 'SuperscopeName') -MaxRows 5000
+        Add-ReportTable -Title 'DHCP bindings' -Rows (Get-ReportData -BasePath (Join-Path $paths.Roles 'DHCP\IPv4-Bindings')) -Columns @('InterfaceAlias', 'IPAddress', 'SubnetMask', 'BindingState') -MaxRows 1000
         Add-ReportTable -Title 'DHCP failover relationships' -Rows (Get-ReportData -BasePath (Join-Path $paths.Roles 'DHCP\IPv4-Failover')) -Columns @('Name', 'PartnerServer', 'Mode', 'State', 'ScopeId', 'LoadBalancePercent', 'MaxClientLeadTime', 'AutoStateTransition') -MaxRows 5000
         Add-ReportPreformatted -Title 'DHCP restore guidance' -Text (Get-ReportFileText -Path (Join-Path $paths.Roles 'DHCP\RESTORE-GUIDANCE.txt') -MaxLength 15000) -MaxLength 15000
     }

@@ -2,7 +2,7 @@
   "schema_version": 1,
   "compared_revision": "81e2a0e5a598df6e8edd7bb533e2f02b915a9c7b",
   "compared_release": "v3.2.10",
-  "approval": "Previously approved startup cyclic-table handling and bounded ACL export, plus user-requested final-report performance improvements, preservation of actual collection values in CSV-backed reports, and the user-approved (2026-11-12) printer migration export fix so PrintBRM backs up the local spooler and a missing export is reported.; and the user-requested (2026-11-18) executive summary TCP/IP and activation status facts. No unrelated collector behavior changes authorized.",
+  "approval": "Previously approved startup cyclic-table handling and bounded ACL export, plus user-requested final-report performance improvements, preservation of actual collection values in CSV-backed reports, and the user-approved (2026-11-12) printer migration export fix so PrintBRM backs up the local spooler and a missing export is reported.; and the user-requested (2026-11-18) executive summary TCP/IP and activation status facts; and the user-reported (2026-11-20) fix adding the missing column lists to the DHCP policies, scope statistics and bindings report tables, which stopped report generation on DHCP servers. No unrelated collector behavior changes authorized.",
   "normalization": "Standalone scriptVersion normalized to3.0.0; separately pinned HTML renderer restored to original before region comparison.",
   "files": {
     "Export-ServerInventory.ps1": {
@@ -130,6 +130,16 @@
           "reason": "Bounded recursive ACL export progress, ownership, control or incomplete-result propagation"
         },
         {
+          "before_start": 181333,
+          "before_end": 181769,
+          "before_start_line_normalized": 2993,
+          "before_end_line_normalized": 2995,
+          "before_sha256": "209db12eef067c20b3f16fe9986131b3e6eb2ad8c8d22a2c000525745e39d093",
+          "after_length": 712,
+          "after_sha256": "a97cd59d3ee831aaeadd96146e24c36289e99301a879cdcb814dfa1a23c39d53",
+          "reason": "User-reported (2026-11-20) fix: the DHCP policies, scope statistics and bindings report tables were missing their mandatory column lists, which stopped report generation on DHCP servers"
+        },
+        {
           "before_start": 291794,
           "before_end": 291794,
           "before_start_line_normalized": 4556,
@@ -224,6 +234,6 @@
   },
   "reviewed_diff": {
     "path": "docs/verification/collector-approved-changes.diff",
-    "sha256": "f30e4f09f23abff3481672b5c0de2748373fae8231421780f77b9505f4a1bd59"
+    "sha256": "64a1f00a1e414c2d31e825d064366c6b087ebffcf250d5169b5eba9e41707b5f"
   }
 }

@@ -344,6 +344,13 @@
 +    Add-ReportTable -Title 'Recursive NTFS ACL export results' -Rows @($script:aclExportResults) -Columns @('ShareName', 'SourcePath', 'Status', 'ElapsedSeconds', 'TimeoutSeconds', 'ExitCode', 'AclFile', 'Note') -MaxRows 3000 -EmptyMessage 'Recursive ACL exports were not selected, or no eligible shares were present.'
 +    if ($script:aclExportsIncompleteCount -gt 0) { Add-ReportParagraph -Text 'One or more recursive ACL exports are incomplete. See the per-share results and ICACLS-Mapping.csv before considering any restore.' -Warning }
 +    # END APPROVED ACL EXPORT REPORT TABLE
+@@ -2993,3 +3315,3 @@
+-        Add-ReportTable -Title 'DHCP policies' -Rows (Get-ReportData -BasePath (Join-Path $paths.Roles 'DHCP\IPv4-Policies')) -MaxRows 10000
+-        Add-ReportTable -Title 'DHCP scope statistics' -Rows (Get-ReportData -BasePath (Join-Path $paths.Roles 'DHCP\IPv4-Scope-Statistics')) -MaxRows 5000
+-        Add-ReportTable -Title 'DHCP bindings' -Rows (Get-ReportData -BasePath (Join-Path $paths.Roles 'DHCP\IPv4-Bindings')) -MaxRows 1000
++        Add-ReportTable -Title 'DHCP policies' -Rows (Get-ReportData -BasePath (Join-Path $paths.Roles 'DHCP\IPv4-Policies')) -Columns @('Name', 'ScopeId', 'Enabled', 'ProcessingOrder', 'Condition', 'LeaseDuration', 'Description') -MaxRows 10000
++        Add-ReportTable -Title 'DHCP scope statistics' -Rows (Get-ReportData -BasePath (Join-Path $paths.Roles 'DHCP\IPv4-Scope-Statistics')) -Columns @('ScopeId', 'InUse', 'Free', 'PercentageInUse', 'Reserved', 'Pending', 'SuperscopeName') -MaxRows 5000
++        Add-ReportTable -Title 'DHCP bindings' -Rows (Get-ReportData -BasePath (Join-Path $paths.Roles 'DHCP\IPv4-Bindings')) -Columns @('InterfaceAlias', 'IPAddress', 'SubnetMask', 'BindingState') -MaxRows 1000
 @@ -4555,0 +4812 @@
 +    # BEGIN APPROVED ACL EXPORT INVOCATION
 @@ -4557,24 +4814,10 @@
