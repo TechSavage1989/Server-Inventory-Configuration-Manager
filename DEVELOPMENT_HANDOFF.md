@@ -1,3 +1,7 @@
+## 3.2.23 release preparation — 2026-11-20
+
+Publishing Migrate folder picker and functional shares (#52) under the owner's standing approval (AGENTS rule 16). This branch bumps `appVersion`, `collectorVersion` and the collector `$scriptVersion` to 3.2.23, adds `docs/release-notes/3.2.23.md` (first three bullets free of Markdown) and points `scripts/test_published_upgrade.cjs` at the published v3.2.22 executable (SHA-256 `096a72f879d8173560a5b03b74e6d9568f6ff832f5a4d9237c65c0319cf2112b`, release asset digest). `release/VERSION` changes in a separate publication PR after this source CI passes. `Report-Preview.png` should be unchanged.
+
 ## Unreleased: Migrate chooses new folders and checks the shares work — 2026-11-20
 
 User request: "the file share migrator should be able to select new directories to migrate the shares to and make them functional."
