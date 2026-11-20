@@ -118,7 +118,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$scriptVersion = '3.2.23'
+$scriptVersion = '3.2.24'
 
 function Test-IsAdministrator {
     $identity = [Security.Principal.WindowsIdentity]::GetCurrent()

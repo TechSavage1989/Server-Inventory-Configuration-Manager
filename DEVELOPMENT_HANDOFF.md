@@ -1,3 +1,7 @@
+## 3.2.24 release preparation — 2026-11-20
+
+Publishing the DHCP report fix (#56) under the owner's standing approval (AGENTS rule 16). This branch bumps `appVersion`, `collectorVersion` and the collector `$scriptVersion` to 3.2.24, adds `docs/release-notes/3.2.24.md` (first three bullets free of Markdown) and points `scripts/test_published_upgrade.cjs` at the published v3.2.23 executable (SHA-256 `25c22650edb5f45725dafed2e2a3dd569006983531bf08926b4d16b21d7720c3`, release asset digest). `release/VERSION` changes in a separate publication PR after this source CI passes. `Report-Preview.png` should be unchanged.
+
 ## Unreleased: report generation failed on DHCP servers — 2026-11-20
 
 User report: a full collection on a domain controller running DHCP failed at "Consolidated inventory report generation" with "Cannot process command because of one or more missing mandatory parameters: Columns". No HTML, Word or text report was written.
