@@ -1,6 +1,6 @@
 ## Unreleased: report generation failed on DHCP servers — 2026-11-20
 
-User report: a full collection on a domain controller running DHCP (fictional name withheld) failed at "Consolidated inventory report generation" with "Cannot process command because of one or more missing mandatory parameters: Columns". No HTML, Word or text report was written.
+User report: a full collection on a domain controller running DHCP failed at "Consolidated inventory report generation" with "Cannot process command because of one or more missing mandatory parameters: Columns". No HTML, Word or text report was written.
 
 - Cause: three DHCP tables in the collector's report assembly (`DHCP policies`, `DHCP scope statistics`, `DHCP bindings`) called `Add-ReportTable` without its mandatory `-Columns`. The line only runs when DHCP scopes exist, and Windows PowerShell running non-interactively fails the call instead of prompting. The defect is in the published 3.2.10 collector archive too (it predates this fork); CI fixtures had no DHCP scopes.
 - Fix: column lists for each table (policies: Name, ScopeId, Enabled, ProcessingOrder, Condition, LeaseDuration, Description; statistics: ScopeId, InUse, Free, PercentageInUse, Reserved, Pending, SuperscopeName; bindings: InterfaceAlias, IPAddress, SubnetMask, BindingState). Recorded as a reviewed region in `docs/verification/collector-change-verification.json` with its hunk in `collector-approved-changes.diff`; no other collector bytes changed.
