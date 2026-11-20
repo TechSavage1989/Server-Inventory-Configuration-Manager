@@ -147,7 +147,7 @@ func TestExecutableUsesBuiltInWindowWhenGuestBrowsingIsBlocked(t *testing.T) {
 		t.Fatalf("timed out waiting for %s; log: %s", name, readUpdateLog(root))
 	}
 	var hwnd uintptr
-	wait("a healthy start in the built-in window", 90*time.Second, func() bool {
+	wait("a healthy start in the built-in window", webViewStartTimeout+time.Minute, func() bool {
 		data, err := os.ReadFile(filepath.Join(root, "Health", "current.json"))
 		if err != nil {
 			return false

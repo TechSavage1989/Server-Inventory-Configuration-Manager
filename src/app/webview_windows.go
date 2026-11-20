@@ -11,6 +11,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 	"unsafe"
@@ -31,7 +32,11 @@ import (
 const (
 	webViewClassName      = "ServerInventoryConfigurationManagerWindow"
 	webViewMinimumVersion = "100.0.0.0"
-	webViewStartTimeout   = 45 * time.Second
+	// The first start of a newly installed or updated WebView2 Runtime can take
+	// well over a minute on a slow or freshly booted server (runtime 157 on a
+	// hosted runner has taken more than 45 seconds). Giving up early showed a
+	// false "could not open" error while the window finished loading behind it.
+	webViewStartTimeout = 3 * time.Minute
 
 	wvWMDestroy       = 0x0002
 	wvWMMove          = 0x0003
@@ -108,6 +113,9 @@ type webViewHost struct {
 	ready    bool // read and written only on the window's thread
 	result   chan error
 	done     chan struct{}
+	// abandoned is set when startWebViewHost stops waiting, so a window that
+	// finishes starting afterwards closes instead of loading the interface.
+	abandoned int32
 }
 
 // webViewRuntimeUnavailable explains why the built-in window cannot be used,
@@ -150,14 +158,17 @@ func startWebViewHost(a *application, address, dataDir, iconPath string) (*webVi
 	// The WebView2 component logs through the standard logger; keep that out
 	// of the GUI process's invisible stderr.
 	log.SetOutput(io.Discard)
+	started := time.Now()
 	go h.run(address, dataDir, iconPath)
 	select {
 	case err := <-h.result:
 		if err != nil {
 			return nil, err
 		}
+		a.logUpdate("Built-in window started in %s", time.Since(started).Round(100*time.Millisecond))
 		return h, nil
 	case <-time.After(webViewStartTimeout):
+		atomic.StoreInt32(&h.abandoned, 1)
 		return nil, fmt.Errorf("the built-in window did not start within %d seconds", int(webViewStartTimeout/time.Second))
 	}
 }
@@ -216,6 +227,11 @@ func (h *webViewHost) run(address, dataDir, iconPath string) {
 		_ = settings.PutIsStatusBarEnabled(false)
 		_ = settings.PutAreDefaultScriptDialogsEnabled(true)
 		_ = settings.PutIsZoomControlEnabled(true)
+	}
+	if atomic.LoadInt32(&h.abandoned) != 0 {
+		wvDestroyWindow.Call(hwnd)
+		close(h.done)
+		return
 	}
 	h.ready = true
 	chromium.Resize()

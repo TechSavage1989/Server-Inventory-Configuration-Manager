@@ -1,3 +1,10 @@
+## Unreleased: built-in window first start could show a false error — 2026-11-20
+
+Found while CI for the 3.2.24 release record failed twice in `TestExecutableUsesBuiltInWindowWhenGuestBrowsingIsBlocked` (hosted image 20261116.315.1, WebView2 Runtime 157.0.4341.46; the same image passed on other runs). The interface painted (icon refresh and update check ran) but "Opened the interface in the built-in window" was never logged and no health marker was written.
+
+- Cause: `startWebViewHost` waited 45 seconds for the WebView2 controller. When `Embed` took longer, `main` showed the blocking "The application interface could not open" box and never started health confirmation, while the window thread finished embedding and loaded the interface behind the box.
+- Fix: `webViewStartTimeout` is 3 minutes (matching `idleStartupGrace`); a host that finishes after the limit destroys its window instead of navigating; the start time is logged ("Built-in window started in …"). The test waits for the start limit plus a minute.
+
 ## 3.2.24 release preparation — 2026-11-20
 
 Publishing the DHCP report fix (#56) under the owner's standing approval (AGENTS rule 16). This branch bumps `appVersion`, `collectorVersion` and the collector `$scriptVersion` to 3.2.24, adds `docs/release-notes/3.2.24.md` (first three bullets free of Markdown) and points `scripts/test_published_upgrade.cjs` at the published v3.2.23 executable (SHA-256 `25c22650edb5f45725dafed2e2a3dd569006983531bf08926b4d16b21d7720c3`, release asset digest). `release/VERSION` changes in a separate publication PR after this source CI passes. `Report-Preview.png` should be unchanged.
