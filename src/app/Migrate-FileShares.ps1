@@ -419,13 +419,13 @@ function Get-RuleKey {
 }
 
 function Set-RootPermissions {
-    # Robocopy copies the permissions of every file and subfolder but not of
-    # the top folder itself, which would otherwise inherit from its new parent
-    # (for example D:\Shares). Give the new top folder the old top folder's
-    # effective permissions, inherited ones included, as its own protected
-    # list, so the share grants the same access as before. Runs before the
-    # copy and only when the list differs, so later passes do not re-apply
-    # permissions through the whole tree.
+    # Robocopy copies the top folder's own list, but its inherited entries
+    # then follow the new parent (for example D:\Shares) and are lost the next
+    # time that parent's permissions are applied. Give the new top folder the
+    # old top folder's effective permissions, inherited ones included, as its
+    # own protected list, so the share grants the same access as before. Runs
+    # after a successful copy and only when the list differs, so later passes
+    # do not re-apply permissions through the whole tree.
     param([string]$From, [string]$To)
     $source = Get-Acl -LiteralPath $From
     $security = New-Object System.Security.AccessControl.DirectorySecurity
@@ -475,7 +475,6 @@ function Invoke-SyncShares {
                 throw ('The new folder ' + $dest + ' already contains files that did not come from this migration. Choose an empty or new folder.')
             }
             if (-not (Test-Path -LiteralPath $dest)) { New-Item -Path $dest -ItemType Directory -Force | Out-Null; Write-Log 'INFO' ('Created the folder ' + $dest + '.') }
-            foreach ($account in @(Set-RootPermissions -From $from -To $dest)) { Write-Log 'WARN' ($name + ': the top folder permission for ' + $account + ' could not be copied.') }
             $log = Join-Path $WorkPath ((Get-Date -Format 'yyyyMMdd-HHmmss') + '-' + $Label + '-' + ($name -replace '[^A-Za-z0-9_-]', '_') + '.log')
             $item.log = $log
             Write-MigrateEvent @{ event = 'share'; share = $name; status = 'copying'; message = 'Copying changes.' }
@@ -494,6 +493,7 @@ function Invoke-SyncShares {
                 $failed = $true
             }
             else {
+                foreach ($account in @(Set-RootPermissions -From $from -To $dest)) { Write-Log 'WARN' ($name + ': the top folder permission for ' + $account + ' could not be copied.') }
                 $item.status = 'succeeded'
                 $copied = 0; $removed = 0; if ($summary.files.Count) { $copied = $summary.files[1]; $removed = $summary.files[5] }
                 $item.message = ('{0} file(s) copied, {1} removed that no longer exist on the old server.' -f $copied, $removed)
