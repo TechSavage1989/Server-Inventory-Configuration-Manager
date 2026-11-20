@@ -424,8 +424,9 @@ function Set-RootPermissions {
     # time that parent's permissions are applied. Give the new top folder the
     # old top folder's effective permissions, inherited ones included, as its
     # own protected list, so the share grants the same access as before. Runs
-    # after a successful copy and only when the list differs, so later passes
-    # do not re-apply permissions through the whole tree.
+    # after each successful copy (Robocopy rewrites the list when the top
+    # folder changed) and only when the list differs. The files below already
+    # carry the same entries, so nothing below the top folder is rewritten.
     param([string]$From, [string]$To)
     $source = Get-Acl -LiteralPath $From
     $security = New-Object System.Security.AccessControl.DirectorySecurity
@@ -453,7 +454,24 @@ function Set-RootPermissions {
     $have = @($current.GetAccessRules($true, $false, [System.Security.Principal.SecurityIdentifier]) | ForEach-Object { Get-RuleKey $_ } | Sort-Object -Unique)
     $want = @($security.GetAccessRules($true, $false, [System.Security.Principal.SecurityIdentifier]) | ForEach-Object { Get-RuleKey $_ } | Sort-Object -Unique)
     if ($current.AreAccessRulesProtected -and (($have -join ';') -eq ($want -join ';'))) { return $skipped }
-    (Get-Item -LiteralPath $To -Force).SetAccessControl($security)
+    # SetFileSecurity writes only this folder's list. The .NET and PowerShell
+    # setters re-apply inheritance through every file below it, which is slow
+    # on a large share and makes Robocopy copy every file again.
+    if (-not ('SicmFolderSecurity' -as [type])) {
+        Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+public static class SicmFolderSecurity {
+    [DllImport("advapi32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern bool SetFileSecurity(string fileName, int securityInformation, byte[] securityDescriptor);
+    public static int SetDacl(string path, byte[] descriptor) {
+        return SetFileSecurity(path, 4, descriptor) ? 0 : Marshal.GetLastWin32Error(); // DACL_SECURITY_INFORMATION
+    }
+}
+'@
+    }
+    $code = [SicmFolderSecurity]::SetDacl($To, $security.GetSecurityDescriptorBinaryForm())
+    if ($code -ne 0) { throw ('The permissions of ' + $To + ' could not be set: ' + (New-Object System.ComponentModel.Win32Exception($code)).Message) }
     Write-Log 'INFO' ('Gave ' + $To + ' the permissions of the old top folder (' + $want.Count + ' entries).')
     return $skipped
 }
