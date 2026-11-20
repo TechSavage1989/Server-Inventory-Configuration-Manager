@@ -1,3 +1,12 @@
+## 3.2.25 published and verified — 2026-11-20
+
+- [Release v3.2.25](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.25) ("Server Inventory and Migration Manager 3.2.25"), tag and target commit `b661cc33e9e26800bd53dc9af5f37cd10f209502` (publication PR #62, changing only `release/VERSION`). Source: built-in window start limit #60; release preparation #61.
+- [Publish run](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/44760335248) passed in one attempt: publish job 15:09–15:18 UTC, published-upgrade job 15:18–15:27 UTC.
+- All 45 actual 3.2.24-to-3.2.25 upgrade checks passed in one run with zero unexpected dialogs. Source CI on #60 and #61 passed windows, restore and migration, including `TestExecutableUsesBuiltInWindowWhenGuestBrowsingIsBlocked` on WebView2 Runtime 157.
+- Stable EXE: 7,717,888 bytes; SHA-256 `336b25b4f74b4d017f69ae1fd21795607a37fa79cde76fa7a810772c97989c38` (release asset digest). All 12 assets are published; the v3.2.24 release still has its 12 assets and the same EXE digest. `Report-Preview.png` is unchanged.
+
+Limits: the slow WebView2 first start that exposed the bug is intermittent (it reproduced twice on #59 and not on #60), so the passing runs show the normal path; the 3-minute limit leaves a wide margin rather than proving every slow start. CI artifacts were not downloaded. No client data was uploaded.
+
 ## 3.2.25 release preparation — 2026-11-20
 
 Publishing the built-in window start fix (#60) under the owner's standing approval (AGENTS rule 16). This branch bumps `appVersion`, `collectorVersion` and the collector `$scriptVersion` to 3.2.25, adds `docs/release-notes/3.2.25.md` (first three bullets free of Markdown) and points `scripts/test_published_upgrade.cjs` at the published v3.2.24 executable (SHA-256 `b18f980e946896c9e146d8821786214a8942d3f94e11b33ac5c10a32592a0e41`, release asset digest). `release/VERSION` changes in a separate publication PR after this source CI passes. `Report-Preview.png` should be unchanged.
