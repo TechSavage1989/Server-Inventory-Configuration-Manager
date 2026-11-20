@@ -52,7 +52,7 @@ $missingArguments=Get-MissingMandatoryArguments $ast
 if($missingArguments.Count){throw ('Collector calls miss mandatory arguments: '+($missingArguments -join '; '))}
 $archivedTokens=$null;$archivedErrors=$null
 $archivedAst=[Management.Automation.Language.Parser]::ParseFile((Join-Path $root 'baseline/v3.2.10/collectors/Export-ServerInventory.ps1'),[ref]$archivedTokens,[ref]$archivedErrors)
-$archivedMissing=@(Get-MissingMandatoryArguments $archivedAst)
+$archivedMissing=Get-MissingMandatoryArguments $archivedAst
 if($archivedMissing.Count -ne 3 -or @($archivedMissing|Where-Object{$_ -match "^Add-ReportTable .*DHCP (policies|scope statistics|bindings).* without -Columns$"}).Count -ne 3){throw ('The mandatory-argument check did not find the three DHCP tables in the published 3.2.10 collector: '+($archivedMissing -join '; '))}
 $names=@('ConvertTo-ReportAtomicText','ConvertTo-ReportText','ConvertTo-ReportMultilineText','Get-ReportPropertyValue','Get-ReportCellText','Add-ReportTitle','Add-ReportHeading','Add-ReportParagraph','Add-ReportBullets','Add-ReportPreformatted','Add-ReportTable','ConvertTo-HtmlText','ConvertTo-HtmlMultilineText','Write-ConsolidatedHtmlReport','Write-DocxTextRun','Write-DocxParagraph','Write-DocxTable','Write-ConsolidatedDocxReport')
 foreach($name in $names){
