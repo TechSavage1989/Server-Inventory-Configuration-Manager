@@ -1,3 +1,7 @@
+## 3.2.25 release preparation — 2026-11-20
+
+Publishing the built-in window start fix (#60) under the owner's standing approval (AGENTS rule 16). This branch bumps `appVersion`, `collectorVersion` and the collector `$scriptVersion` to 3.2.25, adds `docs/release-notes/3.2.25.md` (first three bullets free of Markdown) and points `scripts/test_published_upgrade.cjs` at the published v3.2.24 executable (SHA-256 `b18f980e946896c9e146d8821786214a8942d3f94e11b33ac5c10a32592a0e41`, release asset digest). `release/VERSION` changes in a separate publication PR after this source CI passes. `Report-Preview.png` should be unchanged.
+
 ## Unreleased: built-in window first start could show a false error — 2026-11-20
 
 Found while CI for the 3.2.24 release record failed twice in `TestExecutableUsesBuiltInWindowWhenGuestBrowsingIsBlocked` (hosted image 20261116.315.1, WebView2 Runtime 157.0.4341.46; the same image passed on other runs). The interface painted (icon refresh and update check ran) but "Opened the interface in the built-in window" was never logged and no health marker was written.
