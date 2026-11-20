@@ -4,7 +4,7 @@ User request: "the file share migrator should be able to select new directories 
 
 - Choose shares: a **Browse…** button per share (Windows folder picker with Make New Folder) and **Choose a folder for all…** (each selected share goes to `<parent>\<new share name>`). `/api/migrate/browse` returns the path; local drive folders only; refused while a step runs. Plan validation now refuses Windows, Program Files, ProgramData and profile folders (`migrateProtectedFolder`).
 - Functional shares: Sync creates the folder and, after a successful Robocopy pass (which rewrites the top folder's list with entries that would follow the new parent), gives the new top folder the old top folder's effective NTFS permissions (own and inherited, generic rights mapped to file rights) as a protected list, only when they differ. Cutover opens `\\<this server>\<share>` and reports `reachable`/`sharePath`; a share that does not open is marked for attention.
-- Tests: Go protected-folder and busy-picker checks; workspace Browse/parent/lock/refusal check; migration round trip checks the top folder's own and inherited permissions, subfolder inheritance, no re-application on the second copy, and the new share opening through its network path.
+- Tests: Go protected-folder and busy-picker checks; workspace Browse/parent/lock/refusal check; migration round trip checks the top folder's own and inherited permissions, subfolder inheritance, that the second copy still copies only what changed and keeps the top folder protected, and the new share opening through its network path.
 - README Migrate steps and `docs/images/migrate-choose.png` updated (captured from the real page with synthetic state).
 
 ## 3.2.22 published and verified — 2026-11-18

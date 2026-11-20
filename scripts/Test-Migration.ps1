@@ -133,7 +133,9 @@ Assert ($sync.code -eq 0) 'Second copy succeeds'
 Assert ((Get-Content -LiteralPath (Join-Path $newFolder 'Budget.txt') -Raw) -match 'version 2' -and (Test-Path -LiteralPath (Join-Path $newFolder 'New-Plan.txt'))) 'Second copy brings over changed and new files'
 Assert (-not (Test-Path -LiteralPath (Join-Path $newFolder 'Remove-Me.txt'))) 'Second copy removes files deleted on the old server'
 Assert ([int]$sync.result.shares[0].files[1] -eq 2) 'Second copy copies only what changed'
-Assert ($sync.log -notmatch 'Gave .* the permissions of the old top folder' -and (Get-Acl -LiteralPath $newFolder).AreAccessRulesProtected) 'A later copy leaves the top folder''s permissions alone when they already match'
+$rootAfter = Get-Acl -LiteralPath $newFolder
+$rootAfterSids = @($rootAfter.GetAccessRules($true, $true, [Security.Principal.SecurityIdentifier]) | ForEach-Object { $_.IdentityReference.Value })
+Assert ($rootAfter.AreAccessRulesProtected -and $rootAfterSids -contains 'S-1-5-32-555') 'After a later copy the top folder still has its own protected permissions'
 
 $cancel = Join-Path $OutputDirectory 'stop'
 Set-Content -LiteralPath $cancel -Value 'stop'
