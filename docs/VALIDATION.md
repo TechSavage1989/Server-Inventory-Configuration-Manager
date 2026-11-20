@@ -1,3 +1,13 @@
+## 3.2.23 published and verified — 2026-11-20
+
+- [Release v3.2.23](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.23) ("Server Inventory and Migration Manager 3.2.23"), tag and target commit `860ee648c0cb51f4feec6247ec5b9a46f7857afd` (publication PR #54, changing only `release/VERSION`). Source: Migrate folder picker and functional shares #52; release preparation #53.
+- [Publish run](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/44664558757) passed in one attempt: publish job 02:59–03:05 UTC, published-upgrade job 03:05–03:14 UTC.
+- All 45 actual 3.2.22-to-3.2.23 upgrade checks passed in one run with zero unexpected dialogs. Source CI on #52 and #53 passed windows, restore and migration. The migration round trip (51 checks) gave the new top folder the old top folder's own and inherited permissions as a protected list, and subfolders inherited them. The second copy still copied only the 2 changed files, and the new share opened through `\\<runner>\SICMFinanceNew`.
+- Stable EXE: 7,717,376 bytes; SHA-256 `25c22650edb5f45725dafed2e2a3dd569006983531bf08926b4d16b21d7720c3` (release asset digest). All 12 assets are published; the v3.2.22 release still has its 12 assets and the same EXE digest. `Report-Preview.png` is unchanged, so `docs/images/report-executive-summary.png` is unchanged.
+- Finding during #52: Robocopy `/COPYALL` rewrites the top folder's list on any pass where that folder changed. The .NET `SetAccessControl` re-applies inheritance through the whole tree, which made the next Robocopy pass recopy every file. The engine therefore writes the top folder with `SetFileSecurity` after each successful copy.
+
+Limits: synthetic hosted Windows Server 2025 testing with the runner as both servers. The native folder picker itself was not driven in CI: the workspace test covers its API and UI, and the Go test covers its refusal while a step runs. A separate old server, Windows Server 2012/2012 R2 and a company-managed PC were not exercised. CI artifacts were not downloaded; the job logs above are the evidence. No client data was uploaded.
+
 ## 3.2.22 published and verified — 2026-11-18
 
 - [Release v3.2.22](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.22) ("Server Inventory and Migration Manager 3.2.22"), tag and target commit `4335ac5736a2bd0f659994d9d116a47f748f4dba` (publication PR #50, changing only `release/VERSION`). Source: Migrate Connect as another account #48; release preparation #49.
