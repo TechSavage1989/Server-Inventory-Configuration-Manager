@@ -409,6 +409,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
 .migrate-share-path{display:block;font-size:12px;font-weight:400;color:#596b80;overflow-wrap:anywhere}
 .migrate-dest{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:8px 12px;margin:8px 0 0 25px}
 .migrate-dest label{display:block;font-size:12px;font-weight:650;color:#334156;min-width:0}
+.migrate-dest-path{display:flex;gap:6px;margin-top:4px;min-width:0}.migrate-dest-path input{margin-top:0!important;flex:1 1 auto;min-width:0}.migrate-dest-path button{flex:none;min-height:32px;padding:0 12px;font-size:12px}
 .migrate-dest input{display:block;width:100%;box-sizing:border-box;height:32px;margin-top:4px;border:1px solid #bcc9d9;border-radius:7px;padding:0 9px;font:inherit;font-size:12px;font-weight:400;color:#1b2942}
 .migrate-notes{margin:6px 0 0 25px;padding-left:16px;font-size:12px}.migrate-notes li{margin:2px 0}
 .migrate-notes .warn{color:#74551f}.migrate-notes .problem{color:#8c2626;font-weight:600}
@@ -671,6 +672,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
           <section class="migrate-section inactive" id="migrateStepChoose" aria-labelledby="migrateChooseTitle">
             <h3 class="migrate-section-title" id="migrateChooseTitle">2. Choose shares</h3>
             <p class="migrate-help">Tick the shares to move and choose where each one goes on this server. Then check the plan: it measures each share and checks free space and permissions. Nothing is copied yet.</p>
+            <div class="migrate-row hidden" id="migrateParentRow"><button class="secondary-button" id="migrateParent" type="button">Choose a folder for all&hellip;</button><span class="migrate-help">Puts each selected share in its own folder inside the folder you choose. Or use Browse on a share. New folders are created when copying starts.</span></div>
             <div class="migrate-shares hidden" id="migrateShares"></div>
             <div class="migrate-space hidden" id="migrateSpace"></div>
             <div class="migrate-row"><button class="secondary-button" id="migrateCheck" type="button" disabled>Check plan</button><span class="migrate-help" id="migrateSelectionSummary"></span></div>
@@ -1606,7 +1608,10 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       head.appendChild(box);head.appendChild(main);row.appendChild(head);
       var dest=el('div','migrate-dest');dest.setAttribute('data-migrate-dest-block',name);
       var pathLabel=el('label','','New folder on this server'),pathInput=document.createElement('input');pathInput.type='text';pathInput.setAttribute('data-migrate-dest',name);pathInput.spellcheck=false;pathInput.autocomplete='off';pathInput.value=migrateSelection[name].destPath;
-      pathInput.addEventListener('input',function(){migrateSelection[name].destPath=this.value;syncMigrateButtons();});pathLabel.appendChild(pathInput);
+      pathInput.addEventListener('input',function(){migrateSelection[name].destPath=this.value;syncMigrateButtons();});
+      var pathRow=el('span','migrate-dest-path'),browse=el('button','secondary-button','Browse\u2026');browse.type='button';browse.setAttribute('data-migrate-browse',name);browse.setAttribute('aria-label','Browse for the new folder of '+name);
+      browse.addEventListener('click',function(e){e.preventDefault();browseMigrateFolder(name);});
+      pathRow.appendChild(pathInput);pathRow.appendChild(browse);pathLabel.appendChild(pathRow);
       var nameLabel=el('label','','New share name'),nameInput=document.createElement('input');nameInput.type='text';nameInput.setAttribute('data-migrate-destname',name);nameInput.spellcheck=false;nameInput.autocomplete='off';nameInput.value=migrateSelection[name].destName;
       nameInput.addEventListener('input',function(){migrateSelection[name].destName=this.value;syncMigrateButtons();});nameLabel.appendChild(nameInput);
       dest.appendChild(pathLabel);dest.appendChild(nameLabel);row.appendChild(dest);
@@ -1636,7 +1641,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       box.disabled=locked||!(share&&share.remotePath);if(sel.on){count++;}
       row.className='migrate-share'+(sel.on?' selected':'');
       row.querySelector('[data-migrate-dest-block]').classList.toggle('hidden',!sel.on);
-      var inputs=row.querySelectorAll('[data-migrate-dest-block] input');for(var i=0;i<inputs.length;i++){inputs[i].disabled=locked;}
+      var inputs=row.querySelectorAll('[data-migrate-dest-block] input,[data-migrate-dest-block] button');for(var i=0;i<inputs.length;i++){inputs[i].disabled=locked;}
       renderMigrateCheck(name,row);
     });
     byId('migrateSelectionSummary').textContent=count?(count===1?'1 share selected.':count+' shares selected.'):'No shares selected.';
@@ -1652,6 +1657,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     var held=!!(m.account&&other&&trimText(byId('migrateUser').value).toLowerCase()===String(m.account).toLowerCase());
     byId('migratePassword').placeholder=held?'Password (kept for this session)':'Password';
     byId('migrateReset').classList.toggle('hidden',!(m.source||discovery));byId('migrateReset').disabled=locked;
+    byId('migrateParentRow').classList.toggle('hidden',!discovery||!(discovery.shares||[]).length);byId('migrateParent').disabled=locked||!chosen.length;
     byId('migrateCheck').disabled=locked||!discovery||!chosen.length;byId('migrateCheck').textContent=m.prechecked&&!dirty?'Check plan again':'Check plan';
     var copy=byId('migrateCopy');copy.disabled=locked||!m.canCopy||dirty;copy.textContent=anySynced?'Copy again':'Copy now';
     copy.title=dirty&&discovery?'Check the plan after changing it.':(!m.canCopy?'Check the plan, and fix any problem it finds, first.':'');
@@ -1777,6 +1783,28 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     }
     migratePost('/api/migrate/discover',body,'migrateConnectStatus',function(err){byId('migratePassword').value='';if(!err){migrateMarkRunning('discover','discovering','Connecting to '+label+'.');}});
   }
+  function migrateFolderName(name){return String(name).replace(/\$$/,'').replace(/[\\\/:*?"<>|]/g,'_').replace(/[. ]+$/,'')||'Share';}
+  function browseMigrateFolder(name){
+    if(migrateLocked()){return;}
+    migratePost('/api/migrate/browse',{share:name},'migrateCheckStatus',function(err,data){
+      if(err||!data||!data.selected||!migrateSelection[name]){return;}
+      migrateSelection[name].destPath=data.path;var input=document.querySelector('input[data-migrate-dest="'+name.replace(/"/g,'\\"')+'"]');if(input){input.value=data.path;}
+      syncMigrateShares();
+    });
+  }
+  function chooseMigrateParent(){
+    if(migrateLocked()||!migrateSelectedShares().length){return;}
+    migratePost('/api/migrate/browse',{parent:true},'migrateCheckStatus',function(err,data){
+      if(err||!data||!data.selected){return;}
+      var base=String(data.path).replace(/\\+$/,''),count=0;
+      migrateOrder.forEach(function(name){
+        var sel=migrateSelection[name];if(!sel||!sel.on){return;}
+        sel.destPath=base+'\\'+migrateFolderName(trimText(sel.destName)||name);count++;
+        var input=document.querySelector('input[data-migrate-dest="'+name.replace(/"/g,'\\"')+'"]');if(input){input.value=sel.destPath;}
+      });
+      syncMigrateShares();migrateSetStatus('migrateCheckStatus',(count===1?'1 share':count+' shares')+' will go in '+data.path+'. Check the plan again.',false);
+    });
+  }
   function checkMigratePlan(){
     var shares=migrateSelectedShares();if(!shares.length||migrateLocked()){return;}
     migratePost('/api/migrate/plan',{shares:shares},'migrateCheckStatus',function(err){
@@ -1813,6 +1841,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   byId('migrateSource').addEventListener('input',syncMigrateButtons);
   byId('migrateSource').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();connectMigrate();}});
   byId('migrateConnect').addEventListener('click',connectMigrate);
+  byId('migrateParent').addEventListener('click',chooseMigrateParent);
   ['migrateAccountCurrent','migrateAccountOther'].forEach(function(id){byId(id).addEventListener('change',function(){syncMigrateButtons();if(byId('migrateAccountOther').checked){byId('migrateUser').focus();}});});
   byId('migrateUser').addEventListener('input',syncMigrateButtons);
   ['migrateUser','migratePassword'].forEach(function(id){byId(id).addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();connectMigrate();}});});

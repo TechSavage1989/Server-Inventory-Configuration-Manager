@@ -56,6 +56,10 @@ Set-Content -LiteralPath (Join-Path $old 'Budget.txt') -Value 'version 1'
 Set-Content -LiteralPath (Join-Path $old 'Remove-Me.txt') -Value 'deleted on the old server later'
 $hidden = Join-Path $old 'hidden.txt'; Set-Content -LiteralPath $hidden -Value 'hidden'; (Get-Item -LiteralPath $hidden).Attributes = 'Hidden'
 & icacls.exe (Join-Path $old 'Reports') /grant 'Guests:(OI)(CI)R' | Out-Null
+# Top-folder permissions: one set on the share folder itself (Backup
+# Operators) and one inherited from its parent (Remote Desktop Users).
+& icacls.exe $old /grant '*S-1-5-32-551:(OI)(CI)RX' | Out-Null
+& icacls.exe (Split-Path -Path $old -Parent) /grant '*S-1-5-32-555:(OI)(CI)R' | Out-Null
 $oldName = 'SICMFinance'; $newName = 'SICMFinanceNew'
 foreach ($name in @($oldName, $newName)) { if (Get-SmbShare -Name $name -ErrorAction SilentlyContinue) { Remove-SmbShare -Name $name -Force } }
 New-SmbShare -Name $oldName -Path $old -FullAccess 'Administrators' -ChangeAccess 'Users' -ReadAccess 'Everyone' -FolderEnumerationMode AccessBased -CachingMode None -Description 'Synthetic finance share' | Out-Null
@@ -112,6 +116,13 @@ Assert (@(Get-ChildItem -LiteralPath $newFolder -Recurse -File -Force).Count -eq
 Assert (Test-Path -LiteralPath (Join-Path $newFolder 'Empty Folder')) 'Empty folders are copied'
 Assert (((& icacls.exe (Join-Path $newFolder 'Reports\2026\Report-1.txt')) -join ' ') -match 'Guests') 'NTFS permissions are copied'
 Assert (((Get-Item -LiteralPath (Join-Path $newFolder 'hidden.txt') -Force).Attributes -band [IO.FileAttributes]::Hidden) -ne 0) 'File attributes are copied'
+$rootAcl = Get-Acl -LiteralPath $newFolder
+$rootSids = @($rootAcl.GetAccessRules($true, $true, [Security.Principal.SecurityIdentifier]) | ForEach-Object { $_.IdentityReference.Value })
+$parentSids = @((Get-Acl -LiteralPath (Split-Path -Path $newFolder -Parent)).GetAccessRules($true, $true, [Security.Principal.SecurityIdentifier]) | ForEach-Object { $_.IdentityReference.Value })
+Assert ($rootAcl.AreAccessRulesProtected -and $rootSids -contains 'S-1-5-32-551' -and $rootSids -contains 'S-1-5-32-555' -and $parentSids -notcontains 'S-1-5-32-555') ('The new top folder gets the old top folder''s own and inherited permissions: ' + ($rootSids -join ','))
+Assert ($sync.log -match 'Gave .* the permissions of the old top folder' -and $sync.log -match 'Created the folder') 'The first copy creates the chosen folder and sets its permissions'
+$subSids = @((Get-Acl -LiteralPath (Join-Path $newFolder 'Reports\2026')).GetAccessRules($true, $true, [Security.Principal.SecurityIdentifier]) | ForEach-Object { $_.IdentityReference.Value })
+Assert ($subSids -contains 'S-1-5-32-551' -and $subSids -contains 'S-1-5-32-555') ('Subfolders carry the top folder''s inheritable permissions: ' + ($subSids -join ','))
 
 Set-Content -LiteralPath (Join-Path $old 'Budget.txt') -Value 'version 2'
 Set-Content -LiteralPath (Join-Path $old 'New-Plan.txt') -Value 'added after the first copy'
@@ -122,6 +133,7 @@ Assert ($sync.code -eq 0) 'Second copy succeeds'
 Assert ((Get-Content -LiteralPath (Join-Path $newFolder 'Budget.txt') -Raw) -match 'version 2' -and (Test-Path -LiteralPath (Join-Path $newFolder 'New-Plan.txt'))) 'Second copy brings over changed and new files'
 Assert (-not (Test-Path -LiteralPath (Join-Path $newFolder 'Remove-Me.txt'))) 'Second copy removes files deleted on the old server'
 Assert ([int]$sync.result.shares[0].files[1] -eq 2) 'Second copy copies only what changed'
+Assert ($sync.log -notmatch 'Gave .* the permissions of the old top folder' -and (Get-Acl -LiteralPath $newFolder).AreAccessRulesProtected) 'A later copy leaves the top folder''s permissions alone when they already match'
 
 $cancel = Join-Path $OutputDirectory 'stop'
 Set-Content -LiteralPath $cancel -Value 'stop'
@@ -139,6 +151,7 @@ $access = @(Get-SmbShareAccess -Name $newName | ForEach-Object { ([string]$_.Acc
 $expected = @(Get-SmbShareAccess -Name $oldName | ForEach-Object { ([string]$_.AccountName).Split('\')[-1] + '|' + $_.AccessControlType + '|' + $_.AccessRight } | Sort-Object)
 Assert ((($access -join ';') -eq ($expected -join ';'))) ('The new share has the old share permissions: ' + ($access -join ';'))
 Assert ($cut.result.verification[0].verified -and [int]$cut.result.verification[0].files -eq 43) 'Cutover verifies that old and new folders match'
+Assert ($cut.result.verification[0].reachable -and $cut.result.verification[0].sharePath -eq ('\\' + $env:COMPUTERNAME + '\' + $newName) -and (Test-Path -LiteralPath ('\\' + $env:COMPUTERNAME + '\' + $newName + '\Budget.txt'))) 'Cutover checks that the new share opens through its network path'
 
 # --- Old server: read-only and undo ----------------------------------------------
 $readOnly = Invoke-Engine 'SourceReadOnly' @{ PlanPath = $plan } 'source-readonly'

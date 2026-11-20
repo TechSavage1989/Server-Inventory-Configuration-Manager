@@ -702,6 +702,9 @@ func validateMigratePlan(discovery *migrateDiscovery, input []migratePlanInput, 
 		if names[strings.ToUpper(destName)] {
 			return nil, fmt.Errorf("The share name %s is used twice.", destName)
 		}
+		if reason := migrateProtectedFolder(destPath); reason != "" {
+			return nil, fmt.Errorf("The new folder for %s is %s. Choose a folder for shared data, such as D:\\Shares\\%s.", source.Name, reason, source.Name)
+		}
 		names[strings.ToUpper(destName)] = true
 		lower := strings.ToLower(destPath) + `\`
 		for _, other := range paths {
@@ -717,6 +720,88 @@ func validateMigratePlan(discovery *migrateDiscovery, input []migratePlanInput, 
 		plan = append(plan, state)
 	}
 	return plan, nil
+}
+
+// migrateProtectedFolder names why a folder must not receive a mirrored copy:
+// Windows, program and profile folders would be damaged by Robocopy /MIR.
+func migrateProtectedFolder(path string) string {
+	clean := strings.ToLower(filepath.Clean(path))
+	protected := map[string]string{
+		"SystemRoot":        "inside the Windows folder",
+		"ProgramFiles":      "inside Program Files",
+		"ProgramFiles(x86)": "inside Program Files",
+		"ProgramData":       "inside ProgramData",
+		"PUBLIC":            "inside the user profiles folder",
+	}
+	for variable, reason := range protected {
+		root := os.Getenv(variable)
+		if variable == "PUBLIC" && root != "" {
+			root = filepath.Dir(root)
+		}
+		if root == "" {
+			continue
+		}
+		root = strings.ToLower(filepath.Clean(root))
+		if clean == root || strings.HasPrefix(clean, root+`\`) {
+			return reason
+		}
+	}
+	if len(clean) == 2 && clean[1] == ':' {
+		return "a drive root"
+	}
+	return ""
+}
+
+// handleMigrateBrowse opens the Windows folder picker on this server for a
+// share's new folder (or a parent folder for every share). The picker can
+// make new folders; the copy creates a missing folder itself.
+func (a *application) handleMigrateBrowse(response http.ResponseWriter, request *http.Request) {
+	if !a.requireAuthorization(response, request) {
+		return
+	}
+	var input struct {
+		Share  string `json:"share"`
+		Parent bool   `json:"parent"`
+	}
+	if !decodeMigrateRequest(response, request, &input) {
+		return
+	}
+	if !a.beginCriticalOperation() {
+		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "An update is being installed."})
+		return
+	}
+	defer a.endCriticalOperation()
+	if a.migrateBusy() {
+		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "Wait for the current step to finish."})
+		return
+	}
+	title := "Choose the parent folder for the new shares on this server. Each share gets its own folder inside it. Use Make New Folder to create one."
+	if !input.Parent {
+		share := strings.TrimSpace(input.Share)
+		if len(share) > 80 {
+			share = share[:80]
+		}
+		title = "Choose the folder on this server for the share " + share + ". Use Make New Folder to create one. It must be empty or new."
+	}
+	selectedPath, selected, err := chooseFolder(title)
+	if err != nil {
+		writeJSON(response, http.StatusInternalServerError, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	if !selected {
+		writeJSON(response, http.StatusOK, map[string]any{"ok": true, "selected": false})
+		return
+	}
+	clean := filepath.Clean(selectedPath)
+	if !migrateDestPathPattern.MatchString(clean) && !(input.Parent && len(clean) == 3 && migrateDestPathPattern.MatchString(clean+"x")) {
+		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "Choose a folder on a local drive of this server, such as D:\\Shares. Network locations cannot hold the new shares."})
+		return
+	}
+	if reason := migrateProtectedFolder(clean); reason != "" && !(input.Parent && reason == "a drive root") {
+		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "That folder is " + reason + ". Choose a folder for shared data, such as D:\\Shares."})
+		return
+	}
+	writeJSON(response, http.StatusOK, map[string]any{"ok": true, "selected": true, "path": clean})
 }
 
 func (a *application) handleMigratePlan(response http.ResponseWriter, request *http.Request) {

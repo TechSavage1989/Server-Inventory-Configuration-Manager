@@ -413,6 +413,51 @@ function Invoke-Precheck {
 
 # ------------------------------------------------------------------ sync -------
 
+function Get-RuleKey {
+    param($Rule)
+    return ('{0}|{1}|{2}|{3}|{4}' -f $Rule.IdentityReference.Value, [int]$Rule.FileSystemRights, [int]$Rule.InheritanceFlags, [int]$Rule.PropagationFlags, [int]$Rule.AccessControlType)
+}
+
+function Set-RootPermissions {
+    # Robocopy copies the permissions of every file and subfolder but not of
+    # the top folder itself, which would otherwise inherit from its new parent
+    # (for example D:\Shares). Give the new top folder the old top folder's
+    # effective permissions, inherited ones included, as its own protected
+    # list, so the share grants the same access as before. Runs before the
+    # copy and only when the list differs, so later passes do not re-apply
+    # permissions through the whole tree.
+    param([string]$From, [string]$To)
+    $source = Get-Acl -LiteralPath $From
+    $security = New-Object System.Security.AccessControl.DirectorySecurity
+    $security.SetAccessRuleProtection($true, $false)
+    $skipped = @()
+    $count = 0
+    foreach ($rule in @($source.GetAccessRules($true, $true, [System.Security.Principal.SecurityIdentifier]))) {
+        # Generic rights (for example CREATOR OWNER's GENERIC_ALL) become the
+        # matching file rights, which a file system rule can hold.
+        $raw = [int64]([int]$rule.FileSystemRights)
+        if ($raw -lt 0) { $raw += 4294967296 }
+        if ($raw -band 0x10000000) { $raw = $raw -bor 0x1F01FF }
+        if ($raw -band 0x80000000) { $raw = $raw -bor 0x120089 }
+        if ($raw -band 0x40000000) { $raw = $raw -bor 0x120116 }
+        if ($raw -band 0x20000000) { $raw = $raw -bor 0x1200A0 }
+        $rights = [System.Security.AccessControl.FileSystemRights][int]($raw -band 0x0FFFFFFF)
+        try {
+            $security.AddAccessRule((New-Object System.Security.AccessControl.FileSystemAccessRule($rule.IdentityReference, $rights, $rule.InheritanceFlags, $rule.PropagationFlags, $rule.AccessControlType)))
+            $count++
+        }
+        catch { $skipped += ([string]$rule.IdentityReference.Value) }
+    }
+    if (-not $count) { throw ('The permissions of ' + $From + ' could not be read, so ' + $To + ' was left unchanged.') }
+    $current = Get-Acl -LiteralPath $To
+    $have = @($current.GetAccessRules($true, $false, [System.Security.Principal.SecurityIdentifier]) | ForEach-Object { Get-RuleKey $_ } | Sort-Object -Unique)
+    $want = @($security.GetAccessRules($true, $false, [System.Security.Principal.SecurityIdentifier]) | ForEach-Object { Get-RuleKey $_ } | Sort-Object -Unique)
+    if ($current.AreAccessRulesProtected -and (($have -join ';') -eq ($want -join ';'))) { return $skipped }
+    (Get-Item -LiteralPath $To -Force).SetAccessControl($security)
+    Write-Log 'INFO' ('Gave ' + $To + ' the permissions of the old top folder (' + $want.Count + ' entries).')
+    return $skipped
+}
+
 function Invoke-SyncShares {
     param($Plan, [string]$Label)
     $results = @(); $failed = $false
@@ -429,7 +474,8 @@ function Invoke-SyncShares {
             if ((Test-Path -LiteralPath $dest) -and -not [bool]$share.previouslySynced -and @(Get-ChildItem -LiteralPath $dest -Force -ErrorAction SilentlyContinue | Select-Object -First 1).Count) {
                 throw ('The new folder ' + $dest + ' already contains files that did not come from this migration. Choose an empty or new folder.')
             }
-            if (-not (Test-Path -LiteralPath $dest)) { New-Item -Path $dest -ItemType Directory -Force | Out-Null }
+            if (-not (Test-Path -LiteralPath $dest)) { New-Item -Path $dest -ItemType Directory -Force | Out-Null; Write-Log 'INFO' ('Created the folder ' + $dest + '.') }
+            foreach ($account in @(Set-RootPermissions -From $from -To $dest)) { Write-Log 'WARN' ($name + ': the top folder permission for ' + $account + ' could not be copied.') }
             $log = Join-Path $WorkPath ((Get-Date -Format 'yyyyMMdd-HHmmss') + '-' + $Label + '-' + ($name -replace '[^A-Za-z0-9_-]', '_') + '.log')
             $item.log = $log
             Write-MigrateEvent @{ event = 'share'; share = $name; status = 'copying'; message = 'Copying changes.' }
@@ -542,9 +588,15 @@ function Invoke-Cutover {
         $different = 0; $extra = 0; $total = 0
         if ($summary.files.Count) { $total = $summary.files[0]; $different = $summary.files[1] + $summary.files[3] + $summary.files[4]; $extra = $summary.files[5] }
         $verified = ($code -lt 8 -and $code -ge 0 -and $different -eq 0 -and $extra -eq 0)
-        $message = ('{0} file(s) match.' -f $total)
+        # The share must answer through its new network path.
+        $sharePath = '\\' + $script:ComputerName + '\' + [string]$share.destName
+        $reachable = $false
+        try { $reachable = Test-Path -LiteralPath $sharePath } catch { }
+        $message = ('{0} file(s) match. {1} is ready.' -f $total, $sharePath)
         if (-not $verified) { $message = ('{0} file(s) differ and {1} extra file(s) exist, usually because users changed files during cutover. Run the final copy again.' -f $different, $extra) }
-        $result.verification += @{ name = $name; verified = $verified; files = $total; different = $different; extra = $extra; log = $log }
+        if (-not $reachable) { $verified = $false; $message = ($sharePath + ' did not open from this server. Check that the Server service is running and File and Printer Sharing is allowed. ' + $message) }
+        else { Write-Log 'INFO' ($sharePath + ' opens.') }
+        $result.verification += @{ name = $name; verified = $verified; files = $total; different = $different; extra = $extra; log = $log; sharePath = $sharePath; reachable = $reachable }
         Write-MigrateEvent @{ event = 'share'; share = $name; status = $(if ($verified) { 'done' } else { 'attention' }); message = $message }
     }
     Write-Result $result

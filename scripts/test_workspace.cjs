@@ -62,6 +62,7 @@ async function fixture(browser,old=false){
    if(action==='cutover'){Object.assign(m,{running:true,action:'cutover',status:'cuttingover'});send(202,{ok:true});return;}
    if(action==='cancel'){m.cancelRequested=true;send(202,{ok:true});return;}
    if(action==='reset'){state.migrate=migrateIdle();send(200,{ok:true});return;}
+   if(action==='browse'){send(200,data.parent?{ok:true,selected:true,path:'E:\\'}:{ok:true,selected:true,path:'F:\\Data\\'+data.share+'-New'});return;}
    send(202,{ok:true});return;
   }
   if(url.pathname==='/api/open'){let body='';for await(const chunk of req)body+=chunk;opens.push(JSON.parse(body).kind);send(200,{ok:true});return;}
@@ -395,6 +396,24 @@ async function check(name,fn){await fn();report.checks.push({name,result:'passed
   await f.page.locator('#migrateOpenLogs').click();await f.page.waitForTimeout(300);assert.deepEqual(f.opens,['migrationlogs']);
   await f.page.locator('#migrateReset').click();await f.page.waitForTimeout(1100);assert.equal(migrateCalls(f,'reset').length,1);assert.equal(await f.page.locator('.migrate-share').count(),0);assert.equal(await f.page.locator('#migrateSource').inputValue(),'');
   assert(f.migrateCalls.every(c=>c.token==='workspace-test'));assert.deepEqual(f.dialogs,[]);
+ }finally{await f.close();}});
+ await check('Migrate Browse and Choose a folder for all pick the new folders on this server',async()=>{const f=await fixture(browser);try{
+  await migrateConnect(f);
+  assert(await f.page.locator('#migrateParent').isVisible()&&!await f.page.locator('#migrateParent').isDisabled());
+  await f.page.locator('button[data-migrate-browse="Finance"]').click();await f.page.waitForFunction(()=>document.querySelector('input[data-migrate-dest="Finance"]').value==='F:\\Data\\Finance-New');
+  assert.deepEqual(migrateCalls(f,'browse').map(c=>c.body),[{share:'Finance'}]);
+  await f.page.locator('input[data-migrate-destname="Projects"]').fill('Team Projects.');const netlogon=await f.page.locator('input[data-migrate-dest="NETLOGON"]').inputValue();
+  await f.page.locator('#migrateParent').click();await f.page.waitForFunction(()=>document.querySelector('input[data-migrate-dest="Finance"]').value==='E:\\Finance');
+  assert.equal(await f.page.locator('input[data-migrate-dest="Projects"]').inputValue(),'E:\\Team Projects','folder named after the new share name, trailing dot removed');
+  assert.equal(await f.page.locator('input[data-migrate-dest="NETLOGON"]').inputValue(),netlogon,'unticked shares keep their folder');
+  assert.equal(await f.page.locator('#migrateCheckStatus').textContent(),'2 shares will go in E:\\. Check the plan again.');
+  await f.page.locator('#migrateCheck').click();await f.page.waitForFunction(()=>document.querySelector('#migrateTabBadge').textContent==='Checking');
+  assert.deepEqual(migrateCalls(f,'plan')[0].body.shares.map(s=>s.destPath),['E:\\Finance','E:\\Team Projects']);
+  assert(await f.page.locator('button[data-migrate-browse="Finance"]').isDisabled()&&await f.page.locator('#migrateParent').isDisabled(),'folder pickers lock while a step runs');
+  f.rejectMigrate('browse','That folder is inside the Windows folder. Choose a folder for shared data, such as D:\\Shares.');
+  Object.assign(f.state.migrate,{running:false,action:'',status:'checked'});await f.page.waitForTimeout(1100);
+  await f.page.locator('button[data-migrate-browse="Finance"]').click();await f.page.waitForFunction(()=>/inside the Windows folder/.test(document.querySelector('#migrateCheckStatus').textContent));
+  assert.equal(await f.page.locator('input[data-migrate-dest="Finance"]').inputValue(),'E:\\Finance','a refused folder changes nothing');assert.deepEqual(f.dialogs,[]);
  }finally{await f.close();}});
  await check('Migrate Connect as offers another account, sends it only to Connect and asks for it after access is denied',async()=>{const f=await fixture(browser);try{
   await f.page.keyboard.press('Alt+5');await f.page.locator('#migrateSource').fill('FS-OLD-07');
