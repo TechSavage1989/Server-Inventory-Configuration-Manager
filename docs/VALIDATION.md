@@ -1,3 +1,12 @@
+## 3.2.24 published and verified — 2026-11-20
+
+- [Release v3.2.24](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.24) ("Server Inventory and Migration Manager 3.2.24"), tag and target commit `92028f027ffe7a79f66c6265582ed4f52e7599b9` (publication PR #58, changing only `release/VERSION`). Source: DHCP report columns fix and mandatory-argument guard #56; release preparation #57.
+- [Publish run](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/44749311516) passed in one attempt: publish job 14:00–14:06 UTC, published-upgrade job 14:06–14:15 UTC.
+- All 45 actual 3.2.23-to-3.2.24 upgrade checks passed in one run with zero unexpected dialogs. Source CI on #56 and #57 passed windows, restore and migration. `Test-Report.ps1` passed the new static check that every collector call binds its mandatory parameters; its negative control found exactly the three DHCP calls in the published 3.2.10 collector.
+- Stable EXE: 7,717,376 bytes; SHA-256 `b18f980e946896c9e146d8821786214a8942d3f94e11b33ac5c10a32592a0e41` (release asset digest). All 12 assets are published; the v3.2.23 release still has its 12 assets and the same EXE digest. `Report-Preview.png` is unchanged.
+
+Limits: the fix was not re-run against a live DHCP server; the evidence is the static check plus the user's failing log, which named the missing `Columns` parameter. Other warnings in that log (RRAS `REG EXPORT` invalid key name; AD health "format of the specified domain name is invalid") are unchanged. CI artifacts were not downloaded. No client data was uploaded.
+
 ## 3.2.23 published and verified — 2026-11-20
 
 - [Release v3.2.23](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.23) ("Server Inventory and Migration Manager 3.2.23"), tag and target commit `860ee648c0cb51f4feec6247ec5b9a46f7857afd` (publication PR #54, changing only `release/VERSION`). Source: Migrate folder picker and functional shares #52; release preparation #53.
