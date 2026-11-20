@@ -2236,6 +2236,7 @@ func (a *application) serve(listener net.Listener) error {
 	mux.HandleFunc("/api/restore/start", a.handleRestoreStart)
 	mux.HandleFunc("/api/restore/cancel", a.handleRestoreCancel)
 	mux.HandleFunc("/api/migrate/discover", a.handleMigrateDiscover)
+	mux.HandleFunc("/api/migrate/browse", a.handleMigrateBrowse)
 	mux.HandleFunc("/api/migrate/plan", a.handleMigratePlan)
 	mux.HandleFunc("/api/migrate/precheck", a.handleMigratePrecheck)
 	mux.HandleFunc("/api/migrate/sync", a.handleMigrateSync)

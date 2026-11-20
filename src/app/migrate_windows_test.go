@@ -238,3 +238,24 @@ func TestMigrateConnectAsAccountStaysInMemory(t *testing.T) {
 		t.Fatal("Start over kept the account")
 	}
 }
+
+func TestMigrateRefusesWindowsProgramAndProfileFolders(t *testing.T) {
+	discovery := migrateTestDiscovery()
+	for _, folder := range []string{os.Getenv("SystemRoot") + `\Shares\Finance`, os.Getenv("ProgramFiles") + `\Finance`, os.Getenv("ProgramData") + `\Finance`, filepath.Dir(os.Getenv("PUBLIC")) + `\Someone\Finance`} {
+		if _, err := validateMigratePlan(discovery, []migratePlanInput{{Name: "Finance", DestName: "Finance", DestPath: folder}}, nil); err == nil || !strings.Contains(err.Error(), "Choose a folder for shared data") {
+			t.Fatalf("%s was accepted: %v", folder, err)
+		}
+	}
+	for _, folder := range []string{`D:\Shares\Finance`, `C:\Data\Finance`, `E:\Program Files Old\Finance`} {
+		if _, err := validateMigratePlan(discovery, []migratePlanInput{{Name: "Finance", DestName: "Finance", DestPath: folder}}, nil); err != nil {
+			t.Fatalf("%s was refused: %v", folder, err)
+		}
+	}
+	a := &application{token: "migrate-test", computerName: "SRV-DEMO-01", admin: true, shutdown: make(chan struct{})}
+	a.migrate.action = "sync"
+	recorder := httptest.NewRecorder()
+	a.handleMigrateBrowse(recorder, httptest.NewRequest(http.MethodPost, "/?token=migrate-test", strings.NewReader(`{"share":"Finance"}`)))
+	if recorder.Code != http.StatusConflict {
+		t.Fatal("the folder picker opened during a migration step:", recorder.Code, recorder.Body.String())
+	}
+}
