@@ -1,3 +1,9 @@
+## Unreleased: built-in window first start could show a false error — 2026-11-20
+
+Found while CI for the 3.2.24 release record failed twice in `TestExecutableUsesBuiltInWindowWhenGuestBrowsingIsBlocked` (hosted image 20261116.315.1, WebView2 Runtime 157.0.4341.46; the same image passed on other runs). The interface painted (icon refresh and update check ran) but "Opened the interface in the built-in window" was never logged and no health marker was written.
+
+- Cause: `startWebViewHost` waited 45 seconds for the WebView2 controller. When `Embed` took longer, `main` showed the blocking "The application interface could not open" box and never started health confirmation, while the window thread finished embedding and loaded the interface behind the box.
+- Fix: `webViewStartTimeout` is 3 minutes (matching `idleStartupGrace`); a host that finishes after the limit destroys its window instead of navigating; the start time is logged ("Built-in window started in …"). The test waits for the start limit plus a minute.
 ## 3.2.24 published and verified — 2026-11-20
 
 - [Release v3.2.24](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.24) ("Server Inventory and Migration Manager 3.2.24"), tag and target commit `92028f027ffe7a79f66c6265582ed4f52e7599b9` (publication PR #58, changing only `release/VERSION`). Source: DHCP report columns fix and mandatory-argument guard #56; release preparation #57.
