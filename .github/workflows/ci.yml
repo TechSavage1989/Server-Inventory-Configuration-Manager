@@ -138,11 +138,11 @@ jobs:
         run: |
           $screen = '.\\build\\workspace-validation\\migrate-step2-1440x1000.png'
           if(-not (Test-Path $screen)){throw 'Validated browser screenshot missing'}
-          Copy-Item -LiteralPath $screen -Destination '.\\docs\\images\\migrate-choose.png' -Force
           git fetch origin '+refs/heads/feat/migrate-existing-share-overwrite:refs/remotes/origin/feat/migrate-existing-share-overwrite'
           if($LASTEXITCODE -ne 0){throw 'Could not fetch exact feature branch'}
           git checkout -B feat/migrate-existing-share-overwrite origin/feat/migrate-existing-share-overwrite
           if($LASTEXITCODE -ne 0){throw 'Could not switch from pull-request merge commit to feature branch'}
+          Copy-Item -LiteralPath $screen -Destination '.\\docs\\images\\migrate-choose.png' -Force
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add docs/images/migrate-choose.png
