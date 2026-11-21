@@ -85,10 +85,10 @@ Assert ([bool]$remoteShare -and $remoteShare.remotePath -eq ('\\' + $address + '
 $missing = Invoke-Engine 'Discover' @{ Source = 'sicm-no-such-server.invalid' } 'discover-missing'
 Assert ($missing.code -ne 0 -and $missing.log -match 'could not be found') 'An unknown server name is reported plainly'
 
-function Write-Plan([string]$Path, [string]$Destination, [bool]$Synced, [bool]$Created) {
+function Write-Plan([string]$Path, [string]$Destination, [bool]$Synced, [bool]$Created, [bool]$AllowOverwrite = $false) {
     $item = @{}
     foreach ($property in $share.PSObject.Properties) { $item[$property.Name] = $property.Value }
-    $item['destName'] = $newName; $item['destPath'] = $Destination; $item['previouslySynced'] = $Synced; $item['createdShare'] = $Created; $item['expectedFiles'] = 43
+    $item['destName'] = $newName; $item['destPath'] = $Destination; $item['previouslySynced'] = $Synced; $item['createdShare'] = $Created; $item['allowOverwrite'] = $AllowOverwrite; $item['expectedFiles'] = 43
     ConvertTo-Json -InputObject @{ source = $discover.result.source; sourceFqdn = $discover.result.sourceFqdn; shares = @($item) } -Depth 6 | Set-Content -LiteralPath $Path -Encoding UTF8
 }
 $plan = Join-Path $OutputDirectory 'plan.json'
@@ -102,6 +102,12 @@ $check = Invoke-Engine 'Precheck' @{ PlanPath = $plan } 'precheck-occupied'
 Assert ($check.code -eq 0 -and -not $check.result.shares[0].ok -and ($check.result.shares[0].problems -join ' ') -match 'already contains files') 'Check refuses a new folder that already holds other files'
 $sync = Invoke-Engine 'Sync' @{ PlanPath = $plan } 'sync-occupied'
 Assert ($sync.code -ne 0 -and (Test-Path -LiteralPath (Join-Path $occupied 'keep.txt'))) 'Copy refuses a non-empty folder and deletes nothing in it'
+Write-Plan $plan $occupied $false $false $true
+$allowed = Invoke-Engine 'Precheck' @{ PlanPath = $plan } 'precheck-occupied-overwrite'
+Assert ($allowed.code -eq 0 -and $allowed.result.shares[0].ok -and (($allowed.result.shares[0].warnings -join ' ') -match 'Overwrite selected')) 'Explicit override allows an occupied folder after a warning'
+$sync = Invoke-Engine 'Sync' @{ PlanPath = $plan } 'sync-occupied-overwrite'
+Assert ($sync.code -eq 0 -and $sync.result.shares[0].status -eq 'succeeded') 'Mirror copy to explicitly approved occupied destination succeeds'
+Assert (-not (Test-Path -LiteralPath (Join-Path $occupied 'keep.txt')) -and (Test-Path -LiteralPath (Join-Path $occupied 'Budget.txt'))) 'Approved mirror removes destination-only files and copies source files'
 
 # --- Check, copy, change, copy again -----------------------------------------
 Write-Plan $plan $newFolder $false $false
@@ -154,6 +160,26 @@ $expected = @(Get-SmbShareAccess -Name $oldName | ForEach-Object { ([string]$_.A
 Assert ((($access -join ';') -eq ($expected -join ';'))) ('The new share has the old share permissions: ' + ($access -join ';'))
 Assert ($cut.result.verification[0].verified -and [int]$cut.result.verification[0].files -eq 43) 'Cutover verifies that old and new folders match'
 Assert ($cut.result.verification[0].reachable -and $cut.result.verification[0].sharePath -eq ('\\' + $env:COMPUTERNAME + '\' + $newName) -and (Test-Path -LiteralPath ('\\' + $env:COMPUTERNAME + '\' + $newName + '\Budget.txt'))) 'Cutover checks that the new share opens through its network path'
+
+# --- Existing share name: default refusal and intentional replacement ----------
+$replacementFolder = Join-Path $root 'New\Replacement'
+Write-Plan $plan $replacementFolder $false $false
+$blocked = Invoke-Engine 'Precheck' @{ PlanPath = $plan } 'precheck-existing-name'
+Assert ($blocked.code -eq 0 -and -not $blocked.result.shares[0].ok -and (($blocked.result.shares[0].problems -join ' ') -match 'already exists')) 'Existing share name is blocked by default'
+$blockedSync = Invoke-Engine 'Sync' @{ PlanPath = $plan } 'sync-existing-name'
+Assert ($blockedSync.code -ne 0 -and (Get-SmbShare -Name $newName).Path -eq $newFolder) 'Direct copy without override cannot silently repoint an existing share'
+Write-Plan $plan $replacementFolder $false $false $true
+$approved = Invoke-Engine 'Precheck' @{ PlanPath = $plan } 'precheck-existing-name-approved'
+Assert ($approved.code -eq 0 -and $approved.result.shares[0].ok -and (($approved.result.shares[0].warnings -join ' ') -match 'disconnect users')) 'Explicit override allows an existing share name with a replacement warning'
+$copyReplacement = Invoke-Engine 'Sync' @{ PlanPath = $plan } 'sync-existing-name-approved'
+Assert ($copyReplacement.code -eq 0 -and $copyReplacement.result.shares[0].status -eq 'succeeded') 'Approved new destination folder copies successfully'
+Write-Plan $plan $replacementFolder $true $false $true
+$replace = Invoke-Engine 'Cutover' @{ PlanPath = $plan } 'cutover-replace-existing-name'
+Assert ($replace.code -eq 0 -and (Get-SmbShare -Name $newName).Path -eq $replacementFolder) 'Approved cutover replaces the old share mapping with the chosen folder'
+$backupFile = @(Get-ChildItem -LiteralPath $work -Filter 'ExistingShare-SICMFinanceNew-*.json' | Sort-Object LastWriteTime -Descending | Select-Object -First 1)
+Assert ($backupFile.Count -eq 1) 'Existing share settings were backed up before replacement'
+$backup = Get-Content -LiteralPath $backupFile[0].FullName -Raw | ConvertFrom-Json
+Assert ($backup.destPath -eq $newFolder -and $backup.destName -eq $newName -and @($backup.access).Count -gt 0 -and (Test-Path -LiteralPath $newFolder)) 'Existing share backup contains its original path and access permissions; old files are retained'
 
 # --- Old server: read-only and undo ----------------------------------------------
 $readOnly = Invoke-Engine 'SourceReadOnly' @{ PlanPath = $plan } 'source-readonly'
