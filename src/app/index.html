@@ -411,6 +411,9 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
 .migrate-dest label{display:block;font-size:12px;font-weight:650;color:#334156;min-width:0}
 .migrate-dest-path{display:flex;gap:6px;margin-top:4px;min-width:0}.migrate-dest-path input{margin-top:0!important;flex:1 1 auto;min-width:0}.migrate-dest-path button{flex:none;min-height:32px;padding:0 12px;font-size:12px}
 .migrate-dest input{display:block;width:100%;box-sizing:border-box;height:32px;margin-top:4px;border:1px solid #bcc9d9;border-radius:7px;padding:0 9px;font:inherit;font-size:12px;font-weight:400;color:#1b2942}
+.migrate-dest .migrate-overwrite{grid-column:1/-1;display:flex;align-items:flex-start;gap:7px;cursor:pointer;font-weight:600}
+.migrate-dest input[type=checkbox]{display:inline-block;width:16px;height:16px;margin:0;flex:none;accent-color:#2563eb}
+.migrate-overwrite-note{grid-column:1/-1;font-size:12px;color:#8c3b2c;line-height:1.4;margin-top:-3px}
 .migrate-notes{margin:6px 0 0 25px;padding-left:16px;font-size:12px}.migrate-notes li{margin:2px 0}
 .migrate-notes .warn{color:#74551f}.migrate-notes .problem{color:#8c2626;font-weight:600}
 .migrate-check{margin:6px 0 0 25px;display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;font-size:12px;color:#52647c}
@@ -1584,12 +1587,12 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     return best?best.drive:'C:';
   }
   function migratePlanFor(name){var m=migrateState(),plan=(m&&m.plan)||[];for(var i=0;i<plan.length;i++){if(String(plan[i].name).toLowerCase()===String(name).toLowerCase()){return plan[i];}}return null;}
-  function migrateSelectedShares(){return migrateOrder.filter(function(name){return migrateSelection[name]&&migrateSelection[name].on;}).map(function(name){var s=migrateSelection[name];return {name:name,destName:trimText(s.destName),destPath:trimText(s.destPath)};});}
+  function migrateSelectedShares(){return migrateOrder.filter(function(name){return migrateSelection[name]&&migrateSelection[name].on;}).map(function(name){var s=migrateSelection[name];return {name:name,destName:trimText(s.destName),destPath:trimText(s.destPath),allowOverwrite:!!s.allowOverwrite};});}
   // The posted plan is current when the server's plan has the same shares, names and folders.
   function migratePlanDirty(){
     var m=migrateState(),plan=(m&&m.plan)||[],chosen=migrateSelectedShares();
     if(plan.length!==chosen.length){return true;}
-    for(var i=0;i<chosen.length;i++){var p=migratePlanFor(chosen[i].name);if(!p||String(p.destName)!==chosen[i].destName||String(p.destPath).toLowerCase()!==chosen[i].destPath.toLowerCase()){return true;}}
+    for(var i=0;i<chosen.length;i++){var p=migratePlanFor(chosen[i].name);if(!p||String(p.destName)!==chosen[i].destName||String(p.destPath).toLowerCase()!==chosen[i].destPath.toLowerCase()||!!p.allowOverwrite!==chosen[i].allowOverwrite){return true;}}
     return false;
   }
   function buildMigrateShares(discovery){
@@ -1598,7 +1601,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     shares.forEach(function(share){
       var name=String(share.name),plan=migratePlanFor(name),selectable=!!share.remotePath;
       migrateOrder.push(name);
-      migrateSelection[name]={on:selectable&&(saved.length?!!plan:!share.system),destName:plan?plan.destName:name,destPath:plan?plan.destPath:drive+'\\Shares\\'+name.replace(/\$$/,'')};
+      migrateSelection[name]={on:selectable&&(saved.length?!!plan:!share.system),destName:plan?plan.destName:name,destPath:plan?plan.destPath:drive+'\\Shares\\'+name.replace(/\$$/,''),allowOverwrite:plan?!!plan.allowOverwrite:false};
       var row=el('div','migrate-share');row.setAttribute('data-migrate-row',name);
       var head=el('label','migrate-share-head'),box=document.createElement('input');box.type='checkbox';box.setAttribute('data-migrate-share',name);box.disabled=!selectable;
       box.addEventListener('change',function(){migrateSelection[name].on=this.checked;syncMigrateShares();});
@@ -1614,7 +1617,16 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       pathRow.appendChild(pathInput);pathRow.appendChild(browse);pathLabel.appendChild(pathRow);
       var nameLabel=el('label','','New share name'),nameInput=document.createElement('input');nameInput.type='text';nameInput.setAttribute('data-migrate-destname',name);nameInput.spellcheck=false;nameInput.autocomplete='off';nameInput.value=migrateSelection[name].destName;
       nameInput.addEventListener('input',function(){migrateSelection[name].destName=this.value;syncMigrateButtons();});nameLabel.appendChild(nameInput);
-      dest.appendChild(pathLabel);dest.appendChild(nameLabel);row.appendChild(dest);
+      dest.appendChild(pathLabel);dest.appendChild(nameLabel);
+      var overwriteLabel=el('label','migrate-overwrite'),overwriteBox=document.createElement('input');
+      overwriteBox.type='checkbox';overwriteBox.setAttribute('data-migrate-overwrite',name);overwriteBox.checked=!!migrateSelection[name].allowOverwrite;
+      overwriteBox.addEventListener('change',function(){migrateSelection[name].allowOverwrite=this.checked;syncMigrateShares();});
+      overwriteLabel.appendChild(overwriteBox);overwriteLabel.appendChild(el('span','','Allow overwrite of an existing destination'));
+      dest.appendChild(overwriteLabel);
+      var overwriteNote=el('div','migrate-overwrite-note'+(migrateSelection[name].allowOverwrite?'':' hidden'),share.system?
+        'System share: replacing its name or files can disrupt Active Directory or another Windows role. Make sure this is intentional and you have a separate backup.':
+        'Existing destination files will be replaced or deleted to match the old server. An existing SMB share with this name may be replaced at cutover. This does not back up files.');
+      overwriteNote.setAttribute('data-migrate-overwrite-note',name);dest.appendChild(overwriteNote);row.appendChild(dest);
       if(share.warnings&&share.warnings.length){var ul=el('ul','migrate-notes');share.warnings.forEach(function(w){ul.appendChild(el('li','warn',w));});row.appendChild(ul);}
       var check=el('div','migrate-check hidden');check.setAttribute('data-migrate-check',name);row.appendChild(check);
       host.appendChild(row);
@@ -1641,6 +1653,8 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       box.disabled=locked||!(share&&share.remotePath);if(sel.on){count++;}
       row.className='migrate-share'+(sel.on?' selected':'');
       row.querySelector('[data-migrate-dest-block]').classList.toggle('hidden',!sel.on);
+      var overwriteBox=row.querySelector('[data-migrate-overwrite]');if(overwriteBox){overwriteBox.checked=!!sel.allowOverwrite;}
+      var overwriteNote=row.querySelector('[data-migrate-overwrite-note]');if(overwriteNote){overwriteNote.classList.toggle('hidden',!sel.allowOverwrite);}
       var inputs=row.querySelectorAll('[data-migrate-dest-block] input,[data-migrate-dest-block] button');for(var i=0;i<inputs.length;i++){inputs[i].disabled=locked;}
       renderMigrateCheck(name,row);
     });
@@ -1847,11 +1861,22 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   ['migrateUser','migratePassword'].forEach(function(id){byId(id).addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();connectMigrate();}});});
   byId('migrateReset').addEventListener('click',function(){migratePost('/api/migrate/reset',{},'migrateConnectStatus',function(err){if(err){return;}byId('migrateSource').value='';byId('migrateUser').value='';byId('migratePassword').value='';byId('migrateAccountCurrent').checked=true;migrateAccessKey='';migrateDiscoveryKey='';migrateRunKey='';migrateCutKey='';if(latestState){latestState.migrate={status:'idle',plan:[],logs:[],space:[]};renderMigrate(latestState);}byId('migrateSource').focus();});});
   byId('migrateCheck').addEventListener('click',checkMigratePlan);
-  byId('migrateCopy').addEventListener('click',function(){if(this.disabled){return;}migratePost('/api/migrate/sync',{},null,function(err){if(!err){migrateMarkRunning('sync','copying','Copying.');}});});
+  byId('migrateCopy').addEventListener('click',function(){
+    if(this.disabled){return;}
+    var m=migrateState()||{},overwrites=(m.plan||[]).filter(function(p){return !!p.allowOverwrite;}),computer=(latestState&&latestState.computerName)||'';
+    if(!overwrites.length){migratePost('/api/migrate/sync',{},null,function(err){if(!err){migrateMarkRunning('sync','copying','Copying.');}});return;}
+    openMigrateDialog({title:'Confirm overwrite and copy',path:'/api/migrate/sync',field:'confirmComputerName',expected:computer,label:"Type this server's name to confirm",button:'Overwrite and copy',
+      alert:'This is an exact mirror: files that exist only at the destination will be permanently deleted. There is no automatic file rollback.',
+      paragraphs:['You selected overwrite for the following shares. Existing destination files may be replaced. Repeat copies will mirror future changes and deletions. Existing share names can also be replaced when you cut over.'],
+      list:overwrites.map(function(p){return p.destName+' - '+p.destPath;}),
+      after:function(){migrateMarkRunning('sync','copying','Copying with approved overwrite.');}});
+  });
   byId('migrateCutover').addEventListener('click',function(){
     if(this.disabled){return;}var m=migrateState()||{},computer=(latestState&&latestState.computerName)||'';
     openMigrateDialog({title:'Cut over to this server',path:'/api/migrate/cutover',field:'confirmComputerName',expected:computer,label:"Type this server's name to confirm",button:'Cut over now',
-      alert:'Ask users to stop using the old shares now. Files they change during cutover may need another pass.',
+      alert:(m.plan||[]).some(function(p){return !!p.allowOverwrite;})?
+        'Overwrite is enabled: the final mirror may delete destination-only files, and an existing share name may be replaced, disconnecting its users. System shares may affect Windows roles.':
+        'Ask users to stop using the old shares now. Files they change during cutover may need another pass.',
       paragraphs:['This makes a final copy, then creates these shares on this server with the old share settings and permissions, and compares the old and new files. The old server is not changed.'],
       list:(m.plan||[]).map(function(p){return p.name+' → \\\\'+computer+'\\'+p.destName+' ('+p.destPath+')';}),
       after:function(){migrateMarkRunning('cutover','cuttingover','Final copy, then creating the shares here and comparing.');}});
