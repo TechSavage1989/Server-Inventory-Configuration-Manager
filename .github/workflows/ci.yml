@@ -7,8 +7,6 @@ permissions:
   contents: read
 jobs:
   windows:
-    permissions:
-      contents: write
     runs-on: windows-latest
     timeout-minutes: 25
     steps:
@@ -132,24 +130,6 @@ jobs:
           if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
           node .\scripts\test_report_copy.cjs
           if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
-      - name: Refresh Migrate screenshot on this same-repository feature branch
-        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.head_ref == 'feat/migrate-existing-share-overwrite'
-        shell: powershell
-        run: |
-          $screen = '.\\build\\workspace-validation\\migrate-step2-1440x1000.png'
-          if(-not (Test-Path $screen)){throw 'Validated browser screenshot missing'}
-          git fetch origin '+refs/heads/feat/migrate-existing-share-overwrite:refs/remotes/origin/feat/migrate-existing-share-overwrite'
-          if($LASTEXITCODE -ne 0){throw 'Could not fetch exact feature branch'}
-          git checkout -B feat/migrate-existing-share-overwrite origin/feat/migrate-existing-share-overwrite
-          if($LASTEXITCODE -ne 0){throw 'Could not switch from pull-request merge commit to feature branch'}
-          Copy-Item -LiteralPath $screen -Destination '.\\docs\\images\\migrate-choose.png' -Force
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add docs/images/migrate-choose.png
-          git commit -m 'docs: refresh migration UI screenshot from validated browser'
-          if($LASTEXITCODE -ne 0){throw 'Could not commit screenshot'}
-          git push origin HEAD:refs/heads/feat/migrate-existing-share-overwrite
-          if($LASTEXITCODE -ne 0){throw 'Could not push screenshot to feature branch'}
       - name: Test native install and visible healthy start
         shell: powershell
         run: .\scripts\Test-UpdateInstall.ps1 -ExecutablePath .\build\Server-Inventory-Configuration-Manager.exe -ExpectedVersion '${{ steps.version.outputs.version }}'
