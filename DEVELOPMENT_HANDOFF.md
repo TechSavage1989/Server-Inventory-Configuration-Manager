@@ -1,3 +1,7 @@
+## Final 3.2.26 source review - 2026-11-21
+
+PR #64's clean production Windows/restore/migration CI completed successfully at commit 5d7677f6d28f940462e4087eca9e2a9b4bb7267f: https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/44941344542. The migration job included occupied destination overwrite, repeat delta copy, existing share remapping, settings/permission snapshot, and default refusal checks. The current screenshot docs/images/migrate-choose.png comes from the real browser test against synthetic data. A later screenshot-only commit updated that PNG; no Go, PowerShell, HTML, security, CI or release source changed after the successful run. This documentation commit triggers a final validation of the complete PR head before merge.
+
 ## 3.2.26 release preparation - 2026-11-21
 
 Owner authorized full publication after validation. PR #64 introduces opt-in per-share overwrites for occupied destinations and existing SMB names, with mirror-based delta syncs, typed confirmations, saved prior share definitions and warnings for Windows role-managed shares. Source versions in main.go and Export-ServerInventory.ps1 now match 3.2.26; the published-upgrade test uses the immutable 3.2.25 EXE, SHA-256 336b25b4f74b4d017f69ae1fd21795607a37fa79cde76fa7a810772c97989c38. Release notes are at docs/release-notes/3.2.26.md. The public release/VERSION remains 3.2.25 until a separate publication-only commit after source CI passes.
