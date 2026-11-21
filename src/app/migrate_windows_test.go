@@ -24,15 +24,15 @@ func migrateTestDiscovery() *migrateDiscovery {
 func TestMigratePlanValidatesSharesNamesAndFolders(t *testing.T) {
 	discovery := migrateTestDiscovery()
 	plan, err := validateMigratePlan(discovery, []migratePlanInput{
-		{Name: "finance", DestName: "Finance", DestPath: `D:\Shares\Finance`},
+		{Name: "finance", DestName: "Finance", DestPath: `D:\Shares\Finance`, AllowOverwrite: true},
 		{Name: "Projects", DestName: "Projects2", DestPath: `D:\Shares\Projects`},
 	}, []migrateShareState{{Name: "Finance", DestName: "Finance", DestPath: `d:\shares\finance`, PreviouslySynced: true, CreatedShare: true}})
-	if err != nil || len(plan) != 2 || plan[0].Name != "Finance" || !plan[0].PreviouslySynced || !plan[0].CreatedShare || plan[1].PreviouslySynced {
+	if err != nil || len(plan) != 2 || plan[0].Name != "Finance" || !plan[0].PreviouslySynced || !plan[0].CreatedShare || !plan[0].AllowOverwrite || plan[1].AllowOverwrite || plan[1].PreviouslySynced {
 		t.Fatalf("valid plan rejected or saved progress lost: %v %#v", err, plan)
 	}
 	moved, _ := validateMigratePlan(discovery, []migratePlanInput{{Name: "Finance", DestName: "Finance", DestPath: `D:\Other\Finance`}}, plan)
-	if moved[0].PreviouslySynced {
-		t.Fatal("a changed destination kept the earlier copy's progress")
+	if moved[0].PreviouslySynced || moved[0].AllowOverwrite {
+		t.Fatal("a changed destination kept the earlier copy's progress or overwrite intent")
 	}
 	for name, bad := range map[string][]migratePlanInput{
 		"unknown share":   {{Name: "Payroll", DestName: "Payroll", DestPath: `D:\Shares\Payroll`}},
@@ -42,6 +42,8 @@ func TestMigratePlanValidatesSharesNamesAndFolders(t *testing.T) {
 		"relative folder": {{Name: "Finance", DestName: "Finance", DestPath: `Shares\Finance`}},
 		"bad share name":  {{Name: "Finance", DestName: `Fin/ance`, DestPath: `D:\Shares\Finance`}},
 		"hidden name":     {{Name: "Finance", DestName: `Finance$`, DestPath: `D:\Shares\Finance`}},
+		"admin name":      {{Name: "Finance", DestName: "ADMIN$", DestPath: `D:\Shares\Finance`, AllowOverwrite: true}},
+		"drive name":      {{Name: "Finance", DestName: "C$", DestPath: `D:\Shares\Finance`, AllowOverwrite: true}},
 		"duplicate name":  {{Name: "Finance", DestName: "Data", DestPath: `D:\Shares\A`}, {Name: "Projects", DestName: "data", DestPath: `D:\Shares\B`}},
 		"nested folders":  {{Name: "Finance", DestName: "Finance", DestPath: `D:\Shares`}, {Name: "Projects", DestName: "Projects", DestPath: `D:\Shares\Projects`}},
 		"nothing":         nil,
@@ -98,6 +100,11 @@ func TestMigrateStepsRequireCheckCopyAndConfirmation(t *testing.T) {
 		t.Fatal("copy started with a failed check")
 	}
 	a.migrate.plan[0].Precheck.OK = true
+	a.migrate.plan[0].AllowOverwrite = true
+	if code, text := call(a.handleMigrateSync, map[string]any{}); code != http.StatusBadRequest || !strings.Contains(text, "SRV-DEMO-01") {
+		t.Fatal("overwrite copy accepted without this server's name:", code, text)
+	}
+	a.migrate.plan[0].AllowOverwrite = false
 	if code, text := call(a.handleMigrateCutover, map[string]any{"confirmComputerName": "SRV-OTHER"}); code != http.StatusBadRequest || !strings.Contains(text, "SRV-DEMO-01") {
 		t.Fatal("cutover accepted without this server's name:", code, text)
 	}
