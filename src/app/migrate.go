@@ -89,6 +89,7 @@ type migrateShareState struct {
 	PreviouslySynced bool             `json:"previouslySynced"`
 	LastSyncUnixMs   int64            `json:"lastSyncUnixMs"`
 	CreatedShare     bool             `json:"createdShare"`
+	AllowOverwrite   bool             `json:"allowOverwrite"`
 	Verified         bool             `json:"verified"`
 }
 
@@ -382,6 +383,7 @@ type migratePlanShare struct {
 	DestPath         string `json:"destPath"`
 	PreviouslySynced bool   `json:"previouslySynced"`
 	CreatedShare     bool   `json:"createdShare"`
+	AllowOverwrite   bool   `json:"allowOverwrite"`
 	ExpectedFiles    uint64 `json:"expectedFiles"`
 }
 
@@ -407,7 +409,7 @@ func (a *application) migratePlanFileLocked() ([]byte, error) {
 		if item.Precheck != nil {
 			expected = item.Precheck.Files
 		}
-		shares = append(shares, migratePlanShare{migrateSourceShare: source, DestName: item.DestName, DestPath: item.DestPath, PreviouslySynced: item.PreviouslySynced, CreatedShare: item.CreatedShare, ExpectedFiles: expected})
+		shares = append(shares, migratePlanShare{migrateSourceShare: source, DestName: item.DestName, DestPath: item.DestPath, PreviouslySynced: item.PreviouslySynced, CreatedShare: item.CreatedShare, AllowOverwrite: item.AllowOverwrite, ExpectedFiles: expected})
 	}
 	return json.Marshal(map[string]any{"source": a.migrate.discovery.Source, "sourceFqdn": a.migrate.discovery.SourceFqdn, "shares": shares})
 }
@@ -660,9 +662,10 @@ func (a *application) handleMigrateDiscover(response http.ResponseWriter, reques
 }
 
 type migratePlanInput struct {
-	Name     string `json:"name"`
-	DestName string `json:"destName"`
-	DestPath string `json:"destPath"`
+	Name           string `json:"name"`
+	DestName       string `json:"destName"`
+	DestPath       string `json:"destPath"`
+	AllowOverwrite bool   `json:"allowOverwrite"`
 }
 
 // validateMigratePlan checks the operator's selection against the discovered
@@ -699,7 +702,11 @@ func validateMigratePlan(discovery *migrateDiscovery, input []migratePlanInput, 
 		if !migrateDestPathPattern.MatchString(destPath) || len(destPath) <= 3 {
 			return nil, fmt.Errorf("The new folder for %s must be a folder on a local drive, such as D:\\Shares\\%s, not a drive root.", source.Name, source.Name)
 		}
-		if names[strings.ToUpper(destName)] {
+		upperName := strings.ToUpper(destName)
+		if upperName == "ADMIN$" || upperName == "IPC$" || len(upperName) == 2 && upperName[1] == '$' && upperName[0] >= 'A' && upperName[0] <= 'Z' {
+			return nil, fmt.Errorf("%s is a Windows administrative share name and cannot be replaced.", destName)
+		}
+		if names[upperName] {
 			return nil, fmt.Errorf("The share name %s is used twice.", destName)
 		}
 		if reason := migrateProtectedFolder(destPath); reason != "" {
@@ -713,7 +720,7 @@ func validateMigratePlan(discovery *migrateDiscovery, input []migratePlanInput, 
 			}
 		}
 		paths = append(paths, lower)
-		state := migrateShareState{Name: source.Name, DestName: destName, DestPath: destPath, Status: "planned"}
+		state := migrateShareState{Name: source.Name, DestName: destName, DestPath: destPath, AllowOverwrite: item.AllowOverwrite, Status: "planned"}
 		if old, ok := kept[strings.ToUpper(source.Name)]; ok && strings.EqualFold(old.DestPath, destPath) {
 			state.PreviouslySynced, state.LastSyncUnixMs, state.CreatedShare = old.PreviouslySynced, old.LastSyncUnixMs, old.CreatedShare && strings.EqualFold(old.DestName, destName)
 		}
@@ -968,7 +975,23 @@ func (a *application) applySyncResultLocked(result migrateSyncResult) {
 }
 
 func (a *application) handleMigrateSync(response http.ResponseWriter, request *http.Request) {
-	if !a.requireAuthorization(response, request) || !decodeMigrateRequest(response, request, nil) {
+	if !a.requireAuthorization(response, request) {
+		return
+	}
+	var input struct {
+		ConfirmComputerName string `json:"confirmComputerName"`
+	}
+	if !decodeMigrateRequest(response, request, &input) {
+		return
+	}
+	a.mu.Lock()
+	overwrite := false
+	for _, share := range a.migrate.plan {
+		overwrite = overwrite || share.AllowOverwrite
+	}
+	a.mu.Unlock()
+	if overwrite && !strings.EqualFold(strings.TrimSpace(input.ConfirmComputerName), a.computerName) {
+		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "Type this server's name, " + a.computerName + ", to confirm overwriting existing destination files and shares."})
 		return
 	}
 	a.launchMigrateStep(response, "sync", "Sync", "copying", "Copying. Users can keep working on the old server; run Copy again later to bring over what changed.", func() string {

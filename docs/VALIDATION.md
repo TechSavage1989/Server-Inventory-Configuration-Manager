@@ -1,3 +1,9 @@
+## 3.2.26 release preparation - 2026-11-21
+
+Owner authorized full publication after validation. PR #64 introduces opt-in per-share overwrites for occupied destinations and existing SMB names, with mirror-based delta syncs, typed confirmations, saved prior share definitions and warnings for Windows role-managed shares. Source versions in main.go and Export-ServerInventory.ps1 now match 3.2.26; the published-upgrade test uses the immutable 3.2.25 EXE, SHA-256 336b25b4f74b4d017f69ae1fd21795607a37fa79cde76fa7a810772c97989c38. Release notes are at docs/release-notes/3.2.26.md. The public release/VERSION remains 3.2.25 until a separate publication-only commit after source CI passes.
+
+Source CI on the initial feature branch passed windows, restore and migration; the disposable Windows migration round trip passed 61 checks including an occupied folder overwrite and share-mapping replacement. Final 3.2.26 source CI, the synthetic migration screenshot update, and the published 3.2.25-to-3.2.26 in-app upgrade have not yet been verified. Do not represent the release as published until the exact release and full published-upgrade jobs succeed.
+
 ## 3.2.25 published and verified — 2026-11-20
 
 - [Release v3.2.25](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.25) ("Server Inventory and Migration Manager 3.2.25"), tag and target commit `b661cc33e9e26800bd53dc9af5f37cd10f209502` (publication PR #62, changing only `release/VERSION`). Source: built-in window start limit #60; release preparation #61.

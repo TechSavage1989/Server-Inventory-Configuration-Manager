@@ -337,8 +337,8 @@ async function check(name,fn){await fn();report.checks.push({name,result:'passed
   f.rejectMigrate('plan','The new folder for Projects overlaps another share\'s new folder.');await f.page.locator('#migrateCheck').click();
   await f.page.waitForFunction(()=>document.querySelector('#migrateCheckStatus').classList.contains('error'));assert.equal(await f.page.locator('#migrateCheckStatus').textContent(),'The new folder for Projects overlaps another share\'s new folder.');assert.equal(migrateCalls(f,'precheck').length,0,'no check after a rejected plan');
   f.rejectMigrate('plan',null);await f.page.locator('#migrateCheck').click();await f.page.waitForFunction(()=>document.querySelector('#migrateTabBadge').textContent==='Checking');
-  assert.deepEqual(migrateCalls(f,'plan')[1].body,{shares:[{name:'Finance',destName:'Finance',destPath:'D:\\Shares\\Finance'},{name:'Projects',destName:'Projects',destPath:'D:\\Shares\\Projects2'}]});assert.deepEqual(migrateCalls(f,'precheck').map(c=>c.body),[{}]);
-  assert(await f.page.locator('#migrateCheck').isDisabled(),'inputs lock while checking');assert(await f.page.locator('input[data-migrate-dest="Finance"]').isDisabled());assert(await f.page.locator('#migrateStop').isVisible());
+  assert.deepEqual(migrateCalls(f,'plan')[1].body,{shares:[{name:'Finance',destName:'Finance',destPath:'D:\\Shares\\Finance',allowOverwrite:false},{name:'Projects',destName:'Projects',destPath:'D:\\Shares\\Projects2',allowOverwrite:false}]});assert.deepEqual(migrateCalls(f,'precheck').map(c=>c.body),[{}]);
+  assert(await f.page.locator('#migrateCheck').isDisabled(),'inputs lock while checking');assert(await f.page.locator('input[data-migrate-dest="Finance"]').isDisabled());assert(await f.page.locator('input[data-migrate-overwrite="Finance"]').isDisabled());assert(await f.page.locator('#migrateStop').isVisible());
   assert(await f.page.locator('#migrateCopy').isDisabled());migrateChecked(f);await f.page.waitForTimeout(1100);
   assert(await f.page.locator('#migrateCopy').isEnabled());assert.equal(await f.page.locator('#migrateCopy').textContent(),'Copy now');assert(await f.page.locator('#migrateCutover').isDisabled(),'cut over waits for a copy');
   assert.deepEqual(await f.page.locator('[data-migrate-check] .run-chip').allTextContents(),['Ready','Ready']);assert((await f.page.locator('[data-migrate-check="Finance"]').textContent()).includes('120,345 files, 200 GB'));
@@ -348,6 +348,32 @@ async function check(name,fn){await fn();report.checks.push({name,result:'passed
   await f.page.locator('input[data-migrate-destname="Finance"]').fill('Finance');assert(await f.page.locator('#migrateCopy').isEnabled());assert.equal(await f.page.locator('#migrateCheck').textContent(),'Check plan again');
   f.state.migrate.plan[1].precheck={ok:false,problems:['The new folder D:\\Shares\\Projects2 already contains files.'],warnings:[],files:0,bytes:0};f.state.migrate.canCopy=false;await f.page.waitForTimeout(1100);
   assert(await f.page.locator('#migrateCopy').isDisabled());assert.equal(await f.page.locator('[data-migrate-check="Projects"] .run-chip').textContent(),'Needs attention');assert(/already contains files/.test(await f.page.locator('[data-migrate-row="Projects"] .problem').textContent()));assert.deepEqual(f.dialogs,[]);
+ }finally{await f.close();}});
+ await check('Migrate explicitly opts into existing-folder and share overwrite, and the mirror requires typed confirmation',async()=>{const f=await fixture(browser);try{
+  await migrateConnect(f);
+  assert(!await f.page.locator('input[data-migrate-overwrite="Finance"]').isChecked(),'overwrite must be off by default');
+  await f.page.locator('input[data-migrate-overwrite="Finance"]').check();
+  assert(await f.page.locator('[data-migrate-overwrite-note="Finance"]').isVisible());
+  assert(/permanently deleted|deleted to match/.test(await f.page.locator('[data-migrate-overwrite-note="Finance"]').textContent()));
+  await f.page.locator('input[data-migrate-share="NETLOGON"]').check();
+  await f.page.locator('input[data-migrate-overwrite="NETLOGON"]').check();
+  assert(/Active Directory/.test(await f.page.locator('[data-migrate-overwrite-note="NETLOGON"]').textContent()),'system shares show a distinct warning');
+  await f.page.locator('input[data-migrate-share="NETLOGON"]').uncheck();
+  await f.page.locator('#migrateCheck').click();
+  await f.page.waitForFunction(()=>document.querySelector('#migrateTabBadge').textContent==='Checking');
+  assert.deepEqual(migrateCalls(f,'plan')[0].body.shares.map(p=>[p.name,p.allowOverwrite]),[['Finance',true],['Projects',false]]);
+  migrateChecked(f);await f.page.waitForTimeout(1100);
+  assert(await f.page.locator('#migrateCopy').isEnabled());assert.equal(await f.page.locator('#migrateCheck').textContent(),'Check plan again');
+  await f.page.locator('#migrateCopy').click();
+  assert(await f.page.locator('#migrateDialog').isVisible(),'overwrite copy opens explicit confirmation');
+  assert.equal(migrateCalls(f,'sync').length,0,'copy did not start before confirmation');
+  assert(/permanently deleted/.test(await f.page.locator('#migrateDialogAlert').textContent()));
+  assert((await f.page.locator('#migrateDialogText').textContent()).includes('Finance - D:\\Shares\\Finance'));
+  await f.page.locator('#migrateConfirmInput').fill('FS-OLD-07');assert(await f.page.locator('#migrateConfirmButton').isDisabled());
+  await f.page.locator('#migrateConfirmInput').fill('srv-demo-01');await f.page.locator('#migrateConfirmButton').click();
+  await f.page.waitForFunction(()=>document.querySelector('#migrateTabBadge').textContent==='Copying');
+  assert.deepEqual(migrateCalls(f,'sync')[0].body,{confirmComputerName:'srv-demo-01'});
+  assert.deepEqual(f.dialogs,[]);
  }finally{await f.close();}});
  await check('Copy shows per-share progress, Stop sends cancel, other work locks, and cut over needs this server\'s typed name',async()=>{const f=await fixture(browser);try{
   await migrateConnect(f);await f.page.locator('#migrateCheck').click();await f.page.waitForFunction(()=>document.querySelector('#migrateTabBadge').textContent==='Checking');migrateChecked(f);await f.page.waitForTimeout(1100);

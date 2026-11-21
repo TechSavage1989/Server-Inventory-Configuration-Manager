@@ -269,6 +269,7 @@ function Read-Plan {
     foreach ($share in @($plan.shares)) {
         if ([string]$share.destPath -notmatch '^[A-Za-z]:\\[^<>"|?*]+$') { throw ('The new folder for ' + $share.name + ' must be a full local path such as D:\Shares\' + $share.name + '.') }
         if ([string]$share.destName -notmatch '^[^\\/:*?"<>|\[\]+=;,]{1,80}$') { throw ('The share name ' + $share.destName + ' is not valid.') }
+        if ([string]$share.destName -match '^(?i:ADMIN\$|IPC\$|[A-Z]\$)$') { throw ('The share name ' + $share.destName + ' is reserved for Windows administration and cannot be replaced.') }
     }
     return $plan
 }
@@ -378,13 +379,26 @@ function Invoke-Precheck {
         $drive = $dest.Substring(0, 2).ToUpperInvariant()
         if (-not (Test-Path -LiteralPath ($drive + '\'))) { $item.problems += ('Drive ' + $drive + ' does not exist on this server.') }
         $known = [bool]$share.previouslySynced
+        $overwrite = [bool]$share.allowOverwrite
         if ((Test-Path -LiteralPath $dest) -and -not $known) {
-            if (@(Get-ChildItem -LiteralPath $dest -Force -ErrorAction SilentlyContinue | Select-Object -First 1).Count) { $item.problems += ('The new folder ' + $dest + ' already contains files. Choose an empty or new folder; the copy makes it an exact mirror of the old share.') }
+            if (@(Get-ChildItem -LiteralPath $dest -Force -ErrorAction SilentlyContinue | Select-Object -First 1).Count) {
+                if (-not $overwrite) { $item.problems += ('The new folder ' + $dest + ' already contains files. Choose an empty folder or explicitly allow overwrite for this share.') }
+                else { $item.warnings += ('Overwrite selected: files in ' + $dest + ' that are absent from the old share will be deleted by each mirror copy.') }
+            }
         }
         if ($from -and ($dest.TrimEnd('\') -eq $from.TrimEnd('\'))) { $item.problems += 'The new folder is the old folder.' }
         $existing = $localShares[([string]$share.destName).ToUpperInvariant()]
-        if ($existing -and $existing.TrimEnd('\') -ne $dest.TrimEnd('\')) { $item.problems += ('A share named ' + $share.destName + ' already exists on this server for ' + $existing + '.') }
-        elseif ($existing -and -not [bool]$share.createdShare) { $item.warnings += ('A share named ' + $share.destName + ' already exists for this folder; its permissions will be replaced at cutover.') }
+        if ($existing -and $existing.TrimEnd('\') -ne $dest.TrimEnd('\')) {
+            if (-not $overwrite) { $item.problems += ('A share named ' + $share.destName + ' already exists on this server for ' + $existing + '. Select Allow overwrite to replace its mapping at cutover.') }
+            else { $item.warnings += ('Overwrite selected: existing share ' + $share.destName + ' points to ' + $existing + '. Cutover will disconnect users, save its current settings and permissions, and recreate it for ' + $dest + '.') }
+        }
+        elseif ($existing -and -not [bool]$share.createdShare) {
+            if (-not $overwrite) { $item.problems += ('The share ' + $share.destName + ' already exists for ' + $existing + '. Select Allow overwrite to change its settings and permissions.') }
+            else { $item.warnings += ('Overwrite selected: existing share ' + $share.destName + ' will have its settings and permissions updated at cutover; a backup will be saved.') }
+        }
+        if ($overwrite -and ($script:SystemShares -contains ([string]$share.destName).ToUpperInvariant())) {
+            $item.warnings += ('CAUTION: ' + $share.destName + ' is a system or role-managed share. Replacing it may interrupt domain services, Group Policy or other Windows roles. Only proceed with a verified recovery plan.')
+        }
         if ($from -and -not $item.problems.Count) {
             $log = Join-Path $WorkPath ('Estimate-' + ($share.name -replace '[^A-Za-z0-9_-]', '_') + '.log')
             $code = Invoke-RobocopyRun -From $from -To $dest -Options (@('/L', '/MIR', '/NFL', '/NDL', '/NJH') + (Get-CommonRobocopyArguments)) -LogPath $log -ShareName ([string]$share.name) -ExpectedFiles 0
@@ -393,7 +407,10 @@ function Invoke-Precheck {
             if ($summary.files.Count) { $item.files = $summary.files[0]; $item.bytes = $summary.bytes[0]; $item.toCopyBytes = $summary.bytes[1] } else { $item.warnings += 'The size of the share could not be measured.' }
             if ($code -ge 8) { $item.warnings += ('Robocopy could not read part of the share while measuring it (exit code ' + $code + '). See the estimate log.') }
             if (-not $needed.ContainsKey($drive)) { $needed[$drive] = [uint64]0 }
-            $needed[$drive] += [uint64]$item.bytes
+            # Delta copies need space for files that Robocopy would copy, not
+            # the entire size already present on the destination.
+            if ($summary.bytes.Count -ge 2) { $needed[$drive] += [uint64]$summary.bytes[1] }
+            else { $needed[$drive] += [uint64]$item.bytes }
             $item.warnings += @(Get-AccountWarnings -Plan $plan -Share $share -From $from)
         }
         if ($item.problems.Count) { $item.ok = $false }
@@ -487,10 +504,18 @@ function Invoke-SyncShares {
         try {
             $from = Get-ShareSource -Plan $Plan -Share $share
             $dest = [string]$share.destPath
-            # The copy mirrors the old share, deleting anything else in the
-            # new folder, so it never runs into a folder it did not create.
-            if ((Test-Path -LiteralPath $dest) -and -not [bool]$share.previouslySynced -and @(Get-ChildItem -LiteralPath $dest -Force -ErrorAction SilentlyContinue | Select-Object -First 1).Count) {
-                throw ('The new folder ' + $dest + ' already contains files that did not come from this migration. Choose an empty or new folder.')
+            # Mirror mode deletes files that are absent from the source. The
+            # operator must explicitly allow this for pre-existing folders.
+            if ((Test-Path -LiteralPath $dest) -and -not [bool]$share.previouslySynced -and -not [bool]$share.allowOverwrite -and @(Get-ChildItem -LiteralPath $dest -Force -ErrorAction SilentlyContinue | Select-Object -First 1).Count) {
+                throw ('The new folder ' + $dest + ' already contains files that did not come from this migration. Choose an empty folder or explicitly allow overwrite.')
+            }
+            # Recheck the live share at execution time. A plan that was safe
+            # during Precheck must not silently replace another share later.
+            $existingShare = Get-SmbShare -Name ([string]$share.destName) -ErrorAction SilentlyContinue
+            if ($existingShare -and -not [bool]$share.allowOverwrite) {
+                if (([string]$existingShare.Path).TrimEnd('\') -ne $dest.TrimEnd('\') -or -not [bool]$share.createdShare) {
+                    throw ('The share ' + $share.destName + ' already exists on this server. Check the plan again and explicitly allow overwrite to replace it.')
+                }
             }
             if (-not (Test-Path -LiteralPath $dest)) { New-Item -Path $dest -ItemType Directory -Force | Out-Null; Write-Log 'INFO' ('Created the folder ' + $dest + '.') }
             $log = Join-Path $WorkPath ((Get-Date -Format 'yyyyMMdd-HHmmss') + '-' + $Label + '-' + ($name -replace '[^A-Za-z0-9_-]', '_') + '.log')
@@ -536,43 +561,113 @@ function Invoke-Sync {
 
 # ------------------------------------------------------------------ cutover ----
 
-function Set-ShareFromSource {
+# The existing share definition is saved before any intentional replacement.
+# This is a local recovery reference, not a backup of its files.
+function Get-ShareSettings {
     param($Share)
-    $name = [string]$Share.destName; $path = [string]$Share.destPath
-    $existing = Get-SmbShare -Name $name -ErrorAction SilentlyContinue
-    if ($existing -and ([string]$existing.Path).TrimEnd('\') -ne $path.TrimEnd('\')) { throw ('A share named ' + $name + ' already exists for ' + $existing.Path + '.') }
     $settings = @{}
     if ($Share.description) { $settings['Description'] = [string]$Share.description }
     if ($Share.folderEnumerationMode) { $settings['FolderEnumerationMode'] = [string]$Share.folderEnumerationMode }
     if ($Share.cachingMode) { $settings['CachingMode'] = [string]$Share.cachingMode }
     if ([uint32]$Share.concurrentUserLimit -gt 0) { $settings['ConcurrentUserLimit'] = [uint32]$Share.concurrentUserLimit }
     if ([bool]$Share.encryptData) { $settings['EncryptData'] = $true }
-    if ($existing) {
-        if ($settings.Count) { Set-SmbShare -Name $name -Force @settings }
+    return $settings
+}
+
+function Get-ExistingShareSnapshot {
+    param($Existing)
+    $rights = @()
+    foreach ($entry in @(Get-SmbShareAccess -Name ([string]$Existing.Name) -ErrorAction Stop)) {
+        $rights += @{ account = [string]$entry.AccountName; type = [string]$entry.AccessControlType; right = [string]$entry.AccessRight }
     }
-    else {
-        New-SmbShare -Name $name -Path $path -ReadAccess 'Everyone' @settings | Out-Null
-        Write-Log 'INFO' ('Created share ' + $name + ' for ' + $path)
+    return @{
+        destName = [string]$Existing.Name; destPath = [string]$Existing.Path
+        description = [string]$Existing.Description
+        folderEnumerationMode = [string]$Existing.FolderEnumerationMode
+        cachingMode = [string]$Existing.CachingMode
+        concurrentUserLimit = [uint32]$Existing.ConcurrentUserLimit
+        encryptData = [bool]$Existing.EncryptData
+        scopeName = [string]$Existing.ScopeName
+        access = $rights
     }
-    # Replace share permissions with the old share's.
-    $wanted = @($Share.access)
+}
+
+function Set-ShareAccessEntries {
+    param([string]$Name, $Wanted)
     $notApplied = @()
-    foreach ($entry in @(Get-SmbShareAccess -Name $name)) {
-        if ([string]$entry.AccessControlType -eq 'Deny') { Unblock-SmbShareAccess -Name $name -AccountName $entry.AccountName -Force | Out-Null }
-        else { Revoke-SmbShareAccess -Name $name -AccountName $entry.AccountName -Force | Out-Null }
+    foreach ($entry in @(Get-SmbShareAccess -Name $Name -ErrorAction Stop)) {
+        if ([string]$entry.AccessControlType -eq 'Deny') { Unblock-SmbShareAccess -Name $Name -AccountName $entry.AccountName -Force -ErrorAction Stop | Out-Null }
+        else { Revoke-SmbShareAccess -Name $Name -AccountName $entry.AccountName -Force -ErrorAction Stop | Out-Null }
     }
-    foreach ($entry in $wanted) {
+    foreach ($entry in @($Wanted)) {
         try {
-            if ([string]$entry.type -eq 'Deny') { Block-SmbShareAccess -Name $name -AccountName ([string]$entry.account) -Force | Out-Null }
-            else { Grant-SmbShareAccess -Name $name -AccountName ([string]$entry.account) -AccessRight ([string]$entry.right) -Force | Out-Null }
+            if ([string]$entry.type -eq 'Deny') { Block-SmbShareAccess -Name $Name -AccountName ([string]$entry.account) -Force -ErrorAction Stop | Out-Null }
+            else { Grant-SmbShareAccess -Name $Name -AccountName ([string]$entry.account) -AccessRight ([string]$entry.right) -Force -ErrorAction Stop | Out-Null }
         }
         catch { $notApplied += ([string]$entry.account + ' (' + $entry.right + ')') }
     }
-    if (-not @(Get-SmbShareAccess -Name $name).Count) {
-        Grant-SmbShareAccess -Name $name -AccountName 'Administrators' -AccessRight Full -Force | Out-Null
+    if (-not @(Get-SmbShareAccess -Name $Name -ErrorAction Stop).Count) {
+        Grant-SmbShareAccess -Name $Name -AccountName 'Administrators' -AccessRight Full -Force -ErrorAction Stop | Out-Null
         $notApplied += 'No share permission from the old server applied here, so only Administrators have access.'
     }
     return $notApplied
+}
+
+function Set-ShareFromSource {
+    param($Share)
+    $name = [string]$Share.destName; $path = [string]$Share.destPath
+    $overwrite = [bool]$Share.allowOverwrite
+    $existing = Get-SmbShare -Name $name -ErrorAction SilentlyContinue
+    $differentPath = $existing -and ([string]$existing.Path).TrimEnd('\') -ne $path.TrimEnd('\')
+    if ($existing -and -not $overwrite -and ($differentPath -or -not [bool]$Share.createdShare)) {
+        throw ('A share named ' + $name + ' already exists for ' + $existing.Path + '. Check the plan again and explicitly allow overwrite.')
+    }
+    $settings = Get-ShareSettings $Share
+    $original = $null; $backupPath = ''
+    if ($existing -and $overwrite) {
+        if ($existing.ScopeName -and [string]$existing.ScopeName -ne '*') {
+            throw ('The existing share ' + $name + ' belongs to a scoped or clustered server name. Replace it manually with the appropriate cluster tools.')
+        }
+        $original = Get-ExistingShareSnapshot $existing
+        $backupPath = Join-Path $WorkPath ('ExistingShare-' + ($name -replace '[^A-Za-z0-9_-]', '_') + '-' + (Get-Date -Format 'yyyyMMdd-HHmmss-fff') + '.json')
+        Write-Utf8File -Path $backupPath -Text (ConvertTo-Json -InputObject $original -Depth 8)
+        Write-Log 'WARN' ('Saved existing share ' + $name + ' settings and permissions to ' + $backupPath + '. This does not back up its files.')
+    }
+    if ($differentPath) {
+        # No share name can be repointed through Set-SmbShare. A replacement
+        # disconnects clients. The original definition is saved first, and is
+        # restored if creating the replacement fails.
+        $removed = $false
+        try {
+            Remove-SmbShare -Name $name -Force -ErrorAction Stop
+            $removed = $true
+            New-SmbShare -Name $name -Path $path -FullAccess 'Administrators' @settings -ErrorAction Stop | Out-Null
+            Write-Log 'WARN' ('Replaced existing share ' + $name + ': ' + $original.destPath + ' is no longer shared at this name; new folder is ' + $path + '.')
+        }
+        catch {
+            $reason = $_.Exception.Message
+            $restoreMessage = 'The original share was not removed.'
+            if ($removed -and $original) {
+                try {
+                    $oldSettings = Get-ShareSettings $original
+                    New-SmbShare -Name $name -Path ([string]$original.destPath) -FullAccess 'Administrators' @oldSettings -ErrorAction Stop | Out-Null
+                    $missed = @(Set-ShareAccessEntries -Name $name -Wanted $original.access)
+                    if ($missed.Count) { throw ('Permissions not restored: ' + ($missed -join ', ')) }
+                    $restoreMessage = 'The original share was restored.'
+                }
+                catch { $restoreMessage = ('Automatic restore failed: ' + $_.Exception.Message + '. Use the saved configuration at ' + $backupPath + '.') }
+            }
+            throw ('Could not replace existing share ' + $name + ': ' + $reason + '. ' + $restoreMessage)
+        }
+    }
+    elseif ($existing) {
+        if ($settings.Count) { Set-SmbShare -Name $name -Force @settings -ErrorAction Stop }
+    }
+    else {
+        New-SmbShare -Name $name -Path $path -FullAccess 'Administrators' @settings -ErrorAction Stop | Out-Null
+        Write-Log 'INFO' ('Created share ' + $name + ' for ' + $path)
+    }
+    return @(Set-ShareAccessEntries -Name $name -Wanted $Share.access)
 }
 
 function Invoke-Cutover {
