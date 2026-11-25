@@ -1,3 +1,10 @@
+## Unreleased: phase 2, Disk copy view (receiver and agent screens) — 2026-11-25
+
+- `vmware_disks.go` (untagged): send results, `vmAgentDiskName` (the stable `<computer>-diskN.vhdx` name the receiver accepts, so later sends are delta passes), `vmReceiverAddress` (host, host:port or [IPv6]:port, default 44380), `vmReceiverPort` (1024 to 65535) and `vmLocalAddresses`.
+- `vmware_disks_windows.go`: `/api/vmware/receiver` (start/stop; folder defaults to `<output>\VMware-Copies\Received`, protected folders refused; optional Windows Firewall rule added with netsh under one fixed name and removed when the receiver stops or the application closes), `/api/vmware/agent/disks` (`\\.\PhysicalDriveN`, volumes, the Windows disk flagged; needs administrator) and `/api/vmware/agent/send` (a cancellable `send` action, one disk at a time through `openVMAgentDisk` and `newVMRemoteSink`, stops at the first failure). The receiver is not a critical operation: closing stops it and senders resume later. Sending is refused while this computer is receiving. The pairing code reaches the backend only in the send request and the receiver state (shown so it can be read out); it is never logged or saved.
+- UI: VMware tab **Disk copy** view (`#vmViewDisks`) with Receive disks on this computer and Send this computer's disks. `scripts/test_workspace.cjs` covers it (port and code validation, posted bodies, stop, results) and the low-resolution sweep includes it. Screenshot `docs/images/vmware-disk-copy.png`.
+- Tests: `TestDiskCopyNamesAndAddresses`. A real two-computer send is not covered in CI (the agent and receiver are each covered by their own Windows and loopback tests).
+
 ## Unreleased: phase 2 step 5, Move to Hyper-V in the VMware tab — 2026-11-25
 
 - `vmware_hyperv.go`: `vmHyperVPlanFor` maps a VMware VM to a Hyper-V VM (EFI to generation 2 with Secure Boot template MicrosoftWindows or MicrosoftUEFICertificateAuthority by guest, vTPM to a local key protector and TPM on generation 2, CPUs, memory rounded to 2 MB, boot disk first, IDE boot plus SCSI on generation 1, one adapter per VMware adapter with switch, VLAN and optional static MAC). `Script()` writes the PowerShell; `vmPSQuote` quotes every value.
@@ -5,7 +12,7 @@
 - `vmware_move_windows.go`: `/api/vmware/move` (`copy` or `cutover`, typed VM name, copy folder defaulting to `<output>\VMware-Copies\<VM>`, optional Hyper-V folder, quiesce, keep MAC, start) as a stoppable critical operation; cutover creates the VM through the Hyper-V module. State gains `move`, `moveSerial`, `moveError`, `moveCopyRoot`.
 - UI: **Move this VM to Hyper-V** in a VM's details (Hyper-V target only), with Copy disks / Copy changes, Cut over (alert, typed name), per-disk results and a note naming adapters with no switch in the plan. Stop works for copies. README, subtitle and `docs/images/vmware-move.png` updated.
 - Tests: `TestHyperVPlanMapsFirmwareDisksAdaptersAndVLANs`, `TestHyperVScriptQuotesEveryValue`, `TestMoveCopiesWhileRunningThenCutsOverAfterShutdown` (vcsim: copy leaves the VM on, cutover shuts it down and the verified copy matches, a renamed VM is refused) and the workspace check "VMware move to Hyper-V".
-- Not validated: creating a VM on a real Hyper-V host (no Hyper-V on GitHub runners), real vSphere copies. The receiver and agent have no UI yet.
+- Not validated: creating a VM on a real Hyper-V host (no Hyper-V on GitHub runners), real vSphere copies.
 
 ## Unreleased: phase 2 step 4, in-guest source agent — 2026-11-25
 
