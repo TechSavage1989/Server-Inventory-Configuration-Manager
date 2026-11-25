@@ -96,6 +96,7 @@ type vmwareStateResponse struct {
 	PrepareSerial   uint64                 `json:"prepareSerial"`
 	PrepareError    string                 `json:"prepareError"`
 	CanPrepare      bool                   `json:"canPrepare"`
+	HyperVHere      bool                   `json:"hyperVHere"`
 	Move            *vmMoveResult          `json:"move"`
 	MoveSerial      uint64                 `json:"moveSerial"`
 	MoveError       string                 `json:"moveError"`
@@ -146,6 +147,7 @@ func (a *application) vmwareSnapshotLocked() vmwareStateResponse {
 		Prepare: a.vmware.prepare, PrepareSerial: a.vmware.prepareSerial, PrepareError: a.vmware.prepareError,
 		Move: a.vmware.move, MoveSerial: a.vmware.moveSerial, MoveError: a.vmware.moveError, MoveCopyRoot: a.vmwareCopyRootLocked(),
 		Send: a.vmware.send, SendSerial: a.vmware.sendSerial, SendError: a.vmware.sendError, Receiver: a.vmReceiverStateLocked(),
+		HyperVHere:      vmHyperVHere(),
 		CanPrepare:      a.vmware.inventory != nil && a.vmware.password != "" && strings.EqualFold(a.vmware.inventory.Server, a.vmware.server),
 		CancelRequested: a.vmware.cancelRequested && a.vmware.action != "",
 		Target:          a.vmTargetStateLocked(),

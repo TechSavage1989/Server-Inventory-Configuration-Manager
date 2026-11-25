@@ -639,8 +639,16 @@ async function check(name,fn){await fn();report.checks.push({name,result:'passed
  await check('VMware move to Hyper-V: copy and cut over need a live session and the typed VM name, post the folders and options, and show each disk\'s result',async()=>{const f=await fixture(browser);try{
   await vmwareConnected(f);
   await f.page.locator('tr[data-vm-id="vm-app01"]').click();assert((await f.page.locator('#vmMove').textContent()).includes('run this on the Hyper-V host'));assert.equal(await f.page.locator('#vmMoveCopy').count(),0);
-  f.state.vmware.canPrepare=true;f.state.vmware.moveCopyRoot='D:\\Migration\\VMware-Copies';f.state.vmware.inventorySerial=2;
+  f.state.vmware.canPrepare=true;f.state.vmware.hyperVHere=false;f.state.vmware.moveCopyRoot='D:\\Migration\\VMware-Copies';f.state.vmware.inventorySerial=2;
   await f.page.waitForFunction(()=>!!document.querySelector('#vmMoveCopy'));
+  assert((await f.page.locator('#vmMove .vm-runs-on').textContent()).includes('This computer is not a Hyper-V host'));assert(await f.page.locator('#vmMoveCopy').isDisabled()&&await f.page.locator('#vmMoveCutover').isDisabled(),'a move runs only on the Hyper-V host');
+  const rolesOff=await f.page.locator('#vmRolesSummary').textContent();assert(rolesOff.includes('Run this application on the Hyper-V host')&&rolesOff.includes('SRV-DEMO-01) is not a Hyper-V host'),rolesOff);
+  f.state.vmware.hyperVHere=true;f.state.vmware.inventorySerial=3;
+  await f.page.waitForFunction(()=>document.querySelector('#vmMove .vm-runs-on').textContent.includes('Runs on the Hyper-V host (this computer)')&&!document.querySelector('#vmMoveCopy').disabled);
+  await f.page.locator('#vmRoles > summary').click();assert.equal(await f.page.locator('#vmRolesGrid .vm-role').count(),3);
+  assert.equal(await f.page.locator('#vmRolesGrid .vm-role.here h4').textContent(),'The Hyper-V host that will run the VM');assert((await f.page.locator('#vmRolesFlow').textContent()).includes('this application on the Hyper-V host'));
+  await f.page.locator('#vmDrawerClose').click();await f.page.setViewportSize({width:1440,height:1000});await f.page.locator('#vmwareBody').evaluate(e=>e.scrollTop=0);await f.page.screenshot({path:shots+'/vmware-roles-1440x1000.png'});
+  await f.page.locator('#vmRoles > summary').click();await f.page.locator('tr[data-vm-id="vm-app01"]').click();await f.page.locator('#vmMoveCopy').waitFor();
   assert.equal(await f.page.locator('#vmMoveFolder').getAttribute('placeholder'),'D:\\Migration\\VMware-Copies\\APP01');
   assert((await f.page.locator('#vmMove').textContent()).includes('No Hyper-V switch is named for VM-Servers'));
   assert(await f.page.locator('input[data-vm-move="quiesce"]').isChecked());assert(!await f.page.locator('input[data-vm-move="start"]').isChecked());
@@ -671,6 +679,10 @@ async function check(name,fn){await fn();report.checks.push({name,result:'passed
   await vmwareConnected(f);f.state.vmware.canPrepare=true;f.state.vmware.inventorySerial=2;
   await f.page.locator('#vmTargetSelect').selectOption('proxmox');await f.page.waitForFunction(()=>document.querySelector('#vmCountsTitle').textContent==='Readiness for Proxmox VE');
   await f.page.locator('tr[data-vm-id="vm-app01"]').click();await f.page.locator('#vmMoveTarget').waitFor();assert.equal(await f.page.locator('#vmMove').count(),0,'the Hyper-V panel is only for Hyper-V');
+  assert((await f.page.locator('#vmMoveTarget .vm-runs-on').textContent()).includes('Runs on this computer, your admin computer or jump box'));
+  assert.deepEqual(await f.page.locator('#vmMoveTarget .vm-step-where').allTextContents(),['From this computer','On this computer','On Proxmox VE',"On the new VM's console",'From this computer: vCenter to the receiver']);
+  assert((await f.page.locator('#vmRolesSummary').textContent()).includes('the new VM on Proxmox VE boots the receiver media'));
+  assert.deepEqual(await f.page.locator('#vmRolesGrid .vm-role').evaluateAll(n=>n.map(x=>x.getAttribute('data-role'))),['console','source','receiver','after']);
   assert(await f.page.locator('#vmTargetUpload').isDisabled()&&await f.page.locator('#vmTargetCreate').isDisabled()&&await f.page.locator('#vmTargetCopy').isDisabled(),'later steps wait for the earlier ones');
   await f.page.locator('[data-vm-target="server"]').fill('pve1.example.com');await f.page.locator('[data-vm-target="user"]').fill('migrate@pve!move');await f.page.locator('[data-vm-target="password"]').fill('Synthetic-Token-Secret');
   await f.page.locator('#vmTargetConnect').click();await f.page.waitForFunction(()=>document.querySelector('#vmMoveTarget').textContent.includes('Connected to pve1.example.com: Proxmox VE 8.3.0.'));
@@ -801,6 +813,10 @@ async function check(name,fn){await fn();report.checks.push({name,result:'passed
  }finally{await f.close();}});
  await check('VMware disk copy: the receiver shows its address, code and thumbprint; sending checks them and sends only the chosen disks',async()=>{const f=await fixture(browser);try{
   await f.page.keyboard.press('Alt+6');await f.page.locator('[data-vmview="disks"]').click();
+  assert(await f.page.locator('#vmReceiveTitle').isVisible()&&await f.page.locator('#vmSendTitle').isVisible(),'both sides show until a role is chosen');
+  await f.page.locator('[data-diskrole="send"]').click();assert(await f.page.locator('#vmReceiveTitle').isHidden());assert(await f.page.locator('#vmSendTitle').isVisible());assert.equal(await f.page.locator('#vmFlowSend.here').count(),1);
+  await f.page.locator('[data-diskrole="receive"]').click();assert(await f.page.locator('#vmSendTitle').isHidden());assert(await f.page.locator('#vmReceiveTitle').isVisible());assert.equal(await f.page.locator('[data-diskrole="receive"]').getAttribute('aria-pressed'),'true');
+  await f.page.locator('[data-diskrole="receive"]').click();assert(await f.page.locator('#vmSendTitle').isVisible(),'choosing the role again shows both sides');
   assert.equal(await f.page.locator('#vmReceiveFolder').getAttribute('placeholder'),'D:\\Migration\\VMware-Copies\\Received');
   await f.page.locator('#vmReceivePort').fill('44a');await f.page.locator('#vmReceiveStart').click();assert((await f.page.locator('#vmReceiveStatus').textContent()).includes('as a number'));assert.equal(vmwareCalls(f,'receiver').length,0);
   await f.page.locator('#vmReceivePort').fill('44390');await f.page.locator('#vmReceiveStart').click();
@@ -833,8 +849,9 @@ async function check(name,fn){await fn();report.checks.push({name,result:'passed
   await f.page.setViewportSize({width:1440,height:1000});await f.page.evaluate(()=>document.activeElement.blur());await f.page.locator('#vmwareBody').evaluate(e=>e.scrollTop=0);await f.page.screenshot({path:shots+'/vmware-disk-copy-1440x1000.png'});
   assert.deepEqual(f.dialogs,[]);
  }finally{await f.close();}});
- await check('VMware This VM: recording and checks need no confirmation; fix-ups need the typed computer name and send only the chosen items',async()=>{const f=await fixture(browser);try{
+ await check('VMware Inside the VM: recording and checks need no confirmation; fix-ups need the typed computer name and send only the chosen items',async()=>{const f=await fixture(browser);try{
   await f.page.keyboard.press('Alt+6');await f.page.locator('[data-vmview="guest"]').click();assert(await f.page.locator('#vmGuestEmpty').isVisible());
+  assert((await f.page.locator('#vmViewGuest .vm-runs-on').textContent()).includes('Runs inside the machine being moved'));assert.equal(await f.page.locator('[data-vmview="guest"]').textContent(),'Inside the VM');
   await f.page.locator('#vmGuestCapture').click();await f.page.waitForFunction(()=>document.querySelector('#vmwareTabBadge').textContent==='Working');assert.deepEqual(vmwareCalls(f,'guest/capture').map(c=>c.body),[{}]);
   assert(await f.page.locator('#vmGuestStatus').isDisabled(),'one step at a time');assert.equal(await f.page.locator('#vmGuestMessage').textContent(),'Recording this VM\'s settings.');
   f.vm.guest=vmwareGuestFixture('Hyper-V');Object.assign(f.state.vmware,{running:false,action:'',guestSerial:1,guestMessage:'Recorded this VM\'s settings.'});

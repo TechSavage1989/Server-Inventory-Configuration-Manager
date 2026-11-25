@@ -218,18 +218,18 @@ func vmReceiverRunbookSteps(target string, profile vmTargetProfile) []string {
 	if profile.WindowsDrivers != "" {
 		drivers = profile.WindowsDrivers
 	}
-	steps := []string{"Build the receiver media in this application (the VM's details, Move to " + profile.Short + ", step 2) with the Windows ADK and its Windows PE add-on, adding " + drivers + "."}
+	steps := []string{"On your admin computer, build the receiver media in this application (the VM's details, Move to " + profile.Short + ", step 2) with the Windows ADK and its Windows PE add-on, adding " + drivers + "."}
 	if target == vmTargetPhysical {
 		steps = append(steps,
 			"Write the receiver ISO to a USB stick or mount it as the server's virtual media, and boot the server from it. The receiver takes only blank disks.",
 		)
 	} else {
 		steps = append(steps,
-			"Upload the receiver media to "+profile.Short+" and create the VM from the Move panel. It gets the same CPUs, memory, firmware and disks (rounded up) and starts from the receiver media.",
+			"From your admin computer, upload the receiver media to "+profile.Short+" and create the VM from the Move panel. It gets the same CPUs, memory, firmware and disks (rounded up) and starts from the receiver media.",
 		)
 	}
 	steps = append(steps,
-		"Type the receiver's address, pairing code and certificate thumbprint from its console into the Move panel and check which disk each VMware disk goes to.",
+		"Read the receiver's address, pairing code and certificate thumbprint on the new machine's console and type them into the Move panel on your admin computer, then check which disk each VMware disk goes to.",
 		"Copy while the VMware VM keeps running, as often as needed; each copy after the first sends only changed blocks.",
 	)
 	if target == vmTargetPhysical {
