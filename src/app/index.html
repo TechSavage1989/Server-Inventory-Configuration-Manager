@@ -456,6 +456,11 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
 .vm-toolbar input[type=search],.vm-toolbar input[type=number]{flex:1 1 200px;min-width:0;max-width:320px;height:32px;box-sizing:border-box;border:1px solid #bcc9d9;border-radius:7px;padding:0 10px;font:inherit;font-size:12px}
 .vm-toolbar input[type=number]{flex:0 0 76px}
 .vm-toolbar label{font-size:12px;color:#334156;font-weight:650}
+.vm-toolbar select{height:32px;border:1px solid #bcc9d9;border-radius:7px;padding:0 6px;font:inherit;font-size:12px;background:#fff;color:#23334b}
+.vm-tree{margin-top:8px}.vm-tree details{border:1px solid #e0e6ee;border-radius:8px;background:#fff;margin-top:6px}.vm-tree details details{margin:6px 8px}.vm-tree summary{cursor:pointer;padding:6px 10px;font-size:12px;color:#23334b;overflow-wrap:anywhere}.vm-tree summary strong{font-size:13px}.vm-tree summary .vm-sub{display:inline;margin-left:6px;color:#596b80;font-size:11px}.vm-tree summary:focus{outline:2px solid #2563eb;outline-offset:-2px}
+.vm-tree-body{padding:0 10px 10px}.vm-tree-body .vm-table-wrap{max-height:300px}.vm-tree-facts{font-size:12px;color:#52647c;margin-top:2px;overflow-wrap:anywhere}.vm-tree-more{font-size:12px;color:#596b80;margin:8px 2px}
+.vm-link{border:0;background:none;padding:0;font:inherit;font-weight:650;color:#1d4ed8;text-decoration:underline;cursor:pointer;text-align:left}.vm-link:focus{outline:2px solid #2563eb;outline-offset:1px}
+.vm-meter{display:inline-block;vertical-align:middle;width:60px;height:6px;border-radius:3px;background:#e3e8f0;margin-left:6px;overflow:hidden}.vm-meter span{display:block;height:100%;background:#2563eb}.vm-meter.full span{background:#c2410c}
 .vm-note{font-size:12px;color:#596b80}
 .vm-table-wrap{margin-top:8px;border:1px solid #e0e6ee;border-radius:9px;max-height:360px;overflow:auto}
 .vm-table{width:100%;border-collapse:collapse;font-size:12px}
@@ -788,6 +793,10 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
               <div class="vm-toolbar"><input type="search" id="vmSearch" aria-label="Search VMs" placeholder="Search VMs, guest OS, host or IP" autocomplete="off" spellcheck="false"><span class="vm-note" id="vmTableNote"></span><button class="secondary-button" id="vmOpenReport" type="button">Open readiness report</button><button class="secondary-button" id="vmOpenFolder" type="button">Open folder</button></div>
               <div class="vm-table-wrap"><table class="vm-table"><thead><tr><th>VM</th><th>Power</th><th>Guest OS</th><th>Size</th><th>Disks</th><th>Readiness</th><th>First thing to fix</th></tr></thead><tbody id="vmTableBody"></tbody></table></div>
               <div class="vm-detail hidden" id="vmDetail" aria-live="polite"></div>
+              <details class="vm-hosts" id="vmExplorePanel" open><summary>Browse hosts, datastores and networks <span class="vm-note" id="vmExploreSummary"></span></summary>
+                <div class="vm-toolbar"><label for="vmExploreBy">Group by</label><select id="vmExploreBy"><option value="host">Cluster and host</option><option value="datastore">Datastore</option><option value="network">Network</option></select><input type="search" id="vmExploreSearch" aria-label="Search hosts, datastores, networks and VMs" placeholder="Search hosts, datastores, networks or VMs" autocomplete="off" spellcheck="false"><span class="vm-note" id="vmExploreNote"></span></div>
+                <div class="vm-tree" id="vmExploreTree"></div>
+              </details>
               <details class="vm-hosts" id="vmHostsPanel"><summary>Hosts and licenses <span class="vm-note" id="vmHostsSummary"></span></summary>
                 <div class="vm-toolbar"><span class="vm-note" id="vmHostsNote">Every host's hardware, BIOS, network, storage, services, software packages and alarms are in the discovery report.</span><button class="secondary-button" id="vmOpenDiscovery" type="button">Open discovery report</button></div>
                 <ul class="vm-attention hidden" id="vmHostsWatch" aria-label="Needs attention"></ul>
@@ -2167,7 +2176,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       vmInventory=data.inventory||null;vmPlan=data.plan||null;vmSizing=data.sizing||null;vmPlanDirty=false;vmAttention=vmArr(data.attention);
       if(vmPlan&&vmPlan.target){vmTargetLocal=vmPlan.target;}
       if(!vmFind(vmSelectedVM)){vmSelectedVM='';}
-      renderVmTable();renderVmHosts();renderVmPlan();if(latestState){renderVMware(latestState);}
+      renderVmTable();renderVmHosts();renderVmExplore();renderVmPlan();if(latestState){renderVMware(latestState);}
     });
   }
   function renderVmHosts(){
@@ -2195,6 +2204,114 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       tr.appendChild(el('td','',l.expires||'Never'));tr.appendChild(el('td','',vmArr(l.assignedTo).join(', ')));lbody.appendChild(tr);
     });
     if(!licenses.length){var lrow=el('tr',''),lcell=el('td','',vmInventory?'Licenses were not read for this inventory. Read it again from vCenter or ESXi to include them.':'');lcell.colSpan=5;lrow.appendChild(lcell);lbody.appendChild(lrow);}
+  }
+  // Browse: which VMs run on each host, which disks live on each datastore
+  // and which adapters use each network, built from the inventory.
+  var vmRelCache=null,vmExploreGroupLimit=150;
+  function vmRelations(){
+    if(vmRelCache&&vmRelCache.inventory===vmInventory){return vmRelCache;}
+    var inv=vmInventory||{},rel={inventory:vmInventory,clusters:[],hosts:[],datastores:[],networks:[],unplaced:[],otherDisks:[]},hostBy={},dsBy={},netBy={},clusterBy={};
+    function key(dc,name){return (dc||'')+'\u0000'+name;}
+    vmArr(inv.hosts).forEach(function(h){var node={host:h,vms:[],datastores:[],on:0,vcpus:0,memMb:0};rel.hosts.push(node);hostBy[key(h.datacenter,h.name)]=node;if(!hostBy['*'+h.name]){hostBy['*'+h.name]=node;}});
+    vmArr(inv.datastores).forEach(function(d){var node={ds:d,disks:[],vms:{},vmCount:0,diskBytes:0};rel.datastores.push(node);dsBy[key(d.datacenter,d.name)]=node;if(!dsBy['*'+d.name]){dsBy['*'+d.name]=node;}
+      vmArr(d.hosts).forEach(function(name){var h=hostBy[key(d.datacenter,name)]||hostBy['*'+name];if(h){h.datastores.push(d.name);}});});
+    vmArr(inv.networks).forEach(function(n){var node={net:n,nics:[],vms:{},vmCount:0};rel.networks.push(node);if(!netBy[key(n.datacenter,n.name)]){netBy[key(n.datacenter,n.name)]=node;}if(!netBy['*'+n.name]){netBy['*'+n.name]=node;}});
+    vmArr(inv.vms).forEach(function(vm){
+      var h=hostBy[key(vm.datacenter,vm.host)]||(vm.host?hostBy['*'+vm.host]:null);
+      if(h){h.vms.push(vm);if(vm.powerState==='poweredOn'){h.on++;}h.vcpus+=Number(vm.cpus)||0;h.memMb+=Number(vm.memoryMb)||0;}else{rel.unplaced.push(vm);}
+      vmArr(vm.disks).forEach(function(d){var ds=dsBy[key(vm.datacenter,d.datastore)]||(d.datastore?dsBy['*'+d.datastore]:null),ref={vm:vm,disk:d};if(ds){ds.disks.push(ref);ds.diskBytes+=Number(d.capacityBytes)||0;if(!ds.vms[vm.id]){ds.vms[vm.id]=true;ds.vmCount++;}}else{rel.otherDisks.push(ref);}});
+      vmArr(vm.nics).forEach(function(n){var net=netBy[key(vm.datacenter,n.network)]||(n.network?netBy['*'+n.network]:null);if(net){net.nics.push({vm:vm,nic:n});if(!net.vms[vm.id]){net.vms[vm.id]=true;net.vmCount++;}}});
+    });
+    function byVm(a,b){var x=String(a.vm?a.vm.name:a.name).toLowerCase(),y=String(b.vm?b.vm.name:b.name).toLowerCase();return x<y?-1:x>y?1:0;}
+    rel.hosts.forEach(function(h){h.vms.sort(byVm);h.datastores.sort();});rel.unplaced.sort(byVm);
+    rel.datastores.forEach(function(d){d.disks.sort(byVm);});rel.networks.forEach(function(n){n.nics.sort(byVm);});
+    vmArr(inv.clusters).forEach(function(c){var node={name:c.name,cluster:c,hosts:[],vms:0};clusterBy[key(c.datacenter,c.name)]=node;rel.clusters.push(node);});
+    rel.hosts.forEach(function(h){var k=h.host.cluster?key(h.host.datacenter,h.host.cluster):key(h.host.datacenter,'\u0000solo'),c=clusterBy[k];
+      if(!c){c={name:h.host.cluster||'Standalone hosts',cluster:null,hosts:[],vms:0};clusterBy[k]=c;rel.clusters.push(c);}c.hosts.push(h);c.vms+=h.vms.length;});
+    rel.clusters=rel.clusters.filter(function(c){return c.hosts.length>0;});
+    vmRelCache=rel;return rel;
+  }
+  function vmShowVm(vm){
+    byId('vmSearch').value=vm.name;vmSelectedVM=vm.id;setVmFilter('all');
+    var detail=byId('vmDetail');if(detail&&detail.scrollIntoView){detail.scrollIntoView({block:'nearest'});}
+  }
+  function vmVmLink(vm){var b=el('button','vm-link',vm.name);b.type='button';b.title='Show '+vm.name+' and its readiness';b.addEventListener('click',function(){vmShowVm(vm);});return b;}
+  function vmDiskText(d){return d.label+' '+formatBytesShort(d.capacityBytes)+(d.datastore?' on '+d.datastore:(d.rdm?' (raw device)':''))+(d.rdm&&d.datastore?' (RDM)':'');}
+  function vmNicText(n){var ips=vmArr(n.ipAddresses);return (n.network||'No network')+(ips.length?' '+ips.join(', '):'');}
+  function vmTreeTable(headers,rows){
+    var wrap=el('div','vm-table-wrap'),table=el('table','vm-table'),head=el('tr','');
+    headers.forEach(function(h){head.appendChild(el('th','',h));});var thead=el('thead','');thead.appendChild(head);table.appendChild(thead);
+    var body=el('tbody','');rows.forEach(function(r){body.appendChild(r);});
+    if(!rows.length){var tr=el('tr',''),td=el('td','','Nothing here.');td.colSpan=headers.length;tr.appendChild(td);body.appendChild(tr);}
+    table.appendChild(body);wrap.appendChild(table);return wrap;
+  }
+  function vmCell(tr,content){var td=el('td','');if(typeof content==='string'){td.textContent=content;}else if(content){td.appendChild(content);}tr.appendChild(td);return td;}
+  function vmLines(lines){var f=document.createDocumentFragment();lines.forEach(function(t){f.appendChild(el('div','',t));});return f;}
+  function vmVmRows(vms){
+    return vms.map(function(vm){var tr=el('tr',''),name=vmCell(tr,vmVmLink(vm));if(vm.template){name.appendChild(el('span','vm-sub','Template'));}
+      vmCell(tr,vmPower(vm));vmCell(tr,vm.guestOsRunning||vm.guestOs||'Unknown');vmCell(tr,vm.cpus+' vCPU, '+formatBytesShort((Number(vm.memoryMb)||0)*1048576));
+      vmCell(tr,vmLines(vmArr(vm.disks).map(vmDiskText)));vmCell(tr,vmLines(vmArr(vm.nics).map(vmNicText)));return tr;});
+  }
+  // A collapsible node whose body is built the first time it is opened.
+  function vmTreeNode(title,sub,build,open){
+    var node=document.createElement('details'),summary=el('summary','');summary.appendChild(el('strong','',title));if(sub){summary.appendChild(el('span','vm-sub',sub));}node.appendChild(summary);
+    var built=false;function fill(){if(built){return;}built=true;var body=el('div','vm-tree-body');build(body);node.appendChild(body);}
+    node.addEventListener('toggle',function(){if(node.open){fill();}});
+    if(open){node.open=true;fill();}
+    return node;
+  }
+  function vmHit(text,query){return !!query&&String(text||'').toLowerCase().indexOf(query)>=0;}
+  function vmVmHit(vm,query){return vmHit([vm.name,vm.guestHostName,vm.ipAddress,vm.guestOsRunning||vm.guestOs].join(' '),query);}
+  function renderVmExplore(){
+    var panel=byId('vmExplorePanel'),tree=byId('vmExploreTree');tree.textContent='';panel.classList.toggle('hidden',!vmInventory);
+    if(!vmInventory){byId('vmExploreSummary').textContent='';return;}
+    var rel=vmRelations(),by=byId('vmExploreBy').value,query=trimText(byId('vmExploreSearch').value).toLowerCase(),shown=0,matched=0,fragment=document.createDocumentFragment();
+    byId('vmExploreSummary').textContent='('+vmPlural(rel.hosts.length,'host')+', '+vmPlural(rel.datastores.length,'datastore')+', '+vmPlural(rel.networks.length,'network')+')';
+    function add(node){matched++;if(shown<vmExploreGroupLimit){shown++;fragment.appendChild(node);}}
+    if(by==='host'){
+      var hostNode=function(h,vms,open){var host=h.host,d=host.details||{};
+        return vmTreeNode(host.name,[[host.vendor,host.model].join(' ').trim(),host.version?'ESXi '+host.version:'',vmPlural(h.vms.length,'VM')+' ('+formatCount(h.on)+' on)',h.vcpus+' vCPU, '+formatBytesShort(h.memMb*1048576)+' allocated',host.maintenance?'maintenance mode':(host.connectionState&&host.connectionState!=='connected'?host.connectionState:'')].filter(function(x){return !!x;}).join(' · '),function(body){
+          body.appendChild(el('div','vm-tree-facts',[host.sockets+' x '+(host.cpuModel||'CPU')+', '+formatBytesShort(host.memoryBytes),d.serialNumber?'serial '+d.serialNumber:'',d.managementIp?'management '+d.managementIp:'',host.license?'license '+host.license.name:''].filter(function(x){return !!x;}).join(' · ')));
+          body.appendChild(el('div','vm-tree-facts','Datastores mounted: '+(h.datastores.length?h.datastores.join(', '):'not reported (read the inventory again to include them)')));
+          body.appendChild(vmTreeTable(['VM','Power','Guest OS','Size','Disks and datastores','Networks'],vmVmRows(vms)));
+        },open);};
+      rel.clusters.forEach(function(c){
+        var cMatch=vmHit(c.name,query),hosts=[];
+        c.hosts.forEach(function(h){var hMatch=cMatch||vmHit(h.host.name,query),vms=hMatch||!query?h.vms:h.vms.filter(function(vm){return vmVmHit(vm,query);});if(!query||hMatch||vms.length){hosts.push({h:h,vms:vms});}});
+        if(!hosts.length){return;}
+        add(vmTreeNode(c.name,vmPlural(c.hosts.length,'host')+', '+vmPlural(c.vms,'VM')+(c.cluster?' · '+formatCount(c.cluster.cpuCores)+' cores, '+formatBytesShort(c.cluster.memoryBytes)+(c.cluster.ha?' · HA':'')+(c.cluster.drs?' · DRS':''):''),function(body){
+          hosts.forEach(function(x){body.appendChild(hostNode(x.h,x.vms,!!query||hosts.length===1));});
+        },!!query||rel.clusters.length===1));
+      });
+      var lost=query?rel.unplaced.filter(function(vm){return vmVmHit(vm,query)||vmHit(vm.host,query);}):rel.unplaced;
+      if(lost.length){add(vmTreeNode('VMs on hosts not in this inventory',vmPlural(lost.length,'VM'),function(body){body.appendChild(vmTreeTable(['VM','Power','Guest OS','Size','Disks and datastores','Networks'],vmVmRows(lost)));},!!query));}
+    }else if(by==='datastore'){
+      var diskRows=function(refs,showStore){return refs.map(function(r){var tr=el('tr','');vmCell(tr,vmVmLink(r.vm));vmCell(tr,r.vm.host||'');vmCell(tr,r.disk.label+(r.disk.rdm?' (RDM '+r.disk.rdm+')':''));vmCell(tr,formatBytesShort(r.disk.capacityBytes));vmCell(tr,r.disk.provisioning||'');if(showStore){vmCell(tr,r.disk.datastore||'');}vmCell(tr,r.disk.file||'');return tr;});};
+      rel.datastores.forEach(function(n){
+        var d=n.ds,dMatch=vmHit(d.name,query),refs=dMatch||!query?n.disks:n.disks.filter(function(r){return vmVmHit(r.vm,query);});
+        if(query&&!dMatch&&!refs.length){return;}
+        var used=d.capacityBytes?Math.round((d.capacityBytes-d.freeBytes)*100/d.capacityBytes):0,node=vmTreeNode(d.name,[d.type,formatBytesShort(d.freeBytes)+' free of '+formatBytesShort(d.capacityBytes),vmPlural(n.vmCount,'VM')+', '+vmPlural(n.disks.length,'disk')+' ('+formatBytesShort(n.diskBytes)+')',d.accessible===false?'not accessible':''].filter(function(x){return !!x;}).join(' · '),function(body){
+          body.appendChild(el('div','vm-tree-facts',[d.shared?'Shared':'Not shared','provisioned '+formatBytesShort(d.provisionedBytes),d.url||''].filter(function(x){return !!x;}).join(' · ')));
+          body.appendChild(el('div','vm-tree-facts','Mounted on: '+(vmArr(d.hosts).length?vmArr(d.hosts).join(', '):'not reported (read the inventory again to include it)')));
+          body.appendChild(vmTreeTable(['VM','Host','Disk','Size','Provisioning','File'],diskRows(refs,false)));
+        },!!query);
+        if(d.capacityBytes){var meter=el('span','vm-meter'+(used>=90?' full':'')),fill=el('span','');fill.style.width=used+'%';meter.appendChild(fill);meter.title=used+'% used';node.firstChild.appendChild(meter);}
+        add(node);
+      });
+      var other=query?rel.otherDisks.filter(function(r){return vmVmHit(r.vm,query)||vmHit(r.disk.datastore,query);}):rel.otherDisks;
+      if(other.length){add(vmTreeNode('Disks not on a datastore in this inventory',vmPlural(other.length,'disk')+' · raw device mappings and unread datastores',function(body){body.appendChild(vmTreeTable(['VM','Host','Disk','Size','Provisioning','Datastore','File'],diskRows(other,true)));},!!query));}
+    }else{
+      rel.networks.forEach(function(n){
+        var net=n.net,nMatch=vmHit(net.name+' '+net.vlan,query),nics=nMatch||!query?n.nics:n.nics.filter(function(r){return vmVmHit(r.vm,query)||vmHit(vmArr(r.nic.ipAddresses).join(' '),query);});
+        if(query&&!nMatch&&!nics.length){return;}
+        add(vmTreeNode(net.name,[net.vlan&&net.vlan!=='None'?'VLAN '+net.vlan:'',net.kind,net.switch,vmPlural(n.vmCount,'VM')].filter(function(x){return !!x;}).join(' · '),function(body){
+          body.appendChild(vmTreeTable(['VM','Host','Adapter','MAC','Connected','Guest addresses'],nics.map(function(r){var tr=el('tr','');vmCell(tr,vmVmLink(r.vm));vmCell(tr,r.vm.host||'');vmCell(tr,r.nic.label+(r.nic.adapterType?' ('+r.nic.adapterType+')':''));vmCell(tr,r.nic.mac||'');vmCell(tr,r.nic.connected?'Yes':'No');vmCell(tr,vmArr(r.nic.ipAddresses).join(', ')+(r.nic.static?' (static)':''));return tr;})));
+        },!!query));
+      });
+    }
+    tree.appendChild(fragment);
+    if(!matched){tree.appendChild(el('div','vm-tree-more',query?'Nothing matches.':'Nothing was read.'));}
+    byId('vmExploreNote').textContent=matched>shown?'Showing '+shown+' of '+formatCount(matched)+'. Search to narrow the list.':'';
   }
   function vmMatches(vm,query){if(!query){return true;}return [vm.name,vm.guestOs,vm.guestOsRunning,vm.host,vm.cluster,vm.folder,vm.ipAddress,vm.guestHostName].join(' ').toLowerCase().indexOf(query)>=0;}
   function vmTopFinding(r){
@@ -2509,9 +2626,10 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   byId('vmConnect').addEventListener('click',function(){connectVmware();});
   byId('vmCertTrust').addEventListener('click',function(){var v=vmwareState()||{};if(v.certificate){connectVmware(v.certificate.thumbprint);}});
   byId('vmOpenInventory').addEventListener('click',function(){vmPost('/api/vmware/open-inventory',{},'vmConnectStatus');});
-  byId('vmReset').addEventListener('click',function(){vmPost('/api/vmware/reset',{},'vmConnectStatus',function(err){if(err){return;}byId('vmServer').value='';byId('vmUser').value='';byId('vmPassword').value='';vmInventory=null;vmAttention=[];vmPlan=null;vmSizing=null;vmSelectedVM='';var v=vmwareState();if(v){v.server='';v.account='';v.summary=null;v.certificate=null;v.message='';v.status='idle';}renderVmTable();renderVmHosts();renderVmPlan();if(latestState){renderVMware(latestState);}byId('vmServer').focus();});});
+  byId('vmReset').addEventListener('click',function(){vmPost('/api/vmware/reset',{},'vmConnectStatus',function(err){if(err){return;}byId('vmServer').value='';byId('vmUser').value='';byId('vmPassword').value='';vmInventory=null;vmAttention=[];vmPlan=null;vmSizing=null;vmSelectedVM='';var v=vmwareState();if(v){v.server='';v.account='';v.summary=null;v.certificate=null;v.message='';v.status='idle';}renderVmTable();renderVmHosts();renderVmExplore();renderVmPlan();if(latestState){renderVMware(latestState);}byId('vmServer').focus();});});
   byId('vmStop').addEventListener('click',function(){var button=this;button.disabled=true;request('POST','/api/vmware/cancel',{},function(err){if(err){button.disabled=false;notice(err,true);return;}var v=vmwareState();if(v){v.cancelRequested=true;}syncVmButtons();});});
   byId('vmSearch').addEventListener('input',renderVmTable);
+  byId('vmExploreBy').addEventListener('change',renderVmExplore);byId('vmExploreSearch').addEventListener('input',renderVmExplore);
   byId('vmTableBody').addEventListener('click',function(e){selectVmRow(e.target.closest('tr'));});
   byId('vmTableBody').addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();selectVmRow(e.target.closest('tr'));}});
   byId('vmOpenReport').addEventListener('click',function(){openKind('vmwarereport');});

@@ -215,10 +215,10 @@ func writeVMwareInventoryOutputs(folder string, inventory *vmInventory) (string,
 		}
 		vmRows = append(vmRows, append([]string{vm.Name, vm.Datacenter, vm.Cluster, vm.Host, vm.Folder, strconv.FormatBool(vm.Template), vm.PowerState, vmNonEmpty(vm.GuestOSRunning, vm.GuestOS), vm.GuestID, vm.GuestHostName, vm.IPAddress, strconv.Itoa(vm.CPUs), strconv.Itoa(vm.CoresPerSocket), strconv.FormatInt(vm.MemoryMB, 10), gib(vm.ProvisionedBytes), gib(vm.UsedBytes), vm.HardwareVersion, vm.Firmware, strconv.FormatBool(vm.SecureBoot), strconv.FormatBool(vm.VTPM), strconv.FormatBool(vm.Encrypted), vm.ToolsStatus, strconv.FormatBool(vm.ToolsRunning), vmToolsVersionText(vm.ToolsVersion), strconv.Itoa(len(vm.Snapshots)), strconv.FormatBool(vm.ChangeTracking), generation}, targetStatus...))
 		for _, disk := range vm.Disks {
-			diskRows = append(diskRows, []string{vm.Name, disk.Label, gib(disk.CapacityBytes), disk.Provisioning, disk.RDM, disk.Mode, disk.Sharing, disk.Controller, fmt.Sprintf("%d:%d", disk.Bus, disk.Unit), disk.BusSharing, disk.Datastore, disk.File})
+			diskRows = append(diskRows, []string{vm.Name, disk.Label, gib(disk.CapacityBytes), disk.Provisioning, disk.RDM, disk.Mode, disk.Sharing, disk.Controller, fmt.Sprintf("%d:%d", disk.Bus, disk.Unit), disk.BusSharing, disk.Datastore, disk.File, vm.Host, vm.Cluster})
 		}
 		for _, nic := range vm.NICs {
-			nicRows = append(nicRows, []string{vm.Name, nic.Label, nic.AdapterType, nic.Network, nic.MAC, strconv.FormatBool(nic.ManualMAC), strconv.FormatBool(nic.Connected), strings.Join(nic.IPAddresses, "; "), strconv.FormatBool(nic.Static)})
+			nicRows = append(nicRows, []string{vm.Name, nic.Label, nic.AdapterType, nic.Network, nic.MAC, strconv.FormatBool(nic.ManualMAC), strconv.FormatBool(nic.Connected), strings.Join(nic.IPAddresses, "; "), strconv.FormatBool(nic.Static), vm.Host, vm.Cluster})
 		}
 		for _, snapshot := range vm.Snapshots {
 			snapshotRows = append(snapshotRows, []string{vm.Name, snapshot.Name, snapshot.Created.Format(time.RFC3339), strconv.FormatBool(snapshot.Quiesced), strconv.Itoa(snapshot.Depth)})
@@ -237,7 +237,7 @@ func writeVMwareInventoryOutputs(folder string, inventory *vmInventory) (string,
 		clusterRows = append(clusterRows, []string{cluster.Name, cluster.Datacenter, strconv.Itoa(cluster.Hosts), strconv.Itoa(cluster.CPUCores), gib(cluster.MemoryBytes), strconv.FormatBool(cluster.HA), strconv.FormatBool(cluster.HAAdmission), cluster.HAHostMonitoring, strconv.FormatBool(cluster.DRS), cluster.DRSBehavior, cluster.EVCMode, strconv.FormatBool(cluster.VSAN)})
 	}
 	for _, datastore := range inventory.Datastores {
-		datastoreRows = append(datastoreRows, []string{datastore.Name, datastore.Datacenter, datastore.Type, gib(datastore.CapacityBytes), gib(datastore.FreeBytes), gib(datastore.ProvisionedBytes), strconv.FormatBool(datastore.Shared), strconv.FormatBool(datastore.Accessible), strconv.Itoa(datastore.VMCount)})
+		datastoreRows = append(datastoreRows, []string{datastore.Name, datastore.Datacenter, datastore.Type, gib(datastore.CapacityBytes), gib(datastore.FreeBytes), gib(datastore.ProvisionedBytes), strconv.FormatBool(datastore.Shared), strconv.FormatBool(datastore.Accessible), strconv.Itoa(datastore.VMCount), strings.Join(datastore.Hosts, "; "), datastore.URL})
 	}
 	for _, network := range inventory.Networks {
 		networkRows = append(networkRows, []string{network.Name, network.Datacenter, network.Kind, network.Switch, network.VLAN, strconv.Itoa(network.VMCount)})
@@ -252,13 +252,13 @@ func writeVMwareInventoryOutputs(folder string, inventory *vmInventory) (string,
 		rows   [][]string
 	}{
 		{"VMs.csv", append([]string{"Name", "Datacenter", "Cluster", "Host", "Folder", "Template", "PowerState", "GuestOS", "GuestID", "GuestHostName", "IPAddress", "vCPUs", "CoresPerSocket", "MemoryMB", "ProvisionedGB", "UsedGB", "HardwareVersion", "Firmware", "SecureBoot", "vTPM", "Encrypted", "ToolsStatus", "ToolsRunning", "ToolsVersion", "Snapshots", "ChangeTracking", "HyperVGeneration"}, vmTargetColumns...), vmRows},
-		{"VM-Disks.csv", []string{"VM", "Disk", "CapacityGB", "Provisioning", "RDM", "Mode", "Sharing", "Controller", "BusUnit", "BusSharing", "Datastore", "File"}, diskRows},
-		{"VM-Network-Adapters.csv", []string{"VM", "Adapter", "Type", "Network", "MAC", "ManualMAC", "Connected", "GuestAddresses", "StaticIP"}, nicRows},
+		{"VM-Disks.csv", []string{"VM", "Disk", "CapacityGB", "Provisioning", "RDM", "Mode", "Sharing", "Controller", "BusUnit", "BusSharing", "Datastore", "File", "Host", "Cluster"}, diskRows},
+		{"VM-Network-Adapters.csv", []string{"VM", "Adapter", "Type", "Network", "MAC", "ManualMAC", "Connected", "GuestAddresses", "StaticIP", "Host", "Cluster"}, nicRows},
 		{"VM-Snapshots.csv", []string{"VM", "Snapshot", "Created", "Quiesced", "Depth"}, snapshotRows},
 		{"Readiness-Findings.csv", []string{"VM", "Target", "Status", "Severity", "Code", "Finding", "Action"}, readinessRows},
 		{"Hosts.csv", append([]string{"Host", "Datacenter", "Cluster", "Vendor", "Model", "CPU", "Sockets", "Cores", "Threads", "CPUMHz", "MemoryGB", "Version", "Build", "ConnectionState", "Maintenance", "VMs"}, vmHostCSVColumns...), hostRows},
 		{"Clusters.csv", []string{"Cluster", "Datacenter", "Hosts", "Cores", "MemoryGB", "HA", "HAAdmissionControl", "HAHostMonitoring", "DRS", "DRSBehavior", "EVCMode", "vSAN"}, clusterRows},
-		{"Datastores.csv", []string{"Datastore", "Datacenter", "Type", "CapacityGB", "FreeGB", "ProvisionedGB", "Shared", "Accessible", "VMs"}, datastoreRows},
+		{"Datastores.csv", []string{"Datastore", "Datacenter", "Type", "CapacityGB", "FreeGB", "ProvisionedGB", "Shared", "Accessible", "VMs", "MountedOnHosts", "URL"}, datastoreRows},
 		{"Networks.csv", []string{"Network", "Datacenter", "Kind", "Switch", "VLAN", "VMs"}, networkRows},
 	}
 	for _, file := range files {

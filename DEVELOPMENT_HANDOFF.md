@@ -1,3 +1,13 @@
+## Unreleased: VMware relationships in the discovery report and Environment view — 2026-11-25
+
+Owner: "the report should show the vms on each associated host and datastore and their disk associations, etc. the report should have an intuitive UX and most of that info should be available via sections and/or dropdowns in the primary Environment tab after reading the vmware inventory."
+
+- `vmware_collect.go` reads each datastore's `host` mounts and URL (`vmDatastore.Hosts`, `URL`; empty in older inventories).
+- `vmware_relations.go` (`vmRelationsFor`) links every VM to its host, every disk to its datastore and every adapter to its network, groups hosts by cluster (standalone hosts last) and lists VMs on unknown hosts and disks with no datastore in the inventory (RDMs, unread datastores).
+- `VMware-Discovery-Report.html` gains a contents bar, per-cluster host tables with VM counts and allocation, a "Virtual machines on this host" table in each host section (disks with datastore links, networks with addresses), per-datastore sections (mounting hosts, every VM disk with its file), per-network sections (every VM adapter) and an all-VMs table; everything links by anchor. Host networking and storage tables now sit in open `<details>`.
+- `VM-Disks.csv` and `VM-Network-Adapters.csv` gain Host and Cluster columns at the end; `Datastores.csv` gains MountedOnHosts and URL.
+- The Environment view gains **Browse hosts, datastores and networks** (`#vmExplorePanel`): group by cluster and host, datastore or network, search, and VM links that select the VM above. Node bodies are built on first open.
+- Tests: `TestRelationsLinkVMsToHostsDatastoresAndNetworks`, simulator checks for datastore mounts and VM placement, and a new workspace check with the browse screenshot (`docs/images/vmware-browse.png`).
 ## 3.2.30 published and verified — 2026-11-25
 
 - [Release v3.2.30](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.30) ("Server Inventory and Migration Manager 3.2.30"), tag and target commit `2a0d741f92584e7104ec6410ccc554cbf273dc8e`. Source: VMware move engine phase 1 and full discovery (#81), prepared in #82, published by #83. The owner chose to publish on 2026-11-25.
