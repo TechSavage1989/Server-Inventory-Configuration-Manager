@@ -269,6 +269,7 @@ type application struct {
 	vmware                  vmwareRuntime
 	convert                 convertRuntime
 	vmReceive               vmReceiverRuntime
+	repl                    replRuntime
 }
 
 func utf16Ptr(value string) *uint16 {
@@ -1855,6 +1856,7 @@ func (a *application) handleShutdown(response http.ResponseWriter, request *http
 	migrating := a.migrate.action != ""
 	vmwareStep := a.vmware.action
 	converting := a.convertBusyLocked()
+	pushing := a.repl.pushing
 	a.mu.Unlock()
 	if running {
 		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "The application cannot close while collection is running. Cancel the collection first."})
@@ -1874,6 +1876,10 @@ func (a *application) handleShutdown(response http.ResponseWriter, request *http
 	}
 	if converting {
 		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "The application cannot close while a disk conversion is running. Stop it first; a stopped conversion continues where it left off next time."})
+		return
+	}
+	if pushing {
+		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "The application cannot close while it installs replication agents. Stop after this server, then close. Replication jobs keep running on the servers either way."})
 		return
 	}
 	writeJSON(response, http.StatusOK, map[string]any{"ok": true})
@@ -2321,6 +2327,10 @@ func (a *application) serve(listener net.Listener) error {
 	mux.HandleFunc("/api/vmware/agent/disks", a.handleVMwareAgentDisks)
 	mux.HandleFunc("/api/vmware/agent/send", a.handleVMwareAgentSend)
 	mux.HandleFunc("/api/vmware/agent/receiverdisks", a.handleVMwareAgentReceiverDisks)
+	mux.HandleFunc("/api/repl/state", a.handleReplState)
+	mux.HandleFunc("/api/repl/push", a.handleReplPush)
+	mux.HandleFunc("/api/repl/agent", a.handleReplAgent)
+	mux.HandleFunc("/api/repl/job", a.handleReplJob)
 	mux.HandleFunc("/api/vmware/guest", a.handleVMwareGuest)
 	mux.HandleFunc("/api/vmware/guest/", a.handleVMwareGuest)
 	mux.HandleFunc("/api/vmware/guest-load", a.handleVMwareGuestLoad)
@@ -2358,6 +2368,9 @@ func (a *application) serve(listener net.Listener) error {
 func main() {
 	if len(os.Args) > 1 && os.Args[1] == "--update-helper" {
 		os.Exit(runUpdateHelper(os.Args[2:]))
+	}
+	if len(os.Args) > 1 && strings.HasPrefix(os.Args[1], "--agent") {
+		os.Exit(runReplAgentCommand(os.Args[1:]))
 	}
 	if len(os.Args) > 1 && os.Args[1] == "--receiver" {
 		os.Exit(runVMReceiverCommand(os.Args[2:]))

@@ -1,3 +1,13 @@
+## Unreleased: replication jobs, agent service and central console — 2026-11-25
+
+The owner asked for a full Carbonite Move/Double-Take style solution (feature reference only). This adds:
+- Replication jobs (`repl_job.go`): continuous or interval rounds through shadow copies, recovery point and RPO alerts, three-failure alerts with backoff, scheduled cutover, cutover with service stop, verified final round, optional shutdown, and rollback that restarts services when any step fails. Jobs persist in the agent's `jobs.json`; logs rotate at 4 MB.
+- The agent service (`repl_agent_server.go`, `repl_agent_windows.go`): `SIMMReplicationAgent` on port 44390, pinned self-signed certificate, hashed key, event log alerts, firewall rule, `--agent-install`/`--agent-uninstall`.
+- The central console and Replication tab (Alt+8): push install to many servers, manual add, live status of every agent and job, job editor that reads the agent's disks and the receiver's disks, sync/pause/rescan/schedule/cutover/delete, alerts and logs.
+- Dynamic disks: spanned, striped and mirrored volumes are detected through Windows' logical-to-physical mapping and read from one shadow copy across all their disks (also used by Disk copy Send).
+- Tests: `repl_job_test.go`, `repl_console_test.go`, `vmvolume_layout_test.go` on any platform; `repl_agent_windows_test.go` and `vmvolume_layout_windows_test.go` on the Windows runner; `scripts/test_workspace.cjs` covers the tab and low-resolution layout. Screenshots `docs/images/replication.png` and `replication-jobs.png`.
+- Not yet done: NTFS change-journal tracking (rounds still read every volume and compare hashes), the Linux agent, test failover on Hyper-V, failback as a reverse job, and runbook export of replication jobs. Push install has not been run across a real domain.
+
 ## Unreleased: where each part runs (source, target and admin computer) — 2026-11-25
 
 The owner asked whether the UI makes clear what runs on the source VM and what on the target. It did not, so:

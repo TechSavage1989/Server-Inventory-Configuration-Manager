@@ -532,6 +532,16 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
 .vm-role-choice strong{font-size:12.5px;color:#1b2942}.vm-role-choice[aria-pressed="true"]{border-color:#2563eb;background:#eaf1fe;box-shadow:0 0 0 1px #2563eb}
 .vm-flow{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;margin-top:8px;font-size:12px;color:#334156}
 .vm-flow-box{padding:5px 10px;border:1px solid #d6e0ee;border-radius:7px;background:#fff}.vm-flow-box.here{border-color:#2563eb;box-shadow:0 0 0 1px #2563eb}.vm-flow-box b{color:#1b2942}
+.rp-body .vm-field input,.rp-body .vm-field select,.rp-body .vm-field textarea{max-width:520px;box-sizing:border-box;border:1px solid #bcc9d9;border-radius:7px;padding:5px 9px;font:inherit;font-size:13px;min-height:32px;background:#fff;color:#1b2942}.rp-body .vm-field textarea{resize:vertical}
+.rp-body{display:flex;flex-direction:column;gap:12px;overflow-y:auto;overflow-x:hidden;min-height:0;flex:1 1 auto}.rp-summary{display:flex;flex-wrap:wrap;gap:8px}.rp-stat{min-width:86px;padding:7px 10px;border:1px solid #dbe3ed;border-radius:9px;background:#fbfcfe}.rp-stat strong{display:block;font-size:17px;color:#1b2942}.rp-stat span{font-size:11px;color:#52647c}.rp-stat.good{border-color:#a7d8b8;background:#f2fbf5}.rp-stat.warning{border-color:#f0cf8a;background:#fff9ea}.rp-stat.danger{border-color:#f1b3ad;background:#fff4f3}
+.rp-grid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:12px}.rp-two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0 12px}.rp-heading{margin:4px 0 0;font-size:14px;color:#1b2942}.rp-subhead{margin-top:12px;font-weight:700;color:#23334b}
+.rp-log{max-height:180px;overflow:auto;margin:8px 0 0;padding:8px;border:1px solid #dbe3ed;border-radius:8px;background:#f7f9fc;font:11px/1.45 Consolas,monospace;color:#23334b;white-space:pre-wrap;overflow-wrap:anywhere}
+.rp-manual{margin-top:12px;border-top:1px solid #e3e8f0;padding-top:8px}.rp-manual summary{cursor:pointer;font-weight:650;color:#23334b}
+.rp-alerts{margin:8px 0 0;padding-left:18px;max-height:260px;overflow:auto}.rp-alerts li{margin:5px 0;overflow-wrap:anywhere}.rp-alerts li.danger{color:#9b2c22}.rp-alerts li.warning{color:#74551f}.rp-alerts li.rp-quiet{list-style:none;margin-left:-18px;color:#596b80}
+.rp-agent{margin-top:10px}.rp-agent-head{display:flex;flex-wrap:wrap;align-items:center;gap:8px}.rp-agent-title{flex:1 1 220px;min-width:0;overflow-wrap:anywhere}.rp-agent-title strong{font-size:13px;color:#1b2942}.rp-agent-actions{display:flex;flex-wrap:wrap;gap:6px}
+.rp-chip{display:inline-block;padding:2px 8px;border-radius:10px;border:1px solid #d6e0ee;background:#f5f8fd;font-size:11px;color:#334156;white-space:nowrap}.rp-chip.good{border-color:#a7d8b8;background:#f2fbf5;color:#1f6a3a}.rp-chip.warning{border-color:#f0cf8a;background:#fff9ea;color:#74551f}.rp-chip.danger{border-color:#f1b3ad;background:#fff4f3;color:#9b2c22}
+.rp-jobs{margin-top:8px}.rp-error{margin-top:6px;color:#9b2c22}.rp-editor,.rp-details{margin-top:12px}.rp-disk-row{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:4px 12px;align-items:end;padding:6px 0;border-bottom:1px solid #eef2f7}.rp-target select,.rp-target input{width:100%}.rp-disk-table{margin-top:10px}
+@media (max-width:900px){.rp-grid,.rp-two,.rp-disk-row{grid-template-columns:minmax(0,1fr)}}
 .vm-flow-arrow{color:#52647c;white-space:nowrap}
 .vm-guest-cards{grid-template-columns:repeat(2,minmax(0,1fr))}
 .vm-pick{display:block;margin-top:8px;padding-top:8px;border-top:1px solid #edf1f6}.vm-pick:first-child{border-top:0;padding-top:0}
@@ -621,6 +631,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       <button class="tab-button" id="tabButtonMigrate" role="tab" aria-controls="tabMigrate" aria-selected="false" tabindex="-1" type="button" data-tab="migrate">File shares <span class="tab-badge" id="migrateTabBadge">Ready</span></button>
       <button class="tab-button" id="tabButtonVmware" role="tab" aria-controls="tabVmware" aria-selected="false" tabindex="-1" type="button" data-tab="vmware">VMware <span class="tab-badge" id="vmwareTabBadge">Ready</span></button>
       <button class="tab-button" id="tabButtonConvert" role="tab" aria-controls="tabConvert" aria-selected="false" tabindex="-1" type="button" data-tab="convert">Disk converter <span class="tab-badge" id="convertTabBadge">Ready</span></button>
+      <button class="tab-button" id="tabButtonReplication" role="tab" aria-controls="tabReplication" aria-selected="false" tabindex="-1" type="button" data-tab="replication">Replication <span class="tab-badge" id="replicationTabBadge">Ready</span></button>
     </div>
 
     <div class="app-notice hidden" id="appNotice" role="status"><span id="appNoticeText"></span><button type="button" id="dismissNotice" aria-label="Dismiss message">Dismiss</button></div>
@@ -1023,6 +1034,90 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
         <div class="action-bar setup-action-bar"><div class="scope-note"><span id="cvSummary">Choose a disk to convert.</span></div><div class="setup-actions"><button class="secondary-button danger-button hidden" id="cvStop" type="button">Stop</button><button class="secondary-button hidden" id="cvOpenFolder" type="button">Open folder</button><button class="primary-button" id="cvStart" type="button" disabled>Convert</button></div></div>
       </div></div>
     </section>
+    <section class="tab-panel" id="tabReplication" role="tabpanel" aria-labelledby="tabButtonReplication">
+      <div class="restore-wrap"><div class="card">
+        <div class="card-header"><div><div class="card-title">Replicate whole servers</div><div class="card-subtitle">Install the replication agent on the servers you are moving, physical or virtual, then keep every disk copied to the new machine until you cut over. Each round sends only what changed, so the copy stays a few minutes behind. Jobs keep running on the servers when this window is closed.</div></div></div>
+        <div class="card-body rp-body">
+          <div class="rp-summary" id="rpSummary" aria-label="Replication summary"></div>
+          <div class="restore-alert danger hidden" id="rpError"></div>
+          <div class="rp-grid">
+            <section class="migrate-card" aria-labelledby="rpPushTitle">
+              <h4 id="rpPushTitle">Install the agent on servers</h4>
+              <p class="migrate-help">Runs on this computer and installs the agent as a Windows service on each server through its administrative share. You need administrator rights there and File and Printer Sharing allowed. To install it by hand instead, run <span class="vm-mono">SIMM-Agent.exe --agent-install</span> as administrator on the server and add it below.</p>
+              <label class="vm-field">Servers (names or addresses, one per line or separated by commas)<textarea id="rpHosts" rows="3" spellcheck="false" autocomplete="off" placeholder="app01.example.com&#10;sql01.example.com"></textarea></label>
+              <div class="rp-two"><label class="vm-field">Account (blank to use your own sign-in)<input id="rpUser" type="text" spellcheck="false" autocomplete="off" placeholder="EXAMPLE\admin"></label><label class="vm-field">Password<input id="rpPassword" type="password" autocomplete="off"></label></div>
+              <label class="vm-field">Agent port<input id="rpPort" type="text" inputmode="numeric" maxlength="5" value="44390"></label>
+              <div class="migrate-row"><button class="primary-button" id="rpPush" type="button">Install agents</button><button class="secondary-button hidden" id="rpPushStop" type="button">Stop after this server</button></div>
+              <div class="migrate-inline-status" id="rpPushStatus" role="status" aria-live="polite"></div>
+              <ul class="vm-findings hidden" id="rpPushResults"></ul>
+              <pre class="rp-log hidden" id="rpPushLog"></pre>
+              <details class="rp-manual" id="rpManual"><summary>Add an agent installed by hand</summary>
+                <label class="vm-field">Server (name or address, with :port if not 44390)<input id="rpAddAddress" type="text" spellcheck="false" autocomplete="off"></label>
+                <label class="vm-field">Certificate thumbprint<input id="rpAddThumbprint" type="text" spellcheck="false" autocomplete="off"></label>
+                <label class="vm-field">Agent key<input id="rpAddKey" type="password" spellcheck="false" autocomplete="off"></label>
+                <div class="migrate-row"><button class="secondary-button" id="rpAdd" type="button">Add agent</button></div>
+                <div class="migrate-inline-status" id="rpAddStatus" role="status" aria-live="polite"></div>
+              </details>
+            </section>
+            <section class="migrate-card" aria-labelledby="rpAlertsTitle">
+              <h4 id="rpAlertsTitle">Alerts</h4>
+              <p class="migrate-help">A job raises an alert when its recovery point is older than its RPO limit, when three rounds fail in a row, or when a cutover is rolled back. Agents also write them to the server's Application event log (source SIMM Replication Agent, events 1001 to 1003) for your monitoring tools.</p>
+              <ul class="rp-alerts" id="rpAlerts"></ul>
+            </section>
+          </div>
+          <h4 class="rp-heading">Servers and jobs</h4>
+          <div id="rpAgents"></div>
+          <section class="migrate-card rp-editor hidden" id="rpEditor" aria-labelledby="rpEditorTitle">
+            <h4 id="rpEditorTitle">New replication job</h4>
+            <p class="migrate-help" id="rpEditorHelp"></p>
+            <label class="vm-field">Job name<input id="rpJobName" type="text" maxlength="80" spellcheck="false" autocomplete="off"></label>
+            <div class="rp-subhead">Where the copy goes</div>
+            <p class="migrate-help">Start a receiver on the new machine first: Receive in the VMware tab's Disk copy on a Hyper-V host, or receiver media on a new HyperCore, Nutanix, Proxmox or physical machine. Type what it shows.</p>
+            <label class="vm-field">Receiver (name or address, with :port if not 44380)<input id="rpRecvAddress" type="text" spellcheck="false" autocomplete="off"></label>
+            <label class="vm-field">Receiver certificate thumbprint<input id="rpRecvThumbprint" type="text" spellcheck="false" autocomplete="off"></label>
+            <label class="vm-field">Receiver pairing code<input id="rpRecvCode" type="password" spellcheck="false" autocomplete="off" placeholder=""></label>
+            <div class="migrate-row"><button class="secondary-button" id="rpRecvCheck" type="button">Check receiver</button><span class="vm-note" id="rpRecvNote"></span></div>
+            <div class="rp-subhead">Disks to replicate</div>
+            <p class="migrate-help">Replicate every disk, including the one Windows starts from, so the new machine boots and runs as the old one did.</p>
+            <div id="rpJobDisks"></div>
+            <div class="rp-subhead">Schedule and network</div>
+            <div class="rp-two">
+              <label class="vm-field">Replicate<select id="rpInterval"><option value="0">Continuously (a new round a minute after each ends)</option><option value="5">Every 5 minutes</option><option value="15">Every 15 minutes</option><option value="30">Every 30 minutes</option><option value="60">Every hour</option><option value="240">Every 4 hours</option><option value="1440">Once a day</option></select></label>
+              <label class="vm-field">Alert when the recovery point is older than (minutes)<input id="rpRpo" type="text" inputmode="numeric" maxlength="5" value="15"></label>
+            </div>
+            <label class="vm-check"><input id="rpCompress" type="checkbox" checked> Compress data on the network</label>
+            <div class="rp-two">
+              <label class="vm-field">Bandwidth limit in Mbps (0 for no limit)<input id="rpLimit" type="text" inputmode="numeric" maxlength="6" value="0"></label>
+              <label class="vm-field">During business hours, in Mbps (0 for no limit)<input id="rpBusinessLimit" type="text" inputmode="numeric" maxlength="6" value="0"></label>
+            </div>
+            <div class="rp-two">
+              <label class="vm-field">Business hours start (hour, 0 to 24)<input id="rpBusinessStart" type="text" inputmode="numeric" maxlength="2" value="0"></label>
+              <label class="vm-field">Business hours end (same as start for none)<input id="rpBusinessEnd" type="text" inputmode="numeric" maxlength="2" value="0"></label>
+            </div>
+            <div class="rp-subhead">Cutover</div>
+            <label class="vm-field">Services to stop before the last round (comma separated, such as MSSQLSERVER, W3SVC)<input id="rpServices" type="text" spellcheck="false" autocomplete="off"></label>
+            <label class="vm-check"><input id="rpShutdown" type="checkbox" checked> Shut this server down after the last round, so the new machine can take its name and address</label>
+            <label class="vm-check"><input id="rpLive" type="checkbox"> If Volume Shadow Copy is unavailable, copy volumes as they are (the copy may be inconsistent)</label>
+            <div class="migrate-row"><button class="primary-button" id="rpJobSave" type="button">Save and start</button><button class="secondary-button" id="rpJobCancel" type="button">Cancel</button></div>
+            <div class="migrate-inline-status" id="rpJobStatus" role="status" aria-live="polite"></div>
+          </section>
+          <section class="migrate-card rp-details hidden" id="rpDetails" aria-labelledby="rpDetailsTitle">
+            <h4 id="rpDetailsTitle"></h4>
+            <p class="migrate-help" id="rpDetailsMessage"></p>
+            <dl class="vm-kv" id="rpDetailsFacts"></dl>
+            <table class="vm-table rp-disk-table"><thead><tr><th scope="col">Disk</th><th scope="col">Goes to</th><th scope="col">Size</th><th scope="col">This round</th><th scope="col">Verified</th></tr></thead><tbody id="rpDetailsDisks"></tbody></table>
+            <div class="migrate-row"><button class="secondary-button" id="rpSync" type="button">Sync now</button><button class="secondary-button" id="rpPause" type="button">Pause</button><button class="secondary-button" id="rpRescan" type="button">Rescan the receiver</button><button class="secondary-button" id="rpEdit" type="button">Change</button><button class="secondary-button" id="rpClear" type="button">Clear alerts</button><button class="secondary-button" id="rpLogButton" type="button">Show log</button><button class="secondary-button" id="rpDetailsClose" type="button">Close</button></div>
+            <p class="migrate-help">Rescan after a test failover started the new machine from its disks, or when the receiver writes onto disks that already hold a copy (a failback to the original server): the next round then sends only what differs.</p>
+            <div class="rp-subhead">Cut over</div>
+            <p class="migrate-help">Cutover stops the listed services, takes the last snapshots, sends the last changes and checks every disk against its hashes. If any step fails, the services start again and replication carries on. Start the new machine once the job says Cut over.</p>
+            <div class="rp-two"><label class="vm-field">Cut over at (this computer's time; blank for now)<input id="rpCutoverAt" type="datetime-local"></label><label class="vm-field">Type the job name to confirm<input id="rpCutoverTyped" type="text" spellcheck="false" autocomplete="off"></label></div>
+            <div class="migrate-row"><button class="primary-button" id="rpCutover" type="button">Cut over now</button><button class="secondary-button" id="rpSchedule" type="button">Schedule cutover</button><button class="secondary-button" id="rpUnschedule" type="button">Cancel scheduled cutover</button><button class="secondary-button" id="rpDelete" type="button">Delete job</button></div>
+            <div class="migrate-inline-status" id="rpDetailsStatus" role="status" aria-live="polite"></div>
+            <pre class="rp-log hidden" id="rpLog"></pre>
+          </section>
+        </div>
+      </div></div>
+    </section>
 
     <div class="footer">All collection and report viewing remains local to this computer. No server inventory is uploaded by the application.</div>
   </div>
@@ -1030,7 +1125,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
 <dialog class="shortcuts-dialog" id="shortcutsDialog" aria-labelledby="shortcutsTitle">
   <div class="shortcuts-head"><h2 id="shortcutsTitle">Keyboard shortcuts</h2><button class="secondary-button" id="shortcutsClose" type="button">Close</button></div>
   <dl class="shortcuts-list">
-    <dt><kbd>Alt</kbd> + <kbd>1</kbd> to <kbd>7</kbd></dt><dd>Go to Setup, Collection, Report Viewer, Restore, File shares, VMware or Disk converter</dd>
+    <dt><kbd>Alt</kbd> + <kbd>1</kbd> to <kbd>8</kbd></dt><dd>Go to Setup, Collection, Report Viewer, Restore, File shares, VMware, Disk converter or Replication</dd>
     <dt><kbd>/</kbd> or <kbd>Ctrl</kbd> + <kbd>K</kbd></dt><dd>Search the current tab: categories, log or report</dd>
     <dt><kbd>Esc</kbd></dt><dd>Clear the search you are typing in</dd>
     <dt><kbd>Ctrl</kbd> + <kbd>S</kbd></dt><dd>Save collection choices (Setup)</dd>
@@ -1193,7 +1288,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   }
   function switchTab(name) {
     activeTab = name;
-    var names = ['setup','collection','report','restore','migrate','vmware','convert'];
+    var names = ['setup','collection','report','restore','migrate','vmware','convert','replication'];
     for (var i=0;i<names.length;i++) {
       var n=names[i];
       byId('tab'+n.charAt(0).toUpperCase()+n.slice(1)).className = 'tab-panel' + (n===name ? ' active' : '');
@@ -1725,7 +1820,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     if(uiLifecycle!=='active'||e.defaultPrevented){return;}
     if(byId('shortcutsDialog').open||byId('aboutDialog').open||byId('restoreDialog').open||byId('migrateDialog').open){return;}
     var key=e.key||'',ctrl=e.ctrlKey||e.metaKey,typing=isTyping(e.target);
-    if(e.altKey&&!ctrl&&/^[1-7]$/.test(key)){e.preventDefault();var tab=['setup','collection','report','restore','migrate','vmware','convert'][Number(key)-1];switchTab(tab);byId('tabButton'+tab.charAt(0).toUpperCase()+tab.slice(1)).focus();return;}
+    if(e.altKey&&!ctrl&&/^[1-8]$/.test(key)){e.preventDefault();var tab=['setup','collection','report','restore','migrate','vmware','convert','replication'][Number(key)-1];switchTab(tab);byId('tabButton'+tab.charAt(0).toUpperCase()+tab.slice(1)).focus();return;}
     if(ctrl&&!e.altKey&&(key==='s'||key==='S')){e.preventDefault();if(activeTab==='setup'){saveChoices();}return;}
     if(ctrl&&!e.altKey&&key==='Enter'){if(activeTab==='setup'){e.preventDefault();startCollection();}return;}
     if(ctrl&&!e.altKey&&(key==='k'||key==='K')){e.preventDefault();focusTabSearch();return;}
@@ -3478,6 +3573,246 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   byId('cvOpenFolder').addEventListener('click',function(){openKind('convertfolder');});
   byId('vmCompareBody').addEventListener('click',function(e){var tr=e.target.closest('tr[data-compare]');if(!tr){return;}var key=tr.getAttribute('data-compare');vmCompareOpen[key]=!vmCompareOpen[key];renderVmCompare();});
   byId('vmCompareBody').addEventListener('keydown',function(e){if((e.key==='Enter'||e.key===' ')&&e.target.getAttribute('data-compare')){e.preventDefault();var key=e.target.getAttribute('data-compare');vmCompareOpen[key]=!vmCompareOpen[key];renderVmCompare();var row=document.querySelector('[data-compare="'+key+'"]');if(row){row.focus();}}});
+  // Replication tab: the central console for replication agents and jobs.
+  var rpState=null,rpBusy=false,rpEditing=null,rpDetail=null,rpDisks=null,rpReceiver=null,rpLastPoll=0,rpPushSerial=-1,rpArm={},rpLogShown=false;
+  var rpStateLabels={'new':'Waiting for the first round',idle:'Up to date',syncing:'Sending changes',paused:'Paused',error:'Failing, will retry','cutting-over':'Cutting over','cut-over':'Cut over'};
+  function rpAgents(){return vmArr(rpState&&rpState.agents);}
+  function rpAgent(id){var found=null;rpAgents().forEach(function(a){if(a.id===id){found=a;}});return found;}
+  function rpJob(agentId,jobId){var a=rpAgent(agentId),found=null;if(a){vmArr(a.live&&a.live.jobs).forEach(function(j){if(j.spec&&j.spec.id===jobId){found=j;}});}return found;}
+  function rpAge(seconds){var s=Math.max(0,Number(seconds)||0);if(s<90){return Math.round(s)+' seconds';}if(s<7200){return Math.round(s/60)+' minutes';}if(s<172800){return (s/3600).toFixed(1)+' hours';}return (s/86400).toFixed(1)+' days';}
+  function rpWhen(text){if(!text||/^0001-/.test(text)){return '';}var d=new Date(text);if(isNaN(d.getTime())){return '';}return d.toLocaleString();}
+  function rpBehind(j){var st=j.status||{};return st.state!=='cut-over'&&st.state!=='paused'&&(!st.recoveryPoint||/^0001-/.test(st.recoveryPoint)||(Number(j.rpoSeconds)||0)>(Number(j.spec&&j.spec.rpoMinutes)||15)*60);}
+  function rpStateText(j){var st=j.status||{},label=rpStateLabels[st.state]||st.state||'Unknown';if(st.state==='idle'&&rpBehind(j)){label='Behind';}return label;}
+  function rpPost(path,body,statusId,done){
+    if(rpBusy){return;}
+    rpBusy=true;syncRpButtons();if(statusId){vmSetStatus(statusId,'',false);}
+    request('POST',path,body,function(err,data){rpBusy=false;if(err){if(statusId){vmSetStatus(statusId,err,true);}else{notice(err,true);}}if(done){done(err,data||{});}syncRpButtons();rpRefresh();});
+  }
+  function rpRefresh(){rpLastPoll=Date.now();request('GET','/api/repl/state',null,function(err,data){if(err){return;}rpState=data||{};renderRp();});}
+  function renderRp(){
+    var s=rpState||{},sum=s.summary||{},box=byId('rpSummary');box.textContent='';
+    [['Servers',sum.agents,''],['Not answering',sum.unreachable,sum.unreachable?'warning':''],['Jobs',sum.jobs,''],['Up to date',sum.healthy,sum.healthy?'good':''],['Behind',sum.behind,sum.behind?'warning':''],['Failing',sum.failing,sum.failing?'danger':''],['Paused',sum.paused,''],['Cut over',sum.cutOver,''],['Alerts',sum.alerts,sum.alerts?'danger':'']].forEach(function(item){var c=el('div','rp-stat'+(item[2]?' '+item[2]:''));c.appendChild(el('strong','',formatCount(item[1]||0)));c.appendChild(el('span','',item[0]));box.appendChild(c);});
+    byId('rpError').textContent=s.error?'The console\'s records could not be opened: '+s.error:'';byId('rpError').classList.toggle('hidden',!s.error);
+    byId('replicationTabBadge').textContent=s.pushing?'Installing':(sum.alerts?vmPlural(sum.alerts,'alert'):(sum.jobs?'Replicating':'Ready'));
+    renderRpPush(s);renderRpAlerts();renderRpAgents();
+    if(rpDetail){renderRpDetails();}
+    syncRpButtons();
+  }
+  function renderRpPush(s){
+    byId('rpPushStop').classList.toggle('hidden',!s.pushing);
+    var log=byId('rpPushLog'),lines=vmArr(s.pushLog);log.textContent=lines.join('\n');log.classList.toggle('hidden',!lines.length);
+    if((s.serial||0)!==rpPushSerial){
+      var list=byId('rpPushResults');list.textContent='';
+      vmArr(s.pushResults).forEach(function(r){list.appendChild(el('li',r.ok?'good':'warning',r.host+(r.ok?': installed and answering.':': '+r.error)));});
+      list.classList.toggle('hidden',!list.childNodes.length);
+      if(rpPushSerial>=0&&!s.pushing){vmSetStatus('rpPushStatus','',false);}
+      rpPushSerial=s.serial||0;
+    }
+    if(s.pushing){vmSetStatus('rpPushStatus','Installing. Each server takes about a minute.',false);}
+  }
+  function renderRpAlerts(){
+    var list=byId('rpAlerts'),items=[];list.textContent='';
+    rpAgents().forEach(function(a){vmArr(a.live&&a.live.alerts).forEach(function(al){if(!al.cleared){items.push({agent:a,alert:al});}});});
+    items.sort(function(x,y){return String(y.alert.time).localeCompare(String(x.alert.time));});
+    if(!items.length){list.appendChild(el('li','rp-quiet','No open alerts.'));return;}
+    items.slice(0,30).forEach(function(item){var li=el('li',item.alert.level==='error'?'danger':'warning');li.appendChild(el('strong','',item.agent.name+': '));li.appendChild(document.createTextNode(item.alert.text+' '));li.appendChild(el('span','vm-note',rpWhen(item.alert.time)));list.appendChild(li);});
+  }
+  function rpButton(text,attr,value,primary){var b=el('button',primary?'primary-button':'secondary-button',text);b.type='button';b.setAttribute(attr,value);return b;}
+  function renderRpAgents(){
+    var box=byId('rpAgents');box.textContent='';
+    var agents=rpAgents();
+    if(!agents.length){box.appendChild(el('div','vm-empty','No servers yet. Install the agent on the servers you are moving, or add one installed by hand.'));return;}
+    agents.forEach(function(a){
+      var live=a.live||{},card=el('section','migrate-card rp-agent'),head=el('div','rp-agent-head');
+      var title=el('div','rp-agent-title');title.appendChild(el('strong','',a.name||a.address));title.appendChild(el('span','vm-note',' '+a.address+(live.platform?', '+live.platform:'')+(live.version?', agent '+live.version:'')));
+      head.appendChild(title);
+      head.appendChild(el('span','rp-chip '+(live.reachable?'good':'warning'),live.reachable?'Answering':'Not answering'));
+      var actions=el('div','rp-agent-actions');
+      actions.appendChild(rpButton('New job','data-rp-new',a.id,true));actions.appendChild(rpButton('Refresh','data-rp-refresh',a.id));
+      actions.appendChild(rpButton(rpArm['forget'+a.id]?'Confirm remove from list':'Remove from list','data-rp-forget',a.id));
+      actions.appendChild(rpButton(rpArm['uninstall'+a.id]?'Confirm uninstall':'Uninstall agent','data-rp-uninstall',a.id));
+      head.appendChild(actions);card.appendChild(head);
+      if(!live.reachable&&live.error){card.appendChild(el('div','vm-note rp-error',live.error));}
+      var jobs=vmArr(live.jobs);
+      if(!jobs.length){card.appendChild(el('div','vm-note','No replication jobs on this server yet.'));}
+      else{
+        var table=el('table','vm-table rp-jobs'),thead=el('thead'),hr=el('tr');
+        ['Job','State','Recovery point','Last round','Next round',''].forEach(function(h){var th=el('th','',h);th.scope='col';hr.appendChild(th);});thead.appendChild(hr);table.appendChild(thead);
+        var tbody=el('tbody');
+        jobs.forEach(function(j){
+          var st=j.status||{},tr=el('tr'),state=rpStateText(j);
+          tr.appendChild(el('td','',j.spec.name));
+          var stateCell=el('td');stateCell.appendChild(el('span','rp-chip '+({'Up to date':'good','Cut over':'good',Behind:'warning','Failing, will retry':'danger',Paused:''}[state]||''),state));tr.appendChild(stateCell);
+          tr.appendChild(el('td','',st.recoveryPoint&&!/^0001-/.test(st.recoveryPoint)?rpAge(j.rpoSeconds)+' old':'None yet'));
+          tr.appendChild(el('td','',st.rounds?formatBytesShort(st.lastSent)+' sent':'None yet'));
+          tr.appendChild(el('td','',st.state==='cut-over'?'None':(j.spec.cutoverAt?'Cutover '+rpWhen(j.spec.cutoverAt):(st.state==='syncing'?'Now':(rpWhen(st.nextRun)||'Soon')))));
+          var open=el('td');open.appendChild(rpButton('Open','data-rp-open',a.id+'|'+j.spec.id));tr.appendChild(open);
+          tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);card.appendChild(table);
+      }
+      box.appendChild(card);
+    });
+  }
+  function rpSafeName(text){return String(text||'server').replace(/[^A-Za-z0-9._-]+/g,'-').replace(/^[-.]+|[-.]+$/g,'').slice(0,80)||'server';}
+  function rpDefaultTarget(name,id){return rpSafeName(name)+'-disk'+rpSafeName(id).replace(/^dev-/,'')+'.vhdx';}
+  function openRpEditor(agentId,job){
+    var a=rpAgent(agentId);if(!a){return;}
+    rpEditing={agent:agentId,id:job?job.spec.id:'',spec:job?job.spec:null};rpDisks=null;rpReceiver=null;
+    byId('rpEditor').classList.remove('hidden');
+    byId('rpEditorTitle').textContent=job?'Change '+job.spec.name:'New replication job on '+(a.name||a.address);
+    byId('rpEditorHelp').textContent='Runs on '+(a.name||a.address)+': its agent takes the snapshots and sends the disks straight to the receiver.';
+    var spec=job?job.spec:{name:a.name||'',intervalMinutes:0,rpoMinutes:15,compress:true,throttle:{},shutdownAfterCutover:true};
+    byId('rpJobName').value=spec.name||'';
+    byId('rpRecvAddress').value=(spec.receiver&&spec.receiver.address)||'';byId('rpRecvThumbprint').value=(spec.receiver&&spec.receiver.thumbprint)||'';byId('rpRecvCode').value='';
+    byId('rpRecvCode').placeholder=job?'Unchanged unless you type a new code':'';
+    byId('rpRecvNote').textContent='';
+    byId('rpInterval').value=String(spec.intervalMinutes||0);if(!byId('rpInterval').value){byId('rpInterval').value='0';}
+    byId('rpRpo').value=String(spec.rpoMinutes||15);byId('rpCompress').checked=spec.compress!==false;
+    var t=spec.throttle||{};byId('rpLimit').value=String(t.limitMbps||0);byId('rpBusinessLimit').value=String(t.businessMbps||0);byId('rpBusinessStart').value=String(t.businessStart||0);byId('rpBusinessEnd').value=String(t.businessEnd||0);
+    byId('rpServices').value=vmArr(spec.stopServices).join(', ');byId('rpShutdown').checked=!!spec.shutdownAfterCutover;byId('rpLive').checked=!!spec.allowLive;
+    byId('rpJobSave').textContent=job?'Save':'Save and start';vmSetStatus('rpJobStatus','',false);
+    renderRpJobDisks();
+    rpPost('/api/repl/agent',{action:'disks',id:agentId},'rpJobStatus',function(err,data){if(err){return;}rpDisks=vmArr(data.disks);renderRpJobDisks();});
+    byId('rpEditor').scrollIntoView({block:'nearest'});
+  }
+  function renderRpJobDisks(){
+    var box=byId('rpJobDisks'),previous={};
+    Array.prototype.forEach.call(box.querySelectorAll('[data-rp-disk]'),function(i){var id=i.getAttribute('data-rp-disk');previous[id]={on:i.checked,target:(box.querySelector('[data-rp-target="'+id+'"]')||{}).value};});
+    box.textContent='';
+    if(!rpDisks){box.appendChild(el('div','vm-note','Asking the server for its disks.'));return;}
+    if(!rpDisks.length){box.appendChild(el('div','vm-empty','The server listed no disks.'));return;}
+    var spec=rpEditing&&rpEditing.spec,chosen={};vmArr(spec&&spec.disks).forEach(function(d){chosen[d.source]=d.target;});
+    var a=rpAgent(rpEditing&&rpEditing.agent)||{},name=trimText(byId('rpJobName').value)||a.name||'server';
+    rpDisks.forEach(function(d,index){
+      var row=el('div','rp-disk-row'),label=el('label','vm-check'),input=document.createElement('input');input.type='checkbox';input.setAttribute('data-rp-disk',d.id);
+      input.checked=previous[d.id]?previous[d.id].on:(spec?chosen.hasOwnProperty(d.id):true);label.appendChild(input);
+      var volumes=vmArr(d.volumes).map(function(x){return (vmArr(x.mounts).join(' ')||'no drive letter')+(x.fileSystem?' '+x.fileSystem:'')+(x.kind&&x.kind!=='simple'?' ('+x.kind+')':'');});
+      label.appendChild(el('span','','Disk '+d.id+', '+formatBytesShort(d.size)+(d.model?' '+d.model:'')+(d.system?' (system)':'')+(volumes.length?': '+volumes.join('; '):'')));
+      row.appendChild(label);
+      var want=previous[d.id]&&previous[d.id].target||chosen[d.id]||'',field;
+      if(rpReceiver&&vmArr(rpReceiver.disks).length){
+        field=document.createElement('select');
+        if(rpReceiver.folder){var o=document.createElement('option');o.value=rpDefaultTarget(name,d.id);o.textContent='A VHDX file: '+o.value;field.appendChild(o);}
+        vmArr(rpReceiver.disks).forEach(function(r){var o=document.createElement('option');o.value=r.name;o.textContent=r.name+': '+(r.label||'disk')+', '+formatBytesShort(r.size)+(r.size<d.size?' (too small)':'');field.appendChild(o);});
+        if(want&&Array.prototype.some.call(field.options,function(o){return o.value===want;})){field.value=want;}else if(!rpReceiver.folder&&rpReceiver.disks[index]){field.value=rpReceiver.disks[index].name;}
+      }else{field=document.createElement('input');field.type='text';field.spellcheck=false;field.value=want||rpDefaultTarget(name,d.id);}
+      field.setAttribute('data-rp-target',d.id);field.setAttribute('aria-label','Where disk '+d.id+' goes on the receiver');
+      var wrap=el('label','vm-field rp-target','Goes to');wrap.appendChild(field);row.appendChild(wrap);
+      box.appendChild(row);
+    });
+  }
+  function rpNumber(id,min,max,label){var text=trimText(byId(id).value)||'0';if(!/^[0-9]{1,6}$/.test(text)||Number(text)<min||Number(text)>max){throw new Error(label);}return Number(text);}
+  function saveRpJob(){
+    if(!rpEditing){return;}
+    var spec;
+    try{
+      spec={id:rpEditing.id,name:trimText(byId('rpJobName').value),disks:[],receiver:{address:trimText(byId('rpRecvAddress').value),thumbprint:trimText(byId('rpRecvThumbprint').value).replace(/[\s:]/g,''),code:trimText(byId('rpRecvCode').value)},
+        intervalMinutes:Number(byId('rpInterval').value)||0,rpoMinutes:rpNumber('rpRpo',1,10080,'Type the RPO alert as a number of minutes from 1 to 10080.'),compress:byId('rpCompress').checked,
+        throttle:{limitMbps:rpNumber('rpLimit',0,100000,'Type the bandwidth limit in Mbps, or 0 for no limit.'),businessMbps:rpNumber('rpBusinessLimit',0,100000,'Type the business-hours limit in Mbps, or 0 for no limit.'),businessStart:rpNumber('rpBusinessStart',0,24,'Business hours are hours from 0 to 24.'),businessEnd:rpNumber('rpBusinessEnd',0,24,'Business hours are hours from 0 to 24.')},
+        stopServices:trimText(byId('rpServices').value)?trimText(byId('rpServices').value).split(/\s*,\s*/).filter(function(x){return !!x;}):[],shutdownAfterCutover:byId('rpShutdown').checked,allowLive:byId('rpLive').checked};
+    }catch(e){vmSetStatus('rpJobStatus',e.message,true);return;}
+    if(spec.receiver.code&&spec.receiver.code.replace(/[\s-]/g,'').length!==20){vmSetStatus('rpJobStatus','Type the 20-character pairing code the receiver shows.',true);return;}
+    Array.prototype.forEach.call(document.querySelectorAll('[data-rp-disk]:checked'),function(i){var id=i.getAttribute('data-rp-disk');spec.disks.push({source:id,target:trimText(byId('rpJobDisks').querySelector('[data-rp-target="'+id+'"]').value)});});
+    if(!spec.disks.length){vmSetStatus('rpJobStatus','Choose at least one disk to replicate.',true);return;}
+    rpPost('/api/repl/job',{agent:rpEditing.agent,action:'save',spec:spec},'rpJobStatus',function(err,data){if(err){return;}var agent=rpEditing.agent;rpEditing=null;byId('rpEditor').classList.add('hidden');byId('rpRecvCode').value='';if(data.job&&data.job.spec){rpDetail={agent:agent,id:data.job.spec.id};byId('rpDetails').classList.remove('hidden');vmSetStatus('rpDetailsStatus','Saved. The first round starts within a few seconds; it copies every disk once, then only what changes.',false);}});
+  }
+  function checkRpReceiver(){
+    rpPost('/api/repl/agent',{action:'receiverdisks',address:trimText(byId('rpRecvAddress').value),thumbprint:trimText(byId('rpRecvThumbprint').value).replace(/[\s:]/g,''),code:trimText(byId('rpRecvCode').value)},'rpJobStatus',function(err,data){
+      if(err){return;}rpReceiver={folder:!!data.folder,disks:vmArr(data.disks)};
+      byId('rpRecvNote').textContent=(rpReceiver.folder?'Saves VHDX files':'')+(rpReceiver.folder&&rpReceiver.disks.length?' and writes ':'')+(rpReceiver.disks.length?(rpReceiver.folder?'':'Writes ')+vmPlural(rpReceiver.disks.length,'disk')+' of the new machine':'')+'.';
+      renderRpJobDisks();
+    });
+  }
+  function renderRpDetails(){
+    var j=rpJob(rpDetail.agent,rpDetail.id),a=rpAgent(rpDetail.agent);
+    if(!j||!a){byId('rpDetails').classList.add('hidden');rpDetail=null;return;}
+    var st=j.status||{},spec=j.spec||{};
+    byId('rpDetailsTitle').textContent=spec.name+' on '+(a.name||a.address);
+    byId('rpDetailsMessage').textContent=st.message||'';
+    var facts=byId('rpDetailsFacts');facts.textContent='';
+    var add=function(k,v){facts.appendChild(el('dt','',k));facts.appendChild(el('dd','',v));};
+    add('State',rpStateText(j));
+    add('Recovery point',st.recoveryPoint&&!/^0001-/.test(st.recoveryPoint)?rpWhen(st.recoveryPoint)+' ('+rpAge(j.rpoSeconds)+' old, alert after '+spec.rpoMinutes+' minutes)':'None yet');
+    add('Receiver',(spec.receiver&&spec.receiver.address)||'');
+    add('Schedule',(spec.intervalMinutes?'Every '+spec.intervalMinutes+' minutes':'Continuously')+(spec.compress?', compressed':'')+((spec.throttle&&(spec.throttle.limitMbps||spec.throttle.businessMbps))?', limited':''));
+    add('Rounds',formatCount(st.rounds||0)+(st.lastDurationSeconds?', last took '+rpAge(st.lastDurationSeconds):'')+(st.totalSent?', '+formatBytesShort(st.totalSent)+' sent in all':''));
+    if(st.lastError){add('Last error',st.lastError);}
+    add('Cutover',st.state==='cut-over'?'Done '+rpWhen(st.cutoverDone):(spec.cutoverAt?'Scheduled for '+rpWhen(spec.cutoverAt):'Not scheduled')+(vmArr(spec.stopServices).length?'; stops '+vmArr(spec.stopServices).join(', '):'')+(spec.shutdownAfterCutover?'; shuts the server down after':''));
+    var body=byId('rpDetailsDisks');body.textContent='';
+    vmArr(st.disks).forEach(function(d){var tr=el('tr');[d.source,d.target,d.size?formatBytesShort(d.size):'',d.chunks?Math.floor((d.done||0)*100/d.chunks)+'% read, '+formatBytesShort(d.sent||0)+' sent'+(d.error?', '+d.error:''):(d.error||'Not started'),d.verified?'Yes':'No'].forEach(function(v){tr.appendChild(el('td','',v));});body.appendChild(tr);});
+    var paused=st.state==='paused',done=st.state==='cut-over';
+    byId('rpPause').textContent=paused?'Resume':'Pause';
+  }
+  function syncRpButtons(){
+    var s=rpState||{},admin=!!s.isAdministrator;
+    byId('rpPush').disabled=rpBusy||!!s.pushing||!trimText(byId('rpHosts').value);
+    ['rpHosts','rpUser','rpPassword','rpPort'].forEach(function(id){byId(id).disabled=!!s.pushing;});
+    byId('rpAdd').disabled=rpBusy||!trimText(byId('rpAddAddress').value)||!trimText(byId('rpAddThumbprint').value)||!trimText(byId('rpAddKey').value);
+    byId('rpJobSave').disabled=rpBusy||!rpDisks;byId('rpRecvCheck').disabled=rpBusy||!trimText(byId('rpRecvAddress').value)||!trimText(byId('rpRecvThumbprint').value)||!trimText(byId('rpRecvCode').value);
+    var j=rpDetail&&rpJob(rpDetail.agent,rpDetail.id),st=(j&&j.status)||{},done=st.state==='cut-over',busy=st.state==='cutting-over',typed=j&&trimText(byId('rpCutoverTyped').value).toLowerCase()===String(j.spec.name).toLowerCase();
+    ['rpSync','rpRescan','rpEdit'].forEach(function(id){byId(id).disabled=rpBusy||!j||done||busy||st.state==='paused';});
+    byId('rpPause').disabled=rpBusy||!j||done||busy;byId('rpClear').disabled=rpBusy||!j;byId('rpLogButton').disabled=rpBusy||!j;
+    byId('rpCutover').disabled=rpBusy||!j||done||busy||!st.rounds||!typed;byId('rpSchedule').disabled=byId('rpCutover').disabled||!byId('rpCutoverAt').value;
+    byId('rpUnschedule').disabled=rpBusy||!j||!j.spec.cutoverAt;byId('rpDelete').disabled=rpBusy||!j||busy||!typed;
+    Array.prototype.forEach.call(document.querySelectorAll('[data-rp-new],[data-rp-refresh],[data-rp-forget],[data-rp-uninstall],[data-rp-open]'),function(b){b.disabled=rpBusy;});
+  }
+  function rpJobAction(action,extra){
+    if(!rpDetail){return;}
+    var body={agent:rpDetail.agent,id:rpDetail.id,action:action};Object.keys(extra||{}).forEach(function(k){body[k]=extra[k];});
+    rpPost('/api/repl/job',body,'rpDetailsStatus',function(err,data){
+      if(err){return;}
+      if(action==='log'){var log=byId('rpLog');log.textContent=vmArr(data.lines).join('\n');log.classList.remove('hidden');rpLogShown=true;log.scrollTop=log.scrollHeight;return;}
+      if(action==='delete'){rpDetail=null;byId('rpDetails').classList.add('hidden');notice('The job was deleted. The copies on the receiver were left as they are.',false);return;}
+      vmSetStatus('rpDetailsStatus',{sync:'A round starts within a few seconds.',pause:'Paused.',resume:'Resumed.',rescan:'The next round rescans the receiver first.',clear:'Alerts cleared.',cutover:'Cutting over. Watch the state: start the new machine once it says Cut over.',schedule:'Cutover scheduled.','cancel-cutover':'The scheduled cutover was cancelled.'}[action]||'Done.',false);
+      if(action==='cutover'||action==='schedule'){byId('rpCutoverTyped').value='';}
+    });
+  }
+  function onRpAgentClick(e){
+    var b=e.target.closest('button');if(!b||b.disabled){return;}
+    var id;
+    if((id=b.getAttribute('data-rp-new'))){openRpEditor(id,null);return;}
+    if((id=b.getAttribute('data-rp-refresh'))){rpPost('/api/repl/agent',{action:'refresh',id:id},null,null);return;}
+    if((id=b.getAttribute('data-rp-open'))){var parts=id.split('|');rpDetail={agent:parts[0],id:parts[1]};byId('rpDetails').classList.remove('hidden');byId('rpLog').classList.add('hidden');byId('rpCutoverTyped').value='';vmSetStatus('rpDetailsStatus','',false);renderRpDetails();syncRpButtons();byId('rpDetails').scrollIntoView({block:'nearest'});return;}
+    var kinds=['forget','uninstall'];
+    for(var i=0;i<kinds.length;i++){
+      if((id=b.getAttribute('data-rp-'+kinds[i]))){
+        var key=kinds[i]+id;
+        if(!rpArm[key]){rpArm={};rpArm[key]=true;renderRpAgents();syncRpButtons();setTimeout(function(){if(rpArm[key]){delete rpArm[key];renderRpAgents();syncRpButtons();}},6000);return;}
+        rpArm={};
+        rpPost('/api/repl/agent',{action:kinds[i],id:id,user:trimText(byId('rpUser').value),password:byId('rpPassword').value},'rpPushStatus',function(err){if(!err){vmSetStatus('rpPushStatus',kinds[i]==='uninstall'?'The agent was uninstalled and removed from the list. Its jobs stopped; the copies on receivers were left as they are.':'Removed from the list. The agent keeps running on the server; add it again with its key to manage it.',false);}});
+        return;
+      }
+    }
+  }
+  byId('rpAgents').addEventListener('click',onRpAgentClick);
+  byId('rpPush').addEventListener('click',function(){
+    var port=trimText(byId('rpPort').value)||'44390';
+    if(!/^[0-9]{4,5}$/.test(port)){vmSetStatus('rpPushStatus','Type the agent port as a number from 1024 to 65535.',true);return;}
+    if(trimText(byId('rpUser').value)&&!byId('rpPassword').value){vmSetStatus('rpPushStatus','Type the account\'s password, or leave the account blank to use your own sign-in.',true);return;}
+    rpPost('/api/repl/push',{hosts:byId('rpHosts').value,user:trimText(byId('rpUser').value),password:byId('rpPassword').value,port:Number(port)},'rpPushStatus',function(err){if(!err){byId('rpPassword').value='';if(rpState){rpState.pushing=true;}renderRp();}});
+  });
+  byId('rpPushStop').addEventListener('click',function(){rpPost('/api/repl/agent',{action:'stop-push'},'rpPushStatus',null);});
+  byId('rpAdd').addEventListener('click',function(){rpPost('/api/repl/agent',{action:'add',address:trimText(byId('rpAddAddress').value),thumbprint:trimText(byId('rpAddThumbprint').value).replace(/[\s:]/g,''),key:trimText(byId('rpAddKey').value)},'rpAddStatus',function(err,data){if(!err){byId('rpAddKey').value='';vmSetStatus('rpAddStatus','Added '+(data.name||'the agent')+'.',false);}});});
+  byId('rpJobSave').addEventListener('click',saveRpJob);
+  byId('rpJobCancel').addEventListener('click',function(){rpEditing=null;byId('rpEditor').classList.add('hidden');byId('rpRecvCode').value='';});
+  byId('rpRecvCheck').addEventListener('click',checkRpReceiver);
+  byId('rpJobName').addEventListener('change',function(){if(rpDisks&&!(rpEditing&&rpEditing.spec)){Array.prototype.forEach.call(document.querySelectorAll('input[data-rp-target]'),function(i){i.value=rpDefaultTarget(trimText(byId('rpJobName').value),i.getAttribute('data-rp-target'));});}});
+  ['rpRecvAddress','rpRecvThumbprint','rpRecvCode'].forEach(function(id){byId(id).addEventListener('input',function(){if(rpReceiver&&id!=='rpRecvCode'){rpReceiver=null;byId('rpRecvNote').textContent='Check the receiver again: its details changed.';renderRpJobDisks();}syncRpButtons();});});
+  ['rpHosts','rpAddAddress','rpAddThumbprint','rpAddKey','rpCutoverTyped','rpCutoverAt'].forEach(function(id){byId(id).addEventListener('input',syncRpButtons);});
+  byId('rpSync').addEventListener('click',function(){rpJobAction('sync');});
+  byId('rpPause').addEventListener('click',function(){var j=rpJob(rpDetail.agent,rpDetail.id);rpJobAction(j&&j.status.state==='paused'?'resume':'pause');});
+  byId('rpRescan').addEventListener('click',function(){rpJobAction('rescan');});
+  byId('rpClear').addEventListener('click',function(){rpJobAction('clear');});
+  byId('rpLogButton').addEventListener('click',function(){rpJobAction('log');});
+  byId('rpEdit').addEventListener('click',function(){var j=rpJob(rpDetail.agent,rpDetail.id);if(j){openRpEditor(rpDetail.agent,j);}});
+  byId('rpDetailsClose').addEventListener('click',function(){rpDetail=null;byId('rpDetails').classList.add('hidden');});
+  byId('rpCutover').addEventListener('click',function(){rpJobAction('cutover',{typed:trimText(byId('rpCutoverTyped').value)});});
+  byId('rpSchedule').addEventListener('click',function(){var d=new Date(byId('rpCutoverAt').value);if(isNaN(d.getTime())){vmSetStatus('rpDetailsStatus','Choose the date and time to cut over.',true);return;}rpJobAction('schedule',{at:d.toISOString(),typed:trimText(byId('rpCutoverTyped').value)});});
+  byId('rpUnschedule').addEventListener('click',function(){rpJobAction('cancel-cutover');});
+  byId('rpDelete').addEventListener('click',function(){rpJobAction('delete',{typed:trimText(byId('rpCutoverTyped').value)});});
+  setInterval(function(){if(activeTab==='replication'?Date.now()-rpLastPoll>=4500:Date.now()-rpLastPoll>=30000){rpRefresh();}},1500);
+  rpRefresh();
   setReportHeaderCollapsed(window.innerHeight<600); syncCategoryState(); poll();
 }());
 </script>
