@@ -4,6 +4,20 @@
 - Fix: every round scans the shadow copy's MFT (`replMFTReader.Scan`) and keeps a hash of each record's runs (`replMFTLocation`, `<volume>.locations` in the job's tracking folder); records whose runs changed are read. No saved locations, or a failed scan, means a full read.
 - Tests: `TestMFTScanReportsFilesWhoseDataMoved` (synthetic records), and the Windows test now moves a file into a deleted file's clusters with `FSCTL_MOVE_FILE`, the exact case that was missed.
 
+## Unreleased: send converted disks to a host — 2026-11-25
+
+- Disk converter tab: **Send to a host and create the VM** (AGENTS rule 32) for VMware ESXi/vCenter (stream-optimized VMDK through an OVF lease), Hyper-V on this computer, Proxmox VE (Import content upload plus `import-from`), Nutanix AHV (disk image plus clone) and Scale HyperCore 9.2+ (`/VirtualDisk/upload` plus attach).
+- Tests: `vmconvert_send_test.go`, `vmconvert_vsphere_test.go` (vcsim), `vmtarget_import_test.go`, `vmdisk_stream_test.go` (qemu-img check/compare when installed), and a `scripts/test_workspace.cjs` check for the screen.
+- P2V: **This computer…** in the Disk converter converts or sends a disk of this computer, its volumes read from shadow copies (AGENTS rule 33, `TestConverterCopiesADiskOfThisComputer`).
+- Limitations: no run yet against a real ESXi, vCenter, Proxmox VE, Prism Central or HyperCore. The vSphere import sends one disk; multi-disk VMs still go through the VMware tab's Move.
+
+## Unreleased: fix-ups for converted Windows disks — 2026-11-25
+
+- Disk converter tab: **Prepare a Windows disk for its new platform** (AGENTS rule 31). `Repair-ConvertedDisk.ps1` mounts a converted VHD/VHDX, reports Windows version, boot firmware, storage drivers and VMware Tools (Check), adds drivers with DISM (virtio-win layout resolved per Windows version), sets the target's storage drivers to boot start and can disable VMware Tools services (Apply), and reverses it from its record (Undo).
+- `vmDetectBoot` reads GPT/MBR from any image; the converter shows "Starts with" UEFI or BIOS.
+- Tests: `vmrepair_test.go` (boot detection, PowerShell result shapes), `vmrepair_windows_test.go` (real VHDX with synthetic hives: Check, failing DISM Apply, Apply, Undo), workspace test for the section.
+- Limitations: DISM injection into a real offline Windows image, and booting fixed-up disks on HyperCore, Nutanix and Proxmox, still need field validation. README screenshots of the Disk converter are refreshed with the remote-destination change that follows.
+
 ## Unreleased: automated test failover on HyperCore, Nutanix AHV and Proxmox VE — 2026-11-25
 
 - Agent action `pause-consistent` and job status `consistent`/`pauseAfterRound` (`repl_job.go`): the job pauses only once the receiver's disks hold one whole recovery point; a running round is never cancelled.

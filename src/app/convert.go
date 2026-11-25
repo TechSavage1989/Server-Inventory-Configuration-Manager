@@ -5,7 +5,6 @@ package main
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -39,6 +38,16 @@ type convertRuntime struct {
 	serial          uint64
 	startedAt       time.Time
 	endedAt         time.Time
+	// task is what is running or ran last: convert or repair.
+	task         string
+	repairTarget string
+	repair       *vmRepairReport
+	log          []string
+	// A send to a host: its stage, progress and result.
+	sendStage  string
+	sendDone   int64
+	sendTotal  int64
+	sendResult *vmSendResult
 }
 
 type convertFormat struct {
@@ -64,6 +73,12 @@ type convertStateResponse struct {
 	Formats         []convertFormat  `json:"formats"`
 	StartedAtUnixMs int64            `json:"startedAtUnixMs"`
 	EndedAtUnixMs   int64            `json:"endedAtUnixMs"`
+	Task            string           `json:"task"`
+	RepairTarget    string           `json:"repairTarget"`
+	Repair          *vmRepairReport  `json:"repair"`
+	RepairTargets   []vmRepairTarget `json:"repairTargets"`
+	Log             []string         `json:"log"`
+	Send            convertSendState `json:"send"`
 }
 
 // Caller holds a.mu.
@@ -91,6 +106,9 @@ func (a *application) convertSnapshotLocked() convertStateResponse {
 		Info: a.convert.info, Progress: a.convert.progress, Result: a.convert.result,
 		CancelRequested: a.convert.cancelRequested && a.convert.running, Serial: a.convert.serial,
 		Formats: formats, StartedAtUnixMs: millis(a.convert.startedAt), EndedAtUnixMs: millis(a.convert.endedAt),
+		Task: vmNonEmpty(a.convert.task, "convert"), RepairTarget: a.convert.repairTarget, Repair: a.convert.repair,
+		RepairTargets: vmRepairTargets, Log: append([]string{}, a.convert.log...),
+		Send: a.convertSendStateLocked(),
 	}
 }
 
@@ -125,13 +143,14 @@ type openFileNameW struct {
 }
 
 const (
-	ofnHideReadOnly     = 0x4
-	ofnNoChangeDir      = 0x8
-	ofnPathMustExist    = 0x800
-	ofnFileMustExist    = 0x1000
-	ofnExplorer         = 0x80000
-	ofnDontAddToRecent  = 0x02000000
-	convertDialogFilter = "Virtual disks (*.vmdk;*.vhd;*.vhdx;*.avhd;*.avhdx;*.qcow2;*.img;*.raw)\x00*.vmdk;*.vhd;*.vhdx;*.avhd;*.avhdx;*.qcow2;*.qcow;*.img;*.raw;*.bin\x00All files (*.*)\x00*.*\x00\x00"
+	ofnHideReadOnly          = 0x4
+	ofnNoChangeDir           = 0x8
+	ofnPathMustExist         = 0x800
+	ofnFileMustExist         = 0x1000
+	ofnExplorer              = 0x80000
+	ofnDontAddToRecent       = 0x02000000
+	convertFixupDialogFilter = "VHD and VHDX disks (*.vhdx;*.vhd)\x00*.vhdx;*.vhd\x00\x00"
+	convertDialogFilter      = "Virtual disks (*.vmdk;*.vhd;*.vhdx;*.avhd;*.avhdx;*.qcow2;*.img;*.raw)\x00*.vmdk;*.vhd;*.vhdx;*.avhd;*.avhdx;*.qcow2;*.qcow;*.img;*.raw;*.bin\x00All files (*.*)\x00*.*\x00\x00"
 )
 
 func chooseFile(title, filter, initialDir string) (string, bool, error) {
@@ -192,9 +211,18 @@ func (a *application) handleConvertBrowse(response http.ResponseWriter, request 
 	var selected string
 	var ok bool
 	var err error
-	if input.Kind == "folder" {
+	switch input.Kind {
+	case "folder":
 		selected, ok, err = chooseFolder("Choose the folder for the converted disk. It needs room for the disk's data.")
-	} else {
+	case "drivers":
+		selected, ok, err = chooseFolder("Choose the drivers folder: for example the root of the virtio-win ISO, or a folder of the new server's storage and network drivers.")
+	case "fixup":
+		folder := ""
+		if strings.TrimSpace(input.Current) != "" {
+			folder = filepath.Dir(input.Current)
+		}
+		selected, ok, err = chooseFile("Choose the converted Windows disk to fix up", convertFixupDialogFilter, folder)
+	default:
 		folder := ""
 		if strings.TrimSpace(input.Current) != "" {
 			folder = filepath.Dir(input.Current)
@@ -231,25 +259,40 @@ func (a *application) handleConvertInspect(response http.ResponseWriter, request
 		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "Wait for the conversion to finish, or stop it, first."})
 		return
 	}
-	image, err := openDiskImage(path)
-	if err != nil {
-		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": err.Error()})
-		return
+	var info vmDiskInfo
+	var boot vmBootInfo
+	if number, local := vmLocalDiskNumber(path); local {
+		var err error
+		if info, boot, err = inspectLocalDisk(number); err != nil {
+			writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": err.Error()})
+			return
+		}
+	} else {
+		image, err := openDiskImage(path)
+		if err != nil {
+			writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": err.Error()})
+			return
+		}
+		info = image.Info()
+		boot = vmDetectBoot(image, image.Size())
+		image.Close()
 	}
-	info := image.Info()
-	image.Close()
 	format := input.Format
 	if !vmDiskFormatKnown(format) {
 		format = vmDiskFormatVHDX
 	}
 	suggested := filepath.Join(filepath.Dir(info.Path), vmConvertSuggestedName(info.Path, format))
+	if _, local := vmLocalDiskNumber(path); local {
+		host, _ := os.Hostname()
+		suggested = vmConvertSuggestedName(host+"-"+strings.TrimPrefix(info.Path, `\\.\`)+".img", format)
+	}
 	a.mu.Lock()
 	a.convert.source, a.convert.info = info.Path, &info
 	if !a.convert.running && a.convert.status != "running" {
 		a.convert.status, a.convert.message, a.convert.result = "idle", "", nil
 	}
 	a.mu.Unlock()
-	writeJSON(response, http.StatusOK, map[string]any{"ok": true, "info": info, "suggested": suggested})
+	writeJSON(response, http.StatusOK, map[string]any{"ok": true, "info": info, "boot": boot, "suggested": suggested})
 }
 
 func (a *application) handleConvertStart(response http.ResponseWriter, request *http.Request) {
@@ -281,7 +324,11 @@ func (a *application) handleConvertStart(response http.ResponseWriter, request *
 		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "The folder " + filepath.Dir(target) + " does not exist."})
 		return
 	}
-	image, err := openDiskImage(source)
+	if err := vmCheckLocalTarget(source, target); err != nil {
+		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	image, err := openConvertSource(source, a.convertLog)
 	if err != nil {
 		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": err.Error()})
 		return
@@ -317,7 +364,7 @@ func (a *application) handleConvertStart(response http.ResponseWriter, request *
 	a.convert = convertRuntime{
 		running: true, status: "running", source: info.Path, target: target, format: input.Format, info: &info,
 		message: "Converting " + filepath.Base(info.Path) + " to " + vmDiskFormatTitle(input.Format) + ".",
-		cancel:  cancel, serial: a.convert.serial + 1, startedAt: time.Now(),
+		cancel:  cancel, serial: a.convert.serial + 1, startedAt: time.Now(), task: "convert",
 	}
 	a.mu.Unlock()
 	writeJSON(response, http.StatusOK, map[string]any{"ok": true})
@@ -348,24 +395,6 @@ func (a *application) handleConvertStart(response http.ResponseWriter, request *
 			a.convert.status, a.convert.message = "failed", err.Error()
 		}
 	}()
-}
-
-func convertDoneMessage(result *vmConvertResult) string {
-	parts := []string{}
-	switch {
-	case result.Passes > 1 && result.Progress.Changed == 0 && result.Progress.BytesWritten == 0:
-		parts = append(parts, "Already up to date: nothing changed since the last pass.")
-	case result.Passes > 1:
-		parts = append(parts, fmt.Sprintf("Updated (pass %d): %d changed chunks rewritten.", result.Passes, result.Progress.Changed))
-	case result.Resumed:
-		parts = append(parts, "Converted, continuing where the earlier run stopped.")
-	default:
-		parts = append(parts, "Converted.")
-	}
-	if result.Verified {
-		parts = append(parts, "Every chunk was read back and matches the source.")
-	}
-	return strings.Join(parts, " ")
 }
 
 func (a *application) handleConvertCancel(response http.ResponseWriter, request *http.Request) {
