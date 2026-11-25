@@ -26,6 +26,8 @@ type vmMoveRequest struct {
 	Cutover    bool
 	// RecordFolder receives JSON records before vSphere changes.
 	RecordFolder string
+	// NewSink sends the disks to a receiver instead of CopyFolder.
+	NewSink func(index int, capacity int64) (vmCopySink, string, error)
 }
 
 type vmMoveResult struct {
@@ -88,6 +90,7 @@ func vmMoveRound(parent context.Context, options vmConnectOptions, request vmMov
 		Quiesce:      request.Quiesce && !request.Cutover,
 		Verify:       request.Cutover,
 		RecordFolder: request.RecordFolder,
+		NewSink:      request.NewSink,
 		Log:          log,
 		Progress: func(disk string, p vmCopyProgress) {
 			if p.Chunks > 0 {

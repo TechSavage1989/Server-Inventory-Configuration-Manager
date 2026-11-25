@@ -65,7 +65,7 @@ var vmTargetProfiles = []vmTargetProfile{
 	},
 	{
 		ID: vmTargetScale, Label: "Scale Computing HyperCore", Short: "Scale HyperCore", Kind: vmKindCluster, Family: "kvm",
-		Tool:         "Scale Computing's migration tooling (for example SC//Migrate) or a VM import",
+		Tool:         "this application's receiver copy (Move to Scale HyperCore in the VM's details), or Scale Computing's migration tooling (for example SC//Migrate) or a VM import",
 		StorageLabel: "HyperCore storage", NetworkLabel: "VLAN",
 		WindowsDrivers: "the Scale Computing guest tools (VirtIO storage and network drivers)",
 		LinuxDrivers:   "virtio_blk, virtio_scsi and virtio_net",
@@ -78,7 +78,7 @@ var vmTargetProfiles = []vmTargetProfile{
 	},
 	{
 		ID: vmTargetNutanix, Label: "Nutanix AHV", Short: "Nutanix AHV", Kind: vmKindCluster, Family: "kvm",
-		Tool:         "Nutanix Move, which copies the VM from vCenter or ESXi and can install the VirtIO drivers for supported guests",
+		Tool:         "this application's receiver copy (Move to Nutanix AHV in the VM's details), or Nutanix Move, which copies the VM from vCenter or ESXi and can install the VirtIO drivers for supported guests",
 		StorageLabel: "AHV storage container", NetworkLabel: "AHV subnet",
 		WindowsDrivers: "the Nutanix VirtIO drivers (Nutanix Move installs them for supported Windows versions, or install them yourself)",
 		LinuxDrivers:   "virtio_blk, virtio_scsi and virtio_net",
@@ -91,7 +91,7 @@ var vmTargetProfiles = []vmTargetProfile{
 	},
 	{
 		ID: vmTargetProxmox, Label: "Proxmox VE (KVM)", Short: "Proxmox VE", Kind: vmKindCluster, Family: "kvm",
-		Tool:         "the Proxmox VE ESXi import wizard (Proxmox VE 8.2 or later) or an OVF export and qm importovf",
+		Tool:         "this application's receiver copy (Move to Proxmox VE in the VM's details), or the Proxmox VE ESXi import wizard (Proxmox VE 8.2 or later) or an OVF export and qm importovf",
 		StorageLabel: "Proxmox storage", NetworkLabel: "bridge",
 		WindowsDrivers: "the virtio-win drivers (VirtIO SCSI, block and network), or start the VM on SATA and e1000 and switch after installing them",
 		LinuxDrivers:   "virtio_blk, virtio_scsi and virtio_net",
@@ -129,7 +129,7 @@ var vmTargetProfiles = []vmTargetProfile{
 	},
 	{
 		ID: vmTargetPhysical, Label: "Physical server (V2P)", Short: "Physical server", Kind: vmKindPhysical, Family: "physical",
-		Tool:         "a disk imaging tool that restores to different hardware (for example Windows Server Backup bare metal recovery or your backup product's restore to physical)",
+		Tool:         "this application's receiver copy (Move to a physical server in the VM's details), or a disk imaging tool that restores to different hardware (for example Windows Server Backup bare metal recovery or your backup product's restore to physical)",
 		StorageLabel: "server disk or RAID volume", NetworkLabel: "switch port or VLAN",
 		WindowsDrivers: "the new server's storage controller and network drivers (from the server vendor), installed in the VM or injected during the restore",
 		LinuxDrivers:   "the new server's storage controller and network drivers",

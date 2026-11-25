@@ -476,7 +476,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
 .vm-table td.vm-changes{background:#fbfcfe}.vm-changes ul{margin:0;padding-left:18px}.vm-changes li{margin:2px 0}
 .vm-detail{margin-top:10px;border:1px solid #dbe3ed;border-radius:10px;padding:10px 12px;background:#fbfcfe;font-size:12px;color:#334156}
 .vm-detail-head{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;font-size:13px;color:#1b2942}
-.vm-detail-line{margin-top:5px;color:#52647c;overflow-wrap:anywhere}.vm-prepare{margin-top:10px;padding-top:8px;border-top:1px solid #e3e8f0}.vm-prepare .secondary-button{margin-top:8px}.vm-field{display:flex;flex-direction:column;gap:3px;margin-top:6px}.vm-receive-code{margin-top:8px;padding:8px 10px;border:1px solid #c9d6ea;border-radius:8px;background:#f5f8fd}.vm-receive-code strong{display:block;font-size:20px;letter-spacing:.06em;color:#1b2942;font-family:Consolas,monospace}.vm-mono{font-family:Consolas,monospace;font-size:11px}.vm-disk-row{display:flex;gap:8px;align-items:flex-start;margin-top:6px}.vm-field input{max-width:520px}.vm-move-actions{display:flex;gap:8px;flex-wrap:wrap}.vm-hosts{margin-top:12px;border-top:1px solid #e3e8f0;padding-top:6px}.vm-hosts>summary{cursor:pointer;font-weight:700;padding:6px 0}.vm-hosts .vm-table-wrap{margin-top:8px}.vm-attention{margin:6px 0 0;padding-left:18px;color:#7a5410}
+.vm-detail-line{margin-top:5px;color:#52647c;overflow-wrap:anywhere}.vm-prepare{margin-top:10px;padding-top:8px;border-top:1px solid #e3e8f0}.vm-prepare .secondary-button{margin-top:8px}.vm-field{display:flex;flex-direction:column;gap:3px;margin-top:6px}.vm-receive-code{margin-top:8px;padding:8px 10px;border:1px solid #c9d6ea;border-radius:8px;background:#f5f8fd}.vm-receive-code strong{display:block;font-size:20px;letter-spacing:.06em;color:#1b2942;font-family:Consolas,monospace}.vm-mono{font-family:Consolas,monospace;font-size:11px}.vm-disk-row{display:flex;gap:8px;align-items:flex-start;margin-top:6px}.vm-field input{max-width:520px}.vm-move-actions{display:flex;gap:8px;flex-wrap:wrap}.vm-hosts{margin-top:12px;border-top:1px solid #e3e8f0;padding-top:6px}.vm-hosts>summary{cursor:pointer;font-weight:700;padding:6px 0}.vm-hosts .vm-table-wrap{margin-top:8px}.vm-attention{margin:6px 0 0;padding-left:18px;color:#7a5410}.vm-target-step{margin-top:10px}.vm-target-step>strong{display:block;font-size:12.5px}.vm-field select{max-width:520px}
 .vm-counts-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;margin-top:12px}.vm-counts-head .vm-counts-title{margin-top:0}
 .vm-count.hosts{border-color:#c9d6ea;background:#f5f8fd;margin-right:10px;position:relative}.vm-count.hosts strong{color:#1d4ed8}.vm-count.hosts:hover{background:#eaf1ff}
 .vm-count.hosts::after{content:"";position:absolute;right:-10px;top:6px;bottom:6px;border-right:1px solid #dbe3ed}
@@ -2306,6 +2306,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     if((v.guestSerial||0)!==vmGuestSerial&&!vmGuestLoading){loadVmGuest(v.guestSerial||0);}
     if((v.compareSerial||0)!==vmCompareSerial&&!vmCompareLoading){loadVmCompare(v.compareSerial||0);}
     if((v.moveSerial||0)!==vmMoveSerial){vmMoveSerial=v.moveSerial||0;renderVmDetail();}
+    if(v.target&&v.target.serial!==vmTargetSerial){vmTargetSerial=v.target.serial;renderVmDetail();}
     renderVmDiskCopy(state,v);
     var guestMessage=byId('vmGuestMessage');guestMessage.textContent=v.guestMessage||'';guestMessage.className='migrate-inline-status'+(v.guestError?' error':'');
     byId('vmGuestAdmin').classList.toggle('hidden',!!state.isAdministrator);
@@ -2322,7 +2323,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     byId('vmConnect').disabled=locked||!trimText(byId('vmServer').value)||!trimText(byId('vmUser').value);
     byId('vmOpenInventory').disabled=locked;byId('vmCertTrust').disabled=locked;
     byId('vmReset').classList.toggle('hidden',!v.server&&!v.summary);byId('vmReset').disabled=locked;
-    var stop=byId('vmStop');stop.classList.toggle('hidden',!(running&&(v.action==='connect'||v.action==='compare'||v.action==='move'||v.action==='send')));stop.disabled=!!v.cancelRequested;stop.textContent=v.cancelRequested?'Stopping...':'Stop';
+    var stop=byId('vmStop');stop.classList.toggle('hidden',!(running&&(v.action==='connect'||v.action==='compare'||v.action==='move'||v.action==='media'||v.action==='upload'||v.action==='target-create'||v.action==='send')));stop.disabled=!!v.cancelRequested;stop.textContent=v.cancelRequested?'Stopping...':'Stop';
     byId('vmTargetSelect').disabled=vmBusy||running;
     var hasPlan=!!(vmInventory&&vmPlan);
     byId('vmSavePlan').disabled=locked||!hasPlan;byId('vmSuggest').disabled=locked||!hasPlan;byId('vmWriteRunbook').disabled=locked||!hasPlan;
@@ -2607,7 +2608,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     var snaps=vmArr(vm.snapshots);
     if(snaps.length||vm.consolidationNeeded){var ss=vmDrawerSection(box,'Snapshots',vmPlural(snaps.length,'snapshot'));if(vm.consolidationNeeded){ss.appendChild(el('div','vm-detail-line warning','Its disks need consolidation.'));}
       if(snaps.length){ss.appendChild(vmTreeTable(['Snapshot','Taken','Quiesced'],snaps.map(function(s){var tr=el('tr','');vmCell(tr,s.name);vmCell(tr,vmWhen(s.created));vmCell(tr,s.quiesced?'Yes':'No');return tr;})));}}
-    renderVmPrepare(box,vm,r);renderVmMove(box,vm,r);
+    renderVmPrepare(box,vm,r);renderVmMove(box,vm,r);renderVmMoveTarget(box,vm,r);
   }
   // The sections of one host: used by its node in Browse and by its details.
   function vmHostSections(body,h,options){
@@ -2871,6 +2872,120 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
         after:function(){vmMarkRunning('move','moving','Cutting '+vm.name+' over to Hyper-V.');}});
     });
     row.appendChild(copy);row.appendChild(cut);section.appendChild(row);box.appendChild(section);
+  }
+  // Move to HyperCore, Nutanix AHV, Proxmox VE or a physical server: the new
+  // machine boots receiver media and the copy goes straight onto its disks.
+  var vmTargetForm={},vmTargetSerial=-1,vmTargetCreatable={scale:1,nutanix:1,proxmox:1};
+  function vmTargetField(key,fallback){var value=vmTargetForm.hasOwnProperty(key)?vmTargetForm[key]:'';return value!==''?value:(fallback==null?'':String(fallback));}
+  function vmTargetInput(key,label,fallback,options){
+    options=options||{};var wrap=el('label','vm-field'),input;
+    wrap.appendChild(el('span','',label));
+    if(options.choices){input=document.createElement('select');options.choices.forEach(function(c){var o=document.createElement('option');o.value=c.id;o.textContent=c.name+(c.detail?' ('+c.detail+')':'');input.appendChild(o);});}
+    else{input=document.createElement('input');input.type=options.type||'text';input.maxLength=options.max||260;if(options.placeholder){input.placeholder=options.placeholder;}input.autocomplete='off';input.spellcheck=false;}
+    input.setAttribute('data-vm-target',key);input.value=vmTargetField(key,fallback);if(options.choices&&input.selectedIndex<0&&input.options.length){input.selectedIndex=0;}
+    vmTargetForm[key]=input.value;
+    input.addEventListener(options.choices?'change':'input',function(){vmTargetForm[key]=input.value;});
+    if(options.type==='password'){input.addEventListener('change',function(){vmTargetForm[key]=input.value;});}
+    wrap.appendChild(input);return wrap;
+  }
+  function vmTargetCheck(key,label,fallback){var wrap=el('label','vm-check'),input=document.createElement('input');input.type='checkbox';input.setAttribute('data-vm-target',key);
+    input.checked=vmTargetForm.hasOwnProperty(key)?!!vmTargetForm[key]:!!fallback;vmTargetForm[key]=input.checked;input.addEventListener('change',function(){vmTargetForm[key]=input.checked;});wrap.appendChild(input);wrap.appendChild(el('span','',label));return wrap;}
+  function vmTargetButton(id,text,handler){var b=el('button','secondary-button',text);b.type='button';b.id=id;b.disabled=vmLocked();b.addEventListener('click',handler);return b;}
+  function vmTargetStep(section,title,help){var step=el('div','vm-target-step');step.appendChild(el('strong','',title));if(help){step.appendChild(el('div','migrate-help',help));}section.appendChild(step);return step;}
+  function vmTargetList_(text){return String(text||'').split(/[;\r\n]+/).map(trimText).filter(function(x){return x;});}
+  function renderVmMoveTarget(box,vm,r){
+    var target=vmTarget(),v=vmwareState()||{},t=v.target||{};
+    if(r.status==='skip'||vm.template||!(vmTargetCreatable[target]||target==='physical')){return;}
+    var label=vmTargetName(target),creatable=!!vmTargetCreatable[target],connected=!!(t.connected&&t.platform===target);
+    var section=el('div','vm-prepare');section.id='vmMoveTarget';section.appendChild(el('strong','',target==='physical'?'Move this VM to a physical server':'Move this VM to '+label));
+    section.appendChild(el('div','migrate-help',(target==='physical'?'The new server boots receiver media and':'The new VM is created on '+label+', boots receiver media and')+' receives each disk straight onto its own disk. Copy while the VMware VM keeps running, as often as you like; each copy after the first sends only what changed. At the cutover the guest is shut down, the last changes are copied'+(target==='physical'?' and you restart the server from its own disk.':' and the new VM starts from its own disk.')+' The VMware VM is left powered off, so going back is starting it again.'));
+    var status=el('div','migrate-inline-status'+(t.failed?' error':''),t.message||'');status.id='vmTargetStatus';section.appendChild(status);
+    var created=t.created&&t.created[vm.id],receiver=t.receivers&&t.receivers[vm.id],last=v.move&&v.move.vm===vm.name?v.move:null;
+    if(creatable){
+      var c=vmTargetStep(section,'1. Connect to '+label,target==='proxmox'?'Use an API token (Datacenter > Permissions > API Tokens) with VM and storage rights. The secret stays in memory until Forget or exit.':'The password stays in memory until Forget or exit.');
+      c.appendChild(vmTargetInput('server',target==='nutanix'?'Prism Central':(target==='proxmox'?'Proxmox VE host':'HyperCore cluster'),connected?t.server:'',{placeholder:target==='nutanix'?'prism-central.example.com':(target==='proxmox'?'pve1.example.com':'hypercore.example.com')}));
+      c.appendChild(vmTargetInput('user',target==='proxmox'?'API token ID':'User name',connected?t.user:'',{placeholder:target==='proxmox'?'migrate@pve!move':'admin'}));
+      c.appendChild(vmTargetInput('password',target==='proxmox'?'Token secret':'Password','',{type:'password',placeholder:connected?'Held for this session':''}));
+      if(target!=='scale'){c.appendChild(vmTargetInput('node',target==='proxmox'?'Node':'AHV cluster name',connected?t.node:'',{placeholder:target==='proxmox'?'First node':'Only cluster'}));}
+      if(t.certificate&&!connected){var cert=el('div','migrate-detail warning','The certificate is not trusted by Windows. SHA-256 thumbprint: '+t.certificate.thumbprint+'. Trust it only if it matches the one shown on the server.');c.appendChild(cert);}
+      var crow=el('div','vm-move-actions');
+      crow.appendChild(vmTargetButton('vmTargetConnect',connected?'Connect again':'Connect',function(){vmTargetConnect(target,'');}));
+      if(t.certificate&&!connected){crow.appendChild(vmTargetButton('vmTargetTrust','Trust this thumbprint and connect',function(){vmTargetConnect(target,t.certificate.thumbprint);}));}
+      if(t.connected){crow.appendChild(vmTargetButton('vmTargetForget','Forget',function(){vmPost('/api/vmware/target/forget',{},'vmTargetStatus',function(){vmTargetForm.password='';});}));}
+      c.appendChild(crow);
+      if(connected&&t.inventory){c.appendChild(el('div','migrate-detail good','Connected to '+t.server+': '+(t.inventory.version||label)+'.'));}
+    }
+    var m=vmTargetStep(section,(creatable?'2. ':'1. ')+'Receiver media','Builds a Windows PE ISO with this program as the receiver, using the Windows ADK and its Windows PE add-on on this computer. Add the drivers the new machine needs to see its disks and network: the VirtIO drivers (virtio-win) for '+label+(target==='physical'?' guests, or the server vendor\'s storage and network drivers':'')+'.');
+    m.appendChild(vmTargetInput('drivers','Driver folders (separate with ;)',target==='physical'?'':'',{placeholder:target==='physical'?'D:\\Drivers\\Server':'D:\\virtio-win\\amd64\\2k22'}));
+    var mrow=el('div','vm-move-actions');
+    mrow.appendChild(vmTargetButton('vmTargetMedia','Build receiver media',function(){
+      vmPost('/api/vmware/target/media',{target:target,drivers:vmTargetList_(vmTargetForm.drivers)},'vmTargetStatus',function(err){if(!err){vmMarkRunning('media','media','Building receiver media.');}});
+    }));
+    m.appendChild(mrow);
+    if(t.mediaPath){m.appendChild(el('div','migrate-detail good','Built: '+t.mediaPath));}
+    if(creatable){
+      m.appendChild(vmTargetInput('isoPath','ISO to upload',t.mediaPath||'',{placeholder:'C:\\Path\\receiver.iso'}));
+      var defaultName='receiver-'+String(vm.name).toLowerCase().replace(/[^a-z0-9.-]+/g,'-')+'.iso';
+      m.appendChild(vmTargetInput('isoName',target==='proxmox'?'Upload as (storage/file.iso)':'Upload as',target==='proxmox'?'local/'+defaultName:defaultName));
+      var upload=vmTargetButton('vmTargetUpload','Upload to '+label,function(){vmPost('/api/vmware/target/upload',{path:trimText(vmTargetForm.isoPath),name:trimText(vmTargetForm.isoName)},'vmTargetStatus',function(err){if(!err){vmMarkRunning('upload','uploading','Uploading the receiver media.');}});});
+      upload.disabled=upload.disabled||!connected;m.appendChild(upload);
+      if(t.iso&&connected){m.appendChild(el('div','migrate-detail good','Uploaded: '+t.iso));}
+      var k=vmTargetStep(section,'3. Create the VM','Same CPUs, memory, firmware and disks as on VMware (disk sizes round up). Nothing is changed if a VM with this name already exists.');
+      if(created){k.appendChild(el('div','migrate-detail good','Created on '+vmTargetName(created.platform)+' as '+created.vm.name+' ('+created.vm.id+')'+(created.cutOver?', cut over.':'.')));}
+      k.appendChild(vmTargetInput('name','New VM name',vm.name,{max:63}));
+      var inv=t.inventory||{},storages=vmArr(inv.storages),networks=vmArr(inv.networks);
+      if(target==='proxmox'){k.appendChild(storages.length?vmTargetInput('storage','Storage for the disks','',{choices:storages}):vmTargetInput('storage','Storage for the disks','local-lvm'));}
+      if(target==='nutanix'){k.appendChild(vmTargetInput('storage','Storage container UUID (empty for the default)',''));}
+      k.appendChild(vmTargetInput('bus','Disk bus','virtio',{choices:[{id:'virtio',name:'VirtIO (needs VirtIO drivers in the guest)'},{id:'scsi',name:'SCSI'},{id:'sata',name:'SATA'},{id:'ide',name:'IDE'}]}));
+      k.appendChild(vmTargetInput('nicModel','Network adapter','virtio',{choices:[{id:'virtio',name:'VirtIO'},{id:'e1000',name:'Intel E1000'}]}));
+      vmArr(vm.nics).forEach(function(n,i){
+        var choices=networks.length?networks:null;
+        k.appendChild(choices?vmTargetInput('net'+i,n.label+' ('+(n.network||'no network')+')','',{choices:choices}):vmTargetInput('net'+i,n.label+' ('+(n.network||'no network')+'): '+(target==='scale'?'VLAN':'network'),target==='scale'?'0':''));
+        if(target==='proxmox'){k.appendChild(vmTargetInput('vlan'+i,n.label+': VLAN tag (0 for none)','0',{max:4}));}
+      });
+      k.appendChild(vmTargetCheck('keepMac','Keep the VMware MAC addresses',false));
+      var create=vmTargetButton('vmTargetCreate','Create VM\u2026',function(){
+        var nets=vmArr(vm.nics).map(function(n,i){return {network:trimText(vmTargetForm['net'+i]),vlan:Number(vmTargetForm['vlan'+i]||0)||0};});
+        var body={vmId:vm.id,name:trimText(vmTargetForm.name),storage:trimText(vmTargetForm.storage),bus:vmTargetForm.bus,nicModel:vmTargetForm.nicModel,keepMac:!!vmTargetForm.keepMac,networks:nets};
+        openMigrateDialog({title:'Create '+(body.name||vm.name)+' on '+label,path:'/api/vmware/target/create',field:'confirm',body:body,expected:vm.name,label:"Type the VMware VM's name to confirm",button:'Create VM',
+          paragraphs:[label+' will:'],list:['create the VM '+(body.name||vm.name)+' with '+vmPlural(vmArr(vm.disks).length,'blank disk'),'attach the receiver media '+(t.iso||'')+' and start the VM from it'],
+          after:function(){vmMarkRunning('target-create','creating','Creating the VM.');}});
+      });
+      create.disabled=create.disabled||!connected||!t.iso;k.appendChild(create);
+    }
+    var rc=vmTargetStep(section,(creatable?'4. ':'2. ')+'Receiver',target==='physical'?'Boot the new server from the receiver media (for example through its out-of-band console). Its screen shows the address, pairing code and thumbprint.':'Open the new VM\'s console. The receiver shows its address, pairing code and thumbprint.');
+    rc.appendChild(vmTargetInput('address','Receiver address (host:port)',receiver?receiver.link.address:'',{placeholder:'192.0.2.50:8443'}));
+    rc.appendChild(vmTargetInput('code','Pairing code','',{placeholder:receiver?'Held for this session':'ABCDE-FGHIJ-KLMNO-PQRST',max:40}));
+    rc.appendChild(vmTargetInput('thumbprint','Thumbprint',receiver?receiver.link.thumbprint:'',{max:120}));
+    rc.appendChild(vmTargetButton('vmTargetReceiver','Check receiver',function(){
+      vmPost('/api/vmware/target/receiver',{vmId:vm.id,address:trimText(vmTargetForm.address),code:trimText(vmTargetForm.code),thumbprint:trimText(vmTargetForm.thumbprint)},'vmTargetStatus',function(err){if(!err){vmTargetForm.code='';}});
+    }));
+    if(receiver){var ul=el('ul','vm-findings');vmArr(receiver.mapping).forEach(function(name,i){var d=vmArr(vm.disks)[i]||{},rd=vmArr(receiver.disks).filter(function(x){return x.name===name;})[0]||{};ul.appendChild(el('li','good',(d.label||'Disk '+(i+1))+' ('+formatBytesShort(d.capacityBytes)+') goes to '+name+(rd.label?', '+rd.label:'')+' ('+formatBytesShort(rd.size)+').'));});rc.appendChild(ul);}
+    var mv=vmTargetStep(section,(creatable?'5. ':'3. ')+'Copy and cut over','');
+    if(last){var lu=el('ul','vm-findings');if(last.round){vmArr(last.round.disks).forEach(function(d){lu.appendChild(el('li','good',d.label+': '+({seed:'first copy of the used areas',changed:'changed blocks only',full:'full pass'}[d.mode]||d.mode)+' to '+d.target+', '+formatBytesShort(d.bytesWritten)+' written'+(d.verified?', verified':'')+'.'));});}if(v.moveError){lu.appendChild(el('li','warning',v.moveError));}if(lu.childNodes.length){mv.appendChild(lu);}}
+    if(!v.canPrepare){mv.appendChild(el('div','migrate-help','To copy, read the inventory from vCenter or ESXi in this session.'));}
+    mv.appendChild(vmTargetCheck('quiesce','Quiesce the guest for each copy (VMware Tools, VSS in Windows)',!!vm.toolsRunning));
+    var row=el('div','vm-move-actions');
+    var copy=vmTargetButton('vmTargetCopy',last&&!last.cutover?'Copy changes\u2026':'Copy disks\u2026',function(){
+      openMigrateDialog({title:'Copy '+vm.name,path:'/api/vmware/target/move',field:'confirm',body:{vmId:vm.id,action:'copy',quiesce:!!vmTargetForm.quiesce},expected:vm.name,label:"Type the VM's name to confirm",button:'Copy disks',
+        paragraphs:['The VM keeps running. vSphere will:'],list:['turn on changed block tracking for this VM, if it is off','take a snapshot named "Server Inventory and Migration Manager replication" and remove it when the copy ends','send each disk to the receiver at '+(receiver?receiver.link.address:'')],
+        after:function(){vmMarkRunning('move','moving','Copying '+vm.name+'\'s disks.');}});
+    });
+    var cut=vmTargetButton('vmTargetCutover','Cut over\u2026',function(){
+      openMigrateDialog({title:'Cut over '+vm.name,path:'/api/vmware/target/move',field:'confirm',body:{vmId:vm.id,action:'cutover'},expected:vm.name,label:"Type the VM's name to confirm",button:'Shut down and cut over',
+        alert:'The VMware VM is shut down through VMware Tools and stays off. Users lose access until the new '+(target==='physical'?'server':'VM')+' is running.',
+        paragraphs:['In this order:'],list:['shut the guest down (never a hard power-off)','copy the last changes and verify every disk'].concat(created?['turn off the receiver VM on '+label+', switch it to boot from its first disk and start it']:['then restart the new '+(target==='physical'?'server':'VM')+' from its own disk yourself']),
+        after:function(){vmMarkRunning('move','moving','Cutting '+vm.name+' over.');}});
+    });
+    copy.disabled=copy.disabled||!receiver||!v.canPrepare;cut.disabled=cut.disabled||!receiver||!v.canPrepare;
+    row.appendChild(copy);row.appendChild(cut);mv.appendChild(row);
+    box.appendChild(section);
+  }
+  function vmTargetConnect(target,thumbprint){
+    var body={platform:target,server:trimText(vmTargetForm.server),user:trimText(vmTargetForm.user),password:vmTargetForm.password||'',node:trimText(vmTargetForm.node)};
+    if(!body.server||!body.user){vmSetStatus('vmTargetStatus','Type the server and the user name or token ID.',true);return;}
+    if(thumbprint){body.thumbprint=thumbprint;}
+    vmPost('/api/vmware/target/connect',body,'vmTargetStatus',function(err){if(!err){vmTargetForm.password='';}});
   }
   // Prepare source: the only steps that change vSphere, opt-in for one VM.
   function renderVmPrepare(box,vm,r){

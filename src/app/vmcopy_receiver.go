@@ -36,6 +36,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -47,10 +48,55 @@ const (
 	vmReceiverAPI      = "/v1/"
 )
 
-var vmReceiverName = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,119}\.vhdx$`)
+var (
+	vmReceiverName     = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,119}\.vhdx$`)
+	vmReceiverDiskName = regexp.MustCompile(`^disk-[0-9]{1,3}$`)
+)
+
+// vmReceiverTarget is what a receiver session writes into: a VHDX in the
+// receiver's folder or one of the raw disks it was started with.
+type vmReceiverTarget interface {
+	vmCopySink
+	State() *vmCopyState
+}
+
+func (s *vmLocalSink) State() *vmCopyState { return s.state }
+
+// vmReceiverDisk is a raw disk the receiver may write, named disk-N.
+type vmReceiverDisk struct {
+	Name       string `json:"name"`
+	Label      string `json:"label"`
+	Size       int64  `json:"size"`
+	SectorSize int64  `json:"sectorSize"`
+	Overwrite  bool   `json:"overwrite"`
+	open       func() (vmBlockDevice, error)
+}
+
+// vmReceiverConfig says where a receiver writes: VHDX files in Folder,
+// and/or the listed raw disks with their copy records in Records.
+type vmReceiverConfig struct {
+	Folder  string
+	Disks   []vmReceiverDisk
+	Records string
+}
+
+// vmReceiverRawTarget closes its device with the session.
+type vmReceiverRawTarget struct {
+	*vmRawSink
+}
+
+func (t vmReceiverRawTarget) Close() error {
+	err := t.vmRawSink.Close()
+	if closeErr := t.device.Close(); err == nil {
+		err = closeErr
+	}
+	return err
+}
 
 type vmReceiver struct {
 	folder     string
+	records    string
+	disks      map[string]vmReceiverDisk
 	code       string
 	thumbprint string
 	server     *http.Server
@@ -65,7 +111,7 @@ type vmReceiver struct {
 type vmReceiverSession struct {
 	mu   sync.Mutex
 	name string
-	sink *vmLocalSink
+	sink vmReceiverTarget
 	seen time.Time
 }
 
@@ -128,15 +174,50 @@ func vmSelfSignedCertificate(host string) (tls.Certificate, string, error) {
 // startVMReceiver listens on address (":8443" or "0.0.0.0:0") and writes into
 // folder.
 func startVMReceiver(address, folder string, log func(string)) (*vmReceiver, error) {
+	return startVMReceiverWith(address, vmReceiverConfig{Folder: folder}, log)
+}
+
+func startVMReceiverWith(address string, config vmReceiverConfig, log func(string)) (*vmReceiver, error) {
 	if log == nil {
 		log = func(string) {}
 	}
-	folder, err := filepath.Abs(folder)
-	if err != nil {
-		return nil, err
+	if config.Folder == "" && len(config.Disks) == 0 {
+		return nil, errors.New("choose a folder or at least one disk to receive into")
 	}
-	if err := os.MkdirAll(folder, 0700); err != nil {
-		return nil, err
+	folder := ""
+	if config.Folder != "" {
+		absolute, err := filepath.Abs(config.Folder)
+		if err != nil {
+			return nil, err
+		}
+		if err := os.MkdirAll(absolute, 0700); err != nil {
+			return nil, err
+		}
+		folder = absolute
+	}
+	disks := map[string]vmReceiverDisk{}
+	records := ""
+	if len(config.Disks) > 0 {
+		if config.Records == "" {
+			return nil, errors.New("choose a folder for the raw disk copy records")
+		}
+		absolute, err := filepath.Abs(config.Records)
+		if err != nil {
+			return nil, err
+		}
+		if err := os.MkdirAll(absolute, 0700); err != nil {
+			return nil, err
+		}
+		records = absolute
+		for _, disk := range config.Disks {
+			if !vmReceiverDiskName.MatchString(disk.Name) || disk.open == nil {
+				return nil, fmt.Errorf("%q is not a receiver disk", disk.Name)
+			}
+			if _, duplicate := disks[disk.Name]; duplicate {
+				return nil, fmt.Errorf("%s is listed twice", disk.Name)
+			}
+			disks[disk.Name] = disk
+		}
 	}
 	code, err := vmPairingCode()
 	if err != nil {
@@ -151,7 +232,7 @@ func startVMReceiver(address, folder string, log func(string)) (*vmReceiver, err
 	if err != nil {
 		return nil, err
 	}
-	r := &vmReceiver{folder: folder, code: code, thumbprint: thumbprint, listener: listener, log: log, sessions: map[string]*vmReceiverSession{}, names: map[string]string{}}
+	r := &vmReceiver{folder: folder, records: records, disks: disks, code: code, thumbprint: thumbprint, listener: listener, log: log, sessions: map[string]*vmReceiverSession{}, names: map[string]string{}}
 	r.server = &http.Server{
 		Handler:           r,
 		TLSConfig:         &tls.Config{Certificates: []tls.Certificate{certificate}, MinVersion: tls.VersionTLS12},
@@ -159,14 +240,34 @@ func startVMReceiver(address, folder string, log func(string)) (*vmReceiver, err
 		IdleTimeout:       2 * time.Minute,
 	}
 	go r.server.ServeTLS(listener, "", "")
-	log(fmt.Sprintf("Receiving into %s on port %d.", folder, r.Port()))
+	if folder != "" {
+		log(fmt.Sprintf("Receiving into %s on port %d.", folder, r.Port()))
+	}
+	for _, disk := range r.Disks() {
+		log(fmt.Sprintf("Receiving onto %s (%s, %s) on port %d.", disk.Name, disk.Label, vmFormatBytes(disk.Size), r.Port()))
+	}
 	return r, nil
 }
 
-func (r *vmReceiver) Port() int           { return r.listener.Addr().(*net.TCPAddr).Port }
-func (r *vmReceiver) Code() string        { return r.code }
-func (r *vmReceiver) Thumbprint() string  { return r.thumbprint }
-func (r *vmReceiver) Folder() string      { return r.folder }
+func (r *vmReceiver) Port() int          { return r.listener.Addr().(*net.TCPAddr).Port }
+func (r *vmReceiver) Code() string       { return r.code }
+func (r *vmReceiver) Thumbprint() string { return r.thumbprint }
+func (r *vmReceiver) Folder() string     { return r.folder }
+
+// Disks lists the raw disks this receiver writes, by name.
+func (r *vmReceiver) Disks() []vmReceiverDisk {
+	list := make([]vmReceiverDisk, 0, len(r.disks))
+	for _, disk := range r.disks {
+		list = append(list, disk)
+	}
+	sort.Slice(list, func(i, j int) bool {
+		a, _ := strconv.Atoi(strings.TrimPrefix(list[i].Name, "disk-"))
+		b, _ := strconv.Atoi(strings.TrimPrefix(list[j].Name, "disk-"))
+		return a < b
+	})
+	return list
+}
+
 func (r *vmReceiver) ActiveSessions() int { r.mu.Lock(); defer r.mu.Unlock(); return len(r.sessions) }
 
 // Stop closes the listener and every open disk, saving its copy record so
@@ -223,6 +324,8 @@ func (r *vmReceiver) ServeHTTP(w http.ResponseWriter, request *http.Request) {
 	switch strings.TrimPrefix(request.URL.Path, vmReceiverAPI) {
 	case "hello":
 		vmReceiverJSON(w, map[string]string{"app": "Server Inventory and Migration Manager receiver"})
+	case "disks":
+		vmReceiverJSON(w, map[string]interface{}{"folder": r.folder != "", "disks": r.Disks()})
 	case "open":
 		r.open(w, request)
 	case "chunk":
@@ -240,7 +343,12 @@ func (r *vmReceiver) open(w http.ResponseWriter, request *http.Request) {
 		vmReceiverError(w, http.StatusBadRequest, "bad request")
 		return
 	}
-	if !vmReceiverName.MatchString(body.Name) || strings.Contains(body.Name, "..") {
+	disk, raw := r.disks[body.Name]
+	if !raw && (r.folder == "" || !vmReceiverName.MatchString(body.Name) || strings.Contains(body.Name, "..")) {
+		if r.folder == "" {
+			vmReceiverError(w, http.StatusBadRequest, "this receiver writes only its listed disks; "+body.Name+" is not one of them")
+			return
+		}
 		vmReceiverError(w, http.StatusBadRequest, "the disk name must be a plain .vhdx file name")
 		return
 	}
@@ -273,8 +381,26 @@ func (r *vmReceiver) open(w http.ResponseWriter, request *http.Request) {
 claim:
 	r.names[key] = ""
 	r.mu.Unlock()
-	sink := &vmLocalSink{target: filepath.Join(r.folder, body.Name)}
-	state, resumed, err := sink.Open(body.Source, body.Size, body.ChunkSize)
+	var sink vmReceiverTarget
+	var state *vmCopyState
+	var resumed bool
+	var err error
+	if raw {
+		var device vmBlockDevice
+		device, err = disk.open()
+		if err == nil {
+			rawSink := vmReceiverRawTarget{newVMRawSink(device, r.records, disk.Overwrite)}
+			state, resumed, err = rawSink.Open(body.Source, body.Size, body.ChunkSize)
+			if err != nil {
+				device.Close()
+			}
+			sink = rawSink
+		}
+	} else {
+		local := &vmLocalSink{target: filepath.Join(r.folder, body.Name)}
+		state, resumed, err = local.Open(body.Source, body.Size, body.ChunkSize)
+		sink = local
+	}
 	if err != nil {
 		r.mu.Lock()
 		delete(r.names, key)
@@ -306,7 +432,7 @@ func (r *vmReceiver) chunk(w http.ResponseWriter, request *http.Request) {
 	session.mu.Lock()
 	defer session.mu.Unlock()
 	session.seen = time.Now()
-	state := session.sink.state
+	state := session.sink.State()
 	if index < 0 || index >= len(state.Hashes) {
 		vmReceiverError(w, http.StatusBadRequest, "chunk outside the disk")
 		return
@@ -354,11 +480,11 @@ func (r *vmReceiver) lifecycle(w http.ResponseWriter, request *http.Request, act
 	switch action {
 	case "checkpoint":
 		if body.State == nil {
-			body.State = &vmCopyState{Passes: session.sink.state.Passes}
+			body.State = &vmCopyState{Passes: session.sink.State().Passes}
 		}
 		err = session.sink.Checkpoint(body.State)
 	case "finish":
-		if body.State == nil || len(body.State.Hashes) != len(session.sink.state.Hashes) {
+		if body.State == nil || len(body.State.Hashes) != len(session.sink.State().Hashes) {
 			err = errors.New("the finish request does not describe this disk")
 			break
 		}
@@ -395,17 +521,42 @@ type vmRemoteSink struct {
 }
 
 // newVMRemoteSink connects to a receiver at "host:port", accepting only the
-// certificate with the given thumbprint.
+// certificate with the given thumbprint. name is a .vhdx file name, or disk-N
+// for one of a raw-disk receiver's disks.
 func newVMRemoteSink(ctx context.Context, address, thumbprint, code, name string) (*vmRemoteSink, error) {
+	if !vmReceiverName.MatchString(name) && !vmReceiverDiskName.MatchString(name) {
+		return nil, errors.New("the disk name must be a plain .vhdx file name or disk-N")
+	}
+	sink, err := newVMReceiverClient(ctx, address, thumbprint, code)
+	if err != nil {
+		return nil, err
+	}
+	sink.name = name
+	return sink, nil
+}
+
+// vmReceiverListDisks asks a receiver which raw disks it writes.
+func vmReceiverListDisks(ctx context.Context, address, thumbprint, code string) ([]vmReceiverDisk, error) {
+	client, err := newVMReceiverClient(ctx, address, thumbprint, code)
+	if err != nil {
+		return nil, err
+	}
+	var answer struct {
+		Disks []vmReceiverDisk `json:"disks"`
+	}
+	if err := client.call(http.MethodGet, "disks", nil, nil, &answer); err != nil {
+		return nil, err
+	}
+	return answer.Disks, nil
+}
+
+func newVMReceiverClient(ctx context.Context, address, thumbprint, code string) (*vmRemoteSink, error) {
 	pinned := vmNormalizeThumbprint(thumbprint)
 	if pinned == "" {
 		return nil, errors.New("enter the receiver's certificate thumbprint (64 hexadecimal characters)")
 	}
 	if vmNormalizePairingCode(code) == "" {
 		return nil, errors.New("enter the receiver's pairing code")
-	}
-	if !vmReceiverName.MatchString(name) {
-		return nil, errors.New("the disk name must be a plain .vhdx file name")
 	}
 	host, port, err := net.SplitHostPort(strings.TrimSpace(address))
 	if err != nil || host == "" || port == "" {
@@ -430,7 +581,7 @@ func newVMRemoteSink(ctx context.Context, address, thumbprint, code, name string
 		MaxIdleConnsPerHost:   4,
 		ResponseHeaderTimeout: 5 * time.Minute,
 	}
-	sink := &vmRemoteSink{ctx: ctx, client: &http.Client{Transport: transport, Timeout: 10 * time.Minute}, base: &url.URL{Scheme: "https", Host: net.JoinHostPort(host, port), Path: vmReceiverAPI}, code: code, name: name, retries: 4, delay: 2 * time.Second}
+	sink := &vmRemoteSink{ctx: ctx, client: &http.Client{Transport: transport, Timeout: 10 * time.Minute}, base: &url.URL{Scheme: "https", Host: net.JoinHostPort(host, port), Path: vmReceiverAPI}, code: code, retries: 4, delay: 2 * time.Second}
 	if err := sink.call(http.MethodPost, "hello", nil, nil, nil); err != nil {
 		return nil, err
 	}

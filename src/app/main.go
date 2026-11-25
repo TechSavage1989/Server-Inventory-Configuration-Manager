@@ -67,7 +67,7 @@ const (
 	lrLoadFromFile = 0x0010
 )
 
-//go:embed Export-ServerInventory.ps1 Run-Inventory.ps1 Restore-ServerConfiguration.ps1 Migrate-FileShares.ps1 Migrate-VmGuest.ps1 index.html favicon.ico app-icon.png assets/icons/server-inventory.svg
+//go:embed Export-ServerInventory.ps1 Run-Inventory.ps1 Restore-ServerConfiguration.ps1 Migrate-FileShares.ps1 Migrate-VmGuest.ps1 Build-ReceiverMedia.ps1 index.html favicon.ico app-icon.png assets/icons/server-inventory.svg
 var embeddedPayloads embed.FS
 
 var (
@@ -2315,6 +2315,7 @@ func (a *application) serve(listener net.Listener) error {
 	mux.HandleFunc("/api/vmware/reset", a.handleVMwareReset)
 	mux.HandleFunc("/api/vmware/prepare", a.handleVMwarePrepare)
 	mux.HandleFunc("/api/vmware/move", a.handleVMwareMove)
+	mux.HandleFunc("/api/vmware/target/", a.handleVMwareTarget)
 	mux.HandleFunc("/api/vmware/receiver", a.handleVMwareReceiver)
 	mux.HandleFunc("/api/vmware/agent/disks", a.handleVMwareAgentDisks)
 	mux.HandleFunc("/api/vmware/agent/send", a.handleVMwareAgentSend)
@@ -2355,6 +2356,9 @@ func (a *application) serve(listener net.Listener) error {
 func main() {
 	if len(os.Args) > 1 && os.Args[1] == "--update-helper" {
 		os.Exit(runUpdateHelper(os.Args[2:]))
+	}
+	if len(os.Args) > 1 && os.Args[1] == "--receiver" {
+		os.Exit(runVMReceiverCommand(os.Args[2:]))
 	}
 	healthToken := extractHealthToken(os.Args[1:])
 	_ = binaryIdentityMarker
