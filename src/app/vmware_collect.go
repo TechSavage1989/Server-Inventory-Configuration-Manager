@@ -24,8 +24,10 @@ import (
 )
 
 // Read-only vSphere inventory through the vSphere Web Services API (the API
-// PowerCLI uses), with VMware's own Go library. The session only reads
-// properties: no task is started and nothing is changed.
+// PowerCLI uses), with VMware's own Go library. The inventory session only
+// reads properties: no task is started and nothing is changed. The only
+// changes the application makes are the opt-in prepare-source steps in
+// vmware_prepare.go.
 
 type vmConnectOptions struct {
 	Server     string
@@ -160,21 +162,27 @@ func vmFriendlyConnectError(err error, server string) error {
 }
 
 // collectVSphere connects, reads the inventory and logs out.
-func collectVSphere(parent context.Context, options vmConnectOptions, progress func(string)) (*vmInventory, error) {
-	if progress == nil {
-		progress = func(string) {}
-	}
+// vmSession is a logged-in vSphere session; close it with logout.
+type vmSession struct {
+	client  *vim25.Client
+	manager *session.Manager
+	host    string
+}
+
+func (s *vmSession) logout() {
+	logoutContext, logoutCancel := context.WithTimeout(context.Background(), 15*time.Second)
+	_ = s.manager.Logout(logoutContext)
+	logoutCancel()
+}
+
+// openVSphereSession connects and logs in with the operator's account,
+// trusting the server's certificate only through Windows or a confirmed
+// thumbprint.
+func openVSphereSession(ctx context.Context, options vmConnectOptions, progress func(string)) (*vmSession, error) {
 	u, err := vmServerURL(options.Server)
 	if err != nil {
 		return nil, err
 	}
-	timeout := options.Timeout
-	if timeout <= 0 {
-		timeout = 15 * time.Minute
-	}
-	ctx, cancel := context.WithTimeout(parent, timeout)
-	defer cancel()
-
 	var certificateErr *vmCertificateError
 	soapClient := soap.NewClient(u, options.insecureForTest)
 	if !options.insecureForTest {
@@ -195,11 +203,25 @@ func collectVSphere(parent context.Context, options vmConnectOptions, progress f
 	if err := manager.Login(ctx, url.UserPassword(options.User, options.Password)); err != nil {
 		return nil, vmFriendlyConnectError(err, u.Host)
 	}
-	defer func() {
-		logoutContext, logoutCancel := context.WithTimeout(context.Background(), 15*time.Second)
-		_ = manager.Logout(logoutContext)
-		logoutCancel()
-	}()
+	return &vmSession{client: client, manager: manager, host: u.Host}, nil
+}
+
+func collectVSphere(parent context.Context, options vmConnectOptions, progress func(string)) (*vmInventory, error) {
+	if progress == nil {
+		progress = func(string) {}
+	}
+	timeout := options.Timeout
+	if timeout <= 0 {
+		timeout = 15 * time.Minute
+	}
+	ctx, cancel := context.WithTimeout(parent, timeout)
+	defer cancel()
+	vsphere, err := openVSphereSession(ctx, options, progress)
+	if err != nil {
+		return nil, err
+	}
+	defer vsphere.logout()
+	client, u := vsphere.client, struct{ Host string }{vsphere.host}
 
 	about := client.ServiceContent.About
 	inventory := &vmInventory{Schema: 1, Server: u.Host, Product: about.FullName, APIVersion: about.ApiVersion, CollectedAt: time.Now(), CollectedBy: options.User, AppVersion: options.AppVersion, Warnings: []string{}}
