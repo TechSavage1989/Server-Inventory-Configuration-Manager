@@ -300,6 +300,10 @@ func vmHyperCoreDomainBody(spec vmTargetVMSpec, version string) (map[string]inte
 	}
 	devices := []vmHyperCoreBlockDevice{}
 	for index, disk := range spec.Disks {
+		if disk.Import != "" {
+			// Uploaded disks are attached after the VM exists.
+			continue
+		}
 		// Whole MiB, rounded up, so the disk is never smaller than the source.
 		device := vmHyperCoreBlockDevice{Type: vmHyperCoreDiskType(disk.Bus), Capacity: vmCeilDiv(disk.Size, 1<<20) << 20, Slot: index, CacheMode: "WRITETHROUGH"}
 		if index == 0 {
@@ -307,7 +311,9 @@ func vmHyperCoreDomainBody(spec vmTargetVMSpec, version string) (map[string]inte
 		}
 		devices = append(devices, device)
 	}
-	devices = append(devices, vmHyperCoreBlockDevice{Type: "IDE_CDROM", Path: spec.ISO, Slot: len(spec.Disks), CacheMode: "WRITETHROUGH"})
+	if spec.ISO != "" {
+		devices = append(devices, vmHyperCoreBlockDevice{Type: "IDE_CDROM", Path: spec.ISO, Slot: len(spec.Disks), CacheMode: "WRITETHROUGH"})
+	}
 	// UEFI needs an NVRAM device and a TPM machine needs NVRAM and VTPM;
 	// HyperCore places both itself (slot -1).
 	if spec.Firmware == "uefi" || spec.TPM {
@@ -358,6 +364,14 @@ func (c *vmHyperCore) CreateVM(ctx context.Context, spec vmTargetVMSpec) (*vmTar
 	}
 	if err := c.waitTask(ctx, created.TaskTag); err != nil {
 		return nil, err
+	}
+	for index, disk := range spec.Disks {
+		if disk.Import == "" {
+			continue
+		}
+		if err := c.attachDisk(ctx, disk.Import, created.CreatedUUID, disk, index); err != nil {
+			return &vmTargetVM{ID: created.CreatedUUID, Name: spec.Name, State: "stopped"}, fmt.Errorf("%s was created but its uploaded disk could not be attached: %w", spec.Name, err)
+		}
 	}
 	// Boot the receiver CD-ROM first while the disks are blank.
 	domain, err := c.domain(ctx, created.CreatedUUID)

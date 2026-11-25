@@ -235,20 +235,25 @@ func vmNutanixVMBody(cluster string, spec vmTargetVMSpec) (map[string]interface{
 			"device_properties": map[string]interface{}{"device_type": "DISK", "disk_address": map[string]interface{}{"adapter_type": adapter, "device_index": counts[adapter]}},
 			"disk_size_mib":     vmCeilDiv(disk.Size, 1<<20),
 		}
+		if disk.Import != "" {
+			item["data_source_reference"] = map[string]interface{}{"kind": "image", "uuid": disk.Import}
+		}
 		if spec.Storage != "" {
 			item["storage_config"] = map[string]interface{}{"storage_container_reference": map[string]interface{}{"kind": "storage_container", "uuid": spec.Storage}}
 		}
 		disks = append(disks, item)
 		counts[adapter]++
 	}
-	cdromAdapter := "SATA"
-	if spec.Firmware == "bios" {
-		cdromAdapter = "IDE"
+	if spec.ISO != "" {
+		cdromAdapter := "SATA"
+		if spec.Firmware == "bios" {
+			cdromAdapter = "IDE"
+		}
+		disks = append(disks, map[string]interface{}{
+			"device_properties":     map[string]interface{}{"device_type": "CDROM", "disk_address": map[string]interface{}{"adapter_type": cdromAdapter, "device_index": counts[cdromAdapter]}},
+			"data_source_reference": map[string]interface{}{"kind": "image", "uuid": spec.ISO},
+		})
 	}
-	disks = append(disks, map[string]interface{}{
-		"device_properties":     map[string]interface{}{"device_type": "CDROM", "disk_address": map[string]interface{}{"adapter_type": cdromAdapter, "device_index": counts[cdromAdapter]}},
-		"data_source_reference": map[string]interface{}{"kind": "image", "uuid": spec.ISO},
-	})
 	nics := []interface{}{}
 	for index, nic := range spec.NICs {
 		if nic.Network == "" {
@@ -274,6 +279,9 @@ func vmNutanixVMBody(cluster string, spec vmTargetVMSpec) (map[string]interface{
 	default:
 		boot["boot_type"] = "LEGACY"
 		boot["boot_device_order_list"] = []string{"CDROM", "DISK"}
+		if spec.ISO == "" {
+			boot["boot_device_order_list"] = []string{"DISK"}
+		}
 	}
 	resources := map[string]interface{}{
 		"num_sockets": 1, "num_vcpus_per_socket": spec.CPUs, "memory_size_mib": spec.MemoryMiB,
