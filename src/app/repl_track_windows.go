@@ -303,6 +303,7 @@ type replMFTReader struct {
 	volume      windows.Handle
 	clusterSize int64
 	recordSize  int64
+	validLength int64 // bytes of the MFT in use
 	mftRuns     []replRun
 }
 
@@ -317,7 +318,7 @@ func newReplMFTReader(device string) (*replMFTReader, error) {
 		windows.CloseHandle(volume)
 		return nil, err
 	}
-	r := &replMFTReader{volume: volume, clusterSize: int64(binary.LittleEndian.Uint32(out[44:])), recordSize: int64(binary.LittleEndian.Uint32(out[48:]))}
+	r := &replMFTReader{volume: volume, clusterSize: int64(binary.LittleEndian.Uint32(out[44:])), recordSize: int64(binary.LittleEndian.Uint32(out[48:])), validLength: int64(binary.LittleEndian.Uint64(out[56:]))}
 	mftStart := int64(binary.LittleEndian.Uint64(out[64:]))
 	if r.clusterSize <= 0 || r.recordSize < 1024 || r.recordSize > 65536 || mftStart <= 0 {
 		r.Close()
@@ -363,6 +364,66 @@ func (r *replMFTReader) Runs(record int64) ([]replRun, uint16, error) {
 		return nil, 0, errors.New("the MFT record could not be read in full")
 	}
 	return replMFTRuns(buffer[offset-start : offset-start+r.recordSize])
+}
+
+// Scan reads the MFT in order and calls each for every record. The MFT's
+// data runs come first in its record, so the runs up to the MFT's valid
+// length are its data.
+func (r *replMFTReader) Scan(ctx context.Context, each func(index int64, record []byte) error) error {
+	const piece = 4 << 20
+	buffer := make([]byte, piece)
+	pending := []byte{}
+	index, done := int64(0), int64(0)
+	for _, run := range r.mftRuns {
+		for cluster := int64(0); cluster < run.Count && done < r.validLength; {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+			count := run.Count - cluster
+			if count > piece/r.clusterSize {
+				count = piece / r.clusterSize
+			}
+			size := count * r.clusterSize
+			at := (run.Start + cluster) * r.clusterSize
+			var read uint32
+			overlapped := windows.Overlapped{Offset: uint32(at), OffsetHigh: uint32(at >> 32)}
+			if err := windows.ReadFile(r.volume, buffer[:size], &read, &overlapped); err != nil {
+				return fmt.Errorf("reading the MFT: %w", err)
+			}
+			if int64(read) != size {
+				return errors.New("the MFT could not be read in full")
+			}
+			if remaining := r.validLength - done; size > remaining {
+				size = remaining
+			}
+			pending = append(pending, buffer[:size]...)
+			done += size
+			cluster += count
+			used := 0
+			for ; int64(len(pending)-used) >= r.recordSize; used += int(r.recordSize) {
+				if err := each(index, pending[used:used+int(r.recordSize)]); err != nil {
+					return err
+				}
+				index++
+			}
+			pending = append(pending[:0], pending[used:]...)
+		}
+	}
+	if done < r.validLength {
+		return errors.New("the MFT's runs end before its valid length")
+	}
+	return nil
+}
+
+// replScanLocations reads a shadow copy's MFT and compares where each file
+// lies with previous (see replMovedRuns).
+func replScanLocations(ctx context.Context, device string, previous []uint64) ([]uint64, []replRun, error) {
+	reader, err := newReplMFTReader(device)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer reader.Close()
+	return replMovedRuns(previous, func(each func(int64, []byte) error) error { return reader.Scan(ctx, each) })
 }
 
 var replMetaOptional = []string{`$MFT::$BITMAP`, `$Volume`, `$AttrDef`, `$Boot`, `$UpCase`, `$Secure:$SDS`, `$Secure:$SDH:$INDEX_ALLOCATION`, `$Secure:$SII:$INDEX_ALLOCATION`,
@@ -503,18 +564,19 @@ func replVolumeKey(name string) string {
 }
 
 type replTrackedVolume struct {
-	key      string
-	name     string
-	label    string
-	disk     int
-	start    int64
-	length   int64
-	mark     replMark
-	track    replVolumeTrack
-	bitmap   []byte
-	tracked  []vmCopyRange // disk ranges tracking chose, for a check round
-	check    bool
-	disabled string
+	key       string
+	name      string
+	label     string
+	disk      int
+	start     int64
+	length    int64
+	mark      replMark
+	track     replVolumeTrack
+	bitmap    []byte
+	locations []uint64      // where each MFT record's data lies (replMFTLocation)
+	tracked   []vmCopyRange // disk ranges tracking chose, for a check round
+	check     bool
+	disabled  string
 }
 
 // replPlanTrackedRound shows free clusters of each simple NTFS volume as
@@ -596,6 +658,30 @@ func replPlanTrackedRound(ctx context.Context, trackDir, job string, numbers []i
 			case previous.JournalID != mark.ID || previous.ClusterSize != clusterSize || previous.Clusters != clusters:
 				reason = "the volume changed size or its journal was recreated"
 			}
+			// Where every file lies, to catch data that moved without
+			// changing (the journal and bitmap miss such moves).
+			var prevLocations []uint64
+			if reason == "" {
+				if prevLocations, err = store.LoadLocations(key); err != nil {
+					reason, prevLocations = "no record yet of where each file lies", nil
+				}
+			}
+			var locations []uint64
+			var moved []replRun
+			err = nil
+			if store != nil && volume.disabled == "" {
+				locations, moved, err = replScanLocations(ctx, device, prevLocations)
+			}
+			if err != nil {
+				if ctx.Err() != nil {
+					return ctx.Err()
+				}
+				if reason == "" {
+					reason = "reading where files lie: " + err.Error()
+				}
+			} else {
+				volume.locations = locations
+			}
 			var tracked []vmCopyRange
 			if reason == "" {
 				prevBitmap, err := store.LoadBitmap(key, len(bitmap))
@@ -609,6 +695,7 @@ func replPlanTrackedRound(ctx context.Context, trackDir, job string, numbers []i
 					if err != nil {
 						reason = err.Error()
 					} else {
+						runs = append(runs, moved...)
 						tracked = append(replVolumeToDisk(info.Start, clusterSize, runs), vmCopyRange{Start: info.Start + info.Length - replTrackTail, Length: replTrackTail})
 						volume.track.LastCheck = previous.LastCheck
 						if now.Sub(previous.LastCheck) >= replTrackCheckEvery {
@@ -674,6 +761,15 @@ func replPlanTrackedRound(ctx context.Context, trackDir, job string, numbers []i
 			}
 			track.JournalID, track.Mark = volume.mark.ID, volume.mark.Next
 			if err := store.SaveBitmap(volume.key, volume.bitmap); err != nil {
+				return err
+			}
+			// Without this round's locations the next round must not
+			// compare with older ones.
+			if volume.locations == nil {
+				if err := store.RemoveLocations(volume.key); err != nil {
+					return err
+				}
+			} else if err := store.SaveLocations(volume.key, volume.locations); err != nil {
 				return err
 			}
 			state.Volumes[volume.key] = track

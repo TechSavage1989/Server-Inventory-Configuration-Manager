@@ -1,3 +1,9 @@
+## Unreleased: change tracking follows files whose data moved — 2026-11-25
+
+- `TestReplicationChangeTrackingMissesNothing` failed now and then on the Windows runner (16 chunks missed after `Optimize-Volume -Defrag`). Cause: data moved into clusters that were in use in both rounds (another file freed them, or defragmentation shuffled files) shows in neither the change journal nor the volume bitmap.
+- Fix: every round scans the shadow copy's MFT (`replMFTReader.Scan`) and keeps a hash of each record's runs (`replMFTLocation`, `<volume>.locations` in the job's tracking folder); records whose runs changed are read. No saved locations, or a failed scan, means a full read.
+- Tests: `TestMFTScanReportsFilesWhoseDataMoved` (synthetic records), and the Windows test now moves a file into a deleted file's clusters with `FSCTL_MOVE_FILE`, the exact case that was missed.
+
 ## Unreleased: automated test failover on HyperCore, Nutanix AHV and Proxmox VE — 2026-11-25
 
 - Agent action `pause-consistent` and job status `consistent`/`pauseAfterRound` (`repl_job.go`): the job pauses only once the receiver's disks hold one whole recovery point; a running round is never cancelled.

@@ -17,6 +17,7 @@ package main
 // volume, so a gap can cost speed but never a stale replica.
 
 import (
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -231,6 +232,45 @@ func (s *replTrackStore) SaveBitmap(key string, bitmap []byte) error {
 		return err
 	}
 	return replWriteFileAtomic(s.bitmapPath(key), bitmap)
+}
+
+func (s *replTrackStore) locationsPath(key string) string {
+	return filepath.Join(s.dir, key+".locations")
+}
+
+// LoadLocations reads the last round's MFT record locations (see
+// replMFTLocation); nil when there are none yet.
+func (s *replTrackStore) LoadLocations(key string) ([]uint64, error) {
+	raw, err := os.ReadFile(s.locationsPath(key))
+	if err != nil {
+		return nil, err
+	}
+	if len(raw)%8 != 0 {
+		return nil, errors.New("the saved file locations are damaged")
+	}
+	list := make([]uint64, len(raw)/8)
+	for i := range list {
+		list[i] = binary.LittleEndian.Uint64(raw[i*8:])
+	}
+	return list, nil
+}
+
+func (s *replTrackStore) RemoveLocations(key string) error {
+	if err := os.Remove(s.locationsPath(key)); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return nil
+}
+
+func (s *replTrackStore) SaveLocations(key string, list []uint64) error {
+	if err := os.MkdirAll(s.dir, 0700); err != nil {
+		return err
+	}
+	raw := make([]byte, len(list)*8)
+	for i, v := range list {
+		binary.LittleEndian.PutUint64(raw[i*8:], v)
+	}
+	return replWriteFileAtomic(s.locationsPath(key), raw)
 }
 
 func (s *replTrackStore) Forget() error { return os.RemoveAll(s.dir) }
