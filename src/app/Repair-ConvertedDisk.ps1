@@ -227,9 +227,16 @@ function Read-Windows {
     $info.Server = ($installation -like 'Server*' -or $info.ProductName -like '*Server*')
     if (-not $info.Server -and $info.Build -ge 22000 -and $info.ProductName -like 'Windows 10*') { $info.ProductName = 'Windows 11' + $info.ProductName.Substring(10) }
     foreach ($uninstall in @($software + '\Microsoft\Windows\CurrentVersion\Uninstall', $software + '\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall')) {
-        foreach ($key in @(Get-ChildItem -LiteralPath $uninstall -ErrorAction SilentlyContinue)) {
-            if ([string](Get-Value $key.PSPath 'DisplayName') -eq 'VMware Tools') { $info.VMwareTools = $true }
+        $parent = Get-Item -LiteralPath $uninstall -ErrorAction SilentlyContinue
+        if (-not $parent) { continue }
+        $childNames = @($parent.GetSubKeyNames())
+        Write-RepairLog ('Read ' + $childNames.Count + ' installed programs under ' + $uninstall.Substring($software.Length + 1) + '.')
+        foreach ($childName in $childNames) {
+            $child = $parent.OpenSubKey($childName)
+            if (-not $child) { continue }
+            try { if ([string]$child.GetValue('DisplayName') -eq 'VMware Tools') { $info.VMwareTools = $true } } finally { $child.Close() }
         }
+        $parent.Close()
     }
     $info.OsTag = Get-OsTag ([pscustomobject]$info)
     $system = Mount-Hive (Get-HiveFile $Root 'SYSTEM') 'SYSTEM'
