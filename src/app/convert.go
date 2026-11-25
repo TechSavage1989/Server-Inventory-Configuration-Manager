@@ -5,7 +5,6 @@ package main
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -44,6 +43,11 @@ type convertRuntime struct {
 	repairTarget string
 	repair       *vmRepairReport
 	log          []string
+	// A send to a host: its stage, progress and result.
+	sendStage  string
+	sendDone   int64
+	sendTotal  int64
+	sendResult *vmSendResult
 }
 
 type convertFormat struct {
@@ -74,6 +78,7 @@ type convertStateResponse struct {
 	Repair          *vmRepairReport  `json:"repair"`
 	RepairTargets   []vmRepairTarget `json:"repairTargets"`
 	Log             []string         `json:"log"`
+	Send            convertSendState `json:"send"`
 }
 
 // Caller holds a.mu.
@@ -103,6 +108,7 @@ func (a *application) convertSnapshotLocked() convertStateResponse {
 		Formats: formats, StartedAtUnixMs: millis(a.convert.startedAt), EndedAtUnixMs: millis(a.convert.endedAt),
 		Task: vmNonEmpty(a.convert.task, "convert"), RepairTarget: a.convert.repairTarget, Repair: a.convert.repair,
 		RepairTargets: vmRepairTargets, Log: append([]string{}, a.convert.log...),
+		Send: a.convertSendStateLocked(),
 	}
 }
 
@@ -371,24 +377,6 @@ func (a *application) handleConvertStart(response http.ResponseWriter, request *
 			a.convert.status, a.convert.message = "failed", err.Error()
 		}
 	}()
-}
-
-func convertDoneMessage(result *vmConvertResult) string {
-	parts := []string{}
-	switch {
-	case result.Passes > 1 && result.Progress.Changed == 0 && result.Progress.BytesWritten == 0:
-		parts = append(parts, "Already up to date: nothing changed since the last pass.")
-	case result.Passes > 1:
-		parts = append(parts, fmt.Sprintf("Updated (pass %d): %d changed chunks rewritten.", result.Passes, result.Progress.Changed))
-	case result.Resumed:
-		parts = append(parts, "Converted, continuing where the earlier run stopped.")
-	default:
-		parts = append(parts, "Converted.")
-	}
-	if result.Verified {
-		parts = append(parts, "Every chunk was read back and matches the source.")
-	}
-	return strings.Join(parts, " ")
 }
 
 func (a *application) handleConvertCancel(response http.ResponseWriter, request *http.Request) {

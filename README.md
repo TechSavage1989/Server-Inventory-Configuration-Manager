@@ -29,7 +29,7 @@ A portable **Windows x64 application** for collecting server inventory, exportin
 | Export DHCP, NPS, print, IIS, DNS, firewall, registry and more for recovery. | See what a package can restore onto this server, and why anything cannot. | Restore chosen configuration with a rollback copy saved first. |
 | Move file shares from an old server: files, NTFS permissions and share settings. | Check space, folders and accounts before copying, and verify after cutover. | Copy while users keep working, then cut over with one final copy. |
 | Read a vCenter, ESXi or Hyper-V inventory and check each VM for Hyper-V, HyperCore, Nutanix AHV, Proxmox VE, Azure, EC2 or a physical server. | Plan waves, map networks and storage, check the new cluster's size or cloud quota, write a runbook. | Record a VM's settings before cutover, fix it up after, and compare before and after. |
-| Convert a VMDK, VHD, VHDX, qcow2 or raw disk to any of them, merging snapshot chains, then add VirtIO or server drivers so Windows starts on its new platform. | See the format, size, data and chain of a disk before converting it. | Stop and continue a conversion, or repeat it to copy only what changed. |
+| Convert a VMDK, VHD, VHDX, qcow2 or raw disk to any of them, merging snapshot chains, add VirtIO or server drivers so Windows starts on its new platform, and send it straight to ESXi, Hyper-V, Proxmox VE, Nutanix or HyperCore as a new VM. | See the format, size, data and chain of a disk before converting it. | Stop and continue a conversion, or repeat it to copy only what changed. |
 
 ## Screenshots
 
@@ -81,6 +81,10 @@ A portable **Windows x64 application** for collecting server inventory, exportin
 **Convert a VMDK, VHD, VHDX, qcow2 or raw disk, with its snapshot chain merged and every chunk checked**
 
 <img src="docs/images/disk-converter.png" alt="Disk converter with a three-disk VMDK snapshot chain converted to VHDX" width="900">
+
+**Send a converted disk straight to Proxmox VE, Nutanix, HyperCore, ESXi or Hyper-V as a new VM**
+
+<img src="docs/images/disk-converter-send.png" alt="Send to a host with a Proxmox VE connection and the new VM's settings" width="900">
 
 ### Keep working
 
@@ -227,6 +231,25 @@ A Windows disk copied from VMware usually starts only on VMware: its new disk co
 4. **Apply fix-ups** adds the drivers with DISM, makes the platform's storage drivers start at boot and, if ticked, turns off the VMware Tools services. **Undo fix-ups** puts every value back and removes the drivers it added.
 
 Only the converted disk changes, never the source or this computer. Every changed value and a copy of the disk's SYSTEM registry hive are saved under `%LOCALAPPDATA%\Server Inventory Configuration Manager\Repair` first. VHD and VHDX disks can be fixed up; for qcow2, VMDK or raw, convert to VHDX, fix it up, then convert that to the final format. After a fix-up the disk differs from its source, so converting again needs a new output file. DISM on this computer must be as new as the Windows version in the disk.
+
+### Send a disk to a host and create the VM
+
+Under **Send to a host and create the VM**, the Disk converter turns a disk straight into a new VM on another platform, in the style of a V2V converter's remote destinations:
+
+| Destination | What happens |
+| --- | --- |
+| VMware ESXi or vCenter | A stream-optimized VMDK is written in the folder you choose, then imported through vSphere as a new VM (datacenter, cluster or host, datastore, network, LSI Logic SAS or VMware Paravirtual controller, VMXNET 3 or E1000E adapter, thin or thick). |
+| Hyper-V on this computer | The disk is converted to a VHDX in the folder you choose and a generation 1 (BIOS) or generation 2 (UEFI) VM is created with it, with an optional virtual switch and VLAN. Run the application on the Hyper-V host. |
+| Proxmox VE | The disk is uploaded as qcow2 (or as it is, when it already is qcow2 or raw) to a file storage with the **Import** content type (Proxmox VE 8.4 or later), then imported into a new VM on the storage you choose. Use an API token. |
+| Nutanix AHV | The disk is uploaded to Prism Central as a disk image and a new VM is cloned from it. |
+| Scale HyperCore | The disk is uploaded as a virtual disk (HyperCore 9.2 or later) and attached to a new VM. |
+
+1. Choose the disk to send (the disk you checked, or the last converted file, is filled in) and the destination.
+2. **Connect** with the server's name and an account (for Proxmox VE an API token ID and secret). Nothing changes on the destination yet; its datacenters, hosts, storage and networks are listed. A certificate Windows does not trust is shown with its SHA-256 thumbprint and used only after **Trust this certificate**.
+3. Set the new VM's name, guest operating system, processors, memory, firmware (filled in from the disk: UEFI for GPT, BIOS for MBR), Secure Boot, TPM, storage, network, disk controller and adapter, and the folder for the converted file.
+4. Type the VM's name again and choose **Send and create the VM**.
+
+An image or VM name already used on the destination stops the send before anything is uploaded, and nothing there is replaced or deleted. The new VM is left off unless **Start the new VM** is ticked. The password or token secret stays in memory until **Forget** or the application closes; it is never saved or logged. For a Windows disk, fix it up first (convert to VHDX, run **Apply fix-ups**, then send that VHDX). **Stop** before the upload keeps the conversion so the next send continues it; a partly uploaded image has to be deleted on the destination before sending again.
 
 ## Updates and settings
 

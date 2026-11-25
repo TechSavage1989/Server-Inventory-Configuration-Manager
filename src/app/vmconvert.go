@@ -369,3 +369,21 @@ func vmConvertSuggestedName(sourcePath, format string) string {
 	}
 	return base + extension
 }
+
+func convertDoneMessage(result *vmConvertResult) string {
+	parts := []string{}
+	switch {
+	case result.Passes > 1 && result.Progress.Changed == 0 && result.Progress.BytesWritten == 0:
+		parts = append(parts, "Already up to date: nothing changed since the last pass.")
+	case result.Passes > 1:
+		parts = append(parts, fmt.Sprintf("Updated (pass %d): %d changed chunks rewritten.", result.Passes, result.Progress.Changed))
+	case result.Resumed:
+		parts = append(parts, "Converted, continuing where the earlier run stopped.")
+	default:
+		parts = append(parts, "Converted.")
+	}
+	if result.Verified {
+		parts = append(parts, "Every chunk was read back and matches the source.")
+	}
+	return strings.Join(parts, " ")
+}
