@@ -160,6 +160,26 @@ jobs:
             build/acl-validation/
             dist/
 
+  disks:
+    # Disk converter cross-checks: QEMU writes every input variant the readers
+    # must understand, and qemu-img checks and compares every output format.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.20.14'
+          cache: false
+      - name: Install qemu-img
+        run: sudo apt-get update && sudo apt-get install -y qemu-utils
+      - name: Disk format and converter tests against QEMU
+        run: |
+          go mod download
+          go test -v -count=1 -run 'Convert|Probe|QEMU|ReadsEvery|ReadsQEMU|Copy|VHDX|VMDK' ./src/app 2>&1 | tee build-disk-tests.txt
+          test "${PIPESTATUS[0]}" -eq 0
+          if grep -q -- '--- SKIP' build-disk-tests.txt; then echo 'QEMU tests were skipped'; exit 1; fi
+
   restore:
     # Real restore round trips: installs DHCP, DNS, IIS, NPS and Print Server on
     # the disposable runner, exports synthetic configuration the way the

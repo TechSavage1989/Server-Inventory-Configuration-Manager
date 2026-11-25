@@ -1,3 +1,13 @@
+## Unreleased: phase 4 step 1, disk converter — 2026-11-25
+
+Owner-approved phase 4 (disk converter between VMDK, VHDX, VHD, qcow2 and raw, with UI; Hyper-V as a migration source follows). StarWind V2V Converter is a feature reference only; its installer in the project files was not run or inspected.
+
+- Readers (`vmdisk_image.go`, `vmdisk_vhd.go`, `vmdisk_vhdx.go`, `vmdisk_qcow2.go`, `vmdisk_vmdk.go`): format probing by signature, parent chains up to 64 deep with parent ID checks, `Allocated()` ranges so empty space is never read. `vmcopy_vhdx.go` gained `allowDifferencing`, `logical`, `dataGUID` and `metaOffset` (default behaviour unchanged); `vmVerifyCopy` now takes any `io.ReaderAt`.
+- Writers and engine (`vmconvert.go`): seven output formats behind `vmDiskWriter`, `vmImageSink` for `vmCopyTo`, `vmConvertDisk`/`vmConvertImage`. Outputs keep the copy engine's `<target>.copy.json` record.
+- UI (`convert.go`, `index.html`): Disk converter tab (Alt+7) with Browse (native `GetOpenFileNameW` picker), Check disk, format cards with their platforms and size limits, Choose folder, verify, Stop/Continue and Open folder. Narrow windows hide idle tab badges so seven tabs fit at 784 px.
+- Tests: `vmconvert_test.go` (round trip and delta pass for every output, sparse sources read only allocated areas, stop and resume, never-overwrite rules, size limits, probe refusals; QEMU reads every output, `qemu-img check` passes for qcow2/VHDX/VMDK outputs including after a delta pass, and every QEMU-written input variant and qcow2/VMDK backing chain reads back identically) and `vmconvert_windows_test.go` (Windows mounts converted VHDs; diskpart differencing VHD/VHDX chains with partial-block writes read merged). `scripts/test_workspace.cjs` covers the tab and its low-resolution layout. New CI job `disks` (Ubuntu, qemu-utils) runs the QEMU cross-checks.
+- Not yet: Hyper-V checkpoints of running VMs (step 2), converting straight from a vSphere datastore (use the VMware copy engine), streamOptimized VMDK output, and receiver (network) targets for non-VHDX formats.
+
 ## Unreleased: interactive VMware Environment view — 2026-11-25
 
 Owner: "the vmhost cluster section should have the hardware info and licensing etc part of the sections and everything should be linked and interactive. also in the readiness section, the number of hosts should be one of the cards and clickable. also each vm in the vm list should be clickable and present details or options directly when selected". Their screenshot showed All VMs 10 beside a list of 14 VMs (the 4 vCenter/vCLS VMs were left out of the card).

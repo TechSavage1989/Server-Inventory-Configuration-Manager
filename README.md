@@ -17,7 +17,7 @@
   <img src="docs/images/hero.png" alt="Server Inventory and Migration Manager main window" width="900">
 </p>
 
-A portable **Windows x64 application** for collecting server inventory, exporting supported configurations, reviewing clear, searchable reports, restoring configuration, moving file shares to a new server, and moving VMs off VMware to Hyper-V, Scale Computing HyperCore, Nutanix AHV, Proxmox VE, Azure, Amazon EC2 or a physical server.
+A portable **Windows x64 application** for collecting server inventory, exporting supported configurations, reviewing clear, searchable reports, restoring configuration, moving file shares to a new server, moving VMs off VMware to Hyper-V, Scale Computing HyperCore, Nutanix AHV, Proxmox VE, Azure, Amazon EC2 or a physical server, and converting virtual disks between VMDK, VHDX, VHD, qcow2 and raw.
 
 ## Features
 
@@ -29,6 +29,7 @@ A portable **Windows x64 application** for collecting server inventory, exportin
 | Export DHCP, NPS, print, IIS, DNS, firewall, registry and more for recovery. | See what a package can restore onto this server, and why anything cannot. | Restore chosen configuration with a rollback copy saved first. |
 | Move file shares from an old server: files, NTFS permissions and share settings. | Check space, folders and accounts before copying, and verify after cutover. | Copy while users keep working, then cut over with one final copy. |
 | Read a vCenter or ESXi inventory and check each VM for Hyper-V, HyperCore, Nutanix AHV, Proxmox VE, Azure, EC2 or a physical server. | Plan waves, map networks and storage, check the new cluster's size or cloud quota, write a runbook. | Record a VM's settings before cutover, fix it up after, and compare before and after. |
+| Convert a VMDK, VHD, VHDX, qcow2 or raw disk to any of them, merging snapshot chains. | See the format, size, data and chain of a disk before converting it. | Stop and continue a conversion, or repeat it to copy only what changed. |
 
 ## Screenshots
 
@@ -70,6 +71,12 @@ A portable **Windows x64 application** for collecting server inventory, exportin
   <tr><td colspan="2"><b>Select any VM for its readiness, configuration, disks, networks and actions, with every host, cluster, datastore and network linked</b><br><img src="docs/images/vmware-vm-details.png" alt="Select any VM for its readiness, configuration, disks, networks and actions" width="880"></td></tr>
   <tr><td colspan="2"><b>Each cluster with its hosts' hardware, licensing, network, storage, services and VMs</b><br><img src="docs/images/vmware-browse.png" alt="Each cluster with its hosts' hardware, licensing, network, storage, services and VMs" width="880"></td></tr>
 </table>
+
+### Convert disks
+
+**Convert a VMDK, VHD, VHDX, qcow2 or raw disk, with its snapshot chain merged and every chunk checked**
+
+<img src="docs/images/disk-converter.png" alt="Disk converter with a three-disk VMDK snapshot chain converted to VHDX" width="900">
 
 ### Keep working
 
@@ -174,7 +181,7 @@ The **VMware** tab (Alt+6) helps move virtual machines from VMware vCenter or ES
 | Amazon EC2 | AWS ENA and NVMe | AWS Application Migration Service | Account quota |
 | Physical server (V2P) | The server vendor's storage and network drivers | A bare-metal restore to different hardware | One server per VM |
 
-The application changes nothing in vCenter or ESXi unless you choose **Prepare source** for one VM, and it does not convert or copy disks yet: use the copy tool for your platform. The **This VM** checks run on any Windows computer, so they also help with physical-to-virtual and virtual-to-virtual moves from other platforms.
+The application changes nothing in vCenter or ESXi unless you choose **Prepare source** for one VM. To change a disk file's format, for example an exported VMDK into a VHDX or qcow2, use the **Disk converter** tab. The **This VM** checks run on any Windows computer, so they also help with physical-to-virtual and virtual-to-virtual moves from other platforms.
 
 - **Environment:** type the vCenter or ESXi host name and an account. A read-only account is enough. The password is kept in memory only, until you close the application or choose **Forget**, and is never saved. If Windows does not trust the server's certificate, the tab shows its SHA-256 thumbprint and reads the server only after you choose **Trust this certificate**. Every VM is then checked and marked **Ready**, **Review first** or **Blocked**, with what to fix and how: unsupported or old guest systems, Hyper-V generation and Azure disk limits, drivers the platform needs, BIOS firmware on modern servers, snapshots, shared or RDM disks, independent disks, encryption, vTPM, passthrough and USB devices, connected ISOs, VMware Tools and static IP addresses. vCLS agents, the vCenter appliance and nested ESXi hosts are marked **Not moved** and left out of the plan, backup snapshots name the backup software that made them, and Windows domain controllers get a warning to move them cold. It is a full discovery of the environment as well: for every host, the hardware, serial number, BIOS, CPU and memory use, physical network adapters, virtual switches, VMkernel ports, storage adapters (with FC WWPNs and iSCSI names), storage devices, DNS, gateway, NTP, services, installed software packages (VIBs), alarms, configuration issues and certificate expiry; the licenses with edition, usage, expiry and what each is assigned to (keys show only their first and last group); and cluster EVC, HA, DRS and vSAN settings, resource pools, vApps and distributed switches. The cards above the VM list count the hosts and the VMs by readiness; they add up to **All VMs**, and VMware's own system VMs are counted as **Not moved**. Select a VM (click it, or use the arrow keys) to open its details beside the list: readiness for the chosen platform and the others, configuration, disks with their datastores, network adapters, snapshots, and actions such as **Prepare on VMware** and **Set its wave**. Every host, cluster, datastore, network and license name there opens its own details, and **Back** returns. The **Hosts** card opens **Browse clusters, hosts, licenses, datastores and networks** under the list, which starts with what needs attention, such as a license or host certificate that expires soon. Group by cluster and host to see each cluster's HA and DRS settings, licensing, hardware and datastores, and in each host its VMs, hardware and firmware, management and time settings, license, network, storage, services, software packages and alarms; by datastore to see the hosts that mount it and every VM disk on it with its file; or by network to see each VM adapter with its addresses. Search narrows all three. The inventory, a readiness report and a discovery report (HTML, with every host's VMs, every datastore's disks and every network's VMs linked to each other), and CSV files for VMs, disks, network adapters, snapshots, hosts, clusters, datastores, networks, licenses and each host's network, storage, services and software are written to a `VMware_<server>_<time>` folder in your output folder. **Open a saved inventory** plans from that folder later, away from the customer's network.
 - **Prepare source:** while the session is still connected, a VM's details offer to remove all its snapshots, shut down the guest through VMware Tools (never a forced power-off), remove its virtual TPM and decrypt the VM and its disks, which VMs encrypted for a vTPM need before any copy tool can read them. Only the steps the VM needs are ticked, you type the VM's name to confirm, and the VM's settings are saved to `%LOCALAPPDATA%\Server Inventory Configuration Manager\VMware\<server>\Prepare\` first. The account needs rights to change the VM, and decrypting needs vCenter's key provider. Before removing a vTPM from a Windows VM with BitLocker, use **BitLocker keys** on the **This VM** side inside that VM: it saves the recovery keys to a file in your output folder and suspends protection so Windows still starts without the TPM.
@@ -183,6 +190,22 @@ The application changes nothing in vCenter or ESXi unless you choose **Prepare s
 - **Before and after:** collect an inventory of the server on the Setup tab before the move and again after it. Choose both packages (or use the last collection) and **Compare**. Services, applications, Windows features, IP addresses, gateways, DNS servers, listening ports, volumes, disks, shares, scheduled tasks, local users and groups, certificates, firewall rules, IIS sites and printers are compared. Changes you would expect from a move, such as VMware Tools going away, are counted separately from the ones to check. A comparison report (HTML) and CSV are written to a `Comparison_<server>_<time>` folder.
 
 Collection, restore, file migration, updates and closing the application wait while a VMware step runs.
+
+## Convert virtual disks
+
+The **Disk converter** tab (Alt+7) turns one virtual disk file into another format, in the style of a V2V disk converter. It reads:
+
+- **VMDK:** descriptors with flat extents (ESXi `-flat.vmdk`, monolithicFlat, twoGbMaxExtentFlat), sparse disks (monolithicSparse, twoGbMaxExtentSparse), stream-optimized disks from OVA/OVF exports, and VMware Workstation snapshot chains. ESXi snapshot deltas (`-delta.vmdk`, `-sesparse.vmdk`) are refused: remove the VM's snapshots in vSphere (or with **Prepare source**) and convert the base disk.
+- **VHDX and VHD:** fixed, dynamic and differencing disks, including Hyper-V checkpoint chains (`.avhdx`). Convert a checkpoint chain while the VM is off; a parent that has changed since the checkpoint was taken is refused.
+- **qcow2** (versions 2 and 3, compressed clusters and backing files) and **raw** images.
+
+It writes VHDX (dynamic), qcow2, VMDK (monolithic sparse, or the ESXi layout of a descriptor and `-flat.vmdk`), VHD (dynamic or fixed) and raw images. Each format lists the platforms that use it, and formats too small for the disk (VHD and sparse VMDK hold up to 2040 GB) cannot be chosen.
+
+1. Choose **Browse…** (or type the path and choose **Check disk**). The tab shows the format, the disk size, how much of it holds data and, for a chain, every file in it.
+2. Choose the output format. The new file is suggested beside the source; type another path or use **Choose folder…**.
+3. Choose **Convert**. Only the parts of the source that hold data are read, empty space stays empty in the new file, and with **Read the converted disk back** ticked every chunk is checked against the source at the end.
+
+The source is only read, and an existing file is never replaced. **Stop** keeps what was copied: **Continue** (or converting again to the same file) carries on from there. Converting again after the source changed, for example a final pass after the VM is shut down, rewrites only the 4 MB chunks that changed. Each output keeps a small `<file>.copy.json` record beside it for this; delete it with the file. Collection, restore, file migration, VMware steps, updates and closing the application wait while a conversion runs.
 
 ## Updates and settings
 

@@ -434,8 +434,10 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
 .migrate-log-block{margin-top:12px}.migrate-log{min-height:110px;max-height:240px;overflow:auto;margin-top:6px}
 .migrate-detail{margin-top:6px;font-size:11px;color:#6a7a8e}
 @media(max-width:900px){.migrate-cards{grid-template-columns:1fr}.migrate-dest{grid-template-columns:1fr}
- /* Five tabs: keep each label and its status badge on one line. */
- .tab-button{min-width:0;flex:1 1 auto;padding:0 8px;white-space:nowrap}.tab-badge{margin-left:4px;padding:1px 5px}}
+ /* Seven tabs: keep each label and its status badge on one line, never
+    overlapping; idle badges (Ready, None) give way so every tab fits, and the
+    bar scrolls rather than clipping if busy badges still do not fit. */
+ .tab-button{min-width:0;flex:1 0 auto;padding:0 8px;white-space:nowrap}.tab-badge{margin-left:4px;padding:1px 5px}.tab-button:not(.active) .tab-badge[data-idle]{display:none}}
 @media(max-height:720px){.migrate-section{margin-top:8px;padding:9px 11px}.migrate-steps{margin-bottom:6px}.migrate-log{max-height:150px;min-height:80px}}
 @media(max-width:900px){.restore-components{grid-template-columns:1fr}.restore-facts{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:520px){.restore-facts{grid-template-columns:1fr}}
@@ -518,6 +520,20 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
 .vm-check{display:flex;align-items:flex-start;gap:7px;margin-top:6px;cursor:pointer;overflow-wrap:anywhere}.vm-check input{width:15px;height:15px;margin:2px 0 0;flex:none;accent-color:#2563eb}
 .vm-cert dl{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:3px 10px;margin:8px 0 0}.vm-cert dt{font-weight:650}.vm-cert dd{margin:0;overflow-wrap:anywhere}
 @media(max-width:900px){.vm-two,.vm-guest-cards{grid-template-columns:1fr}}
+.cv-body{overflow:auto;min-height:0;flex:1 1 auto}
+.cv-section{margin-bottom:16px}.cv-section:last-child{margin-bottom:0}
+.cv-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.cv-row input[type=text]{flex:1 1 320px;min-width:0;height:34px;box-sizing:border-box;border:1px solid #bcc9d9;border-radius:7px;padding:0 10px;font:inherit;font-size:13px}
+.cv-formats{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px}
+.cv-format{display:flex;gap:9px;align-items:flex-start;border:1px solid #dbe3ed;border-radius:9px;padding:8px 10px;background:#fff;cursor:pointer;min-width:0}
+.cv-format:has(input:checked){border-color:#2563eb;background:#f7faff;box-shadow:inset 0 0 0 1px #2563eb}
+.cv-format input{margin-top:3px;flex:0 0 auto}.cv-format strong{display:block;font-size:13px;color:#1b2942}.cv-format small{display:block;font-size:11px;line-height:1.35;color:#52647c;margin-top:2px}
+.cv-format.unavailable{opacity:.6}
+.cv-check{display:flex;gap:8px;align-items:center;margin-top:10px;font-size:12px;color:#334156}
+.cv-hint{margin-top:6px;font-size:11.5px;color:#596b80}
+.cv-notes{margin:10px 0 0;padding-left:18px;font-size:12px;color:#34465f}.cv-notes:empty{display:none}
+.cv-stats{display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:8px;font-size:12px;color:#34465f}
+@media(max-height:720px){.cv-section{margin-bottom:10px}.cv-formats{grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:6px}.cv-format{padding:5px 8px}.cv-format small{display:none}}
 @media(max-height:720px){.vm-table-wrap{max-height:230px}.vm-bar{padding-top:6px}.vm-counts{margin-top:6px}.vm-count strong{font-size:15px}}
 @media(max-height:720px){.restore-log{max-height:160px;min-height:90px}.restore-facts{margin-top:10px;padding:8px 10px}.restore-components{margin-top:10px}.restore-dialog-body{max-height:calc(100vh - 120px)}}
 
@@ -584,6 +600,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       <button class="tab-button" id="tabButtonRestore" role="tab" aria-controls="tabRestore" aria-selected="false" tabindex="-1" type="button" data-tab="restore">Restore <span class="tab-badge" id="restoreTabBadge">Ready</span></button>
       <button class="tab-button" id="tabButtonMigrate" role="tab" aria-controls="tabMigrate" aria-selected="false" tabindex="-1" type="button" data-tab="migrate">File shares <span class="tab-badge" id="migrateTabBadge">Ready</span></button>
       <button class="tab-button" id="tabButtonVmware" role="tab" aria-controls="tabVmware" aria-selected="false" tabindex="-1" type="button" data-tab="vmware">VMware <span class="tab-badge" id="vmwareTabBadge">Ready</span></button>
+      <button class="tab-button" id="tabButtonConvert" role="tab" aria-controls="tabConvert" aria-selected="false" tabindex="-1" type="button" data-tab="convert">Disk converter <span class="tab-badge" id="convertTabBadge">Ready</span></button>
     </div>
 
     <div class="app-notice hidden" id="appNotice" role="status"><span id="appNoticeText"></span><button type="button" id="dismissNotice" aria-label="Dismiss message">Dismiss</button></div>
@@ -904,13 +921,46 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       </div></div>
     </section>
 
+    <section class="tab-panel" id="tabConvert" role="tabpanel" aria-labelledby="tabButtonConvert">
+      <div class="restore-wrap"><div class="card">
+        <div class="card-header"><div><div class="card-title">Convert a virtual disk</div><div class="card-subtitle">Turn a VMDK, VHD, VHDX, qcow2 or raw image into the format the new platform needs. The source is only read. Differencing disks, snapshots and backing files are merged into one disk.</div></div></div>
+        <div class="card-body cv-body">
+          <div class="cv-section">
+            <label class="field-label" for="cvSource">Disk to convert</label>
+            <div class="cv-row"><input id="cvSource" type="text" spellcheck="false" autocomplete="off" placeholder="D:\VMs\server\server.vmdk"><button class="secondary-button" id="cvBrowse" type="button">Browse&hellip;</button><button class="secondary-button" id="cvInspect" type="button">Check disk</button></div>
+            <div class="restore-status" id="cvSourceStatus" role="status" aria-live="polite"></div>
+            <div class="hidden" id="cvInfo">
+              <div class="restore-facts"><div><span class="restore-fact-label">Format</span><span class="restore-fact-value" id="cvInfoFormat"></span></div><div><span class="restore-fact-label">Disk size</span><span class="restore-fact-value" id="cvInfoSize"></span></div><div><span class="restore-fact-label">Data to copy</span><span class="restore-fact-value" id="cvInfoData"></span></div><div><span class="restore-fact-label">Files</span><span class="restore-fact-value" id="cvInfoFiles"></span></div></div>
+              <ul class="cv-notes" id="cvInfoNotes"></ul>
+            </div>
+          </div>
+          <div class="cv-section">
+            <div class="field-label" id="cvFormatLabel">Convert to</div>
+            <div class="cv-formats" id="cvFormats" role="radiogroup" aria-labelledby="cvFormatLabel"></div>
+          </div>
+          <div class="cv-section">
+            <label class="field-label" for="cvTarget">Save the converted disk as</label>
+            <div class="cv-row"><input id="cvTarget" type="text" spellcheck="false" autocomplete="off" placeholder="E:\Hyper-V\server.vhdx"><button class="secondary-button" id="cvFolder" type="button">Choose folder&hellip;</button></div>
+            <label class="cv-check"><input id="cvVerify" type="checkbox" checked> Read the converted disk back and check every chunk against the source</label>
+            <div class="cv-hint">An existing file is never replaced. Converting again to the same file after the source changed rewrites only the parts that changed, and a stopped conversion continues where it stopped.</div>
+          </div>
+          <div class="cv-section hidden" id="cvProgress">
+            <div class="status-header"><div class="status-left"><div class="status-indicator" id="cvIndicator"></div><div><div class="status-title" id="cvRunTitle">Converting</div><div class="restore-run-message" id="cvRunMessage"></div></div></div><div class="elapsed" id="cvElapsed">00:00:00</div></div>
+            <div class="progress-track" id="cvBar" role="progressbar" aria-label="Conversion progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="progress-fill" id="cvFill"></div></div>
+            <div class="cv-stats" id="cvStats"></div>
+          </div>
+        </div>
+        <div class="action-bar setup-action-bar"><div class="scope-note"><span id="cvSummary">Choose a disk to convert.</span></div><div class="setup-actions"><button class="secondary-button danger-button hidden" id="cvStop" type="button">Stop</button><button class="secondary-button hidden" id="cvOpenFolder" type="button">Open folder</button><button class="primary-button" id="cvStart" type="button" disabled>Convert</button></div></div>
+      </div></div>
+    </section>
+
     <div class="footer">All collection and report viewing remains local to this computer. No server inventory is uploaded by the application.</div>
   </div>
 </div>
 <dialog class="shortcuts-dialog" id="shortcutsDialog" aria-labelledby="shortcutsTitle">
   <div class="shortcuts-head"><h2 id="shortcutsTitle">Keyboard shortcuts</h2><button class="secondary-button" id="shortcutsClose" type="button">Close</button></div>
   <dl class="shortcuts-list">
-    <dt><kbd>Alt</kbd> + <kbd>1</kbd> to <kbd>6</kbd></dt><dd>Go to Setup, Collection, Report Viewer, Restore, File shares or VMware</dd>
+    <dt><kbd>Alt</kbd> + <kbd>1</kbd> to <kbd>7</kbd></dt><dd>Go to Setup, Collection, Report Viewer, Restore, File shares, VMware or Disk converter</dd>
     <dt><kbd>/</kbd> or <kbd>Ctrl</kbd> + <kbd>K</kbd></dt><dd>Search the current tab: categories, log or report</dd>
     <dt><kbd>Esc</kbd></dt><dd>Clear the search you are typing in</dd>
     <dt><kbd>Ctrl</kbd> + <kbd>S</kbd></dt><dd>Save collection choices (Setup)</dd>
@@ -1073,7 +1123,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   }
   function switchTab(name) {
     activeTab = name;
-    var names = ['setup','collection','report','restore','migrate','vmware'];
+    var names = ['setup','collection','report','restore','migrate','vmware','convert'];
     for (var i=0;i<names.length;i++) {
       var n=names[i];
       byId('tab'+n.charAt(0).toUpperCase()+n.slice(1)).className = 'tab-panel' + (n===name ? ' active' : '');
@@ -1119,7 +1169,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   }
   function setConfigDisabled(disabled){
     // A running restore, migration or VMware step also locks collection; the server enforces the same rule.
-    disabled=!!disabled||configurationBusy||restoreIsRunning(latestState&&latestState.restore)||migrateIsRunning()||vmwareIsRunning();
+    disabled=!!disabled||configurationBusy||restoreIsRunning(latestState&&latestState.restore)||migrateIsRunning()||vmwareIsRunning()||convertIsRunning();
     var nodes=document.querySelectorAll('#configBody input,#configBody button'); for(var i=0;i<nodes.length;i++){nodes[i].disabled=disabled;}
     byId('startButton').disabled=!!disabled;byId('saveChoicesButton').disabled=!!disabled;
     byId('configBody').className=disabled?'card-body locked':'card-body'; if(!disabled){syncCategoryState();}
@@ -1357,6 +1407,78 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       if(latestState){renderACLExport(latestState);}
     });
   }
+  // Disk converter tab.
+  var cvFormat='vhdx',cvInfo=null,cvSuggested='',cvTargetEdited=false,cvPending=false,cvFormatsBuilt=false,cvFormats=[],cvLastStatus='';
+  function cvFormatById(id){for(var i=0;i<cvFormats.length;i++){if(cvFormats[i].id===id){return cvFormats[i];}}return null;}
+  function cvExtension(id){var f=cvFormatById(id);return f?f.extension:'.img';}
+  function cvBusyElsewhere(state){return !!(state.running||(state.restore&&state.restore.status==='running')||(state.migrate&&state.migrate.running)||(state.vmware&&state.vmware.running));}
+  function cvBuildFormats(formats){
+    cvFormats=formats||[];if(cvFormatsBuilt||!cvFormats.length){return;}cvFormatsBuilt=true;
+    var box=byId('cvFormats');box.textContent='';
+    cvFormats.forEach(function(f){var label=document.createElement('label');label.className='cv-format';label.setAttribute('data-format',f.id);
+      var input=document.createElement('input');input.type='radio';input.name='cvFormat';input.value=f.id;input.checked=f.id===cvFormat;input.addEventListener('change',function(){cvChooseFormat(f.id);});
+      var text=document.createElement('span'),name=document.createElement('strong'),use=document.createElement('small');name.textContent=f.name;use.textContent=f.use;text.appendChild(name);text.appendChild(use);label.appendChild(input);label.appendChild(text);box.appendChild(label);});
+  }
+  function cvChooseFormat(id){
+    var old=cvExtension(cvFormat);cvFormat=id;var target=byId('cvTarget').value.trim(),ext=cvExtension(id);
+    if(cvSuggested&&(!cvTargetEdited||target.toLowerCase().slice(-old.length)===old.toLowerCase())){var base=(cvTargetEdited?target:cvSuggested);base=base.slice(0,base.length-(base.toLowerCase().slice(-old.length)===old.toLowerCase()?old.length:0));byId('cvTarget').value=base+ext;}
+    cvSuggested=cvSuggested?cvSuggested.replace(/\.[^.\\]+$/,'')+ext:'';
+    if(latestState){renderConvert(latestState);}
+  }
+  function cvShowInfo(info){
+    cvInfo=info;var box=byId('cvInfo');if(!info){box.className='hidden';return;}
+    box.className='';byId('cvInfoFormat').textContent=info.formatName+(info.variant?' ('+info.variant+')':'');byId('cvInfoSize').textContent=formatBytesShort(info.virtualSize);
+    byId('cvInfoData').textContent=info.dataBytes?'Up to '+formatBytesShort(info.dataBytes):'Empty';byId('cvInfoFiles').textContent=(info.chain&&info.chain.length>1)?info.chain.length+' disks in the chain':'1 disk';
+    var notes=byId('cvInfoNotes');notes.textContent='';(info.notes||[]).forEach(function(n){var li=document.createElement('li');li.textContent=n;notes.appendChild(li);});
+    if(info.chain&&info.chain.length>1){var li=document.createElement('li');li.textContent='Chain: '+info.chain.join(' → ');notes.appendChild(li);}
+  }
+  function cvInspect(){
+    var path=byId('cvSource').value.trim(),status=byId('cvSourceStatus');
+    if(!path){status.textContent='Choose the disk image with Browse, or type its full path.';status.className='restore-status error';return;}
+    cvPending=true;status.textContent='Checking the disk…';status.className='restore-status';cvShowInfo(null);if(latestState){renderConvert(latestState);}
+    request('POST','/api/convert/inspect',{path:path,format:cvFormat},function(err,data){cvPending=false;
+      if(err){status.textContent=err;status.className='restore-status error';cvSuggested='';}
+      else{status.textContent='';cvShowInfo(data.info);cvSuggested=data.suggested||'';if(!cvTargetEdited||!byId('cvTarget').value.trim()){byId('cvTarget').value=cvSuggested;cvTargetEdited=false;}}
+      if(latestState){renderConvert(latestState);}});
+  }
+  function cvBrowse(kind){
+    cvPending=true;if(latestState){renderConvert(latestState);}
+    request('POST','/api/convert/browse',{kind:kind,current:byId('cvSource').value.trim()},function(err,data){cvPending=false;
+      if(err){notice(err,true);}
+      else if(data.selected&&kind==='folder'){var name=(byId('cvTarget').value.trim()||cvSuggested).split('\\').pop()||('converted'+cvExtension(cvFormat));byId('cvTarget').value=data.path.replace(/\\+$/,'')+'\\'+name;cvTargetEdited=true;}
+      else if(data.selected){byId('cvSource').value=data.path;cvTargetEdited=false;cvInspect();return;}
+      if(latestState){renderConvert(latestState);}});
+  }
+  function cvStart(){
+    var source=byId('cvSource').value.trim(),target=byId('cvTarget').value.trim();
+    if(!source||!target){notice('Choose the disk to convert and where to save it.',true);return;}
+    cvPending=true;if(latestState){renderConvert(latestState);}
+    request('POST','/api/convert/start',{source:source,target:target,format:cvFormat,verify:byId('cvVerify').checked},function(err){cvPending=false;if(err){notice(err,true);}else{byId('dismissNotice').click();}if(latestState){renderConvert(latestState);}});
+  }
+  function renderConvert(state){
+    var c=state.convert||{};cvBuildFormats(c.formats);
+    var running=!!c.running,status=c.status||'idle',busy=running||cvPending,elsewhere=cvBusyElsewhere(state);
+    byId('convertTabBadge').textContent=running?'Running':({success:'Complete',failed:'Failed',canceled:'Stopped'}[status]||'Ready');
+    ['cvSource','cvTarget','cvVerify','cvBrowse','cvInspect','cvFolder'].forEach(function(id){byId(id).disabled=busy;});
+    var size=cvInfo?cvInfo.virtualSize:0,limitReason='';
+    var radios=document.querySelectorAll('input[name=cvFormat]');for(var i=0;i<radios.length;i++){var f=cvFormatById(radios[i].value),tooBig=!!(f&&size&&f.limit&&size>f.limit);radios[i].disabled=busy;radios[i].parentNode.className='cv-format'+(tooBig?' unavailable':'');radios[i].parentNode.title=tooBig?f.name+' holds at most '+formatBytesShort(f.limit)+'.':'';if(tooBig&&radios[i].value===cvFormat){limitReason=f.name+' holds at most '+formatBytesShort(f.limit)+'; this disk is '+formatBytesShort(size)+'. Choose another format.';}}
+    var ready=!!(cvInfo&&byId('cvTarget').value.trim())&&!limitReason;
+    byId('cvStart').disabled=busy||elsewhere||!ready;byId('cvStart').textContent=status==='canceled'&&c.target===byId('cvTarget').value.trim()?'Continue':'Convert';
+    byId('cvStop').className=running?'secondary-button danger-button':'secondary-button danger-button hidden';byId('cvStop').disabled=!!c.cancelRequested;byId('cvStop').textContent=c.cancelRequested?'Stopping…':'Stop';
+    byId('cvOpenFolder').className=(!running&&status==='success')?'secondary-button':'secondary-button hidden';
+    byId('cvSummary').textContent=running?'Converting. Updates, collections and other steps wait until it finishes.':(limitReason||(elsewhere?'Another step is running. Converting waits until it finishes.':(cvInfo?'Ready to convert to '+(cvFormatById(cvFormat)||{name:cvFormat}).name+'.':'Choose a disk to convert.')));
+    var show=running||status==='success'||status==='failed'||status==='canceled';byId('cvProgress').className='cv-section'+(show?'':' hidden');
+    if(show){var p=c.progress||{},pct=p.chunks?Math.floor(p.done*100/p.chunks):(status==='success'?100:0);if(status==='success'){pct=100;}
+      byId('cvFill').style.width=pct+'%';byId('cvFill').className='progress-fill'+(status==='success'?' success':(status==='failed'?' failed':''));byId('cvBar').setAttribute('aria-valuenow',String(pct));
+      byId('cvIndicator').className='status-indicator'+(running?' running':(status==='success'?' success':(status==='failed'?' failed':'')));
+      byId('cvRunTitle').textContent=running?'Converting '+pct+'%':({success:'Conversion complete',failed:'Conversion failed',canceled:'Conversion stopped'}[status]);
+      byId('cvRunMessage').textContent=c.message||'';
+      var stats=byId('cvStats');stats.textContent='';[['Pass',p.pass||(c.result&&c.result.passes)||1],['Read',formatBytesShort(p.bytesRead||0)],['Written',formatBytesShort(p.bytesWritten||0)],['Changed chunks',p.changed||0]].forEach(function(item){var span=document.createElement('span');span.textContent=item[0]+': '+item[1];stats.appendChild(span);});
+      if(c.target){var t=document.createElement('span');t.textContent='Output: '+c.target;stats.appendChild(t);}
+      byId('cvElapsed').textContent=c.startedAtUnixMs?formatElapsed((c.endedAtUnixMs||Date.now())-c.startedAtUnixMs):'00:00:00';}
+    if(cvLastStatus!==status){if(cvLastStatus==='running'&&status==='failed'){notice(c.message||'The conversion failed.',true);}cvLastStatus=status;}
+  }
+  function markIdleBadges(){var badges=document.querySelectorAll('.tab-badge');for(var i=0;i<badges.length;i++){var text=badges[i].textContent;if(text==='Ready'||text==='None'){badges[i].setAttribute('data-idle','');}else{badges[i].removeAttribute('data-idle');}}}
   function renderState(state){
     if(state.closing||(state.update&&state.update.status==='installing')){quiesceInterface('installing');return;}
     if(!latestState||latestState.runId!==state.runId){aclSkipPending=false;}
@@ -1366,6 +1488,8 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     renderRestore(state);
     renderMigrate(state);
     renderVMware(state);
+    renderConvert(state);
+    markIdleBadges();
     if(!preferencesLoaded){
       preferencesLoaded=true;
       if(!preferencesDirty){
@@ -1531,7 +1655,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     if(uiLifecycle!=='active'||e.defaultPrevented){return;}
     if(byId('shortcutsDialog').open||byId('aboutDialog').open||byId('restoreDialog').open||byId('migrateDialog').open){return;}
     var key=e.key||'',ctrl=e.ctrlKey||e.metaKey,typing=isTyping(e.target);
-    if(e.altKey&&!ctrl&&/^[1-6]$/.test(key)){e.preventDefault();var tab=['setup','collection','report','restore','migrate','vmware'][Number(key)-1];switchTab(tab);byId('tabButton'+tab.charAt(0).toUpperCase()+tab.slice(1)).focus();return;}
+    if(e.altKey&&!ctrl&&/^[1-7]$/.test(key)){e.preventDefault();var tab=['setup','collection','report','restore','migrate','vmware','convert'][Number(key)-1];switchTab(tab);byId('tabButton'+tab.charAt(0).toUpperCase()+tab.slice(1)).focus();return;}
     if(ctrl&&!e.altKey&&(key==='s'||key==='S')){e.preventDefault();if(activeTab==='setup'){saveChoices();}return;}
     if(ctrl&&!e.altKey&&key==='Enter'){if(activeTab==='setup'){e.preventDefault();startCollection();}return;}
     if(ctrl&&!e.altKey&&(key==='k'||key==='K')){e.preventDefault();focusTabSearch();return;}
@@ -1550,7 +1674,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   function restoreFinished(r){return !!(r&&(r.status==='succeeded'||r.status==='failed'||r.status==='canceled'));}
   function restoreState(){return (latestState&&latestState.restore)||null;}
   function restoreScan(){var r=restoreState();return r&&r.scan&&r.status!=='scanning'?r.scan:null;}
-  function restoreLocked(){var r=restoreState();return restoreBusy||restoreIsRunning(r)||!!(r&&r.status==='scanning')||!!(latestState&&latestState.running)||migrateIsRunning()||vmwareIsRunning();}
+  function restoreLocked(){var r=restoreState();return restoreBusy||restoreIsRunning(r)||!!(r&&r.status==='scanning')||!!(latestState&&latestState.running)||migrateIsRunning()||vmwareIsRunning()||convertIsRunning();}
   function trimText(value){return String(value||'').replace(/^\s+|\s+$/g,'');}
   function restoreItemsOf(component){
     var items=component.items||[];
@@ -1638,8 +1762,8 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     var r=restoreState()||{},scan=restoreScan(),running=restoreIsRunning(r),collecting=!!(latestState&&latestState.running);
     var progressView=!byId('restoreProgress').classList.contains('hidden'),packages=r.packages||{},locked=restoreLocked(),review=byId('restoreReviewButton');
     review.classList.toggle('hidden',progressView);
-    review.disabled=!scan||!scan.isAdministrator||!restoreSelectedPlan().length||running||collecting||restoreBusy||r.status==='scanning'||migrateIsRunning()||vmwareIsRunning();
-    review.title=!scan?'Choose an inventory package first.':(!scan.isAdministrator?'Run the application as administrator to restore.':(collecting?'Wait for the collection to finish first.':(migrateIsRunning()?'Wait for the file migration step to finish first.':(vmwareIsRunning()?'Wait for the VMware step to finish first.':''))));
+    review.disabled=!scan||!scan.isAdministrator||!restoreSelectedPlan().length||running||collecting||restoreBusy||r.status==='scanning'||migrateIsRunning()||vmwareIsRunning()||convertIsRunning();
+    review.title=!scan?'Choose an inventory package first.':(!scan.isAdministrator?'Run the application as administrator to restore.':(collecting?'Wait for the collection to finish first.':(migrateIsRunning()?'Wait for the file migration step to finish first.':(vmwareIsRunning()?'Wait for the VMware step to finish first.':(convertIsRunning()?'Wait for the disk conversion to finish first.':'')))));
     byId('restoreUseLatest').disabled=locked||!packages.lastCollection;byId('restoreUseLoaded').disabled=locked||!packages.loadedReport;byId('restoreBrowse').disabled=locked;
     byId('restoreUseLatest').title=packages.lastCollection||'No collection has finished yet.';
     byId('restoreUseLoaded').title=packages.loadedReport||'Load a report in the Report Viewer first.';
@@ -1772,7 +1896,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   function migrateIsRunning(){var m=migrateState();return !!(m&&m.running);}
   function migrateDiscovery(){var m=migrateState();return m&&m.discovery&&m.action!=='discover'?m.discovery:null;}
   function migrateAdmin(){return !!(latestState&&latestState.isAdministrator);}
-  function migrateLocked(){return migrateBusy||migrateIsRunning()||!!(latestState&&latestState.running)||restoreIsRunning(latestState&&latestState.restore)||vmwareIsRunning()||!migrateAdmin();}
+  function migrateLocked(){return migrateBusy||migrateIsRunning()||!!(latestState&&latestState.running)||restoreIsRunning(latestState&&latestState.restore)||vmwareIsRunning()||convertIsRunning()||!migrateAdmin();}
   function formatBytesShort(value){var n=Number(value)||0,units=['bytes','KB','MB','GB','TB','PB'],i=0;while(n>=1024&&i<units.length-1){n=n/1024;i++;}return (i===0?String(n):(n>=100?n.toFixed(0):n.toFixed(1)))+' '+units[i];}
   function formatCount(value){var n=Math.round(Number(value)||0),s=String(n);return s.replace(/\B(?=(\d{3})+(?!\d))/g,',');}
   function migrateDefaultDrive(discovery){
@@ -2106,8 +2230,9 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   var vmRowLimit=400,vmStatusLabels={ready:'Ready',review:'Review first',blocked:'Blocked',skip:'Not moved'};
   function vmwareState(){return (latestState&&latestState.vmware)||null;}
   function vmwareIsRunning(){var v=vmwareState();return !!(v&&v.running);}
+  function convertIsRunning(){return !!(latestState&&latestState.convert&&latestState.convert.running);}
   function vmArr(value){if(value===null||value===undefined||value===''){return [];}return Object.prototype.toString.call(value)==='[object Array]'?value:[value];}
-  function vmOtherBusy(){return !!(latestState&&latestState.running)||restoreIsRunning(latestState&&latestState.restore)||migrateIsRunning();}
+  function vmOtherBusy(){return !!(latestState&&latestState.running)||restoreIsRunning(latestState&&latestState.restore)||migrateIsRunning()||convertIsRunning();}
   function vmLocked(){return vmBusy||vmwareIsRunning()||vmOtherBusy();}
   function vmTarget(){return vmPlan&&vmPlan.target?vmPlan.target:vmTargetLocal;}
   var vmTargetList=[{id:'hyperv',name:'Hyper-V',kind:'cluster'},{id:'scale',name:'Scale HyperCore',kind:'cluster'},{id:'nutanix',name:'Nutanix AHV',kind:'cluster'},{id:'proxmox',name:'Proxmox VE',kind:'cluster'},{id:'azure',name:'Azure',kind:'cloud'},{id:'aws',name:'AWS EC2',kind:'cloud'},{id:'physical',name:'a physical server',kind:'physical'}];
@@ -2940,6 +3065,15 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   byId('vmCompareRun').addEventListener('click',function(){vmPost('/api/vmware/compare',{before:vmCompareBeforePath,after:vmCompareAfterPath},'vmCompareStatus',function(err){if(!err){vmMarkRunning('compare','','Comparing the two packages.');}});});
   byId('vmCompareReport').addEventListener('click',function(){openKind('comparereport');});
   byId('vmCompareFolder').addEventListener('click',function(){openKind('comparefolder');});
+  byId('cvBrowse').addEventListener('click',function(){cvBrowse('source');});
+  byId('cvFolder').addEventListener('click',function(){cvBrowse('folder');});
+  byId('cvInspect').addEventListener('click',cvInspect);
+  byId('cvSource').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();cvTargetEdited=false;cvInspect();}});
+  byId('cvSource').addEventListener('change',function(){cvTargetEdited=false;cvInspect();});
+  byId('cvTarget').addEventListener('input',function(){cvTargetEdited=true;if(latestState){renderConvert(latestState);}});
+  byId('cvStart').addEventListener('click',cvStart);
+  byId('cvStop').addEventListener('click',function(){byId('cvStop').disabled=true;request('POST','/api/convert/cancel',{},function(err){if(err){notice(err,true);}});});
+  byId('cvOpenFolder').addEventListener('click',function(){openKind('convertfolder');});
   byId('vmCompareBody').addEventListener('click',function(e){var tr=e.target.closest('tr[data-compare]');if(!tr){return;}var key=tr.getAttribute('data-compare');vmCompareOpen[key]=!vmCompareOpen[key];renderVmCompare();});
   byId('vmCompareBody').addEventListener('keydown',function(e){if((e.key==='Enter'||e.key===' ')&&e.target.getAttribute('data-compare')){e.preventDefault();var key=e.target.getAttribute('data-compare');vmCompareOpen[key]=!vmCompareOpen[key];renderVmCompare();var row=document.querySelector('[data-compare="'+key+'"]');if(row){row.focus();}}});
   setReportHeaderCollapsed(window.innerHeight<600); syncCategoryState(); poll();

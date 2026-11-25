@@ -26,6 +26,10 @@ function migrateDiscoveryFixture(){return {source:'FS-OLD-07',sourceFqdn:'fs-old
 function migrateIdle(){return {running:false,action:'',status:'idle',message:'',source:'',discovery:null,plan:[],space:[],prechecked:false,canCopy:false,canCutover:false,dfs:null,alias:null,sourceReadOnly:false,aliasAdded:'',logs:[],workPath:'',cancelRequested:false,startedAtUnixMs:0,endedAtUnixMs:0,account:'',accessDenied:false};}
 // Synthetic VMware environment: fictional vCenter, hosts and VMs only.
 function vmwareIdle(){return {running:false,action:'',status:'idle',message:'',server:'',account:'',certificate:null,summary:null,inventorySerial:0,outputFolder:'',reportPath:'',runbookPath:'',planCsvPath:'',guestSerial:0,guestMessage:'',guestError:false,guestWorkPath:'C:\\Users\\admin\\AppData\\Local\\Server Inventory Configuration Manager\\Guest-Migration',compareSerial:0,compareError:'',cancelRequested:false,logs:[],startedAtUnixMs:0,endedAtUnixMs:0};}
+// Synthetic disk converter state; formats mirror vmDiskFormatNames in vmdisk_image.go.
+function convertIdle(){return {running:false,status:'idle',message:'',source:'',target:'',format:'',info:null,progress:{pass:0,chunks:0,done:0,bytesRead:0,bytesWritten:0,changed:0,zero:0},result:null,cancelRequested:false,serial:0,startedAtUnixMs:0,endedAtUnixMs:0,
+ formats:[{id:'vhdx',name:'VHDX (dynamic)',extension:'.vhdx',use:'Hyper-V, Scale HyperCore, Nutanix AHV',limit:70368744177664},{id:'qcow2',name:'qcow2',extension:'.qcow2',use:'Proxmox VE, Nutanix AHV, Scale HyperCore, KVM',limit:4611686018427387904},{id:'vmdk',name:'VMDK (monolithic sparse)',extension:'.vmdk',use:'VMware Workstation, vmkfstools -i on ESXi, Nutanix AHV',limit:2190433320960},{id:'vmdk-flat',name:'VMDK (ESXi flat)',extension:'.vmdk',use:'ESXi datastores (descriptor plus -flat.vmdk)',limit:4611686018427387904},{id:'vhd',name:'VHD (dynamic)',extension:'.vhd',use:'Older Hyper-V, Scale HyperCore, Virtual PC',limit:2190433320960},{id:'vhd-fixed',name:'VHD (fixed)',extension:'.vhd',use:'Azure uploads and tools that need a fixed VHD',limit:2190433320960},{id:'raw',name:'Raw image',extension:'.img',use:'dd, physical disks (V2P), Proxmox, any hypervisor',limit:4611686018427387904}]};}
+function convertInfoFixture(path,size){return {path,format:'vmdk',formatName:'VMDK',variant:'monolithicSparse',virtualSize:size||107374182400,fileSize:21474836480,dataBytes:21474836480,chain:[path,'D:\\VMs\\APP01\\APP01-base.vmdk'],notes:['Differencing disk: 2 disks in the chain are merged into one','<b>not markup</b>']};}
 function vmFixtureVM(name,o){const r=(target,status,findings,generation)=>({target,status,generation,findings});return Object.assign({name,id:'vm-'+name.toLowerCase(),datacenter:'DC-East',cluster:'Prod-Cluster',host:'esx01.example.com',folder:'Servers',template:false,powerState:'poweredOn',guestId:'windows2019srv_64Guest',guestOs:'Microsoft Windows Server 2019 (64-bit)',guestOsRunning:'Microsoft Windows Server 2019 Standard',ipAddress:'192.0.2.10',cpus:4,coresPerSocket:2,memoryMb:16384,hardwareVersion:'vmx-15',firmware:'efi',secureBoot:true,toolsStatus:'toolsOk',toolsRunning:true,provisionedBytes:128849018880,usedBytes:64424509440,
  disks:[{label:'Hard disk 1',controller:'SCSI 0',bus:0,unit:0,capacityBytes:107374182400,datastore:'DS-SSD-01',provisioning:'thin',mode:'persistent',rdm:''}],nics:[{label:'Network adapter 1',adapterType:'VMXNET3',network:'VM-Servers',mac:'00:50:56:00:00:01',connected:true,ipAddresses:['192.0.2.10'],static:true,guestKnown:true}],snapshots:[],
  readiness:[r('hyperv',o.hv||'ready',o.hvFindings||[{severity:'info',code:'tools-remove',message:'Remove VMware Tools after cutover.',action:''}],2),r('scale',o.sc||'review',o.scFindings||[{severity:'warning',code:'virtio-drivers',message:'Install the VirtIO drivers before cutover.',action:'Install the Scale Computing guest tools.'}]),r('nutanix',o.nx||'review',o.nxFindings||[{severity:'warning',code:'virtio-drivers',message:'Install the Nutanix VirtIO drivers before cutover.',action:'Let Nutanix Move install them.'}])]},o.vm||{});}
@@ -57,9 +61,9 @@ function vmwareCompareFixture(){const change=(dataset,label,kind,item,expected,f
  return {result,datasets};}
 async function fixture(browser,old=false){
  let saved=null,started=[],saveCalls=0,rejectStart=false,skipRequests=[],opens=[],restoreReject=null,migrateReject={},vmwareReject={};
- const logs=[],dialogs=[],errors=[],restoreCalls={browse:0,scan:[],start:[],cancel:0,tokens:[]},migrateCalls=[],vmwareCalls=[];
+ const logs=[],dialogs=[],errors=[],restoreCalls={browse:0,scan:[],start:[],cancel:0,tokens:[]},migrateCalls=[],vmwareCalls=[],convertCalls=[];let convertReject={},convertSize=0;
  const state={status:'idle',phase:'Ready',running:false,computerName:'SRV-DEMO-01',isAdministrator:true,powerShellVersion:'5.1',defaultOutputRoot:'C:\\Reports',update:{status:'current',title:'Up to date',message:'Installed v3.2.10. Latest v3.2.10.',canCheck:true},
-  restore:{status:'idle',packages:{lastCollection:'',loadedReport:''},items:[],logs:[]},migrate:migrateIdle(),vmware:vmwareIdle()};
+  restore:{status:'idle',packages:{lastCollection:'',loadedReport:''},items:[],logs:[]},migrate:migrateIdle(),vmware:vmwareIdle(),convert:convertIdle()};
  const vm={inventory:null,plan:null,sizing:null,guest:null,compare:null};
  const html=fs.readFileSync(old?'tests/fixtures/index-v3.2.9.html':'src/app/index.html','utf8').replaceAll('__TOKEN__','workspace-test').replaceAll('__APP_VERSION__','3.2.10').replaceAll('__COLLECTOR_VERSION__','3.2.10');
  const server=http.createServer(async(req,res)=>{
@@ -116,6 +120,17 @@ async function fixture(browser,old=false){
    if(action==='cancel'){v.cancelRequested=true;send(202,{ok:true});return;}
    send(200,{ok:true,selected:false});return;
   }
+  if(url.pathname.startsWith('/api/convert/')){
+   let body='';for await(const chunk of req)body+=chunk;const data=body?JSON.parse(body):{},action=url.pathname.slice(13);convertCalls.push({action,body:data,token:req.headers['x-app-token']});
+   if(req.headers['x-app-token']!=='workspace-test'){send(403,{});return;}
+   if(convertReject[action]){send(400,{error:convertReject[action]});return;}
+   const c=state.convert;
+   if(action==='browse'){send(200,data.kind==='folder'?{ok:true,selected:true,path:'E:\\Hyper-V\\Disks'}:{ok:true,selected:true,path:'D:\\VMs\\APP01\\APP01-000001.vmdk'});return;}
+   if(action==='inspect'){const info=convertInfoFixture(data.path,convertSize);send(200,{ok:true,info,suggested:'D:\\VMs\\APP01\\APP01-000001'+({vhdx:'.vhdx',qcow2:'.qcow2',raw:'.img',vhd:'.vhd','vhd-fixed':'.vhd',vmdk:'.vmdk','vmdk-flat':'.vmdk'}[data.format]||'.vhdx')});return;}
+   if(action==='start'){Object.assign(c,{running:true,status:'running',source:data.source,target:data.target,format:data.format,message:'Converting APP01-000001.vmdk.',startedAtUnixMs:Date.now(),endedAtUnixMs:0,progress:{pass:1,chunks:200,done:50,bytesRead:209715200,bytesWritten:104857600,changed:0,zero:10}});send(200,{ok:true});return;}
+   if(action==='cancel'){c.cancelRequested=true;send(200,{ok:true});return;}
+   send(200,{ok:true});return;
+  }
   if(url.pathname==='/api/open'){let body='';for await(const chunk of req)body+=chunk;opens.push(JSON.parse(body).kind);send(200,{ok:true});return;}
   if(url.pathname==='/report/current'){res.writeHead(200,{'Content-Type':'text/html'});res.end('<!DOCTYPE html><html><head><title>Synthetic</title></head><body><div class="report-content"><section class="report-section active" id="s1"><p>alpha one</p><p>beta</p><p>alpha two</p><p>alpha three</p></section></div></body></html>');return;}
   if(url.pathname==='/api/skip-acl-export'){let body='';for await(const chunk of req)body+=chunk;skipRequests.push(JSON.parse(body));state.aclExport.skipRequested=true;send(202,{ok:true});return;}
@@ -126,7 +141,7 @@ async function fixture(browser,old=false){
  await new Promise(r=>server.listen(0,'127.0.0.1',r));const context=await browser.newContext({viewport:{width:1440,height:1000}}),page=await context.newPage();
  page.on('dialog',async d=>{dialogs.push(d.message());await d.dismiss();});page.on('pageerror',e=>errors.push(e.message));
  const url='http://127.0.0.1:'+server.address().port+'/';await page.goto(url);await page.waitForFunction(()=>document.querySelector('#serverName').textContent==='SRV-DEMO-01');
- return {page,context,state,vm,vmwareCalls,rejectVmware(action,message){vmwareReject[action]=message},logs,dialogs,errors,started,skipRequests,opens,restoreCalls,migrateCalls,rejectMigrate(action,message){migrateReject[action]=message},rejectRestore(message){restoreReject=message},get saved(){return saved},get saveCalls(){return saveCalls},reject(){rejectStart=true},async close(){assert.deepEqual(errors,[]);await context.close();await new Promise(r=>server.close(r));}};
+ return {page,context,state,vm,vmwareCalls,convertCalls,rejectConvert(action,message){convertReject[action]=message},setConvertSize(size){convertSize=size},rejectVmware(action,message){vmwareReject[action]=message},logs,dialogs,errors,started,skipRequests,opens,restoreCalls,migrateCalls,rejectMigrate(action,message){migrateReject[action]=message},rejectRestore(message){restoreReject=message},get saved(){return saved},get saveCalls(){return saveCalls},reject(){rejectStart=true},async close(){assert.deepEqual(errors,[]);await context.close();await new Promise(r=>server.close(r));}};
 }
 async function check(name,fn){await fn();report.checks.push({name,result:'passed'});console.log('PASS: '+name);}
 (async()=>{const browser=await chromium.launch(executable?{executablePath:executable,headless:true,args:['--no-sandbox']}:{channel:'msedge',headless:true});try{
@@ -171,7 +186,7 @@ async function check(name,fn){await fn();report.checks.push({name,result:'passed
    await f.page.locator('#presetCore').click();f.logs.push('[INFO] Existing diagnostic detail');await f.page.waitForTimeout(1100);f.reject();await f.page.locator('#startButton').click();await f.page.waitForFunction(()=>document.querySelector('#appNotice').textContent.includes('not writable'));assert((await f.page.locator('#logView').textContent()).includes('Existing diagnostic'));assert.equal(await f.page.locator('#profileName').textContent(),'Core server');assert.deepEqual(f.dialogs,[]);
   });
   await check('Application tabs support arrow keys, Home and End with correct selection semantics',async()=>{
-   await f.page.locator('#tabButtonSetup').focus();await f.page.keyboard.press('ArrowRight');assert.equal(await f.page.locator('#tabButtonCollection').getAttribute('aria-selected'),'true');await f.page.keyboard.press('End');assert.equal(await f.page.locator('#tabButtonVmware').getAttribute('aria-selected'),'true');await f.page.keyboard.press('ArrowLeft');assert.equal(await f.page.locator('#tabButtonMigrate').getAttribute('aria-selected'),'true');await f.page.keyboard.press('ArrowLeft');assert.equal(await f.page.locator('#tabButtonRestore').getAttribute('aria-selected'),'true');await f.page.keyboard.press('Home');assert.equal(await f.page.locator('#tabButtonSetup').getAttribute('aria-selected'),'true');
+   await f.page.locator('#tabButtonSetup').focus();await f.page.keyboard.press('ArrowRight');assert.equal(await f.page.locator('#tabButtonCollection').getAttribute('aria-selected'),'true');await f.page.keyboard.press('End');assert.equal(await f.page.locator('#tabButtonConvert').getAttribute('aria-selected'),'true');await f.page.keyboard.press('ArrowLeft');assert.equal(await f.page.locator('#tabButtonVmware').getAttribute('aria-selected'),'true');await f.page.keyboard.press('ArrowLeft');assert.equal(await f.page.locator('#tabButtonMigrate').getAttribute('aria-selected'),'true');await f.page.keyboard.press('Home');assert.equal(await f.page.locator('#tabButtonSetup').getAttribute('aria-selected'),'true');
   });
   await check('Log search and severity filters retain all received text and safely render markup',async()=>{
    await f.page.locator('#tabButtonCollection').click();f.logs.push('[WARN] DNS slow','[ERROR] Access denied','[INFO] <img src=x onerror=alert(1)>');for(let i=0;i<100;i++)f.logs.push('[INFO] Row '+i);await f.page.waitForTimeout(1100);
@@ -368,7 +383,7 @@ async function check(name,fn){await fn();report.checks.push({name,result:'passed
  await check('Migrate tab: Alt+5 reaches it; Connect posts the server name; shares get editable defaults and system shares start unticked',async()=>{const f=await fixture(browser);try{
   assert.equal(await f.page.locator('#migrateTabBadge').textContent(),'Ready');
   await f.page.keyboard.press('Alt+5');assert.equal(await f.page.locator('#tabButtonMigrate').getAttribute('aria-selected'),'true');assert(await f.page.locator('#tabMigrate').isVisible());assert.equal(await f.page.evaluate(()=>document.activeElement.id),'tabButtonMigrate');
-  assert((await f.page.locator('#tabButtonMigrate').textContent()).startsWith('File shares'));assert(/Restore, File shares or VMware/.test(await f.page.locator('#shortcutsDialog').textContent()));
+  assert((await f.page.locator('#tabButtonMigrate').textContent()).startsWith('File shares'));assert(/Restore, File shares, VMware or Disk converter/.test(await f.page.locator('#shortcutsDialog').textContent()));
   assert(await f.page.locator('#migrateConnect').isDisabled(),'Connect needs a server name');assert(await f.page.locator('#migrateCheck').isDisabled());assert(await f.page.locator('#migrateCopy').isDisabled());assert(await f.page.locator('#migrateCutover').isDisabled());
   assert.equal(await f.page.locator('#migrateSteps li.current').getAttribute('data-step'),'1');
   await migrateConnect(f);assert.deepEqual(migrateCalls(f,'discover').map(c=>c.body),[{source:'FS-OLD-07'}]);
@@ -719,6 +734,35 @@ async function check(name,fn){await fn();report.checks.push({name,result:'passed
   f.state.vmware.compareError='The package from before the move has no 00-Summary folder.';await f.page.waitForTimeout(1100);assert(await f.page.locator('#vmCompareStatus').evaluate(e=>e.classList.contains('error')));
   assert.deepEqual(f.dialogs,[]);
  }finally{await f.close();}});
+ await check('Disk converter tab: Alt+7 reaches it; Browse checks the disk; the format sets the file name; Convert posts the choice; Stop; everything locks while it runs',async()=>{const f=await fixture(browser);try{
+  await f.page.keyboard.press('Alt+7');assert.equal(await f.page.locator('#tabButtonConvert').getAttribute('aria-selected'),'true');assert(await f.page.locator('#tabConvert').isVisible());
+  assert(await f.page.locator('#cvStart').isDisabled(),'nothing to convert yet');assert.equal(await f.page.locator('input[name=cvFormat]').count(),7);assert(await f.page.locator('input[name=cvFormat][value=vhdx]').isChecked());
+  await f.page.locator('#cvBrowse').click();await f.page.waitForFunction(()=>document.querySelector('#cvInfoFormat').textContent.includes('VMDK'));
+  assert.equal(await f.page.locator('#cvSource').inputValue(),'D:\\VMs\\APP01\\APP01-000001.vmdk');assert.equal(await f.page.locator('#cvTarget').inputValue(),'D:\\VMs\\APP01\\APP01-000001.vhdx');
+  assert.equal(await f.page.locator('#cvInfoFiles').textContent(),'2 disks in the chain');assert.equal(await f.page.locator('#cvInfoNotes b').count(),0,'notes are text, not markup');
+  await f.page.locator('.cv-format[data-format=qcow2]').click();assert.equal(await f.page.locator('#cvTarget').inputValue(),'D:\\VMs\\APP01\\APP01-000001.qcow2');
+  await f.page.locator('#cvFolder').click();await f.page.waitForFunction(()=>document.querySelector('#cvTarget').value.startsWith('E:'));assert.equal(await f.page.locator('#cvTarget').inputValue(),'E:\\Hyper-V\\Disks\\APP01-000001.qcow2');
+  await f.page.locator('.cv-format[data-format=raw]').click();assert.equal(await f.page.locator('#cvTarget').inputValue(),'E:\\Hyper-V\\Disks\\APP01-000001.img');
+  await f.page.locator('#cvVerify').uncheck();
+  f.rejectConvert('start','E:\\Hyper-V\\Disks\\APP01-000001.img already exists and was not created by this conversion');await f.page.locator('#cvStart').click();await f.page.waitForFunction(()=>document.querySelector('#appNotice').textContent.includes('already exists'));assert.deepEqual(f.dialogs,[]);f.rejectConvert('start','');
+  await f.page.locator('#cvStart').click();await f.page.waitForTimeout(1300);
+  const start=f.convertCalls.filter(c=>c.action==='start').pop();assert.deepEqual(start.body,{source:'D:\\VMs\\APP01\\APP01-000001.vmdk',target:'E:\\Hyper-V\\Disks\\APP01-000001.img',format:'raw',verify:false});
+  assert.equal(await f.page.locator('#convertTabBadge').textContent(),'Running');assert(await f.page.locator('#cvProgress').isVisible());assert.equal(await f.page.locator('#cvRunTitle').textContent(),'Converting 25%');
+  for(const id of ['#cvSource','#cvTarget','#cvBrowse','#cvFolder','#cvStart','input[name=cvFormat] >> nth=0']){assert(await f.page.locator(id).isDisabled(),id+' locked while converting');}
+  await f.page.screenshot({path:out+'/convert-running.png'});
+  await f.page.keyboard.press('Alt+1');assert(await f.page.locator('#startButton').isDisabled(),'collection locks while converting');
+  await f.page.keyboard.press('Alt+7');await f.page.locator('#cvStop').click();await f.page.waitForTimeout(1300);assert.equal(f.convertCalls.filter(c=>c.action==='cancel').length,1);assert.equal(await f.page.locator('#cvStop').textContent(),'Stopping\u2026');
+  Object.assign(f.state.convert,{running:false,cancelRequested:false,status:'canceled',message:'Stopped. Convert again with the same output file to continue where it stopped.',endedAtUnixMs:Date.now()});await f.page.waitForTimeout(1300);
+  assert.equal(await f.page.locator('#cvStart').textContent(),'Continue');assert.equal(await f.page.locator('#convertTabBadge').textContent(),'Stopped');
+  Object.assign(f.state.convert,{status:'success',message:'Converted. Every chunk was read back and matches the source.',progress:{pass:1,chunks:200,done:200,bytesRead:21474836480,bytesWritten:21474836480,changed:0,zero:120}});await f.page.waitForTimeout(1300);
+  assert.equal(await f.page.locator('#cvRunTitle').textContent(),'Conversion complete');await f.page.locator('#cvOpenFolder').click();await f.page.waitForTimeout(200);assert.deepEqual(f.opens,['convertfolder']);
+  await f.page.keyboard.press('Alt+1');assert(await f.page.locator('#startButton').isEnabled(),'collection unlocks after converting');
+  // A disk too large for the chosen format cannot be started.
+  await f.page.keyboard.press('Alt+7');f.setConvertSize(3*1099511627776);await f.page.locator('#cvInspect').click();await f.page.waitForFunction(()=>document.querySelector('#cvInfoSize').textContent.includes('TB'));
+  await f.page.locator('.cv-format[data-format=vhd]').click();assert(await f.page.locator('#cvStart').isDisabled());assert((await f.page.locator('#cvSummary').textContent()).includes('holds at most'));
+  await f.page.locator('.cv-format[data-format=vhdx]').click();assert(await f.page.locator('#cvStart').isEnabled());
+  assert.deepEqual(f.dialogs,[]);assert(f.convertCalls.every(c=>c.token==='workspace-test'));
+ }finally{await f.close();}});
  await check('Low-resolution windows (800x600 and 1024x768 screens) keep every workspace reachable and legible',async()=>{const f=await fixture(browser);try{
   for(let i=0;i<40;i++)f.logs.push('[INFO] Message '+i);
   f.state.restore={status:'ready',packages:{lastCollection:'C:\\Reports\\SRV-DEMO-01',loadedReport:''},packagePath:'C:\\Reports\\SRV-DEMO-01',scan:restoreScanFixture(),items:[],logs:[]};
@@ -759,6 +803,10 @@ async function check(name,fn){await fn();report.checks.push({name,result:'passed
     for(const target of {env:['#vmConnect','#vmTableBody tr.vm-row'],plan:['#vmSuggest','#vmWriteRunbook'],guest:['#vmGuestCapture','#vmGuestApply','#vmGuestTools'],compare:['#vmCompareRun','#vmCompareBody tr']}[view]){await f.page.locator(target).first().scrollIntoViewIfNeeded();await inView(target+':visible >> nth=0',20);}
     assert.deepEqual(await smallText(),[],label+' vmware '+view+' text below 10.5px');assert(await f.page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),label+' vmware overflow');assert(await f.page.locator('#vmwareBody').evaluate(e=>e.scrollWidth<=e.clientWidth+1),label+' vmware panel overflow '+view);}
    if(size.width===784&&!withUpdate){await f.page.locator('[data-vmview="env"]').click();await f.page.locator('#vmwareBody').evaluate(e=>e.scrollTop=0);await f.page.screenshot({path:out+'/vmware-800x600.png'});}
+   await f.page.locator('#tabButtonConvert').click();await inView('#cvStart',28);await inView('#cvSource',24);await inView('#cvBrowse',24);
+   for(const target of ['.cv-format[data-format=raw]','#cvTarget','#cvVerify']){await f.page.locator(target).scrollIntoViewIfNeeded();await inView(target,12);}
+   assert.deepEqual(await smallText(),[],label+' converter text below 10.5px');assert(await f.page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),label+' converter overflow');
+   if(size.width===784&&!withUpdate){await f.page.locator('.cv-body').evaluate(e=>e.scrollTop=0);await f.page.screenshot({path:out+'/convert-800x600.png'});}
    const small=await f.page.evaluate(()=>Array.from(document.querySelectorAll('body *')).filter(e=>e.offsetParent&&e.childNodes.length&&Array.from(e.childNodes).some(n=>n.nodeType===3&&n.nodeValue.trim())&&parseFloat(getComputedStyle(e).fontSize)<10.5).map(e=>e.className||e.id||e.tagName));assert.deepEqual(small,[],label+' text below 10.5px');
    if(size.width===784&&!withUpdate){await f.page.locator('#tabButtonCollection').click();await f.page.screenshot({path:out+'/collection-800x600.png'});await f.page.locator('#tabButtonSetup').click();await f.page.screenshot({path:out+'/setup-800x600.png'});}
   }}

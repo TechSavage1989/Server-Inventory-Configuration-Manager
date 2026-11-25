@@ -443,7 +443,7 @@ func vmReadFull(ctx context.Context, source io.ReaderAt, p []byte, offset int64,
 
 // vmVerifyCopy reads the VHDX back and checks every chunk against the hash
 // recorded when it was copied.
-func vmVerifyCopy(ctx context.Context, disk *vhdxFile, state *vmCopyState) error {
+func vmVerifyCopy(ctx context.Context, disk io.ReaderAt, state *vmCopyState) error {
 	buffer := make([]byte, state.ChunkSize)
 	for index, want := range state.Hashes {
 		if err := ctx.Err(); err != nil {
