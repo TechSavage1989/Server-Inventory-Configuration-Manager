@@ -138,3 +138,54 @@ func TestAgentCodeStartsNoPowerShellAndDeletesNoShadowCopies(t *testing.T) {
 		t.Fatalf("only %d agent files were found", checked)
 	}
 }
+
+// The owner had to press Change while a round ran, then Pause, then Save
+// several times: Save refused while the cancelled round was still ending.
+// One Save must now stop the round, apply the change and start again.
+func TestReplicationJobChangeDuringARoundTakesOneSave(t *testing.T) {
+	agent, platform, _, receiver, _ := replTestSetup(t)
+	view, err := agent.SaveJob(replTestSpec(receiver))
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := view.Spec.ID
+	platform.gate = make(chan struct{})
+	agent.Tick()
+	agent.mu.Lock()
+	running := agent.jobs[id].running
+	agent.mu.Unlock()
+	if !running {
+		t.Fatal("the round did not start")
+	}
+	changed := replTestSpec(receiver)
+	changed.ID, changed.IntervalMinutes, changed.Compress, changed.Receiver.Code = id, 10, false, ""
+	view, err = agent.SaveJob(changed)
+	if err != nil {
+		t.Fatalf("a change during a round was refused: %v", err)
+	}
+	if view.Spec.IntervalMinutes != 10 || view.Spec.Receiver.Code != "" || !view.HasCode || !strings.Contains(view.Status.Message, "Stopping the current round") {
+		t.Fatalf("the saved change was not reported: %+v", view)
+	}
+	close(platform.gate)
+	view = replWaitIdle(t, agent, id)
+	if view.Spec.IntervalMinutes != 10 || view.Spec.Compress || !view.HasCode {
+		t.Fatalf("the change was not applied when the round ended: %+v", view.Spec)
+	}
+	if view.Status.State != replStateIdle || !view.Status.NextRun.IsZero() || !strings.Contains(view.Status.Message, "Changed") {
+		t.Fatalf("a new round should start with the new settings: %+v", view.Status)
+	}
+	platform.gate = nil
+	agent.Tick()
+	if view = replWaitIdle(t, agent, id); view.Status.Rounds != 1 {
+		t.Fatalf("the round with the new settings: %+v", view.Status)
+	}
+
+	// A paused job changes at once and stays paused.
+	if err := agent.Action(id, "pause"); err != nil {
+		t.Fatal(err)
+	}
+	changed.IntervalMinutes = 15
+	if view, err = agent.SaveJob(changed); err != nil || view.Spec.IntervalMinutes != 15 || view.Status.State != replStatePaused {
+		t.Fatalf("a paused job should change and stay paused: %v %+v", err, view.Status)
+	}
+}
