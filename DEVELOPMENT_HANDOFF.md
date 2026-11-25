@@ -1,3 +1,7 @@
+## 3.2.30 release preparation — 2026-11-25
+
+Publishing VMware move engine phase 1 and full discovery (#81), which the owner chose to publish on 2026-11-25. This branch bumps `appVersion`, `collectorVersion` and the collector `$scriptVersion` to 3.2.30, adds `docs/release-notes/3.2.30.md` (first three bullets free of Markdown) and points `scripts/test_published_upgrade.cjs` and AGENTS.md at the published, signed v3.2.29 executable (SHA-256 `d2359fd3f7025a3a32ece98627d3bb69b9dd0f88234587a9d7dc9449e7f046eb`). This is the first signed-to-signed upgrade.
+
 ## Unreleased: VMware move engine phase 1 (real-estate fixes, Word runbook, Prepare source, BitLocker keys) — 2026-11-25
 
 The owner asked for a one-stop VM migration tool ("convert and migrate/clone vms from vmware to the other solutions"), a runbook exportable as Word or HTML, and decryption of the vTPM-encrypted VMs found in their vCenter 7.0.3 export. Phase 1 of the agreed plan:
