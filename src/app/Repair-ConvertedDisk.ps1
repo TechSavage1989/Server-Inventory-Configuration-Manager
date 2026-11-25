@@ -228,7 +228,7 @@ function Read-Windows {
     if (-not $info.Server -and $info.Build -ge 22000 -and $info.ProductName -like 'Windows 10*') { $info.ProductName = 'Windows 11' + $info.ProductName.Substring(10) }
     foreach ($uninstall in @($software + '\Microsoft\Windows\CurrentVersion\Uninstall', $software + '\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall')) {
         $parent = Get-Item -LiteralPath $uninstall -ErrorAction SilentlyContinue
-        if (-not $parent) { continue }
+        if (-not $parent) { Write-RepairLog ('No installed programs list under ' + $uninstall.Substring($software.Length + 1) + '.'); continue }
         $childNames = @($parent.GetSubKeyNames())
         Write-RepairLog ('Read ' + $childNames.Count + ' installed programs under ' + $uninstall.Substring($software.Length + 1) + '.')
         foreach ($childName in $childNames) {

@@ -67,10 +67,11 @@ New-ItemProperty -LiteralPath $cv -Name InstallationType -Value 'Server' | Out-N
 New-ItemProperty -LiteralPath $cv -Name EditionID -Value 'ServerDatacenter' | Out-Null
 New-ItemProperty -LiteralPath $cv -Name CurrentMajorVersionNumber -PropertyType DWord -Value 10 | Out-Null
 New-ItemProperty -LiteralPath $cv -Name CurrentMinorVersionNumber -PropertyType DWord -Value 0 | Out-Null
-$tools = $soft + '\Microsoft\Windows\CurrentVersion\Uninstall\{VMWARE-TOOLS}'
-New-Item -Path $tools -Force | Out-Null
-New-ItemProperty -LiteralPath $tools -Name DisplayName -Value 'VMware Tools' | Out-Null
 $native = $scratch.Replace('HKCU:\', 'HKCU\')
+& reg.exe add ($native + '\Soft\Microsoft\Windows\CurrentVersion\Uninstall\VMwareToolsTest') /v DisplayName /t REG_SZ /d 'VMware Tools' /f | Out-Null
+if ($LASTEXITCODE -ne 0) { throw 'reg add Uninstall failed' }
+& reg.exe query ($native + '\Soft\Microsoft\Windows\CurrentVersion\Uninstall\VMwareToolsTest') /v DisplayName | Out-Null
+if ($LASTEXITCODE -ne 0) { throw 'the Uninstall test key was not created' }
 & reg.exe save ($native + '\Sys') (Join-Path $root 'Windows\System32\config\SYSTEM') /y | Out-Null
 if ($LASTEXITCODE -ne 0) { throw 'reg save SYSTEM failed' }
 & reg.exe save ($native + '\Soft') (Join-Path $root 'Windows\System32\config\SOFTWARE') /y | Out-Null
