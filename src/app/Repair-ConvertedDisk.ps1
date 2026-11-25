@@ -36,6 +36,7 @@ $script:Mounted = $false
 $script:AccessPaths = New-Object System.Collections.ArrayList
 $script:LoadedHives = New-Object System.Collections.ArrayList
 $script:HivePrefix = 'SIMRepair' + $PID
+$script:HiveCount = 0
 
 function Write-RepairLog {
     param([string]$Message, [string]$Level = 'INFO')
@@ -144,8 +145,17 @@ function Open-Partitions {
 
 function Mount-Hive {
     param([string]$File, [string]$Name)
-    $key = $script:HivePrefix + $Name
-    $result = Invoke-Native 'reg.exe' @('load', ('HKLM\' + $key), $File)
+    # Each load gets its own key name: a key whose earlier unload Windows has
+    # not finished yet makes a second load of the same name fail.
+    $script:HiveCount++
+    $key = $script:HivePrefix + $Name + $script:HiveCount
+    $result = $null
+    for ($try = 0; $try -lt 10; $try++) {
+        $result = Invoke-Native 'reg.exe' @('load', ('HKLM\' + $key), $File)
+        if ($result.ExitCode -eq 0) { break }
+        [GC]::Collect(); [GC]::WaitForPendingFinalizers()
+        Start-Sleep -Milliseconds 500
+    }
     if ($result.ExitCode -ne 0) { throw ('The registry hive ' + $File + ' could not be loaded: ' + ($result.Output -join ' ')) }
     [void]$script:LoadedHives.Add($key)
     return ('Registry::HKEY_LOCAL_MACHINE\' + $key)
