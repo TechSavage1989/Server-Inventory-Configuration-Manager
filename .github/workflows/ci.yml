@@ -107,6 +107,10 @@ jobs:
       - name: Run updater tests and negative controls
         shell: powershell
         run: |
+          # Fetch test-only modules first: their "go: downloading" lines go to
+          # stderr, which 2>&1 turns into a terminating PowerShell error.
+          go mod download
+          if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
           go test -v ./... 2>&1 | Tee-Object .\build\go-test-results.txt
           if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
       - name: Vet Go source
