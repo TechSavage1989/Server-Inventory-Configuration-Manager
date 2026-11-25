@@ -2,7 +2,7 @@
   "schema_version": 1,
   "compared_revision": "81e2a0e5a598df6e8edd7bb533e2f02b915a9c7b",
   "compared_release": "v3.2.10",
-  "approval": "Previously approved startup cyclic-table handling and bounded ACL export, plus user-requested final-report performance improvements, preservation of actual collection values in CSV-backed reports, and the user-approved (2026-11-12) printer migration export fix so PrintBRM backs up the local spooler and a missing export is reported.; and the user-requested (2026-11-18) executive summary TCP/IP and activation status facts; and the user-reported (2026-11-20) fix adding the missing column lists to the DHCP policies, scope statistics and bindings report tables, which stopped report generation on DHCP servers. No unrelated collector behavior changes authorized.",
+  "approval": "Previously approved startup cyclic-table handling and bounded ACL export, plus user-requested final-report performance improvements, preservation of actual collection values in CSV-backed reports, and the user-approved (2026-11-12) printer migration export fix so PrintBRM backs up the local spooler and a missing export is reported.; and the user-requested (2026-11-18) executive summary TCP/IP and activation status facts; and the user-reported (2026-11-20) fix adding the missing column lists to the DHCP policies, scope statistics and bindings report tables, which stopped report generation on DHCP servers.; and the user-reported (2026-11-25) fixes for the Active Directory health collector (pass the forest name to Get-ADReplicationFailure instead of '*') and the event history collector (call the module-qualified Get-WinEvent so a same-named file on PATH cannot shadow it). No unrelated collector behavior changes authorized.",
   "normalization": "Standalone scriptVersion normalized to3.0.0; separately pinned HTML renderer restored to original before region comparison.",
   "files": {
     "Export-ServerInventory.ps1": {
@@ -190,6 +190,36 @@
           "reason": "Printer migration export: back up the local spooler with PrintBRM (the -s \\\\server form exits 0 without a file when no printer is shared) and warn when no export was written or PrintBRM reports an error code"
         },
         {
+          "before_start": 351346,
+          "before_end": 351526,
+          "before_start_line_normalized": 5412,
+          "before_end_line_normalized": 5412,
+          "before_sha256": "50dd8e084166125a069c9e308b00dc12dfb00ffc7114e1e61ea55ebf4d6e8276",
+          "after_length": 201,
+          "after_sha256": "58abbe02dd99cbc436b5198ab341b75558978d62a99eea185cf770a15fe997aa",
+          "reason": "User-reported (2026-11-25) fix: the Active Directory health collector failed on domain controllers with 'The format of the specified domain name is invalid' because Get-ADReplicationFailure was given '*' as the forest name; pass the actual forest name"
+        },
+        {
+          "before_start": 364751,
+          "before_end": 364828,
+          "before_start_line_normalized": 5618,
+          "before_end_line_normalized": 5618,
+          "before_sha256": "ea9ff0989d7621407391c45e689ba8ee91a7b686af127fab71c494f3db2812f8",
+          "after_length": 110,
+          "after_sha256": "8e8c8184b7defe4fc170f4180053d74601c796768d77e049d685cd085be80f36",
+          "reason": "User-reported (2026-11-25) fix: the event history collector failed with 'Cannot run a document in the middle of a pipeline' when a file named Get-WinEvent sat on PATH before the Diagnostics module loaded; call the module-qualified cmdlet"
+        },
+        {
+          "before_start": 365113,
+          "before_end": 365168,
+          "before_start_line_normalized": 5623,
+          "before_end_line_normalized": 5623,
+          "before_sha256": "b610da9b4584c58cec8609d8b17aa847374d04823821765b402eae83ac0d92a5",
+          "after_length": 88,
+          "after_sha256": "3b81f82eadbf3faeea81bf164165a9041ee978f6e52b4063ea41815b7e39ac5c",
+          "reason": "User-reported (2026-11-25) fix: the event history collector failed with 'Cannot run a document in the middle of a pipeline' when a file named Get-WinEvent sat on PATH before the Diagnostics module loaded; call the module-qualified cmdlet"
+        },
+        {
           "before_start": 370683,
           "before_end": 370683,
           "before_start_line_normalized": 5733,
@@ -234,6 +264,6 @@
   },
   "reviewed_diff": {
     "path": "docs/verification/collector-approved-changes.diff",
-    "sha256": "64a1f00a1e414c2d31e825d064366c6b087ebffcf250d5169b5eba9e41707b5f"
+    "sha256": "c53258bbcec176238a1c03a322d4f1fc0fc906e691f7c7dbd5dd58307c0297e2"
   }
 }

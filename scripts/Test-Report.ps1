@@ -54,6 +54,28 @@ $archivedTokens=$null;$archivedErrors=$null
 $archivedAst=[Management.Automation.Language.Parser]::ParseFile((Join-Path $root 'baseline/v3.2.10/collectors/Export-ServerInventory.ps1'),[ref]$archivedTokens,[ref]$archivedErrors)
 $archivedMissing=Get-MissingMandatoryArguments $archivedAst
 if($archivedMissing.Count -ne 3 -or @($archivedMissing|Where-Object{$_ -match "^Add-ReportTable .*DHCP (policies|scope statistics|bindings).* without -Columns$"}).Count -ne 3){throw ('The mandatory-argument check did not find the three DHCP tables in the published 3.2.10 collector: '+($archivedMissing -join '; '))}
+# A file named like a cmdlet on PATH (for example C:\Windows\System32\Get-WinEvent)
+# is found before a module that has not loaded yet, so collectors call the
+# module-qualified cmdlet. Get-ADReplicationFailure -Scope Forest needs the
+# forest name; '*' fails with "The format of the specified domain name is invalid".
+function Get-CollectorResolutionHazards([Management.Automation.Language.ScriptBlockAst]$Script) {
+ $hazards=@()
+ foreach($call in $Script.FindAll({param($node) $node -is [Management.Automation.Language.CommandAst]},$true)){
+  $name=$call.GetCommandName()
+  if($name -eq 'Get-WinEvent'){$hazards+=('unqualified Get-WinEvent line {0}' -f $call.Extent.StartLineNumber)}
+  if($name -eq 'Get-ADReplicationFailure'){
+   $elements=@($call.CommandElements)
+   for($i=1;$i -lt $elements.Count-1;$i++){
+    if($elements[$i] -is [Management.Automation.Language.CommandParameterAst] -and $elements[$i].ParameterName -eq 'Target' -and $elements[$i+1].Extent.Text -eq '*'){$hazards+=('Get-ADReplicationFailure -Target * line {0}' -f $call.Extent.StartLineNumber)}
+   }
+  }
+ }
+ return ,$hazards
+}
+$hazards=Get-CollectorResolutionHazards $ast
+if($hazards.Count){throw ('Collector command hazards: '+($hazards -join '; '))}
+$archivedHazards=Get-CollectorResolutionHazards $archivedAst
+if($archivedHazards.Count -ne 3 -or @($archivedHazards|Where-Object{$_ -like 'unqualified Get-WinEvent*'}).Count -ne 2){throw ('The command hazard check did not find the two Get-WinEvent calls and the forest-wide replication failure call in the published 3.2.10 collector: '+($archivedHazards -join '; '))}
 $names=@('ConvertTo-ReportAtomicText','ConvertTo-ReportText','ConvertTo-ReportMultilineText','Get-ReportPropertyValue','Get-ReportCellText','Add-ReportTitle','Add-ReportHeading','Add-ReportParagraph','Add-ReportBullets','Add-ReportPreformatted','Add-ReportTable','ConvertTo-HtmlText','ConvertTo-HtmlMultilineText','Write-ConsolidatedHtmlReport','Write-DocxTextRun','Write-DocxParagraph','Write-DocxTable','Write-ConsolidatedDocxReport')
 foreach($name in $names){
  $function=$ast.FindAll({param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst]},$true)|Where-Object{$_.Name -eq $name}|Select-Object -First 1
@@ -155,7 +177,7 @@ Write-ConsolidatedHtmlReport -Path (Join-Path $OutputDirectory 'empty-report.htm
 # Render the exact original function against the identical block snapshot.
 Invoke-Expression ([IO.File]::ReadAllText((Join-Path $root 'baseline/v3.0.10/reports/Write-ConsolidatedHtmlReport.ps1')))
 Write-ConsolidatedHtmlReport -Path (Join-Path $OutputDirectory 'baseline-report.html') -Blocks $script:reportBlocks -DocumentTitle $title
-$checks=@('Actual collector parses without errors','Every collector call binds its mandatory parameters (negative control: the three DHCP tables in published 3.2.10)','Actual HTML renderer generates a self-contained report','HTML rendering leaves every shared block unchanged','Original renderer generates the identical synthetic dataset for comparison')
+$checks=@('Actual collector parses without errors','Every collector call binds its mandatory parameters (negative control: the three DHCP tables in published 3.2.10)','Collectors call Get-WinEvent module-qualified and give Get-ADReplicationFailure the forest name (negative control: published 3.2.10)','Actual HTML renderer generates a self-contained report','HTML rendering leaves every shared block unchanged','Original renderer generates the identical synthetic dataset for comparison')
 if($env:OS -eq 'Windows_NT'){
  Add-Type -AssemblyName System.IO.Compression.FileSystem
  Write-ConsolidatedDocxReport -Path (Join-Path $OutputDirectory 'sample-report.docx') -Blocks $script:reportBlocks -DocumentTitle $title -SubjectText 'Synthetic fixture'
@@ -165,6 +187,16 @@ if($env:OS -eq 'Windows_NT'){
   $reader=New-Object IO.StreamReader($entry.Open());try{$xml=$reader.ReadToEnd()}finally{$reader.Dispose()}
   if($xml -notmatch 'FINALROW-1500' -or $xml -notmatch 'LAST-RAW-LINE'){throw 'Word report lost data after HTML presentation'}
  }finally{$zip.Dispose()}
+ $shadowDirectory=Join-Path $OutputDirectory 'cmdlet-shadow'
+ New-Item -ItemType Directory -Path $shadowDirectory -Force|Out-Null
+ [IO.File]::WriteAllText((Join-Path $shadowDirectory 'Get-WinEvent'),'stray output file')
+ $powerShell=Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+ $probe='$env:PATH='''+$shadowDirectory.Replace("'","''")+';''+$env:PATH;$ErrorActionPreference=''Stop'';try{{$null={0} -ListLog System|Select-Object -First 1;''ok''}}catch{{''failed: ''+$_.Exception.Message}}'
+ $unqualified=& $powerShell -NoLogo -NoProfile -NonInteractive -Command ($probe -f 'Get-WinEvent')
+ $qualified=& $powerShell -NoLogo -NoProfile -NonInteractive -Command ($probe -f 'Microsoft.PowerShell.Diagnostics\Get-WinEvent')
+ if(-not (($unqualified|Out-String) -match 'document')){throw ('A Get-WinEvent file on PATH did not reproduce the field failure: '+($unqualified|Out-String))}
+ if(($qualified|Out-String).Trim() -ne 'ok'){throw ('Module-qualified Get-WinEvent failed with a Get-WinEvent file on PATH: '+($qualified|Out-String))}
+ $checks+='A Get-WinEvent file on PATH breaks the unqualified cmdlet in a fresh Windows PowerShell and not the module-qualified call the collector uses'
  $checks+='Unchanged Word generator preserves the final table row and multiline text'
 }
 $checks|ForEach-Object{Write-Host ('PASS: '+$_)}

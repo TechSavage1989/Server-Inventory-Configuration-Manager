@@ -6656,7 +6656,7 @@ if (($computerSystem.DomainRole -ge 4) -or ($featureNames -contains 'AD-Domain-S
             Save-ObjectData -InputObject (Get-ADReplicationSubnet -Filter *) -BasePath (Join-Path $rolePath 'AD-Subnets')
             Save-ObjectData -InputObject (Get-ADReplicationSiteLink -Filter *) -BasePath (Join-Path $rolePath 'AD-Site-Links')
             Save-ObjectData -InputObject (Get-ADReplicationConnection -Filter *) -BasePath (Join-Path $rolePath 'AD-Replication-Connections')
-            Save-ObjectData -InputObject (Get-ADReplicationFailure -Target * -Scope Forest -ErrorAction SilentlyContinue) -BasePath (Join-Path $rolePath 'AD-Replication-Failures')
+            Save-ObjectData -InputObject (Get-ADReplicationFailure -Target ([string]$forest.Name) -Scope Forest -ErrorAction SilentlyContinue) -BasePath (Join-Path $rolePath 'AD-Replication-Failures')
         }
 
         'CSV and CLIXML directory exports are documentation only. They are not a supported replacement for Active Directory replication, system-state backup, or forest recovery procedures.' |
@@ -6862,12 +6862,12 @@ if ($IncludeGpoBackup -or (Test-InventoryCategory -Category @('GroupPolicy'))) {
 if ($IncludeEventLogs -or (Test-InventoryCategory -Category @('EventLogs'))) {
     Invoke-Collector -Name 'Recent System and Application event history' -Action {
         $startTime = (Get-Date).AddDays(-1 * $EventLogDays)
-        $eventLogs = Get-WinEvent -ListLog * -ErrorAction SilentlyContinue |
+        $eventLogs = Microsoft.PowerShell.Diagnostics\Get-WinEvent -ListLog * -ErrorAction SilentlyContinue |
             Select-Object LogName, RecordCount, IsEnabled, LogMode, MaximumSizeInBytes, LogFilePath, LastWriteTime
         Save-ObjectData -InputObject $eventLogs -BasePath (Join-Path $paths.Events 'Event-Log-Configuration')
 
         foreach ($logName in @('System', 'Application')) {
-            $events = Get-WinEvent -FilterHashtable @{
+            $events = Microsoft.PowerShell.Diagnostics\Get-WinEvent -FilterHashtable @{
                 LogName   = $logName
                 Level     = 1, 2, 3
                 StartTime = $startTime
