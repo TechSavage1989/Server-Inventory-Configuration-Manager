@@ -9,6 +9,13 @@ Phase 3 (HyperCore, Nutanix AHV, Proxmox VE and V2P) runs in parallel with phase
 - Tests: `vmcopy_raw_test.go` (blank-disk copy, resume, delta including a chunk that became zero, refusals for partition tables, GPT backups, small disks, sector sizes, foreign sources; overwrite clears a larger disk's end; image files; a raw-disk receiver over the network) and `vmcopy_raw_windows_test.go` (attach a VHDX as a disk, copy onto it through `\\.\PhysicalDriveN`, offline check, delta, refusal without a record, system disk refused, bytes compared after detaching).
 - Not yet: receiver boot media, VM creation on HyperCore/Nutanix/Proxmox, and UI. Records in WinPE are on the RAM disk unless `--records` points at persistent storage, so a restarted receiver then needs `--overwrite-disks` and a full pass.
 
+## Unreleased: phase 2 step 4, in-guest source agent — 2026-11-25
+
+- `vmagent.go`: `vmCompositeSource` lays volume readers over a base disk (sorted, non-overlapping, sector aligned) so one disk reads partition tables and small partitions live and each snapshotted volume from its shadow copy.
+- `vmagent_windows.go`: `openVMAgentDisk(diskNumber, allowLive, log)` opens `\\.\PhysicalDriveN`, finds its volumes (FindFirstVolume, IOCTL_VOLUME_GET_VOLUME_DISK_EXTENTS, refusing spanned volumes), takes a `ClientAccessible` shadow copy of each NTFS/ReFS volume through `Win32_ShadowCopy` and reads it from `\\?\GLOBALROOT\Device\HarddiskVolumeShadowCopyN`. Closing the source deletes exactly the shadow copies it took. The source name is `<computer> disk <N>`, so later rounds resume the same copy record and send only changed chunks (works with the receiver from step 3).
+- Tests: `TestCompositeSourceReadsVolumesFromTheirShadowCopies` (all platforms) and `TestAgentCopiesALiveDiskThroughAShadowCopy` (Windows CI: a real NTFS VHDX, a write after the shadow copy stays out of the copy, the copy mounts with the file, the shadow copy is gone).
+- Limits: `Win32_ShadowCopy.Create` is available on Windows Server, not client editions; shadow copies are per volume (crash-consistent per volume, not one set); no NTFS free-space skipping yet; UI and agent run mode come with the Hyper-V step.
+
 ## Unreleased: interactive VMware Environment view — 2026-11-25
 
 Owner: "the vmhost cluster section should have the hardware info and licensing etc part of the sections and everything should be linked and interactive. also in the readiness section, the number of hosts should be one of the cards and clickable. also each vm in the vm list should be clickable and present details or options directly when selected". Their screenshot showed All VMs 10 beside a list of 14 VMs (the 4 vCenter/vCLS VMs were left out of the card).
