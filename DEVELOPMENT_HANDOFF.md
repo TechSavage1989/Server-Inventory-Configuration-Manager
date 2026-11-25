@@ -1,3 +1,7 @@
+## 3.2.29 release preparation — 2026-11-25
+
+Publishing the new VMware migration targets and File shares label (#76) together with release signing (#75), which the owner chose to merge and publish on 2026-11-25. This branch bumps `appVersion`, `collectorVersion` and the collector `$scriptVersion` to 3.2.29, adds `docs/release-notes/3.2.29.md` (first three bullets free of Markdown) and points `scripts/test_published_upgrade.cjs` and AGENTS.md at the published v3.2.28 executable (SHA-256 `19b36a7828db836270243b226636beaeb0bb589338f4a875453ba813c05f95cc`). The owner reports the Azure federated credential and signing secrets are set, so this is the first release expected to be signed.
+
 ## Unreleased: more VMware migration targets, File shares tab label — 2026-11-25
 
 User requests: "ids like to add moveing to nutanix, and honestly options for any potential migration, including Virtual to physical if possible" and "the migrate tab should probably be labled specific to File shares since that's what it's for". Branch `claude/project-thread-741oy5`.
