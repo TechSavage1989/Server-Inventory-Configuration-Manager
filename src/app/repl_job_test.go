@@ -143,6 +143,24 @@ func TestReplicationJobRunsRoundsTracksRPOAndAlerts(t *testing.T) {
 	if view.Status.Rounds != 1 || view.Status.State != replStateIdle || !view.Status.RecoveryPoint.Equal(clock.Now()) {
 		t.Fatalf("first round: %+v", view.Status)
 	}
+	// The first full copy is a milestone: recorded once, noted (not an open
+	// alert) and kept through later rounds.
+	seededAt := view.Status.InitialCopyAt
+	if seededAt.IsZero() {
+		t.Fatal("the initial copy was not marked complete")
+	}
+	notes := 0
+	for _, alert := range agent.Alerts() {
+		if alert.Kind == "seeded" {
+			notes++
+			if !alert.Cleared || alert.Level != "info" || !strings.Contains(alert.Text, "ready for a test failover or cutover") {
+				t.Fatalf("milestone note: %+v", alert)
+			}
+		}
+	}
+	if notes != 1 {
+		t.Fatalf("%d milestone notes", notes)
+	}
 	for disk, name := range map[string]string{"0": "APP01-disk0.vhdx", "1": "APP01-disk1.vhdx"} {
 		if !bytes.Equal(vmReadVHDX(t, filepath.Join(folder, name)), platform.disks[disk]) {
 			t.Fatalf("%s differs from disk %s", name, disk)
@@ -161,6 +179,9 @@ func TestReplicationJobRunsRoundsTracksRPOAndAlerts(t *testing.T) {
 	view = replWaitIdle(t, agent, id)
 	if view.Status.Rounds != 2 || view.Status.Disks[1].Changed != 1 || view.Status.Disks[0].Changed != 0 {
 		t.Fatalf("delta round: %+v", view.Status.Disks)
+	}
+	if !view.Status.InitialCopyAt.Equal(seededAt) {
+		t.Fatal("a later round moved the initial copy time")
 	}
 	if !bytes.Equal(vmReadVHDX(t, filepath.Join(folder, "APP01-disk1.vhdx")), platform.disks["1"]) {
 		t.Fatal("the delta round left the copy different")
@@ -206,7 +227,7 @@ func TestReplicationJobRunsRoundsTracksRPOAndAlerts(t *testing.T) {
 	}
 	// The agent restarts from its records.
 	again, err := newReplAgent(agent.dir, platform)
-	if err != nil || len(again.Jobs()) != 1 || again.Jobs()[0].Status.Rounds != 3 {
+	if err != nil || len(again.Jobs()) != 1 || again.Jobs()[0].Status.Rounds != 3 || !again.Jobs()[0].Status.InitialCopyAt.Equal(seededAt) {
 		t.Fatalf("reloaded: %v", err)
 	}
 	if again.jobs[id].spec.Receiver.Code == "" {

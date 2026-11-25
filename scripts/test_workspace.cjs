@@ -764,7 +764,7 @@ async function check(name,fn){await fn();report.checks.push({name,result:'passed
   await f.page.waitForFunction(()=>[...document.querySelectorAll('#gdSteps li.gd-step')].some(li=>li.textContent.includes('choose a Cluster Shared Volume')&&!li.classList.contains('blocked')));
   await f.page.locator('[data-gd-source="server"]').click();await f.page.locator('[data-gd-target="hyperv"]').click();
   const serverTitles=await f.page.locator('#gdSteps .gd-head strong').allTextContents();
-  assert(serverTitles.includes('Choose where the copies go')&&serverTitles.includes('Install the agent on the server being moved'),serverTitles.join(' | '));
+  assert(serverTitles.includes('Choose where the copies go')&&serverTitles.includes('Install the agent on the server being moved')&&serverTitles.includes('Add the agent to your endpoint protection exclusions')&&serverTitles.includes('Wait for the initial copy to complete'),serverTitles.join(' | '));
   assert((await f.page.locator('#gdComputers').textContent()).includes('The new Hyper-V host'));
   await f.page.locator('[data-gd-source="shares"]').click();assert(await f.page.locator('#gdTargetPick').isHidden());assert.equal(await f.page.locator('#gdPlanTitle').textContent(),'Moving file shares to a new file server');
   assert.deepEqual(f.dialogs,[]);
@@ -1203,12 +1203,22 @@ async function check(name,fn){await fn();report.checks.push({name,result:'passed
    summary:{agents:2,unreachable:1,jobs:3,healthy:1,behind:1,failing:1,paused:0,cutOver:0,alerts:0}});
   await goTool(f,'replicate');await f.page.waitForFunction(()=>document.querySelectorAll('#rpAgents .rp-agent').length===2,null,{timeout:15000});
   const bars=await f.page.locator('#rpAgents .rp-bar').evaluateAll(n=>n.map(b=>b.getAttribute('aria-valuenow')+' '+b.className));assert.deepEqual(bars.slice(0,2),['25 rp-bar active','25 rp-bar active'],bars.join());
-  const rowText=await f.page.locator('#rpAgents .rp-progress-text').allTextContents();assert(rowText[0].startsWith('Round 4: 25%, 25.0 GB of 100 GB read, 4.0 GB sent'),rowText[0]);assert(rowText[1].startsWith('First full copy: 25%'),rowText[1]);
+  const rowText=await f.page.locator('#rpAgents .rp-progress-text').allTextContents();assert(rowText[0].startsWith('Round 4: 25%, 25.0 GB of 100 GB read, 4.0 GB sent'),rowText[0]);assert(rowText[1].startsWith('Initial copy: 25%'),rowText[1]);
+  // The initial copy milestone: a whole copy says so, with Test failover and Cut over; one still copying does not.
+  const milestones=await f.page.locator('#rpAgents .rp-milestone').allTextContents();assert.equal(milestones.length,3,milestones.join('|'));assert(milestones.every(t=>t.startsWith('Initial copy complete')&&t.endsWith('ready to cut over.')),milestones.join('|'));
+  assert.deepEqual(await f.page.locator('#rpAgents [data-rp-goto-cutover]').evaluateAll(n=>n.map(b=>b.getAttribute('data-rp-goto-cutover'))),['ag1|j1','ag1|j2','ag1|j3']);assert.equal(await f.page.locator('[data-rp-test="ag1|j4"]').count(),0);
+  assert((await f.page.locator('#rpSummary [data-rp-filter="healthy"]').getAttribute('title')).includes('initial copy is complete'));
+  f.repl.agents[0].live.jobs[1].status=Object.assign({},f.repl.agents[0].live.jobs[1].status,{state:'idle',rounds:1,recoveryPoint:'2026-11-25T14:05:00Z',initialCopyAt:'2026-11-25T14:06:00Z',disks:[]});
+  await f.page.waitForFunction(()=>document.querySelector('#appNoticeText').textContent.includes('Initial copy complete: PRINT01 on APP01'),null,{timeout:15000});assert((await f.page.locator('#appNoticeText').textContent()).includes('ready for a test failover or cutover'));
+  await f.page.locator('[data-rp-goto-cutover="ag1|j4"]').click();await f.page.waitForFunction(()=>document.activeElement&&document.activeElement.id==='rpCutoverTyped');
+  assert((await f.page.locator('#rpDetailsFacts').textContent()).includes('Initial copy complete'));
+  f.repl.agents[0].live.jobs[1].status=Object.assign({},f.repl.agents[0].live.jobs[1].status,{state:'syncing',rounds:0,recoveryPoint:'',initialCopyAt:'',disks:[{source:'0',target:'PRINT01-disk0.vhdx',size:53687091200,chunks:12800,done:3200,read:13421772800,sent:6442450944}]});
+  await f.page.waitForFunction(()=>!document.querySelector('[data-rp-test="ag1|j4"]'),null,{timeout:15000});await f.page.locator('#rpDetailsClose').click();
   assert((await f.page.locator('#rpAgents').textContent()).includes('Failed: the receiver at 192.0.2.50 did not answer'));
   assert.equal(await f.page.locator('#rpSummary [data-rp-filter="behind"]').evaluate(e=>e.tagName),'BUTTON');assert.equal(await f.page.locator('#rpSummary [data-rp-filter="behind"]').evaluate(e=>getComputedStyle(e).cursor),'pointer');
   await f.page.locator('#rpSummary [data-rp-filter="behind"]').click();
   assert.equal(await f.page.locator('#rpSummary [data-rp-filter="behind"]').getAttribute('aria-pressed'),'true');
-  assert.deepEqual(await f.page.locator('#rpAgents .rp-jobs tbody tr:not(.rp-advice) td:first-child').allTextContents(),['PRINT01','FILE01']);assert((await f.page.locator('[data-rp-advice="j4"]').textContent()).includes('first full copy is still running'));
+  assert.deepEqual(await f.page.locator('#rpAgents .rp-jobs tbody tr:not(.rp-advice) td:first-child').allTextContents(),['PRINT01','FILE01']);assert((await f.page.locator('[data-rp-advice="j4"]').textContent()).includes('initial copy is still running'));
   assert((await f.page.locator('[data-rp-advice="j2"]').textContent()).includes('over the 15-minute RPO'));assert((await f.page.locator('.rp-filter-bar').textContent()).includes('Jobs behind their RPO: 2 jobs'));
   await f.page.locator('#rpSummary [data-rp-filter="failing"]').click();
   assert.deepEqual(await f.page.locator('#rpAgents .rp-jobs tbody tr:not(.rp-advice) td:first-child').allTextContents(),['SQL01']);assert((await f.page.locator('[data-rp-advice="j3"]').textContent()).includes('the receiver at 192.0.2.50 did not answer'));

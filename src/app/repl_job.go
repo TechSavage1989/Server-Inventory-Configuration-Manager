@@ -121,7 +121,10 @@ type replJobStatus struct {
 	Message string `json:"message"`
 	Rounds  int    `json:"rounds"`
 	// RecoveryPoint is the snapshot time of the last finished round.
-	RecoveryPoint time.Time        `json:"recoveryPoint"`
+	RecoveryPoint time.Time `json:"recoveryPoint"`
+	// InitialCopyAt is when the first full copy finished: from then on the
+	// receiver holds a whole copy and the job can be tested or cut over.
+	InitialCopyAt time.Time        `json:"initialCopyAt"`
 	LastStart     time.Time        `json:"lastStart"`
 	LastEnd       time.Time        `json:"lastEnd"`
 	NextRun       time.Time        `json:"nextRun"`
@@ -353,6 +356,22 @@ func (a *replAgent) alertLocked(job *replJob, level, kind, text string) {
 		a.alerts = a.alerts[len(a.alerts)-200:]
 	}
 	a.logLocked(job, "ALERT: %s", text)
+	if a.notify != nil {
+		go a.notify(alert)
+	}
+}
+
+// noteLocked records a milestone (an information alert that needs no
+// action, so it is stored already cleared and never counts as open) and
+// passes it to the event log. Caller holds a.mu.
+func (a *replAgent) noteLocked(job *replJob, kind, text string) {
+	a.alertID++
+	alert := replAlert{ID: a.alertID, Time: a.now().UTC(), Job: job.spec.ID, JobName: job.spec.Name, Level: "info", Kind: kind, Text: text, Cleared: true}
+	a.alerts = append(a.alerts, alert)
+	if len(a.alerts) > 200 {
+		a.alerts = a.alerts[len(a.alerts)-200:]
+	}
+	a.logLocked(job, "%s", text)
 	if a.notify != nil {
 		go a.notify(alert)
 	}
@@ -924,6 +943,10 @@ func (a *replAgent) runRound(ctx context.Context, job *replJob, spec replJobSpec
 	case err == nil:
 		job.status.Rounds++
 		job.status.Failures, job.status.LastError = 0, ""
+		if job.status.InitialCopyAt.IsZero() {
+			job.status.InitialCopyAt = a.now().UTC()
+			a.noteLocked(job, "seeded", fmt.Sprintf("Initial copy of %s is complete: the copy is whole and ready for a test failover or cutover. Changes keep replicating.", job.spec.Name))
+		}
 		if rescan {
 			job.status.RescanNext = false
 		}

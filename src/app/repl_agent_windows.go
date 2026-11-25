@@ -331,8 +331,10 @@ func replRunWindowsAgent(ctx context.Context, events *eventlog.Log, log func(str
 		if events == nil {
 			return
 		}
-		id := map[string]uint32{"rpo": 1001, "failing": 1002, "cutover": 1003}[alert.Kind]
-		if alert.Level == "error" {
+		id := map[string]uint32{"rpo": 1001, "failing": 1002, "cutover": 1003, "seeded": 1004}[alert.Kind]
+		if alert.Level == "info" {
+			events.Info(id, alert.Text)
+		} else if alert.Level == "error" {
 			events.Error(id, alert.Text)
 		} else {
 			events.Warning(id, alert.Text)

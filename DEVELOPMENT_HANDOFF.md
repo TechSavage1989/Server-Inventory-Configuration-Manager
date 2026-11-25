@@ -4,6 +4,7 @@
 - Guided migration walks every source and target with per-step computer, live checks and blocking checks. Receiver details have Copy buttons and paste into all sending fields at once.
 - On a Hyper-V host, copies and the receiver default to the host's virtual hard disk folder; Move VMs offers Cluster Shared Volumes with free space, refuses a copy that does not fit, and can add the VM to the failover cluster at cutover.
 - The receiver lists connected senders and every copy with progress, speed and time left; Send, Move and replication job details show theirs. Replication summary tiles filter the job list with a reason and next step.
+- The initial copy is a milestone: the agent records `initialCopyAt` and writes information event 1004; the job row says "Initial copy complete, ready to cut over" with the time and Test failover and Cut over buttons, and the console shows a notice. The guide adds endpoint protection exclusions before installing the agent and a wait for the initial copy before testing.
 - Tested: `go test ./src/app` (Linux), `go vet` for Linux and Windows, and the full `scripts/test_workspace.cjs` in headless Chromium with synthetic state. Not yet field-validated: `Add-ClusterVirtualMachineRole` on a real cluster, CSV detection and the WMI default-path read on a real Hyper-V host.
 
 ## 3.2.33 release preparation — 2026-11-25

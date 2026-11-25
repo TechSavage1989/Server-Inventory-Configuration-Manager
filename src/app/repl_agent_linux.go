@@ -195,12 +195,14 @@ func runReplAgentLinuxCommand(args []string) int {
 			}
 		}
 		notify := func(alert replAlert) {
-			// sd-daemon priority prefixes: 3 error, 4 warning.
-			prefix := "<4>"
+			// sd-daemon priority prefixes: 3 error, 4 warning, 6 information.
+			prefix, label := "<4>", "ALERT "
 			if alert.Level == "error" {
 				prefix = "<3>"
+			} else if alert.Level == "info" {
+				prefix, label = "<6>", "NOTE "
 			}
-			log(prefix + "ALERT " + alert.Kind + ": " + alert.Text)
+			log(prefix + label + alert.Kind + ": " + alert.Text)
 		}
 		if err := runReplAgentWith(ctx, replLinuxDataDir, replLinuxPlatform{}, replAgentVersion(), log, notify); err != nil {
 			fmt.Fprintln(os.Stderr, err)
