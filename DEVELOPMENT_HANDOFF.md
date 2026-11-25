@@ -1,3 +1,7 @@
+## 3.2.34 release preparation — 2026-11-25
+
+Endpoint protection release for the field report fixed in #116 (SentinelOne quarantined the 3.2.33 agent). This branch bumps `appVersion`, `collectorVersion` and the collector `$scriptVersion` to 3.2.34, adds `docs/release-notes/3.2.34.md` (first three bullets free of Markdown) and points `scripts/test_published_upgrade.cjs` and AGENTS.md at the published v3.2.33 executable (SHA-256 `4ffe389e3c8ad41ad6b5686c1b434f81c7f5d5ae3d765896fbef61b1dc12ea94`). The first signed-script release: the workflow signs the non-baseline embedded scripts before `go build`.
+
 ## Unreleased: replication agent safe with endpoint protection — 2026-11-25
 
 - Field report: on Windows Server 2022, SentinelOne ended the 3.2.33 agent mid-copy and quarantined `SIMM-Agent.exe` ("Lateral movement: Shadow Copy Deletion detected", Ransomware). The agent took each shadow copy with hidden PowerShell (`-ExecutionPolicy Bypass`, WMI `Win32_ShadowCopy.Create`) and deleted it with `Win32_ShadowCopy.Delete()`, inside a service created remotely by push install. The console then showed the job as "Sending changes" with the agent "Not answering" (connection refused).
