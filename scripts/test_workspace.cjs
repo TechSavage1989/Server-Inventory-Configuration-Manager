@@ -112,6 +112,7 @@ async function fixture(browser,old=false){
    if(action==='export-plan'){v.runbookPath='C:\\Reports\\VMware_vc01\\Migration-Runbook.html';v.planCsvPath='C:\\Reports\\VMware_vc01\\Migration-Plan.csv';v.runbookDocxPath='C:\\Reports\\VMware_vc01\\Migration-Runbook.docx';send(200,{ok:true});return;}
    if(action==='reset'){state.vmware=Object.assign(vmwareIdle(),{inventorySerial:v.inventorySerial+1,logs:v.logs});vm.inventory=null;vm.plan=null;send(200,{ok:true});return;}
    if(action==='prepare'){Object.assign(v,{running:true,action:'prepare',status:'preparing'});send(202,{ok:true});return;}
+   if(action==='move'){Object.assign(v,{running:true,action:'move',status:'moving'});send(202,{ok:true});return;}
    if(action==='guest'){send(200,{ok:true,serial:v.guestSerial,result:vm.guest});return;}
    if(action.startsWith('guest/')){Object.assign(v,{running:true,action:'guest-'+action.slice(6)});send(202,{ok:true});return;}
    if(action==='compare/browse'){send(200,{ok:true,selected:true,path:'D:\\Packages\\'+(data.side==='before'?'Before':'After'),computer:'APP01',collectedAt:data.side==='before'?'2026-11-19 22:00':'2026-11-21 07:30'});return;}
@@ -597,6 +598,37 @@ async function check(name,fn){await fn();report.checks.push({name,result:'passed
   Object.assign(f.vm.inventory.vms[2],{vtpm:false,encrypted:false,powerState:'poweredOff'});Object.assign(f.state.vmware,{running:false,action:'',status:'connected',prepare:{vm:'LEGACY03',done:['Shut down the guest.','Removed the virtual TPM.','Decrypted the VM and its disks.'],skipped:[]},prepareSerial:1,inventorySerial:3});
   await f.page.waitForFunction(()=>document.querySelector('#vmDetail').textContent.includes('Decrypted the VM and its disks.'));
   assert(!await f.page.locator('input[data-vm-prepare="decrypt"]').isChecked(),'nothing left to decrypt');assert.deepEqual(f.dialogs,[]);
+ }finally{await f.close();}});
+ await check('VMware move to Hyper-V: copy and cut over need a live session and the typed VM name, post the folders and options, and show each disk\'s result',async()=>{const f=await fixture(browser);try{
+  await vmwareConnected(f);
+  await f.page.locator('tr[data-vm-id="vm-app01"]').click();assert((await f.page.locator('#vmMove').textContent()).includes('run this on the Hyper-V host'));assert.equal(await f.page.locator('#vmMoveCopy').count(),0);
+  f.state.vmware.canPrepare=true;f.state.vmware.moveCopyRoot='D:\\Migration\\VMware-Copies';f.state.vmware.inventorySerial=2;
+  await f.page.waitForFunction(()=>!!document.querySelector('#vmMoveCopy'));
+  assert.equal(await f.page.locator('#vmMoveFolder').getAttribute('placeholder'),'D:\\Migration\\VMware-Copies\\APP01');
+  assert((await f.page.locator('#vmMove').textContent()).includes('No Hyper-V switch is named for VM-Servers'));
+  assert(await f.page.locator('input[data-vm-move="quiesce"]').isChecked());assert(!await f.page.locator('input[data-vm-move="start"]').isChecked());
+  await f.page.locator('#vmMoveFolder').fill('E:\\Copies\\APP01');
+  await f.page.locator('#vmMoveCopy').click();assert(await f.page.locator('#migrateDialog').isVisible());
+  const copyText=await f.page.locator('#migrateDialogText').textContent();assert(copyText.includes('changed block tracking')&&copyText.includes('E:\\Copies\\APP01'),copyText);
+  assert(await f.page.locator('#migrateConfirmButton').isDisabled());await f.page.locator('#migrateConfirmInput').fill('APP01');await f.page.locator('#migrateConfirmInput').press('Enter');
+  await f.page.waitForFunction(()=>document.querySelector('#vmwareTabBadge').textContent==='Working');
+  assert(await f.page.locator('#vmStop').isVisible(),'a copy can be stopped');
+  assert.deepEqual(vmwareCalls(f,'move').map(c=>c.body),[{vmId:'vm-app01',action:'copy',copyFolder:'E:\\Copies\\APP01',vmFolder:'',quiesce:true,keepMac:false,start:false,confirm:'APP01'}]);
+  Object.assign(f.state.vmware,{running:false,action:'',status:'connected',move:{vm:'APP01',cutover:false,round:{disks:[{label:'Hard disk 1',mode:'seed',bytesWritten:21474836480,verified:false}]},disks:['E:\\Copies\\APP01\\APP01-disk0.vhdx']},moveSerial:1});
+  await f.page.waitForFunction(()=>document.querySelector('#vmMove')&&document.querySelector('#vmMove').textContent.includes('first copy of the used areas'));
+  assert.equal(await f.page.locator('#vmMoveCopy').textContent(),'Copy changes\u2026');
+  await f.page.locator('input[data-vm-move="start"]').check();
+  await f.page.locator('#vmMoveCutover').click();assert((await f.page.locator('#migrateDialogAlert').textContent()).includes('shut down through VMware Tools'));
+  assert((await f.page.locator('#migrateDialogText').textContent()).includes('and start it'));
+  await f.page.locator('#migrateConfirmInput').fill('app01');await f.page.locator('#migrateConfirmButton').click();
+  await f.page.waitForFunction(()=>document.querySelector('#vmwareTabBadge').textContent==='Working');
+  assert.equal(vmwareCalls(f,'move').at(-1).body.action,'cutover');assert.equal(vmwareCalls(f,'move').at(-1).body.start,true);
+  Object.assign(f.state.vmware,{running:false,action:'',status:'connected',message:'APP01 was created on Hyper-V and started.',move:{vm:'APP01',cutover:true,shutDown:true,round:{disks:[{label:'Hard disk 1',mode:'changed',bytesWritten:83886080,verified:true}]},hyperV:{generation:2},hyperVId:'4f6c1d6e-2b1a-4c55-9d3e-0f1e2d3c4b5a'},moveSerial:2});
+  await f.page.waitForFunction(()=>document.querySelector('#vmMove').textContent.includes('Created on Hyper-V as APP01 (generation 2)'));
+  assert((await f.page.locator('#vmMove').textContent()).includes('changed blocks only, 80.0 MB written, verified'));
+  await f.page.setViewportSize({width:1440,height:1000});await f.page.evaluate(()=>document.activeElement.blur());await f.page.locator('#vmMove').evaluate(e=>e.scrollIntoView({block:'center'}));await f.page.screenshot({path:shots+'/vmware-move-1440x1000.png'});
+  await f.page.locator('#vmTargetSelect').selectOption('scale');await f.page.waitForFunction(()=>!document.querySelector('#vmMove'));
+  assert.deepEqual(f.dialogs,[]);
  }finally{await f.close();}});
  await check('VMware Hosts card: every cluster and host with hardware, licensing and items to check, all linked',async()=>{const f=await fixture(browser);try{
   await vmwareConnected(f);

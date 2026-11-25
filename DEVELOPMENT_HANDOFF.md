@@ -1,3 +1,19 @@
+## Unreleased: phase 2 step 5, Move to Hyper-V in the VMware tab — 2026-11-25
+
+- `vmware_hyperv.go`: `vmHyperVPlanFor` maps a VMware VM to a Hyper-V VM (EFI to generation 2 with Secure Boot template MicrosoftWindows or MicrosoftUEFICertificateAuthority by guest, vTPM to a local key protector and TPM on generation 2, CPUs, memory rounded to 2 MB, boot disk first, IDE boot plus SCSI on generation 1, one adapter per VMware adapter with switch, VLAN and optional static MAC). `Script()` writes the PowerShell; `vmPSQuote` quotes every value.
+- `vmware_move.go`: `vmMoveRound` runs a copy round, or for cutover shuts the guest down through Prepare's VMware Tools shutdown first and refuses to continue unless the VM is off, then runs a verified round.
+- `vmware_move_windows.go`: `/api/vmware/move` (`copy` or `cutover`, typed VM name, copy folder defaulting to `<output>\VMware-Copies\<VM>`, optional Hyper-V folder, quiesce, keep MAC, start) as a stoppable critical operation; cutover creates the VM through the Hyper-V module. State gains `move`, `moveSerial`, `moveError`, `moveCopyRoot`.
+- UI: **Move this VM to Hyper-V** in a VM's details (Hyper-V target only), with Copy disks / Copy changes, Cut over (alert, typed name), per-disk results and a note naming adapters with no switch in the plan. Stop works for copies. README, subtitle and `docs/images/vmware-move.png` updated.
+- Tests: `TestHyperVPlanMapsFirmwareDisksAdaptersAndVLANs`, `TestHyperVScriptQuotesEveryValue`, `TestMoveCopiesWhileRunningThenCutsOverAfterShutdown` (vcsim: copy leaves the VM on, cutover shuts it down and the verified copy matches, a renamed VM is refused) and the workspace check "VMware move to Hyper-V".
+- Not validated: creating a VM on a real Hyper-V host (no Hyper-V on GitHub runners), real vSphere copies. The receiver and agent have no UI yet.
+
+## Unreleased: phase 2 step 4, in-guest source agent — 2026-11-25
+
+- `vmagent.go`: `vmCompositeSource` lays volume readers over a base disk (sorted, non-overlapping, sector aligned) so one disk reads partition tables and small partitions live and each snapshotted volume from its shadow copy.
+- `vmagent_windows.go`: `openVMAgentDisk(diskNumber, allowLive, log)` opens `\\.\PhysicalDriveN`, finds its volumes (FindFirstVolume, IOCTL_VOLUME_GET_VOLUME_DISK_EXTENTS, refusing spanned volumes), takes a `ClientAccessible` shadow copy of each NTFS/ReFS volume through `Win32_ShadowCopy` and reads it from `\\?\GLOBALROOT\Device\HarddiskVolumeShadowCopyN`. Closing the source deletes exactly the shadow copies it took. The source name is `<computer> disk <N>`, so later rounds resume the same copy record and send only changed chunks (works with the receiver from step 3).
+- Tests: `TestCompositeSourceReadsVolumesFromTheirShadowCopies` (all platforms) and `TestAgentCopiesALiveDiskThroughAShadowCopy` (Windows CI: a real NTFS VHDX, a write after the shadow copy stays out of the copy, the copy mounts with the file, the shadow copy is gone).
+- Limits: `Win32_ShadowCopy.Create` is available on Windows Server, not client editions; shadow copies are per volume (crash-consistent per volume, not one set); no NTFS free-space skipping yet; UI and agent run mode come with the Hyper-V step.
+
 ## Unreleased: phase 4 step 1, disk converter — 2026-11-25
 
 Owner-approved phase 4 (disk converter between VMDK, VHDX, VHD, qcow2 and raw, with UI; Hyper-V as a migration source follows). StarWind V2V Converter is a feature reference only; its installer in the project files was not run or inspected.

@@ -476,7 +476,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
 .vm-table td.vm-changes{background:#fbfcfe}.vm-changes ul{margin:0;padding-left:18px}.vm-changes li{margin:2px 0}
 .vm-detail{margin-top:10px;border:1px solid #dbe3ed;border-radius:10px;padding:10px 12px;background:#fbfcfe;font-size:12px;color:#334156}
 .vm-detail-head{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;font-size:13px;color:#1b2942}
-.vm-detail-line{margin-top:5px;color:#52647c;overflow-wrap:anywhere}.vm-prepare{margin-top:10px;padding-top:8px;border-top:1px solid #e3e8f0}.vm-prepare .secondary-button{margin-top:8px}.vm-hosts{margin-top:12px;border-top:1px solid #e3e8f0;padding-top:6px}.vm-hosts>summary{cursor:pointer;font-weight:700;padding:6px 0}.vm-hosts .vm-table-wrap{margin-top:8px}.vm-attention{margin:6px 0 0;padding-left:18px;color:#7a5410}
+.vm-detail-line{margin-top:5px;color:#52647c;overflow-wrap:anywhere}.vm-prepare{margin-top:10px;padding-top:8px;border-top:1px solid #e3e8f0}.vm-prepare .secondary-button{margin-top:8px}.vm-field{display:flex;flex-direction:column;gap:3px;margin-top:6px}.vm-field input{max-width:520px}.vm-move-actions{display:flex;gap:8px;flex-wrap:wrap}.vm-hosts{margin-top:12px;border-top:1px solid #e3e8f0;padding-top:6px}.vm-hosts>summary{cursor:pointer;font-weight:700;padding:6px 0}.vm-hosts .vm-table-wrap{margin-top:8px}.vm-attention{margin:6px 0 0;padding-left:18px;color:#7a5410}
 .vm-counts-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;margin-top:12px}.vm-counts-head .vm-counts-title{margin-top:0}
 .vm-count.hosts{border-color:#c9d6ea;background:#f5f8fd;margin-right:10px;position:relative}.vm-count.hosts strong{color:#1d4ed8}.vm-count.hosts:hover{background:#eaf1ff}
 .vm-count.hosts::after{content:"";position:absolute;right:-10px;top:6px;bottom:6px;border-right:1px solid #dbe3ed}
@@ -812,7 +812,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
 
     <section class="tab-panel" id="tabVmware" role="tabpanel" aria-labelledby="tabButtonVmware">
       <div class="restore-wrap"><div class="card">
-        <div class="card-header"><div><div class="card-title">Move VMs off VMware</div><div class="card-subtitle">Check every VM before moving it to Hyper-V, Scale Computing HyperCore, Nutanix AHV, Proxmox VE, Azure, Amazon EC2 or a physical server, plan the waves, prepare each machine and compare it after the move. vCenter and ESXi are only read, unless you choose Prepare source for a VM.</div></div></div>
+        <div class="card-header"><div><div class="card-title">Move VMs off VMware</div><div class="card-subtitle">Check every VM before moving it to Hyper-V, Scale Computing HyperCore, Nutanix AHV, Proxmox VE, Azure, Amazon EC2 or a physical server, plan the waves, prepare each machine and compare it after the move. vCenter and ESXi are only read, unless you choose to prepare, copy or cut over a VM.</div></div></div>
         <div class="vm-bar">
           <div class="vm-views" role="group" aria-label="VMware migration views"><button class="vm-view" type="button" data-vmview="env" aria-pressed="true">Environment</button><button class="vm-view" type="button" data-vmview="plan" aria-pressed="false">Plan and runbook</button><button class="vm-view" type="button" data-vmview="guest" aria-pressed="false">This VM</button><button class="vm-view" type="button" data-vmview="compare" aria-pressed="false">Before and after</button></div>
           <div class="vm-target"><label class="vm-target-label" id="vmTargetLabel" for="vmTargetSelect">Moving to</label><select id="vmTargetSelect"><option value="hyperv">Hyper-V</option><option value="scale">Scale Computing HyperCore</option><option value="nutanix">Nutanix AHV</option><option value="proxmox">Proxmox VE (KVM)</option><option value="azure">Microsoft Azure</option><option value="aws">Amazon EC2</option><option value="physical">Physical server (V2P)</option></select></div>
@@ -2226,7 +2226,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   // result and comparison are fetched when their serial numbers change.
   var vmView='env',vmAttention=[],vmInventory=null,vmPlan=null,vmSizing=null,vmInvSerial=0,vmInvLoading=false,vmPlanDirty=false,vmSelectedVM='',vmFilter='all',vmBusy=false,vmTargetLocal='hyperv';
   var vmGuest=null,vmGuestSerial=0,vmGuestLoading=false,vmGuestChoices={},vmGhostChoices={},vmDiskChoices={};
-  var vmCompare=null,vmCompareDatasets=[],vmCompareSerial=0,vmCompareLoading=false,vmCompareBeforePath='',vmCompareAfterPath='',vmCompareOpen={},vmLogKey='';
+  var vmCompare=null,vmCompareDatasets=[],vmCompareSerial=0,vmMoveSerial=0,vmCompareLoading=false,vmCompareBeforePath='',vmCompareAfterPath='',vmCompareOpen={},vmLogKey='';
   var vmRowLimit=400,vmStatusLabels={ready:'Ready',review:'Review first',blocked:'Blocked',skip:'Not moved'};
   function vmwareState(){return (latestState&&latestState.vmware)||null;}
   function vmwareIsRunning(){var v=vmwareState();return !!(v&&v.running);}
@@ -2270,6 +2270,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     if((v.inventorySerial||0)!==vmInvSerial&&!vmInvLoading){loadVmInventory(v.inventorySerial||0);}
     if((v.guestSerial||0)!==vmGuestSerial&&!vmGuestLoading){loadVmGuest(v.guestSerial||0);}
     if((v.compareSerial||0)!==vmCompareSerial&&!vmCompareLoading){loadVmCompare(v.compareSerial||0);}
+    if((v.moveSerial||0)!==vmMoveSerial){vmMoveSerial=v.moveSerial||0;renderVmDetail();}
     var guestMessage=byId('vmGuestMessage');guestMessage.textContent=v.guestMessage||'';guestMessage.className='migrate-inline-status'+(v.guestError?' error':'');
     byId('vmGuestAdmin').classList.toggle('hidden',!!state.isAdministrator);
     if(v.compareError&&!v.running){vmSetStatus('vmCompareStatus',v.compareError,true);}
@@ -2285,7 +2286,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     byId('vmConnect').disabled=locked||!trimText(byId('vmServer').value)||!trimText(byId('vmUser').value);
     byId('vmOpenInventory').disabled=locked;byId('vmCertTrust').disabled=locked;
     byId('vmReset').classList.toggle('hidden',!v.server&&!v.summary);byId('vmReset').disabled=locked;
-    var stop=byId('vmStop');stop.classList.toggle('hidden',!(running&&(v.action==='connect'||v.action==='compare')));stop.disabled=!!v.cancelRequested;stop.textContent=v.cancelRequested?'Stopping...':'Stop';
+    var stop=byId('vmStop');stop.classList.toggle('hidden',!(running&&(v.action==='connect'||v.action==='compare'||v.action==='move')));stop.disabled=!!v.cancelRequested;stop.textContent=v.cancelRequested?'Stopping...':'Stop';
     byId('vmTargetSelect').disabled=vmBusy||running;
     var hasPlan=!!(vmInventory&&vmPlan);
     byId('vmSavePlan').disabled=locked||!hasPlan;byId('vmSuggest').disabled=locked||!hasPlan;byId('vmWriteRunbook').disabled=locked||!hasPlan;
@@ -2506,7 +2507,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     var snaps=vmArr(vm.snapshots);
     if(snaps.length||vm.consolidationNeeded){var ss=vmDrawerSection(box,'Snapshots',vmPlural(snaps.length,'snapshot'));if(vm.consolidationNeeded){ss.appendChild(el('div','vm-detail-line warning','Its disks need consolidation.'));}
       if(snaps.length){ss.appendChild(vmTreeTable(['Snapshot','Taken','Quiesced'],snaps.map(function(s){var tr=el('tr','');vmCell(tr,s.name);vmCell(tr,vmWhen(s.created));vmCell(tr,s.quiesced?'Yes':'No');return tr;})));}}
-    renderVmPrepare(box,vm,r);
+    renderVmPrepare(box,vm,r);renderVmMove(box,vm,r);
   }
   // The sections of one host: used by its node in Browse and by its details.
   function vmHostSections(body,h,options){
@@ -2735,6 +2736,42 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     renderVmDetail();
   }
   function renderVmDetail(){renderVmDrawer(false,false);}
+  // Move to Hyper-V: copy rounds while the VM runs, then the cutover. Runs on
+  // the Hyper-V host; the plan's network map names each Hyper-V switch.
+  function renderVmMove(box,vm,r){
+    var v=vmwareState()||{};
+    if(r.status==='skip'||vm.template||vmTarget()!=='hyperv'){return;}
+    var section=el('div','vm-prepare');section.id='vmMove';section.appendChild(el('strong','','Move this VM to Hyper-V'));
+    var last=v.move&&v.move.vm===vm.name?v.move:null;
+    if(last){var ul=el('ul','vm-findings');
+      if(last&&last.round){vmArr(last.round.disks).forEach(function(d){ul.appendChild(el('li','good',d.label+': '+({seed:'first copy of the used areas',changed:'changed blocks only',full:'full pass'}[d.mode]||d.mode)+', '+formatBytesShort(d.bytesWritten)+' written'+(d.verified?', verified':'')+'.'));});}
+      if(last&&last.hyperVId){ul.appendChild(el('li','good','Created on Hyper-V as '+vm.name+(last.hyperV&&last.hyperV.generation?' (generation '+last.hyperV.generation+')':'')+'.'));}
+      if(v.moveError){ul.appendChild(el('li','warning',v.moveError));}
+      if(ul.childNodes.length){section.appendChild(ul);}}
+    if(!v.canPrepare){section.appendChild(el('div','migrate-help','To copy this VM\'s disks, run this on the Hyper-V host and read the inventory from vCenter or ESXi in this session.'));box.appendChild(section);return;}
+    section.appendChild(el('div','migrate-help','Copy while the VM keeps running, as often as you like; each copy after the first sends only what changed. Cut over when ready: the guest is shut down, the last changes are copied and the Hyper-V VM is created on the copied disks. The VMware VM is left powered off, so going back is starting it again.'));
+    var folder=document.createElement('input');folder.type='text';folder.id='vmMoveFolder';folder.setAttribute('aria-label','Folder for the copied disks');folder.placeholder=(v.moveCopyRoot||'VMware-Copies')+'\\'+vm.name;folder.maxLength=260;
+    var vmFolder=document.createElement('input');vmFolder.type='text';vmFolder.id='vmMoveVmFolder';vmFolder.setAttribute('aria-label','Folder for the Hyper-V VM');vmFolder.placeholder="Hyper-V host's default";vmFolder.maxLength=260;
+    [['Copied disks',folder],['Hyper-V VM folder',vmFolder]].forEach(function(pair){var label=el('label','vm-field');label.appendChild(el('span','',pair[0]));label.appendChild(pair[1]);section.appendChild(label);});
+    var checks={};[['quiesce','Quiesce the guest for each copy (VMware Tools, VSS in Windows)',!!vm.toolsRunning],['keepMac','Keep the VMware MAC addresses',false],['start','Start the Hyper-V VM after the cutover',false]].forEach(function(c){var label=el('label','vm-check'),input=document.createElement('input');input.type='checkbox';input.checked=c[2];input.setAttribute('data-vm-move',c[0]);checks[c[0]]=input;label.appendChild(input);label.appendChild(el('span','',c[1]));section.appendChild(label);});
+    var unmapped=vmArr(vm.nics).filter(function(n){var map=vmArr(vmPlan&&vmPlan.networks).filter(function(m){return m.source===n.network;})[0];return !(map&&trimText(map.targetName));}).map(function(n){return n.network||n.label;});
+    if(unmapped.length){section.appendChild(el('div','migrate-detail','No Hyper-V switch is named for '+unmapped.join(', ')+' in the plan\'s network map; those adapters are added disconnected.'));}
+    var body=function(action){return {vmId:vm.id,action:action,copyFolder:trimText(folder.value),vmFolder:trimText(vmFolder.value),quiesce:checks.quiesce.checked,keepMac:checks.keepMac.checked,start:checks.start.checked};};
+    var row=el('div','vm-move-actions'),copy=el('button','secondary-button',last&&!last.cutover?'Copy changes\u2026':'Copy disks\u2026'),cut=el('button','secondary-button','Cut over\u2026');
+    copy.type='button';copy.id='vmMoveCopy';copy.disabled=vmLocked();cut.type='button';cut.id='vmMoveCutover';cut.disabled=vmLocked();
+    copy.addEventListener('click',function(){
+      openMigrateDialog({title:'Copy '+vm.name,path:'/api/vmware/move',field:'confirm',body:body('copy'),expected:vm.name,label:"Type the VM's name to confirm",button:'Copy disks',
+        paragraphs:['The VM keeps running. vSphere will:'],list:['turn on changed block tracking for this VM, if it is off','take a snapshot named "Server Inventory and Migration Manager replication" and remove it when the copy ends','copy each disk to a VHDX file in '+(trimText(folder.value)||folder.placeholder)],
+        after:function(){vmMarkRunning('move','moving','Copying '+vm.name+'\'s disks.');}});
+    });
+    cut.addEventListener('click',function(){
+      openMigrateDialog({title:'Cut over '+vm.name,path:'/api/vmware/move',field:'confirm',body:body('cutover'),expected:vm.name,label:"Type the VM's name to confirm",button:'Shut down and cut over',
+        alert:'The VMware VM is shut down through VMware Tools and stays off. Users lose access until the Hyper-V VM is started.',
+        paragraphs:['In this order:'],list:['shut the guest down (never a hard power-off)','copy the last changes and verify every disk','create the Hyper-V VM '+vm.name+' on the copied disks'+(checks.start.checked?' and start it':' (left off)')],
+        after:function(){vmMarkRunning('move','moving','Cutting '+vm.name+' over to Hyper-V.');}});
+    });
+    row.appendChild(copy);row.appendChild(cut);section.appendChild(row);box.appendChild(section);
+  }
   // Prepare source: the only steps that change vSphere, opt-in for one VM.
   function renderVmPrepare(box,vm,r){
     var v=vmwareState()||{},windows=/windows/i.test((vm.guestOsRunning||'')+' '+(vm.guestOs||'')+' '+(vm.guestId||''));

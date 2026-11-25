@@ -51,6 +51,9 @@ type vmwareRuntime struct {
 	prepare         *vmPrepareResult
 	prepareSerial   uint64
 	prepareError    string
+	move            *vmMoveResult
+	moveSerial      uint64
+	moveError       string
 	compare         *compareResult
 	compareSerial   uint64
 	compareFolder   string
@@ -89,6 +92,10 @@ type vmwareStateResponse struct {
 	PrepareSerial   uint64              `json:"prepareSerial"`
 	PrepareError    string              `json:"prepareError"`
 	CanPrepare      bool                `json:"canPrepare"`
+	Move            *vmMoveResult       `json:"move"`
+	MoveSerial      uint64              `json:"moveSerial"`
+	MoveError       string              `json:"moveError"`
+	MoveCopyRoot    string              `json:"moveCopyRoot"`
 	CancelRequested bool                `json:"cancelRequested"`
 	Logs            []logEntry          `json:"logs"`
 	StartedAtUnixMs int64               `json:"startedAtUnixMs"`
@@ -128,6 +135,7 @@ func (a *application) vmwareSnapshotLocked() vmwareStateResponse {
 		GuestSerial: a.vmware.guestSerial, GuestMessage: a.vmware.guestMessage, GuestError: a.vmware.guestError, GuestWorkPath: a.guestWorkPath(),
 		CompareSerial: a.vmware.compareSerial, CompareError: a.vmware.compareError,
 		Prepare: a.vmware.prepare, PrepareSerial: a.vmware.prepareSerial, PrepareError: a.vmware.prepareError,
+		Move: a.vmware.move, MoveSerial: a.vmware.moveSerial, MoveError: a.vmware.moveError, MoveCopyRoot: a.vmwareCopyRootLocked(),
 		CanPrepare:      a.vmware.inventory != nil && a.vmware.password != "" && strings.EqualFold(a.vmware.inventory.Server, a.vmware.server),
 		CancelRequested: a.vmware.cancelRequested && a.vmware.action != "",
 		Logs:            append([]logEntry{}, a.vmware.logs...),
