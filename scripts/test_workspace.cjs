@@ -107,6 +107,7 @@ async function fixture(browser,old=false){
    if(action==='plan'){vm.plan=JSON.parse(JSON.stringify(data.plan));if(data.suggest){vm.plan.vms.forEach((p,i)=>{p.hold=i===2;p.wave=i===2?0:(i===3?1:2);});}vm.sizing=['azure','aws'].includes(vm.plan.target)?Object.assign(vmwareSizingFixture(false),{status:'quota',notes:['Check the subscription quota covers 14 vCPUs.']}):vmwareSizingFixture(!!vm.plan.capacity.coresPerNode);send(200,{ok:true,plan:vm.plan,sizing:vm.sizing,saved:true});return;}
    if(action==='export-plan'){v.runbookPath='C:\\Reports\\VMware_vc01\\Migration-Runbook.html';v.planCsvPath='C:\\Reports\\VMware_vc01\\Migration-Plan.csv';v.runbookDocxPath='C:\\Reports\\VMware_vc01\\Migration-Runbook.docx';send(200,{ok:true});return;}
    if(action==='reset'){state.vmware=Object.assign(vmwareIdle(),{inventorySerial:v.inventorySerial+1,logs:v.logs});vm.inventory=null;vm.plan=null;send(200,{ok:true});return;}
+   if(action==='prepare'){Object.assign(v,{running:true,action:'prepare',status:'preparing'});send(202,{ok:true});return;}
    if(action==='guest'){send(200,{ok:true,serial:v.guestSerial,result:vm.guest});return;}
    if(action.startsWith('guest/')){Object.assign(v,{running:true,action:'guest-'+action.slice(6)});send(202,{ok:true});return;}
    if(action==='compare/browse'){send(200,{ok:true,selected:true,path:'D:\\Packages\\'+(data.side==='before'?'Before':'After'),computer:'APP01',collectedAt:data.side==='before'?'2026-11-19 22:00':'2026-11-21 07:30'});return;}
@@ -557,6 +558,21 @@ async function check(name,fn){await fn();report.checks.push({name,result:'passed
   await f.page.locator('#vmReset').click();await f.page.waitForFunction(()=>document.querySelector('#vmEnvResult').classList.contains('hidden'));assert.equal(await f.page.locator('#vmServer').inputValue(),'');
   assert(f.vmwareCalls.every(c=>c.token==='workspace-test'));assert.deepEqual(f.dialogs,[]);
  }finally{await f.close();}});
+ await check('VMware prepare source: needs a live session, preselects the needed steps, and posts them only after the VM name is typed',async()=>{const f=await fixture(browser);try{
+  await vmwareConnected(f);
+  await f.page.locator('tr[data-vm-id="vm-legacy03"]').click();assert((await f.page.locator('#vmDetail').textContent()).includes('read the inventory from vCenter or ESXi in this session'));assert.equal(await f.page.locator('#vmPrepareButton').count(),0);
+  Object.assign(f.vm.inventory.vms[2],{vtpm:true,encrypted:true});f.state.vmware.canPrepare=true;f.state.vmware.inventorySerial=2;
+  await f.page.waitForFunction(()=>!!document.querySelector('#vmPrepareButton'));
+  assert(!await f.page.locator('input[data-vm-prepare="snapshots"]').isChecked());for(const key of ['shutdown','removeTpm','decrypt']){assert(await f.page.locator('input[data-vm-prepare="'+key+'"]').isChecked(),key);}
+  await f.page.locator('#vmPrepareButton').click();assert(await f.page.locator('#migrateDialog').isVisible());assert.equal(await f.page.locator('#migrateConfirmLabel').textContent(),"Type the VM's name to confirm: LEGACY03");
+  assert((await f.page.locator('#migrateDialogAlert').textContent()).includes('BitLocker'));assert(await f.page.locator('#migrateConfirmButton').isDisabled());
+  await f.page.locator('#migrateConfirmInput').fill('LEGACY03');await f.page.locator('#migrateConfirmInput').press('Enter');
+  await f.page.waitForFunction(()=>document.querySelector('#vmwareTabBadge').textContent==='Working');
+  assert.deepEqual(vmwareCalls(f,'prepare').map(c=>c.body),[{vmId:'vm-legacy03',steps:{snapshots:false,shutdown:true,removeTpm:true,decrypt:true},confirm:'LEGACY03'}]);
+  Object.assign(f.vm.inventory.vms[2],{vtpm:false,encrypted:false,powerState:'poweredOff'});Object.assign(f.state.vmware,{running:false,action:'',status:'connected',prepare:{vm:'LEGACY03',done:['Shut down the guest.','Removed the virtual TPM.','Decrypted the VM and its disks.'],skipped:[]},prepareSerial:1,inventorySerial:3});
+  await f.page.waitForFunction(()=>document.querySelector('#vmDetail').textContent.includes('Decrypted the VM and its disks.'));
+  assert(!await f.page.locator('input[data-vm-prepare="decrypt"]').isChecked(),'nothing left to decrypt');assert.deepEqual(f.dialogs,[]);
+ }finally{await f.close();}});
  await check('VMware plan: capacity, network and wave edits survive polls; Suggest waves and Save post the plan; the runbook is written after saving',async()=>{const f=await fixture(browser);try{
   await vmwareConnected(f);await f.page.locator('[data-vmview="plan"]').click();assert(await f.page.locator('#vmPlanContent').isVisible());
   assert((await f.page.locator('#vmSizing').textContent()).includes('Not described'));
@@ -599,6 +615,9 @@ async function check(name,fn){await fn();report.checks.push({name,result:'passed
   Object.assign(f.state.vmware,{running:false,action:''});await f.page.waitForTimeout(1100);
   await f.page.locator('input[data-vm-ghost^="USB"]').check();await f.page.locator('#vmGuestGhosts').click();await f.page.locator('#migrateConfirmInput').fill('SRV-DEMO-01');await f.page.locator('#migrateConfirmInput').press('Enter');
   await f.page.waitForFunction(()=>!document.querySelector('#migrateDialog').open);assert.equal(vmwareCalls(f,'guest/remove-ghosts')[0].body.items.length,2);
+  Object.assign(f.state.vmware,{running:false,action:''});await f.page.waitForTimeout(1100);
+  await f.page.locator('#vmGuestBitLocker').click();assert((await f.page.locator('#migrateDialog').textContent()).includes('recovery'));await f.page.locator('#migrateConfirmInput').fill('SRV-DEMO-01');await f.page.locator('#migrateConfirmInput').press('Enter');
+  await f.page.waitForFunction(()=>!document.querySelector('#migrateDialog').open);assert.deepEqual(vmwareCalls(f,'guest/bitlocker').map(c=>c.body),[{items:[],confirm:'SRV-DEMO-01'}]);
   Object.assign(f.state.vmware,{running:false,action:''});await f.page.waitForTimeout(1100);
   f.vm.guest=vmwareGuestFixture('VMware');f.state.vmware.guestSerial=2;await f.page.waitForTimeout(1100);assert(await f.page.locator('#vmGuestTools').isDisabled(),'VMware Tools stays while the VM is on VMware');
   assert(await f.page.locator('#vmGuestDisks').isEnabled());await f.page.locator('input[data-vm-disk="1"]').uncheck();assert(await f.page.locator('#vmGuestDisks').isDisabled());

@@ -1,3 +1,14 @@
+## Unreleased: VMware move engine phase 1 (real-estate fixes, Word runbook, Prepare source, BitLocker keys) — 2026-11-25
+
+The owner asked for a one-stop VM migration tool ("convert and migrate/clone vms from vmware to the other solutions"), a runbook exportable as Word or HTML, and decryption of the vTPM-encrypted VMs found in their vCenter 7.0.3 export. Phase 1 of the agreed plan:
+
+- Real-estate fixes found in that export (kept out of the repository): vCLS agents, the vCenter/Photon appliance and nested ESXi get status `skip` ("Not moved") and are excluded from plans and waves; guest-managed VMware Tools (version 2147483647) shows as "Guest managed"; backup snapshots (Acronis, Veeam and others) name the software; Windows domain controllers get a move-cold/USN-rollback warning.
+- `Migration-Runbook.docx` is written beside the HTML runbook by `vmware_docx.go` (plain OOXML through archive/zip, no dependency) and opened by **Open in Word**.
+- `vmware_prepare.go` and `/api/vmware/prepare`: the only vSphere writes. One VM at a time, typed VM name, record saved first; steps run in order snapshots, guest shutdown (Tools required, never forced), vTPM removal, decrypt (`CryptoSpecDecrypt` on the VM and each encrypted disk). Tested against vcsim in `vmware_prepare_test.go`; vcsim does not implement encryption, so decrypting a real encrypted VM still needs field validation against vCenter with a key provider.
+- Guest mode `SaveBitLocker`: adds a recovery password if needed, writes keys only to `BitLocker-Recovery-Keys-<computer>.txt` in the output folder and suspends protection with `-RebootCount 0`. The `vmguest` CI job runs it; hosted runners have no BitLocker, so it exercises the no-BitLocker path.
+
+Next phases: copy engine (snapshot/CBT seed and delta over datastore HTTP, receiver mode, in-guest source agent), VM creation on each target, disk converter, then Azure and AWS.
+
 ## Unreleased: more VMware migration targets, File shares tab label — 2026-11-25
 
 User requests: "ids like to add moveing to nutanix, and honestly options for any potential migration, including Virtual to physical if possible" and "the migrate tab should probably be labled specific to File shares since that's what it's for". Branch `claude/project-thread-741oy5`.
