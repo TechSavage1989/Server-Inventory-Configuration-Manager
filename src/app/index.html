@@ -813,7 +813,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
                 <div class="vm-toolbar"><label for="vmWaveSize">VMs per wave</label><input type="number" id="vmWaveSize" min="1" max="200" step="1" value="10"><button class="secondary-button" id="vmSuggest" type="button">Suggest waves</button><input type="search" id="vmWaveSearch" aria-label="Search VMs in the plan" placeholder="Search VMs" autocomplete="off" spellcheck="false"><span class="vm-note" id="vmWaveSummary"></span></div>
                 <div class="vm-table-wrap"><table class="vm-table"><thead><tr><th>VM</th><th>Readiness</th><th>Wave</th><th>Hold</th><th>Exclude</th><th>Notes</th></tr></thead><tbody id="vmWaveBody"></tbody></table></div>
               </section>
-              <div class="migrate-row"><button class="primary-button" id="vmSavePlan" type="button">Save plan</button><button class="secondary-button" id="vmWriteRunbook" type="button">Write runbook</button><button class="secondary-button hidden" id="vmOpenRunbook" type="button">Open runbook</button><button class="secondary-button hidden" id="vmOpenPlanCsv" type="button">Open plan CSV</button><span class="vm-note" id="vmPlanDirtyNote"></span></div>
+              <div class="migrate-row"><button class="primary-button" id="vmSavePlan" type="button">Save plan</button><button class="secondary-button" id="vmWriteRunbook" type="button">Write runbook</button><button class="secondary-button hidden" id="vmOpenRunbook" type="button">Open runbook</button><button class="secondary-button hidden" id="vmOpenRunbookDocx" type="button">Open in Word</button><button class="secondary-button hidden" id="vmOpenPlanCsv" type="button">Open plan CSV</button><span class="vm-note" id="vmPlanDirtyNote"></span></div>
               <div class="migrate-inline-status" id="vmPlanStatus" role="status" aria-live="polite"></div>
             </div>
           </div>
@@ -2108,7 +2108,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     var guestMessage=byId('vmGuestMessage');guestMessage.textContent=v.guestMessage||'';guestMessage.className='migrate-inline-status'+(v.guestError?' error':'');
     byId('vmGuestAdmin').classList.toggle('hidden',!!state.isAdministrator);
     if(v.compareError&&!v.running){vmSetStatus('vmCompareStatus',v.compareError,true);}
-    byId('vmOpenRunbook').classList.toggle('hidden',!v.runbookPath);byId('vmOpenPlanCsv').classList.toggle('hidden',!v.planCsvPath);
+    byId('vmOpenRunbook').classList.toggle('hidden',!v.runbookPath);byId('vmOpenRunbookDocx').classList.toggle('hidden',!v.runbookDocxPath);byId('vmOpenPlanCsv').classList.toggle('hidden',!v.planCsvPath);
     byId('vmOpenReport').classList.toggle('hidden',!v.reportPath);byId('vmOpenFolder').classList.toggle('hidden',!v.outputFolder);
     var last=state.restore&&state.restore.packages&&state.restore.packages.lastCollection;
     byId('vmCompareUseLast').classList.toggle('hidden',!last);
@@ -2460,6 +2460,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   byId('vmSuggest').addEventListener('click',function(){var size=parseInt(byId('vmWaveSize').value,10);saveVmPlan({suggest:true,waveSize:isNaN(size)?10:size},'Suggested waves and saved the plan. Change any wave before writing the runbook.');});
   byId('vmWriteRunbook').addEventListener('click',function(){saveVmPlan(null,'',function(err){if(err){return;}vmPost('/api/vmware/export-plan',{},'vmPlanStatus',function(err2){if(!err2){vmSetStatus('vmPlanStatus','Wrote the runbook and plan CSV.',false);}});});});
   byId('vmOpenRunbook').addEventListener('click',function(){openKind('vmwarerunbook');});
+  byId('vmOpenRunbookDocx').addEventListener('click',function(){openKind('vmwarerunbookdocx');});
   byId('vmOpenPlanCsv').addEventListener('click',function(){openKind('vmwareplancsv');});
   byId('vmGuestCapture').addEventListener('click',function(){runVmGuest('capture','Recording this VM\'s settings.');});
   byId('vmGuestStatus').addEventListener('click',function(){runVmGuest('status','Reading this VM\'s current state.');});

@@ -1,6 +1,9 @@
 package main
 
 import (
+	"archive/zip"
+	"encoding/xml"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -250,6 +253,40 @@ func TestReportsAndRunbookRenderEscapedAndSafe(t *testing.T) {
 	planText, _ := os.ReadFile(planCSV)
 	if !strings.Contains(string(planText), "Servers-120 > Servers-120 (VLAN 120)") {
 		t.Fatalf("plan CSV network mapping missing: %s", planText)
+	}
+	if vmRunbookDocxFor(runbook) == "" {
+		t.Fatal("Word runbook path not found beside the HTML runbook")
+	}
+	archive, err := zip.OpenReader(vmRunbookDocxFor(runbook))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer archive.Close()
+	parts := map[string]string{}
+	for _, file := range archive.File {
+		reader, _ := file.Open()
+		data, _ := io.ReadAll(reader)
+		reader.Close()
+		parts[file.Name] = string(data)
+	}
+	for _, name := range []string{"[Content_Types].xml", "_rels/.rels", "word/document.xml", "word/styles.xml", "word/_rels/document.xml.rels", "docProps/core.xml"} {
+		decoder := xml.NewDecoder(strings.NewReader(parts[name]))
+		for {
+			if _, err := decoder.Token(); err == io.EOF {
+				break
+			} else if err != nil {
+				t.Fatalf("%s is not well-formed XML: %v", name, err)
+			}
+		}
+	}
+	document := parts["word/document.xml"]
+	for _, expected := range []string{"Wave 1", "&lt;script&gt;alert(1)&lt;/script&gt;", "Record settings", "\u2610 "} {
+		if !strings.Contains(document, expected) {
+			t.Fatalf("Word runbook missing %q", expected)
+		}
+	}
+	if strings.Contains(document, "TPL-2022") || strings.Contains(document, "<script>") {
+		t.Fatal("Word runbook has an excluded template or unescaped markup")
 	}
 }
 

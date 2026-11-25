@@ -73,6 +73,7 @@ type vmwareStateResponse struct {
 	OutputFolder    string              `json:"outputFolder"`
 	ReportPath      string              `json:"reportPath"`
 	RunbookPath     string              `json:"runbookPath"`
+	RunbookDocxPath string              `json:"runbookDocxPath"`
 	PlanCSVPath     string              `json:"planCsvPath"`
 	GuestSerial     uint64              `json:"guestSerial"`
 	GuestMessage    string              `json:"guestMessage"`
@@ -115,7 +116,7 @@ func (a *application) vmwareSnapshotLocked() vmwareStateResponse {
 		Running: a.vmware.action != "", Action: a.vmware.action, Status: status, Message: a.vmware.message,
 		Server: a.vmware.server, Account: a.vmware.account, Certificate: a.vmware.certificate,
 		InventorySerial: a.vmware.inventorySerial, OutputFolder: a.vmware.outputFolder, ReportPath: a.vmware.reportPath,
-		RunbookPath: a.vmware.runbookPath, PlanCSVPath: a.vmware.planCSVPath,
+		RunbookPath: a.vmware.runbookPath, RunbookDocxPath: vmRunbookDocxFor(a.vmware.runbookPath), PlanCSVPath: a.vmware.planCSVPath,
 		GuestSerial: a.vmware.guestSerial, GuestMessage: a.vmware.guestMessage, GuestError: a.vmware.guestError, GuestWorkPath: a.guestWorkPath(),
 		CompareSerial: a.vmware.compareSerial, CompareError: a.vmware.compareError,
 		CancelRequested: a.vmware.cancelRequested && a.vmware.action != "",
@@ -976,6 +977,8 @@ func (a *application) vmwareOpenTarget(kind string) (target string, folder bool,
 		return a.vmware.outputFolder, true, true
 	case "vmwarerunbook":
 		return a.vmware.runbookPath, false, true
+	case "vmwarerunbookdocx":
+		return vmRunbookDocxFor(a.vmware.runbookPath), false, true
 	case "vmwareplancsv":
 		return a.vmware.planCSVPath, false, true
 	case "guestfolder":

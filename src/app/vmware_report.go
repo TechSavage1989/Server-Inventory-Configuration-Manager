@@ -27,20 +27,13 @@ const (
 )
 
 var vmReportFunctions = template.FuncMap{
-	"bytes":   vmFormatBytes,
-	"mb":      func(mb int64) string { return vmFormatBytes(mb << 20) },
-	"target":  vmTargetLabel,
-	"targets": func() []vmTargetProfile { return vmTargetProfiles },
-	"join":    strings.Join,
-	"date": func(t time.Time) string {
-		if t.IsZero() {
-			return ""
-		}
-		return t.Local().Format("2006-01-02 15:04")
-	},
-	"statusLabel": func(status string) string {
-		return map[string]string{vmStatusReady: "Ready", vmStatusReview: "Review", vmStatusBlocked: "Blocked", vmStatusSkip: "Not moved"}[status]
-	},
+	"bytes":       vmFormatBytes,
+	"mb":          func(mb int64) string { return vmFormatBytes(mb << 20) },
+	"target":      vmTargetLabel,
+	"targets":     func() []vmTargetProfile { return vmTargetProfiles },
+	"join":        strings.Join,
+	"date":        vmReportDate,
+	"statusLabel": vmReportStatusLabel,
 	"severityLabel": func(severity string) string {
 		return map[string]string{vmSeverityBlocker: "Blocker", vmSeverityWarning: "Warning", vmSeverityInfo: "Info"}[severity]
 	},
@@ -119,8 +112,8 @@ const vmRunbookTemplate = `<!DOCTYPE html>
 <ul>{{range .Sizing.Notes}}<li>{{.}}</li>{{end}}</ul>
 <h2>Network mapping</h2>
 <table><tr><th>VMware network</th><th>VLAN</th><th>Target network</th><th>Target VLAN</th></tr>{{range .Plan.Networks}}<tr><td>{{.Source}}</td><td>{{.SourceVLAN}}</td><td>{{.TargetName}}</td><td>{{.TargetVLAN}}</td></tr>{{end}}</table>
-{{if eq .Plan.Target "hyperv"}}<h2>Storage mapping</h2>
-<table><tr><th>Datastore</th><th>Target storage</th></tr>{{range .Plan.Storage}}<tr><td>{{.Source}}</td><td>{{.Target}}</td></tr>{{end}}</table>{{end}}
+<h2>Storage mapping</h2>
+<table><tr><th>Datastore</th><th>Target storage</th></tr>{{range .Plan.Storage}}<tr><td>{{.Source}}</td><td>{{.Target}}</td></tr>{{end}}</table>
 <h2>Waves</h2>
 <table><tr><th>Wave</th><th>VMs</th></tr>{{range .Waves}}<tr><td>{{.Label}}</td><td>{{range $i, $vm := .VMs}}{{if $i}}, {{end}}{{$vm.VM.Name}}{{end}}</td></tr>{{end}}</table>
 {{range .Waves}}<h2>{{.Label}}</h2>
@@ -130,6 +123,17 @@ const vmRunbookTemplate = `<!DOCTYPE html>
 <div class="grid2"><div><h3>Before cutover</h3><ol>{{range .Before}}<li>☐ {{.}}</li>{{end}}</ol></div><div><h3>Cutover</h3><ol>{{range .Cutover}}<li>☐ {{.}}</li>{{end}}</ol></div><div><h3>Verify</h3><ol>{{range .Verify}}<li>☐ {{.}}</li>{{end}}</ol></div><div><h3>Roll back if needed</h3><ol>{{range .Rollback}}<li>{{.}}</li>{{end}}</ol></div></div>
 </div>{{end}}{{end}}
 </main></body></html>`
+
+func vmReportDate(t time.Time) string {
+	if t.IsZero() {
+		return ""
+	}
+	return t.Local().Format("2006-01-02 15:04")
+}
+
+func vmReportStatusLabel(status string) string {
+	return map[string]string{vmStatusReady: "Ready", vmStatusReview: "Review", vmStatusBlocked: "Blocked", vmStatusSkip: "Not moved"}[status]
+}
 
 var (
 	vmReadinessTmpl = template.Must(template.New("readiness").Funcs(vmReportFunctions).Parse(vmReadinessTemplate))
@@ -275,18 +279,23 @@ func writeVMwareInventoryOutputs(folder string, inventory *vmInventory) (string,
 	return report, os.WriteFile(report, page.Bytes(), 0600)
 }
 
-// writeVMwarePlanOutputs writes the runbook and the plan CSV into folder.
+// writeVMwarePlanOutputs writes the runbook (HTML and Word) and the plan CSV
+// into folder.
 func writeVMwarePlanOutputs(folder string, inventory *vmInventory, plan vmPlan) (string, string, error) {
 	if err := os.MkdirAll(folder, 0700); err != nil {
 		return "", "", err
 	}
 	waves := buildRunbook(plan, inventory)
+	sizing := sizePlan(plan, inventory)
 	var page bytes.Buffer
-	if err := vmRunbookTmpl.Execute(&page, map[string]any{"Inventory": inventory, "Plan": plan, "Waves": waves, "Sizing": sizePlan(plan, inventory), "Style": template.CSS(vmReportStylesheet), "Generator": vmReportGeneratorLine}); err != nil {
+	if err := vmRunbookTmpl.Execute(&page, map[string]any{"Inventory": inventory, "Plan": plan, "Waves": waves, "Sizing": sizing, "Style": template.CSS(vmReportStylesheet), "Generator": vmReportGeneratorLine}); err != nil {
 		return "", "", err
 	}
 	runbook := filepath.Join(folder, vmRunbookReport)
 	if err := os.WriteFile(runbook, page.Bytes(), 0600); err != nil {
+		return "", "", err
+	}
+	if err := writeRunbookDocx(filepath.Join(folder, vmRunbookDocx), inventory, plan, waves, sizing); err != nil {
 		return "", "", err
 	}
 	rows := [][]string{}
