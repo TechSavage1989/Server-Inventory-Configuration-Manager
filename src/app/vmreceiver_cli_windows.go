@@ -28,6 +28,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"golang.org/x/sys/windows"
 )
 
 var (
@@ -38,8 +40,12 @@ var (
 const attachParentProcess = ^uintptr(0)
 
 // vmReceiverConsole connects this GUI-subsystem program to the console it
-// was started from, or opens one.
+// was started from, or opens one. Output already redirected to a file or
+// pipe stays there.
 func vmReceiverConsole() {
+	if kind, err := windows.GetFileType(windows.Handle(os.Stdout.Fd())); err == nil && kind != windows.FILE_TYPE_UNKNOWN && kind != windows.FILE_TYPE_CHAR {
+		return
+	}
 	if result, _, _ := procAttachConsole.Call(attachParentProcess); result == 0 {
 		procAllocConsole.Call()
 	}
@@ -114,7 +120,7 @@ func runVMReceiverCommand(args []string) int {
 	flags.SetOutput(out)
 	port := flags.Int("port", 8443, "TCP port to listen on")
 	folder := flags.String("folder", "", "folder to receive VHDX files into")
-	diskList := flags.String("disks", "", "comma-separated disk numbers to receive onto (see --list-disks)")
+	diskList := flags.String("disks", "", "comma-separated disk numbers to receive onto (see --list-disks), or \"blank\" for every blank disk that is not protected")
 	overwriteList := flags.String("overwrite-disks", "", "disk numbers that hold data and may be overwritten")
 	records := flags.String("records", vmReceiverRecordsFolder(), "folder for the raw disk copy records (keep it on storage that survives a restart to resume after one)")
 	listOnly := flags.Bool("list-disks", false, "list this computer's disks and exit")
@@ -129,8 +135,20 @@ func runVMReceiverCommand(args []string) int {
 		vmPrintDisks(out, vmListPhysicalDisks(*records))
 		return 0
 	}
-	numbers, err := vmParseDiskNumbers(*diskList)
-	if err != nil {
+	var numbers []int
+	var err error
+	if strings.EqualFold(strings.TrimSpace(*diskList), "blank") {
+		// Receiver media on a new VM: its new disks are blank.
+		for _, disk := range vmListPhysicalDisks(*records) {
+			if disk.Blank && disk.Protected == "" && disk.Size > 0 {
+				numbers = append(numbers, disk.Number)
+			}
+		}
+		if len(numbers) == 0 {
+			vmPrintDisks(out, vmListPhysicalDisks(*records))
+			return fail(errors.New("no blank disk was found; choose disk numbers with --disks"))
+		}
+	} else if numbers, err = vmParseDiskNumbers(*diskList); err != nil {
 		return fail(err)
 	}
 	overwriteNumbers, err := vmParseDiskNumbers(*overwriteList)
