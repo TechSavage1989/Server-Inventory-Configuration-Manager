@@ -226,8 +226,8 @@ function Read-Windows {
     $installation = [string](Get-Value $current 'InstallationType')
     $info.Server = ($installation -like 'Server*' -or $info.ProductName -like '*Server*')
     if (-not $info.Server -and $info.Build -ge 22000 -and $info.ProductName -like 'Windows 10*') { $info.ProductName = 'Windows 11' + $info.ProductName.Substring(10) }
-    foreach ($root in @($software + '\Microsoft\Windows\CurrentVersion\Uninstall', $software + '\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall')) {
-        foreach ($key in @(Get-ChildItem -LiteralPath $root -ErrorAction SilentlyContinue)) {
+    foreach ($uninstall in @($software + '\Microsoft\Windows\CurrentVersion\Uninstall', $software + '\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall')) {
+        foreach ($key in @(Get-ChildItem -LiteralPath $uninstall -ErrorAction SilentlyContinue)) {
             if ([string](Get-Value $key.PSPath 'DisplayName') -eq 'VMware Tools') { $info.VMwareTools = $true }
         }
     }
