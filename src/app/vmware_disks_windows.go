@@ -427,3 +427,17 @@ func (a *application) handleVMwareAgentReceiverDisks(response http.ResponseWrite
 	}
 	writeJSON(response, http.StatusOK, map[string]any{"ok": true, "folder": folder, "disks": disks})
 }
+
+// vmRunPowerShell runs a short script for the console's own steps (Hyper-V,
+// failover). The replication agent never calls it (see
+// TestAgentCodeStartsNoPowerShellAndDeletesNoShadowCopies).
+func vmRunPowerShell(script string) (string, error) {
+	command := exec.Command(powershellPath(), "-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", "$ErrorActionPreference='Stop'; "+script)
+	command.SysProcAttr = &syscall.SysProcAttr{HideWindow: true, CreationFlags: windows.CREATE_NO_WINDOW}
+	out, err := command.CombinedOutput()
+	text := strings.TrimSpace(string(out))
+	if err != nil {
+		return "", fmt.Errorf("%v: %s", err, text)
+	}
+	return text, nil
+}

@@ -8,10 +8,8 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"regexp"
 	"strings"
-	"syscall"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
@@ -170,49 +168,8 @@ func vmLogicalToPhysical(volume windows.Handle, offset int64) ([]vmPhysicalOffse
 	return list, nil
 }
 
-var vmShadowAnswer = regexp.MustCompile(`^(\{[0-9A-Fa-f-]{36}\})\|(\\\\\?\\GLOBALROOT\\Device\\HarddiskVolumeShadowCopy\d+)$`)
-var vmShadowID = regexp.MustCompile(`^\{[0-9A-Fa-f-]{36}\}$`)
 var vmVolumeName = regexp.MustCompile(`^\\\\\?\\Volume\{[0-9A-Fa-f-]{36}\}\\$`)
 
-func vmRunPowerShell(script string) (string, error) {
-	command := exec.Command(powershellPath(), "-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", "$ErrorActionPreference='Stop'; "+script)
-	command.SysProcAttr = &syscall.SysProcAttr{HideWindow: true, CreationFlags: windows.CREATE_NO_WINDOW}
-	out, err := command.CombinedOutput()
-	text := strings.TrimSpace(string(out))
-	if err != nil {
-		return "", fmt.Errorf("%v: %s", err, text)
-	}
-	return text, nil
-}
-
-// vmCreateShadow takes a Volume Shadow Copy of one volume.
-func vmCreateShadow(volume string) (id, device string, err error) {
-	if !vmVolumeName.MatchString(volume) {
-		return "", "", fmt.Errorf("%q is not a volume name", volume)
-	}
-	out, err := vmRunPowerShell(`$r = ([wmiclass]'root\cimv2:Win32_ShadowCopy').Create('` + volume + `', 'ClientAccessible'); if ($r.ReturnValue -ne 0) { throw ('Volume Shadow Copy returned ' + $r.ReturnValue) }; $s = Get-WmiObject Win32_ShadowCopy -Filter ("ID='" + $r.ShadowID + "'"); [Console]::Out.Write($r.ShadowID + '|' + $s.DeviceObject)`)
-	if err != nil {
-		return "", "", fmt.Errorf("could not take a shadow copy of %s: %w", volume, err)
-	}
-	match := vmShadowAnswer.FindStringSubmatch(out)
-	if match == nil {
-		return "", "", fmt.Errorf("unexpected shadow copy answer %q", out)
-	}
-	return match[1], match[2], nil
-}
-
-// vmDeleteShadow removes a shadow copy this agent took.
-func vmDeleteShadow(id string) error {
-	if !vmShadowID.MatchString(id) {
-		return fmt.Errorf("%q is not a shadow copy ID", id)
-	}
-	_, err := vmRunPowerShell(`Get-WmiObject Win32_ShadowCopy -Filter "ID='` + id + `'" | ForEach-Object { $_.Delete() }`)
-	return err
-}
-
-type vmShadowCloser struct{ id string }
-
-func (c vmShadowCloser) Close() error { return vmDeleteShadow(c.id) }
 
 type vmAgentVolume struct {
 	Name       string   `json:"name"`
@@ -286,20 +243,62 @@ func openVMAgentDisks(numbers []int, allowLive bool, log func(string)) (*vmAgent
 		length int64
 	}
 	shadows := map[string]*shadowed{} // volume name -> its shadow copy, or nil when copied live
+	// Every NTFS and ReFS volume of every disk joins one shadow copy set,
+	// taken through the VSS requester interface (vss_windows.go): one
+	// moment for the whole server, removed by Windows when the set is
+	// released. Nothing here deletes a shadow copy or runs PowerShell.
+	diskVolumes := map[int][]vmVolumeOnDisk{}
+	wanted := []string{}
+	seen := map[string]bool{}
+	for _, diskNumber := range numbers {
+		volumes, err := vmDiskVolumes(diskNumber)
+		if err != nil {
+			return fail(err)
+		}
+		diskVolumes[diskNumber] = volumes
+		for _, volume := range volumes {
+			if (volume.FileSystem == "NTFS" || volume.FileSystem == "ReFS") && !seen[volume.Name] {
+				if !vmVolumeName.MatchString(volume.Name) {
+					return fail(fmt.Errorf("%q is not a volume name", volume.Name))
+				}
+				seen[volume.Name] = true
+				wanted = append(wanted, volume.Name)
+			}
+		}
+	}
+	var snapshots *vssSnapshotSet
+	if len(wanted) > 0 {
+		var err error
+		snapshots, err = vssCreateSnapshotSet(wanted)
+		if err != nil {
+			if !allowLive {
+				return fail(fmt.Errorf("could not take a shadow copy: %w", err))
+			}
+			log("Could not take a shadow copy (" + err.Error() + "). Copying live.")
+		} else {
+			set.shared = append(set.shared, snapshots)
+		}
+	}
 	shadowOf := func(volume vmVolumeOnDisk) (*shadowed, error) {
 		if found, ok := shadows[volume.Name]; ok {
 			return found, nil
 		}
-		id, device, err := vmCreateShadow(volume.Name)
-		if err != nil {
-			if !allowLive {
-				return nil, err
+		device := ""
+		if snapshots != nil {
+			device = snapshots.Devices[volume.Name]
+		}
+		if device == "" {
+			reason := errors.New("Volume Shadow Copy is unavailable")
+			if snapshots != nil && snapshots.Failed[volume.Name] != nil {
+				reason = snapshots.Failed[volume.Name]
 			}
-			log(err.Error() + " Copying it live.")
+			if !allowLive {
+				return nil, fmt.Errorf("could not take a shadow copy of %s: %w", volume.Name, reason)
+			}
+			log(fmt.Sprintf("Could not take a shadow copy of %s (%v). Copying it live.", volume.Name, reason))
 			shadows[volume.Name] = nil
 			return nil, nil
 		}
-		set.shared = append(set.shared, vmShadowCloser{id})
 		shadow, err := vmOpenDevice(device)
 		if err != nil {
 			return nil, err
@@ -328,11 +327,7 @@ func openVMAgentDisks(numbers []int, allowLive bool, log func(string)) (*vmAgent
 			disk.Close()
 			return fail(fmt.Errorf("%s: %w", path, err))
 		}
-		volumes, err := vmDiskVolumes(diskNumber)
-		if err != nil {
-			disk.Close()
-			return fail(err)
-		}
+		volumes := diskVolumes[diskNumber]
 		overlays := []vmOverlay{}
 		report := []vmAgentVolume{}
 		for _, volume := range volumes {

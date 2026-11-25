@@ -278,6 +278,7 @@ type replAgentService struct{}
 
 func (replAgentService) Execute(args []string, requests <-chan svc.ChangeRequest, status chan<- svc.Status) (bool, uint32) {
 	status <- svc.Status{State: svc.StartPending}
+	replRedirectCrashOutput(replAgentDataDir())
 	events, _ := eventlog.Open(replEventSource)
 	logLine := func(text string) {
 		if events != nil {
@@ -331,7 +332,7 @@ func replRunWindowsAgent(ctx context.Context, events *eventlog.Log, log func(str
 		if events == nil {
 			return
 		}
-		id := map[string]uint32{"rpo": 1001, "failing": 1002, "cutover": 1003}[alert.Kind]
+		id := map[string]uint32{"rpo": 1001, "failing": 1002, "cutover": 1003, "stopped": 1004}[alert.Kind]
 		if alert.Level == "error" {
 			events.Error(id, alert.Text)
 		} else {
@@ -463,13 +464,44 @@ func replCreateService(manager *mgr.Mgr, binary string) error {
 		if err != nil {
 			return fmt.Errorf("creating the service: %w", err)
 		}
-		service.SetRecoveryActions([]mgr.RecoveryAction{{Type: mgr.ServiceRestart, Delay: time.Minute}, {Type: mgr.ServiceRestart, Delay: 5 * time.Minute}}, 24*60*60)
 	}
 	defer service.Close()
+	replSetRecovery(service)
 	if err := service.Start(); err != nil && !errors.Is(err, windows.ERROR_SERVICE_ALREADY_RUNNING) {
 		return fmt.Errorf("starting the service: %w", err)
 	}
 	return replServiceWait(service, svc.Running, 2*time.Minute)
+}
+
+// replSetRecovery makes Windows restart the agent after every failure,
+// including an exit with an error, not only the first two crashes of a day.
+// The last action repeats, so a failing agent is retried every five
+// minutes. Set on every install so an upgraded agent gets it too.
+func replSetRecovery(service *mgr.Service) {
+	service.SetRecoveryActions([]mgr.RecoveryAction{{Type: mgr.ServiceRestart, Delay: time.Minute}, {Type: mgr.ServiceRestart, Delay: 2 * time.Minute}, {Type: mgr.ServiceRestart, Delay: 5 * time.Minute}}, 24*60*60)
+	service.SetRecoveryActionsOnNonCrashFailures(true)
+}
+
+// replRedirectCrashOutput points standard error at the crash log, where
+// the Go runtime writes a fatal error's details. A service has no console,
+// so they were lost before. The file is only opened here; it changes only
+// when the process crashes.
+func replRedirectCrashOutput(dir string) {
+	logs := filepath.Join(dir, "Logs")
+	if os.MkdirAll(logs, 0700) != nil {
+		return
+	}
+	path := filepath.Join(logs, replCrashLog)
+	if info, err := os.Stat(path); err == nil && info.Size() > 4<<20 {
+		os.Rename(path, path+".old")
+	}
+	file, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+	if err != nil {
+		return
+	}
+	if windows.SetStdHandle(windows.STD_ERROR_HANDLE, windows.Handle(file.Fd())) == nil {
+		os.Stderr = file
+	}
 }
 
 // replRemoveService stops and deletes the agent service; the data folder's
