@@ -1034,6 +1034,18 @@ func (a *application) vmwareOpenTarget(kind string) (target string, folder bool,
 		return a.vmware.outputFolder, true, true
 	case "vmwarerunbook":
 		return a.vmware.runbookPath, false, true
+	case "replrunbook":
+		return a.repl.runbook, false, true
+	case "replrunbookdocx":
+		if a.repl.runbook == "" {
+			return "", false, true
+		}
+		return filepath.Join(filepath.Dir(a.repl.runbook), replRunbookDocx), false, true
+	case "replfolder":
+		if a.repl.runbook == "" {
+			return "", true, true
+		}
+		return filepath.Dir(a.repl.runbook), true, true
 	case "vmwarerunbookdocx":
 		return vmRunbookDocxFor(a.vmware.runbookPath), false, true
 	case "vmwareplancsv":

@@ -33,6 +33,7 @@ type vmHyperVPlan struct {
 	Disks              []string          `json:"disks"`
 	Adapters           []vmHyperVAdapter `json:"adapters"`
 	Start              bool              `json:"start"`
+	Notes              string            `json:"notes,omitempty"`
 	Warnings           []string          `json:"warnings"`
 }
 
@@ -202,7 +203,11 @@ func (p *vmHyperVPlan) Script() string {
 			line("  Set-VMNetworkAdapterVlan -VMNetworkAdapter $nic -Access -VlanId %d", adapter.VLAN)
 		}
 	}
-	line("  Set-VM -VM $vm -Notes %s", vmPSQuote("Moved from VMware by Server Inventory and Migration Manager."))
+	notes := p.Notes
+	if notes == "" {
+		notes = "Moved from VMware by Server Inventory and Migration Manager."
+	}
+	line("  Set-VM -VM $vm -Notes %s", vmPSQuote(notes))
 	line("} catch {")
 	line("  $problem = $_")
 	line("  # The new VM is left in place, without its disks deleted, so the cause can be checked.")
