@@ -927,9 +927,9 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
             </section>
           </div>
           <div class="hidden" id="vmViewDisks">
-            <p class="migrate-help">Copy whole disks between two computers over the network, for a machine on any hypervisor or a physical server. Run this application on both: the machine being moved sends its own disks, and the computer receiving them (usually the new Hyper-V host) saves each one as a VHDX file. Sending again later sends only what changed. To move a VMware VM, use Move in its details on Environment instead: nothing has to run inside it.</p>
+            <p class="migrate-help">Copy whole disks between two computers over the network, for a machine on any hypervisor or a physical server. Run this application on both: the machine being moved sends its own disks, and the computer receiving them either saves each one as a VHDX file (usually the new Hyper-V host) or, booted from receiver media, writes it straight onto its own disks (a new HyperCore, Nutanix, Proxmox or physical machine). Sending again later sends only what changed. To move a VMware VM, use Move in its details on Environment instead: nothing has to run inside it.</p>
             <div class="vm-role-pick" role="group" aria-label="Which computer is this?"><span>Which computer is this?</span><button class="vm-role-choice" type="button" data-diskrole="send" aria-pressed="false"><strong>The machine being moved</strong>Send its disks</button><button class="vm-role-choice" type="button" data-diskrole="receive" aria-pressed="false"><strong>The computer receiving the disks</strong>Usually the new Hyper-V host</button></div>
-            <div class="vm-flow" aria-label="Where the disks go"><span class="vm-flow-box" id="vmFlowSend"><b>Machine being moved</b>: Send</span><span class="vm-flow-arrow">&rarr; network (HTTPS, port 44380, pairing code) &rarr;</span><span class="vm-flow-box" id="vmFlowReceive"><b>Receiving computer</b>: Receive, saves VHDX files</span></div>
+            <div class="vm-flow" aria-label="Where the disks go"><span class="vm-flow-box" id="vmFlowSend"><b>Machine being moved</b>: Send</span><span class="vm-flow-arrow">&rarr; network (HTTPS, port 44380, pairing code) &rarr;</span><span class="vm-flow-box" id="vmFlowReceive"><b>Receiving computer</b>: Receive, saves VHDX files or writes its own disks</span></div>
             <div class="vm-two" id="vmDiskCards">
               <section class="migrate-card" aria-labelledby="vmReceiveTitle">
                 <h4 id="vmReceiveTitle">Receive: run on the computer receiving the disks</h4>
@@ -955,6 +955,10 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
                 <label class="vm-field">Receiving computer, as shown in its Receive panel (name or address, with :port if not 44380)<input id="vmSendAddress" type="text" spellcheck="false" autocomplete="off" placeholder="hv01.example.com"></label>
                 <label class="vm-field">Certificate thumbprint<input id="vmSendThumbprint" type="text" spellcheck="false" autocomplete="off"></label>
                 <label class="vm-field">Pairing code<input id="vmSendCode" type="password" spellcheck="false" autocomplete="off"></label>
+                <div class="migrate-row"><button class="secondary-button" id="vmSendCheck" type="button">Check receiver</button><span class="vm-note" id="vmSendReceiverNote">Shows where each disk goes: a VHDX file, or a disk of the new VM or server.</span></div>
+                <div id="vmSendTargets"></div>
+                <label class="vm-check"><input id="vmSendCompress" type="checkbox" checked> Compress data on the network</label>
+                <label class="vm-field">Bandwidth limit in Mbps (0 for no limit)<input id="vmSendLimit" type="text" inputmode="numeric" value="0" maxlength="6"></label>
                 <label class="vm-check"><input id="vmSendVerify" type="checkbox" checked> Check every disk against its recorded hashes when it is done</label>
                 <label class="vm-check"><input id="vmSendLive" type="checkbox"> If Volume Shadow Copy is unavailable, copy volumes as they are (the copy may be inconsistent)</label>
                 <div class="migrate-row"><button class="primary-button" id="vmSendStart" type="button">Send disks</button></div>
@@ -2292,7 +2296,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   // result and comparison are fetched when their serial numbers change.
   var vmView='env',vmAttention=[],vmInventory=null,vmPlan=null,vmSizing=null,vmInvSerial=0,vmInvLoading=false,vmPlanDirty=false,vmSelectedVM='',vmFilter='all',vmBusy=false,vmTargetLocal='hyperv';
   var vmGuest=null,vmGuestSerial=0,vmGuestLoading=false,vmGuestChoices={},vmGhostChoices={},vmDiskChoices={};
-  var vmSendDiskList=null,vmSendSerial=-1,vmReceiveWasRunning=null,vmSendComputerName='',vmCompare=null,vmCompareDatasets=[],vmCompareSerial=0,vmMoveSerial=0,vmCompareLoading=false,vmCompareBeforePath='',vmCompareAfterPath='',vmCompareOpen={},vmLogKey='';
+  var vmSendDiskList=null,vmSendReceiver=null,vmSendSerial=-1,vmReceiveWasRunning=null,vmSendComputerName='',vmCompare=null,vmCompareDatasets=[],vmCompareSerial=0,vmMoveSerial=0,vmCompareLoading=false,vmCompareBeforePath='',vmCompareAfterPath='',vmCompareOpen={},vmLogKey='';
   var vmRowLimit=400,vmStatusLabels={ready:'Ready',review:'Review first',blocked:'Blocked',skip:'Not moved'};
   function vmwareState(){return (latestState&&latestState.vmware)||null;}
   function vmwareIsRunning(){var v=vmwareState();return !!(v&&v.running);}
@@ -2437,7 +2441,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     var list=byId('vmSendResults');list.textContent='';
     vmArr(v.send).forEach(function(d){
       if(d.error){list.appendChild(el('li','warning','Disk '+d.disk+' ('+d.name+'): '+d.error));return;}
-      list.appendChild(el('li','good','Disk '+d.disk+' sent as '+d.name+': '+formatBytesShort(d.bytesRead)+' read, '+formatBytesShort(d.bytesWritten)+' sent'+(d.passes>1?' (pass '+d.passes+', only what changed)':'')+(d.shadowed?', '+vmPlural(d.shadowed,'volume')+' from a shadow copy':'')+(d.verified?', verified':'')+'.'));
+      list.appendChild(el('li','good','Disk '+d.disk+' sent as '+d.name+': '+formatBytesShort(d.bytesRead)+' read, '+formatBytesShort(d.bytesWritten)+' written'+(d.bytesSent?' ('+formatBytesShort(d.bytesSent)+' on the network)':'')+(d.passes>1?' (pass '+d.passes+', only what changed)':'')+(d.shadowed?', '+vmPlural(d.shadowed,'volume')+' from a shadow copy':'')+(d.verified?', verified':'')+'.'));
     });
     if(v.sendError&&!vmArr(v.send).some(function(d){return !!d.error;})){list.appendChild(el('li','warning',v.sendError));}
     list.classList.toggle('hidden',!list.childNodes.length);
@@ -2448,10 +2452,36 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     if(!vmSendDiskList.length){box.appendChild(el('div','vm-empty','No disks were found.'));return;}
     vmSendDiskList.forEach(function(d){
       var label=el('label','vm-check'),input=document.createElement('input');input.type='checkbox';input.checked=true;input.setAttribute('data-send-disk',String(d.number));
-      input.addEventListener('change',syncVmButtons);label.appendChild(input);
+      input.addEventListener('change',function(){renderVmSendTargets();syncVmButtons();});label.appendChild(input);
       var volumes=vmArr(d.volumes).map(function(x){return (vmArr(x.mounts).join(' ')||'no drive letter')+(x.fileSystem?' '+x.fileSystem:'')+' '+formatBytesShort(x.length);});
       label.appendChild(el('span','','Disk '+d.number+', '+formatBytesShort(d.size)+(d.system?' (Windows)':'')+(volumes.length?': '+volumes.join('; '):': no volumes')));
       box.appendChild(label);
+    });
+  }
+  function renderVmSendTargets(){
+    var box=byId('vmSendTargets'),previous={};
+    Array.prototype.forEach.call(box.querySelectorAll('[data-send-target]'),function(s){previous[s.getAttribute('data-send-target')]=s.value;});
+    box.textContent='';
+    if(!vmSendReceiver){return;}
+    var disks=vmArr(vmSendReceiver.disks),chosen=vmSendChosen();
+    if(!vmSendReceiver.folder&&!disks.length){box.appendChild(el('div','vm-empty','This receiver has no folder and no disks to write.'));return;}
+    chosen.forEach(function(n,i){
+      var label=el('label','vm-field','Disk '+n+' goes to'),select=document.createElement('select');select.setAttribute('data-send-target',String(n));
+      if(vmSendReceiver.folder){var o=document.createElement('option');o.value='vhdx';o.textContent='A VHDX file on the receiver';select.appendChild(o);}
+      disks.forEach(function(d){var o=document.createElement('option');o.value=d.name;o.textContent=d.name+': '+(d.label||'disk')+', '+formatBytesShort(d.size)+(d.overwrite?' (will be overwritten)':'');select.appendChild(o);});
+      if(previous[String(n)]&&Array.prototype.some.call(select.options,function(o){return o.value===previous[String(n)];})){select.value=previous[String(n)];}
+      else if(!vmSendReceiver.folder&&disks[i]){select.value=disks[i].name;}
+      label.appendChild(select);box.appendChild(label);
+    });
+  }
+  function vmSendTargets(){var t={};Array.prototype.forEach.call(document.querySelectorAll('[data-send-target]'),function(s){t[s.getAttribute('data-send-target')]=s.value;});return t;}
+  function checkVmSendReceiver(){
+    var thumbprint=trimText(byId('vmSendThumbprint').value).replace(/[\s:]/g,'');
+    vmPost('/api/vmware/agent/receiverdisks',{address:trimText(byId('vmSendAddress').value),thumbprint:thumbprint,code:trimText(byId('vmSendCode').value)},'vmSendStatus',function(err,data){
+      if(err){return;}
+      vmSendReceiver={folder:!!data.folder,disks:vmArr(data.disks)};
+      byId('vmSendReceiverNote').textContent=(vmSendReceiver.folder?'Saves VHDX files':'')+(vmSendReceiver.folder&&vmSendReceiver.disks.length?' and writes ':'')+(vmSendReceiver.disks.length?(vmSendReceiver.folder?'':'Writes ')+vmPlural(vmSendReceiver.disks.length,'disk')+' of the new VM or server':'')+'.';
+      renderVmSendTargets();
     });
   }
   function vmSendChosen(){return Array.prototype.map.call(document.querySelectorAll('[data-send-disk]:checked'),function(i){return Number(i.getAttribute('data-send-disk'));});}
@@ -2461,7 +2491,9 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     byId('vmReceiveStart').disabled=vmBusy||!!r.running;byId('vmReceiveStop').disabled=vmBusy;
     byId('vmSendFind').disabled=locked||!admin;
     var sending=!!v.running&&v.action==='send';
-    ['vmSendAddress','vmSendThumbprint','vmSendCode','vmSendVerify','vmSendLive'].forEach(function(id){byId(id).disabled=sending;});
+    ['vmSendAddress','vmSendThumbprint','vmSendCode','vmSendVerify','vmSendLive','vmSendCompress','vmSendLimit'].forEach(function(id){byId(id).disabled=sending;});
+    Array.prototype.forEach.call(document.querySelectorAll('[data-send-target]'),function(i){i.disabled=sending;});
+    byId('vmSendCheck').disabled=sending||!trimText(byId('vmSendAddress').value)||!trimText(byId('vmSendThumbprint').value)||!trimText(byId('vmSendCode').value);
     Array.prototype.forEach.call(document.querySelectorAll('[data-send-disk]'),function(i){i.disabled=sending;});
     byId('vmSendStart').disabled=locked||!admin||!!r.running||!vmSendChosen().length||!trimText(byId('vmSendAddress').value)||!trimText(byId('vmSendThumbprint').value)||!trimText(byId('vmSendCode').value);
   }
@@ -2477,7 +2509,9 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     var disks=vmSendChosen(),address=trimText(byId('vmSendAddress').value),thumbprint=trimText(byId('vmSendThumbprint').value).replace(/[\s:]/g,''),code=trimText(byId('vmSendCode').value);
     if(!/^[0-9A-Fa-f]{64}$/.test(thumbprint)){vmSetStatus('vmSendStatus','Type the 64-character certificate thumbprint the receiving computer shows.',true);return;}
     if(code.replace(/[\s-]/g,'').length!==20){vmSetStatus('vmSendStatus','Type the 20-character pairing code the receiving computer shows.',true);return;}
-    vmPost('/api/vmware/agent/send',{disks:disks,address:address,thumbprint:thumbprint,code:code,verify:byId('vmSendVerify').checked,allowLive:byId('vmSendLive').checked},'vmSendStatus',function(err){if(!err){vmMarkRunning('send','sending','Sending '+vmPlural(disks.length,'disk')+' to '+address+'.');vmSetStatus('vmSendStatus','Sending. Volume shadow copies are taken first, then each disk is sent.',false);}});
+    var limit=trimText(byId('vmSendLimit').value)||'0';
+    if(!/^[0-9]{1,6}$/.test(limit)){vmSetStatus('vmSendStatus','Type the bandwidth limit as a number of megabits per second, or 0 for no limit.',true);return;}
+    vmPost('/api/vmware/agent/send',{disks:disks,address:address,thumbprint:thumbprint,code:code,verify:byId('vmSendVerify').checked,allowLive:byId('vmSendLive').checked,targets:vmSendTargets(),compress:byId('vmSendCompress').checked,limitMbps:Number(limit)},'vmSendStatus',function(err){if(!err){vmMarkRunning('send','sending','Sending '+vmPlural(disks.length,'disk')+' to '+address+'.');vmSetStatus('vmSendStatus','Sending. Volume shadow copies are taken first, then each disk is sent.',false);}});
   }
   function renderVmCertificate(v){
     var c=v.certificate,box=byId('vmCert');box.classList.toggle('hidden',!c||!!v.running);
@@ -3385,6 +3419,8 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   byId('vmReceiveOpen').addEventListener('click',function(){openKind('receivefolder');});
   byId('vmSendFind').addEventListener('click',findVmSendDisks);
   byId('vmSendStart').addEventListener('click',startVmSend);
+  byId('vmSendCheck').addEventListener('click',checkVmSendReceiver);
+  ['vmSendAddress','vmSendThumbprint','vmSendCode'].forEach(function(id){byId(id).addEventListener('input',function(){if(vmSendReceiver){vmSendReceiver=null;byId('vmSendReceiverNote').textContent='Check the receiver again: its details changed.';renderVmSendTargets();}});});
   ['vmSendAddress','vmSendThumbprint','vmSendCode'].forEach(function(id){byId(id).addEventListener('input',syncVmButtons);});
   vmCapacityFields.forEach(function(f){byId(f.id).addEventListener('input',vmMarkPlanDirty);});
   byId('vmWaveSearch').addEventListener('input',renderVmWaves);
