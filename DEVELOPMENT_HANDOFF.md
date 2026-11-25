@@ -4,6 +4,7 @@
 - Code: `src/app/hyperv_move.go`, `hyperv_move_windows.go`, `Move-HyperVVM.ps1`; `runMoveRound` dispatches by source in `vmware_move_windows.go` and `vmware_target_windows.go`. UI in `renderVmMove` and `renderVmMoveTarget` (`index.html`).
 - Tests: `go test ./src/app -run HyperV` (fake host, real VHDX files: full, delta with a cleared chunk, verified cutover, refusals, checkpoint removal on failure and cancel); `TestMoveHyperVScriptOnThisComputer` on Windows; the Hyper-V check in `scripts/test_workspace.cjs`.
 - Limitation: GitHub runners have no Hyper-V role. Real checkpoints, remote WMI access and the guest shutdown need a field test on a Hyper-V host before customer use.
+
 ## Unreleased: runbook check boxes that tick, and in-app runbook steps — 2026-11-25
 
 The owner asked what the runbook check boxes were for if they could not be ticked.
