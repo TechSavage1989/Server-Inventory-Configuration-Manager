@@ -68,6 +68,9 @@ $script:BasicDataType = '{ebd0a0a2-b9e5-4433-87c0-68b6b72699c7}'
 
 function Invoke-Native {
     param([string]$File, [string[]]$Arguments)
+    # With the script's Stop preference, a native command's first line on
+    # standard error would end the script before its exit code is checked.
+    $ErrorActionPreference = 'Continue'
     $output = & $File @Arguments 2>&1 | ForEach-Object { [string]$_ }
     return [pscustomobject]@{ ExitCode = $LASTEXITCODE; Output = @($output) }
 }
@@ -150,7 +153,7 @@ function Mount-Hive {
     $script:HiveCount++
     $key = $script:HivePrefix + $Name + $script:HiveCount
     $result = $null
-    for ($try = 0; $try -lt 10; $try++) {
+    for ($try = 0; $try -lt 20; $try++) {
         $result = Invoke-Native 'reg.exe' @('load', ('HKLM\' + $key), $File)
         if ($result.ExitCode -eq 0) { break }
         [GC]::Collect(); [GC]::WaitForPendingFinalizers()
