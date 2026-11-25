@@ -1,3 +1,7 @@
+## 3.2.31 release preparation — 2026-11-25
+
+Publishing the VMware relationships (#85), which the owner chose to publish on 2026-11-25. This branch bumps `appVersion`, `collectorVersion` and the collector `$scriptVersion` to 3.2.31, adds `docs/release-notes/3.2.31.md` (first three bullets free of Markdown) and points `scripts/test_published_upgrade.cjs` and AGENTS.md at the published v3.2.30 executable (SHA-256 `58d104352bb01324f28fe708ba486e48110a69bfec9d5b5b0f2b1d9e7847b328`).
+
 ## Unreleased: VMware relationships in the discovery report and Environment view — 2026-11-25
 
 Owner: "the report should show the vms on each associated host and datastore and their disk associations, etc. the report should have an intuitive UX and most of that info should be available via sections and/or dropdowns in the primary Environment tab after reading the vmware inventory."
