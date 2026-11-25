@@ -77,6 +77,7 @@ type vmwareStateResponse struct {
 	ReportPath      string              `json:"reportPath"`
 	RunbookPath     string              `json:"runbookPath"`
 	RunbookDocxPath string              `json:"runbookDocxPath"`
+	DiscoveryPath   string              `json:"discoveryPath"`
 	PlanCSVPath     string              `json:"planCsvPath"`
 	GuestSerial     uint64              `json:"guestSerial"`
 	GuestMessage    string              `json:"guestMessage"`
@@ -123,7 +124,7 @@ func (a *application) vmwareSnapshotLocked() vmwareStateResponse {
 		Running: a.vmware.action != "", Action: a.vmware.action, Status: status, Message: a.vmware.message,
 		Server: a.vmware.server, Account: a.vmware.account, Certificate: a.vmware.certificate,
 		InventorySerial: a.vmware.inventorySerial, OutputFolder: a.vmware.outputFolder, ReportPath: a.vmware.reportPath,
-		RunbookPath: a.vmware.runbookPath, RunbookDocxPath: vmRunbookDocxFor(a.vmware.runbookPath), PlanCSVPath: a.vmware.planCSVPath,
+		RunbookPath: a.vmware.runbookPath, RunbookDocxPath: vmRunbookDocxFor(a.vmware.runbookPath), DiscoveryPath: vmDiscoveryReportFor(a.vmware.reportPath), PlanCSVPath: a.vmware.planCSVPath,
 		GuestSerial: a.vmware.guestSerial, GuestMessage: a.vmware.guestMessage, GuestError: a.vmware.guestError, GuestWorkPath: a.guestWorkPath(),
 		CompareSerial: a.vmware.compareSerial, CompareError: a.vmware.compareError,
 		Prepare: a.vmware.prepare, PrepareSerial: a.vmware.prepareSerial, PrepareError: a.vmware.prepareError,
@@ -470,7 +471,7 @@ func (a *application) handleVMwareInventory(response http.ResponseWriter, reques
 		writeJSON(response, http.StatusOK, map[string]any{"ok": true, "inventory": nil})
 		return
 	}
-	writeJSON(response, http.StatusOK, map[string]any{"ok": true, "serial": serial, "inventory": inventory, "plan": plan, "sizing": sizePlan(*plan, inventory)})
+	writeJSON(response, http.StatusOK, map[string]any{"ok": true, "serial": serial, "inventory": inventory, "plan": plan, "sizing": sizePlan(*plan, inventory), "attention": vmDiscoveryWatch(inventory, time.Now())})
 }
 
 func (a *application) handleVMwarePlan(response http.ResponseWriter, request *http.Request) {
@@ -1004,6 +1005,8 @@ func (a *application) vmwareOpenTarget(kind string) (target string, folder bool,
 	switch kind {
 	case "vmwarereport":
 		return a.vmware.reportPath, false, true
+	case "vmwarediscovery":
+		return vmDiscoveryReportFor(a.vmware.reportPath), false, true
 	case "vmwarefolder":
 		return a.vmware.outputFolder, true, true
 	case "vmwarerunbook":

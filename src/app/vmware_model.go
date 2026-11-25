@@ -65,32 +65,45 @@ func vmToolsVersionText(version string) string {
 }
 
 type vmInventory struct {
-	Schema       int           `json:"schema"`
-	Server       string        `json:"server"`
-	ServerType   string        `json:"serverType"`
-	Product      string        `json:"product"`
-	APIVersion   string        `json:"apiVersion"`
-	CollectedAt  time.Time     `json:"collectedAt"`
-	CollectedBy  string        `json:"collectedBy"`
-	Datacenters  []string      `json:"datacenters"`
-	Clusters     []vmCluster   `json:"clusters"`
-	Hosts        []vmHost      `json:"hosts"`
-	Datastores   []vmDatastore `json:"datastores"`
-	Networks     []vmNetwork   `json:"networks"`
-	VMs          []vmMachine   `json:"vms"`
-	Warnings     []string      `json:"warnings"`
-	AppVersion   string        `json:"appVersion"`
-	SourceFolder string        `json:"-"`
+	Schema      int           `json:"schema"`
+	Server      string        `json:"server"`
+	ServerType  string        `json:"serverType"`
+	Product     string        `json:"product"`
+	APIVersion  string        `json:"apiVersion"`
+	CollectedAt time.Time     `json:"collectedAt"`
+	CollectedBy string        `json:"collectedBy"`
+	Datacenters []string      `json:"datacenters"`
+	Clusters    []vmCluster   `json:"clusters"`
+	Hosts       []vmHost      `json:"hosts"`
+	Datastores  []vmDatastore `json:"datastores"`
+	Networks    []vmNetwork   `json:"networks"`
+	VMs         []vmMachine   `json:"vms"`
+	// Full discovery (vmware_discovery.go); empty in inventories saved by
+	// 3.2.29 and earlier.
+	Build         string                `json:"build,omitempty"`
+	InstanceUUID  string                `json:"instanceUuid,omitempty"`
+	OSType        string                `json:"osType,omitempty"`
+	Licenses      []vmLicense           `json:"licenses,omitempty"`
+	ResourcePools []vmResourcePool      `json:"resourcePools,omitempty"`
+	Switches      []vmDistributedSwitch `json:"switches,omitempty"`
+	Warnings      []string              `json:"warnings"`
+	AppVersion    string                `json:"appVersion"`
+	SourceFolder  string                `json:"-"`
 }
 
 type vmCluster struct {
-	Name        string `json:"name"`
-	Datacenter  string `json:"datacenter"`
-	Hosts       int    `json:"hosts"`
-	HA          bool   `json:"ha"`
-	DRS         bool   `json:"drs"`
-	CPUCores    int    `json:"cpuCores"`
-	MemoryBytes int64  `json:"memoryBytes"`
+	Name             string `json:"name"`
+	Datacenter       string `json:"datacenter"`
+	Hosts            int    `json:"hosts"`
+	HA               bool   `json:"ha"`
+	DRS              bool   `json:"drs"`
+	CPUCores         int    `json:"cpuCores"`
+	MemoryBytes      int64  `json:"memoryBytes"`
+	EVCMode          string `json:"evcMode,omitempty"`
+	VSAN             bool   `json:"vsan,omitempty"`
+	HAAdmission      bool   `json:"haAdmissionControl,omitempty"`
+	HAHostMonitoring string `json:"haHostMonitoring,omitempty"`
+	DRSBehavior      string `json:"drsBehavior,omitempty"`
 }
 
 type vmHost struct {
@@ -111,6 +124,10 @@ type vmHost struct {
 	PowerState      string `json:"powerState"`
 	Maintenance     bool   `json:"maintenance"`
 	VMCount         int    `json:"vmCount"`
+	// Full discovery (vmware_discovery.go).
+	License *vmLicenseRef  `json:"license,omitempty"`
+	Details *vmHostDetails `json:"details,omitempty"`
+	ref     string
 }
 
 type vmDatastore struct {

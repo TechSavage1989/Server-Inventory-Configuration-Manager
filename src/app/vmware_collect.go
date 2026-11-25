@@ -225,6 +225,7 @@ func collectVSphere(parent context.Context, options vmConnectOptions, progress f
 
 	about := client.ServiceContent.About
 	inventory := &vmInventory{Schema: 1, Server: u.Host, Product: about.FullName, APIVersion: about.ApiVersion, CollectedAt: time.Now(), CollectedBy: options.User, AppVersion: options.AppVersion, Warnings: []string{}}
+	inventory.Build, inventory.InstanceUUID, inventory.OSType = about.Build, about.InstanceUuid, about.OsType
 	inventory.ServerType = "ESXi host"
 	if about.ApiType == "VirtualCenter" {
 		inventory.ServerType = "vCenter Server"
@@ -257,6 +258,8 @@ func readVSphereInventory(ctx context.Context, client *vim25.Client, inventory *
 			return err
 		}
 	}
+	progress("Reading licenses.")
+	vmReadLicenses(ctx, client, inventory)
 	sort.Slice(inventory.VMs, func(i, j int) bool {
 		return strings.ToLower(inventory.VMs[i].Name) < strings.ToLower(inventory.VMs[j].Name)
 	})
@@ -286,16 +289,18 @@ func readVSphereDatacenter(ctx context.Context, views *view.Manager, datacenter 
 			item.HA = config.DasConfig.Enabled != nil && *config.DasConfig.Enabled
 			item.DRS = config.DrsConfig.Enabled != nil && *config.DrsConfig.Enabled
 		}
+		vmClusterSettings(cluster, &item)
 		inventory.Clusters = append(inventory.Clusters, item)
 	}
 
 	var hosts []mo.HostSystem
-	if err := container.Retrieve(ctx, []string{"HostSystem"}, []string{"name", "summary", "parent", "vm", "config.network.portgroup", "config.network.vswitch"}, &hosts); err != nil {
+	if err := container.Retrieve(ctx, []string{"HostSystem"}, vmHostProperties, &hosts); err != nil {
 		return err
 	}
 	hostNames, hostClusters := map[string]string{}, map[string]string{}
 	standardVLANs := map[string]map[string]bool{}
 	standardSwitches := map[string]string{}
+	firstHost := len(inventory.Hosts)
 	for _, host := range hosts {
 		hostNames[host.Reference().Value] = host.Name
 		cluster := ""
@@ -315,6 +320,8 @@ func readVSphereDatacenter(ctx context.Context, views *view.Manager, datacenter 
 		item.ConnectionState = string(host.Summary.Runtime.ConnectionState)
 		item.PowerState = string(host.Summary.Runtime.PowerState)
 		item.Maintenance = host.Summary.Runtime.InMaintenanceMode
+		item.ref = host.Reference().Value
+		item.Details = vmHostDetailsFrom(host)
 		inventory.Hosts = append(inventory.Hosts, item)
 		if host.Config != nil && host.Config.Network != nil {
 			for _, portgroup := range host.Config.Network.Portgroup {
@@ -327,7 +334,8 @@ func readVSphereDatacenter(ctx context.Context, views *view.Manager, datacenter 
 			}
 		}
 	}
-	progress(fmt.Sprintf("Read %d host(s) in %s.", len(hosts), datacenter.Name))
+	progress(fmt.Sprintf("Read %d host(s) in %s; reading their software and alarms.", len(hosts), datacenter.Name))
+	vmReadHostExtras(ctx, views.Client(), hosts, inventory, firstHost)
 
 	var datastores []mo.Datastore
 	if err := container.Retrieve(ctx, []string{"Datastore"}, []string{"name", "summary", "vm"}, &datastores); err != nil {
@@ -347,13 +355,27 @@ func readVSphereDatacenter(ctx context.Context, views *view.Manager, datacenter 
 
 	switchNames := map[string]string{}
 	var switches []mo.DistributedVirtualSwitch
-	if err := container.Retrieve(ctx, []string{"DistributedVirtualSwitch"}, []string{"name", "uuid"}, &switches); err != nil && !vmIsMissingType(err) {
+	if err := container.Retrieve(ctx, []string{"DistributedVirtualSwitch"}, []string{"name", "uuid", "config"}, &switches); err != nil && !vmIsMissingType(err) {
 		return err
 	}
 	for _, item := range switches {
 		switchNames[item.Uuid] = item.Name
 		switchNames[item.Reference().Value] = item.Name
 	}
+	vmReadSwitches(switches, datacenter.Name, hostNames, inventory)
+	owners := map[string]string{}
+	for _, cluster := range clusters {
+		owners[cluster.Reference().Value] = cluster.Name
+	}
+	var computeResources []mo.ComputeResource
+	if err := container.Retrieve(ctx, []string{"ComputeResource"}, []string{"name"}, &computeResources); err == nil {
+		for _, resource := range computeResources {
+			owners[resource.Reference().Value] = resource.Name
+		}
+	}
+	vmReadPools(ctx, func(kind string, properties []string, dst any) error {
+		return container.Retrieve(ctx, []string{kind}, properties, dst)
+	}, datacenter.Name, owners, inventory)
 	var portgroups []mo.DistributedVirtualPortgroup
 	if err := container.Retrieve(ctx, []string{"DistributedVirtualPortgroup"}, []string{"name", "config", "vm"}, &portgroups); err != nil && !vmIsMissingType(err) {
 		return err

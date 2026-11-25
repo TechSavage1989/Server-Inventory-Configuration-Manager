@@ -93,6 +93,7 @@ const vmReadinessTemplate = `<!DOCTYPE html>
 <h2>Clusters</h2>
 <table><tr><th>Cluster</th><th>Datacenter</th><th>Hosts</th><th>Cores</th><th>Memory</th><th>HA</th><th>DRS</th></tr>{{range .Inventory.Clusters}}<tr><td>{{.Name}}</td><td>{{.Datacenter}}</td><td>{{.Hosts}}</td><td>{{.CPUCores}}</td><td>{{bytes .MemoryBytes}}</td><td>{{.HA}}</td><td>{{.DRS}}</td></tr>{{else}}<tr><td colspan="7">No clusters (standalone hosts).</td></tr>{{end}}</table>
 <h2>Hosts</h2>
+<p class="muted">Each host in full (hardware, BIOS, network, storage, services, software and licenses) is in VMware-Discovery-Report.html in this folder.</p>
 <table><tr><th>Host</th><th>Cluster</th><th>Model</th><th>CPU</th><th>Cores</th><th>Memory</th><th>Version</th><th>State</th><th>VMs</th></tr>{{range .Inventory.Hosts}}<tr><td>{{.Name}}</td><td>{{.Cluster}}</td><td>{{.Vendor}} {{.Model}}</td><td>{{.CPUModel}}</td><td>{{.Sockets}} × {{.Cores}} cores</td><td>{{bytes .MemoryBytes}}</td><td>{{.Version}} ({{.Build}})</td><td>{{.ConnectionState}}{{if .Maintenance}}, maintenance{{end}}</td><td>{{.VMCount}}</td></tr>{{end}}</table>
 <h2>Datastores</h2>
 <table><tr><th>Datastore</th><th>Type</th><th>Capacity</th><th>Free</th><th>Provisioned</th><th>Shared</th><th>VMs</th></tr>{{range .Inventory.Datastores}}<tr><td>{{.Name}}</td><td>{{.Type}}</td><td>{{bytes .CapacityBytes}}</td><td>{{bytes .FreeBytes}}</td><td>{{bytes .ProvisionedBytes}}</td><td>{{.Shared}}</td><td>{{.VMCount}}</td></tr>{{end}}</table>
@@ -230,10 +231,10 @@ func writeVMwareInventoryOutputs(folder string, inventory *vmInventory) (string,
 	}
 	hostRows, clusterRows, datastoreRows, networkRows := [][]string{}, [][]string{}, [][]string{}, [][]string{}
 	for _, host := range inventory.Hosts {
-		hostRows = append(hostRows, []string{host.Name, host.Datacenter, host.Cluster, host.Vendor, host.Model, host.CPUModel, strconv.Itoa(host.Sockets), strconv.Itoa(host.Cores), strconv.Itoa(host.Threads), strconv.Itoa(host.CPUMhz), gib(host.MemoryBytes), host.Version, host.Build, host.ConnectionState, strconv.FormatBool(host.Maintenance), strconv.Itoa(host.VMCount)})
+		hostRows = append(hostRows, append([]string{host.Name, host.Datacenter, host.Cluster, host.Vendor, host.Model, host.CPUModel, strconv.Itoa(host.Sockets), strconv.Itoa(host.Cores), strconv.Itoa(host.Threads), strconv.Itoa(host.CPUMhz), gib(host.MemoryBytes), host.Version, host.Build, host.ConnectionState, strconv.FormatBool(host.Maintenance), strconv.Itoa(host.VMCount)}, vmHostCSVValues(host)...))
 	}
 	for _, cluster := range inventory.Clusters {
-		clusterRows = append(clusterRows, []string{cluster.Name, cluster.Datacenter, strconv.Itoa(cluster.Hosts), strconv.Itoa(cluster.CPUCores), gib(cluster.MemoryBytes), strconv.FormatBool(cluster.HA), strconv.FormatBool(cluster.DRS)})
+		clusterRows = append(clusterRows, []string{cluster.Name, cluster.Datacenter, strconv.Itoa(cluster.Hosts), strconv.Itoa(cluster.CPUCores), gib(cluster.MemoryBytes), strconv.FormatBool(cluster.HA), strconv.FormatBool(cluster.HAAdmission), cluster.HAHostMonitoring, strconv.FormatBool(cluster.DRS), cluster.DRSBehavior, cluster.EVCMode, strconv.FormatBool(cluster.VSAN)})
 	}
 	for _, datastore := range inventory.Datastores {
 		datastoreRows = append(datastoreRows, []string{datastore.Name, datastore.Datacenter, datastore.Type, gib(datastore.CapacityBytes), gib(datastore.FreeBytes), gib(datastore.ProvisionedBytes), strconv.FormatBool(datastore.Shared), strconv.FormatBool(datastore.Accessible), strconv.Itoa(datastore.VMCount)})
@@ -255,8 +256,8 @@ func writeVMwareInventoryOutputs(folder string, inventory *vmInventory) (string,
 		{"VM-Network-Adapters.csv", []string{"VM", "Adapter", "Type", "Network", "MAC", "ManualMAC", "Connected", "GuestAddresses", "StaticIP"}, nicRows},
 		{"VM-Snapshots.csv", []string{"VM", "Snapshot", "Created", "Quiesced", "Depth"}, snapshotRows},
 		{"Readiness-Findings.csv", []string{"VM", "Target", "Status", "Severity", "Code", "Finding", "Action"}, readinessRows},
-		{"Hosts.csv", []string{"Host", "Datacenter", "Cluster", "Vendor", "Model", "CPU", "Sockets", "Cores", "Threads", "CPUMHz", "MemoryGB", "Version", "Build", "ConnectionState", "Maintenance", "VMs"}, hostRows},
-		{"Clusters.csv", []string{"Cluster", "Datacenter", "Hosts", "Cores", "MemoryGB", "HA", "DRS"}, clusterRows},
+		{"Hosts.csv", append([]string{"Host", "Datacenter", "Cluster", "Vendor", "Model", "CPU", "Sockets", "Cores", "Threads", "CPUMHz", "MemoryGB", "Version", "Build", "ConnectionState", "Maintenance", "VMs"}, vmHostCSVColumns...), hostRows},
+		{"Clusters.csv", []string{"Cluster", "Datacenter", "Hosts", "Cores", "MemoryGB", "HA", "HAAdmissionControl", "HAHostMonitoring", "DRS", "DRSBehavior", "EVCMode", "vSAN"}, clusterRows},
 		{"Datastores.csv", []string{"Datastore", "Datacenter", "Type", "CapacityGB", "FreeGB", "ProvisionedGB", "Shared", "Accessible", "VMs"}, datastoreRows},
 		{"Networks.csv", []string{"Network", "Datacenter", "Kind", "Switch", "VLAN", "VMs"}, networkRows},
 	}
@@ -270,6 +271,9 @@ func writeVMwareInventoryOutputs(folder string, inventory *vmInventory) (string,
 		if vm.Template {
 			templates = append(templates, vm)
 		}
+	}
+	if _, err := writeVMwareDiscoveryOutputs(folder, inventory, time.Now()); err != nil {
+		return "", err
 	}
 	var page bytes.Buffer
 	if err := vmReadinessTmpl.Execute(&page, map[string]any{"Inventory": inventory, "Summary": summarizeInventory(inventory), "Templates": templates, "Style": template.CSS(vmReportStylesheet), "Generator": vmReportGeneratorLine}); err != nil {
