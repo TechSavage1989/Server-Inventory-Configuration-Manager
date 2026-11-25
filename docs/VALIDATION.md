@@ -1,3 +1,13 @@
+## 3.2.29 published and verified — 2026-11-25
+
+- [Release v3.2.29](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.29) ("Server Inventory and Migration Manager 3.2.29"), tag and target commit `1b3ec359022b025383ede67c2ad2e65a6088dddd`. Source: Nutanix AHV, Proxmox VE, Azure, EC2 and physical (V2P) targets and the File shares label (#76), prepared in #77, published by #78, with the install-test fix #79.
+- First signed release. The [publish run](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/45554281786) (workflow_dispatch, 05:32–05:42 UTC) signed the EXE through Azure Artifact Signing over OIDC; `Get-AuthenticodeSignature` reported Valid with a Microsoft timestamp before the tests and checksum.
+- The first [publish run](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/45552408242) (push of #78) signed successfully but failed in "Test native replacement and visible health confirmation" after the script's final success line, before creating a tag or release: `taskkill /T` found a child of the updated app already gone and its exit code stayed in `$LASTEXITCODE`. #79 resets it and checks the app process itself closed.
+- The actual 3.2.28-to-3.2.29 upgrade (published unsigned 3.2.28 EXE installing the signed 3.2.29 through Download and Install, native health, settings, shortcut, timers, cleanup and rollback) passed in one run, 05:42–05:51 UTC, so published versions accept signed updates. Source CI on #76, #77, #78 and #79 passed windows, restore, migration and vmguest.
+- Stable EXE: 20,359,472 bytes (the signature adds about 69 KB); SHA-256 `d2359fd3f7025a3a32ece98627d3bb69b9dd0f88234587a9d7dc9449e7f046eb` (release asset digest). All 12 assets are published.
+
+Limits: the new targets' readiness rules come from vendor documentation, not migrations run here. CI artifacts were not downloaded. No client data was used.
+
 ## 3.2.28 published and verified — 2026-11-25
 
 - [Release v3.2.28](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.28) ("Server Inventory and Migration Manager 3.2.28"), tag and target commit `1ff4e961c6ae31c8e4cbddd08a58e7954e6a1a6b`. Source: VMware migration features #70; release preparation #71; publication PR #72 (only `release/VERSION`); release workflow fix #73. The owner chose to merge and publish on 2026-11-25.
