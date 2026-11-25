@@ -206,7 +206,13 @@ func (s *replAgentServer) ServeHTTP(w http.ResponseWriter, request *http.Request
 	switch action {
 	case "hello":
 		host, _ := os.Hostname()
-		vmReceiverJSON(w, map[string]interface{}{"app": replAgentApp, "version": s.version, "computer": host, "platform": s.agent.platform.Name(), "os": runtime.GOOS})
+		answer := map[string]interface{}{"app": replAgentApp, "version": s.version, "computer": host, "platform": s.agent.platform.Name(), "os": runtime.GOOS}
+		s.agent.mu.Lock()
+		if s.agent.lastStop != "" {
+			answer["lastStop"], answer["lastStopAt"] = s.agent.lastStop, s.agent.lastStopAt
+		}
+		s.agent.mu.Unlock()
+		vmReceiverJSON(w, answer)
 	case "disks":
 		disks, err := s.agent.platform.ListDisks()
 		if err != nil {
@@ -353,6 +359,10 @@ type replAgentHello struct {
 	Computer string `json:"computer"`
 	Platform string `json:"platform"`
 	OS       string `json:"os"`
+	// LastStop says how the previous run ended when it did not stop
+	// cleanly (a crash, or ended from outside); empty otherwise.
+	LastStop   string    `json:"lastStop,omitempty"`
+	LastStopAt time.Time `json:"lastStopAt,omitempty"`
 }
 
 func (c *replAgentClient) Hello(ctx context.Context) (replAgentHello, error) {
@@ -422,6 +432,13 @@ func runReplAgentWith(ctx context.Context, dir string, platform replPlatform, ve
 		return err
 	}
 	agent.notify = notify
+	if reason, _ := replCheckPreviousStop(dir); reason != "" {
+		log("The previous run of the agent did not stop cleanly. " + reason)
+		agent.noteUncleanStop(reason)
+	}
+	if err := replMarkRunning(dir, version); err != nil {
+		log("The agent could not record that it is running: " + err.Error())
+	}
 	server, err := startReplAgentServer(fmt.Sprintf(":%d", config.Port), agent, config, certificate, thumbprint, version)
 	if err != nil {
 		return fmt.Errorf("the agent could not listen on port %d: %w", config.Port, err)
@@ -429,6 +446,7 @@ func runReplAgentWith(ctx context.Context, dir string, platform replPlatform, ve
 	log(fmt.Sprintf("Replication agent %s listening on port %d, certificate %s.", version, server.Port(), thumbprint))
 	agent.Run(ctx)
 	server.Stop()
+	replMarkStopped(dir)
 	log("Replication agent stopped.")
 	return nil
 }

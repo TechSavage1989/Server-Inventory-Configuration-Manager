@@ -3,9 +3,14 @@
 The Release workflow signs `Server-Inventory-Configuration-Manager.exe` with
 Azure Artifact Signing, using the same account, certificate profile and
 GitHub OIDC approach as Network Toolkit (its `docs/CODE_SIGNING_PLAN.md`).
-Signing is active once the three repository secrets below exist. Until then a
-release is published unsigned with an "Unsigned release" warning on the run,
-so releases keep working while the Azure side is finished.
+Signing is required: a release fails unless the three repository secrets below
+exist and every signature is Valid and timestamped (owner requirement,
+2026-11-25). Before `go build` it also signs the PowerShell scripts the
+application writes to disk and runs (restore, file share migration, guest
+preparation, receiver media, Hyper-V read and copy, disk fix-ups), so the
+signed scripts are what the EXE embeds. The inventory collector and its
+wrapper are not signed because their exact bytes are the protected baseline.
+See `EDR-EXCLUSIONS.md` for what endpoint protection sees.
 
 Configuration in `.github/workflows/release.yml` (not secret):
 
@@ -31,8 +36,8 @@ the signed file. It signs out of Azure at the end.
 
 - Never sign or re-sign a published asset; signing changes the bytes and the
   published SHA-256.
-- If all three secrets are set and signing fails, the release fails; it never
-  falls back to unsigned. Setting only some of the secrets also fails.
+- If signing fails, or any of the three secrets is missing, the release fails;
+  it never falls back to unsigned.
 - The updater validation (`binary_validation.go`) does not reject the
   Authenticode certificate table, so published older versions accept a signed
   update. The manifest SHA-256 stays the byte check; the signature is the

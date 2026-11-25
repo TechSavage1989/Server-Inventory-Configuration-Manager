@@ -3984,20 +3984,23 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       actions.appendChild(rpButton(rpArm['forget'+a.id]?'Confirm remove from list':'Remove from list','data-rp-forget',a.id));
       actions.appendChild(rpButton(rpArm['uninstall'+a.id]?'Confirm uninstall':'Uninstall agent','data-rp-uninstall',a.id));
       head.appendChild(actions);card.appendChild(head);
-      if(!live.reachable&&live.error){card.appendChild(el('div','vm-note rp-error',live.error));}
+      if(!live.reachable&&live.error){card.appendChild(el('div','vm-note rp-error',live.error));if(live.hint){card.appendChild(el('div','vm-note rp-error',live.hint));}}
+      if(live.reachable&&live.lastStop){card.appendChild(el('div','vm-note rp-error','Earlier: '+live.lastStop));}
       var jobs=vmArr(live.jobs);
+      var stale=!live.reachable&&jobs.length;
+      if(stale){card.appendChild(el('div','vm-note','Last known state of the jobs below, from before the agent stopped answering.'));}
       if(!jobs.length){card.appendChild(el('div','vm-note','No replication jobs on this server yet.'));}
       else{
         var table=el('table','vm-table rp-jobs'),thead=el('thead'),hr=el('tr');
         ['Job','State','Recovery point','Last round','Next round',''].forEach(function(h){var th=el('th','',h);th.scope='col';hr.appendChild(th);});thead.appendChild(hr);table.appendChild(thead);
         var tbody=el('tbody');
         jobs.forEach(function(j){
-          var st=j.status||{},tr=el('tr'),state=rpStateText(j);
+          var st=j.status||{},tr=el('tr'),state=stale?'Agent not answering':rpStateText(j);
           tr.appendChild(el('td','',j.spec.name));
-          var stateCell=el('td');stateCell.appendChild(el('span','rp-chip '+({'Up to date':'good','Cut over':'good',Behind:'warning','Failing, will retry':'danger',Paused:''}[state]||''),state));tr.appendChild(stateCell);
+          var stateCell=el('td');stateCell.appendChild(el('span','rp-chip '+({'Up to date':'good','Cut over':'good',Behind:'warning','Agent not answering':'warning','Failing, will retry':'danger',Paused:''}[state]||''),state));tr.appendChild(stateCell);
           tr.appendChild(el('td','',st.recoveryPoint&&!/^0001-/.test(st.recoveryPoint)?rpAge(j.rpoSeconds)+' old':'None yet'));
           tr.appendChild(el('td','',st.rounds?formatBytesShort(st.lastSent)+' sent':'None yet'));
-          tr.appendChild(el('td','',st.state==='cut-over'?'None':(j.spec.cutoverAt?'Cutover '+rpWhen(j.spec.cutoverAt):(st.state==='syncing'?'Now':(rpWhen(st.nextRun)||'Soon')))));
+          tr.appendChild(el('td','',stale?'When the agent answers':st.state==='cut-over'?'None':(j.spec.cutoverAt?'Cutover '+rpWhen(j.spec.cutoverAt):(st.state==='syncing'?'Now':(rpWhen(st.nextRun)||'Soon')))));
           var open=el('td');open.appendChild(rpButton('Open','data-rp-open',a.id+'|'+j.spec.id));tr.appendChild(open);
           tbody.appendChild(tr);
         });
