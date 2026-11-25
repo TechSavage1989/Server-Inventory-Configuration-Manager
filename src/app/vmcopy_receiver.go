@@ -448,7 +448,12 @@ func (r *vmReceiver) ServeHTTP(w http.ResponseWriter, request *http.Request) {
 	case "hello":
 		vmReceiverJSON(w, map[string]string{"app": "Server Inventory and Migration Manager receiver"})
 	case "disks":
-		vmReceiverJSON(w, map[string]interface{}{"folder": r.folder != "", "disks": r.Disks()})
+		// folderPath and computer let a console that creates the VM on this
+		// host (Move VMs from an admin computer) find the copied files and
+		// check it is talking to the node it chose. Both are shown only to a
+		// sender that knows the pairing code.
+		computer, _ := os.Hostname()
+		vmReceiverJSON(w, map[string]interface{}{"folder": r.folder != "", "folderPath": r.folder, "computer": computer, "disks": r.Disks()})
 	case "open":
 		r.open(w, request)
 	case "chunk":
@@ -819,6 +824,25 @@ func vmReceiverDescribe(ctx context.Context, address, thumbprint, code string) (
 		answer.Disks = []vmReceiverDisk{}
 	}
 	return answer.Folder, answer.Disks, nil
+}
+
+// vmReceiverPlace is where a receiver writes VHDX files and on which
+// computer; older receivers leave both empty.
+type vmReceiverPlace struct {
+	Folder     bool   `json:"folder"`
+	FolderPath string `json:"folderPath"`
+	Computer   string `json:"computer"`
+}
+
+// vmReceiverWhere asks a receiver for its VHDX folder and computer name.
+func vmReceiverWhere(ctx context.Context, address, thumbprint, code string) (vmReceiverPlace, error) {
+	var place vmReceiverPlace
+	client, err := newVMReceiverClient(ctx, address, thumbprint, code)
+	if err != nil {
+		return place, err
+	}
+	err = client.call(http.MethodGet, "disks", nil, nil, &place)
+	return place, err
 }
 
 func newVMReceiverClient(ctx context.Context, address, thumbprint, code string) (*vmRemoteSink, error) {

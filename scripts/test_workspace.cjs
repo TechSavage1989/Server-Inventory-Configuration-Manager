@@ -107,6 +107,15 @@ async function fixture(browser,old=false){
    if(action==='browse'){send(200,data.parent?{ok:true,selected:true,path:'E:\\'}:{ok:true,selected:true,path:'F:\\Data\\'+data.share+'-New'});return;}
    send(202,{ok:true});return;
   }
+  if(url.pathname.startsWith('/api/hvremote/')){
+   let body='';for await(const chunk of req)body+=chunk;const data=body?JSON.parse(body):{},action='hvremote/'+url.pathname.slice(14);vmwareCalls.push({action,method:req.method,body:data,token:req.headers['x-app-token']});
+   if(req.headers['x-app-token']!=='workspace-test'){send(403,{});return;}
+   if(vmwareReject[action]){send(400,{error:vmwareReject[action]});return;}
+   const v=state.vmware;
+   if(action==='hvremote/connect'){Object.assign(v,{running:true,action:'hvconnect',status:'hvconnecting'});send(202,{ok:true});return;}
+   if(action==='hvremote/forget'){v.hvRemote={connected:false,serial:((v.hvRemote&&v.hvRemote.serial)||0)+1};send(200,{ok:true});return;}
+   if(action==='hvremote/move'){Object.assign(v,{running:true,action:'hvmove',status:'moving'});send(202,{ok:true,node:data.node});return;}
+  }
   if(url.pathname.startsWith('/api/vmware/')){
    let body='';for await(const chunk of req)body+=chunk;const data=body?JSON.parse(body):{},action=url.pathname.slice(12);vmwareCalls.push({action,method:req.method,body:data,token:req.headers['x-app-token']});
    if(req.headers['x-app-token']!=='workspace-test'){send(403,{});return;}
@@ -688,6 +697,8 @@ async function check(name,fn){await fn();report.checks.push({name,result:'passed
   await vmwareConnected(f);
   await goTool(f,'movevms');await f.page.locator('tr[data-vm-id="vm-app01"]').click();assert((await f.page.locator('#vmMove').textContent()).includes('run this on the Hyper-V host'));assert.equal(await f.page.locator('#vmMoveCopy').count(),0);
   f.state.vmware.canPrepare=true;f.state.vmware.hyperVHere=false;f.state.vmware.moveCopyRoot='D:\\Migration\\VMware-Copies';f.state.vmware.inventorySerial=2;
+  // Off a Hyper-V host the move offers the remote host first; this check covers the local move.
+  await f.page.waitForFunction(()=>!!document.querySelector('#vmHvrConnect'));await f.page.locator('[data-vm-hvwhere="here"]').click();
   await f.page.waitForFunction(()=>!!document.querySelector('#vmMoveCopy'));
   assert((await f.page.locator('#vmMove .vm-runs-on').textContent()).includes('This computer is not a Hyper-V host'));assert(await f.page.locator('#vmMoveCopy').isDisabled()&&await f.page.locator('#vmMoveCutover').isDisabled(),'a move runs only on the Hyper-V host');
   const rolesOff=await f.page.locator('#vmRolesSummary').textContent();assert(rolesOff.includes('Run this application on the Hyper-V host')&&rolesOff.includes('SRV-DEMO-01) is not a Hyper-V host'),rolesOff);
@@ -721,6 +732,58 @@ async function check(name,fn){await fn();report.checks.push({name,result:'passed
   assert((await f.page.locator('#vmMove').textContent()).includes('changed blocks only, 80.0 MB written, verified'));
   await f.page.setViewportSize({width:1440,height:1000});await f.page.evaluate(()=>document.activeElement.blur());await f.page.locator('#vmMove').evaluate(e=>e.scrollIntoView({block:'center'}));await f.page.screenshot({path:shots+'/vmware-move-1440x1000.png'});
   await f.page.locator('#vmTargetSelect').selectOption('scale');await f.page.waitForFunction(()=>!document.querySelector('#vmMove'));
+  assert.deepEqual(f.dialogs,[]);
+ }finally{await f.close();}});
+ await check('Move VMs from one console: connect to a remote Hyper-V cluster, pick a node and Cluster Shared Volume, copy over its admin share or a receiver, cut over with high availability, and label the supported systems',async()=>{const f=await fixture(browser);try{
+  await vmwareConnected(f);
+  Object.assign(f.state.vmware,{canPrepare:true,hyperVHere:false,inventorySerial:2});
+  await goTool(f,'movevms');await f.page.locator('tr[data-vm-id="vm-app01"]').click();await f.page.locator('#vmHvrConnect').waitFor();
+  assert.equal(await f.page.locator('[data-vm-hvwhere="remote"]').getAttribute('aria-pressed'),'true','off a Hyper-V host the remote host is the default');
+  const works=await f.page.locator('#vmHvrWorks').textContent();
+  assert(works.includes('ESXi 6.5, 6.7, 7.0 or 8.0')&&works.includes('Windows Server 2012 R2, 2016, 2019, 2022 or 2025')&&works.includes('failover cluster with Cluster Shared Volumes')&&works.includes('free ESXi'),works);
+  assert((await f.page.locator('#vmMove .vm-runs-on').textContent()).includes('Runs on this computer, your admin computer'));
+  await f.page.locator('[data-hvr="host"]').fill('hvclu01.example.com');await f.page.locator('[data-hvr="user"]').fill('EXAMPLE\\admin');await f.page.locator('[data-hvr="password"]').fill('Synthetic-Pass-1');
+  await f.page.locator('#vmHvrConnect').click();
+  await f.page.waitForFunction(()=>document.querySelector('#vmwareTabBadge').textContent==='Working');
+  assert.deepEqual(vmwareCalls(f,'hvremote/connect').map(c=>c.body),[{host:'hvclu01.example.com',user:'EXAMPLE\\admin',password:'Synthetic-Pass-1'}]);
+  const info={host:'hvclu01.example.com',computer:'HV01',caption:'Microsoft Windows Server 2022 Datacenter',build:20348,systemDrive:'C:',hyperV:true,hyperVModule:true,clusterModule:true,cluster:'HVCLU01',vhdPath:'C:\\ClusterStorage\\Volume1\\Hyper-V',vmPath:'C:\\ClusterStorage\\Volume1\\Hyper-V',
+   nodes:[{name:'HV01',state:'Up'},{name:'HV02',state:'Up'},{name:'HV03',state:'Paused'}],volumes:[{path:'C:\\',label:'',freeBytes:42949672960,totalBytes:137438953472,csv:false},{path:'C:\\ClusterStorage\\Volume1',label:'CSV1',freeBytes:536870912000,totalBytes:2199023255552,csv:true},{path:'C:\\ClusterStorage\\Volume2',label:'CSV2',freeBytes:1073741824,totalBytes:107374182400,csv:true}],
+   switches:[{name:'LAN',type:'External'}],vms:['OTHER01'],warnings:[],supported:true,support:'Windows Server 2022 Datacenter is supported; failover cluster HVCLU01 can make the VM highly available.'};
+  Object.assign(f.state.vmware,{running:false,action:'',status:'connected',hvRemote:{connected:true,host:'hvclu01.example.com',user:'EXAMPLE\\admin',info,receiver:'',message:'Connected to HV01.',failed:false,serial:1}});
+  await f.page.waitForFunction(()=>!!document.querySelector('#vmHvrCopy'));
+  assert.equal(await f.page.locator('[data-hvr="password"]').count(),0,'the password field is gone once connected');
+  assert((await f.page.locator('#vmHvrFacts').textContent()).includes('Connected to HV01 in failover cluster HVCLU01 as EXAMPLE\\admin'));
+  assert(await f.page.locator('#vmHvrNode option[value="HV03"]').isDisabled(),'a paused node cannot be chosen');
+  await f.page.locator('#vmHvrNode').selectOption('HV02');
+  await f.page.locator('[data-hvr-storage="C:\\ClusterStorage\\Volume2"]').click();
+  assert((await f.page.locator('#vmHvrSpace').textContent()).includes('Not enough'));assert(await f.page.locator('#vmHvrCopy').isDisabled(),'a volume that is too small refuses the copy');
+  await f.page.locator('[data-hvr-storage="C:\\ClusterStorage\\Volume1"]').click();
+  assert.equal(await f.page.locator('[data-hvr="folder"]').inputValue(),'C:\\ClusterStorage\\Volume1\\VMs\\APP01');assert.equal(await f.page.locator('[data-hvr="vmFolder"]').inputValue(),'C:\\ClusterStorage\\Volume1\\VMs');
+  assert(await f.page.locator('input[data-hvr-opt="cluster"]').isChecked(),'a CSV ticks high availability');assert(!await f.page.locator('#vmHvrCopy').isDisabled());
+  await f.page.locator('#vmHvrCopy').click();const copyText=await f.page.locator('#migrateDialogText').textContent();assert(copyText.includes('C:\\ClusterStorage\\Volume1\\VMs\\APP01 on HV02'),copyText);
+  await f.page.locator('#migrateConfirmInput').fill('APP01');await f.page.locator('#migrateConfirmInput').press('Enter');
+  await f.page.waitForFunction(()=>document.querySelector('#vmwareTabBadge').textContent==='Working');assert(await f.page.locator('#vmStop').isVisible(),'a remote copy can be stopped');
+  const sent=vmwareCalls(f,'hvremote/move').at(-1).body;
+  assert.deepEqual(sent,{vmId:'vm-app01',action:'copy',node:'HV02',copyFolder:'C:\\ClusterStorage\\Volume1\\VMs\\APP01',vmFolder:'C:\\ClusterStorage\\Volume1\\VMs',path:'share',address:'',thumbprint:'',code:'',quiesce:true,keepMac:false,start:false,cluster:true,confirm:'APP01'});
+  Object.assign(f.state.vmware,{running:false,action:'',status:'connected',move:{vm:'APP01',cutover:false,round:{disks:[{label:'Hard disk 1',mode:'seed',bytesWritten:21474836480,verified:false}]},disks:['C:\\ClusterStorage\\Volume1\\VMs\\APP01\\APP01-disk0.vhdx']},moveSerial:1});
+  await f.page.waitForFunction(()=>document.querySelector('#vmHvrCopy')&&document.querySelector('#vmHvrCopy').textContent==='Copy changes\u2026');
+  // A receiver on the node: its pairing code is sent once and cleared.
+  await f.page.locator('input[data-hvr-path="receiver"]').check();await f.page.locator('[data-hvr="address"]').waitFor();
+  await f.page.locator('[data-hvr="address"]').fill('hv02.example.com:44380');await f.page.locator('[data-hvr="code"]').fill('K7QMZ-2RT4X-9WBNP-H3VDA');await f.page.locator('[data-hvr="thumbprint"]').fill('3f9a6c0e1b7d4a25c8e0f13b6a9d2c4e7f0a1b3c5d7e9f2a4c6e8b0d1f3a5c7e');
+  await f.page.locator('#vmHvrCutover').click();const cutText=await f.page.locator('#migrateDialogText').textContent();
+  assert(cutText.includes('read the Hyper-V host again')&&cutText.includes('make it highly available in HVCLU01'),cutText);
+  await f.page.locator('#migrateConfirmInput').fill('app01');await f.page.locator('#migrateConfirmButton').click();
+  await f.page.waitForFunction(()=>document.querySelector('#vmwareTabBadge').textContent==='Working');
+  const cut=vmwareCalls(f,'hvremote/move').at(-1).body;assert.equal(cut.action,'cutover');assert.equal(cut.path,'receiver');assert.equal(cut.code,'K7QMZ-2RT4X-9WBNP-H3VDA');assert.equal(cut.cluster,true);
+  Object.assign(f.state.vmware,{running:false,action:'',status:'connected',move:{vm:'APP01',cutover:true,shutDown:true,round:{disks:[{label:'Hard disk 1',mode:'changed',bytesWritten:83886080,verified:true}]},hyperV:{generation:2,clusterResult:'CLUSTER-ROLE-ADDED'},hyperVId:'4f6c1d6e-2b1a-4c55-9d3e-0f1e2d3c4b5a'},moveSerial:2});
+  await f.page.waitForFunction(()=>document.querySelector('#vmMove').textContent.includes('Made highly available in the failover cluster.'));
+  assert.equal(await f.page.locator('[data-hvr="code"]').inputValue(),'','the pairing code is cleared after use');
+  await f.page.setViewportSize({width:1440,height:1000});await f.page.evaluate(()=>document.activeElement.blur());await f.page.locator('#vmMove').evaluate(e=>e.scrollIntoView({block:'start'}));await f.page.screenshot({path:shots+'/vmware-move-remote-1440x1000.png'});
+  // The guided flow accepts the remote connection instead of running on the host.
+  await goTool(f,'guide');
+  const guide=await f.page.locator('#tabGuide').textContent();assert(!guide.includes('is not a Hyper-V host. Run this application on the Hyper-V host'),'the guide still blocks a remote move');
+  await goTool(f,'movevms');await f.page.locator('tr[data-vm-id="vm-app01"]').click();await f.page.locator('#vmHvrForget').click();
+  await f.page.waitForFunction(()=>!!document.querySelector('#vmHvrConnect'));
   assert.deepEqual(f.dialogs,[]);
  }finally{await f.close();}});
  await check('Hyper-V host storage: the move offers Cluster Shared Volumes with free space, refuses one too small, and can make the VM highly available at the cutover',async()=>{const f=await fixture(browser);try{

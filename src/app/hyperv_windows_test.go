@@ -102,3 +102,70 @@ func TestMoveHyperVScriptOnThisComputer(t *testing.T) {
 		t.Fatalf("RemoveCheckpoint without an ID succeeded: %v", envelope)
 	}
 }
+
+// Connect-HyperVTarget.ps1 runs under Windows PowerShell with the
+// RemoteSigned policy Move VMs uses (never Bypass). Against a name that does
+// not exist it must fail with a result file, and the account given on
+// standard input must never reach the output or the result. Against this
+// computer it reads it when PowerShell remoting is on (GitHub runners have
+// no Hyper-V role, so the host must then be reported as unsupported).
+func TestConnectHyperVTargetScriptRemoting(t *testing.T) {
+	folder := t.TempDir()
+	script := filepath.Join(folder, hvRemoteScriptName)
+	if err := os.WriteFile(script, hvRemoteScriptData, 0600); err != nil {
+		t.Fatal(err)
+	}
+	const secret = "Synthetic-Secret-4c2e"
+	run := func(host, mode, body string, account bool) ([]byte, string) {
+		result := filepath.Join(folder, mode+"-"+host+".json")
+		arguments := []string{"-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "RemoteSigned", "-File", script, "-ComputerName", host, "-Mode", mode, "-ResultPath", result}
+		if body != "" {
+			path := filepath.Join(folder, "Create.ps1")
+			if err := os.WriteFile(path, []byte(body), 0600); err != nil {
+				t.Fatal(err)
+			}
+			arguments = append(arguments, "-ScriptPath", path)
+		}
+		if account {
+			arguments = append(arguments, "-CredentialFromInput")
+		}
+		command := exec.Command(powershellPath(), arguments...)
+		if account {
+			command.Stdin = strings.NewReader(`{"user":"EXAMPLE\\tester","password":"` + secret + `"}` + "\n")
+		}
+		output, _ := command.CombinedOutput()
+		data, err := os.ReadFile(result)
+		if err != nil {
+			t.Fatalf("no result for %s %s: %v\n%s", mode, host, err, output)
+		}
+		if strings.Contains(string(output), secret) || strings.Contains(string(data), secret) {
+			t.Fatal("the password reached the output or the result")
+		}
+		return data, string(output)
+	}
+	data, output := run("simm-no-such-host.invalid", "Read", "", true)
+	if err := hvRemoteParseResult(data, nil); err == nil {
+		t.Fatalf("a host that does not exist was read:\n%s", output)
+	}
+	info := &hvRemoteInfo{}
+	data, output = run("localhost", "Read", "", false)
+	if err := hvRemoteParseResult(data, info); err != nil {
+		t.Logf("PowerShell remoting to this computer is not available here: %v", err)
+		return
+	}
+	info.Supported, info.Support = hvRemoteSupport(info)
+	if info.Computer == "" || info.Build == 0 || info.SystemDrive == "" {
+		t.Fatalf("read %+v\n%s", info, output)
+	}
+	if !vmHyperVHere() && info.Supported {
+		t.Fatalf("a computer without Hyper-V was reported as supported: %q", info.Support)
+	}
+	t.Logf("read %s (%s): %s", info.Computer, info.Caption, info.Support)
+	var created struct {
+		Lines []string `json:"lines"`
+	}
+	data, output = run("localhost", "Create", "Write-Output 'first'\nWrite-Output ('second' + ' line')", false)
+	if err := hvRemoteParseResult(data, &created); err != nil || len(created.Lines) != 2 || created.Lines[1] != "second line" {
+		t.Fatalf("create lines = %v, %v\n%s", created.Lines, err, output)
+	}
+}

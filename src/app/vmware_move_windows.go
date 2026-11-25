@@ -164,18 +164,7 @@ func (a *application) handleVMwareMove(response http.ResponseWriter, request *ht
 	vm := *target
 	// The plan's network map names the Hyper-V switch for each VMware
 	// network, and its new VLAN where one was typed.
-	switches := map[string]string{}
-	networks := append([]vmNetwork(nil), inventory.Networks...)
-	if plan != nil {
-		for _, network := range plan.Networks {
-			if strings.TrimSpace(network.TargetName) != "" {
-				switches[network.Source] = strings.TrimSpace(network.TargetName)
-			}
-			if strings.TrimSpace(network.TargetVLAN) != "" {
-				networks = append([]vmNetwork{{Name: network.Source, VLAN: strings.TrimSpace(network.TargetVLAN)}}, networks...)
-			}
-		}
-	}
+	switches, networks := vmMoveNetworkMap(inventory, plan)
 	if status, message := a.startVMwareAction("move"); status != 0 {
 		writeJSON(response, status, map[string]any{"ok": false, "error": message})
 		return
