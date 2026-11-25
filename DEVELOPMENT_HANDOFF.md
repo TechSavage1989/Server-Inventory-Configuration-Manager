@@ -1,3 +1,10 @@
+## Unreleased: phase 4 step 3, copying running Hyper-V VMs through checkpoints — 2026-11-25
+
+- A VM read from a Hyper-V host now has **Copy disks** and **Cut over** for every target. Each round creates the checkpoint "Server Inventory and Migration Manager copy", copies the frozen disks with the disk readers (delta passes against the copy record), and removes the checkpoint even when the round fails or is stopped. Cutover shuts the guest down through the shutdown integration service, copies without a checkpoint and verifies.
+- Code: `src/app/hyperv_move.go`, `hyperv_move_windows.go`, `Move-HyperVVM.ps1`; `runMoveRound` dispatches by source in `vmware_move_windows.go` and `vmware_target_windows.go`. UI in `renderVmMove` and `renderVmMoveTarget` (`index.html`).
+- Tests: `go test ./src/app -run HyperV` (fake host, real VHDX files: full, delta with a cleared chunk, verified cutover, refusals, checkpoint removal on failure and cancel); `TestMoveHyperVScriptOnThisComputer` on Windows; the Hyper-V check in `scripts/test_workspace.cjs`.
+- Limitation: GitHub runners have no Hyper-V role. Real checkpoints, remote WMI access and the guest shutdown need a field test on a Hyper-V host before customer use.
+
 ## Unreleased: where each part runs (source, target and admin computer) — 2026-11-25
 
 The owner asked whether the UI makes clear what runs on the source VM and what on the target. It did not, so:

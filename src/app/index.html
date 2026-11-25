@@ -2678,7 +2678,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     if(r.generation){head.appendChild(el('span','vm-note','Hyper-V generation '+r.generation));}
     box.appendChild(head);
     box.appendChild(el('div','vm-detail-line',vmJoin([vm.guestOsRunning||vm.guestOs,vm.guestHostName,vm.ipAddress])));
-    var actions=el('div','vm-actions'),canPrepare=r.status!=='skip'&&!vm.template;
+    var actions=el('div','vm-actions'),canPrepare=r.status!=='skip'&&!vm.template&&vm.source!=='hyperv';
     if(canPrepare){actions.appendChild(vmActionButton('Prepare on VMware','Snapshots, virtual TPM and encryption for this VM',function(){var p=byId('vmDetail').querySelector('.vm-prepare');if(p){p.scrollIntoView({block:'start'});var first=p.querySelector('input,button');if(first){first.focus();}}}));}
     if(vmPlan&&vmArr(vmPlan.vms).some(function(p){return p.id===vm.id;})){actions.appendChild(vmActionButton('Set its wave','Open this VM in Plan and runbook',function(){vmOpenPlanRow(vm);}));}
     if(v.reportPath){actions.appendChild(vmActionButton('Readiness report','Open the readiness report for every VM',function(){openKind('vmwarereport');}));}
@@ -2957,40 +2957,44 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   function renderVmDetail(){renderVmDrawer(false,false);}
   // Move to Hyper-V: copy rounds while the VM runs, then the cutover. Runs on
   // the Hyper-V host; the plan's network map names each Hyper-V switch.
+  var vmCopyModeLabels={seed:'first copy of the used areas',changed:'changed blocks only',full:'full pass',delta:'changed chunks only',resumed:'resumed where it stopped'};
+  // A Hyper-V source VM is copied through this application's own checkpoint.
+  var vmHyperVCheckpointStep='take a checkpoint named "Server Inventory and Migration Manager copy" and remove it when the copy ends, even if the copy fails or is stopped (Hyper-V merges it back)';
+  function vmHyperVShutdownAlert(until){return 'The source VM is shut down through the Hyper-V shutdown integration service (never a forced power-off) and stays off. Users lose access until the '+until+'.';}
   function renderVmMove(box,vm,r){
     var v=vmwareState()||{};
     if(r.status==='skip'||vm.template||vmTarget()!=='hyperv'){return;}
     var section=el('div','vm-prepare');section.id='vmMove';section.appendChild(el('strong','','Move this VM to Hyper-V'));
-    var last=v.move&&v.move.vm===vm.name?v.move:null;
+    var last=v.move&&v.move.vm===vm.name?v.move:null,hv=vm.source==='hyperv';
     if(last){var ul=el('ul','vm-findings');
-      if(last&&last.round){vmArr(last.round.disks).forEach(function(d){ul.appendChild(el('li','good',d.label+': '+({seed:'first copy of the used areas',changed:'changed blocks only',full:'full pass'}[d.mode]||d.mode)+', '+formatBytesShort(d.bytesWritten)+' written'+(d.verified?', verified':'')+'.'));});}
+      if(last&&last.round){vmArr(last.round.disks).forEach(function(d){ul.appendChild(el('li','good',d.label+': '+(vmCopyModeLabels[d.mode]||d.mode)+', '+formatBytesShort(d.bytesWritten)+' written'+(d.verified?', verified':'')+'.'));});}
       if(last&&last.hyperVId){ul.appendChild(el('li','good','Created on Hyper-V as '+vm.name+(last.hyperV&&last.hyperV.generation?' (generation '+last.hyperV.generation+')':'')+'.'));}
       if(v.moveError){ul.appendChild(el('li','warning',v.moveError));}
       if(ul.childNodes.length){section.appendChild(ul);}}
     var notHost=v.hyperVHere===false;
     var where=el('div','vm-runs-on'+(notHost?' warn':''));
     if(notHost){where.appendChild(el('span','vm-lead','This computer is not a Hyper-V host. '));where.appendChild(document.createTextNode('Run the application on the Hyper-V host that will run the VM and read the inventory there: the disks are written and the VM is created on the computer running the move.'));}
-    else{where.appendChild(el('span','vm-lead','Runs on the Hyper-V host'+(v.hyperVHere?' (this computer)':'')+'. '));where.appendChild(document.createTextNode('The disks are written and the VM is created here. Nothing is installed in the VMware VM.'));}
+    else{where.appendChild(el('span','vm-lead','Runs on the Hyper-V host'+(v.hyperVHere?' (this computer)':'')+'. '));where.appendChild(document.createTextNode(hv?'The disks are read from the source host through its administrative shares with this computer\'s Windows account, written here, and the VM is created here. Nothing is installed in the source VM.':'The disks are written and the VM is created here. Nothing is installed in the VMware VM.'));}
     section.insertBefore(where,section.childNodes[1]||null);
-    if(!v.canPrepare){section.appendChild(el('div','migrate-help','To copy this VM\'s disks, run this on the Hyper-V host and read the inventory from vCenter or ESXi in this session.'));box.appendChild(section);return;}
-    section.appendChild(el('div','migrate-help','Copy while the VM keeps running, as often as you like; each copy after the first sends only what changed. Cut over when ready: the guest is shut down, the last changes are copied and the Hyper-V VM is created on the copied disks. The VMware VM is left powered off, so going back is starting it again.'));
+    if(!v.canPrepare&&!hv){section.appendChild(el('div','migrate-help','To copy this VM\'s disks, run this on the Hyper-V host and read the inventory from vCenter or ESXi in this session.'));box.appendChild(section);return;}
+    section.appendChild(el('div','migrate-help',hv?'Copy while the VM keeps running, as often as you like: each copy takes a checkpoint on the source host, copies the disks it froze and removes the checkpoint again; each copy after the first writes only what changed. Cut over when ready: the guest is shut down through its shutdown integration service, the last changes are copied and verified and the new VM is created on the copied disks. The source VM is left off, so going back is starting it again.':'Copy while the VM keeps running, as often as you like; each copy after the first sends only what changed. Cut over when ready: the guest is shut down, the last changes are copied and the Hyper-V VM is created on the copied disks. The VMware VM is left powered off, so going back is starting it again.'));
     var folder=document.createElement('input');folder.type='text';folder.id='vmMoveFolder';folder.setAttribute('aria-label','Folder for the copied disks');folder.placeholder=(v.moveCopyRoot||'VMware-Copies')+'\\'+vm.name;folder.maxLength=260;
     var vmFolder=document.createElement('input');vmFolder.type='text';vmFolder.id='vmMoveVmFolder';vmFolder.setAttribute('aria-label','Folder for the Hyper-V VM');vmFolder.placeholder="Hyper-V host's default";vmFolder.maxLength=260;
     [['Copied disks',folder],['Hyper-V VM folder',vmFolder]].forEach(function(pair){var label=el('label','vm-field');label.appendChild(el('span','',pair[0]));label.appendChild(pair[1]);section.appendChild(label);});
-    var checks={};[['quiesce','Quiesce the guest for each copy (VMware Tools, VSS in Windows)',!!vm.toolsRunning],['keepMac','Keep the VMware MAC addresses',false],['start','Start the Hyper-V VM after the cutover',false]].forEach(function(c){var label=el('label','vm-check'),input=document.createElement('input');input.type='checkbox';input.checked=c[2];input.setAttribute('data-vm-move',c[0]);checks[c[0]]=input;label.appendChild(input);label.appendChild(el('span','',c[1]));section.appendChild(label);});
+    var checks={};(hv?[['keepMac','Keep the source VM\'s MAC addresses',false],['start','Start the new Hyper-V VM after the cutover',false]]:[['quiesce','Quiesce the guest for each copy (VMware Tools, VSS in Windows)',!!vm.toolsRunning],['keepMac','Keep the VMware MAC addresses',false],['start','Start the Hyper-V VM after the cutover',false]]).forEach(function(c){var label=el('label','vm-check'),input=document.createElement('input');input.type='checkbox';input.checked=c[2];input.setAttribute('data-vm-move',c[0]);checks[c[0]]=input;label.appendChild(input);label.appendChild(el('span','',c[1]));section.appendChild(label);});
     var unmapped=vmArr(vm.nics).filter(function(n){var map=vmArr(vmPlan&&vmPlan.networks).filter(function(m){return m.source===n.network;})[0];return !(map&&trimText(map.targetName));}).map(function(n){return n.network||n.label;});
     if(unmapped.length){section.appendChild(el('div','migrate-detail','No Hyper-V switch is named for '+unmapped.join(', ')+' in the plan\'s network map; those adapters are added disconnected.'));}
-    var body=function(action){return {vmId:vm.id,action:action,copyFolder:trimText(folder.value),vmFolder:trimText(vmFolder.value),quiesce:checks.quiesce.checked,keepMac:checks.keepMac.checked,start:checks.start.checked};};
+    var body=function(action){return {vmId:vm.id,action:action,copyFolder:trimText(folder.value),vmFolder:trimText(vmFolder.value),quiesce:!!(checks.quiesce&&checks.quiesce.checked),keepMac:checks.keepMac.checked,start:checks.start.checked};};
     var row=el('div','vm-move-actions'),copy=el('button','secondary-button',last&&!last.cutover?'Copy changes\u2026':'Copy disks\u2026'),cut=el('button','secondary-button','Cut over\u2026');
     copy.type='button';copy.id='vmMoveCopy';copy.disabled=vmLocked()||notHost;cut.type='button';cut.id='vmMoveCutover';cut.disabled=vmLocked()||notHost;
     copy.addEventListener('click',function(){
       openMigrateDialog({title:'Copy '+vm.name,path:'/api/vmware/move',field:'confirm',body:body('copy'),expected:vm.name,label:"Type the VM's name to confirm",button:'Copy disks',
-        paragraphs:['The VM keeps running. vSphere will:'],list:['turn on changed block tracking for this VM, if it is off','take a snapshot named "Server Inventory and Migration Manager replication" and remove it when the copy ends','copy each disk to a VHDX file in '+(trimText(folder.value)||folder.placeholder)],
+        paragraphs:[hv?'The VM keeps running. On the source Hyper-V host this will:':'The VM keeps running. vSphere will:'],list:(hv?[vmHyperVCheckpointStep]:['turn on changed block tracking for this VM, if it is off','take a snapshot named "Server Inventory and Migration Manager replication" and remove it when the copy ends']).concat(['copy each disk to a VHDX file in '+(trimText(folder.value)||folder.placeholder)]),
         after:function(){vmMarkRunning('move','moving','Copying '+vm.name+'\'s disks.');}});
     });
     cut.addEventListener('click',function(){
       openMigrateDialog({title:'Cut over '+vm.name,path:'/api/vmware/move',field:'confirm',body:body('cutover'),expected:vm.name,label:"Type the VM's name to confirm",button:'Shut down and cut over',
-        alert:'The VMware VM is shut down through VMware Tools and stays off. Users lose access until the Hyper-V VM is started.',
+        alert:hv?vmHyperVShutdownAlert('Hyper-V VM is started'):'The VMware VM is shut down through VMware Tools and stays off. Users lose access until the Hyper-V VM is started.',
         paragraphs:['In this order:'],list:['shut the guest down (never a hard power-off)','copy the last changes and verify every disk','create the Hyper-V VM '+vm.name+' on the copied disks'+(checks.start.checked?' and start it':' (left off)')],
         after:function(){vmMarkRunning('move','moving','Cutting '+vm.name+' over to Hyper-V.');}});
     });
@@ -3085,23 +3089,24 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       vmPost('/api/vmware/target/receiver',{vmId:vm.id,address:trimText(vmTargetForm.address),code:trimText(vmTargetForm.code),thumbprint:trimText(vmTargetForm.thumbprint)},'vmTargetStatus',function(err){if(!err){vmTargetForm.code='';}});
     }));
     if(receiver){var ul=el('ul','vm-findings');vmArr(receiver.mapping).forEach(function(name,i){var d=vmArr(vm.disks)[i]||{},rd=vmArr(receiver.disks).filter(function(x){return x.name===name;})[0]||{};ul.appendChild(el('li','good',(d.label||'Disk '+(i+1))+' ('+formatBytesShort(d.capacityBytes)+') goes to '+name+(rd.label?', '+rd.label:'')+' ('+formatBytesShort(rd.size)+').'));});rc.appendChild(ul);}
-    var mv=vmTargetStep(section,(creatable?'5. ':'3. ')+'Copy and cut over','','From this computer: vCenter to the receiver');
-    if(last){var lu=el('ul','vm-findings');if(last.round){vmArr(last.round.disks).forEach(function(d){lu.appendChild(el('li','good',d.label+': '+({seed:'first copy of the used areas',changed:'changed blocks only',full:'full pass'}[d.mode]||d.mode)+' to '+d.target+', '+formatBytesShort(d.bytesWritten)+' written'+(d.verified?', verified':'')+'.'));});}if(v.moveError){lu.appendChild(el('li','warning',v.moveError));}if(lu.childNodes.length){mv.appendChild(lu);}}
-    if(!v.canPrepare){mv.appendChild(el('div','migrate-help','To copy, read the inventory from vCenter or ESXi in this session.'));}
-    mv.appendChild(vmTargetCheck('quiesce','Quiesce the guest for each copy (VMware Tools, VSS in Windows)',!!vm.toolsRunning));
+    var hv=vm.source==='hyperv';
+    var mv=vmTargetStep(section,(creatable?'5. ':'3. ')+'Copy and cut over',hv?'Each copy takes a checkpoint on the source Hyper-V host, sends the disks it froze and removes the checkpoint. The disks are read through the host\'s administrative shares with this computer\'s Windows account.':'',hv?'From this computer: the Hyper-V host to the receiver':'From this computer: vCenter to the receiver');
+    if(last){var lu=el('ul','vm-findings');if(last.round){vmArr(last.round.disks).forEach(function(d){lu.appendChild(el('li','good',d.label+': '+(vmCopyModeLabels[d.mode]||d.mode)+' to '+d.target+', '+formatBytesShort(d.bytesWritten)+' written'+(d.verified?', verified':'')+'.'));});}if(v.moveError){lu.appendChild(el('li','warning',v.moveError));}if(lu.childNodes.length){mv.appendChild(lu);}}
+    if(!v.canPrepare&&!hv){mv.appendChild(el('div','migrate-help','To copy, read the inventory from vCenter or ESXi in this session.'));}
+    if(!hv){mv.appendChild(vmTargetCheck('quiesce','Quiesce the guest for each copy (VMware Tools, VSS in Windows)',!!vm.toolsRunning));}
     var row=el('div','vm-move-actions');
     var copy=vmTargetButton('vmTargetCopy',last&&!last.cutover?'Copy changes\u2026':'Copy disks\u2026',function(){
       openMigrateDialog({title:'Copy '+vm.name,path:'/api/vmware/target/move',field:'confirm',body:{vmId:vm.id,action:'copy',quiesce:!!vmTargetForm.quiesce},expected:vm.name,label:"Type the VM's name to confirm",button:'Copy disks',
-        paragraphs:['The VM keeps running. vSphere will:'],list:['turn on changed block tracking for this VM, if it is off','take a snapshot named "Server Inventory and Migration Manager replication" and remove it when the copy ends','send each disk to the receiver at '+(receiver?receiver.link.address:'')],
+        paragraphs:[hv?'The VM keeps running. On the source Hyper-V host this will:':'The VM keeps running. vSphere will:'],list:(hv?[vmHyperVCheckpointStep]:['turn on changed block tracking for this VM, if it is off','take a snapshot named "Server Inventory and Migration Manager replication" and remove it when the copy ends']).concat(['send each disk to the receiver at '+(receiver?receiver.link.address:'')]),
         after:function(){vmMarkRunning('move','moving','Copying '+vm.name+'\'s disks.');}});
     });
     var cut=vmTargetButton('vmTargetCutover','Cut over\u2026',function(){
       openMigrateDialog({title:'Cut over '+vm.name,path:'/api/vmware/target/move',field:'confirm',body:{vmId:vm.id,action:'cutover'},expected:vm.name,label:"Type the VM's name to confirm",button:'Shut down and cut over',
-        alert:'The VMware VM is shut down through VMware Tools and stays off. Users lose access until the new '+(target==='physical'?'server':'VM')+' is running.',
+        alert:hv?vmHyperVShutdownAlert('new '+(target==='physical'?'server':'VM')+' is running'):'The VMware VM is shut down through VMware Tools and stays off. Users lose access until the new '+(target==='physical'?'server':'VM')+' is running.',
         paragraphs:['In this order:'],list:['shut the guest down (never a hard power-off)','copy the last changes and verify every disk'].concat(created?['turn off the receiver VM on '+label+', switch it to boot from its first disk and start it']:['then restart the new '+(target==='physical'?'server':'VM')+' from its own disk yourself']),
         after:function(){vmMarkRunning('move','moving','Cutting '+vm.name+' over.');}});
     });
-    copy.disabled=copy.disabled||!receiver||!v.canPrepare;cut.disabled=cut.disabled||!receiver||!v.canPrepare;
+    copy.disabled=copy.disabled||!receiver||!(v.canPrepare||hv);cut.disabled=cut.disabled||!receiver||!(v.canPrepare||hv);
     row.appendChild(copy);row.appendChild(cut);mv.appendChild(row);
     box.appendChild(section);
   }
@@ -3114,7 +3119,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   // Prepare source: the only steps that change vSphere, opt-in for one VM.
   function renderVmPrepare(box,vm,r){
     var v=vmwareState()||{},windows=/windows/i.test((vm.guestOsRunning||'')+' '+(vm.guestOs||'')+' '+(vm.guestId||''));
-    if(r.status==='skip'||vm.template){return;}
+    if(r.status==='skip'||vm.template||vm.source==='hyperv'){return;}
     var section=el('div','vm-prepare');section.appendChild(el('strong','','Prepare this VM on VMware'));
     var last=v.prepare&&v.prepare.vm===vm.name?v.prepare:null;
     if(last){var ul=el('ul','vm-findings');vmArr(last.done).forEach(function(t){ul.appendChild(el('li','good',t));});vmArr(last.skipped).forEach(function(t){ul.appendChild(el('li','',t));});if(v.prepareError){ul.appendChild(el('li','warning',v.prepareError));}if(ul.childNodes.length){section.appendChild(ul);}}

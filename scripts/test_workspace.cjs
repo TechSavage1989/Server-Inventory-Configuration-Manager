@@ -552,7 +552,7 @@ async function check(name,fn){await fn();report.checks.push({name,result:'passed
   await f.page.waitForFunction(()=>document.querySelectorAll('#vmTableBody tr.vm-row').length===4);
  };
  const vmwareCalls=(f,action)=>f.vmwareCalls.filter(c=>c.action===action&&c.method==='POST');
- await check('VMware tab: Read Hyper-V host reads this computer or a remote host, sends the optional account once, and opens a VM disk in the Disk converter',async()=>{const f=await fixture(browser);try{
+ await check('VMware tab: Read Hyper-V host reads this computer or a remote host, sends the optional account once, opens a VM disk in the Disk converter, and copies a running Hyper-V VM through checkpoints without a vSphere session',async()=>{const f=await fixture(browser);try{
   await f.page.keyboard.press('Alt+6');
   await f.page.locator('#vmHvUser').fill('EXAMPLE\\admin');await f.page.locator('#vmHvRead').click();
   assert.equal(await f.page.locator('#vmHvStatus').textContent(),'Type the password for EXAMPLE\\admin, or clear the account to use your own.');assert.equal(vmwareCalls(f,'hyperv').length,0);
@@ -576,6 +576,19 @@ async function check(name,fn){await fn();report.checks.push({name,result:'passed
   await f.page.locator('#vmDetail button.vm-link',{hasText:'Convert'}).click();
   assert.equal(await f.page.locator('#tabButtonConvert').getAttribute('aria-selected'),'true');assert.equal(await f.page.locator('#cvSource').inputValue(),'\\\\hv01.example.com\\D$\\VMs\\APP01\\APP01.vhdx');
   await f.page.waitForFunction(()=>!document.querySelector('#cvInfo').classList.contains('hidden'));assert.equal(f.convertCalls.filter(c=>c.action==='inspect').at(-1).body.path,'\\\\hv01.example.com\\D$\\VMs\\APP01\\APP01.vhdx');
+  // A Hyper-V VM is copied through checkpoints with this computer's account: no vSphere session, no Prepare, no quiesce.
+  f.state.vmware.hyperVHere=true;f.state.vmware.inventorySerial=2;await f.page.keyboard.press('Alt+6');
+  await f.page.locator('tr[data-vm-id="vm-app01"]').click();await f.page.locator('#vmMoveCopy').waitFor();
+  assert(!await f.page.locator('#vmMoveCopy').isDisabled()&&!await f.page.locator('#vmMoveCutover').isDisabled(),'a Hyper-V source needs no vSphere session');
+  assert.equal(await f.page.locator('#vmDetail button',{hasText:'Prepare on VMware'}).count(),0);assert(!(await f.page.locator('#vmDetail').textContent()).includes('Prepare this VM on VMware'));
+  assert.equal(await f.page.locator('input[data-vm-move="quiesce"]').count(),0);assert((await f.page.locator('#vmMove').textContent()).includes('takes a checkpoint on the source host'));
+  await f.page.locator('#vmMoveCopy').click();const hvCopy=await f.page.locator('#migrateDialogText').textContent();
+  assert(hvCopy.includes('checkpoint named "Server Inventory and Migration Manager copy"')&&!hvCopy.includes('changed block tracking'),hvCopy);
+  await f.page.locator('#migrateConfirmInput').fill('APP01');await f.page.locator('#migrateConfirmButton').click();await f.page.waitForFunction(()=>document.querySelector('#vmwareTabBadge').textContent==='Working');
+  assert.deepEqual(vmwareCalls(f,'move').at(-1).body,{vmId:'vm-app01',action:'copy',copyFolder:'',vmFolder:'',quiesce:false,keepMac:false,start:false,confirm:'APP01'});
+  Object.assign(f.state.vmware,{running:false,action:'',status:'connected',move:{vm:'APP01',cutover:false,round:{disks:[{label:'Disk 1 (APP01.vhdx)',mode:'delta',bytesWritten:8388608,verified:false}]}},moveSerial:1});
+  await f.page.waitForFunction(()=>document.querySelector('#vmMove').textContent.includes('changed chunks only, 8.0 MB written'));
+  await f.page.locator('#vmMoveCutover').click();assert((await f.page.locator('#migrateDialogAlert').textContent()).includes('Hyper-V shutdown integration service'));await f.page.locator('#migrateDialogCancel').click();
   assert(f.vmwareCalls.every(c=>c.token==='workspace-test'));assert.deepEqual(f.dialogs,[]);
  }finally{await f.close();}});
  await check('VMware tab: Alt+6 reaches it; Read inventory sends the password once; an untrusted certificate needs an explicit trust; readiness filters and details',async()=>{const f=await fixture(browser);try{

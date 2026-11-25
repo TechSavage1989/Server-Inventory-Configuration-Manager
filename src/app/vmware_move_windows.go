@@ -87,15 +87,20 @@ func (a *application) handleVMwareMove(response http.ResponseWriter, request *ht
 	inventory, server, user, password, thumbprint, plan := a.vmware.inventory, a.vmware.server, a.vmware.account, a.vmware.password, a.vmware.thumbprint, a.vmware.plan
 	copyRoot := a.vmwareCopyRootLocked()
 	a.mu.Unlock()
-	if inventory == nil || password == "" || !strings.EqualFold(inventory.Server, server) {
-		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "Read the inventory from vCenter or ESXi in this session first. A saved inventory cannot copy disks."})
-		return
-	}
 	var target *vmMachine
-	for index := range inventory.VMs {
-		if inventory.VMs[index].ID == input.VMID {
-			target = &inventory.VMs[index]
+	if inventory != nil {
+		for index := range inventory.VMs {
+			if inventory.VMs[index].ID == input.VMID {
+				target = &inventory.VMs[index]
+			}
 		}
+	}
+	// A Hyper-V VM is copied through checkpoints on its host, with this
+	// computer's account; a VMware VM needs the live vSphere session.
+	hyperVSource := target != nil && target.Source == vmSourceHyperV && strings.EqualFold(inventory.ServerType, hypervServerType)
+	if inventory == nil || (!hyperVSource && (password == "" || !strings.EqualFold(inventory.Server, server))) {
+		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "Read the inventory from vCenter or ESXi (or a Hyper-V host) in this session first. A saved inventory cannot copy disks."})
+		return
 	}
 	if target == nil {
 		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "That VM is not in the inventory. Read the inventory again."})
@@ -161,7 +166,7 @@ func (a *application) handleVMwareMove(response http.ResponseWriter, request *ht
 		defer cancel()
 		log := func(text string) { a.vmwareLog("%s", text) }
 		records := filepath.Join(a.vmwareRoot(), safeName(strings.ToLower(server)), "Move")
-		result, err := vmMoveRound(ctx, vmConnectOptions{Server: server, User: user, Password: password, Thumbprint: thumbprint, UserAgent: displayName + " " + appVersion, AppVersion: appVersion},
+		result, err := a.runMoveRound(ctx, inventory, vm, vmConnectOptions{Server: server, User: user, Password: password, Thumbprint: thumbprint, UserAgent: displayName + " " + appVersion, AppVersion: appVersion},
 			vmMoveRequest{VMID: vm.ID, Name: vm.Name, Datacenter: vm.Datacenter, CopyFolder: copyFolder, Quiesce: input.Quiesce, Cutover: input.Action == "cutover", RecordFolder: records}, log)
 		password = ""
 		if err == nil && input.Action == "cutover" {
@@ -176,7 +181,7 @@ func (a *application) handleVMwareMove(response http.ResponseWriter, request *ht
 				result.HyperVID, err = vmCreateHyperVVM(hyperV)
 			}
 			if err != nil {
-				err = errors.New("the disks are copied and the VMware VM is shut down, but the Hyper-V VM was not created: " + err.Error() + ". Start the VMware VM again to go back, or fix the cause and cut over again")
+				err = errors.New("the disks are copied and the source VM is shut down, but the Hyper-V VM was not created: " + err.Error() + ". Start the source VM again to go back, or fix the cause and cut over again")
 			}
 		}
 		if result != nil {
