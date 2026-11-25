@@ -112,9 +112,164 @@ func saveVMCopyState(state *vmCopyState) error {
 	return os.Rename(temporary, name)
 }
 
+// vmCopySink is where copied chunks go: a VHDX on this computer, or one on
+// a receiver across the network. The sink keeps the authoritative copy
+// record; the engine works on the copy Open returns.
+type vmCopySink interface {
+	// Open creates or resumes the target for this source.
+	Open(source string, size, chunkSize int64) (state *vmCopyState, resumed bool, err error)
+	// Write stores one chunk whose hash changed. A zero chunk overwrites
+	// earlier data only where some was written. It returns bytes written.
+	Write(index int, data []byte, hash string) (int64, error)
+	// Checkpoint saves progress so a stopped copy resumes here.
+	Checkpoint(state *vmCopyState) error
+	// Finish flushes, optionally verifies every chunk and saves the record.
+	Finish(ctx context.Context, state *vmCopyState, verify bool) (*vmCopyState, error)
+	Close() error
+}
+
+// vmLocalSink writes a VHDX file and its copy record on this computer.
+type vmLocalSink struct {
+	target string
+	disk   *vhdxFile
+	state  *vmCopyState
+}
+
+func (s *vmLocalSink) Open(source string, size, chunkSize int64) (*vmCopyState, bool, error) {
+	target, err := filepath.Abs(s.target)
+	if err != nil {
+		return nil, false, err
+	}
+	s.target = target
+	state, stateErr := loadVMCopyState(target)
+	_, targetErr := os.Stat(target)
+	switch {
+	case targetErr == nil && stateErr == nil:
+		if state.Size != size || state.ChunkSize != chunkSize {
+			return nil, false, fmt.Errorf("%s was copied from a %s disk; this source is %s. Choose a new target file", target, vmFormatBytes(state.Size), vmFormatBytes(size))
+		}
+		if state.Source != source {
+			return nil, false, fmt.Errorf("%s was copied from %s, not %s. Choose a new target file", target, state.Source, source)
+		}
+		disk, err := openVHDX(target, false)
+		if err != nil {
+			return nil, false, err
+		}
+		if disk.Size() != size {
+			disk.Close()
+			return nil, false, fmt.Errorf("%s does not match its copy record", target)
+		}
+		s.disk, s.state = disk, state
+		return vmCopyStateClone(state), true, nil
+	case targetErr == nil:
+		return nil, false, fmt.Errorf("%s already exists and was not created by this copy; choose a new file name so nothing is overwritten", target)
+	case !os.IsNotExist(targetErr):
+		return nil, false, targetErr
+	}
+	if err := os.MkdirAll(filepath.Dir(target), 0700); err != nil {
+		return nil, false, err
+	}
+	disk, err := createVHDX(target, size)
+	if err != nil {
+		return nil, false, err
+	}
+	chunks := (size + chunkSize - 1) / chunkSize
+	state = &vmCopyState{Version: vmCopyStateVersion, Source: source, Target: target, Size: size, ChunkSize: chunkSize, Hashes: make([]string, chunks)}
+	if err := saveVMCopyState(state); err != nil {
+		disk.Close()
+		os.Remove(target)
+		return nil, false, err
+	}
+	s.disk, s.state = disk, state
+	return vmCopyStateClone(state), false, nil
+}
+
+func vmCopyStateClone(state *vmCopyState) *vmCopyState {
+	clone := *state
+	clone.Hashes = append([]string(nil), state.Hashes...)
+	return &clone
+}
+
+func (s *vmLocalSink) Write(index int, data []byte, hash string) (int64, error) {
+	if index < 0 || index >= len(s.state.Hashes) {
+		return 0, fmt.Errorf("chunk %d is outside the disk", index)
+	}
+	offset := int64(index) * s.state.ChunkSize
+	want := s.state.ChunkSize
+	if want > s.state.Size-offset {
+		want = s.state.Size - offset
+	}
+	if int64(len(data)) != want {
+		return 0, fmt.Errorf("chunk %d is %d bytes, not %d", index, len(data), want)
+	}
+	written := int64(0)
+	if hash != vmCopyZeroHash || s.disk.blockOffset(offset/s.disk.blockSize) != 0 {
+		if _, err := s.disk.WriteAt(data, offset); err != nil {
+			return 0, fmt.Errorf("writing %s: %w", s.target, err)
+		}
+		written = int64(len(data))
+	}
+	s.state.Hashes[index] = hash
+	return written, nil
+}
+
+func (s *vmLocalSink) Checkpoint(state *vmCopyState) error {
+	if err := s.disk.Flush(); err != nil {
+		return err
+	}
+	s.state.Passes, s.state.Complete, s.state.Verified = state.Passes, false, false
+	return saveVMCopyState(s.state)
+}
+
+func (s *vmLocalSink) Finish(ctx context.Context, state *vmCopyState, verify bool) (*vmCopyState, error) {
+	if err := s.disk.Flush(); err != nil {
+		return nil, err
+	}
+	for index, hash := range s.state.Hashes {
+		if hash == "" || hash != state.Hashes[index] {
+			s.Checkpoint(state)
+			return nil, errors.New("some chunks were never copied; run a full pass without changed-block ranges first")
+		}
+	}
+	s.state.Passes, s.state.ChangeID, s.state.Complete, s.state.Verified = state.Passes, state.ChangeID, true, false
+	if verify {
+		if err := vmVerifyCopy(ctx, s.disk, s.state); err != nil {
+			saveVMCopyState(s.state)
+			return nil, err
+		}
+		s.state.Verified = true
+	}
+	err := s.disk.Close()
+	s.disk = nil
+	if err != nil {
+		return nil, err
+	}
+	if err := saveVMCopyState(s.state); err != nil {
+		return nil, err
+	}
+	return vmCopyStateClone(s.state), nil
+}
+
+func (s *vmLocalSink) Close() error {
+	if s.disk == nil {
+		return nil
+	}
+	if s.state != nil {
+		saveVMCopyState(s.state)
+	}
+	err := s.disk.Close()
+	s.disk = nil
+	return err
+}
+
 // vmCopyDisk copies source into the VHDX at target, creating it or resuming
 // and updating an earlier copy of the same source.
 func vmCopyDisk(ctx context.Context, source vmCopySource, target string, options vmCopyOptions) (*vmCopyResult, error) {
+	return vmCopyTo(ctx, source, &vmLocalSink{target: target}, options)
+}
+
+// vmCopyTo copies source into a sink in hashed chunks.
+func vmCopyTo(ctx context.Context, source vmCopySource, sink vmCopySink, options vmCopyOptions) (*vmCopyResult, error) {
 	if options.ChunkSize <= 0 {
 		options.ChunkSize = vmCopyChunkSize
 	}
@@ -131,54 +286,12 @@ func vmCopyDisk(ctx context.Context, source vmCopySource, target string, options
 	if size%vhdxLogicalSector != 0 {
 		return nil, fmt.Errorf("the source is %d bytes, not a whole number of 512-byte sectors", size)
 	}
-	target, err := filepath.Abs(target)
+	state, resumed, err := sink.Open(source.Describe(), size, options.ChunkSize)
 	if err != nil {
 		return nil, err
 	}
-	result := &vmCopyResult{}
-	state, stateErr := loadVMCopyState(target)
-	_, targetErr := os.Stat(target)
-	var disk *vhdxFile
-	switch {
-	case targetErr == nil && stateErr == nil:
-		if state.Size != size || state.ChunkSize != options.ChunkSize {
-			return nil, fmt.Errorf("%s was copied from a %s disk; this source is %s. Choose a new target file", target, vmFormatBytes(state.Size), vmFormatBytes(size))
-		}
-		if state.Source != source.Describe() {
-			return nil, fmt.Errorf("%s was copied from %s, not %s. Choose a new target file", target, state.Source, source.Describe())
-		}
-		if disk, err = openVHDX(target, false); err != nil {
-			return nil, err
-		}
-		if disk.Size() != size {
-			disk.Close()
-			return nil, fmt.Errorf("%s does not match its copy record", target)
-		}
-		result.Resumed = true
-	case targetErr == nil:
-		return nil, fmt.Errorf("%s already exists and was not created by this copy; choose a new file name so nothing is overwritten", target)
-	case !os.IsNotExist(targetErr):
-		return nil, targetErr
-	default:
-		if err := os.MkdirAll(filepath.Dir(target), 0700); err != nil {
-			return nil, err
-		}
-		if disk, err = createVHDX(target, size); err != nil {
-			return nil, err
-		}
-		chunks := (size + options.ChunkSize - 1) / options.ChunkSize
-		state = &vmCopyState{Version: vmCopyStateVersion, Source: source.Describe(), Target: target, Size: size, ChunkSize: options.ChunkSize, Hashes: make([]string, chunks)}
-		if err := saveVMCopyState(state); err != nil {
-			disk.Close()
-			os.Remove(target)
-			return nil, err
-		}
-	}
-	defer func() {
-		if disk != nil {
-			disk.Close()
-		}
-	}()
+	defer sink.Close()
+	result := &vmCopyResult{Resumed: resumed}
 
 	state.Passes++
 	state.Complete, state.Verified = false, false
@@ -188,6 +301,11 @@ func vmCopyDisk(ctx context.Context, source vmCopySource, target string, options
 		inRanges := vmCopyInRanges(state, options.Ranges)
 		for index, hash := range state.Hashes {
 			if hash == "" && !inRanges[index] {
+				// Never allocated on the source: the new VHDX already
+				// reads zeros here, so record it without sending anything.
+				if _, err := sink.Write(index, make([]byte, vmChunkLength(state, index)), vmCopyZeroHash); err != nil {
+					return nil, err
+				}
 				state.Hashes[index] = vmCopyZeroHash
 			}
 		}
@@ -206,20 +324,16 @@ func vmCopyDisk(ctx context.Context, source vmCopySource, target string, options
 			continue
 		}
 		if err := ctx.Err(); err != nil {
-			saveVMCopyState(state)
+			sink.Checkpoint(state)
 			return nil, err
 		}
 		offset := int64(index) * options.ChunkSize
-		length := options.ChunkSize
-		if length > size-offset {
-			length = size - offset
-		}
-		chunk := buffer[:length]
+		chunk := buffer[:vmChunkLength(state, index)]
 		if err := vmReadFull(ctx, source, chunk, offset, options.retryDelay); err != nil {
-			saveVMCopyState(state)
+			sink.Checkpoint(state)
 			return nil, fmt.Errorf("reading the source at %s: %w", vmFormatBytes(offset), err)
 		}
-		progress.BytesRead += length
+		progress.BytesRead += int64(len(chunk))
 		hash := vmCopyZeroHash
 		if !vmIsZero(chunk) {
 			sum := sha256.Sum256(chunk)
@@ -229,15 +343,12 @@ func vmCopyDisk(ctx context.Context, source vmCopySource, target string, options
 		}
 		previous := state.Hashes[index]
 		if hash != previous {
-			// A chunk that became zero still has to overwrite old data; a
-			// never-written zero chunk stays unallocated.
-			if hash != vmCopyZeroHash || (previous != "" && disk.blockOffset(offset/disk.blockSize) != 0) {
-				if _, err := disk.WriteAt(chunk, offset); err != nil {
-					saveVMCopyState(state)
-					return nil, fmt.Errorf("writing %s: %w", target, err)
-				}
-				progress.BytesWritten += length
+			written, err := sink.Write(index, chunk, hash)
+			if err != nil {
+				sink.Checkpoint(state)
+				return nil, err
 			}
+			progress.BytesWritten += written
 			if previous != "" {
 				progress.Changed++
 			}
@@ -245,44 +356,36 @@ func vmCopyDisk(ctx context.Context, source vmCopySource, target string, options
 		}
 		progress.Done++
 		if time.Since(lastSave) > 5*time.Second {
-			if err := disk.Flush(); err != nil {
-				return nil, err
-			}
-			if err := saveVMCopyState(state); err != nil {
+			if err := sink.Checkpoint(state); err != nil {
 				return nil, err
 			}
 			lastSave = time.Now()
 			report()
 		}
 	}
-	if err := disk.Flush(); err != nil {
-		return nil, err
-	}
 	for _, hash := range state.Hashes {
 		if hash == "" {
-			saveVMCopyState(state)
+			sink.Checkpoint(state)
 			return nil, errors.New("some chunks were never copied; run a full pass without changed-block ranges first")
 		}
 	}
 	state.Complete = true
 	state.ChangeID = options.ChangeID
 	report()
-	if options.Verify {
-		if err := vmVerifyCopy(ctx, disk, state); err != nil {
-			saveVMCopyState(state)
-			return nil, err
-		}
-		state.Verified = true
-	}
-	if err := disk.Close(); err != nil {
+	final, err := sink.Finish(ctx, state, options.Verify)
+	if err != nil {
 		return nil, err
 	}
-	disk = nil
-	if err := saveVMCopyState(state); err != nil {
-		return nil, err
-	}
-	result.State, result.Progress = *state, progress
+	result.State, result.Progress = *final, progress
 	return result, nil
+}
+
+func vmChunkLength(state *vmCopyState, index int) int64 {
+	offset := int64(index) * state.ChunkSize
+	if state.ChunkSize > state.Size-offset {
+		return state.Size - offset
+	}
+	return state.ChunkSize
 }
 
 // vmCopyInRanges marks the chunks that overlap the given byte ranges.
