@@ -109,6 +109,12 @@ async function fixture(browser,old=false){
    if(action==='reset'){state.vmware=Object.assign(vmwareIdle(),{inventorySerial:v.inventorySerial+1,logs:v.logs});vm.inventory=null;vm.plan=null;send(200,{ok:true});return;}
    if(action==='prepare'){Object.assign(v,{running:true,action:'prepare',status:'preparing'});send(202,{ok:true});return;}
    if(action==='move'){Object.assign(v,{running:true,action:'move',status:'moving'});send(202,{ok:true});return;}
+   if(action==='target/connect'){v.target=Object.assign(v.target||{},{platform:data.platform,server:data.server,user:data.user,node:data.node||'pve1',connected:true,inventory:{platform:data.platform,version:'Proxmox VE 8.3.0',nodes:[{id:'pve1',name:'pve1',detail:'online'}],storages:[{id:'local-lvm',name:'local-lvm',detail:'lvmthin, images, 1.0 TB free'},{id:'ceph-vm',name:'ceph-vm',detail:'rbd, images, 9.0 TB free'}],networks:[{id:'vmbr0',name:'vmbr0',detail:'bridge'},{id:'vmbr1',name:'vmbr1',detail:'bridge'}]},serial:(v.target&&v.target.serial||0)+1});send(200,{ok:true,inventory:v.target.inventory});return;}
+   if(action==='target/media'){Object.assign(v,{running:true,action:'media',status:'media'});send(202,{ok:true});return;}
+   if(action==='target/upload'){Object.assign(v,{running:true,action:'upload',status:'uploading'});send(202,{ok:true});return;}
+   if(action==='target/create'){Object.assign(v,{running:true,action:'target-create',status:'creating'});send(202,{ok:true});return;}
+   if(action==='target/receiver'){v.target.receivers={[data.vmId]:{link:{address:data.address,thumbprint:data.thumbprint},disks:[{name:'disk-0',label:'Disk 0, QEMU HARDDISK',size:107374182400}],mapping:['disk-0']}};v.target.serial++;send(200,{ok:true});return;}
+   if(action==='target/move'){Object.assign(v,{running:true,action:'move',status:'moving'});send(202,{ok:true});return;}
    if(action==='guest'){send(200,{ok:true,serial:v.guestSerial,result:vm.guest});return;}
    if(action.startsWith('guest/')){Object.assign(v,{running:true,action:'guest-'+action.slice(6)});send(202,{ok:true});return;}
    if(action==='compare/browse'){send(200,{ok:true,selected:true,path:'D:\\Packages\\'+(data.side==='before'?'Before':'After'),computer:'APP01',collectedAt:data.side==='before'?'2026-11-19 22:00':'2026-11-21 07:30'});return;}
@@ -613,6 +619,47 @@ async function check(name,fn){await fn();report.checks.push({name,result:'passed
   assert((await f.page.locator('#vmMove').textContent()).includes('changed blocks only, 80.0 MB written, verified'));
   await f.page.setViewportSize({width:1440,height:1000});await f.page.evaluate(()=>document.activeElement.blur());await f.page.locator('#vmMove').evaluate(e=>e.scrollIntoView({block:'center'}));await f.page.screenshot({path:shots+'/vmware-move-1440x1000.png'});
   await f.page.locator('#vmTargetSelect').selectOption('scale');await f.page.waitForFunction(()=>!document.querySelector('#vmMove'));
+  assert.deepEqual(f.dialogs,[]);
+ }finally{await f.close();}});
+ await check('VMware move to Proxmox VE and physical servers: connect, receiver media, create, receiver and copy each post what was chosen, with the typed VM name where vSphere or the platform changes',async()=>{const f=await fixture(browser);try{
+  await vmwareConnected(f);f.state.vmware.canPrepare=true;f.state.vmware.inventorySerial=2;
+  await f.page.locator('#vmTargetSelect').selectOption('proxmox');await f.page.waitForFunction(()=>document.querySelector('#vmCountsTitle').textContent==='Readiness for Proxmox VE');
+  await f.page.locator('tr[data-vm-id="vm-app01"]').click();await f.page.locator('#vmMoveTarget').waitFor();assert.equal(await f.page.locator('#vmMove').count(),0,'the Hyper-V panel is only for Hyper-V');
+  assert(await f.page.locator('#vmTargetUpload').isDisabled()&&await f.page.locator('#vmTargetCreate').isDisabled()&&await f.page.locator('#vmTargetCopy').isDisabled(),'later steps wait for the earlier ones');
+  await f.page.locator('[data-vm-target="server"]').fill('pve1.example.com');await f.page.locator('[data-vm-target="user"]').fill('migrate@pve!move');await f.page.locator('[data-vm-target="password"]').fill('Synthetic-Token-Secret');
+  await f.page.locator('#vmTargetConnect').click();await f.page.waitForFunction(()=>document.querySelector('#vmMoveTarget').textContent.includes('Connected to pve1.example.com: Proxmox VE 8.3.0.'));
+  assert.deepEqual(vmwareCalls(f,'target/connect').map(c=>c.body),[{platform:'proxmox',server:'pve1.example.com',user:'migrate@pve!move',password:'Synthetic-Token-Secret',node:''}]);
+  assert.equal(await f.page.locator('[data-vm-target="password"]').inputValue(),'','the secret is not kept in the page');
+  await f.page.locator('[data-vm-target="drivers"]').fill('D:\\virtio-win\\amd64\\2k22; D:\\virtio-win\\NetKVM');await f.page.locator('#vmTargetMedia').click();
+  await f.page.waitForFunction(()=>document.querySelector('#vmwareTabBadge').textContent==='Working');assert(await f.page.locator('#vmStop').isVisible(),'building media can be stopped');
+  assert.deepEqual(vmwareCalls(f,'target/media').map(c=>c.body),[{target:'proxmox',drivers:['D:\\virtio-win\\amd64\\2k22','D:\\virtio-win\\NetKVM']}]);
+  Object.assign(f.state.vmware,{running:false,action:'',status:'connected'});Object.assign(f.state.vmware.target,{mediaPath:'C:\\Reports\\Receiver-Media_20261125\\receiver-proxmox.iso',message:'Receiver media written.',serial:5});
+  await f.page.waitForFunction(()=>document.querySelector('#vmMoveTarget').textContent.includes('Built: C:\\Reports'));
+  assert.equal(await f.page.locator('[data-vm-target="isoName"]').inputValue(),'local/receiver-app01.iso');
+  await f.page.locator('#vmTargetUpload').click();await f.page.waitForFunction(()=>document.querySelector('#vmwareTabBadge').textContent==='Working');
+  assert.deepEqual(vmwareCalls(f,'target/upload').map(c=>c.body),[{path:'C:\\Reports\\Receiver-Media_20261125\\receiver-proxmox.iso',name:'local/receiver-app01.iso'}]);
+  Object.assign(f.state.vmware,{running:false,action:'',status:'connected'});Object.assign(f.state.vmware.target,{iso:'local:iso/receiver-app01.iso',serial:6});
+  await f.page.waitForFunction(()=>!document.querySelector('#vmTargetCreate').disabled);
+  await f.page.locator('[data-vm-target="storage"]').selectOption('ceph-vm');await f.page.locator('[data-vm-target="net0"]').selectOption('vmbr1');await f.page.locator('[data-vm-target="vlan0"]').fill('20');await f.page.locator('[data-vm-target="bus"]').selectOption('scsi');
+  await f.page.locator('#vmTargetCreate').click();assert(await f.page.locator('#migrateDialog').isVisible());assert((await f.page.locator('#migrateDialogText').textContent()).includes('local:iso/receiver-app01.iso'));
+  await f.page.locator('#migrateConfirmInput').fill('APP01');await f.page.locator('#migrateConfirmInput').press('Enter');await f.page.waitForFunction(()=>document.querySelector('#vmwareTabBadge').textContent==='Working');
+  assert.deepEqual(vmwareCalls(f,'target/create').map(c=>c.body),[{vmId:'vm-app01',name:'APP01',storage:'ceph-vm',bus:'scsi',nicModel:'virtio',keepMac:false,networks:[{network:'vmbr1',vlan:20}],confirm:'APP01'}]);
+  Object.assign(f.state.vmware,{running:false,action:'',status:'connected'});Object.assign(f.state.vmware.target,{created:{'vm-app01':{platform:'proxmox',vm:{id:'101',name:'APP01',state:'running'}}},message:'APP01 was created on Proxmox VE and started from the receiver media.',serial:7});
+  await f.page.waitForFunction(()=>document.querySelector('#vmMoveTarget').textContent.includes('Created on Proxmox VE as APP01 (101).'));
+  await f.page.locator('[data-vm-target="address"]').fill('192.0.2.50:8443');await f.page.locator('[data-vm-target="code"]').fill('ABCDE-FGHIJ-KLMNO-PQRST');await f.page.locator('[data-vm-target="thumbprint"]').fill('AA:BB');
+  await f.page.locator('#vmTargetReceiver').click();await f.page.waitForFunction(()=>document.querySelector('#vmMoveTarget').textContent.includes('goes to disk-0, Disk 0, QEMU HARDDISK'));
+  assert.deepEqual(vmwareCalls(f,'target/receiver').map(c=>c.body),[{vmId:'vm-app01',address:'192.0.2.50:8443',code:'ABCDE-FGHIJ-KLMNO-PQRST',thumbprint:'AA:BB'}]);
+  assert.equal(await f.page.locator('[data-vm-target="code"]').inputValue(),'','the pairing code is not kept in the page');
+  await f.page.locator('#vmTargetCopy').click();const copyText=await f.page.locator('#migrateDialogText').textContent();assert(copyText.includes('192.0.2.50:8443')&&copyText.includes('changed block tracking'),copyText);
+  await f.page.locator('#migrateConfirmInput').fill('APP01');await f.page.locator('#migrateConfirmInput').press('Enter');await f.page.waitForFunction(()=>document.querySelector('#vmwareTabBadge').textContent==='Working');
+  assert.deepEqual(vmwareCalls(f,'target/move').map(c=>c.body),[{vmId:'vm-app01',action:'copy',quiesce:true,confirm:'APP01'}]);
+  Object.assign(f.state.vmware,{running:false,action:'',status:'connected',move:{vm:'APP01',cutover:false,round:{disks:[{label:'Hard disk 1',mode:'seed',target:'disk-0 on 192.0.2.50:8443',bytesWritten:21474836480,verified:false}]}},moveSerial:1});
+  await f.page.waitForFunction(()=>document.querySelector('#vmMoveTarget').textContent.includes('first copy of the used areas to disk-0 on 192.0.2.50:8443'));
+  await f.page.locator('#vmTargetCutover').click();assert((await f.page.locator('#migrateDialogText').textContent()).includes('switch it to boot from its first disk'));await f.page.locator('#migrateDialogCancel').click();
+  await f.page.setViewportSize({width:1440,height:1000});await f.page.evaluate(()=>document.activeElement.blur());await f.page.locator('#vmMoveTarget').evaluate(e=>e.scrollIntoView({block:'start'}));await f.page.screenshot({path:shots+'/vmware-move-target-1440x1000.png'});
+  await f.page.locator('#vmTargetSelect').selectOption('physical');await f.page.waitForFunction(()=>document.querySelector('#vmMoveTarget')&&document.querySelector('#vmMoveTarget').textContent.includes('Move this VM to a physical server'));
+  assert.equal(await f.page.locator('#vmTargetConnect').count(),0,'a physical server has no platform to connect to');assert.equal(await f.page.locator('#vmTargetCreate').count(),0);
+  await f.page.locator('#vmTargetSelect').selectOption('azure');await f.page.waitForFunction(()=>!document.querySelector('#vmMoveTarget'));
   assert.deepEqual(f.dialogs,[]);
  }finally{await f.close();}});
  await check('VMware Hosts card: every cluster and host with hardware, licensing and items to check, all linked',async()=>{const f=await fixture(browser);try{

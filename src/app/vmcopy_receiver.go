@@ -260,7 +260,11 @@ func (r *vmReceiver) Disks() []vmReceiverDisk {
 	for _, disk := range r.disks {
 		list = append(list, disk)
 	}
-	sort.Slice(list, func(i, j int) bool { return list[i].Name < list[j].Name })
+	sort.Slice(list, func(i, j int) bool {
+		a, _ := strconv.Atoi(strings.TrimPrefix(list[i].Name, "disk-"))
+		b, _ := strconv.Atoi(strings.TrimPrefix(list[j].Name, "disk-"))
+		return a < b
+	})
 	return list
 }
 

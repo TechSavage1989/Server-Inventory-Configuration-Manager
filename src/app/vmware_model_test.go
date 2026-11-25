@@ -394,8 +394,8 @@ func TestRunbookAndSizingFollowTarget(t *testing.T) {
 		vmTargetNutanix:  {"Nutanix Move", "Nutanix VirtIO drivers", "Create or check the Nutanix AHV VM", "AHV storage container"},
 		vmTargetAzure:    {"Azure Migrate", "static private IP reservation", "uses DHCP", "Generation 2"},
 		vmTargetAWS:      {"Application Migration Service", "EC2 instance", "ENA"},
-		vmTargetPhysical: {"Prepare the server", "storage controller and network drivers", "Start the new server", "Shut down the new server"},
-		vmTargetProxmox:  {"ESXi import wizard", "virtio-win"},
+		vmTargetPhysical: {"Prepare the server", "storage controller and network drivers", "Start the new server", "Shut down the new server", "USB stick", "remove the boot media"},
+		vmTargetProxmox:  {"ESXi import wizard", "virtio-win", "Move to Proxmox VE, step 2", "Upload the receiver media to Proxmox VE"},
 	} {
 		plan := suggestWaves(defaultVMPlan(inventory), inventory, 10)
 		plan.Target = target
