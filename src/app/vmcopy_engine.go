@@ -51,6 +51,14 @@ type vmCopyProgress struct {
 	BytesWritten int64 `json:"bytesWritten"`
 	Changed      int   `json:"changed"`
 	Zero         int   `json:"zero"`
+	// BytesSent is what crossed the network after compression, when the
+	// sink sends over a network.
+	BytesSent int64 `json:"bytesSent,omitempty"`
+}
+
+// vmSentCounter is a sink that counts the bytes it sent over the network.
+type vmSentCounter interface {
+	SentBytes() int64
 }
 
 type vmCopyOptions struct {
@@ -313,7 +321,15 @@ func vmCopyTo(ctx context.Context, source vmCopySource, sink vmCopySink, options
 	}
 	buffer := make([]byte, options.ChunkSize)
 	lastSave := time.Now()
+	sentBase := int64(0)
+	counter, counts := sink.(vmSentCounter)
+	if counts {
+		sentBase = counter.SentBytes()
+	}
 	report := func() {
+		if counts {
+			progress.BytesSent = counter.SentBytes() - sentBase
+		}
 		if options.Progress != nil {
 			options.Progress(progress)
 		}
@@ -468,4 +484,47 @@ func vmVerifyCopy(ctx context.Context, disk io.ReaderAt, state *vmCopyState) err
 		}
 	}
 	return nil
+}
+
+// vmRescanHashes replaces a copy record's hashes with hashes of what the
+// target holds now. It is used when the target may have changed outside the
+// copy (a test failover booted it, or a failback copies back onto the
+// original disk): the next pass then sends exactly the chunks that differ.
+func vmRescanHashes(ctx context.Context, disk io.ReaderAt, state *vmCopyState, progress func(done, total int)) error {
+	buffer := make([]byte, state.ChunkSize)
+	for index := range state.Hashes {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		chunk := buffer[:vmChunkLength(state, index)]
+		if _, err := disk.ReadAt(chunk, int64(index)*state.ChunkSize); err != nil && err != io.EOF {
+			return fmt.Errorf("reading the target at %s: %w", vmFormatBytes(int64(index)*state.ChunkSize), err)
+		}
+		hash := vmCopyZeroHash
+		if !vmIsZero(chunk) {
+			sum := sha256.Sum256(chunk)
+			hash = hex.EncodeToString(sum[:])
+		}
+		state.Hashes[index] = hash
+		if progress != nil && (index%64 == 0 || index == len(state.Hashes)-1) {
+			progress(index+1, len(state.Hashes))
+		}
+	}
+	state.Complete, state.Verified, state.ChangeID = false, false, ""
+	return nil
+}
+
+// vmRescanner is a sink whose record can be rebuilt from the target's content.
+type vmRescanner interface {
+	Rescan(ctx context.Context, progress func(done, total int)) error
+}
+
+func (s *vmLocalSink) Rescan(ctx context.Context, progress func(done, total int)) error {
+	if s.disk == nil || s.state == nil {
+		return errors.New("the copy is not open")
+	}
+	if err := vmRescanHashes(ctx, s.disk, s.state, progress); err != nil {
+		return err
+	}
+	return saveVMCopyState(s.state)
 }

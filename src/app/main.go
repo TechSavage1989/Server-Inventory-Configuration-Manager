@@ -2321,6 +2321,7 @@ func (a *application) serve(listener net.Listener) error {
 	mux.HandleFunc("/api/vmware/receiver", a.handleVMwareReceiver)
 	mux.HandleFunc("/api/vmware/agent/disks", a.handleVMwareAgentDisks)
 	mux.HandleFunc("/api/vmware/agent/send", a.handleVMwareAgentSend)
+	mux.HandleFunc("/api/vmware/agent/receiverdisks", a.handleVMwareAgentReceiverDisks)
 	mux.HandleFunc("/api/vmware/guest", a.handleVMwareGuest)
 	mux.HandleFunc("/api/vmware/guest/", a.handleVMwareGuest)
 	mux.HandleFunc("/api/vmware/guest-load", a.handleVMwareGuestLoad)

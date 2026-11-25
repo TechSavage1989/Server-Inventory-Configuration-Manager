@@ -242,10 +242,16 @@ func TestReportsAndRunbookRenderEscapedAndSafe(t *testing.T) {
 		t.Fatal(err)
 	}
 	text, _ := os.ReadFile(runbook)
-	for _, expected := range []string{"Wave 1", "Wave 2", "On hold (resolve blockers first)", "Generation 2", "Record settings", "Disconnect the old VM", "Where each part runs", "The Hyper-V host that will run the VM", "On the Hyper-V host, run this application"} {
+	for _, expected := range []string{"Wave 1", "Wave 2", "On hold (resolve blockers first)", "Generation 2", "Record settings", "Disconnect the old VM", "Where each part runs", "The Hyper-V host that will run the VM", "On the Hyper-V host, run this application", "choose Cut over in the VM&#39;s details (Move to Hyper-V)", `class="step" data-step="`, "Clear all ticks", "script-src '" + strings.ReplaceAll(vmRunbookScriptHash(), "+", "&#43;") + "'", "<script>" + vmRunbookScript + "</script>"} {
 		if !strings.Contains(string(text), expected) {
 			t.Fatalf("runbook missing %q", expected)
 		}
+	}
+	if strings.Contains(string(text), "System Center VMM") || strings.Contains(string(text), "Run the final") {
+		t.Fatal("the Hyper-V runbook points at an outside tool instead of Move to Hyper-V")
+	}
+	if strings.Count(string(text), "<script") != 1 {
+		t.Fatal("the runbook has a script other than its own")
 	}
 	if strings.Contains(string(text), "TPL-2022") {
 		t.Fatal("excluded template is in the runbook")
@@ -280,7 +286,7 @@ func TestReportsAndRunbookRenderEscapedAndSafe(t *testing.T) {
 		}
 	}
 	document := parts["word/document.xml"]
-	for _, expected := range []string{"Wave 1", "&lt;script&gt;alert(1)&lt;/script&gt;", "Record settings", "\u2610 ", "Where each part runs", "The Hyper-V host that will run the VM"} {
+	for _, expected := range []string{"Wave 1", "&lt;script&gt;alert(1)&lt;/script&gt;", "Record settings", "<w14:checkbox>", "w14:uncheckedState w14:val=\"2610\"", "mc:Ignorable=\"w14\"", "Where each part runs", "The Hyper-V host that will run the VM", "choose Cut over in the VM&#39;s details (Move to Hyper-V)"} {
 		if !strings.Contains(document, expected) {
 			t.Fatalf("Word runbook missing %q", expected)
 		}
@@ -391,11 +397,11 @@ func TestTargetProfilesAreComplete(t *testing.T) {
 func TestRunbookAndSizingFollowTarget(t *testing.T) {
 	inventory := vmSampleInventory()
 	for target, expected := range map[string][]string{
-		vmTargetNutanix:  {"Nutanix Move", "Nutanix VirtIO drivers", "Create or check the Nutanix AHV VM", "AHV storage container"},
-		vmTargetAzure:    {"Azure Migrate", "static private IP reservation", "uses DHCP", "Generation 2"},
+		vmTargetNutanix:  {"choose Cut over in the VM's details (Move to Nutanix AHV)", "Nutanix VirtIO drivers", "Check the Nutanix AHV VM", "AHV storage container"},
+		vmTargetAzure:    {"Azure Migrate", "Disk converter tab", "static private IP reservation", "uses DHCP", "Generation 2"},
 		vmTargetAWS:      {"Application Migration Service", "EC2 instance", "ENA"},
 		vmTargetPhysical: {"Prepare the server", "storage controller and network drivers", "Start the new server", "Shut down the new server", "USB stick", "remove the boot media"},
-		vmTargetProxmox:  {"ESXi import wizard", "virtio-win", "Move to Proxmox VE, step 2", "upload the receiver media to Proxmox VE", "On your admin computer"},
+		vmTargetProxmox:  {"choose Cut over in the VM's details (Move to Proxmox VE)", "virtio-win", "Move to Proxmox VE, step 2", "upload the receiver media to Proxmox VE", "On your admin computer"},
 	} {
 		plan := suggestWaves(defaultVMPlan(inventory), inventory, 10)
 		plan.Target = target

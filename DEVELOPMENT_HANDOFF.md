@@ -12,6 +12,15 @@
 - Tests: `vmrepair_test.go` (boot detection, PowerShell result shapes), `vmrepair_windows_test.go` (real VHDX with synthetic hives: Check, failing DISM Apply, Apply, Undo), workspace test for the section.
 - Limitations: DISM injection into a real offline Windows image, and booting fixed-up disks on HyperCore, Nutanix and Proxmox, still need field validation. README screenshots of the Disk converter are refreshed with the remote-destination change that follows.
 
+## Unreleased: runbook check boxes that tick, and in-app runbook steps — 2026-11-25
+
+The owner asked what the runbook check boxes were for if they could not be ticked.
+- HTML runbook (`vmware_report.go`): every before/cutover/verify step is an `<input class="step">` keyed by VM ID, section and step text. `vmRunbookScript` (allowed by its exact SHA-256 in the runbook's CSP, `vmRunbookScriptHash`) saves ticks in localStorage under `runbook:<server>|<target>`, shows progress per VM, per wave (also in the Waves table) and overall, and offers Print and a two-click Clear all ticks. Without scripts the boxes still tick and print. Print CSS hides the toolbar.
+- Word runbook (`vmware_docx.go`): steps use `w14:checkbox` content controls (clickable in Word 2010+ and LibreOffice, ☐/☒ in MS Gothic); the document declares `w14` as ignorable.
+- Steps (`vmware_plan.go`, `vmtarget_move.go`): Hyper-V and receiver targets now copy in "Before" and use the in-app Cut over in "Cutover" (no more "Run the final conversion with System Center VMM, Veeam or StarWind"); VMs read from a Hyper-V host use Disk copy (Send inside the VM); Azure/EC2 keep their platform tool and point at the Disk converter for exported disks.
+- Inside the VM: **Check this VM** moved to the After cutover section as **Check what needs fixing**; both sections now say what their button does.
+- Tests: runbook HTML/Word checks for the boxes, CSP hash, script and Cut over wording; target runbook expectations updated. Checked by hand in Chromium (ticks survive a reload, progress counts) and the Word file converted with LibreOffice.
+
 ## Unreleased: where each part runs (source, target and admin computer) — 2026-11-25
 
 The owner asked whether the UI makes clear what runs on the source VM and what on the target. It did not, so:

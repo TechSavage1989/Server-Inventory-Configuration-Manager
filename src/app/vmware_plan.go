@@ -488,15 +488,36 @@ func buildRunbook(plan vmPlan, inventory *vmInventory) []vmRunbookWave {
 			item.Before = append(item.Before, "Record the guest's IP configuration (addresses, gateway, DNS) before cutover.")
 		}
 		item.Before = append(item.Before, "Confirm a recent, restorable backup of the VM.")
-		if vmTargetUsesReceiver(plan.Target) {
-			item.Before = append(item.Before, vmReceiverRunbookSteps(plan.Target, profile)...)
-		} else if plan.Target == vmTargetHyperV {
+		// How the disks move: the application's own Move (vCenter or ESXi
+		// sources), Disk copy (any other running machine) or, for cloud
+		// targets, the platform's tool or the Disk converter.
+		inApp := vm.Source != vmSourceHyperV && (plan.Target == vmTargetHyperV || vmTargetUsesReceiver(plan.Target))
+		agent := vm.Source == vmSourceHyperV && (plan.Target == vmTargetHyperV || vmTargetUsesReceiver(plan.Target))
+		var cutoverMove []string
+		switch {
+		case inApp && plan.Target == vmTargetHyperV:
 			item.Before = append(item.Before, "On the Hyper-V host, run this application as administrator, read the inventory from vCenter or ESXi and choose Copy disks in the VM's details (Move to Hyper-V). Copy as often as needed while the VM runs; each copy after the first sends only changed blocks.")
+			cutoverMove = []string{"On the Hyper-V host, choose Cut over in the VM's details (Move to Hyper-V): the guest shuts down through VMware Tools, the last changes are copied and verified, and the Hyper-V VM is created on the copied disks."}
+		case inApp:
+			steps := vmReceiverRunbookSteps(plan.Target, profile)
+			item.Before = append(item.Before, steps[:len(steps)-1]...)
+			cutoverMove = steps[len(steps)-1:]
+		case agent:
+			destination := "the new Hyper-V host (Receive saves VHDX files)"
+			if plan.Target != vmTargetHyperV {
+				destination = "the new " + vmTargetMachine(plan.Target) + " booted from receiver media (build it in the VMware tab's Move panel)"
+			}
+			item.Before = append(item.Before, "Copy the disks with Disk copy on the VMware tab: Receive on "+destination+", and Send inside this VM as administrator. Send again as often as needed while the VM runs; each send after the first copies only what changed. (Or convert its shut-down disks in the Disk converter tab.)")
+			cutoverMove = []string{"Shut the VM down cleanly from the guest operating system right after a last Send from inside it, so the copy matches."}
+		default:
+			cutoverMove = []string{
+				"Shut the VM down cleanly from the guest operating system.",
+				fmt.Sprintf("Run the final replication to %s with %s. Disks exported from VMware can also be converted in this application's Disk converter tab (for example to a fixed VHD for Azure).", target, profile.Tool),
+			}
 		}
 
 		item.Cutover = append(item.Cutover, "Tell users the service is going down, then stop the applications in the guest.")
-		item.Cutover = append(item.Cutover, "Shut the VM down cleanly from the guest operating system.")
-		item.Cutover = append(item.Cutover, fmt.Sprintf("Run the final conversion, replication or image restore to %s with %s.", target, profile.Tool))
+		item.Cutover = append(item.Cutover, cutoverMove...)
 		item.Cutover = append(item.Cutover, "Disconnect the old VM's network adapters in vSphere and set it not to start, so it cannot come back with the same addresses. Do not delete it yet.")
 		boot := map[bool]string{true: "UEFI", false: "BIOS"}[strings.EqualFold(vm.Firmware, "efi")]
 		size := fmt.Sprintf("%d vCPU, %s memory", vm.CPUs, vmFormatBytes(vm.MemoryMB<<20))
@@ -506,7 +527,11 @@ func buildRunbook(plan vmPlan, inventory *vmInventory) []vmRunbookWave {
 			if strings.EqualFold(vm.Firmware, "efi") {
 				generation = 2
 			}
-			item.Cutover = append(item.Cutover, fmt.Sprintf("Create or check the Hyper-V VM: Generation %d, %s, network adapters as listed above.", generation, size))
+			verb := "Create or check"
+			if inApp {
+				verb = "Check"
+			}
+			item.Cutover = append(item.Cutover, fmt.Sprintf("%s the Hyper-V VM: Generation %d, %s, network adapters as listed above.", verb, generation, size))
 		case vmTargetAzure:
 			item.Cutover = append(item.Cutover, fmt.Sprintf("Check the Azure VM: Generation %d, a size with at least %s, the virtual network and subnet listed above, and a static private IP reservation if the address must stay.", map[bool]int{true: 2, false: 1}[boot == "UEFI"], size))
 		case vmTargetAWS:
@@ -514,10 +539,18 @@ func buildRunbook(plan vmPlan, inventory *vmInventory) []vmRunbookWave {
 		case vmTargetPhysical:
 			item.Cutover = append(item.Cutover, fmt.Sprintf("Prepare the server: %s boot, at least %d cores, %s memory and %s of disk, storage and network drivers ready, cabled to the networks listed above.", boot, vm.CPUs, vmFormatBytes(vm.MemoryMB<<20), vmFormatBytes(vm.ProvisionedBytes)))
 		default:
-			item.Cutover = append(item.Cutover, fmt.Sprintf("Create or check the %s VM: %s, %s boot, network adapters and %ss as listed above.", profile.Short, size, boot, profile.NetworkLabel))
+			verb := "Create or check"
+			if inApp {
+				verb = "Check"
+			}
+			item.Cutover = append(item.Cutover, fmt.Sprintf("%s the %s VM: %s, %s boot, network adapters and %ss as listed above.", verb, profile.Short, size, boot, profile.NetworkLabel))
 		}
 		machine := map[bool]string{true: "server", false: "VM"}[profile.Kind == vmKindPhysical]
-		item.Cutover = append(item.Cutover, "Start the new "+machine+" and sign in at its console.")
+		if inApp && vmTargetUsesReceiver(plan.Target) && plan.Target != vmTargetPhysical {
+			item.Cutover = append(item.Cutover, "Wait for the new VM to start from its own disk, then sign in at its console.")
+		} else {
+			item.Cutover = append(item.Cutover, "Start the new "+machine+" (if Cut over did not) and sign in at its console.")
+		}
 		if classifyGuestOS(vm).Family == "windows" {
 			if profile.Kind == vmKindCloud {
 				item.Cutover = append(item.Cutover, "Check the guest uses DHCP and has the address you reserved. Then, inside the new VM, run the fix-up under Inside the VM on the VMware tab to remove VMware Tools and hidden old adapters, and bring offline disks online.")

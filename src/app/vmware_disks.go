@@ -26,6 +26,7 @@ type vmAgentSendResult struct {
 	Verified     bool   `json:"verified"`
 	Passes       int    `json:"passes"`
 	Shadowed     int    `json:"shadowed"`
+	BytesSent    int64  `json:"bytesSent,omitempty"`
 	Error        string `json:"error,omitempty"`
 }
 
@@ -107,4 +108,36 @@ func vmLocalAddresses() []string {
 	sort.Strings(v4)
 	sort.Strings(v6)
 	return append(v4, v6...)
+}
+
+// vmAgentTargetNames picks what the receiver writes for each source disk:
+// the disk-N the operator mapped it to on a raw receiver (the new VM's or
+// server's own disks), or a VHDX file named after this computer.
+func vmAgentTargetNames(disks []int, targets map[string]string, vhdx func(int) string) (map[int]string, error) {
+	names := map[int]string{}
+	used := map[string]int{}
+	for key := range targets {
+		number, err := strconv.Atoi(key)
+		found := false
+		for _, disk := range disks {
+			found = found || (err == nil && disk == number)
+		}
+		if !found {
+			return nil, fmt.Errorf("disk %s has a target but is not being sent", key)
+		}
+	}
+	for _, disk := range disks {
+		name := strings.TrimSpace(targets[strconv.Itoa(disk)])
+		if name == "" || strings.EqualFold(name, "vhdx") {
+			name = vhdx(disk)
+		} else if !vmReceiverDiskName.MatchString(name) {
+			return nil, fmt.Errorf("choose a receiver disk for disk %d from the list", disk)
+		}
+		if other, taken := used[strings.ToLower(name)]; taken {
+			return nil, fmt.Errorf("disks %d and %d are both going to %s; choose a different receiver disk for each", other, disk, name)
+		}
+		used[strings.ToLower(name)] = disk
+		names[disk] = name
+	}
+	return names, nil
 }

@@ -233,9 +233,9 @@ func vmReceiverRunbookSteps(target string, profile vmTargetProfile) []string {
 		"Copy while the VMware VM keeps running, as often as needed; each copy after the first sends only changed blocks.",
 	)
 	if target == vmTargetPhysical {
-		steps = append(steps, "At cutover choose Cut over: the guest shuts down through VMware Tools and the last changes are copied and verified. Then stop the receiver, remove the boot media and start the server from its own disk.")
+		steps = append(steps, "On your admin computer, choose Cut over in the VM's details (Move to "+profile.Short+"): the guest shuts down through VMware Tools and the last changes are copied and verified. Then stop the receiver, remove the boot media and start the server from its own disk.")
 	} else {
-		steps = append(steps, "At cutover choose Cut over: the guest shuts down through VMware Tools, the last changes are copied and verified, and the new VM is set to start from its own disk.")
+		steps = append(steps, "On your admin computer, choose Cut over in the VM's details (Move to "+profile.Short+"): the guest shuts down through VMware Tools, the last changes are copied and verified, and the new VM is set to start from its own disk.")
 	}
 	return steps
 }

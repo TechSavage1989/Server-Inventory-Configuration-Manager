@@ -299,3 +299,13 @@ func (d *vmImageDevice) Identity() string                         { return "imag
 func (d *vmImageDevice) Describe() string                         { return d.path }
 func (d *vmImageDevice) Flush() error                             { return d.file.Sync() }
 func (d *vmImageDevice) Close() error                             { return d.file.Close() }
+
+func (s *vmRawSink) Rescan(ctx context.Context, progress func(done, total int)) error {
+	if s.record == nil {
+		return errors.New("the copy is not open")
+	}
+	if err := vmRescanHashes(ctx, s.device, &s.record.vmCopyState, progress); err != nil {
+		return err
+	}
+	return saveVMRawRecord(s.path, s.record)
+}

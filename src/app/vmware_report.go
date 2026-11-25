@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
@@ -103,11 +105,12 @@ const vmReadinessTemplate = `<!DOCTYPE html>
 </main></body></html>`
 
 const vmRunbookTemplate = `<!DOCTYPE html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'"><title>Migration runbook - {{.Inventory.Server}} to {{target .Plan.Target}}</title><style>{{.Style}}</style></head>
+<html lang="en" data-runbook="{{.Inventory.Server}}|{{.Plan.Target}}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src '{{.ScriptHash}}'"><title>Migration runbook - {{.Inventory.Server}} to {{target .Plan.Target}}</title><style>{{.Style}}</style></head>
 <body><main>
 <h1>Migration runbook: VMware to {{target .Plan.Target}}</h1>
 <p class="sub">Source {{.Inventory.ServerType}} {{.Inventory.Server}}, inventory read {{date .Inventory.CollectedAt}} · plan saved {{date .Plan.UpdatedAt}} · {{.Generator}} {{.Inventory.AppVersion}}</p>
 <div class="note">Work through each wave in order. Keep the old VMs powered off but intact until the application owner signs off, so every step can be rolled back.</div>
+<div class="tools" id="tools" hidden><span>Tick each step as it is done. Ticks are saved in this browser for this runbook. <b class="progress" id="progressAll"></b></span><button type="button" id="printRunbook">Print</button><button type="button" id="clearTicks">Clear all ticks</button></div>
 <h2>Where each part runs</h2>
 <table><tr><th>Computer</th><th>What runs there</th><th>What it needs</th></tr>{{range .Roles}}<tr><td><b>{{.Where}}</b></td><td>{{.Does}}</td><td>{{.Needs}}</td></tr>{{end}}</table>
 <h2>Capacity check</h2>
@@ -118,14 +121,42 @@ const vmRunbookTemplate = `<!DOCTYPE html>
 <h2>Storage mapping</h2>
 <table><tr><th>Datastore</th><th>Target storage</th></tr>{{range .Plan.Storage}}<tr><td>{{.Source}}</td><td>{{.Target}}</td></tr>{{end}}</table>
 <h2>Waves</h2>
-<table><tr><th>Wave</th><th>VMs</th></tr>{{range .Waves}}<tr><td>{{.Label}}</td><td>{{range $i, $vm := .VMs}}{{if $i}}, {{end}}{{$vm.VM.Name}}{{end}}</td></tr>{{end}}</table>
-{{range .Waves}}<h2>{{.Label}}</h2>
-{{range .VMs}}<div class="vm"><h3>{{.VM.Name}} <span class="chip {{.Readiness.Status}}">{{statusLabel .Readiness.Status}}</span></h3>
+<table><tr><th>Wave</th><th>VMs</th><th>Done</th></tr>{{range $w, $wave := .Waves}}<tr><td>{{$wave.Label}}</td><td>{{range $i, $vm := $wave.VMs}}{{if $i}}, {{end}}{{$vm.VM.Name}}{{end}}</td><td><span class="progress" data-wave-row="wave-{{$w}}"></span></td></tr>{{end}}</table>
+{{range $w, $wave := .Waves}}<section class="wave" id="wave-{{$w}}"><h2>{{$wave.Label}} <span class="progress"></span></h2>
+{{range $wave.VMs}}{{$id := .VM.ID}}<div class="vm"><h3>{{.VM.Name}} <span class="chip {{.Readiness.Status}}">{{statusLabel .Readiness.Status}}</span> <span class="progress"></span></h3>
 <div class="muted">{{os .VM}} · {{.VM.CPUs}} vCPU · {{mb .VM.MemoryMB}} · {{bytes .VM.UsedBytes}} used{{if .Entry.Notes}} · Notes: {{.Entry.Notes}}{{end}}</div>
 <div class="grid2"><div><h3>Network adapters</h3><ul>{{range .NICs}}<li>{{.}}</li>{{else}}<li>None</li>{{end}}</ul></div><div><h3>Disks</h3><ul>{{range .Disks}}<li>{{.}}</li>{{else}}<li>None</li>{{end}}</ul></div></div>
-<div class="grid2"><div><h3>Before cutover</h3><ol>{{range .Before}}<li>☐ {{.}}</li>{{end}}</ol></div><div><h3>Cutover</h3><ol>{{range .Cutover}}<li>☐ {{.}}</li>{{end}}</ol></div><div><h3>Verify</h3><ol>{{range .Verify}}<li>☐ {{.}}</li>{{end}}</ol></div><div><h3>Roll back if needed</h3><ol>{{range .Rollback}}<li>{{.}}</li>{{end}}</ol></div></div>
-</div>{{end}}{{end}}
-</main></body></html>`
+<div class="grid2"><div><h3>Before cutover</h3><ol class="steps">{{range .Before}}<li><label><input type="checkbox" class="step" data-step="{{$id}}|before|{{.}}"><span>{{.}}</span></label></li>{{end}}</ol></div><div><h3>Cutover</h3><ol class="steps">{{range .Cutover}}<li><label><input type="checkbox" class="step" data-step="{{$id}}|cutover|{{.}}"><span>{{.}}</span></label></li>{{end}}</ol></div><div><h3>Verify</h3><ol class="steps">{{range .Verify}}<li><label><input type="checkbox" class="step" data-step="{{$id}}|verify|{{.}}"><span>{{.}}</span></label></li>{{end}}</ol></div><div><h3>Roll back if needed</h3><ol>{{range .Rollback}}<li>{{.}}</li>{{end}}</ol></div></div>
+</div>{{end}}</section>{{end}}
+</main><script>{{.Script}}</script></body></html>`
+
+// vmRunbookScript makes the runbook's checkboxes remember their ticks in this
+// browser (localStorage, keyed by server, target and each step's text) and
+// shows progress per VM, per wave and overall. The runbook's CSP allows only
+// this exact script, by hash. Without scripts the boxes still tick and print.
+const vmRunbookScript = `(function(){
+var root=document.documentElement,key='runbook:'+(root.getAttribute('data-runbook')||''),store={};
+try{store=JSON.parse(window.localStorage.getItem(key)||'{}')||{};}catch(e){store={};}
+function save(){try{window.localStorage.setItem(key,JSON.stringify(store));}catch(e){}}
+function each(sel,fn,scope){var list=(scope||document).querySelectorAll(sel);for(var i=0;i<list.length;i++){fn(list[i]);}}
+function count(scope){var done=0,all=0;each('input.step',function(b){all++;if(b.checked){done++;}},scope);return [done,all];}
+function show(node,c){if(!node){return;}node.textContent=c[1]?c[0]+' of '+c[1]+' done':'';node.className='progress'+(c[1]&&c[0]===c[1]?' complete':'');}
+function update(){
+each('.vm',function(v){show(v.querySelector('h3 .progress'),count(v));});
+each('section.wave',function(w){var c=count(w);show(w.querySelector('h2 .progress'),c);show(document.querySelector('[data-wave-row="'+w.id+'"]'),c);});
+show(document.getElementById('progressAll'),count(document));
+}
+each('input.step',function(b){var k=b.getAttribute('data-step');b.checked=!!store[k];b.parentNode.parentNode.className=b.checked?'done':'';
+b.addEventListener('change',function(){if(b.checked){store[k]=new Date().toISOString();}else{delete store[k];}b.parentNode.parentNode.className=b.checked?'done':'';save();update();});});
+var tools=document.getElementById('tools'),clear=document.getElementById('clearTicks'),armed=false;
+tools.hidden=false;
+document.getElementById('printRunbook').addEventListener('click',function(){window.print();});
+clear.addEventListener('click',function(){if(!armed){armed=true;clear.textContent='Click again to clear every tick';setTimeout(function(){armed=false;clear.textContent='Clear all ticks';},4000);return;}
+armed=false;clear.textContent='Clear all ticks';store={};save();each('input.step',function(b){b.checked=false;b.parentNode.parentNode.className='';});update();});
+update();
+})();`
+
+const vmRunbookStyle = `.steps{list-style:none;padding-left:0}.steps li{margin:3px 0}.steps label{display:flex;gap:7px;align-items:flex-start;cursor:pointer}.steps input{margin:3px 0 0;flex:0 0 auto;width:15px;height:15px}.steps li.done span{color:#5d6b7d}.progress{font-size:12px;font-weight:600;color:#52647c}.progress.complete{color:#1d6b43}h2 .progress,h3 .progress{margin-left:6px}.tools{display:flex;flex-wrap:wrap;align-items:center;gap:8px;background:#fff;border:1px solid #dbe3ed;border-radius:10px;padding:8px 12px;margin:10px 0}.tools span{flex:1 1 auto}.tools button{font:inherit;font-size:13px;padding:4px 12px;border:1px solid #c7d0dd;border-radius:6px;background:#fff;cursor:pointer}.wave>h2{break-after:avoid}@media print{.tools{display:none}.steps input{-webkit-print-color-adjust:exact;print-color-adjust:exact}.vm{break-inside:auto}.vm h3,.grid2>div{break-inside:avoid}}`
 
 func vmReportDate(t time.Time) string {
 	if t.IsZero() {
@@ -294,7 +325,7 @@ func writeVMwarePlanOutputs(folder string, inventory *vmInventory, plan vmPlan) 
 	waves := buildRunbook(plan, inventory)
 	sizing := sizePlan(plan, inventory)
 	var page bytes.Buffer
-	if err := vmRunbookTmpl.Execute(&page, map[string]any{"Inventory": inventory, "Plan": plan, "Roles": vmMoveRoles(plan.Target), "Waves": waves, "Sizing": sizing, "Style": template.CSS(vmReportStylesheet), "Generator": vmReportGeneratorLine}); err != nil {
+	if err := vmRunbookTmpl.Execute(&page, map[string]any{"Inventory": inventory, "Plan": plan, "Roles": vmMoveRoles(plan.Target), "Waves": waves, "Sizing": sizing, "Style": template.CSS(vmReportStylesheet + vmRunbookStyle), "Script": template.JS(vmRunbookScript), "ScriptHash": vmRunbookScriptHash(), "Generator": vmReportGeneratorLine}); err != nil {
 		return "", "", err
 	}
 	runbook := filepath.Join(folder, vmRunbookReport)
@@ -330,4 +361,10 @@ func writeVMwarePlanOutputs(folder string, inventory *vmInventory, plan vmPlan) 
 	csvPath := filepath.Join(folder, vmPlanCSV)
 	err := writeCSVFile(csvPath, []string{"Wave", "VM", "Target", "Readiness", "Generation", "vCPUs", "MemoryMB", "ProvisionedGB", "UsedGB", "Networks", "Storage", "Blockers", "Warnings", "Notes"}, rows)
 	return runbook, csvPath, err
+}
+
+// vmRunbookScriptHash is the CSP source that allows exactly vmRunbookScript.
+func vmRunbookScriptHash() string {
+	sum := sha256.Sum256([]byte(vmRunbookScript))
+	return "sha256-" + base64.StdEncoding.EncodeToString(sum[:])
 }

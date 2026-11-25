@@ -124,6 +124,7 @@ async function fixture(browser,old=false){
    if(action==='target/move'){Object.assign(v,{running:true,action:'move',status:'moving'});send(202,{ok:true});return;}
    if(action==='receiver'){if(data.action==='start'){v.receiver={running:true,port:data.port||44380,code:'K7QMZ-2RT4X-9WBNP-H3VDA',thumbprint:'3f9a6c0e1b7d4a25c8e0f13b6a9d2c4e7f0a1b3c5d7e9f2a4c6e8b0d1f3a5c7e',folder:data.folder||'D:\\Migration\\VMware-Copies\\Received',addresses:['192.0.2.40'],sessions:0,firewall:!!data.firewall,defaultFolder:'D:\\Migration\\VMware-Copies\\Received'};}else{v.receiver={running:false,port:44380,sessions:0,firewall:false,defaultFolder:'D:\\Migration\\VMware-Copies\\Received',message:'Stopped.'};}send(200,{ok:true});return;}
    if(action==='agent/disks'){send(200,{ok:true,computer:'APP01',disks:[{number:0,size:107374182400,system:true,volumes:[{name:'v1',mounts:[],fileSystem:'FAT32',length:104857600},{name:'v2',mounts:['C:\\'],fileSystem:'NTFS',length:106300000000}]},{number:1,size:536870912000,system:false,volumes:[{name:'v3',mounts:['D:\\'],fileSystem:'NTFS',length:536700000000}]}]});return;}
+   if(action==='agent/receiverdisks'){send(200,{ok:true,folder:false,disks:[{name:'disk-0',label:'Disk 0, QEMU HARDDISK',size:107374182400,sectorSize:512},{name:'disk-1',label:'Disk 1, QEMU HARDDISK',size:214748364800,sectorSize:512}]});return;}
    if(action==='agent/send'){Object.assign(v,{running:true,action:'send',status:'sending'});send(202,{ok:true});return;}
    if(action==='guest'){send(200,{ok:true,serial:v.guestSerial,result:vm.guest});return;}
    if(action.startsWith('guest/')){Object.assign(v,{running:true,action:'guest-'+action.slice(6)});send(202,{ok:true});return;}
@@ -841,13 +842,19 @@ async function check(name,fn){await fn();report.checks.push({name,result:'passed
   await f.page.locator('#vmReceiveStop').click();await f.page.waitForFunction(()=>!document.querySelector('#vmReceiveIdle').classList.contains('hidden'));assert.deepEqual(vmwareCalls(f,'receiver').at(-1).body,{action:'stop'});
   await f.page.locator('[data-send-disk="1"]').uncheck();
   await f.page.locator('#vmSendStart').click();assert((await f.page.locator('#vmSendStatus').textContent()).includes('20-character pairing code'));assert.equal(vmwareCalls(f,'agent/send').length,0);
-  await f.page.locator('#vmSendCode').fill('K7QMZ-2RT4X-9WBNP-H3VDA');await f.page.locator('#vmSendStart').click();
+  await f.page.locator('#vmSendCode').fill('K7QMZ-2RT4X-9WBNP-H3VDA');
+  await f.page.locator('#vmSendCheck').click();await f.page.waitForFunction(()=>document.querySelectorAll('[data-send-target]').length===1);
+  assert.equal(await f.page.locator('[data-send-target="0"]').inputValue(),'disk-0','a raw receiver maps disks in order');
+  assert((await f.page.locator('#vmSendReceiverNote').textContent()).includes('Writes 2 disks of the new VM or server'));
+  await f.page.locator('[data-send-target="0"]').selectOption('disk-1');await f.page.locator('#vmSendLimit').fill('200');
+  await f.page.locator('#vmSendStart').click();
   await f.page.waitForFunction(()=>document.querySelector('#vmwareTabBadge').textContent==='Working');
-  assert.deepEqual(vmwareCalls(f,'agent/send').map(c=>c.body),[{disks:[0],address:'hv01.example.com',thumbprint:'3F9A6C0E1b7d4a25c8e0f13b6a9d2c4e7f0a1b3c5d7e9f2a4c6e8b0d1f3a5c7e',code:'K7QMZ-2RT4X-9WBNP-H3VDA',verify:true,allowLive:false}]);
+  assert.deepEqual(vmwareCalls(f,'agent/send').map(c=>c.body),[{disks:[0],address:'hv01.example.com',thumbprint:'3F9A6C0E1b7d4a25c8e0f13b6a9d2c4e7f0a1b3c5d7e9f2a4c6e8b0d1f3a5c7e',code:'K7QMZ-2RT4X-9WBNP-H3VDA',verify:true,allowLive:false,targets:{'0':'disk-1'},compress:true,limitMbps:200}]);
+  assert(await f.page.locator('[data-send-target="0"]').isDisabled(),'targets are locked while sending');
   assert(await f.page.locator('#vmStop').isVisible(),'a send can be stopped');assert(await f.page.locator('#vmSendCode').isDisabled());
-  Object.assign(f.state.vmware,{running:false,action:'',status:'idle',message:'Sent 1 disk to hv01.example.com.',send:[{disk:0,name:'APP01-disk0.vhdx',bytesRead:42949672960,bytesWritten:1073741824,resumed:true,verified:true,passes:2,shadowed:1}],sendSerial:1});
+  Object.assign(f.state.vmware,{running:false,action:'',status:'idle',message:'Sent 1 disk to hv01.example.com.',send:[{disk:0,name:'APP01-disk0.vhdx',bytesRead:42949672960,bytesWritten:1073741824,resumed:true,verified:true,passes:2,shadowed:1,bytesSent:536870912}],sendSerial:1});
   await f.page.waitForFunction(()=>document.querySelector('#vmSendResults').textContent.includes('APP01-disk0.vhdx'));
-  const sent=await f.page.locator('#vmSendResults').textContent();assert(sent.includes('1.0 GB sent (pass 2, only what changed), 1 volume from a shadow copy, verified'),sent);
+  const sent=await f.page.locator('#vmSendResults').textContent();assert(sent.includes('1.0 GB written (512 MB on the network) (pass 2, only what changed), 1 volume from a shadow copy, verified'),sent);
   f.state.vmware.receiver={running:true,port:44380,code:'K7QMZ-2RT4X-9WBNP-H3VDA',thumbprint:'3f9a6c0e1b7d4a25c8e0f13b6a9d2c4e7f0a1b3c5d7e9f2a4c6e8b0d1f3a5c7e',folder:'D:\\Migration\\VMware-Copies\\Received',addresses:['192.0.2.40'],sessions:1,firewall:true,defaultFolder:'D:\\Migration\\VMware-Copies\\Received'};
   await f.page.waitForFunction(()=>document.querySelector('#vmReceiveSessions').textContent==='1 disk');
   await f.page.setViewportSize({width:1440,height:1000});await f.page.evaluate(()=>document.activeElement.blur());await f.page.locator('#vmwareBody').evaluate(e=>e.scrollTop=0);await f.page.screenshot({path:shots+'/vmware-disk-copy-1440x1000.png'});
