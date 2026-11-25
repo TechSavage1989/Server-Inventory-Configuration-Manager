@@ -54,6 +54,9 @@ type vmwareRuntime struct {
 	move            *vmMoveResult
 	moveSerial      uint64
 	moveError       string
+	send            []vmAgentSendResult
+	sendSerial      uint64
+	sendError       string
 	compare         *compareResult
 	compareSerial   uint64
 	compareFolder   string
@@ -96,6 +99,10 @@ type vmwareStateResponse struct {
 	MoveSerial      uint64              `json:"moveSerial"`
 	MoveError       string              `json:"moveError"`
 	MoveCopyRoot    string              `json:"moveCopyRoot"`
+	Send            []vmAgentSendResult `json:"send"`
+	SendSerial      uint64              `json:"sendSerial"`
+	SendError       string              `json:"sendError"`
+	Receiver        vmReceiverState     `json:"receiver"`
 	CancelRequested bool                `json:"cancelRequested"`
 	Logs            []logEntry          `json:"logs"`
 	StartedAtUnixMs int64               `json:"startedAtUnixMs"`
@@ -136,6 +143,7 @@ func (a *application) vmwareSnapshotLocked() vmwareStateResponse {
 		CompareSerial: a.vmware.compareSerial, CompareError: a.vmware.compareError,
 		Prepare: a.vmware.prepare, PrepareSerial: a.vmware.prepareSerial, PrepareError: a.vmware.prepareError,
 		Move: a.vmware.move, MoveSerial: a.vmware.moveSerial, MoveError: a.vmware.moveError, MoveCopyRoot: a.vmwareCopyRootLocked(),
+		Send: a.vmware.send, SendSerial: a.vmware.sendSerial, SendError: a.vmware.sendError, Receiver: a.vmReceiverStateLocked(),
 		CanPrepare:      a.vmware.inventory != nil && a.vmware.password != "" && strings.EqualFold(a.vmware.inventory.Server, a.vmware.server),
 		CancelRequested: a.vmware.cancelRequested && a.vmware.action != "",
 		Logs:            append([]logEntry{}, a.vmware.logs...),
@@ -1032,6 +1040,11 @@ func (a *application) vmwareOpenTarget(kind string) (target string, folder bool,
 		return "", false, true
 	case "comparefolder":
 		return a.vmware.compareFolder, true, true
+	case "receivefolder":
+		if a.vmReceive.receiver != nil {
+			return a.vmReceive.receiver.Folder(), true, true
+		}
+		return "", true, true
 	}
 	return "", false, false
 }
