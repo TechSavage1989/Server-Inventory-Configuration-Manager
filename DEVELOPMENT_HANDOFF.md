@@ -1,3 +1,14 @@
+## Unreleased: phase 3 step 1, raw disk targets and receiver command line — 2026-11-25
+
+Phase 3 (HyperCore, Nutanix AHV, Proxmox VE and V2P) runs in parallel with phase 2. Approach: the new VM, or the physical server, boots receiver media and the copy is written straight onto its own disks with the same resumable hashed rounds; at cutover it boots from disk.
+
+- `vmcopy_raw.go`: `vmRawSink` writes a copy onto a `vmBlockDevice` (a Windows physical disk, or a raw image file through `vmImageDevice`). Copy records live in a records folder named from the disk identity. Blank disks only, unless the record exists or overwrite was allowed; target may be larger than the source; sector size checked; verify reads the disk back (`vmVerifyCopy` now takes any `io.ReaderAt`).
+- `vmcopy_raw_windows.go`: lists disks (`vmListPhysicalDisks`: size, sector size, vendor, product, serial, offline, blank, protected), protects the disks holding Windows, this program and the records, and opens `\\.\PhysicalDriveN` for writing after taking it offline for this session.
+- Receiver: `startVMReceiverWith(address, vmReceiverConfig{Folder, Disks, Records})`; `GET /v1/disks` lists raw disks; `disk-N` names open them. `vmReceiverListDisks` is the sender side. Sessions hold a `vmReceiverTarget` (sink plus `State()`).
+- `--receiver` command line (`vmreceiver_cli_windows.go`): `--list-disks`, `--disks 1,2`, `--overwrite-disks`, `--folder`, `--port` (8443), `--records` (LocalAppData, or beside the program in WinPE). Attaches to the starting console.
+- Tests: `vmcopy_raw_test.go` (blank-disk copy, resume, delta including a chunk that became zero, refusals for partition tables, GPT backups, small disks, sector sizes, foreign sources; overwrite clears a larger disk's end; image files; a raw-disk receiver over the network) and `vmcopy_raw_windows_test.go` (attach a VHDX as a disk, copy onto it through `\\.\PhysicalDriveN`, offline check, delta, refusal without a record, system disk refused, bytes compared after detaching).
+- Not yet: receiver boot media, VM creation on HyperCore/Nutanix/Proxmox, and UI. Records in WinPE are on the RAM disk unless `--records` points at persistent storage, so a restarted receiver then needs `--overwrite-disks` and a full pass.
+
 ## Unreleased: interactive VMware Environment view — 2026-11-25
 
 Owner: "the vmhost cluster section should have the hardware info and licensing etc part of the sections and everything should be linked and interactive. also in the readiness section, the number of hosts should be one of the cards and clickable. also each vm in the vm list should be clickable and present details or options directly when selected". Their screenshot showed All VMs 10 beside a list of 14 VMs (the 4 vCenter/vCLS VMs were left out of the card).
