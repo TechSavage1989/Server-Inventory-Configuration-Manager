@@ -11,6 +11,7 @@ User requests: "ids like to add moveing to nutanix, and honestly options for any
 Tests: Go unit tests for every target's readiness, profile completeness, runbook and sizing; `scripts/test_workspace.cjs` covers the select, the Nutanix counts, cloud/physical capacity views, the per-target guest check and the tab label (passed locally with Chromium). Screenshots `migrate-choose`, `migrate-copy`, `vmware-readiness` and `vmware-plan` were recaptured from that run.
 
 Limitations: the new targets' rules come from vendor documentation, not migrations run here; platform detection for Nutanix, Proxmox, Azure and EC2 has not run on those platforms (CI runners are Azure VMs, so `Get-Platform` reports Azure there).
+
 ## Unreleased: code signing in the release workflow — 2026-11-25
 
 Owner request: sign the app with the process set up for Network Toolkit (Azure Artifact Signing over GitHub OIDC; Network Toolkit branch `feat/windows-code-signing`, `docs/CODE_SIGNING_PLAN.md`). `release.yml`'s `publish` job now runs in the `release` environment with `id-token: write` and signs the EXE right after `go build`, so every validation step, the manifest SHA-256 and the published asset are the signed bytes. Signing turns on when `AZURE_CLIENT_ID`, `AZURE_TENANT_ID` and `AZURE_SUBSCRIPTION_ID` are set (unsigned with a warning until then). Owner setup: docs/CODE_SIGNING.md (a federated credential for this repository's `release` environment and the three secrets). Signing client pinned to `sign` 0.9.1-beta.26552.4, the latest listed on nuget.org.
