@@ -53,7 +53,7 @@ type vmTargetProfile struct {
 var vmTargetProfiles = []vmTargetProfile{
 	{
 		ID: vmTargetHyperV, Label: "Hyper-V", Short: "Hyper-V", Kind: vmKindCluster, Family: "hyperv",
-		Tool:         "your migration tool (for example System Center VMM, Veeam Instant Recovery, or StarWind V2V Converter)",
+		Tool:         "this application's Move to Hyper-V (in the VM's details, run on the Hyper-V host), or your migration tool (for example System Center VMM or Veeam Instant Recovery)",
 		StorageLabel: "Cluster Shared Volume or share", NetworkLabel: "virtual switch",
 		LinuxDrivers: "hv_storvsc, hv_netvsc and hv_vmbus",
 		SecureBoot:   "On Hyper-V choose the Microsoft UEFI Certificate Authority Secure Boot template for Linux guests, or turn Secure Boot off for this VM.",

@@ -5,6 +5,15 @@
 - Tests: `vmrepair_test.go` (boot detection, PowerShell result shapes), `vmrepair_windows_test.go` (real VHDX with synthetic hives: Check, failing DISM Apply, Apply, Undo), workspace test for the section.
 - Limitations: DISM injection into a real offline Windows image, and booting fixed-up disks on HyperCore, Nutanix and Proxmox, still need field validation. README screenshots of the Disk converter are refreshed with the remote-destination change that follows.
 
+## Unreleased: where each part runs (source, target and admin computer) — 2026-11-25
+
+The owner asked whether the UI makes clear what runs on the source VM and what on the target. It did not, so:
+- `vmware_roles.go` (untagged): `vmMoveRoles(target)` names each computer in a move (the computer running it, the VMware VM, the receiver for receiver targets, the new machine afterwards) with what runs there and what it needs. The runbook HTML and Word open with this as **Where each part runs**; runbook steps now say where they run, and the Hyper-V runbook includes the Move to Hyper-V copy step (the Hyper-V tool text no longer points only at third-party tools).
+- UI: **Which computer runs what?** (`#vmRoles`, `renderVmRoles`, `vmRoleRows`, which mirrors `vmMoveRoles`) at the top of the VMware tab, with a one-line summary, role cards, the disk path and the Disk copy alternative; the card for this computer is marked when known. **This VM** is renamed **Inside the VM** with a "Runs inside the machine being moved" line. Disk copy gets **Which computer is this?** (`data-diskrole`), which shows only that side, plus a send-to-receive flow line; both sides show until a role is picked. `#vmMove` and `#vmMoveTarget` open with a **Runs on** line and every target step carries a location tag (`vmTargetStep`'s fourth argument).
+- Safety: `vmHyperVHere` (`vmms.exe` and the Hyper-V PowerShell module present) is in the VMware state as `hyperVHere`; Move to Hyper-V now refuses copy and cutover on any other computer before touching vSphere. Before, a move from a workstation copied every disk and, at cutover, shut the VMware guest down before failing to create the VM.
+- Known gap: Disk copy Send writes `.vhdx` names only, so it lands on a Windows receiver, not on a raw-disk receiver booted from receiver media (the replication thread is adding that).
+- Tests: `TestMoveRolesNameEveryComputer`, runbook HTML/Word checks for the new section, and `scripts/test_workspace.cjs` checks for the roles panel, the not-a-Hyper-V-host warning, step tags, the role picker and the renamed view. Screenshots `docs/images/vmware-roles.png` (new), `vmware-move.png`, `vmware-move-target.png` and `vmware-disk-copy.png` recaptured.
+
 ## 3.2.32 published and verified — 2026-11-25
 
 - [Release v3.2.32](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.32) ("Server Inventory and Migration Manager 3.2.32"), tag and target commit `5fa27e1c895f42cee0d7309d9dfaeb2572b73ab8`. Source: phases 2, 3 and 4 of the migration plan (#89, #90, #92, #93, #94, #96, #95, #98, #97, #99), prepared in #100, published by #101. The owner chose to publish on 2026-11-25.

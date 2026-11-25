@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -22,6 +23,26 @@ func (a *application) vmwareCopyRootLocked() string {
 }
 
 var vmHyperVIDPattern = regexp.MustCompile(`^[0-9a-fA-F-]{36}$`)
+
+// vmHyperVHere reports whether this computer can create Hyper-V VMs: the
+// Hyper-V role (its management service) and the Hyper-V PowerShell module.
+// Move to Hyper-V creates the VM on this computer, so it refuses to start
+// anywhere else rather than copy every disk and fail at the cutover.
+func vmHyperVHere() bool {
+	system := os.Getenv("SystemRoot")
+	if system == "" {
+		system = `C:\Windows`
+	}
+	for _, path := range []string{
+		filepath.Join(system, "System32", "vmms.exe"),
+		filepath.Join(system, "System32", "WindowsPowerShell", "v1.0", "Modules", "Hyper-V"),
+	} {
+		if _, err := os.Stat(path); err != nil {
+			return false
+		}
+	}
+	return true
+}
 
 // vmCreateHyperVVM runs the plan's script with the Hyper-V module on this
 // computer and returns the new VM's ID.
@@ -82,6 +103,10 @@ func (a *application) handleVMwareMove(response http.ResponseWriter, request *ht
 	}
 	if !strings.EqualFold(strings.TrimSpace(input.Confirm), target.Name) {
 		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "Type the VM's name exactly to confirm: " + target.Name})
+		return
+	}
+	if !vmHyperVHere() {
+		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "This computer is not a Hyper-V host. Run the application on the Hyper-V host that will run the VM: the disks are written and the VM is created on the computer running the move."})
 		return
 	}
 	if role := vmInfrastructureRole(*target); role != "" || target.Template {

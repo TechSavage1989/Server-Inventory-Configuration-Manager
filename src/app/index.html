@@ -512,7 +512,27 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
 .vm-sizing{margin-top:10px;font-size:12px;color:#334156}.vm-sizing ul{margin:4px 0 0;padding-left:18px}
 .vm-sizing-head{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin-bottom:4px}
 .vm-empty{margin-top:10px;padding:12px;border:1px dashed #cfd8e4;border-radius:9px;background:#fbfcfe;font-size:12px;color:#596b80}
-.vm-two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:10px}
+.vm-two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:10px}.vm-two.vm-one{grid-template-columns:minmax(0,1fr)}
+.vm-roles{margin:0 0 10px;border:1px solid #d6e0ee;border-radius:9px;background:#f7f9fc}
+.vm-roles>summary{cursor:pointer;padding:7px 12px;font-size:12px;color:#334156;line-height:1.45}
+.vm-roles-label{font-weight:700;color:#1b2942;margin-right:6px}.vm-roles-here{font-weight:650;color:#1d4ed8}.vm-roles-here.warn{color:#9a4a07}
+.vm-roles-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:8px;padding:2px 12px 8px}
+.vm-role{padding:9px 10px;border:1px solid #d6e0ee;border-radius:8px;background:#fff;font-size:12px;color:#334156;line-height:1.45}
+.vm-role.here{border-color:#2563eb;box-shadow:0 0 0 1px #2563eb}
+.vm-role h4{margin:2px 0 4px;font-size:12.5px;color:#1b2942}
+.vm-role-tag{display:inline-block;padding:1px 7px;border-radius:999px;background:#e6eefb;color:#1d4ed8;font-size:10.5px;font-weight:700;letter-spacing:.03em}
+.vm-role-tag.you{background:#2563eb;color:#fff;margin-left:4px}
+.vm-role-needs{margin-top:5px;color:#52647c}
+.vm-roles-flow{padding:0 12px 10px;font-size:12px;color:#334156}
+.vm-runs-on{margin:0 0 8px;padding:6px 10px;border-left:3px solid #2563eb;background:#f2f6fd;border-radius:4px;font-size:12px;color:#334156;line-height:1.45}
+.vm-runs-on.warn{border-left-color:#b45309;background:#fff7ed}.vm-lead{font-weight:700;color:#1b2942}
+.vm-step-where{display:inline-block;margin-left:6px;padding:0 6px;border-radius:999px;background:#e6eefb;color:#1d4ed8;font-size:10.5px;font-weight:700;vertical-align:1px}
+.vm-role-pick{display:flex;flex-wrap:wrap;align-items:stretch;gap:8px;margin-top:8px}.vm-role-pick>span{align-self:center;font-weight:700;font-size:12px;color:#1b2942}
+.vm-role-choice{display:flex;flex-direction:column;align-items:flex-start;gap:1px;min-width:200px;padding:7px 12px;border:1px solid #cfd8e4;border-radius:8px;background:#fff;color:#334156;font-size:12px;text-align:left;cursor:pointer}
+.vm-role-choice strong{font-size:12.5px;color:#1b2942}.vm-role-choice[aria-pressed="true"]{border-color:#2563eb;background:#eaf1fe;box-shadow:0 0 0 1px #2563eb}
+.vm-flow{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;margin-top:8px;font-size:12px;color:#334156}
+.vm-flow-box{padding:5px 10px;border:1px solid #d6e0ee;border-radius:7px;background:#fff}.vm-flow-box.here{border-color:#2563eb;box-shadow:0 0 0 1px #2563eb}.vm-flow-box b{color:#1b2942}
+.vm-flow-arrow{color:#52647c;white-space:nowrap}
 .vm-guest-cards{grid-template-columns:repeat(2,minmax(0,1fr))}
 .vm-pick{display:block;margin-top:8px;padding-top:8px;border-top:1px solid #edf1f6}.vm-pick:first-child{border-top:0;padding-top:0}
 .vm-pick-old{font-weight:650;color:#23334b;overflow-wrap:anywhere}
@@ -818,10 +838,11 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       <div class="restore-wrap"><div class="card">
         <div class="card-header"><div><div class="card-title">Move VMs off VMware</div><div class="card-subtitle">Check every VM before moving it to Hyper-V, Scale Computing HyperCore, Nutanix AHV, Proxmox VE, Azure, Amazon EC2 or a physical server, plan the waves, prepare each machine and compare it after the move. vCenter and ESXi are only read, unless you choose to prepare, copy or cut over a VM.</div></div></div>
         <div class="vm-bar">
-          <div class="vm-views" role="group" aria-label="VMware migration views"><button class="vm-view" type="button" data-vmview="env" aria-pressed="true">Environment</button><button class="vm-view" type="button" data-vmview="plan" aria-pressed="false">Plan and runbook</button><button class="vm-view" type="button" data-vmview="guest" aria-pressed="false">This VM</button><button class="vm-view" type="button" data-vmview="disks" aria-pressed="false">Disk copy</button><button class="vm-view" type="button" data-vmview="compare" aria-pressed="false">Before and after</button></div>
+          <div class="vm-views" role="group" aria-label="VMware migration views"><button class="vm-view" type="button" data-vmview="env" aria-pressed="true">Environment</button><button class="vm-view" type="button" data-vmview="plan" aria-pressed="false">Plan and runbook</button><button class="vm-view" type="button" data-vmview="guest" aria-pressed="false">Inside the VM</button><button class="vm-view" type="button" data-vmview="disks" aria-pressed="false">Disk copy</button><button class="vm-view" type="button" data-vmview="compare" aria-pressed="false">Before and after</button></div>
           <div class="vm-target"><label class="vm-target-label" id="vmTargetLabel" for="vmTargetSelect">Moving to</label><select id="vmTargetSelect"><option value="hyperv">Hyper-V</option><option value="scale">Scale Computing HyperCore</option><option value="nutanix">Nutanix AHV</option><option value="proxmox">Proxmox VE (KVM)</option><option value="azure">Microsoft Azure</option><option value="aws">Amazon EC2</option><option value="physical">Physical server (V2P)</option></select></div>
         </div>
         <div class="card-body" id="vmwareBody">
+          <details class="vm-roles" id="vmRoles"><summary><span class="vm-roles-label">Which computer runs what?</span><span id="vmRolesSummary"></span></summary><div class="vm-roles-grid" id="vmRolesGrid"></div><div class="vm-roles-flow" id="vmRolesFlow"></div></details>
           <div class="restore-status" id="vmwareMessage" role="status" aria-live="polite"></div>
           <div id="vmViewEnv">
             <section class="migrate-section" aria-labelledby="vmConnectTitle">
@@ -885,6 +906,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
             </div>
           </div>
           <div class="hidden" id="vmViewGuest">
+            <div class="vm-runs-on"><span class="vm-lead">Runs inside the machine being moved,</span> as administrator: once on VMware before the move, and again after it starts on the new platform. Copy this application into the VM to use it. <span id="vmGuestHere"></span></div>
             <div class="restore-alert danger hidden" id="vmGuestAdmin"><strong>Run the application as administrator on this VM</strong> to record or fix it.</div>
             <section class="migrate-section" aria-labelledby="vmGuestBeforeTitle">
               <h3 class="migrate-section-title" id="vmGuestBeforeTitle">Before cutover: record this VM's settings</h3>
@@ -909,10 +931,12 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
             </section>
           </div>
           <div class="hidden" id="vmViewDisks">
-            <p class="migrate-help">Copy whole disks between computers over the network, for a machine on any hypervisor or a physical server. Run this application on both computers: the new host receives, and the machine being moved sends its own disks. Every disk becomes a VHDX file on the receiving computer, and sending again later sends only what changed.</p>
-            <div class="vm-two">
+            <p class="migrate-help">Copy whole disks between two computers over the network, for a machine on any hypervisor or a physical server. Run this application on both: the machine being moved sends its own disks, and the computer receiving them (usually the new Hyper-V host) saves each one as a VHDX file. Sending again later sends only what changed. To move a VMware VM, use Move in its details on Environment instead: nothing has to run inside it.</p>
+            <div class="vm-role-pick" role="group" aria-label="Which computer is this?"><span>Which computer is this?</span><button class="vm-role-choice" type="button" data-diskrole="send" aria-pressed="false"><strong>The machine being moved</strong>Send its disks</button><button class="vm-role-choice" type="button" data-diskrole="receive" aria-pressed="false"><strong>The computer receiving the disks</strong>Usually the new Hyper-V host</button></div>
+            <div class="vm-flow" aria-label="Where the disks go"><span class="vm-flow-box" id="vmFlowSend"><b>Machine being moved</b>: Send</span><span class="vm-flow-arrow">&rarr; network (HTTPS, port 44380, pairing code) &rarr;</span><span class="vm-flow-box" id="vmFlowReceive"><b>Receiving computer</b>: Receive, saves VHDX files</span></div>
+            <div class="vm-two" id="vmDiskCards">
               <section class="migrate-card" aria-labelledby="vmReceiveTitle">
-                <h4 id="vmReceiveTitle">Receive disks on this computer</h4>
+                <h4 id="vmReceiveTitle">Receive: run on the computer receiving the disks</h4>
                 <div id="vmReceiveIdle">
                   <label class="vm-field">Save received disks in<input id="vmReceiveFolder" type="text" spellcheck="false" autocomplete="off"></label>
                   <label class="vm-field">Port<input id="vmReceivePort" type="text" inputmode="numeric" value="44380" maxlength="5"></label>
@@ -922,17 +946,17 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
                 <div class="hidden" id="vmReceiveRunning">
                   <div class="vm-receive-code"><span class="restore-fact-label">Pairing code</span><strong id="vmReceiveCode"></strong></div>
                   <dl class="vm-kv"><dt>Address</dt><dd id="vmReceiveAddress"></dd><dt>Certificate thumbprint</dt><dd id="vmReceiveThumbprint" class="vm-mono"></dd><dt>Saving in</dt><dd id="vmReceiveSaving"></dd><dt>Sending now</dt><dd id="vmReceiveSessions"></dd></dl>
-                  <p class="vm-note">Type the address, thumbprint and pairing code into Send on the other computer. A new code and certificate are made each time the receiver starts.</p>
+                  <p class="vm-note">On the machine being moved, type this address, thumbprint and pairing code into Send. A new code and certificate are made each time the receiver starts.</p>
                   <div class="migrate-row"><button class="secondary-button" id="vmReceiveStop" type="button">Stop receiving</button><button class="secondary-button" id="vmReceiveOpen" type="button">Open folder</button></div>
                 </div>
                 <div class="migrate-inline-status" id="vmReceiveStatus" role="status" aria-live="polite"></div>
               </section>
               <section class="migrate-card" aria-labelledby="vmSendTitle">
-                <h4 id="vmSendTitle">Send this computer's disks</h4>
+                <h4 id="vmSendTitle">Send: run inside the machine being moved</h4>
                 <div class="restore-alert danger hidden" id="vmSendAdmin"><strong>Run the application as administrator</strong> to read this computer's disks.</div>
                 <div class="migrate-row"><button class="secondary-button" id="vmSendFind" type="button">Find disks</button><span class="vm-note" id="vmSendComputer"></span></div>
                 <div id="vmSendDisks"></div>
-                <label class="vm-field">Receiving computer (name or address, with :port if not 44380)<input id="vmSendAddress" type="text" spellcheck="false" autocomplete="off" placeholder="hv01.example.com"></label>
+                <label class="vm-field">Receiving computer, as shown in its Receive panel (name or address, with :port if not 44380)<input id="vmSendAddress" type="text" spellcheck="false" autocomplete="off" placeholder="hv01.example.com"></label>
                 <label class="vm-field">Certificate thumbprint<input id="vmSendThumbprint" type="text" spellcheck="false" autocomplete="off"></label>
                 <label class="vm-field">Pairing code<input id="vmSendCode" type="password" spellcheck="false" autocomplete="off"></label>
                 <label class="vm-check"><input id="vmSendVerify" type="checkbox" checked> Check every disk against its recorded hashes when it is done</label>
@@ -2354,6 +2378,44 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   var vmTargetList=[{id:'hyperv',name:'Hyper-V',kind:'cluster'},{id:'scale',name:'Scale HyperCore',kind:'cluster'},{id:'nutanix',name:'Nutanix AHV',kind:'cluster'},{id:'proxmox',name:'Proxmox VE',kind:'cluster'},{id:'azure',name:'Azure',kind:'cloud'},{id:'aws',name:'AWS EC2',kind:'cloud'},{id:'physical',name:'a physical server',kind:'physical'}];
   function vmTargetInfo(target){for(var i=0;i<vmTargetList.length;i++){if(vmTargetList[i].id===target){return vmTargetList[i];}}return vmTargetList[0];}
   function vmTargetName(target){return vmTargetInfo(target).name;}
+  // Which computer runs what. Mirrors vmMoveRoles in vmware_roles.go, which
+  // opens the runbook with the same table.
+  var vmReceiverTargets={scale:1,nutanix:1,proxmox:1,physical:1};
+  function vmMachineWord(target){return target==='physical'?'server':(target==='aws'?'instance':'VM');}
+  function vmRoleRows(target){
+    var name=vmTargetName(target),word=vmMachineWord(target);
+    var source={key:'source',tag:'Being moved',where:'The VMware VM being moved',does:'Nothing has to be installed. Optional: run this application inside it as administrator to save BitLocker keys and record its IP settings (Inside the VM) before the move.',needs:'VMware Tools running, so the guest can be quiesced and shut down cleanly.'};
+    var after={key:'after',tag:'After the move',where:'The new '+word+', after it starts',does:'Run this application inside it as administrator (Inside the VM) to put back the IP settings, remove VMware Tools and hidden old adapters and bring disks online. Then collect again and compare (Before and after).',needs:'Its network and storage drivers, installed before the move.'};
+    if(target==='hyperv'){return [{key:'console',tag:'Runs the move',where:'The Hyper-V host that will run the VM',does:'Run this application here as administrator: read vCenter or ESXi, plan, then Copy disks and Cut over in the VM\'s details. The disks are written here as VHDX files and the Hyper-V VM is created here.',needs:'The Hyper-V role and its PowerShell module, HTTPS access to vCenter and the ESXi hosts, and room for the disks.'},source,after];}
+    if(vmReceiverTargets[target]){
+      var physical=target==='physical';
+      return [{key:'console',tag:'Runs the move',where:'Your admin computer or jump box (Windows)',does:'Run this application here: read vCenter or ESXi, plan, build the receiver media, then (in the VM\'s details) '+(physical?'':'connect to '+name+', upload the media, create the VM, ')+'check the receiver, Copy disks and Cut over. The disks pass through this computer on their way to the receiver.',needs:'The Windows ADK and its Windows PE add-on (for the receiver media), HTTPS access to vCenter, the ESXi hosts'+(physical?'':', '+name)+' and the receiver, and a fast link to both.'},
+        source,
+        physical?{key:'receiver',tag:'Receives the disks',where:'The new physical server, while it boots the receiver media',does:'Boot it from the receiver ISO (USB stick or virtual media). It shows its address, pairing code and certificate thumbprint on its console and writes each disk onto a blank disk.',needs:'Blank disks at least as large as the VMware disks, and the storage and network drivers you added to the media.'}
+          :{key:'receiver',tag:'Receives the disks',where:'The new VM on '+name+', while it boots the receiver media',does:'Nothing to install or type: it starts from the receiver ISO, shows its address, pairing code and certificate thumbprint on its console and writes each disk onto its own blank disk.',needs:'Disks at least as large as the VMware disks (created for you) and a network that reaches your admin computer.'},
+        after];
+    }
+    return [{key:'console',tag:'Plans the move',where:'Your admin computer',does:'Run this application here to read vCenter or ESXi and plan. Copy the VM with '+(target==='aws'?'AWS Application Migration Service':'Azure Migrate')+'.',needs:'HTTPS access to vCenter.'},source,after];
+  }
+  function renderVmRoles(){
+    var target=vmTarget(),v=vmwareState()||{},name=vmTargetName(target),computer=vmComputer(),here='',warn=false;
+    var summary={hyperv:'Run this application on the Hyper-V host. Nothing is installed in the VMware VM.',physical:'Run this application on your admin computer; the new server boots the receiver media. Nothing is installed in the VMware VM.',azure:'Plan here, then copy with Azure Migrate.',aws:'Plan here, then copy with AWS Application Migration Service.'}[target]||('Run this application on your admin computer; the new VM on '+name+' boots the receiver media. Nothing is installed in the VMware VM.');
+    if(target==='hyperv'&&v.hyperVHere===true){here='This computer'+(computer?' ('+computer+')':'')+' is a Hyper-V host.';}
+    else if(target==='hyperv'&&v.hyperVHere===false){here='This computer'+(computer?' ('+computer+')':'')+' is not a Hyper-V host: you can read and plan here, but run the move on the Hyper-V host.';warn=true;}
+    var sum=byId('vmRolesSummary');sum.textContent='';sum.appendChild(document.createTextNode(summary+' '));
+    if(here){sum.appendChild(el('span','vm-roles-here'+(warn?' warn':''),here));}
+    var grid=byId('vmRolesGrid');grid.textContent='';
+    vmRoleRows(target).forEach(function(role){
+      var mine=role.key==='console'&&target==='hyperv'&&v.hyperVHere===true,card=el('div','vm-role'+(mine?' here':''));card.setAttribute('data-role',role.key);
+      var tags=el('div','');tags.appendChild(el('span','vm-role-tag',role.tag));if(mine){tags.appendChild(el('span','vm-role-tag you','This computer'));}card.appendChild(tags);
+      card.appendChild(el('h4','',role.where));card.appendChild(el('div','',role.does));card.appendChild(el('div','vm-role-needs','Needs: '+role.needs));grid.appendChild(card);
+    });
+    var flow=byId('vmRolesFlow');flow.textContent='';
+    var path=target==='hyperv'?'VMware datastore \u2192 HTTPS (a vSphere snapshot) \u2192 this application on the Hyper-V host \u2192 VHDX files \u2192 the new Hyper-V VM.'
+      :(vmReceiverTargets[target]?'VMware datastore \u2192 HTTPS (a vSphere snapshot) \u2192 this application on your admin computer \u2192 HTTPS with the pairing code \u2192 the receiver on the new '+vmMachineWord(target)+' \u2192 its own disks.':'');
+    if(path){flow.appendChild(el('span','vm-lead','Disks travel: '));flow.appendChild(document.createTextNode(path+' '));}
+    flow.appendChild(document.createTextNode('Moving a machine that is not on VMware (another hypervisor or a physical server)? Use Disk copy: Send runs inside that machine, Receive runs on the new host.'));
+  }
   function vmReadiness(vm){var list=vmArr(vm.readiness),target=vmTarget();for(var i=0;i<list.length;i++){if(list[i].target===target){return list[i];}}return {target:target,status:'review',findings:[]};}
   function vmChip(status){return el('span','run-chip '+({ready:'run-ready',review:'run-attention',blocked:'run-failed'}[status]||''),vmStatusLabels[status]||status);}
   function vmFind(id){var list=vmInventory?vmArr(vmInventory.vms):[];for(var i=0;i<list.length;i++){if(list[i].id===id){return list[i];}}return null;}
@@ -2389,7 +2451,8 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     if((v.compareSerial||0)!==vmCompareSerial&&!vmCompareLoading){loadVmCompare(v.compareSerial||0);}
     if((v.moveSerial||0)!==vmMoveSerial){vmMoveSerial=v.moveSerial||0;renderVmDetail();}
     if(v.target&&v.target.serial!==vmTargetSerial){vmTargetSerial=v.target.serial;renderVmDetail();}
-    renderVmDiskCopy(state,v);
+    renderVmDiskCopy(state,v);renderVmRoles();
+    byId('vmGuestHere').textContent=vmComputer()?'This computer: '+vmComputer()+'.':'';
     var guestMessage=byId('vmGuestMessage');guestMessage.textContent=v.guestMessage||'';guestMessage.className='migrate-inline-status'+(v.guestError?' error':'');
     byId('vmGuestAdmin').classList.toggle('hidden',!!state.isAdministrator);
     if(v.compareError&&!v.running){vmSetStatus('vmCompareStatus',v.compareError,true);}
@@ -2420,6 +2483,15 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   }
   // Disk copy: this computer receives disks, or sends its own through shadow copies.
   function vmReceiverState(){var v=vmwareState()||{};return v.receiver||{};}
+  var vmDiskRole='';
+  function setVmDiskRole(role){vmDiskRole=vmDiskRole===role?'':role;renderVmDiskRole();}
+  function renderVmDiskRole(){
+    var role=vmDiskRole;
+    Array.prototype.forEach.call(document.querySelectorAll('[data-diskrole]'),function(b){b.setAttribute('aria-pressed',b.getAttribute('data-diskrole')===role?'true':'false');});
+    byId('vmReceiveTitle').parentNode.classList.toggle('hidden',role==='send');byId('vmSendTitle').parentNode.classList.toggle('hidden',role==='receive');
+    byId('vmDiskCards').classList.toggle('vm-one',!!role);
+    byId('vmFlowSend').classList.toggle('here',role==='send');byId('vmFlowReceive').classList.toggle('here',role==='receive');
+  }
   function renderVmDiskCopy(state,v){
     var r=v.receiver||{},running=!!r.running;
     if(vmReceiveWasRunning!==null&&vmReceiveWasRunning!==running){vmSetStatus('vmReceiveStatus','',false);}vmReceiveWasRunning=running;
@@ -2935,6 +3007,11 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       if(last&&last.hyperVId){ul.appendChild(el('li','good','Created on Hyper-V as '+vm.name+(last.hyperV&&last.hyperV.generation?' (generation '+last.hyperV.generation+')':'')+'.'));}
       if(v.moveError){ul.appendChild(el('li','warning',v.moveError));}
       if(ul.childNodes.length){section.appendChild(ul);}}
+    var notHost=v.hyperVHere===false;
+    var where=el('div','vm-runs-on'+(notHost?' warn':''));
+    if(notHost){where.appendChild(el('span','vm-lead','This computer is not a Hyper-V host. '));where.appendChild(document.createTextNode('Run the application on the Hyper-V host that will run the VM and read the inventory there: the disks are written and the VM is created on the computer running the move.'));}
+    else{where.appendChild(el('span','vm-lead','Runs on the Hyper-V host'+(v.hyperVHere?' (this computer)':'')+'. '));where.appendChild(document.createTextNode('The disks are written and the VM is created here. Nothing is installed in the VMware VM.'));}
+    section.insertBefore(where,section.childNodes[1]||null);
     if(!v.canPrepare){section.appendChild(el('div','migrate-help','To copy this VM\'s disks, run this on the Hyper-V host and read the inventory from vCenter or ESXi in this session.'));box.appendChild(section);return;}
     section.appendChild(el('div','migrate-help','Copy while the VM keeps running, as often as you like; each copy after the first sends only what changed. Cut over when ready: the guest is shut down, the last changes are copied and the Hyper-V VM is created on the copied disks. The VMware VM is left powered off, so going back is starting it again.'));
     var folder=document.createElement('input');folder.type='text';folder.id='vmMoveFolder';folder.setAttribute('aria-label','Folder for the copied disks');folder.placeholder=(v.moveCopyRoot||'VMware-Copies')+'\\'+vm.name;folder.maxLength=260;
@@ -2945,7 +3022,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     if(unmapped.length){section.appendChild(el('div','migrate-detail','No Hyper-V switch is named for '+unmapped.join(', ')+' in the plan\'s network map; those adapters are added disconnected.'));}
     var body=function(action){return {vmId:vm.id,action:action,copyFolder:trimText(folder.value),vmFolder:trimText(vmFolder.value),quiesce:checks.quiesce.checked,keepMac:checks.keepMac.checked,start:checks.start.checked};};
     var row=el('div','vm-move-actions'),copy=el('button','secondary-button',last&&!last.cutover?'Copy changes\u2026':'Copy disks\u2026'),cut=el('button','secondary-button','Cut over\u2026');
-    copy.type='button';copy.id='vmMoveCopy';copy.disabled=vmLocked();cut.type='button';cut.id='vmMoveCutover';cut.disabled=vmLocked();
+    copy.type='button';copy.id='vmMoveCopy';copy.disabled=vmLocked()||notHost;cut.type='button';cut.id='vmMoveCutover';cut.disabled=vmLocked()||notHost;
     copy.addEventListener('click',function(){
       openMigrateDialog({title:'Copy '+vm.name,path:'/api/vmware/move',field:'confirm',body:body('copy'),expected:vm.name,label:"Type the VM's name to confirm",button:'Copy disks',
         paragraphs:['The VM keeps running. vSphere will:'],list:['turn on changed block tracking for this VM, if it is off','take a snapshot named "Server Inventory and Migration Manager replication" and remove it when the copy ends','copy each disk to a VHDX file in '+(trimText(folder.value)||folder.placeholder)],
@@ -2977,7 +3054,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   function vmTargetCheck(key,label,fallback){var wrap=el('label','vm-check'),input=document.createElement('input');input.type='checkbox';input.setAttribute('data-vm-target',key);
     input.checked=vmTargetForm.hasOwnProperty(key)?!!vmTargetForm[key]:!!fallback;vmTargetForm[key]=input.checked;input.addEventListener('change',function(){vmTargetForm[key]=input.checked;});wrap.appendChild(input);wrap.appendChild(el('span','',label));return wrap;}
   function vmTargetButton(id,text,handler){var b=el('button','secondary-button',text);b.type='button';b.id=id;b.disabled=vmLocked();b.addEventListener('click',handler);return b;}
-  function vmTargetStep(section,title,help){var step=el('div','vm-target-step');step.appendChild(el('strong','',title));if(help){step.appendChild(el('div','migrate-help',help));}section.appendChild(step);return step;}
+  function vmTargetStep(section,title,help,where){var step=el('div','vm-target-step'),head=el('strong','',title);if(where){head.appendChild(el('span','vm-step-where',where));}step.appendChild(head);if(help){step.appendChild(el('div','migrate-help',help));}section.appendChild(step);return step;}
   function vmTargetList_(text){return String(text||'').split(/[;\r\n]+/).map(trimText).filter(function(x){return x;});}
   function renderVmMoveTarget(box,vm,r){
     var target=vmTarget(),v=vmwareState()||{},t=v.target||{};
@@ -2985,10 +3062,11 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     var label=vmTargetName(target),creatable=!!vmTargetCreatable[target],connected=!!(t.connected&&t.platform===target);
     var section=el('div','vm-prepare');section.id='vmMoveTarget';section.appendChild(el('strong','',target==='physical'?'Move this VM to a physical server':'Move this VM to '+label));
     section.appendChild(el('div','migrate-help',(target==='physical'?'The new server boots receiver media and':'The new VM is created on '+label+', boots receiver media and')+' receives each disk straight onto its own disk. Copy while the VMware VM keeps running, as often as you like; each copy after the first sends only what changed. At the cutover the guest is shut down, the last changes are copied'+(target==='physical'?' and you restart the server from its own disk.':' and the new VM starts from its own disk.')+' The VMware VM is left powered off, so going back is starting it again.'));
+    var where=el('div','vm-runs-on');where.appendChild(el('span','vm-lead','Runs on this computer, your admin computer or jump box. '));where.appendChild(document.createTextNode('It must reach vCenter, '+(creatable?label+', ':'')+'and the receiver on the new '+(target==='physical'?'server':'VM')+'; the disks pass through it. Nothing is installed in the VMware VM.'));section.insertBefore(where,section.childNodes[1]||null);
     var status=el('div','migrate-inline-status'+(t.failed?' error':''),t.message||'');status.id='vmTargetStatus';section.appendChild(status);
     var created=t.created&&t.created[vm.id],receiver=t.receivers&&t.receivers[vm.id],last=v.move&&v.move.vm===vm.name?v.move:null;
     if(creatable){
-      var c=vmTargetStep(section,'1. Connect to '+label,target==='proxmox'?'Use an API token (Datacenter > Permissions > API Tokens) with VM and storage rights. The secret stays in memory until Forget or exit.':'The password stays in memory until Forget or exit.');
+      var c=vmTargetStep(section,'1. Connect to '+label,target==='proxmox'?'Use an API token (Datacenter > Permissions > API Tokens) with VM and storage rights. The secret stays in memory until Forget or exit.':'The password stays in memory until Forget or exit.','From this computer');
       c.appendChild(vmTargetInput('server',target==='nutanix'?'Prism Central':(target==='proxmox'?'Proxmox VE host':'HyperCore cluster'),connected?t.server:'',{placeholder:target==='nutanix'?'prism-central.example.com':(target==='proxmox'?'pve1.example.com':'hypercore.example.com')}));
       c.appendChild(vmTargetInput('user',target==='proxmox'?'API token ID':'User name',connected?t.user:'',{placeholder:target==='proxmox'?'migrate@pve!move':'admin'}));
       c.appendChild(vmTargetInput('password',target==='proxmox'?'Token secret':'Password','',{type:'password',placeholder:connected?'Held for this session':''}));
@@ -3001,7 +3079,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       c.appendChild(crow);
       if(connected&&t.inventory){c.appendChild(el('div','migrate-detail good','Connected to '+t.server+': '+(t.inventory.version||label)+'.'));}
     }
-    var m=vmTargetStep(section,(creatable?'2. ':'1. ')+'Receiver media','Builds a Windows PE ISO with this program as the receiver, using the Windows ADK and its Windows PE add-on on this computer. Add the drivers the new machine needs to see its disks and network: the VirtIO drivers (virtio-win) for '+label+(target==='physical'?' guests, or the server vendor\'s storage and network drivers':'')+'.');
+    var m=vmTargetStep(section,(creatable?'2. ':'1. ')+'Receiver media','Builds a Windows PE ISO with this program as the receiver, using the Windows ADK and its Windows PE add-on on this computer. Add the drivers the new machine needs to see its disks and network: the VirtIO drivers (virtio-win) for '+label+(target==='physical'?' guests, or the server vendor\'s storage and network drivers':'')+'.','On this computer');
     m.appendChild(vmTargetInput('drivers','Driver folders (separate with ;)',target==='physical'?'':'',{placeholder:target==='physical'?'D:\\Drivers\\Server':'D:\\virtio-win\\amd64\\2k22'}));
     var mrow=el('div','vm-move-actions');
     mrow.appendChild(vmTargetButton('vmTargetMedia','Build receiver media',function(){
@@ -3016,7 +3094,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       var upload=vmTargetButton('vmTargetUpload','Upload to '+label,function(){vmPost('/api/vmware/target/upload',{path:trimText(vmTargetForm.isoPath),name:trimText(vmTargetForm.isoName)},'vmTargetStatus',function(err){if(!err){vmMarkRunning('upload','uploading','Uploading the receiver media.');}});});
       upload.disabled=upload.disabled||!connected;m.appendChild(upload);
       if(t.iso&&connected){m.appendChild(el('div','migrate-detail good','Uploaded: '+t.iso));}
-      var k=vmTargetStep(section,'3. Create the VM','Same CPUs, memory, firmware and disks as on VMware (disk sizes round up). Nothing is changed if a VM with this name already exists.');
+      var k=vmTargetStep(section,'3. Create the VM','Same CPUs, memory, firmware and disks as on VMware (disk sizes round up). Nothing is changed if a VM with this name already exists.','On '+label);
       if(created){k.appendChild(el('div','migrate-detail good','Created on '+vmTargetName(created.platform)+' as '+created.vm.name+' ('+created.vm.id+')'+(created.cutOver?', cut over.':'.')));}
       k.appendChild(vmTargetInput('name','New VM name',vm.name,{max:63}));
       var inv=t.inventory||{},storages=vmArr(inv.storages),networks=vmArr(inv.networks);
@@ -3039,7 +3117,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       });
       create.disabled=create.disabled||!connected||!t.iso;k.appendChild(create);
     }
-    var rc=vmTargetStep(section,(creatable?'4. ':'2. ')+'Receiver',target==='physical'?'Boot the new server from the receiver media (for example through its out-of-band console). Its screen shows the address, pairing code and thumbprint.':'Open the new VM\'s console. The receiver shows its address, pairing code and thumbprint.');
+    var rc=vmTargetStep(section,(creatable?'4. ':'2. ')+'Receiver',target==='physical'?'Boot the new server from the receiver media (for example through its out-of-band console). Its screen shows the address, pairing code and thumbprint. Type them here.':'Open the new VM\'s console on '+label+'. The receiver shows its address, pairing code and thumbprint. Type them here.',target==='physical'?'On the new server\'s console':'On the new VM\'s console');
     rc.appendChild(vmTargetInput('address','Receiver address (host:port)',receiver?receiver.link.address:'',{placeholder:'192.0.2.50:8443'}));
     rc.appendChild(vmTargetInput('code','Pairing code','',{placeholder:receiver?'Held for this session':'ABCDE-FGHIJ-KLMNO-PQRST',max:40}));
     rc.appendChild(vmTargetInput('thumbprint','Thumbprint',receiver?receiver.link.thumbprint:'',{max:120}));
@@ -3047,7 +3125,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       vmPost('/api/vmware/target/receiver',{vmId:vm.id,address:trimText(vmTargetForm.address),code:trimText(vmTargetForm.code),thumbprint:trimText(vmTargetForm.thumbprint)},'vmTargetStatus',function(err){if(!err){vmTargetForm.code='';}});
     }));
     if(receiver){var ul=el('ul','vm-findings');vmArr(receiver.mapping).forEach(function(name,i){var d=vmArr(vm.disks)[i]||{},rd=vmArr(receiver.disks).filter(function(x){return x.name===name;})[0]||{};ul.appendChild(el('li','good',(d.label||'Disk '+(i+1))+' ('+formatBytesShort(d.capacityBytes)+') goes to '+name+(rd.label?', '+rd.label:'')+' ('+formatBytesShort(rd.size)+').'));});rc.appendChild(ul);}
-    var mv=vmTargetStep(section,(creatable?'5. ':'3. ')+'Copy and cut over','');
+    var mv=vmTargetStep(section,(creatable?'5. ':'3. ')+'Copy and cut over','','From this computer: vCenter to the receiver');
     if(last){var lu=el('ul','vm-findings');if(last.round){vmArr(last.round.disks).forEach(function(d){lu.appendChild(el('li','good',d.label+': '+({seed:'first copy of the used areas',changed:'changed blocks only',full:'full pass'}[d.mode]||d.mode)+' to '+d.target+', '+formatBytesShort(d.bytesWritten)+' written'+(d.verified?', verified':'')+'.'));});}if(v.moveError){lu.appendChild(el('li','warning',v.moveError));}if(lu.childNodes.length){mv.appendChild(lu);}}
     if(!v.canPrepare){mv.appendChild(el('div','migrate-help','To copy, read the inventory from vCenter or ESXi in this session.'));}
     mv.appendChild(vmTargetCheck('quiesce','Quiesce the guest for each copy (VMware Tools, VSS in Windows)',!!vm.toolsRunning));
@@ -3094,7 +3172,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       if(!names.length){vmSetStatus('vmwareMessage','Choose at least one step.',true);return;}
       var paragraphs=['vSphere will run these steps on '+vm.name+' in this order:'];
       var alert='';
-      if(chosen.removeTpm&&windows){alert='Before removing the virtual TPM, save the BitLocker recovery keys and suspend BitLocker inside Windows (This VM view: Save BitLocker keys). Otherwise Windows asks for the recovery key at the next start.';}
+      if(chosen.removeTpm&&windows){alert='Before removing the virtual TPM, save the BitLocker recovery keys and suspend BitLocker inside Windows (Inside the VM view: Save BitLocker keys). Otherwise Windows asks for the recovery key at the next start.';}
       if(chosen.decrypt){paragraphs.push('Decrypting rewrites every encrypted disk and needs the key provider online.');}
       openMigrateDialog({title:'Prepare '+vm.name,path:'/api/vmware/prepare',field:'confirm',body:{vmId:vm.id,steps:chosen},expected:vm.name,label:"Type the VM's name to confirm",button:'Prepare VM',alert:alert,paragraphs:paragraphs,list:names,
         after:function(){vmMarkRunning('prepare','preparing','Preparing '+vm.name+'.');}});
@@ -3208,7 +3286,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     if(target===vmTarget()){return;}
     vmTargetLocal=target;
     if(vmPlan){vmPlan.target=target;saveVmPlan(null,'Plan saved for '+vmTargetName(target)+'.');}
-    renderVmSummary(vmwareState()||{});renderVmTable();renderVmPlan();renderVmGuest();
+    renderVmSummary(vmwareState()||{});renderVmTable();renderVmPlan();renderVmGuest();renderVmRoles();
   }
   // ---- This VM ----
   function loadVmGuest(serial){
@@ -3347,6 +3425,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     logs.forEach(function(line){var u=String(line.text||'').toUpperCase();fragment.appendChild(el('div',u.indexOf('[ERROR]')>=0?'log-line-error':(u.indexOf('[WARN')>=0?'log-line-warn':''),line.text));});
     log.appendChild(fragment);if(follow){log.scrollTop=log.scrollHeight;}
   }
+  Array.prototype.forEach.call(document.querySelectorAll('[data-diskrole]'),function(b){b.addEventListener('click',function(){setVmDiskRole(b.getAttribute('data-diskrole'));});});
   Array.prototype.forEach.call(document.querySelectorAll('[data-vmview]'),function(b){b.addEventListener('click',function(){setVmView(b.getAttribute('data-vmview'));});});
   Array.prototype.forEach.call(document.querySelectorAll('[data-vmfilter]'),function(b){b.addEventListener('click',function(){setVmFilter(b.getAttribute('data-vmfilter'));});});
   byId('vmTargetSelect').addEventListener('change',function(){changeVmTarget(this.value);});
