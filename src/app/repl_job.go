@@ -221,6 +221,9 @@ type replJob struct {
 	throttle *vmThrottle
 	logs     []string
 	cutover  bool // a cutover was asked for
+	// pending is a change saved while a round ran: the round is stopped and
+	// the change applied the moment it ends (applyPendingLocked).
+	pending *replJobSpec
 	// interrupted: the agent's previous run ended during this job's round.
 	interrupted bool
 }
@@ -540,7 +543,10 @@ func (a *replAgent) Log(id string) ([]string, error) {
 	return append([]string(nil), job.logs...), nil
 }
 
-// SaveJob creates a job or changes one that is not running a round.
+// SaveJob creates a job or changes one. Changing a job that is running a
+// round stops that round and applies the change the moment it ends, then a
+// new round starts with the new settings (unless the job is paused), so the
+// operator never has to pause first or save twice.
 func (a *replAgent) SaveJob(spec replJobSpec) (replJobView, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -549,8 +555,8 @@ func (a *replAgent) SaveJob(spec replJobSpec) (replJobView, error) {
 		if existing = a.jobs[spec.ID]; existing == nil {
 			return replJobView{}, errors.New("there is no such job")
 		}
-		if existing.running || existing.status.State == replStateCutover {
-			return replJobView{}, errors.New("the job is running a round; pause it before changing it")
+		if existing.status.State == replStateCutover || existing.cutover {
+			return replJobView{}, errors.New("the job is cutting over; wait for the cutover to finish")
 		}
 		if existing.status.State == replStateCutDone {
 			return replJobView{}, errors.New("the job has been cut over; create a new job to replicate again")
@@ -580,6 +586,30 @@ func (a *replAgent) SaveJob(spec replJobSpec) (replJobView, error) {
 			}
 		}
 	}
+	if existing != nil && existing.running {
+		pending := spec
+		existing.pending = &pending
+		if existing.cancel != nil {
+			existing.cancel()
+		}
+		existing.status.Message = "Stopping the current round to apply your change. A new round starts with the new settings; it resumes where this one stopped."
+		a.logLocked(existing, "A change was saved during a round; the round is being stopped so the change can be applied.")
+		view := a.viewLocked(existing, a.now())
+		view.Spec = pending
+		view.Spec.Receiver.Code = ""
+		view.HasCode = pending.Receiver.Code != ""
+		return view, nil
+	}
+	a.applySpecLocked(existing, spec)
+	if err := a.saveLocked(); err != nil {
+		return replJobView{}, err
+	}
+	return a.viewLocked(a.jobs[spec.ID], a.now()), nil
+}
+
+// applySpecLocked stores spec as the job's settings, creating the job when
+// job is nil. Caller holds a.mu.
+func (a *replAgent) applySpecLocked(existing *replJob, spec replJobSpec) {
 	if existing == nil {
 		existing = &replJob{status: replJobStatus{State: replStateNeverRun, Message: "Waiting for its first round.", RescanNext: spec.RescanFirst}}
 		a.jobs[spec.ID] = existing
@@ -594,10 +624,27 @@ func (a *replAgent) SaveJob(spec replJobSpec) (replJobView, error) {
 	if existing.status.State == replStateError {
 		existing.status.NextRun = time.Time{} // try the new settings now
 	}
-	if err := a.saveLocked(); err != nil {
-		return replJobView{}, err
+}
+
+// applyPendingLocked applies a change saved during the round that just
+// ended and starts the next round now with it, unless the job is paused.
+// Caller holds a.mu.
+func (a *replAgent) applyPendingLocked(job *replJob) {
+	if job.pending == nil {
+		return
 	}
-	return a.viewLocked(existing, a.now()), nil
+	spec := *job.pending
+	job.pending = nil
+	if job.status.State == replStateCutDone {
+		return
+	}
+	a.applySpecLocked(job, spec)
+	if job.status.State != replStatePaused {
+		job.status.State, job.status.NextRun = replStateIdle, time.Time{}
+		job.status.Message = "Changed. A new round starts with the new settings."
+	} else {
+		job.status.Message = "Changed. Resume to replicate with the new settings."
+	}
 }
 
 func replDescribeSpec(spec replJobSpec) string {
@@ -862,6 +909,7 @@ func (a *replAgent) startLocked(job *replJob, cutover bool) {
 				job.status.State = replStateError
 				job.status.NextRun = a.now().Add(5 * time.Minute).UTC()
 				job.status.Message = "The agent hit an internal error; it tries again at " + job.status.NextRun.Format("15:04") + " UTC."
+				a.applyPendingLocked(job)
 				a.saveLocked()
 				a.mu.Unlock()
 			}
@@ -1059,6 +1107,7 @@ func (a *replAgent) runRound(ctx context.Context, job *replJob, spec replJobSpec
 			a.alertLocked(job, "error", "failing", fmt.Sprintf("%s has failed %d rounds in a row: %s", spec.Name, job.status.Failures, err.Error()))
 		}
 	}
+	a.applyPendingLocked(job)
 	a.saveLocked()
 	return err == nil
 }

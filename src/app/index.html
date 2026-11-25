@@ -1304,6 +1304,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
             <dl class="vm-kv" id="rpDetailsFacts"></dl>
             <table class="vm-table rp-disk-table"><thead><tr><th scope="col">Disk</th><th scope="col">Goes to</th><th scope="col">Size</th><th scope="col">This round</th><th scope="col">Speed</th><th scope="col">Time left</th><th scope="col">Verified</th></tr></thead><tbody id="rpDetailsDisks"></tbody></table>
             <div class="migrate-row"><button class="secondary-button" id="rpSync" type="button">Sync now</button><button class="secondary-button" id="rpPause" type="button">Pause</button><button class="secondary-button" id="rpRescan" type="button">Rescan the receiver</button><button class="secondary-button" id="rpEdit" type="button">Change</button><button class="secondary-button" id="rpClear" type="button">Clear alerts</button><button class="secondary-button" id="rpLogButton" type="button">Show log</button><button class="secondary-button" id="rpDetailsClose" type="button">Close</button></div>
+            <p class="vm-note hidden" id="rpButtonsReason"></p>
             <p class="migrate-help">Rescan after a test failover started the new machine from its disks, or when the receiver writes onto disks that already hold a copy (a failback to the original server): the next round then sends only what differs.</p>
             <div class="hidden" id="ttSection">
               <div class="rp-subhead">Test failover on the target platform</div>
@@ -4907,7 +4908,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     if(spec.receiver.code&&spec.receiver.code.replace(/[\s-]/g,'').length!==20){vmSetStatus('rpJobStatus','Type the 20-character pairing code the receiver shows.',true);return;}
     Array.prototype.forEach.call(document.querySelectorAll('[data-rp-disk]:checked'),function(i){var id=i.getAttribute('data-rp-disk');spec.disks.push({source:id,target:trimText(byId('rpJobDisks').querySelector('[data-rp-target="'+id+'"]').value)});});
     if(!spec.disks.length){vmSetStatus('rpJobStatus','Choose at least one disk to replicate.',true);return;}
-    rpPost('/api/repl/job',{agent:rpEditing.agent,action:'save',spec:spec},'rpJobStatus',function(err,data){if(err){return;}var agent=rpEditing.agent;rpEditing=null;byId('rpEditor').classList.add('hidden');byId('rpRecvCode').value='';if(data.job&&data.job.spec){rpDetail={agent:agent,id:data.job.spec.id};byId('rpDetails').classList.remove('hidden');vmSetStatus('rpDetailsStatus','Saved. The first round starts within a few seconds; it copies every disk once, then only what changes.',false);}});
+    rpPost('/api/repl/job',{agent:rpEditing.agent,action:'save',spec:spec},'rpJobStatus',function(err,data){if(err){return;}var agent=rpEditing.agent;rpEditing=null;byId('rpEditor').classList.add('hidden');byId('rpRecvCode').value='';if(data.job&&data.job.spec){rpDetail={agent:agent,id:data.job.spec.id};byId('rpDetails').classList.remove('hidden');var job=data.job,msg=!spec.id?'Saved. The first round starts within a few seconds; it copies every disk once, then only what changes.':(job.status&&job.status.state==='paused'?'Changed. The job is still paused: choose Resume to replicate with the new settings.':(/Stopping the current round/.test((job.status&&job.status.message)||'')?'Changed. The running round is being stopped; a new round starts with the new settings and resumes where it stopped.':'Changed. The next round uses the new settings.'));vmSetStatus('rpDetailsStatus',msg,false);}});
   }
   function checkRpReceiver(){
     rpPost('/api/repl/agent',{action:'receiverdisks',address:trimText(byId('rpRecvAddress').value),thumbprint:trimText(byId('rpRecvThumbprint').value).replace(/[\s:]/g,''),code:trimText(byId('rpRecvCode').value)},'rpJobStatus',function(err,data){
@@ -5040,7 +5041,17 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     byId('rpAdd').disabled=rpBusy||!trimText(byId('rpAddAddress').value)||!trimText(byId('rpAddThumbprint').value)||!trimText(byId('rpAddKey').value);
     byId('rpJobSave').disabled=rpBusy||!rpDisks;byId('rpRecvCheck').disabled=rpBusy||!trimText(byId('rpRecvAddress').value)||!trimText(byId('rpRecvThumbprint').value)||!trimText(byId('rpRecvCode').value);
     var j=rpDetail&&rpJob(rpDetail.agent,rpDetail.id),st=(j&&j.status)||{},done=st.state==='cut-over',busy=st.state==='cutting-over',typed=j&&trimText(byId('rpCutoverTyped').value).toLowerCase()===String(j.spec.name).toLowerCase();
-    ['rpSync','rpRescan','rpEdit'].forEach(function(id){byId(id).disabled=rpBusy||!j||done||busy||st.state==='paused';});
+    var paused=st.state==='paused',reasons=[];
+    // Change works while a round runs (the agent stops the round, applies the change and starts again) and while paused.
+    byId('rpEdit').disabled=rpBusy||!j||done||busy;
+    byId('rpRescan').disabled=rpBusy||!j||done||busy;
+    byId('rpSync').disabled=rpBusy||!j||done||busy||paused;
+    if(j&&done){reasons.push('This job has been cut over, so it no longer replicates. Create a new job to replicate again.');}
+    else if(j&&busy){reasons.push('Change, Sync now, Rescan and Pause are off while the job cuts over. They come back if the cutover fails and is rolled back.');}
+    else if(j&&paused){reasons.push('Sync now is off because the job is paused: choose Resume to replicate again. Change still works while paused.');}
+    if(j&&!done&&!busy&&!st.rounds){reasons.push('Cutover is off until the first round has finished.');}
+    else if(j&&!done&&!busy&&!typed){reasons.push('Type the job name in the cutover box to turn on Cut over and Delete.');}
+    byId('rpButtonsReason').textContent=reasons.join(' ');byId('rpButtonsReason').classList.toggle('hidden',!reasons.length);
     byId('rpPause').disabled=rpBusy||!j||done||busy;byId('rpClear').disabled=rpBusy||!j;byId('rpLogButton').disabled=rpBusy||!j;
     byId('rpCutover').disabled=rpBusy||!j||done||busy||!st.rounds||!typed;byId('rpSchedule').disabled=byId('rpCutover').disabled||!byId('rpCutoverAt').value;
     byId('rpUnschedule').disabled=rpBusy||!j||!j.spec.cutoverAt;byId('rpDelete').disabled=rpBusy||!j||busy||!typed;

@@ -17,6 +17,13 @@
 - The initial copy is a milestone: the agent records `initialCopyAt` and writes information event 1005 (1004 is the stopped alert); the job row says "Initial copy complete, ready to cut over" with the time and Test failover and Cut over buttons, and the console shows a notice. The guide adds endpoint protection exclusions before installing the agent and a wait for the initial copy before testing.
 - Tested: `go test ./src/app` (Linux), `go vet` for Linux and Windows, and the full `scripts/test_workspace.cjs` in headless Chromium with synthetic state. Not yet field-validated: `Add-ClusterVirtualMachineRole` on a real cluster, CSV detection and the WMI default-path read on a real Hyper-V host.
 
+## Unreleased: change a replication job in one click — 2026-11-25
+
+- Field report: Change was greyed out while a job was paused, and Save refused ("pause it before changing it") until the cancelled round had finished releasing its shadow copies, so the owner had to open Change during a round, Pause, then press Save several times. Pause cancels the round asynchronously and `running` stays true until the round's cleanup ends; Save raced that.
+- `SaveJob` now accepts a change during a round: it validates it, stores it as `replJob.pending`, cancels the round, and `applyPendingLocked` applies it when the round ends (normal end, failure or recovered panic) and starts a new round with the new settings unless the job is paused. A paused job changes at once and stays paused. Only cutover and cut-over jobs refuse changes.
+- The console keeps Change and Rescan enabled while paused, disables Sync now while paused, and `#rpButtonsReason` says why each disabled button is off. The Save message says whether the change applies now, after the round stops, or after Resume.
+- Test: `TestReplicationJobChangeDuringARoundTakesOneSave`.
+
 ## Unreleased: replication agent safe with endpoint protection — 2026-11-25
 
 - Field report: on Windows Server 2022, SentinelOne ended the 3.2.33 agent mid-copy and quarantined `SIMM-Agent.exe` ("Lateral movement: Shadow Copy Deletion detected", Ransomware). The agent took each shadow copy with hidden PowerShell (`-ExecutionPolicy Bypass`, WMI `Win32_ShadowCopy.Create`) and deleted it with `Win32_ShadowCopy.Delete()`, inside a service created remotely by push install. The console then showed the job as "Sending changes" with the agent "Not answering" (connection refused).
