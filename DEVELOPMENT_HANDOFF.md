@@ -1,3 +1,7 @@
+## 3.2.34 release preparation — 2026-11-25
+
+Combined release of #115 (one Migration and replication area, guided migration, live transfers, receiver discovery), #116 (endpoint protection: SentinelOne quarantined the 3.2.33 agent), #117 (one-click job changes) and #118 (tracking test diagnostic). This branch bumps `appVersion`, `collectorVersion` and the collector `$scriptVersion` to 3.2.34, adds `docs/release-notes/3.2.34.md` (first three bullets free of Markdown) and points `scripts/test_published_upgrade.cjs` and AGENTS.md at the published v3.2.33 executable (SHA-256 `4ffe389e3c8ad41ad6b5686c1b434f81c7f5d5ae3d765896fbef61b1dc12ea94`). The first signed-script release: the workflow signs the non-baseline embedded scripts before `go build`.
+
 ## Unreleased: receiver discovery and pairing by approval — 2026-11-25
 
 - Senders find receivers on the same network (UDP 44379, one find request per adapter, or one typed computer across subnets) and pick one; the address and thumbprint fill in. AGENTS.md rule 37.
