@@ -1,6 +1,13 @@
 ## 3.2.33 release preparation — 2026-11-25
 
-Combined release of replication, test failover and the disk converter work (#103, #104, #105, #106, #107, #109, #110, #111, and #108 once merged). The owner chose "Publish 3.2.33 now" on the release card. This branch bumps `appVersion`, `collectorVersion` and the collector `$scriptVersion` to 3.2.33, adds `docs/release-notes/3.2.33.md` (first three bullets free of Markdown) and points `scripts/test_published_upgrade.cjs` and AGENTS.md at the published v3.2.32 executable (SHA-256 `7b1684bb0d506360ac99e06acbe2b500bcbc55a98d9cda7a985c447ca1a3a22d`).
+Combined release of replication, test failover and the disk converter work (#103, #104, #105, #106, #107, #109, #108, #110, #111). The owner chose "Publish 3.2.33 now" on the release card. This branch bumps `appVersion`, `collectorVersion` and the collector `$scriptVersion` to 3.2.33, adds `docs/release-notes/3.2.33.md` (first three bullets free of Markdown) and points `scripts/test_published_upgrade.cjs` and AGENTS.md at the published v3.2.32 executable (SHA-256 `7b1684bb0d506360ac99e06acbe2b500bcbc55a98d9cda7a985c447ca1a3a22d`).
+
+## Unreleased: phase 4 step 3, copying running Hyper-V VMs through checkpoints — 2026-11-25
+
+- A VM read from a Hyper-V host now has **Copy disks** and **Cut over** for every target. Each round creates the checkpoint "Server Inventory and Migration Manager copy", copies the frozen disks with the disk readers (delta passes against the copy record), and removes the checkpoint even when the round fails or is stopped. Cutover shuts the guest down through the shutdown integration service, copies without a checkpoint and verifies.
+- Code: `src/app/hyperv_move.go`, `hyperv_move_windows.go`, `Move-HyperVVM.ps1`; `runMoveRound` dispatches by source in `vmware_move_windows.go` and `vmware_target_windows.go`. UI in `renderVmMove` and `renderVmMoveTarget` (`index.html`).
+- Tests: `go test ./src/app -run HyperV` (fake host, real VHDX files: full, delta with a cleared chunk, verified cutover, refusals, checkpoint removal on failure and cancel); `TestMoveHyperVScriptOnThisComputer` on Windows; the Hyper-V check in `scripts/test_workspace.cjs`.
+- Limitation: GitHub runners have no Hyper-V role. Real checkpoints, remote WMI access and the guest shutdown need a field test on a Hyper-V host before customer use.
 
 ## Unreleased: change tracking follows files whose data moved — 2026-11-25
 

@@ -321,7 +321,8 @@ func (a *application) vmwareTargetVM(response http.ResponseWriter, id, confirm s
 	a.mu.Lock()
 	inventory, server, password := a.vmware.inventory, a.vmware.server, a.vmware.password
 	a.mu.Unlock()
-	if inventory == nil || (needLive && (password == "" || !strings.EqualFold(inventory.Server, server))) {
+	hyperVSource := inventory != nil && strings.EqualFold(inventory.ServerType, hypervServerType)
+	if inventory == nil || (needLive && !hyperVSource && (password == "" || !strings.EqualFold(inventory.Server, server))) {
 		vmTargetFail(response, http.StatusBadRequest, "Read the inventory from vCenter or ESXi in this session first.")
 		return nil, "", false
 	}
@@ -506,7 +507,10 @@ func (a *application) handleVMTargetMove(response http.ResponseWriter, request *
 		defer cancel()
 		log := func(text string) { a.vmwareLog("%s", text) }
 		records := filepath.Join(a.vmwareRoot(), safeName(strings.ToLower(server)), "Move")
-		result, err := vmMoveRound(ctx, vmConnectOptions{Server: server, User: user, Password: password, Thumbprint: thumbprint, UserAgent: displayName + " " + appVersion, AppVersion: appVersion},
+		a.mu.Lock()
+		inventory := a.vmware.inventory
+		a.mu.Unlock()
+		result, err := a.runMoveRound(ctx, inventory, *vm, vmConnectOptions{Server: server, User: user, Password: password, Thumbprint: thumbprint, UserAgent: displayName + " " + appVersion, AppVersion: appVersion},
 			vmMoveRequest{VMID: vm.ID, Name: vm.Name, Datacenter: vm.Datacenter, Quiesce: input.Quiesce, Cutover: input.Action == "cutover", RecordFolder: records, NewSink: receiver.Link.sinkFactory(ctx, receiver.Mapping)}, log)
 		password = ""
 		finished := ""
