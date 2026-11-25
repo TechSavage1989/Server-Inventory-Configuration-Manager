@@ -39,3 +39,20 @@ func TestDiskCopyNamesAndAddresses(t *testing.T) {
 		}
 	}
 }
+
+func TestAgentTargetNamesMapDisksToRawReceiverDisks(t *testing.T) {
+	vhdx := func(disk int) string { return vmAgentDiskName("APP01", disk) }
+	names, err := vmAgentTargetNames([]int{0, 1, 2}, map[string]string{"0": "disk-1", "1": "disk-0", "2": "vhdx"}, vhdx)
+	if err != nil || names[0] != "disk-1" || names[1] != "disk-0" || names[2] != "APP01-disk2.vhdx" {
+		t.Fatalf("%v %v", names, err)
+	}
+	names, err = vmAgentTargetNames([]int{3}, nil, vhdx)
+	if err != nil || names[3] != "APP01-disk3.vhdx" {
+		t.Fatalf("%v %v", names, err)
+	}
+	for _, bad := range []map[string]string{{"0": "disk-1", "1": "DISK-1"}, {"0": `..\x`}, {"5": "disk-1"}, {"0": "C:"}} {
+		if _, err := vmAgentTargetNames([]int{0, 1}, bad, vhdx); err == nil {
+			t.Fatalf("%v was accepted", bad)
+		}
+	}
+}

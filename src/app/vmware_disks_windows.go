@@ -242,6 +242,11 @@ func (a *application) handleVMwareAgentSend(response http.ResponseWriter, reques
 		Code       string `json:"code"`
 		AllowLive  bool   `json:"allowLive"`
 		Verify     bool   `json:"verify"`
+		// Targets maps a source disk number to a raw receiver's disk-N;
+		// a disk not listed is sent as a VHDX file.
+		Targets   map[string]string `json:"targets"`
+		Compress  bool              `json:"compress"`
+		LimitMbps int               `json:"limitMbps"`
 	}
 	if !decodeVMwareRequest(response, request, &input) {
 		return
@@ -276,6 +281,17 @@ func (a *application) handleVMwareAgentSend(response http.ResponseWriter, reques
 		fail("Choose at least one disk to send.")
 		return
 	}
+	names, err := vmAgentTargetNames(disks, input.Targets, func(disk int) string { host, _ := os.Hostname(); return vmAgentDiskName(host, disk) })
+	if err != nil {
+		fail(err.Error())
+		return
+	}
+	schedule := vmThrottleSchedule{LimitMbps: input.LimitMbps}
+	if err := schedule.Validate(); err != nil {
+		fail("The bandwidth limit was not accepted: " + err.Error() + ".")
+		return
+	}
+	throttle := newVMThrottle(schedule)
 	if !isAdministrator() {
 		fail("Sending this computer's disks needs the application to run as administrator.")
 		return
@@ -307,7 +323,7 @@ func (a *application) handleVMwareAgentSend(response http.ResponseWriter, reques
 		results := []vmAgentSendResult{}
 		var failure error
 		for _, disk := range disks {
-			result := vmAgentSendResult{Disk: disk, Name: vmAgentDiskName(host, disk)}
+			result := vmAgentSendResult{Disk: disk, Name: names[disk]}
 			err := func() error {
 				source, volumes, err := openVMAgentDisk(disk, input.AllowLive, log)
 				if err != nil {
@@ -323,6 +339,7 @@ func (a *application) handleVMwareAgentSend(response http.ResponseWriter, reques
 				if err != nil {
 					return err
 				}
+				sink.Compress, sink.Throttle = input.Compress, throttle
 				last := -1
 				copied, err := vmCopyTo(ctx, source, sink, vmCopyOptions{Verify: input.Verify, Progress: func(p vmCopyProgress) {
 					if p.Chunks > 0 {
@@ -335,6 +352,7 @@ func (a *application) handleVMwareAgentSend(response http.ResponseWriter, reques
 				if copied != nil {
 					result.BytesRead, result.BytesWritten, result.Resumed = copied.Progress.BytesRead, copied.Progress.BytesWritten, copied.Resumed
 					result.Verified, result.Passes = copied.State.Verified, copied.State.Passes
+					result.BytesSent = copied.Progress.BytesSent
 				}
 				return err
 			}()
@@ -368,4 +386,33 @@ func (a *application) handleVMwareAgentSend(response http.ResponseWriter, reques
 		}
 	}()
 	writeJSON(response, http.StatusAccepted, map[string]any{"ok": true})
+}
+
+// handleVMwareAgentReceiverDisks asks a receiver what it writes: VHDX files
+// in a folder, and/or the raw disks of the new VM or server it runs on.
+func (a *application) handleVMwareAgentReceiverDisks(response http.ResponseWriter, request *http.Request) {
+	if !a.requireAuthorization(response, request) {
+		return
+	}
+	var input struct {
+		Address    string `json:"address"`
+		Thumbprint string `json:"thumbprint"`
+		Code       string `json:"code"`
+	}
+	if !decodeVMwareRequest(response, request, &input) {
+		return
+	}
+	address, err := vmReceiverAddress(input.Address)
+	if err != nil {
+		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "The receiver was not accepted: " + err.Error() + "."})
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	folder, disks, err := vmReceiverDescribe(ctx, address, input.Thumbprint, input.Code)
+	if err != nil {
+		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "The receiver could not be reached: " + err.Error()})
+		return
+	}
+	writeJSON(response, http.StatusOK, map[string]any{"ok": true, "folder": folder, "disks": disks})
 }

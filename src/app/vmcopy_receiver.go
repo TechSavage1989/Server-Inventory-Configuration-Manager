@@ -14,6 +14,7 @@ package main
 
 import (
 	"bytes"
+	"compress/flate"
 	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
@@ -113,6 +114,13 @@ type vmReceiverSession struct {
 	name string
 	sink vmReceiverTarget
 	seen time.Time
+
+	// A rescan rebuilds the record from the target's content in the
+	// background; chunks are refused until it ends.
+	rescanning bool
+	rescanDone int
+	rescanErr  string
+	rescanned  bool
 }
 
 type vmReceiverOpen struct {
@@ -120,6 +128,9 @@ type vmReceiverOpen struct {
 	Source    string `json:"source"`
 	Size      int64  `json:"size"`
 	ChunkSize int64  `json:"chunkSize"`
+	// Rescan rebuilds the copy record from the target's content before any
+	// chunk is accepted (after a test failover, or for a failback).
+	Rescan bool `json:"rescan,omitempty"`
 }
 
 type vmReceiverOpened struct {
@@ -330,6 +341,8 @@ func (r *vmReceiver) ServeHTTP(w http.ResponseWriter, request *http.Request) {
 		r.open(w, request)
 	case "chunk":
 		r.chunk(w, request)
+	case "rescan":
+		r.rescan(w, request)
 	case "checkpoint", "finish", "close":
 		r.lifecycle(w, request, strings.TrimPrefix(request.URL.Path, vmReceiverAPI))
 	default:
@@ -363,7 +376,7 @@ func (r *vmReceiver) open(w http.ResponseWriter, request *http.Request) {
 		// leaves its session open; after two idle minutes a new sender may
 		// take over, resuming from the saved record.
 		if old := r.sessions[id]; old != nil && old.mu.TryLock() {
-			if time.Since(old.seen) > 2*time.Minute {
+			if time.Since(old.seen) > 2*time.Minute && !old.rescanning {
 				old.sink.Close()
 				delete(r.sessions, id)
 				delete(r.names, key)
@@ -411,11 +424,40 @@ claim:
 	idBytes := make([]byte, 16)
 	rand.Read(idBytes)
 	id := hex.EncodeToString(idBytes)
+	session := &vmReceiverSession{name: key, sink: sink, seen: time.Now()}
+	if body.Rescan {
+		rescanner, ok := sink.(vmRescanner)
+		if !ok {
+			sink.Close()
+			r.mu.Lock()
+			delete(r.names, key)
+			r.mu.Unlock()
+			vmReceiverError(w, http.StatusBadRequest, "this target cannot be rescanned")
+			return
+		}
+		session.rescanning = true
+		go func() {
+			err := rescanner.Rescan(context.Background(), func(done, total int) {
+				session.mu.Lock()
+				session.rescanDone, session.seen = done, time.Now()
+				session.mu.Unlock()
+			})
+			session.mu.Lock()
+			session.rescanning, session.rescanned, session.seen = false, err == nil, time.Now()
+			if err != nil {
+				session.rescanErr = err.Error()
+			}
+			session.mu.Unlock()
+			if err == nil {
+				r.log(fmt.Sprintf("Rescanned %s: only chunks that differ will be written.", body.Name))
+			}
+		}()
+	}
 	r.mu.Lock()
-	r.sessions[id] = &vmReceiverSession{name: key, sink: sink, seen: time.Now()}
+	r.sessions[id] = session
 	r.names[key] = id
 	r.mu.Unlock()
-	r.log(fmt.Sprintf("Receiving %s (%s, resumed: %t).", body.Name, vmFormatBytes(body.Size), resumed))
+	r.log(fmt.Sprintf("Receiving %s (%s, resumed: %t, rescan: %t).", body.Name, vmFormatBytes(body.Size), resumed, body.Rescan))
 	state.Target = body.Name
 	vmReceiverJSON(w, vmReceiverOpened{Session: id, Resumed: resumed, State: state})
 }
@@ -432,6 +474,10 @@ func (r *vmReceiver) chunk(w http.ResponseWriter, request *http.Request) {
 	session.mu.Lock()
 	defer session.mu.Unlock()
 	session.seen = time.Now()
+	if session.rescanning || session.rescanErr != "" {
+		vmReceiverError(w, http.StatusConflict, "the target is still being rescanned")
+		return
+	}
 	state := session.sink.State()
 	if index < 0 || index >= len(state.Hashes) {
 		vmReceiverError(w, http.StatusBadRequest, "chunk outside the disk")
@@ -442,7 +488,18 @@ func (r *vmReceiver) chunk(w http.ResponseWriter, request *http.Request) {
 	if hash == vmCopyZeroHash {
 		data = make([]byte, length)
 	} else {
-		data, err = io.ReadAll(io.LimitReader(request.Body, length+1))
+		var body io.Reader = io.LimitReader(request.Body, length+1)
+		if query.Get("enc") == "deflate" {
+			// The compressed body is limited too: deflate never grows data
+			// by more than a few bytes per 64 KB block.
+			inflater := flate.NewReader(io.LimitReader(request.Body, length+length/64+1024))
+			defer inflater.Close()
+			body = io.LimitReader(inflater, length+1)
+		} else if query.Get("enc") != "" {
+			vmReceiverError(w, http.StatusBadRequest, "unsupported chunk encoding")
+			return
+		}
+		data, err = io.ReadAll(body)
 		if err != nil || int64(len(data)) != length {
 			vmReceiverError(w, http.StatusBadRequest, "the chunk is incomplete")
 			return
@@ -459,6 +516,29 @@ func (r *vmReceiver) chunk(w http.ResponseWriter, request *http.Request) {
 		return
 	}
 	vmReceiverJSON(w, map[string]int64{"written": written})
+}
+
+// rescan reports the progress of a rescan started by open, with the
+// rebuilt record once it is done.
+func (r *vmReceiver) rescan(w http.ResponseWriter, request *http.Request) {
+	session := r.session(request.URL.Query().Get("session"))
+	if request.Method != http.MethodGet || session == nil {
+		vmReceiverError(w, http.StatusBadRequest, "bad request")
+		return
+	}
+	session.mu.Lock()
+	defer session.mu.Unlock()
+	session.seen = time.Now()
+	answer := map[string]interface{}{"rescanning": session.rescanning, "done": session.rescanDone, "total": len(session.sink.State().Hashes)}
+	if session.rescanErr != "" {
+		answer["error"] = session.rescanErr
+	}
+	if session.rescanned {
+		state := vmCopyStateClone(session.sink.State())
+		state.Target = filepath.Base(state.Target)
+		answer["state"] = state
+	}
+	vmReceiverJSON(w, answer)
 }
 
 func (r *vmReceiver) lifecycle(w http.ResponseWriter, request *http.Request, action string) {
@@ -518,6 +598,26 @@ type vmRemoteSink struct {
 	session string
 	retries int
 	delay   time.Duration
+
+	// Compress deflates chunks on the wire; the receiver inflates and
+	// checks each against its hash as before.
+	Compress bool
+	// Throttle paces what is sent (after compression); nil sends at full speed.
+	Throttle *vmThrottle
+	// Rescan rebuilds the receiver's record from the target before copying.
+	Rescan bool
+	// RescanProgress reports a rescan's progress.
+	RescanProgress func(done, total int)
+
+	sentMu sync.Mutex
+	sent   int64
+}
+
+// SentBytes is what travelled over the network for chunk data.
+func (s *vmRemoteSink) SentBytes() int64 {
+	s.sentMu.Lock()
+	defer s.sentMu.Unlock()
+	return s.sent
 }
 
 // newVMRemoteSink connects to a receiver at "host:port", accepting only the
@@ -548,6 +648,26 @@ func vmReceiverListDisks(ctx context.Context, address, thumbprint, code string) 
 		return nil, err
 	}
 	return answer.Disks, nil
+}
+
+// vmReceiverDescribe asks a receiver whether it writes VHDX files and which
+// raw disks it writes.
+func vmReceiverDescribe(ctx context.Context, address, thumbprint, code string) (bool, []vmReceiverDisk, error) {
+	client, err := newVMReceiverClient(ctx, address, thumbprint, code)
+	if err != nil {
+		return false, nil, err
+	}
+	var answer struct {
+		Folder bool             `json:"folder"`
+		Disks  []vmReceiverDisk `json:"disks"`
+	}
+	if err := client.call(http.MethodGet, "disks", nil, nil, &answer); err != nil {
+		return false, nil, err
+	}
+	if answer.Disks == nil {
+		answer.Disks = []vmReceiverDisk{}
+	}
+	return answer.Folder, answer.Disks, nil
 }
 
 func newVMReceiverClient(ctx context.Context, address, thumbprint, code string) (*vmRemoteSink, error) {
@@ -641,7 +761,7 @@ func (s *vmRemoteSink) call(method, action string, query url.Values, body []byte
 }
 
 func (s *vmRemoteSink) Open(source string, size, chunkSize int64) (*vmCopyState, bool, error) {
-	raw, _ := json.Marshal(vmReceiverOpen{Name: s.name, Source: source, Size: size, ChunkSize: chunkSize})
+	raw, _ := json.Marshal(vmReceiverOpen{Name: s.name, Source: source, Size: size, ChunkSize: chunkSize, Rescan: s.Rescan})
 	var opened vmReceiverOpened
 	if err := s.call(http.MethodPost, "open", nil, raw, &opened); err != nil {
 		return nil, false, err
@@ -650,18 +770,76 @@ func (s *vmRemoteSink) Open(source string, size, chunkSize int64) (*vmCopyState,
 		return nil, false, errors.New("the receiver returned a copy record that does not match this disk")
 	}
 	s.session = opened.Session
+	if s.Rescan {
+		state, err := s.waitRescan()
+		if err != nil {
+			return nil, false, err
+		}
+		if state.Size != size || len(state.Hashes) != len(opened.State.Hashes) {
+			return nil, false, errors.New("the receiver returned a rescanned record that does not match this disk")
+		}
+		opened.State = state
+	}
 	return opened.State, opened.Resumed, nil
+}
+
+// waitRescan polls the receiver until its rescan ends.
+func (s *vmRemoteSink) waitRescan() (*vmCopyState, error) {
+	for {
+		var answer struct {
+			Rescanning bool         `json:"rescanning"`
+			Done       int          `json:"done"`
+			Total      int          `json:"total"`
+			Error      string       `json:"error"`
+			State      *vmCopyState `json:"state"`
+		}
+		if err := s.call(http.MethodGet, "rescan", url.Values{"session": {s.session}}, nil, &answer); err != nil {
+			return nil, err
+		}
+		if s.RescanProgress != nil {
+			s.RescanProgress(answer.Done, answer.Total)
+		}
+		switch {
+		case answer.Error != "":
+			return nil, errors.New("the receiver could not rescan the target: " + answer.Error)
+		case !answer.Rescanning && answer.State != nil:
+			return answer.State, nil
+		case !answer.Rescanning:
+			return nil, errors.New("the receiver ended the rescan without a record")
+		}
+		if err := vmSleep(s.ctx, s.delay/2+250*time.Millisecond); err != nil {
+			return nil, err
+		}
+	}
 }
 
 func (s *vmRemoteSink) Write(index int, data []byte, hash string) (int64, error) {
 	body := data
+	query := url.Values{"session": {s.session}, "index": {strconv.Itoa(index)}, "hash": {hash}}
 	if hash == vmCopyZeroHash {
 		body = nil
+	} else if s.Compress {
+		var packed bytes.Buffer
+		writer, _ := flate.NewWriter(&packed, flate.BestSpeed)
+		writer.Write(data)
+		writer.Close()
+		if packed.Len() < len(data) {
+			body = packed.Bytes()
+			query.Set("enc", "deflate")
+		}
+	}
+	if err := s.Throttle.Wait(s.ctx, int64(len(body))); err != nil {
+		return 0, err
 	}
 	var answer struct {
 		Written int64 `json:"written"`
 	}
-	err := s.call(http.MethodPut, "chunk", url.Values{"session": {s.session}, "index": {strconv.Itoa(index)}, "hash": {hash}}, body, &answer)
+	err := s.call(http.MethodPut, "chunk", query, body, &answer)
+	if err == nil {
+		s.sentMu.Lock()
+		s.sent += int64(len(body))
+		s.sentMu.Unlock()
+	}
 	return answer.Written, err
 }
 
