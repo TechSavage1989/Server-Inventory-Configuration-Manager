@@ -364,3 +364,72 @@ func (p *vmProxmox) BootFromDisk(ctx context.Context, id string) error {
 	}
 	return p.wait(ctx, upid)
 }
+
+// CloneVM makes a full clone (its own disks) on the same node.
+func (p *vmProxmox) CloneVM(ctx context.Context, id, name, note string) (*vmTargetVM, error) {
+	if err := p.needNode(); err != nil {
+		return nil, err
+	}
+	var next interface{}
+	if err := p.get(ctx, "/cluster/nextid", nil, &next); err != nil {
+		return nil, err
+	}
+	vmid := strings.Trim(fmt.Sprint(next), `"`)
+	if _, err := strconv.Atoi(vmid); err != nil {
+		return nil, errors.New("Proxmox VE did not give a free VM ID")
+	}
+	upid, err := p.form(ctx, http.MethodPost, "/nodes/"+url.PathEscape(p.node)+"/qemu/"+url.PathEscape(id)+"/clone", url.Values{"newid": {vmid}, "name": {name}, "full": {"1"}, "description": {note}})
+	if err != nil {
+		return nil, err
+	}
+	if err := p.wait(ctx, upid); err != nil {
+		return nil, err
+	}
+	return &vmTargetVM{ID: vmid, Name: name, State: "stopped"}, nil
+}
+
+// Isolate sets link_down on every adapter.
+func (p *vmProxmox) Isolate(ctx context.Context, id string) error {
+	if err := p.needNode(); err != nil {
+		return err
+	}
+	var config map[string]interface{}
+	if err := p.get(ctx, "/nodes/"+url.PathEscape(p.node)+"/qemu/"+url.PathEscape(id)+"/config", nil, &config); err != nil {
+		return err
+	}
+	values := url.Values{}
+	for key, value := range config {
+		text, ok := value.(string)
+		if !ok || !regexp.MustCompile(`^net[0-9]+$`).MatchString(key) {
+			continue
+		}
+		parts := []string{}
+		for _, part := range strings.Split(text, ",") {
+			if !strings.HasPrefix(part, "link_down=") {
+				parts = append(parts, part)
+			}
+		}
+		values.Set(key, strings.Join(append(parts, "link_down=1"), ","))
+	}
+	if len(values) == 0 {
+		return nil
+	}
+	upid, err := p.form(ctx, http.MethodPost, "/nodes/"+url.PathEscape(p.node)+"/qemu/"+url.PathEscape(id)+"/config", values)
+	if err != nil {
+		return err
+	}
+	return p.wait(ctx, upid)
+}
+
+// DeleteVM destroys the VM and its disks.
+func (p *vmProxmox) DeleteVM(ctx context.Context, id string) error {
+	if err := p.needNode(); err != nil {
+		return err
+	}
+	var upid string
+	answer := vmProxmoxAnswer{Data: &upid}
+	if err := p.http.do(ctx, http.MethodDelete, "/nodes/"+url.PathEscape(p.node)+"/qemu/"+url.PathEscape(id), url.Values{"purge": {"1"}, "destroy-unreferenced-disks": {"1"}}, nil, "", 0, &answer); err != nil {
+		return err
+	}
+	return p.wait(ctx, upid)
+}
