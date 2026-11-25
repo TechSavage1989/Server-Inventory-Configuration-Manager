@@ -181,6 +181,16 @@ func TestExecutableUsesBuiltInWindowWhenGuestBrowsingIsBlocked(t *testing.T) {
 	case <-time.After(30 * time.Second):
 		t.Fatal("closing the built-in window did not end the application")
 	}
+	// The WebView2 runtime's own browser processes finish a moment after
+	// the application; the data folder is free once they have.
+	webViewData := filepath.Join(runtimeDir, "WebView2")
+	var removeErr error
+	for until := time.Now().Add(30 * time.Second); time.Now().Before(until); time.Sleep(500 * time.Millisecond) {
+		if removeErr = os.RemoveAll(webViewData); removeErr == nil {
+			return
+		}
+	}
+	t.Fatalf("the WebView2 data folder was still in use 30 seconds after the application ended: %v", removeErr)
 }
 
 func readUpdateLog(root string) string {
