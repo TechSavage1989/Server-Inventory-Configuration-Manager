@@ -505,7 +505,7 @@ func vmFromManagedObject(machine mo.VirtualMachine, datacenter string, hostNames
 		vm.IPAddress = guest.IpAddress
 		vm.ToolsStatus = guest.ToolsVersionStatus2
 		vm.ToolsRunning = guest.ToolsRunningStatus == string(types.VirtualMachineToolsRunningStatusGuestToolsRunning)
-		vm.ToolsVersion = guest.ToolsVersion
+		vm.ToolsVersion = vmToolsVersionText(guest.ToolsVersion)
 		for _, nic := range guest.Net {
 			guestNICs[nic.DeviceConfigId] = nic
 		}

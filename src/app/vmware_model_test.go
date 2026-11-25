@@ -399,3 +399,48 @@ func TestRunbookAndSizingFollowTarget(t *testing.T) {
 		t.Fatal("unknown target accepted")
 	}
 }
+
+func TestRealEstateFixes(t *testing.T) {
+	inventory := &vmInventory{Schema: 1, Server: "vc.example.com"}
+	inventory.VMs = []vmMachine{
+		{Name: "vCenter", ID: "vm-1", PowerState: "poweredOn", GuestID: "vmkernel5Guest", GuestOS: "VMware Photon OS (64-bit)", Firmware: "bios"},
+		{Name: "vCLS-5afadc21-641b", ID: "vm-2", PowerState: "poweredOn", GuestID: "other3xLinux64Guest", GuestOS: "Other 3.x or later Linux (64-bit)", ToolsRunning: false},
+		{Name: "CORP-DC01", ID: "vm-3", PowerState: "poweredOn", GuestID: "windows2019srv_64Guest", GuestOSRunning: "Microsoft Windows Server 2022 (64-bit)", Firmware: "efi", ToolsRunning: true},
+		{Name: "AI01", ID: "vm-4", PowerState: "poweredOn", GuestID: "windows2019srv_64Guest", GuestOSRunning: "Microsoft Windows Server 2022 (64-bit)", Firmware: "efi", ToolsRunning: true,
+			Snapshots: []vmSnapshot{{Name: "Acronis_Mon Nov 23 23:53:16 2026", Created: vmTestNow.Add(-24 * time.Hour)}}},
+		{Name: "APPDC-SERVICE", ID: "vm-5", PowerState: "poweredOn", GuestID: "windows2019srv_64Guest", GuestOSRunning: "Microsoft Windows Server 2022 (64-bit)", Firmware: "efi", ToolsRunning: true},
+	}
+	assessInventory(inventory, vmTestNow)
+	for _, vm := range inventory.VMs[:2] {
+		for _, r := range vm.Readiness {
+			if r.Status != vmStatusSkip || len(r.Findings) != 1 || r.Findings[0].Code != "vmware-infrastructure" {
+				t.Fatalf("%s %s: %+v", vm.Name, r.Target, r)
+			}
+		}
+	}
+	if !strings.Contains(inventory.VMs[0].Readiness[0].Findings[0].Message, "vCenter Server appliance") {
+		t.Fatal(inventory.VMs[0].Readiness[0].Findings[0].Message)
+	}
+	if vmFindingCodes(inventory.VMs[2].readinessFor(vmTargetHyperV))["domain-controller"] != vmSeverityWarning {
+		t.Fatal("domain controller not flagged")
+	}
+	if _, ok := vmFindingCodes(inventory.VMs[4].readinessFor(vmTargetHyperV))["domain-controller"]; ok {
+		t.Fatal("APPDC-SERVICE is not a domain controller name")
+	}
+	for _, f := range inventory.VMs[3].readinessFor(vmTargetHyperV).Findings {
+		if f.Code == "snapshots" && (!strings.Contains(f.Message, "backup software") || !strings.Contains(f.Action, "backup job")) {
+			t.Fatalf("%+v", f)
+		}
+	}
+	summary := summarizeInventory(inventory)
+	if summary.Readiness[0].Skip != 2 {
+		t.Fatalf("%+v", summary.Readiness[0])
+	}
+	plan := reconcileVMPlan(vmPlan{}, inventory)
+	if !plan.VMs[0].Exclude || !plan.VMs[1].Exclude || plan.VMs[2].Exclude {
+		t.Fatalf("%+v", plan.VMs)
+	}
+	if vmToolsVersionText("2147483647") != "guest-managed (open-vm-tools)" || vmToolsVersionText("12325") != "12325" {
+		t.Fatal("tools version text")
+	}
+}
