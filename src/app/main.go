@@ -270,6 +270,7 @@ type application struct {
 	convert                 convertRuntime
 	convertSend             convertSendRuntime
 	vmReceive               vmReceiverRuntime
+	transfers               *vmTransferBoard
 	repl                    replRuntime
 }
 
@@ -2330,6 +2331,9 @@ func (a *application) serve(listener net.Listener) error {
 	mux.HandleFunc("/api/vmware/move", a.handleVMwareMove)
 	mux.HandleFunc("/api/vmware/target/", a.handleVMwareTarget)
 	mux.HandleFunc("/api/vmware/receiver", a.handleVMwareReceiver)
+	mux.HandleFunc("/api/vmware/receiver/pair", a.handleVMwareReceiverPair)
+	mux.HandleFunc("/api/receivers/find", a.handleReceiversFind)
+	mux.HandleFunc("/api/receivers/pair", a.handleReceiversPair)
 	mux.HandleFunc("/api/vmware/agent/disks", a.handleVMwareAgentDisks)
 	mux.HandleFunc("/api/vmware/agent/send", a.handleVMwareAgentSend)
 	mux.HandleFunc("/api/vmware/agent/receiverdisks", a.handleVMwareAgentReceiverDisks)

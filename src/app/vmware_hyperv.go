@@ -34,7 +34,11 @@ type vmHyperVPlan struct {
 	Adapters           []vmHyperVAdapter `json:"adapters"`
 	Start              bool              `json:"start"`
 	Notes              string            `json:"notes,omitempty"`
-	Warnings           []string          `json:"warnings"`
+	// ClusterRole adds the new VM to its failover cluster as a highly
+	// available role; ClusterResult is the script's report of that step.
+	ClusterRole   bool     `json:"clusterRole,omitempty"`
+	ClusterResult string   `json:"clusterResult,omitempty"`
+	Warnings      []string `json:"warnings"`
 }
 
 type vmHyperVOptions struct {
@@ -48,7 +52,16 @@ type vmHyperVOptions struct {
 	// KeepMAC gives each adapter the VMware MAC address.
 	KeepMAC bool
 	Start   bool
+	// ClusterRole makes the new VM highly available in this host's cluster.
+	ClusterRole bool
 }
+
+// The script reports the cluster step on a line of its own, so a VM that was
+// created is never reported as failed because the cluster refused it.
+const (
+	vmClusterRoleAdded  = "CLUSTER-ROLE-ADDED"
+	vmClusterRoleFailed = "CLUSTER-ROLE-FAILED"
+)
 
 var vmMACPattern = regexp.MustCompile(`^[0-9A-Fa-f]{2}([:-]?[0-9A-Fa-f]{2}){5}$`)
 
@@ -63,7 +76,7 @@ func vmHyperVPlanFor(vm vmMachine, networks []vmNetwork, options vmHyperVOptions
 	if len(vm.Disks) > 0 && len(options.Disks) != len(vm.Disks) {
 		return nil, fmt.Errorf("the VM has %d disks but %d copies were given", len(vm.Disks), len(options.Disks))
 	}
-	plan := &vmHyperVPlan{Name: vm.Name, Generation: 1, CPUs: vm.CPUs, Path: options.Folder, Start: options.Start}
+	plan := &vmHyperVPlan{Name: vm.Name, Generation: 1, CPUs: vm.CPUs, Path: options.Folder, Start: options.Start, ClusterRole: options.ClusterRole}
 	if strings.EqualFold(vm.Firmware, "efi") {
 		plan.Generation = 2
 		plan.SecureBoot = vm.SecureBoot
@@ -213,6 +226,9 @@ func (p *vmHyperVPlan) Script() string {
 	line("  # The new VM is left in place, without its disks deleted, so the cause can be checked.")
 	line("  throw ('Creating the VM stopped: ' + $problem.Exception.Message + ' The partly created VM ' + $name + ' was left for review; its copied disks were not changed.')")
 	line("}")
+	if p.ClusterRole {
+		line("try { Import-Module FailoverClusters; Add-ClusterVirtualMachineRole -VMName $name -ErrorAction Stop | Out-Null; [Console]::Out.WriteLine('%s') } catch { [Console]::Out.WriteLine('%s ' + $_.Exception.Message) }", vmClusterRoleAdded, vmClusterRoleFailed)
+	}
 	if p.Start {
 		line("Start-VM -VM $vm")
 	}

@@ -82,7 +82,7 @@ func (a *application) handleReplTargetTest(response http.ResponseWriter, request
 		return
 	}
 	if !replTargetTestPlatforms[connection.Platform] {
-		a.replFail(response, http.StatusBadRequest, "Test failover here is for HyperCore, Nutanix AHV and Proxmox VE. For Hyper-V, use the Disk copy view on the Hyper-V host.")
+		a.replFail(response, http.StatusBadRequest, "Test failover here is for HyperCore, Nutanix AHV and Proxmox VE. For Hyper-V, use Start VMs from copies on the Hyper-V host.")
 		return
 	}
 	list, err := store.Load()

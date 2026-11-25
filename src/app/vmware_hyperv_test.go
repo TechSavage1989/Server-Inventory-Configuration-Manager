@@ -44,6 +44,15 @@ func TestHyperVPlanMapsFirmwareDisksAdaptersAndVLANs(t *testing.T) {
 	if plan.Generation != 1 || plan.TPM || plan.CPUs != 1 || plan.MemoryBytes != 32<<20 || !strings.Contains(plan.Script(), "-ControllerType IDE") || !strings.Contains(plan.Script(), "Start-VM") {
 		t.Fatalf("BIOS plan %+v", plan)
 	}
+	if strings.Contains(plan.Script(), "Add-ClusterVirtualMachineRole") {
+		t.Fatal("the VM is added to a cluster without being asked")
+	}
+	plan, _ = vmHyperVPlanFor(linux, nil, vmHyperVOptions{Folder: `C:\ClusterStorage\Volume1\VMs`, Disks: []string{`C:\ClusterStorage\Volume1\VMs\a.vhdx`}, Start: true, ClusterRole: true})
+	clusterScript := plan.Script()
+	role, start, id := strings.Index(clusterScript, "Add-ClusterVirtualMachineRole -VMName $name"), strings.Index(clusterScript, "Start-VM"), strings.Index(clusterScript, "$vm.Id.ToString()")
+	if role < 0 || start < role || id < start || !strings.Contains(clusterScript, vmClusterRoleFailed) || !strings.Contains(clusterScript, "} catch { [Console]::Out.WriteLine('"+vmClusterRoleFailed) {
+		t.Fatalf("the cluster step must come after the VM is made, report failure without failing, and leave the ID last:\n%s", clusterScript)
+	}
 	linux.Firmware, linux.SecureBoot = "efi", true
 	plan, _ = vmHyperVPlanFor(linux, nil, vmHyperVOptions{Folder: `D:\VMs`, Disks: []string{`D:\a.vhdx`}})
 	if plan.SecureBootTemplate != "MicrosoftUEFICertificateAuthority" {

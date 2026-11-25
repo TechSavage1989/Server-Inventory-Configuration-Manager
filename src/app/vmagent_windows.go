@@ -170,7 +170,6 @@ func vmLogicalToPhysical(volume windows.Handle, offset int64) ([]vmPhysicalOffse
 
 var vmVolumeName = regexp.MustCompile(`^\\\\\?\\Volume\{[0-9A-Fa-f-]{36}\}\\$`)
 
-
 type vmAgentVolume struct {
 	Name       string   `json:"name"`
 	Mounts     []string `json:"mounts"`

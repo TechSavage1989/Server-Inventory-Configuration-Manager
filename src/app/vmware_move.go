@@ -28,6 +28,8 @@ type vmMoveRequest struct {
 	RecordFolder string
 	// NewSink sends the disks to a receiver instead of CopyFolder.
 	NewSink func(index int, capacity int64) (vmCopySink, string, error)
+	// Progress reports each disk's copy progress (for the live view).
+	Progress func(disk string, p vmCopyProgress)
 }
 
 type vmMoveResult struct {
@@ -93,6 +95,9 @@ func vmMoveRound(parent context.Context, options vmConnectOptions, request vmMov
 		NewSink:      request.NewSink,
 		Log:          log,
 		Progress: func(disk string, p vmCopyProgress) {
+			if request.Progress != nil {
+				request.Progress(disk, p)
+			}
 			if p.Chunks > 0 {
 				log(fmt.Sprintf("%s: %d%% (%s read, %s written).", disk, p.Done*100/p.Chunks, vmFormatBytes(p.BytesRead), vmFormatBytes(p.BytesWritten)))
 			}

@@ -39,20 +39,20 @@ type replAgentRecord struct {
 }
 
 type replAgentLive struct {
-	Reachable bool          `json:"reachable"`
-	Error     string        `json:"error,omitempty"`
+	Reachable bool   `json:"reachable"`
+	Error     string `json:"error,omitempty"`
 	// Hint explains Error in plain words (see replAgentErrorHint).
 	Hint string `json:"hint,omitempty"`
 	// LastStop is the agent's own account of an unclean end of its
 	// previous run (a crash, or ended from outside).
-	LastStop   string    `json:"lastStop,omitempty"`
-	LastStopAt time.Time `json:"lastStopAt,omitempty"`
-	Checked   time.Time     `json:"checked"`
-	Version   string        `json:"version,omitempty"`
-	Computer  string        `json:"computer,omitempty"`
-	Platform  string        `json:"platform,omitempty"`
-	Jobs      []replJobView `json:"jobs"`
-	Alerts    []replAlert   `json:"alerts"`
+	LastStop   string        `json:"lastStop,omitempty"`
+	LastStopAt time.Time     `json:"lastStopAt,omitempty"`
+	Checked    time.Time     `json:"checked"`
+	Version    string        `json:"version,omitempty"`
+	Computer   string        `json:"computer,omitempty"`
+	Platform   string        `json:"platform,omitempty"`
+	Jobs       []replJobView `json:"jobs"`
+	Alerts     []replAlert   `json:"alerts"`
 }
 
 // replAgentRow is one agent as the console page sees it (no key).

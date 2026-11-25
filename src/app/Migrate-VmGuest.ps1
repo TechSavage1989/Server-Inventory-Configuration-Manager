@@ -26,7 +26,7 @@ each one first, and stops at the first failure.
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)]
-    [ValidateSet('Capture', 'Status', 'ApplyNetwork', 'UndoNetwork', 'RemoveGhostNics', 'RemoveVmwareTools', 'OnlineDisks', 'SaveBitLocker')]
+    [ValidateSet('Capture', 'Status', 'ApplyNetwork', 'UndoNetwork', 'RemoveGhostNics', 'RemoveVmwareTools', 'OnlineDisks', 'SaveBitLocker', 'Activate')]
     [string]$Mode,
     [Parameter(Mandatory = $true)][string]$WorkPath,
     [Parameter(Mandatory = $true)][string]$ResultPath,
@@ -309,6 +309,142 @@ function Get-DiskState {
         })
 }
 
+# Windows activation. The channel decides what to do after a move: KMS and
+# Active Directory activation renew by themselves on the network, MAK and
+# retail keys activate again (MAK uses a count), OEM licences belong to the
+# old hardware, and on a Hyper-V host running Datacenter a guest can use
+# Automatic Virtual Machine Activation (AVMA).
+$script:WindowsAppId = '55c92734-d682-4d71-983e-d6ec3f16059f'
+$script:LicenseStates = @{ 0 = 'Unlicensed'; 1 = 'Licensed'; 2 = 'Initial grace period'; 3 = 'Additional grace period'; 4 = 'Non-genuine grace period'; 5 = 'Notification'; 6 = 'Extended grace period' }
+# Published by Microsoft (Automatic Virtual Machine Activation in Windows Server).
+$script:AvmaKeys = @{
+    '2025|Datacenter' = 'YQB4H-NKHHJ-Q6K4R-4VMY6-VCH67'
+    '2025|Datacenter: Azure Edition' = '6NMQ9-T38WF-6MFGM-QYGYM-88J4F'
+    '2025|Standard' = 'WWVGQ-PNHV9-B89P4-8GGM9-9HPQ4'
+}
+
+function Get-WindowsLicenseProduct {
+    Get-CimInstance -ClassName SoftwareLicensingProduct -Filter ("ApplicationID='" + $script:WindowsAppId + "' AND PartialProductKey IS NOT NULL") -ErrorAction Stop | Select-Object -First 1
+}
+
+function Get-LicenseState {
+    try { $product = Get-WindowsLicenseProduct } catch { return $null }
+    if (-not $product) { return $null }
+    $description = [string]$product.Description
+    $keyChannel = ''
+    try { $keyChannel = [string]$product.ProductKeyChannel } catch { }
+    $text = ($description + ' ' + $keyChannel).ToUpperInvariant()
+    $channel = 'Unknown'
+    if ($text -match 'VIRTUAL_MACHINE_ACTIVATION|AVMA') { $channel = 'AVMA' }
+    elseif ($text -match 'KMSCLIENT|GVLK') {
+        $channel = 'KMS'
+        try { if ([string]$product.ADActivationObjectName) { $channel = 'AD' } } catch { }
+    }
+    elseif ($text -match 'MAK') { $channel = 'MAK' }
+    elseif ($text -match 'OEM') { $channel = 'OEM' }
+    elseif ($text -match 'RETAIL') { $channel = 'Retail' }
+    $kms = ''
+    foreach ($name in @('KeyManagementServiceMachine', 'DiscoveredKeyManagementServiceMachineName')) {
+        try { if (-not $kms -and [string]$product.$name) { $kms = [string]$product.$name } } catch { }
+    }
+    return [pscustomobject]@{
+        Edition      = [string]$product.Name
+        Description  = $description
+        Channel      = $channel
+        Status       = [string]$script:LicenseStates[[int]$product.LicenseStatus]
+        Licensed     = ([int]$product.LicenseStatus -eq 1)
+        PartialKey   = [string]$product.PartialProductKey
+        KmsHost      = $kms
+        GraceMinutes = [int]$product.GracePeriodRemaining
+    }
+}
+
+function Get-AvmaKey {
+    param([string]$Caption)
+    $version = ''
+    if ($Caption -match '(2012 R2|2016|2019|2022|2025)') { $version = $Matches[1] }
+    $edition = ''
+    if ($Caption -match 'Azure Edition') { $edition = 'Datacenter: Azure Edition' }
+    elseif ($Caption -match 'Datacenter') { $edition = 'Datacenter' }
+    elseif ($Caption -match 'Standard') { $edition = 'Standard' }
+    elseif ($Caption -match 'Essentials') { $edition = 'Essentials' }
+    return [pscustomobject]@{ Version = $version; Edition = $edition; Key = [string]$script:AvmaKeys[$version + '|' + $edition] }
+}
+
+# Get-ActivationAdvice says what activation needs on this machine now, from
+# the channel recorded before the move when there is one.
+function Get-ActivationAdvice {
+    param([object]$State, [object]$Capture)
+    $now = $State.License
+    if (-not $now) { return [pscustomobject]@{ Known = $false; Licensed = $false; Severity = 'info'; Message = 'Windows activation could not be read on this computer.'; CanActivate = $false; AvmaKey = ''; AvmaEdition = '' } }
+    $before = $null
+    if ($Capture -and $Capture.State -and $Capture.State.License) { $before = $Capture.State.License }
+    $channel = $now.Channel
+    $server = ([string]$State.OperatingSystem -match 'Server')
+    $avma = Get-AvmaKey ([string]$State.OperatingSystem)
+    $onHyperV = ([string]$State.Platform.Name -eq 'Hyper-V')
+    $message = ''
+    $severity = 'good'
+    if ($now.Licensed) {
+        $message = 'Windows is activated (' + $channel + ' channel).'
+    } else {
+        $severity = 'warning'
+        switch ($channel) {
+            'KMS' { $message = 'Windows uses KMS activation' + $(if ($now.KmsHost) { ' (' + $now.KmsHost + ')' } else { '' }) + '. It activates by itself once it reaches the KMS server on the network; Activate now asks at once. A test VM with no network stays unactivated, which is expected.' }
+            'AD' { $message = 'Windows uses Active Directory-based activation. It activates by itself once it reaches a domain controller; Activate now asks at once.' }
+            'MAK' { $message = 'Windows uses a MAK key. Activate now activates it again over the internet, which uses one activation from the MAK''s count. Do not activate a test VM.' }
+            'Retail' { $message = 'Windows uses a retail key. Activate now tries again online; Microsoft may ask for activation by phone after a hardware change.' }
+            'OEM' { $message = 'Windows uses an OEM licence, which belongs to the original hardware and cannot move to a new host. Install a licence valid for this VM (a volume key, or AVMA on a Datacenter host).'; $severity = 'danger' }
+            'AVMA' { $message = 'Windows uses AVMA. It activates through the Hyper-V host, which must run an activated Windows Server Datacenter with the Data Exchange integration service on for this VM.' }
+            default { $message = 'Windows is not activated (' + $now.Status + ').' }
+        }
+    }
+    if ($before -and $before.Channel -and $before.Channel -ne $channel) { $message += ' Before the move it used the ' + $before.Channel + ' channel.' }
+    $offerAvma = (-not $now.Licensed) -and $server -and $onHyperV -and $channel -ne 'AVMA'
+    if ($offerAvma) { $message += ' On a Hyper-V host running Windows Server Datacenter, this VM can use AVMA instead: no count is used and no internet is needed.' + $(if ($avma.Key) { '' } else { ' Paste the AVMA key for ' + [string]$State.OperatingSystem + ' from Microsoft''s Automatic Virtual Machine Activation page.' }) }
+    return [pscustomobject]@{
+        Known       = $true
+        Channel     = $channel
+        Before      = $(if ($before) { $before.Channel } else { '' })
+        Licensed    = [bool]$now.Licensed
+        Status      = $now.Status
+        Severity    = $severity
+        Message     = $message
+        CanActivate = (-not $now.Licensed) -and $channel -ne 'OEM'
+        AvmaKey     = $(if ($offerAvma) { $avma.Key } else { '' })
+        AvmaEdition = $(if ($offerAvma) { ($avma.Version + ' ' + $avma.Edition).Trim() } else { '' })
+    }
+}
+
+function Invoke-Activate {
+    $key = ''
+    if ($PlanPath -and (Test-Path -LiteralPath $PlanPath)) {
+        $plan = Read-JsonFile $PlanPath
+        foreach ($item in @($plan.items)) { if ($item.productKey) { $key = ([string]$item.productKey).ToUpperInvariant() } }
+    }
+    if ($key) {
+        if ($key -notmatch '^[A-Z0-9]{5}(-[A-Z0-9]{5}){4}$') { throw 'The product key is not in the form XXXXX-XXXXX-XXXXX-XXXXX-XXXXX.' }
+        $service = Get-CimInstance -ClassName SoftwareLicensingService
+        Write-GuestLog ('Installing a product key ending in ' + $key.Substring(24) + '.')
+        $null = Invoke-CimMethod -InputObject $service -MethodName InstallProductKey -Arguments @{ ProductKey = $key }
+        $null = Invoke-CimMethod -InputObject $service -MethodName RefreshLicenseStatus
+    }
+    $product = Get-WindowsLicenseProduct
+    if (-not $product) { throw 'No Windows licence was found on this computer.' }
+    $state = Get-LicenseState
+    if ($state.Channel -eq 'OEM' -and -not $key) { throw 'An OEM licence cannot be activated on new hardware. Enter a licence valid for this VM.' }
+    if ($state.Channel -ne 'AVMA') {
+        Write-GuestLog 'Asking Windows to activate.'
+        try { $null = Invoke-CimMethod -InputObject $product -MethodName Activate }
+        catch { throw ('Windows could not activate: ' + $_.Exception.Message + ' Check that this computer can reach ' + $(if ($state.KmsHost) { $state.KmsHost } elseif ($state.Channel -eq 'KMS') { 'its KMS server' } else { 'the internet' }) + '.') }
+    } else {
+        Write-GuestLog 'The AVMA key is installed; the Hyper-V host activates this VM within a few minutes.'
+    }
+    $after = Get-LicenseState
+    Write-GuestLog ('Windows activation: ' + $after.Status + ' (' + $after.Channel + ').')
+    return $after
+}
+
 function Get-GuestState {
     $os = Get-CimInstance -ClassName Win32_OperatingSystem
     $system = Get-CimInstance -ClassName Win32_ComputerSystem
@@ -324,14 +460,9 @@ function Get-GuestState {
     if (Get-Command Get-StorageSetting -ErrorAction SilentlyContinue) {
         try { $sanPolicy = [string](Get-StorageSetting -ErrorAction Stop).NewDiskPolicy } catch { }
     }
+    $license = Get-LicenseState
     $activation = ''
-    try {
-        $license = Get-CimInstance -ClassName SoftwareLicensingProduct -Filter "ApplicationID='55c92734-d682-4d71-983e-d6ec3f16059f' AND PartialProductKey IS NOT NULL" -ErrorAction Stop | Select-Object -First 1
-        if ($license) {
-            $states = @{ 0 = 'Unlicensed'; 1 = 'Licensed'; 2 = 'Initial grace period'; 3 = 'Additional grace period'; 4 = 'Non-genuine grace period'; 5 = 'Notification'; 6 = 'Extended grace period' }
-            $activation = [string]$states[[int]$license.LicenseStatus] + ' (' + [string]$license.Description + ')'
-        }
-    } catch { }
+    if ($license) { $activation = $license.Status + ' (' + $license.Description + ')' }
     $autoServices = @(Get-CimInstance -ClassName Win32_Service -Filter "StartMode='Auto' AND State='Running'" | ForEach-Object { [string]$_.Name } | Sort-Object)
     $routes = @(Get-NetRoute -PolicyStore PersistentStore -ErrorAction SilentlyContinue | Where-Object { $_.DestinationPrefix -ne '0.0.0.0/0' -and $_.DestinationPrefix -ne '::/0' } | ForEach-Object {
             [pscustomobject]@{ DestinationPrefix = [string]$_.DestinationPrefix; NextHop = [string]$_.NextHop; Metric = [int]$_.RouteMetric }
@@ -348,6 +479,7 @@ function Get-GuestState {
         BitLockerOn     = $bitlocker
         SanPolicy       = $sanPolicy
         Activation      = $activation
+        License         = $license
         VmwareTools     = Get-VmwareToolsEntry
         Drivers         = Get-DriverStoreStatus
         Adapters        = Get-PresentAdapters
@@ -378,6 +510,17 @@ function Get-PreflightFindings {
     if (@($State.BitLockerOn).Count -gt 0) { & $add 'warning' ('BitLocker protects ' + (@($State.BitLockerOn) -join ', ') + '. Save the recovery keys and suspend BitLocker before cutover.') }
     if ($State.SanPolicy -and $State.SanPolicy -notmatch 'OnlineAll') { & $add 'info' ('The SAN policy is ' + $State.SanPolicy + ', so data disks may start offline on the new hypervisor. The fix-up can bring them online.') }
     if ($State.Activation -and $State.Activation -notmatch '^Licensed') { & $add 'warning' ('Windows activation: ' + $State.Activation + '.') }
+    if ($State.License) {
+        $notes = @{
+            'KMS' = 'Windows activates through KMS' + $(if ($State.License.KmsHost) { ' (' + $State.License.KmsHost + ')' } else { '' }) + '. After the move it activates again by itself once it reaches the KMS server.'
+            'AD' = 'Windows uses Active Directory-based activation. After the move it activates again once it reaches a domain controller.'
+            'MAK' = 'Windows uses a MAK key. After the move, activate it again (one activation from the MAK''s count); do not activate test VMs.'
+            'Retail' = 'Windows uses a retail key. After the move, activate it again; Microsoft may ask for phone activation.'
+            'OEM' = 'Windows uses an OEM licence tied to this hardware. It cannot move: plan a volume licence, or AVMA on a Hyper-V Datacenter host.'
+            'AVMA' = 'Windows uses AVMA. The new Hyper-V host must run an activated Windows Server Datacenter.'
+        }
+        if ($notes[$State.License.Channel]) { & $add $(if ($State.License.Channel -eq 'OEM') { 'warning' } else { 'info' }) $notes[$State.License.Channel] }
+    }
     return @($findings)
 }
 
@@ -423,7 +566,7 @@ function Invoke-Status {
             }
         }
     }
-    return [pscustomobject]@{ Schema = 1; State = $state; Ghosts = $ghosts; Capture = $capture; RollbackAvailable = $rollback; MissingAutoServices = $missingServices; MissingAddresses = $missingAddresses; TargetChecks = Get-TargetChecks $state }
+    return [pscustomobject]@{ Schema = 1; State = $state; Ghosts = $ghosts; Capture = $capture; RollbackAvailable = $rollback; MissingAutoServices = $missingServices; MissingAddresses = $missingAddresses; TargetChecks = Get-TargetChecks $state; Activation = Get-ActivationAdvice $state $capture }
 }
 
 function Get-PlanItems {
@@ -643,6 +786,7 @@ try {
         'RemoveVmwareTools' { $result = Invoke-RemoveVmwareTools }
         'OnlineDisks' { $result = Invoke-OnlineDisks }
         'SaveBitLocker' { $result = Invoke-SaveBitLocker }
+        'Activate' { $result = Invoke-Activate }
     }
     Write-JsonFile $ResultPath ([pscustomobject]@{ ok = $true; mode = $Mode; result = $result })
 }

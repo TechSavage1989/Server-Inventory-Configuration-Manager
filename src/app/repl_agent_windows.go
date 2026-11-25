@@ -332,8 +332,10 @@ func replRunWindowsAgent(ctx context.Context, events *eventlog.Log, log func(str
 		if events == nil {
 			return
 		}
-		id := map[string]uint32{"rpo": 1001, "failing": 1002, "cutover": 1003, "stopped": 1004}[alert.Kind]
-		if alert.Level == "error" {
+		id := map[string]uint32{"rpo": 1001, "failing": 1002, "cutover": 1003, "stopped": 1004, "seeded": 1005}[alert.Kind]
+		if alert.Level == "info" {
+			events.Info(id, alert.Text)
+		} else if alert.Level == "error" {
 			events.Error(id, alert.Text)
 		} else {
 			events.Warning(id, alert.Text)
@@ -388,7 +390,7 @@ func replInstallLocal(port int, out io.Writer) error {
 	if err := replCreateService(nil, target); err != nil {
 		return err
 	}
-	fmt.Fprintf(out, "The replication agent is installed and running on port %d.\n\nIn the console's Replication tab, add this server with:\n  Agent key:              %s\n  Certificate thumbprint: %s\n\nThe key is shown only now; it is not saved on this server.\n", port, key, vmNormalizeThumbprint(thumbprint))
+	fmt.Fprintf(out, "The replication agent is installed and running on port %d.\n\nIn the console's Migration and replication tab, Replicate servers, add this server with:\n  Agent key:              %s\n  Certificate thumbprint: %s\n\nThe key is shown only now; it is not saved on this server.\n", port, key, vmNormalizeThumbprint(thumbprint))
 	return nil
 }
 

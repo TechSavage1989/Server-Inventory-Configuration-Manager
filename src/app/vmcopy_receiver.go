@@ -79,6 +79,17 @@ type vmReceiverConfig struct {
 	Folder  string
 	Disks   []vmReceiverDisk
 	Records string
+	// Discovery is the UDP address that answers find requests (":44379");
+	// empty means senders must type the address.
+	Discovery string
+	// Pairing lets a sender ask for the code, which is given only after the
+	// operator allows the request on this receiver's screen. Off for the
+	// receiver command on boot media, which has no screen to allow it on.
+	Pairing bool
+	// FreeBytes reports the free space where copies are written, for the
+	// find answer. Optional.
+	FreeBytes func() uint64
+	Version   string
 }
 
 // vmReceiverRawTarget closes its device with the session.
@@ -110,6 +121,16 @@ type vmReceiver struct {
 	// holds are disk names a VM was started from (a test failover or the
 	// production VM); they are refused until released.
 	holds map[string]string
+	// recent keeps finished copies for the Receive panel (an hour, up to
+	// vmTransferMax).
+	recent []vmTransfer
+
+	pairing   bool
+	pairs     map[string]*vmPairRequest
+	discovery *vmDiscoveryResponder
+	freeBytes func() uint64
+	version   string
+	hostName  string
 }
 
 // errVMReceiverHeld is wrapped by the sender when the receiver refuses a disk
@@ -164,6 +185,26 @@ type vmReceiverSession struct {
 	rescanDone int
 	rescanErr  string
 	rescanned  bool
+
+	// Progress for the Receive panel. The sender's address is shown so the
+	// operator can see who is connected; nothing secret is kept.
+	progress vmTransfer
+	meter    vmRateMeter
+	position vmRateMeter
+}
+
+// snapshot is the session's progress as a transfer. Caller holds s.mu.
+func (s *vmReceiverSession) snapshot(now time.Time) vmTransfer {
+	t := s.progress
+	t.Updated = s.seen
+	if s.rescanning {
+		t.Label = "Rescanning the target"
+		if total := len(s.sink.State().Hashes); total > 0 {
+			t.Chunks, t.Done = total, s.rescanDone
+		}
+	}
+	vmTransferFill(&t, s.meter.Rate(now), s.position.Rate(now))
+	return t
 }
 
 type vmReceiverOpen struct {
@@ -286,7 +327,7 @@ func startVMReceiverWith(address string, config vmReceiverConfig, log func(strin
 	if err != nil {
 		return nil, err
 	}
-	r := &vmReceiver{folder: folder, records: records, disks: disks, code: code, thumbprint: thumbprint, listener: listener, log: log, sessions: map[string]*vmReceiverSession{}, names: map[string]string{}}
+	r := &vmReceiver{folder: folder, records: records, disks: disks, code: code, thumbprint: thumbprint, listener: listener, log: log, sessions: map[string]*vmReceiverSession{}, names: map[string]string{}, pairing: config.Pairing, pairs: map[string]*vmPairRequest{}, freeBytes: config.FreeBytes, version: config.Version, hostName: hostName}
 	r.server = &http.Server{
 		Handler:           r,
 		TLSConfig:         &tls.Config{Certificates: []tls.Certificate{certificate}, MinVersion: tls.VersionTLS12},
@@ -294,6 +335,15 @@ func startVMReceiverWith(address string, config vmReceiverConfig, log func(strin
 		IdleTimeout:       2 * time.Minute,
 	}
 	go r.server.ServeTLS(listener, "", "")
+	if config.Discovery != "" {
+		responder, err := startVMDiscoveryResponder(config.Discovery, r.announcement)
+		if err != nil {
+			log("Senders cannot find this receiver automatically (" + err.Error() + "); type its address on the sending computer.")
+		} else {
+			r.discovery = responder
+			log(fmt.Sprintf("Senders on this network can find this receiver (UDP port %d). Its fingerprint is %s.", responder.Addr().(*net.UDPAddr).Port, vmFingerprint(thumbprint)))
+		}
+	}
 	if folder != "" {
 		log(fmt.Sprintf("Receiving into %s on port %d.", folder, r.Port()))
 	}
@@ -324,17 +374,66 @@ func (r *vmReceiver) Disks() []vmReceiverDisk {
 
 func (r *vmReceiver) ActiveSessions() int { r.mu.Lock(); defer r.mu.Unlock(); return len(r.sessions) }
 
+// Transfers lists the copies being received now and those finished in the
+// last hour, with the sender's address, progress and speed.
+func (r *vmReceiver) Transfers() []vmTransfer {
+	now := time.Now()
+	r.mu.Lock()
+	sessions := make([]*vmReceiverSession, 0, len(r.sessions))
+	for _, session := range r.sessions {
+		sessions = append(sessions, session)
+	}
+	list := make([]vmTransfer, 0, len(sessions)+len(r.recent))
+	for _, t := range r.recent {
+		if now.Sub(t.Finished) <= vmTransferKeep {
+			list = append(list, t)
+		}
+	}
+	r.mu.Unlock()
+	for _, session := range sessions {
+		session.mu.Lock()
+		list = append(list, session.snapshot(now))
+		session.mu.Unlock()
+	}
+	vmSortTransfers(list)
+	return list
+}
+
+// retire moves a session's progress to the recent list. Caller holds r.mu
+// and session.mu.
+func (r *vmReceiver) retire(session *vmReceiverSession, state string) {
+	t := session.snapshot(time.Now())
+	if t.State == "running" {
+		t.State = state
+		if t.Error != "" && state != "stopped" {
+			t.State = "failed"
+		}
+	}
+	t.Finished, t.Rate, t.ETASeconds = time.Now(), 0, 0
+	if t.State == "done" {
+		t.Percent = 100
+	}
+	r.recent = append(r.recent, t)
+	if len(r.recent) > vmTransferMax {
+		r.recent = r.recent[len(r.recent)-vmTransferMax:]
+	}
+}
+
 // Stop closes the listener and every open disk, saving its copy record so
 // the sender can resume against a new receiver later.
 func (r *vmReceiver) Stop() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
+	if r.discovery != nil {
+		r.discovery.Close()
+	}
 	err := r.server.Shutdown(ctx)
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	for id, session := range r.sessions {
 		session.mu.Lock()
 		session.sink.Close()
+		r.retire(session, "stopped")
 		session.mu.Unlock()
 		delete(r.sessions, id)
 	}
@@ -368,6 +467,10 @@ func (r *vmReceiver) session(id string) *vmReceiverSession {
 func (r *vmReceiver) ServeHTTP(w http.ResponseWriter, request *http.Request) {
 	if !strings.HasPrefix(request.URL.Path, vmReceiverAPI) {
 		vmReceiverError(w, http.StatusNotFound, "not found")
+		return
+	}
+	if request.URL.Path == vmReceiverAPI+"pair" {
+		r.pair(w, request) // asks for the code; needs no code
 		return
 	}
 	if !r.authorized(request) {
@@ -426,6 +529,8 @@ func (r *vmReceiver) open(w http.ResponseWriter, request *http.Request) {
 		if old := r.sessions[id]; old != nil && old.mu.TryLock() {
 			if time.Since(old.seen) > 2*time.Minute && !old.rescanning {
 				old.sink.Close()
+				old.progress.Error = "the sender stopped answering; another sender took over"
+				r.retire(old, "stopped")
 				delete(r.sessions, id)
 				delete(r.names, key)
 				busy = false
@@ -480,6 +585,12 @@ claim:
 	rand.Read(idBytes)
 	id := hex.EncodeToString(idBytes)
 	session := &vmReceiverSession{name: key, sink: sink, seen: time.Now()}
+	peer := request.RemoteAddr
+	if host, _, splitErr := net.SplitHostPort(peer); splitErr == nil {
+		peer = host
+	}
+	session.progress = vmTransfer{ID: id, Kind: "receive", Label: body.Name, Source: body.Source, Target: body.Name, Peer: peer, Size: body.Size,
+		Chunks: len(state.Hashes), Pass: state.Passes + 1, Started: time.Now(), State: "running"}
 	if body.Rescan {
 		rescanner, ok := sink.(vmRescanner)
 		if !ok {
@@ -567,9 +678,23 @@ func (r *vmReceiver) chunk(w http.ResponseWriter, request *http.Request) {
 	}
 	written, err := session.sink.Write(index, data, hash)
 	if err != nil {
+		session.progress.Error = err.Error()
 		vmReceiverError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	now := time.Now()
+	p := &session.progress
+	p.Error = ""
+	p.BytesRead += length
+	p.BytesWritten += written
+	if request.ContentLength > 0 && hash != vmCopyZeroHash {
+		p.BytesSent += request.ContentLength
+	}
+	if index+1 > p.Done {
+		p.Done = index + 1
+	}
+	session.meter.Add(now, p.BytesRead)
+	session.position.Add(now, int64(p.Done))
 	vmReceiverJSON(w, map[string]int64{"written": written})
 }
 
@@ -624,13 +749,18 @@ func (r *vmReceiver) lifecycle(w http.ResponseWriter, request *http.Request, act
 			break
 		}
 		state, err = session.sink.Finish(request.Context(), body.State, body.Verify)
+		if err != nil {
+			session.progress.Error = err.Error()
+		}
 		if err == nil {
+			session.progress.State, session.progress.Verified, session.progress.Done = "done", state.Verified, session.progress.Chunks
 			state.Target = filepath.Base(state.Target)
 			r.log(fmt.Sprintf("Finished %s (verified: %t).", state.Target, state.Verified))
 		}
 	case "close":
 		err = session.sink.Close()
 		r.mu.Lock()
+		r.retire(session, "stopped")
 		delete(r.sessions, body.Session)
 		delete(r.names, session.name)
 		r.mu.Unlock()
@@ -725,19 +855,10 @@ func vmReceiverDescribe(ctx context.Context, address, thumbprint, code string) (
 	return answer.Folder, answer.Disks, nil
 }
 
-func newVMReceiverClient(ctx context.Context, address, thumbprint, code string) (*vmRemoteSink, error) {
-	pinned := vmNormalizeThumbprint(thumbprint)
-	if pinned == "" {
-		return nil, errors.New("enter the receiver's certificate thumbprint (64 hexadecimal characters)")
-	}
-	if vmNormalizePairingCode(code) == "" {
-		return nil, errors.New("enter the receiver's pairing code")
-	}
-	host, port, err := net.SplitHostPort(strings.TrimSpace(address))
-	if err != nil || host == "" || port == "" {
-		return nil, errors.New("enter the receiver as host:port")
-	}
-	transport := &http.Transport{
+// vmReceiverTransport connects only to a receiver whose certificate has
+// exactly the pinned SHA-256 thumbprint: no CA, no proxy.
+func vmReceiverTransport(pinned string) *http.Transport {
+	return &http.Transport{
 		Proxy: nil,
 		TLSClientConfig: &tls.Config{
 			MinVersion:         tls.VersionTLS12,
@@ -756,6 +877,21 @@ func newVMReceiverClient(ctx context.Context, address, thumbprint, code string) 
 		MaxIdleConnsPerHost:   4,
 		ResponseHeaderTimeout: 5 * time.Minute,
 	}
+}
+
+func newVMReceiverClient(ctx context.Context, address, thumbprint, code string) (*vmRemoteSink, error) {
+	pinned := vmNormalizeThumbprint(thumbprint)
+	if pinned == "" {
+		return nil, errors.New("enter the receiver's certificate thumbprint (64 hexadecimal characters)")
+	}
+	if vmNormalizePairingCode(code) == "" {
+		return nil, errors.New("enter the receiver's pairing code")
+	}
+	host, port, err := net.SplitHostPort(strings.TrimSpace(address))
+	if err != nil || host == "" || port == "" {
+		return nil, errors.New("enter the receiver as host:port")
+	}
+	transport := vmReceiverTransport(pinned)
 	sink := &vmRemoteSink{ctx: ctx, client: &http.Client{Transport: transport, Timeout: 10 * time.Minute}, base: &url.URL{Scheme: "https", Host: net.JoinHostPort(host, port), Path: vmReceiverAPI}, code: code, retries: 4, delay: 2 * time.Second}
 	if err := sink.call(http.MethodPost, "hello", nil, nil, nil); err != nil {
 		return nil, err

@@ -483,7 +483,7 @@ func buildRunbook(plan vmPlan, inventory *vmInventory) []vmRunbookWave {
 			item.Before = append(item.Before, "Save BitLocker recovery keys and suspend BitLocker.")
 		}
 		if classifyGuestOS(vm).Family == "windows" {
-			item.Before = append(item.Before, "Inside the VMware VM, run Server Inventory and Migration Manager as administrator: a full collection, and Record settings under Inside the VM on the VMware tab.")
+			item.Before = append(item.Before, "Inside the VMware VM, run Server Inventory and Migration Manager as administrator: a full collection (Discovery, This server), and Record settings under Migration and replication, Prepare and fix up.")
 		} else if vmHasFinding(readiness, "static-ip") {
 			item.Before = append(item.Before, "Record the guest's IP configuration (addresses, gateway, DNS) before cutover.")
 		}
@@ -505,14 +505,14 @@ func buildRunbook(plan vmPlan, inventory *vmInventory) []vmRunbookWave {
 		case agent:
 			destination := "the new Hyper-V host (Receive saves VHDX files)"
 			if plan.Target != vmTargetHyperV {
-				destination = "the new " + vmTargetMachine(plan.Target) + " booted from receiver media (build it in the VMware tab's Move panel)"
+				destination = "the new " + vmTargetMachine(plan.Target) + " booted from receiver media (Move VMs creates it, or build the media in Receive and send disks)"
 			}
-			item.Before = append(item.Before, "Copy the disks with Disk copy on the VMware tab: Receive on "+destination+", and Send inside this VM as administrator. Send again as often as needed while the VM runs; each send after the first copies only what changed. (Or convert its shut-down disks in the Disk converter tab.)")
+			item.Before = append(item.Before, "Copy the disks with Receive and send disks (Migration and replication): Receive on "+destination+", and Send inside this VM as administrator. Send again as often as needed while the VM runs; each send after the first copies only what changed. (Or convert its shut-down disks with Convert disk images.)")
 			cutoverMove = []string{"Shut the VM down cleanly from the guest operating system right after a last Send from inside it, so the copy matches."}
 		default:
 			cutoverMove = []string{
 				"Shut the VM down cleanly from the guest operating system.",
-				fmt.Sprintf("Run the final replication to %s with %s. Disks exported from VMware can also be converted in this application's Disk converter tab (for example to a fixed VHD for Azure).", target, profile.Tool),
+				fmt.Sprintf("Run the final replication to %s with %s. Disks exported from VMware can also be converted with this application's Convert disk images (for example to a fixed VHD for Azure).", target, profile.Tool),
 			}
 		}
 
@@ -553,16 +553,16 @@ func buildRunbook(plan vmPlan, inventory *vmInventory) []vmRunbookWave {
 		}
 		if classifyGuestOS(vm).Family == "windows" {
 			if profile.Kind == vmKindCloud {
-				item.Cutover = append(item.Cutover, "Check the guest uses DHCP and has the address you reserved. Then, inside the new VM, run the fix-up under Inside the VM on the VMware tab to remove VMware Tools and hidden old adapters, and bring offline disks online.")
+				item.Cutover = append(item.Cutover, "Check the guest uses DHCP and has the address you reserved. Then, inside the new VM, run the fix-up under Prepare and fix up (Migration and replication) to remove VMware Tools and hidden old adapters, and bring offline disks online.")
 			} else {
-				item.Cutover = append(item.Cutover, "Inside the new VM, run the fix-up under Inside the VM on the VMware tab: put back the static IP settings, remove VMware Tools and hidden old adapters, and bring offline disks online.")
+				item.Cutover = append(item.Cutover, "Inside the new VM, run the fix-up under Prepare and fix up (Migration and replication): put back the static IP settings, remove VMware Tools and hidden old adapters, and bring offline disks online.")
 			}
 		} else if vmHasFinding(readiness, "static-ip") && profile.Kind != vmKindCloud {
 			item.Cutover = append(item.Cutover, "Reapply the recorded static IP configuration to the new network interface.")
 		}
 		item.Verify = append(item.Verify, "Check the VM can reach its gateway, DNS and domain controllers, and that its applications start.")
 		if classifyGuestOS(vm).Family == "windows" {
-			item.Verify = append(item.Verify, "Run a new collection and compare it with the one taken before cutover (Before and after on the VMware tab).")
+			item.Verify = append(item.Verify, "Run a new collection and compare it with the one taken before cutover (Compare before and after, in Migration and replication).")
 			item.Verify = append(item.Verify, "Check Windows activation; a hardware change can require reactivation.")
 		}
 		item.Verify = append(item.Verify, "Ask the application owner to confirm the service works, then add the VM to backup and monitoring on the target.")

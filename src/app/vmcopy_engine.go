@@ -41,10 +41,12 @@ type vmCopyState struct {
 	// Round names the replication round (job and recovery point) the
 	// finished copy holds, so copies of several disks can be checked to
 	// come from the same moment before a VM is started from them.
-	Round    string    `json:"round,omitempty"`
-	Complete bool      `json:"complete"`
-	Verified bool      `json:"verified"`
-	Updated  time.Time `json:"updated"`
+	Round string `json:"round,omitempty"`
+	// Machine describes the computer the copy came from (replication).
+	Machine  *vmSourceMachine `json:"machine,omitempty"`
+	Complete bool             `json:"complete"`
+	Verified bool             `json:"verified"`
+	Updated  time.Time        `json:"updated"`
 }
 
 type vmCopyProgress struct {
@@ -80,6 +82,8 @@ type vmCopyOptions struct {
 	ChangeID string
 	// Round is recorded when the pass completes (see vmCopyState.Round).
 	Round string
+	// Machine is recorded with the round (see vmCopyState.Machine).
+	Machine *vmSourceMachine
 	// retryDelay is shortened by tests.
 	retryDelay time.Duration
 }
@@ -249,6 +253,7 @@ func (s *vmLocalSink) Finish(ctx context.Context, state *vmCopyState, verify boo
 		}
 	}
 	s.state.Passes, s.state.ChangeID, s.state.Round, s.state.Complete, s.state.Verified = state.Passes, state.ChangeID, state.Round, true, false
+	s.state.Machine = state.Machine
 	if verify {
 		if err := vmVerifyCopy(ctx, s.disk, s.state); err != nil {
 			saveVMCopyState(s.state)
@@ -343,6 +348,9 @@ func vmCopyTo(ctx context.Context, source vmCopySource, sink vmCopySink, options
 			options.Progress(progress)
 		}
 	}
+	// Report the size of the pass before any chunk, so a progress bar
+	// starts at zero with its total known.
+	report()
 	for index := range state.Hashes {
 		if !selected[index] {
 			progress.Done++
@@ -397,6 +405,9 @@ func vmCopyTo(ctx context.Context, source vmCopySource, sink vmCopySink, options
 	}
 	state.Complete = true
 	state.ChangeID, state.Round = options.ChangeID, options.Round
+	if options.Machine != nil {
+		state.Machine = options.Machine
+	}
 	report()
 	final, err := sink.Finish(ctx, state, options.Verify)
 	if err != nil {

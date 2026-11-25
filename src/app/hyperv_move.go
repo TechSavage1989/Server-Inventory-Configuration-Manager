@@ -70,6 +70,8 @@ type hypervMoveRequest struct {
 	DiskOrder []string
 	// NewSink sends the disks somewhere other than a VHDX in CopyFolder.
 	NewSink func(index int, capacity int64) (vmCopySink, string, error)
+	// Progress reports each disk's copy progress (for the live view).
+	Progress func(disk string, p vmCopyProgress)
 	// open opens a disk image; tests may replace it.
 	open      func(path string) (vmDiskImage, error)
 	chunkSize int64
@@ -279,6 +281,9 @@ func hypervCopyDisk(ctx context.Context, request hypervMoveRequest, index int, d
 	}
 	last := time.Time{}
 	options.Progress = func(p vmCopyProgress) {
+		if request.Progress != nil {
+			request.Progress(label, p)
+		}
 		if p.Chunks > 0 && time.Since(last) > 10*time.Second {
 			last = time.Now()
 			log(fmt.Sprintf("%s: %d%% (%s read, %s written).", label, p.Done*100/p.Chunks, vmFormatBytes(p.BytesRead), vmFormatBytes(p.BytesWritten)))

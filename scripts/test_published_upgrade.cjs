@@ -161,7 +161,7 @@ async function nativeProcess(exe,args,env){const child=spawn(exe,args,{env,windo
  const stagedFiles=(await fsp.readdir(path.join(appRoot(env),'Updates','Downloads')));check(stagedFiles.length===0,'Owned download staging is cleaned after the update');
  // Close the automation page before stopping the native host, then launch the
  // same shortcut again to prove its actual post-upgrade launch behavior.
- await page.locator('#tabButtonSetup').click();
+ await page.locator('#tabButtonDiscovery').click();await page.locator('[data-tool="server"]').click();
  await page.locator('#presetCore').click();
  await page.locator('#saveChoicesButton').click();
  await until(async()=>{const s=await state(newURL);return s.collectionPreferences&&s.collectionPreferences.options.inventoryCategories.length===12});

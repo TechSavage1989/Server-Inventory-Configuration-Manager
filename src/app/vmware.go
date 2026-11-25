@@ -71,36 +71,40 @@ type vmwareRuntime struct {
 }
 
 type vmwareStateResponse struct {
-	Running         bool                   `json:"running"`
-	Action          string                 `json:"action"`
-	Status          string                 `json:"status"`
-	Message         string                 `json:"message"`
-	Server          string                 `json:"server"`
-	Account         string                 `json:"account"`
-	Certificate     *vmCertificateError    `json:"certificate"`
-	Summary         *vmInventorySummary    `json:"summary"`
-	InventorySerial uint64                 `json:"inventorySerial"`
-	OutputFolder    string                 `json:"outputFolder"`
-	ReportPath      string                 `json:"reportPath"`
-	RunbookPath     string                 `json:"runbookPath"`
-	RunbookDocxPath string                 `json:"runbookDocxPath"`
-	DiscoveryPath   string                 `json:"discoveryPath"`
-	PlanCSVPath     string                 `json:"planCsvPath"`
-	GuestSerial     uint64                 `json:"guestSerial"`
-	GuestMessage    string                 `json:"guestMessage"`
-	GuestError      bool                   `json:"guestError"`
-	GuestWorkPath   string                 `json:"guestWorkPath"`
-	CompareSerial   uint64                 `json:"compareSerial"`
-	CompareError    string                 `json:"compareError"`
-	Prepare         *vmPrepareResult       `json:"prepare"`
-	PrepareSerial   uint64                 `json:"prepareSerial"`
-	PrepareError    string                 `json:"prepareError"`
-	CanPrepare      bool                   `json:"canPrepare"`
-	HyperVHere      bool                   `json:"hyperVHere"`
-	Move            *vmMoveResult          `json:"move"`
-	MoveSerial      uint64                 `json:"moveSerial"`
-	MoveError       string                 `json:"moveError"`
-	MoveCopyRoot    string                 `json:"moveCopyRoot"`
+	Running         bool                `json:"running"`
+	Action          string              `json:"action"`
+	Status          string              `json:"status"`
+	Message         string              `json:"message"`
+	Server          string              `json:"server"`
+	Account         string              `json:"account"`
+	Certificate     *vmCertificateError `json:"certificate"`
+	Summary         *vmInventorySummary `json:"summary"`
+	InventorySerial uint64              `json:"inventorySerial"`
+	OutputFolder    string              `json:"outputFolder"`
+	ReportPath      string              `json:"reportPath"`
+	RunbookPath     string              `json:"runbookPath"`
+	RunbookDocxPath string              `json:"runbookDocxPath"`
+	DiscoveryPath   string              `json:"discoveryPath"`
+	PlanCSVPath     string              `json:"planCsvPath"`
+	GuestSerial     uint64              `json:"guestSerial"`
+	GuestMessage    string              `json:"guestMessage"`
+	GuestError      bool                `json:"guestError"`
+	GuestWorkPath   string              `json:"guestWorkPath"`
+	CompareSerial   uint64              `json:"compareSerial"`
+	CompareError    string              `json:"compareError"`
+	Prepare         *vmPrepareResult    `json:"prepare"`
+	PrepareSerial   uint64              `json:"prepareSerial"`
+	PrepareError    string              `json:"prepareError"`
+	CanPrepare      bool                `json:"canPrepare"`
+	HyperVHere      bool                `json:"hyperVHere"`
+	Move            *vmMoveResult       `json:"move"`
+	MoveSerial      uint64              `json:"moveSerial"`
+	MoveError       string              `json:"moveError"`
+	MoveCopyRoot    string              `json:"moveCopyRoot"`
+	HostStorage     *vmHostStorage      `json:"hostStorage"`
+	// Transfers are the disks this computer is sending or moving, running
+	// first, and those finished in the last hour.
+	Transfers       []vmTransfer           `json:"transfers"`
 	Target          *vmTargetStateResponse `json:"target"`
 	Send            []vmAgentSendResult    `json:"send"`
 	SendSerial      uint64                 `json:"sendSerial"`
@@ -148,11 +152,17 @@ func (a *application) vmwareSnapshotLocked() vmwareStateResponse {
 		Move: a.vmware.move, MoveSerial: a.vmware.moveSerial, MoveError: a.vmware.moveError, MoveCopyRoot: a.vmwareCopyRootLocked(),
 		Send: a.vmware.send, SendSerial: a.vmware.sendSerial, SendError: a.vmware.sendError, Receiver: a.vmReceiverStateLocked(),
 		HyperVHere:      vmHyperVHere(),
+		HostStorage:     vmHostStorageNow(),
+		Transfers:       []vmTransfer{},
 		CanPrepare:      a.vmware.inventory != nil && a.vmware.password != "" && strings.EqualFold(a.vmware.inventory.Server, a.vmware.server),
 		CancelRequested: a.vmware.cancelRequested && a.vmware.action != "",
 		Target:          a.vmTargetStateLocked(),
 		Logs:            append([]logEntry{}, a.vmware.logs...),
 		StartedAtUnixMs: millis(a.vmware.startedAt), EndedAtUnixMs: millis(a.vmware.endedAt),
+	}
+	if a.transfers != nil {
+		// The board has its own lock; it never takes a.mu.
+		response.Transfers = a.transfers.List()
 	}
 	if a.vmware.inventory != nil {
 		summary := summarizeInventory(a.vmware.inventory)
@@ -592,8 +602,9 @@ func (a *application) handleVMwareReset(response http.ResponseWriter, request *h
 // ---- Guest pre-flight and fix-up -----------------------------------------
 
 var (
-	guestMACPattern      = regexp.MustCompile(`^[0-9A-F]{2}(-[0-9A-F]{2}){5}$`)
-	guestInstancePattern = regexp.MustCompile(`^(PCI|VMBUS|USB)\\[A-Za-z0-9_&.{}\\#\-]{1,400}$`)
+	guestMACPattern        = regexp.MustCompile(`^[0-9A-F]{2}(-[0-9A-F]{2}){5}$`)
+	guestProductKeyPattern = regexp.MustCompile(`^[A-Z0-9]{5}(-[A-Z0-9]{5}){4}$`)
+	guestInstancePattern   = regexp.MustCompile(`^(PCI|VMBUS|USB)\\[A-Za-z0-9_&.{}\\#\-]{1,400}$`)
 )
 
 var guestModes = map[string]string{
@@ -605,11 +616,12 @@ var guestModes = map[string]string{
 	"remove-tools":  "RemoveVmwareTools",
 	"online-disks":  "OnlineDisks",
 	"bitlocker":     "SaveBitLocker",
+	"activate":      "Activate",
 }
 
 // guestChangingModes change this computer, so they need the typed computer
 // name.
-var guestChangingModes = map[string]bool{"apply": true, "undo": true, "remove-ghosts": true, "remove-tools": true, "online-disks": true, "bitlocker": true}
+var guestChangingModes = map[string]bool{"apply": true, "undo": true, "remove-ghosts": true, "remove-tools": true, "online-disks": true, "bitlocker": true, "activate": true}
 
 func (a *application) handleVMwareGuest(response http.ResponseWriter, request *http.Request) {
 	if !a.requireAuthorization(response, request) {
@@ -756,6 +768,13 @@ func validateGuestItems(action string, items []json.RawMessage) ([]byte, error) 
 	switch action {
 	case "capture", "status", "undo", "remove-tools", "bitlocker":
 		return nil, nil
+	case "activate":
+		if len(items) == 0 {
+			return nil, nil // activate with the key already installed
+		}
+		if len(items) > 1 {
+			return nil, errors.New("Enter one product key.")
+		}
 	}
 	if len(items) == 0 || len(items) > 64 {
 		return nil, errors.New("Choose at least one item.")
@@ -781,6 +800,18 @@ func validateGuestItems(action string, items []json.RawMessage) ([]byte, error) 
 				return nil, errors.New("Choose hidden adapters from the list.")
 			}
 			clean = append(clean, map[string]any{"instanceId": item.InstanceID})
+		case "activate":
+			var item struct {
+				ProductKey string `json:"productKey"`
+			}
+			key := ""
+			if json.Unmarshal(raw, &item) == nil {
+				key = strings.ToUpper(strings.TrimSpace(item.ProductKey))
+			}
+			if !guestProductKeyPattern.MatchString(key) {
+				return nil, errors.New("Type the product key as XXXXX-XXXXX-XXXXX-XXXXX-XXXXX.")
+			}
+			clean = append(clean, map[string]any{"productKey": key})
 		case "online-disks":
 			var item struct {
 				Number int `json:"number"`
@@ -1168,4 +1199,24 @@ func (a *application) handleVMwarePrepare(response http.ResponseWriter, request 
 		a.finishVMwareAction("connected", "Prepared "+name+".")
 	}()
 	writeJSON(response, http.StatusAccepted, map[string]any{"ok": true})
+}
+
+// copyTransfers is the live list of disks this computer is sending or
+// moving, for the Disk copy and Move views.
+func (a *application) copyTransfers() *vmTransferBoard {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.transfers == nil {
+		a.transfers = newVMTransferBoard()
+	}
+	return a.transfers
+}
+
+// moveProgress reports a move round's disks to the live list. Every disk
+// of the round shares the returned prefix, so the round ends them together.
+func (a *application) moveProgress(vm vmMachine, target string) (func(string, vmCopyProgress), string) {
+	board, prefix := a.copyTransfers(), "move-"+vm.ID+"|"
+	return func(disk string, p vmCopyProgress) {
+		board.Report(vmTransfer{ID: prefix + disk, Kind: "move", Label: vm.Name + ": " + disk, Source: vm.Name + " (" + disk + ")", Target: target}, p)
+	}, prefix
 }

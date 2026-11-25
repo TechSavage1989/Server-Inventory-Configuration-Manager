@@ -134,6 +134,11 @@ func replTestSpec(receiver *vmReceiver) replJobSpec {
 }
 
 func TestReplicationJobRunsRoundsTracksRPOAndAlerts(t *testing.T) {
+	saved := replMachineInfo
+	replMachineInfo = func() vmSourceMachine {
+		return vmSourceMachine{Name: "APP01", CPUs: 6, MemoryMB: 12288, Firmware: "uefi", Adapters: 2}
+	}
+	defer func() { replMachineInfo = saved }()
 	agent, platform, clock, receiver, folder := replTestSetup(t)
 	view, err := agent.SaveJob(replTestSpec(receiver))
 	if err != nil {
@@ -148,10 +153,33 @@ func TestReplicationJobRunsRoundsTracksRPOAndAlerts(t *testing.T) {
 	if view.Status.Rounds != 1 || view.Status.State != replStateIdle || !view.Status.RecoveryPoint.Equal(clock.Now()) {
 		t.Fatalf("first round: %+v", view.Status)
 	}
+	// The first full copy is a milestone: recorded once, noted (not an open
+	// alert) and kept through later rounds.
+	seededAt := view.Status.InitialCopyAt
+	if seededAt.IsZero() {
+		t.Fatal("the initial copy was not marked complete")
+	}
+	notes := 0
+	for _, alert := range agent.Alerts() {
+		if alert.Kind == "seeded" {
+			notes++
+			if !alert.Cleared || alert.Level != "info" || !strings.Contains(alert.Text, "ready for a test failover or cutover") {
+				t.Fatalf("milestone note: %+v", alert)
+			}
+		}
+	}
+	if notes != 1 {
+		t.Fatalf("%d milestone notes", notes)
+	}
 	for disk, name := range map[string]string{"0": "APP01-disk0.vhdx", "1": "APP01-disk1.vhdx"} {
 		if !bytes.Equal(vmReadVHDX(t, filepath.Join(folder, name)), platform.disks[disk]) {
 			t.Fatalf("%s differs from disk %s", name, disk)
 		}
+	}
+	// Each copy carries the source computer's shape for the VM made from it.
+	copies, err := replListCopies(folder, nil, nil)
+	if err != nil || len(copies) != 2 || copies[0].Machine == nil || copies[0].Machine.CPUs != 6 || copies[0].Machine.MemoryMB != 12288 || copies[0].Machine.Firmware != "uefi" || copies[0].Machine.Adapters != 2 {
+		t.Fatalf("copies %+v %v", copies, err)
 	}
 	// Not due yet: nothing runs.
 	clock.Add(4 * time.Minute)
@@ -166,6 +194,9 @@ func TestReplicationJobRunsRoundsTracksRPOAndAlerts(t *testing.T) {
 	view = replWaitIdle(t, agent, id)
 	if view.Status.Rounds != 2 || view.Status.Disks[1].Changed != 1 || view.Status.Disks[0].Changed != 0 {
 		t.Fatalf("delta round: %+v", view.Status.Disks)
+	}
+	if !view.Status.InitialCopyAt.Equal(seededAt) {
+		t.Fatal("a later round moved the initial copy time")
 	}
 	if !bytes.Equal(vmReadVHDX(t, filepath.Join(folder, "APP01-disk1.vhdx")), platform.disks["1"]) {
 		t.Fatal("the delta round left the copy different")
@@ -211,7 +242,7 @@ func TestReplicationJobRunsRoundsTracksRPOAndAlerts(t *testing.T) {
 	}
 	// The agent restarts from its records.
 	again, err := newReplAgent(agent.dir, platform)
-	if err != nil || len(again.Jobs()) != 1 || again.Jobs()[0].Status.Rounds != 3 {
+	if err != nil || len(again.Jobs()) != 1 || again.Jobs()[0].Status.Rounds != 3 || !again.Jobs()[0].Status.InitialCopyAt.Equal(seededAt) {
 		t.Fatalf("reloaded: %v", err)
 	}
 	if again.jobs[id].spec.Receiver.Code == "" {
