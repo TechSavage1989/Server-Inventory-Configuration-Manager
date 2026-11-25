@@ -4,6 +4,14 @@
 - Code: `src/app/hyperv_move.go`, `hyperv_move_windows.go`, `Move-HyperVVM.ps1`; `runMoveRound` dispatches by source in `vmware_move_windows.go` and `vmware_target_windows.go`. UI in `renderVmMove` and `renderVmMoveTarget` (`index.html`).
 - Tests: `go test ./src/app -run HyperV` (fake host, real VHDX files: full, delta with a cleared chunk, verified cutover, refusals, checkpoint removal on failure and cancel); `TestMoveHyperVScriptOnThisComputer` on Windows; the Hyper-V check in `scripts/test_workspace.cjs`.
 - Limitation: GitHub runners have no Hyper-V role. Real checkpoints, remote WMI access and the guest shutdown need a field test on a Hyper-V host before customer use.
+## Unreleased: runbook check boxes that tick, and in-app runbook steps — 2026-11-25
+
+The owner asked what the runbook check boxes were for if they could not be ticked.
+- HTML runbook (`vmware_report.go`): every before/cutover/verify step is an `<input class="step">` keyed by VM ID, section and step text. `vmRunbookScript` (allowed by its exact SHA-256 in the runbook's CSP, `vmRunbookScriptHash`) saves ticks in localStorage under `runbook:<server>|<target>`, shows progress per VM, per wave (also in the Waves table) and overall, and offers Print and a two-click Clear all ticks. Without scripts the boxes still tick and print. Print CSS hides the toolbar.
+- Word runbook (`vmware_docx.go`): steps use `w14:checkbox` content controls (clickable in Word 2010+ and LibreOffice, ☐/☒ in MS Gothic); the document declares `w14` as ignorable.
+- Steps (`vmware_plan.go`, `vmtarget_move.go`): Hyper-V and receiver targets now copy in "Before" and use the in-app Cut over in "Cutover" (no more "Run the final conversion with System Center VMM, Veeam or StarWind"); VMs read from a Hyper-V host use Disk copy (Send inside the VM); Azure/EC2 keep their platform tool and point at the Disk converter for exported disks.
+- Inside the VM: **Check this VM** moved to the After cutover section as **Check what needs fixing**; both sections now say what their button does.
+- Tests: runbook HTML/Word checks for the boxes, CSP hash, script and Cut over wording; target runbook expectations updated. Checked by hand in Chromium (ticks survive a reload, progress counts) and the Word file converted with LibreOffice.
 
 ## Unreleased: where each part runs (source, target and admin computer) — 2026-11-25
 
