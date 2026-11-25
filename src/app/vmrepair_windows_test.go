@@ -141,7 +141,7 @@ func TestRepairScriptFixesUpAndUndoesAWindowsDisk(t *testing.T) {
 	}
 	windows := check.Windows[0]
 	if windows.ProductName != "Windows Server 2019 Datacenter" || windows.Build != 17763 || !windows.Server || windows.OsTag != "2k19" || windows.Architecture != "amd64" || !windows.VMwareTools {
-		t.Fatalf("Windows not read: %+v", windows)
+		t.Fatalf("Windows not read: %+v\n%s", windows, out)
 	}
 	if driver := vmFindRepairDriver(t, check, "storahci"); driver.Start != 3 || !driver.Override || !driver.File {
 		t.Fatalf("storahci state not read: %+v", driver)
