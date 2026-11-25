@@ -560,6 +560,10 @@ func (a *application) handleRestoreStart(response http.ResponseWriter, request *
 		fail(http.StatusConflict, "A VMware step is running. Wait for it to finish before restoring.")
 		return
 	}
+	if a.convertBusyLocked() {
+		fail(http.StatusConflict, "A disk conversion is running. Wait for it to finish before restoring.")
+		return
+	}
 	if a.restore.scan == nil || !strings.EqualFold(a.restore.packagePath, packagePath) {
 		fail(http.StatusConflict, "Check this package again before restoring.")
 		return

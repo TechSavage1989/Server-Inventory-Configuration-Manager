@@ -87,6 +87,14 @@ type vhdxFile struct {
 	sequence   uint64
 	readOnly   bool
 	batAt      int64
+	// Differencing disks are opened only by the disk converter's reader
+	// (vmdisk_vhdx.go), which follows the parent; logical is the logical
+	// sector size and dataGUID the current header's data write GUID.
+	allowDifferencing bool
+	differencing      bool
+	logical           int64
+	dataGUID          [16]byte
+	metaOffset        int64
 }
 
 func vhdxBATEntries(size, blockSize int64) (blocks, entries, chunkRatio int64) {
@@ -274,6 +282,7 @@ func (v *vhdxFile) load() error {
 	if current == nil {
 		return errors.New("both VHDX headers are damaged")
 	}
+	copy(v.dataGUID[:], current[32:48])
 	if !bytes.Equal(current[48:64], make([]byte, 16)) {
 		return errors.New("the VHDX has unapplied log entries; attach it once in Hyper-V or Windows so they are applied, then try again")
 	}
@@ -325,20 +334,27 @@ func (v *vhdxFile) load() error {
 		case vhdxMetaFile:
 			v.blockSize = int64(binary.LittleEndian.Uint32(value))
 			if binary.LittleEndian.Uint32(value[4:])&2 != 0 {
-				return errors.New("differencing VHDX files are not supported here")
+				if !v.allowDifferencing {
+					return errors.New("differencing VHDX files are not supported here")
+				}
+				v.differencing = true
 			}
 		case vhdxMetaSize:
 			v.size = int64(binary.LittleEndian.Uint64(value))
 		case vhdxMetaLogical:
 			logical = int64(binary.LittleEndian.Uint32(value))
 		case vhdxMetaParent:
-			return errors.New("differencing VHDX files are not supported here")
+			if !v.allowDifferencing {
+				return errors.New("differencing VHDX files are not supported here")
+			}
+			v.differencing = true
 		}
 	}
 	if v.blockSize < vhdxMB || v.blockSize&(v.blockSize-1) != 0 || v.size <= 0 || (logical != 512 && logical != 4096) {
 		return errors.New("the VHDX metadata has unsupported values")
 	}
 	v.chunkRatio = (int64(1) << 23) * logical / v.blockSize
+	v.logical, v.metaOffset = logical, metaOffset
 	_, entries, _ := vhdxBATEntries(v.size, v.blockSize)
 	if entries*8 > batLength {
 		return errors.New("the VHDX block table is too small for its size")

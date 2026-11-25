@@ -171,6 +171,7 @@ type stateResponse struct {
 	Restore                 restoreStateResponse   `json:"restore"`
 	Migrate                 migrateStateResponse   `json:"migrate"`
 	VMware                  vmwareStateResponse    `json:"vmware"`
+	Convert                 convertStateResponse   `json:"convert"`
 	Logs                    []logEntry             `json:"logs"`
 	NextLogIndex            int                    `json:"nextLogIndex"`
 }
@@ -266,6 +267,7 @@ type application struct {
 	restore                 restoreRuntime
 	migrate                 migrateRuntime
 	vmware                  vmwareRuntime
+	convert                 convertRuntime
 	vmReceive               vmReceiverRuntime
 }
 
@@ -1321,6 +1323,7 @@ func (a *application) snapshot(since int) stateResponse {
 		Restore:                 a.restoreSnapshotLocked(),
 		Migrate:                 a.migrateSnapshotLocked(),
 		VMware:                  a.vmwareSnapshotLocked(),
+		Convert:                 a.convertSnapshotLocked(),
 		Logs:                    logs,
 		NextLogIndex:            a.nextLogIndex,
 	}
@@ -1534,6 +1537,11 @@ func (a *application) handleStart(response http.ResponseWriter, request *http.Re
 		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "A VMware step is running. Wait for it to finish before collecting."})
 		return
 	}
+	if a.convertBusyLocked() {
+		a.mu.Unlock()
+		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "A disk conversion is running. Wait for it to finish, or stop it, before collecting."})
+		return
+	}
 	a.mu.Unlock()
 
 	runID, err := randomHex(16)
@@ -1565,6 +1573,11 @@ func (a *application) handleStart(response http.ResponseWriter, request *http.Re
 	if a.vmwareBusyLocked() {
 		a.mu.Unlock()
 		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "A VMware step is running. Wait for it to finish before collecting."})
+		return
+	}
+	if a.convertBusyLocked() {
+		a.mu.Unlock()
+		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "A disk conversion is running. Wait for it to finish, or stop it, before collecting."})
 		return
 	}
 	a.state = internalState{
@@ -1841,6 +1854,7 @@ func (a *application) handleShutdown(response http.ResponseWriter, request *http
 	restoring := a.restore.status == "running"
 	migrating := a.migrate.action != ""
 	vmwareStep := a.vmware.action
+	converting := a.convertBusyLocked()
 	a.mu.Unlock()
 	if running {
 		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "The application cannot close while collection is running. Cancel the collection first."})
@@ -1856,6 +1870,10 @@ func (a *application) handleShutdown(response http.ResponseWriter, request *http
 	}
 	if vmwareStep != "" {
 		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "The application cannot close while a VMware step is running. Wait for it to finish, or stop it."})
+		return
+	}
+	if converting {
+		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "The application cannot close while a disk conversion is running. Stop it first; a stopped conversion continues where it left off next time."})
 		return
 	}
 	writeJSON(response, http.StatusOK, map[string]any{"ok": true})
@@ -2306,6 +2324,10 @@ func (a *application) serve(listener net.Listener) error {
 	mux.HandleFunc("/api/vmware/guest-load", a.handleVMwareGuestLoad)
 	mux.HandleFunc("/api/vmware/compare/browse", a.handleVMwareCompareBrowse)
 	mux.HandleFunc("/api/vmware/compare", a.handleVMwareCompare)
+	mux.HandleFunc("/api/convert/browse", a.handleConvertBrowse)
+	mux.HandleFunc("/api/convert/inspect", a.handleConvertInspect)
+	mux.HandleFunc("/api/convert/start", a.handleConvertStart)
+	mux.HandleFunc("/api/convert/cancel", a.handleConvertCancel)
 	mux.HandleFunc("/api/ui/ready", a.handleUIReady)
 	mux.HandleFunc("/api/update/check", a.handleUpdateCheck)
 	mux.HandleFunc("/api/update/download", a.handleUpdateDownload)

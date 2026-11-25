@@ -195,6 +195,8 @@ func (a *application) startVMwareAction(action string) (int, string) {
 		refusal = "A file migration step is running. Wait for it to finish first."
 	case a.vmwareBusyLocked():
 		refusal = "Another VMware step is running. Wait for it to finish first."
+	case a.convertBusyLocked():
+		refusal = "A disk conversion is running. Wait for it to finish first."
 	default:
 		a.vmware.action = action
 		a.vmware.cancelRequested = false
@@ -1043,6 +1045,11 @@ func (a *application) vmwareOpenTarget(kind string) (target string, folder bool,
 		return "", false, true
 	case "comparefolder":
 		return a.vmware.compareFolder, true, true
+	case "convertfolder":
+		if a.convert.target == "" {
+			return "", true, true
+		}
+		return filepath.Dir(a.convert.target), true, true
 	case "receivefolder":
 		if a.vmReceive.receiver != nil {
 			return a.vmReceive.receiver.Folder(), true, true
