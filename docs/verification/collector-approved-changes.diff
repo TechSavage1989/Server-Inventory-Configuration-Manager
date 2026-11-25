@@ -406,6 +406,15 @@
 +                Write-InventoryLog -Level 'WARN' -Message ('PrintBRM reported error ' + $Matches[0] + ' during the printer migration export; it may be incomplete. See Print-Server\PrintBRM-Export.log.')
 +            }
 +            # END APPROVED PRINTBRM LOCAL EXPORT
+@@ -5412 +5736 @@
+-            Save-ObjectData -InputObject (Get-ADReplicationFailure -Target * -Scope Forest -ErrorAction SilentlyContinue) -BasePath (Join-Path $rolePath 'AD-Replication-Failures')
++            Save-ObjectData -InputObject (Get-ADReplicationFailure -Target ([string]$forest.Name) -Scope Forest -ErrorAction SilentlyContinue) -BasePath (Join-Path $rolePath 'AD-Replication-Failures')
+@@ -5618 +5942 @@
+-        $eventLogs = Get-WinEvent -ListLog * -ErrorAction SilentlyContinue |
++        $eventLogs = Microsoft.PowerShell.Diagnostics\Get-WinEvent -ListLog * -ErrorAction SilentlyContinue |
+@@ -5623 +5947 @@
+-            $events = Get-WinEvent -FilterHashtable @{
++            $events = Microsoft.PowerShell.Diagnostics\Get-WinEvent -FilterHashtable @{
 @@ -5732,0 +5976,4 @@
 +    # BEGIN APPROVED ACL EXPORT COMPLETION METADATA
 +    IncompleteAclExports = $script:aclExportsIncompleteCount
