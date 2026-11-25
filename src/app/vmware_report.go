@@ -108,6 +108,8 @@ const vmRunbookTemplate = `<!DOCTYPE html>
 <h1>Migration runbook: VMware to {{target .Plan.Target}}</h1>
 <p class="sub">Source {{.Inventory.ServerType}} {{.Inventory.Server}}, inventory read {{date .Inventory.CollectedAt}} · plan saved {{date .Plan.UpdatedAt}} · {{.Generator}} {{.Inventory.AppVersion}}</p>
 <div class="note">Work through each wave in order. Keep the old VMs powered off but intact until the application owner signs off, so every step can be rolled back.</div>
+<h2>Where each part runs</h2>
+<table><tr><th>Computer</th><th>What runs there</th><th>What it needs</th></tr>{{range .Roles}}<tr><td><b>{{.Where}}</b></td><td>{{.Does}}</td><td>{{.Needs}}</td></tr>{{end}}</table>
 <h2>Capacity check</h2>
 <div class="cards"><div class="card"><b>{{.Sizing.VMs}}</b><span>VMs to move</span></div><div class="card"><b>{{.Sizing.VCPUs}}</b><span>vCPUs{{if .Sizing.Configured}} ({{.Sizing.VCPUPerCore}} per core){{end}}</span></div><div class="card"><b>{{bytes .Sizing.MemoryBytes}}</b><span>memory{{if .Sizing.Configured}} ({{pct .Sizing.MemoryPercent}} of available){{end}}</span></div><div class="card"><b>{{bytes .Sizing.UsedBytes}}</b><span>storage used{{if .Sizing.Configured}} ({{pct .Sizing.StoragePercent}} of usable){{end}}</span></div></div>
 <ul>{{range .Sizing.Notes}}<li>{{.}}</li>{{end}}</ul>
@@ -292,7 +294,7 @@ func writeVMwarePlanOutputs(folder string, inventory *vmInventory, plan vmPlan) 
 	waves := buildRunbook(plan, inventory)
 	sizing := sizePlan(plan, inventory)
 	var page bytes.Buffer
-	if err := vmRunbookTmpl.Execute(&page, map[string]any{"Inventory": inventory, "Plan": plan, "Waves": waves, "Sizing": sizing, "Style": template.CSS(vmReportStylesheet), "Generator": vmReportGeneratorLine}); err != nil {
+	if err := vmRunbookTmpl.Execute(&page, map[string]any{"Inventory": inventory, "Plan": plan, "Roles": vmMoveRoles(plan.Target), "Waves": waves, "Sizing": sizing, "Style": template.CSS(vmReportStylesheet), "Generator": vmReportGeneratorLine}); err != nil {
 		return "", "", err
 	}
 	runbook := filepath.Join(folder, vmRunbookReport)
