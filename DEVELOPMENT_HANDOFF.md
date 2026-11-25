@@ -1,3 +1,10 @@
+## Unreleased: phase 2 step 3, network receiver — 2026-11-25
+
+- The copy engine now writes through a `vmCopySink`. `vmLocalSink` is the previous local VHDX plus copy record; `vmCopyDisk` is unchanged for callers. `vmCopyTo` takes any sink.
+- `vmcopy_receiver.go`: `startVMReceiver(address, folder)` serves `/v1/hello|open|chunk|checkpoint|finish|close` over TLS with a new self-signed ECDSA certificate and a random pairing code per start (both shown to the operator). Plain `.vhdx` names only, inside the folder; each chunk's SHA-256 is checked before it is written; zero chunks carry no body; one sender per disk, with takeover after two idle minutes; Stop saves every open record. `newVMRemoteSink` pins the exact certificate thumbprint, sends the code as a bearer header, ignores proxies and retries transient failures (not certificate or 4xx errors).
+- Tests: `TestReceiverCopiesOverTheNetworkAndResumes` (stop and resume across connections, verify on the receiver, change ID kept, delta pass sends one chunk) and `TestReceiverRefusesWrongPeersCodesNamesAndData` (other certificate, wrong code, unsafe names, existing foreign file, corrupted chunk, two senders, resume on a restarted receiver). Run with `-race` locally.
+- Not yet: Windows Firewall rule and the UI to start a receiver, which come with the Hyper-V step; no compression yet.
+
 ## Unreleased: phase 2 step 2, VMware snapshot and changed-block replication rounds — 2026-11-25
 
 - `vmware_replicate.go` (`vmReplicateRound`) copies a running VM's disks into one VHDX per disk (`<vm>-diskN.vhdx`) with the copy engine. Each round: refuse other snapshots, encrypted disks, RDMs and snapshot chains; remove a replication snapshot left by an earlier round; optionally turn on changed block tracking; take `Server Inventory and Migration Manager replication` (quiesced when asked and the VM is on); read the frozen base disks over the datastore HTTPS interface; remove the snapshot (always, with its own timeout). A JSON record is saved before each vSphere change.
