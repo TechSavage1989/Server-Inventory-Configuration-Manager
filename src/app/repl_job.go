@@ -28,6 +28,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime/debug"
 	"sort"
 	"strings"
 	"sync"
@@ -155,7 +156,7 @@ type replAlert struct {
 	Job     string    `json:"job"`
 	JobName string    `json:"jobName"`
 	Level   string    `json:"level"` // warning or error
-	Kind    string    `json:"kind"`  // rpo, failing, cutover
+	Kind    string    `json:"kind"`  // rpo, failing, cutover, stopped
 	Text    string    `json:"text"`
 	Cleared bool      `json:"cleared"`
 }
@@ -220,6 +221,8 @@ type replJob struct {
 	throttle *vmThrottle
 	logs     []string
 	cutover  bool // a cutover was asked for
+	// interrupted: the agent's previous run ended during this job's round.
+	interrupted bool
 }
 
 // replAgent runs jobs and keeps their records.
@@ -235,6 +238,34 @@ type replAgent struct {
 	notify   func(replAlert)
 	wg       sync.WaitGroup
 	stopping bool
+	// lastStop says how the agent's previous run ended when that was not
+	// a clean stop (see replCheckPreviousStop); empty otherwise.
+	lastStop   string
+	lastStopAt time.Time
+}
+
+// replCrashLog receives the Go runtime's own output when the agent process
+// crashes (standard error is pointed at it); replErrorLog receives internal
+// errors the agent caught, which failed one round but not the agent.
+const (
+	replCrashLog = "agent-crash.log"
+	replErrorLog = "agent-errors.log"
+)
+
+// recordPanic turns a recovered panic into an error and saves its stack to
+// the agent's crash log, so the details survive.
+func (a *replAgent) recordPanic(job *replJob, r interface{}) error {
+	stack := debug.Stack()
+	err := fmt.Errorf("internal error in the agent: %v", r)
+	path := filepath.Join(a.dir, "Logs", replErrorLog)
+	if file, openErr := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600); openErr == nil {
+		fmt.Fprintf(file, "%s  job %s: %v (recovered; the round failed)\n%s\n", a.now().UTC().Format(time.RFC3339), job.spec.ID, r, stack)
+		file.Close()
+	}
+	a.mu.Lock()
+	a.logLocked(job, "%s. Details are in %s.", err.Error(), path)
+	a.mu.Unlock()
+	return err
 }
 
 // replSink is a vmCopySink the agent can tune per round.
@@ -279,6 +310,7 @@ func newReplAgent(dir string, platform replPlatform) (*replAgent, error) {
 			if job.status.State == replStateSyncing || job.status.State == replStateCutover {
 				// The agent stopped during a round: run it again.
 				job.status.State, job.status.Message = replStateIdle, "The agent restarted during a round; it runs again now."
+				job.interrupted = true
 				job.status.NextRun = time.Time{}
 			}
 			job.logs = replTailFile(a.logPath(item.Spec.ID), 100)
@@ -820,6 +852,20 @@ func (a *replAgent) startLocked(job *replJob, cutover bool) {
 	go func() {
 		defer a.wg.Done()
 		defer cancel()
+		defer func() {
+			if r := recover(); r != nil {
+				err := a.recordPanic(job, r)
+				a.mu.Lock()
+				job.running, job.cancel = false, nil
+				job.status.Failures++
+				job.status.LastError = err.Error()
+				job.status.State = replStateError
+				job.status.NextRun = a.now().Add(5 * time.Minute).UTC()
+				job.status.Message = "The agent hit an internal error; it tries again at " + job.status.NextRun.Format("15:04") + " UTC."
+				a.saveLocked()
+				a.mu.Unlock()
+			}
+		}()
 		if cutover {
 			a.runCutover(ctx, job, spec, rescan)
 		} else {
@@ -845,7 +891,14 @@ func (a *replAgent) runRound(ctx context.Context, job *replJob, spec replJobSpec
 		sources = append(sources, disk.Source)
 	}
 	started := a.now()
-	err := func() error {
+	err := func() (err error) {
+		// An internal error fails this round like any other failure (with
+		// backoff) instead of ending the agent; the disks are closed first.
+		defer func() {
+			if r := recover(); r != nil {
+				err = a.recordPanic(job, r)
+			}
+		}()
 		opened, err := a.platform.OpenDisks(ctx, spec.ID, sources, spec.AllowLive, log)
 		if err != nil {
 			return err
@@ -951,6 +1004,7 @@ func (a *replAgent) runRound(ctx context.Context, job *replJob, spec replJobSpec
 			job.status.RescanNext = false
 		}
 		a.clearAlertsLocked(job, "failing")
+		a.clearAlertsLocked(job, "stopped")
 		if !job.status.RecoveryPoint.IsZero() && a.now().Sub(job.status.RecoveryPoint) <= time.Duration(spec.RPOMinutes)*time.Minute {
 			a.clearAlertsLocked(job, "rpo")
 		}

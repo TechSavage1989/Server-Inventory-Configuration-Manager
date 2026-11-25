@@ -47,7 +47,7 @@ type replRunbookServer struct {
 func replRunbookRoles() []vmMoveRole {
 	return []vmMoveRole{
 		{Where: "Your admin computer (the console)", Does: "Run this application here: Migration and replication, Replicate servers. Install agents, create jobs, watch recovery points and alerts, start cutovers and write this runbook. Disks do not pass through this computer.", Needs: "Windows, and HTTPS access to each server's agent port (44390). For Linux servers, SSH access and simm-agent-linux-amd64 beside this program."},
-		{Where: "Each server being replicated (the source)", Does: "The replication agent runs here as a service (SIMMReplicationAgent on Windows, simm-replication-agent on Linux). It reads every disk from snapshots each round and sends only what changed to the receiver.", Needs: "Administrator or root rights to install the agent, a few GB free for Volume Shadow Copy or LVM snapshots, and a network path to the receiver (port 44380 by default)."},
+		{Where: "Each server being replicated (the source)", Does: "The replication agent runs here as a service (SIMMReplicationAgent on Windows, simm-replication-agent on Linux). It reads every disk from snapshots each round and sends only what changed to the receiver.", Needs: "Administrator or root rights to install the agent, a few GB free for Volume Shadow Copy or LVM snapshots, a network path to the receiver (port 44380 by default), and endpoint protection exclusions for the agent (docs/EDR-EXCLUSIONS.md) added before the first round."},
 		{Where: "The Hyper-V host, for a Hyper-V target", Does: "Run this application here as administrator: Migration and replication, Receive and send disks, Start receiving. Copies are written here as VHDX files. Test failovers and the production VM are started here (Start VMs from copies).", Needs: "The Hyper-V role and its PowerShell module, room for the disks, and the receiver port open to the servers."},
 		{Where: "The new VM or physical server, for any other target", Does: "Boot it from the receiver media. It shows its address, pairing code and certificate thumbprint and writes each disk onto its own blank disk. At cutover it is set to boot from its disks.", Needs: "Blank disks at least as large as the source disks, and its storage and network drivers on the media."},
 	}
@@ -107,6 +107,7 @@ func replRunbookJobFor(server, platform string, view replJobView) replRunbookJob
 	job.Before = []string{
 		"Check that " + spec.Name + " shows Up to date and its recovery point is within its limit.",
 		"Note the server's IP settings, DNS records and any firewall rules that name its address.",
+		"Endpoint protection: confirm that SentinelOne, Microsoft Defender, CrowdStrike or whatever runs on " + server + " has the replication agent's exclusions (the application's docs/EDR-EXCLUSIONS.md), so it cannot end or quarantine the agent during cutover.",
 		"Agree the cutover window with the application owner and tell users.",
 		"Make sure the new machine has the network and storage drivers it needs (on the receiver media, or Hyper-V integration services, which recent Windows and Linux include).",
 	}

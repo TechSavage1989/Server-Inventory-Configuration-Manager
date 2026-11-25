@@ -1,0 +1,163 @@
+# Endpoint protection (EDR) and the replication agent
+
+The replication agent reads whole disks, takes Volume Shadow Copies and sends
+data over the network, which is close to what ransomware and data theft look
+like. This page says what the application runs on each computer, how it is
+signed, what endpoint protection may still notice, and which exclusions to add
+in SentinelOne, Microsoft Defender for Endpoint and CrowdStrike Falcon.
+
+Add the exclusions **before the first round**. A product that ends the agent
+during a round leaves the job "not answering" until the service runs again.
+
+## What changed in 3.2.34
+
+On 2026-11-25 SentinelOne ended and quarantined the 3.2.33 agent on Windows
+Server 2022 with "Lateral movement: Shadow Copy Deletion detected"
+(classification Ransomware). The 3.2.33 agent took each shadow copy by starting
+hidden PowerShell (`-ExecutionPolicy Bypass`) that called WMI
+`Win32_ShadowCopy.Create`, and removed it with `Win32_ShadowCopy.Delete()`.
+Because the service had been created remotely by push install, SentinelOne
+attributed it to the console computer as lateral movement.
+
+From 3.2.34 the agent:
+
+- takes shadow copies through the VSS requester interface
+  (`IVssBackupComponents`, `vss_windows.go`), the way backup software does: a
+  non-persistent, auto-release backup set of type *copy* (it does not change
+  application backup history). Windows removes the set when the round ends or
+  the agent process ends for any reason, so the agent **never deletes a shadow
+  copy** and none can be left behind;
+- starts **no PowerShell** and no WMI command line. It starts only
+  `netsh.exe advfirewall` (its own firewall rule, at service start) and
+  `shutdown.exe` (only at cutover when "shut down after cutover" is ticked);
+- records how its previous run ended. If it was ended from outside during a
+  round, the job raises a *stopped* alert and the console shows the reason and
+  this page.
+
+A test (`TestAgentCodeStartsNoPowerShellAndDeletesNoShadowCopies`) fails the
+build if agent code starts PowerShell or uses `Win32_ShadowCopy`, `vssadmin`,
+`DeleteSnapshots`, `wmic` or `-EncodedCommand`.
+
+## Signing
+
+Every release is signed with Azure Artifact Signing and the release fails if
+signing does not happen (see `CODE_SIGNING.md`).
+
+| File | Where it runs | Signed |
+| --- | --- | --- |
+| `Server-Inventory-Configuration-Manager.exe` | Admin computer (console), Hyper-V hosts, migration targets | Authenticode, timestamped |
+| `SIMM-Agent.exe` in `C:\Program Files\Server Inventory and Migration Manager Agent\` | Each Windows server being replicated | Same file as the console EXE, copied by push install or `--agent-install`; same signature and SHA-256 as the release |
+| `X:\Receiver\` on receiver media | New VM or server booted from the ISO | Same EXE; Windows PE itself comes from your own Windows ADK |
+| PowerShell scripts the console writes to disk and runs (restore, file share migration, guest preparation, receiver media, Hyper-V read and copy, disk fix-ups) | Admin computer or the server the console runs on | Authenticode-signed at release (3.2.34 and later) |
+| `Export-ServerInventory.ps1`, `Run-Inventory.ps1` (inventory collection) | Computer being inventoried | Not signed: their exact bytes are the protected baseline |
+| `simm-agent-linux-amd64` | Linux servers | Linux has no Authenticode; check it against `simm-agent-linux-amd64.sha256.txt` from the release |
+
+Check a file on a server:
+
+```powershell
+Get-AuthenticodeSignature "C:\Program Files\Server Inventory and Migration Manager Agent\SIMM-Agent.exe" | Format-List Status, SignerCertificate, TimeStamperCertificate
+Get-FileHash "C:\Program Files\Server Inventory and Migration Manager Agent\SIMM-Agent.exe"
+```
+
+The SHA-256 must equal the release's `Server-Inventory-Configuration-Manager.exe.sha256.txt`.
+
+## What endpoint protection may still see
+
+| Behaviour | Why | When |
+| --- | --- | --- |
+| A service created remotely through the service manager and the administrative share | Push install (**Install agents**). Same pattern as PsExec | Once per server, from the console. Avoid it by installing locally: copy the EXE to the server and run `SIMM-Agent.exe --agent-install` as administrator, then add the server in the console with the key and thumbprint it prints |
+| Volume Shadow Copy backup sessions (VSS writers freeze and thaw) | Each round | Every round, on every NTFS and ReFS volume of the job's disks |
+| Raw reads of `\\.\PhysicalDriveN` and shadow copy devices | Copying disks | Every round |
+| A listening HTTPS port (44390) and large outbound HTTPS transfers to the receiver (44380) | Console commands, and sending disk data | Always, and during rounds |
+| `netsh advfirewall firewall add rule name="Server Inventory and Migration Manager replication agent"` | The agent's own inbound rule | Service start |
+| `shutdown.exe /s` | "Shut down after cutover" | Cutover only |
+
+The console itself starts Windows PowerShell with `-ExecutionPolicy Bypass`
+(process scope only, never changing machine policy) for inventory collection,
+restore, file share migration, guest preparation and Hyper-V steps. These run
+only when an operator starts them, on the computer running the console.
+
+## Exclusions
+
+Use the narrowest form your product allows. Prefer the signer (certificate)
+where supported, because it survives upgrades. Otherwise use the path and
+process, and add the hash of each new release.
+
+Paths:
+
+- Agent executable: `C:\Program Files\Server Inventory and Migration Manager Agent\SIMM-Agent.exe`
+- Agent data (job records, logs, change tracking): `C:\ProgramData\Server Inventory and Migration Manager Agent\`
+- Agent service name: `SIMMReplicationAgent`
+- Console executable: wherever `Server-Inventory-Configuration-Manager.exe` is kept on the admin computer
+- Console data: `%LOCALAPPDATA%\Server Inventory Configuration Manager\`
+- Receiver folder on a Hyper-V host: the folder chosen in **Disk copy**
+
+Signer: the subject shown by `Get-AuthenticodeSignature` for the release EXE
+(the Azure Artifact Signing certificate).
+
+### SentinelOne
+
+1. Threats: open the detection, choose **Mark as threat: False positive**, then
+   restore `SIMM-Agent.exe` from quarantine (or reinstall the agent).
+2. Sentinels, Exclusions, New exclusion:
+   - Type **Path**, `C:\Program Files\Server Inventory and Migration Manager Agent\SIMM-Agent.exe`,
+     mode **Interoperability - Extended** (covers the process and its child
+     processes). Apply to the server group being migrated.
+   - Type **Path**, folder `C:\ProgramData\Server Inventory and Migration Manager Agent\`,
+     **Suppress alerts** (or Interoperability).
+   - If your policy uses certificate exclusions: type **Certificate**, the
+     signer above.
+3. On the console computer, add the console EXE the same way if push install
+   itself is blocked.
+4. Start the agent: `Start-Service SIMMReplicationAgent`. The job resumes where
+   it stopped.
+
+### Microsoft Defender for Endpoint / Microsoft Defender Antivirus
+
+- Indicators, Certificates: **Allow** the signer's certificate (exported from
+  the EXE's Digital Signatures tab), or Indicators, File hashes: **Allow** the
+  release SHA-256.
+- Antivirus exclusions (Intune, Group Policy or
+  `Add-MpPreference -ExclusionProcess "C:\Program Files\Server Inventory and Migration Manager Agent\SIMM-Agent.exe"`
+  and `-ExclusionPath "C:\ProgramData\Server Inventory and Migration Manager Agent"`).
+- Attack surface reduction: if "Block process creations originating from
+  PSExec and WMI commands" is in Block mode, push install's remote service
+  creation may be blocked. Install locally, or add the console EXE as an ASR
+  exclusion. "Use advanced protection against ransomware" may also need the
+  agent EXE as an exclusion.
+
+### CrowdStrike Falcon
+
+- Endpoint security, Exclusions: a **Machine learning exclusion** for
+  `C:\Program Files\Server Inventory and Migration Manager Agent\SIMM-Agent.exe`
+  (and the console EXE on the admin computer).
+- An **Indicator of attack (IOA) exclusion** for the agent's image file name
+  `\Device\HarddiskVolume*\Program Files\Server Inventory and Migration Manager Agent\SIMM-Agent.exe`
+  if a behaviour detection names it (for example volume shadow copy or raw
+  disk access).
+- Or a **Sensor visibility exclusion** for the agent data folder if your
+  policy allows.
+
+## Shadow copies left by 3.2.33
+
+The 3.2.33 agent took persistent shadow copies. If it was ended during a round
+one or two may remain on the server. They were not recorded, so the agent does
+not remove them. List them with `vssadmin list shadows`: ours have type
+**ClientAccessible** and the time of the interrupted round. Windows' own
+Previous Versions copies have type **ClientAccessibleWriters**; leave those.
+Remove ours one at a time with `vssadmin delete shadows /shadow={ID}`
+(security software may ask you to confirm this on the console).
+
+## When the agent stops answering
+
+- The console's Replication tab says **Not answering** with the reason. *Actively
+  refused* means nothing listens on port 44390: the service is not running.
+- On the server: `Get-Service SIMMReplicationAgent`; Windows' System log
+  (Service Control Manager events 7031 and 7034 name a crash); the Application
+  log, source *SIMM Replication Agent* (1001 RPO, 1002 failing, 1003 cutover,
+  1004 a round cut short because the agent was ended or crashed); and
+  `C:\ProgramData\Server Inventory and Migration Manager Agent\Logs\` (one log per
+  job, `agent-crash.log` for crashes, `agent-errors.log` for internal errors
+  the agent caught).
+- From 3.2.34 Windows restarts the service after every failure (1, 2, then
+  every 5 minutes) and the agent reports how its previous run ended.

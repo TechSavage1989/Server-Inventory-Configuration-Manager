@@ -62,6 +62,9 @@ func TestAgentCopiesALiveDiskThroughAShadowCopy(t *testing.T) {
 	if shadowed != 1 {
 		t.Fatalf("expected one shadowed NTFS volume, got %+v", volumes)
 	}
+	if during := countShadows(); during == before {
+		t.Fatalf("no shadow copy is listed while the disk is open (%s before and during)", before)
+	}
 	// Written after the shadow copy: must not reach the copy.
 	if err := os.WriteFile(filepath.Join(letter, "payroll.txt"), []byte("after the shadow copy"), 0600); err != nil {
 		t.Fatal(err)

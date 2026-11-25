@@ -24,6 +24,7 @@ type replFakePlatform struct {
 	shutdown int
 	snapshot func() time.Time
 	gate     chan struct{} // when set, OpenDisks waits for it
+	panics   bool          // OpenDisks panics, like an internal error would
 }
 
 func (p *replFakePlatform) Name() string { return "test" }
@@ -37,6 +38,10 @@ func (p *replFakePlatform) ListDisks() ([]replDiskInfo, error) {
 func (p *replFakePlatform) OpenDisks(ctx context.Context, job string, sources []string, allowLive bool, log func(string)) (*replOpenedDisks, error) {
 	if p.gate != nil {
 		<-p.gate
+	}
+	if p.panics {
+		var missing map[string]int
+		missing["x"] = 1 // a nil map write, as a real bug would make
 	}
 	p.mu.Lock()
 	defer p.mu.Unlock()

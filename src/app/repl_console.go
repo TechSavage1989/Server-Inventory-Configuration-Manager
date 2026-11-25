@@ -39,14 +39,20 @@ type replAgentRecord struct {
 }
 
 type replAgentLive struct {
-	Reachable bool          `json:"reachable"`
-	Error     string        `json:"error,omitempty"`
-	Checked   time.Time     `json:"checked"`
-	Version   string        `json:"version,omitempty"`
-	Computer  string        `json:"computer,omitempty"`
-	Platform  string        `json:"platform,omitempty"`
-	Jobs      []replJobView `json:"jobs"`
-	Alerts    []replAlert   `json:"alerts"`
+	Reachable bool   `json:"reachable"`
+	Error     string `json:"error,omitempty"`
+	// Hint explains Error in plain words (see replAgentErrorHint).
+	Hint string `json:"hint,omitempty"`
+	// LastStop is the agent's own account of an unclean end of its
+	// previous run (a crash, or ended from outside).
+	LastStop   string        `json:"lastStop,omitempty"`
+	LastStopAt time.Time     `json:"lastStopAt,omitempty"`
+	Checked    time.Time     `json:"checked"`
+	Version    string        `json:"version,omitempty"`
+	Computer   string        `json:"computer,omitempty"`
+	Platform   string        `json:"platform,omitempty"`
+	Jobs       []replJobView `json:"jobs"`
+	Alerts     []replAlert   `json:"alerts"`
 }
 
 // replAgentRow is one agent as the console page sees it (no key).
@@ -311,6 +317,7 @@ func (c *replConsole) RefreshOne(ctx context.Context, id string) {
 			var jobs replAgentJobs
 			if jobs, err = client.Jobs(callCtx); err == nil {
 				live.Reachable, live.Version, live.Computer, live.Platform = true, hello.Version, hello.Computer, hello.Platform
+				live.LastStop, live.LastStopAt = hello.LastStop, hello.LastStopAt
 				live.Jobs, live.Alerts = jobs.Jobs, jobs.Alerts
 			}
 		}
@@ -318,6 +325,7 @@ func (c *replConsole) RefreshOne(ctx context.Context, id string) {
 	}
 	if err != nil {
 		live.Error = err.Error()
+		live.Hint = replAgentErrorHint(err)
 		c.mu.Lock()
 		if previous := c.live[id]; previous != nil {
 			// Keep the last known jobs so the page still shows them.
@@ -375,4 +383,23 @@ func (c *replConsole) Rows() ([]replAgentRow, replSummary) {
 	}
 	sort.Slice(rows, func(i, j int) bool { return strings.ToLower(rows[i].Name) < strings.ToLower(rows[j].Name) })
 	return rows, summary
+}
+
+// replAgentErrorHint says what an agent that does not answer most likely
+// means, for the console.
+func replAgentErrorHint(err error) string {
+	text := strings.ToLower(err.Error())
+	switch {
+	case strings.Contains(text, "actively refused") || strings.Contains(text, "connection refused"):
+		return "The server answers, but nothing is listening on the agent's port, so the agent service is not running. " +
+			"If it stopped during a round, security software may have ended it: look in SentinelOne, Microsoft Defender or CrowdStrike for a detection or quarantine of SIMM-Agent.exe, release it and add the exclusions in the endpoint protection guide. " +
+			"Then start the service on the server (Start-Service SIMMReplicationAgent), or run Install agents for it again. Its jobs carry on where they stopped."
+	case strings.Contains(text, "timeout") || strings.Contains(text, "deadline exceeded") || strings.Contains(text, "did not properly respond"):
+		return "The server did not answer in time: it may be off, unreachable from this computer, or a firewall drops the agent's port."
+	case strings.Contains(text, "no such host"):
+		return "The server's name could not be found in DNS from this computer."
+	case strings.Contains(text, "certificate") || strings.Contains(text, "thumbprint"):
+		return "Something answers on the agent's port with a different certificate. If the agent was reinstalled, remove the server from the list and add it again with its new thumbprint."
+	}
+	return ""
 }
