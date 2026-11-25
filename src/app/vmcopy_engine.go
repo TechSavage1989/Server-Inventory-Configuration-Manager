@@ -37,7 +37,11 @@ type vmCopyState struct {
 	Passes    int      `json:"passes"`
 	// ChangeID is the vSphere changed-block tracking ID the copy matches,
 	// so the next round asks only for blocks changed since then.
-	ChangeID string    `json:"changeId,omitempty"`
+	ChangeID string `json:"changeId,omitempty"`
+	// Round names the replication round (job and recovery point) the
+	// finished copy holds, so copies of several disks can be checked to
+	// come from the same moment before a VM is started from them.
+	Round    string    `json:"round,omitempty"`
 	Complete bool      `json:"complete"`
 	Verified bool      `json:"verified"`
 	Updated  time.Time `json:"updated"`
@@ -74,6 +78,8 @@ type vmCopyOptions struct {
 	ZeroOutside bool
 	// ChangeID is recorded when the pass completes.
 	ChangeID string
+	// Round is recorded when the pass completes (see vmCopyState.Round).
+	Round string
 	// retryDelay is shortened by tests.
 	retryDelay time.Duration
 }
@@ -87,6 +93,9 @@ type vmCopyResult struct {
 	State    vmCopyState    `json:"state"`
 	Progress vmCopyProgress `json:"progress"`
 	Resumed  bool           `json:"resumed"`
+	// ChangedChunks lists the chunks whose content changed in this pass
+	// (not those copied for the first time).
+	ChangedChunks []int `json:"-"`
 }
 
 func vmCopyStatePath(target string) string { return target + ".copy.json" }
@@ -239,7 +248,7 @@ func (s *vmLocalSink) Finish(ctx context.Context, state *vmCopyState, verify boo
 			return nil, errors.New("some chunks were never copied; run a full pass without changed-block ranges first")
 		}
 	}
-	s.state.Passes, s.state.ChangeID, s.state.Complete, s.state.Verified = state.Passes, state.ChangeID, true, false
+	s.state.Passes, s.state.ChangeID, s.state.Round, s.state.Complete, s.state.Verified = state.Passes, state.ChangeID, state.Round, true, false
 	if verify {
 		if err := vmVerifyCopy(ctx, s.disk, s.state); err != nil {
 			saveVMCopyState(s.state)
@@ -367,6 +376,7 @@ func vmCopyTo(ctx context.Context, source vmCopySource, sink vmCopySink, options
 			progress.BytesWritten += written
 			if previous != "" {
 				progress.Changed++
+				result.ChangedChunks = append(result.ChangedChunks, index)
 			}
 			state.Hashes[index] = hash
 		}
@@ -386,7 +396,7 @@ func vmCopyTo(ctx context.Context, source vmCopySource, sink vmCopySink, options
 		}
 	}
 	state.Complete = true
-	state.ChangeID = options.ChangeID
+	state.ChangeID, state.Round = options.ChangeID, options.Round
 	report()
 	final, err := sink.Finish(ctx, state, options.Verify)
 	if err != nil {
