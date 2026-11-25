@@ -259,19 +259,33 @@ func (a *application) handleConvertInspect(response http.ResponseWriter, request
 		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "Wait for the conversion to finish, or stop it, first."})
 		return
 	}
-	image, err := openDiskImage(path)
-	if err != nil {
-		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": err.Error()})
-		return
+	var info vmDiskInfo
+	var boot vmBootInfo
+	if number, local := vmLocalDiskNumber(path); local {
+		var err error
+		if info, boot, err = inspectLocalDisk(number); err != nil {
+			writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": err.Error()})
+			return
+		}
+	} else {
+		image, err := openDiskImage(path)
+		if err != nil {
+			writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": err.Error()})
+			return
+		}
+		info = image.Info()
+		boot = vmDetectBoot(image, image.Size())
+		image.Close()
 	}
-	info := image.Info()
-	boot := vmDetectBoot(image, image.Size())
-	image.Close()
 	format := input.Format
 	if !vmDiskFormatKnown(format) {
 		format = vmDiskFormatVHDX
 	}
 	suggested := filepath.Join(filepath.Dir(info.Path), vmConvertSuggestedName(info.Path, format))
+	if _, local := vmLocalDiskNumber(path); local {
+		host, _ := os.Hostname()
+		suggested = vmConvertSuggestedName(host+"-"+strings.TrimPrefix(info.Path, `\\.\`)+".img", format)
+	}
 	a.mu.Lock()
 	a.convert.source, a.convert.info = info.Path, &info
 	if !a.convert.running && a.convert.status != "running" {
@@ -310,7 +324,11 @@ func (a *application) handleConvertStart(response http.ResponseWriter, request *
 		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "The folder " + filepath.Dir(target) + " does not exist."})
 		return
 	}
-	image, err := openDiskImage(source)
+	if err := vmCheckLocalTarget(source, target); err != nil {
+		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	image, err := openConvertSource(source, a.convertLog)
 	if err != nil {
 		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": err.Error()})
 		return

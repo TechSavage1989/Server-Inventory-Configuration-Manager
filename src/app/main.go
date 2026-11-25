@@ -2334,6 +2334,7 @@ func (a *application) serve(listener net.Listener) error {
 	mux.HandleFunc("/api/convert/connect", a.handleConvertConnect)
 	mux.HandleFunc("/api/convert/forget", a.handleConvertForget)
 	mux.HandleFunc("/api/convert/send", a.handleConvertSend)
+	mux.HandleFunc("/api/convert/localdisks", a.handleConvertLocalDisks)
 	mux.HandleFunc("/api/ui/ready", a.handleUIReady)
 	mux.HandleFunc("/api/update/check", a.handleUpdateCheck)
 	mux.HandleFunc("/api/update/download", a.handleUpdateDownload)

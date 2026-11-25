@@ -141,6 +141,8 @@ async function fixture(browser,old=false){
    if(action==='browse'&&data.kind==='drivers'){send(200,{ok:true,selected:true,path:'F:\\'});return;}
    if(action==='browse'&&data.kind==='fixup'){send(200,{ok:true,selected:true,path:'E:\\Hyper-V\\Disks\\APP01.vhdx'});return;}
    if(action==='browse'){send(200,data.kind==='folder'?{ok:true,selected:true,path:'E:\\Hyper-V\\Disks'}:{ok:true,selected:true,path:'D:\\VMs\\APP01\\APP01-000001.vmdk'});return;}
+   if(action==='localdisks'){send(200,{ok:true,computer:'SRV-DEMO-01',disks:[{number:0,size:137438953472,system:true,volumes:[{name:'\\\\?\\Volume{1}\\',mounts:['C:\\'],fileSystem:'NTFS',length:136365211648}]},{number:1,size:536870912000,system:false,volumes:[{name:'\\\\?\\Volume{2}\\',mounts:['D:\\'],fileSystem:'NTFS',length:536870912000}]}]});return;}
+   if(action==='inspect'&&/^\\\\\.\\PhysicalDrive\d+$/.test(data.path)){send(200,{ok:true,info:{path:data.path,format:'raw',formatName:'Disk 0 of this computer',variant:'SRV-DEMO-01',virtualSize:137438953472,fileSize:137438953472,dataBytes:137438953472,notes:['C: (NTFS, 127 GB): read from a new shadow copy.']},boot:{partitionStyle:'GPT',firmware:'uefi',systemPartition:true,partitions:4,note:''},suggested:'SRV-DEMO-01-PhysicalDrive0.vhdx'});return;}
    if(action==='inspect'){const info=convertInfoFixture(data.path,convertSize);send(200,{ok:true,info,boot:{partitionStyle:'GPT',firmware:'uefi',systemPartition:true,partitions:3,note:''},suggested:'D:\\VMs\\APP01\\APP01-000001'+({vhdx:'.vhdx',qcow2:'.qcow2',raw:'.img',vhd:'.vhd','vhd-fixed':'.vhd',vmdk:'.vmdk','vmdk-flat':'.vmdk'}[data.format]||'.vhdx')});return;}
    if(action==='start'){Object.assign(c,{running:true,status:'running',source:data.source,target:data.target,format:data.format,message:'Converting APP01-000001.vmdk.',startedAtUnixMs:Date.now(),endedAtUnixMs:0,progress:{pass:1,chunks:200,done:50,bytesRead:209715200,bytesWritten:104857600,changed:0,zero:10}});send(200,{ok:true});return;}
    if(action==='cancel'){c.cancelRequested=true;send(200,{ok:true});return;}
@@ -982,6 +984,16 @@ async function check(name,fn){await fn();report.checks.push({name,result:'passed
   assert.equal(await f.page.locator('#cvSendTitle').textContent(),'VM created');assert(await f.page.locator('#cvSendGo').isDisabled(),'the confirmation is cleared after a send');
   await f.page.locator('#cvSendForget').click();await f.page.waitForFunction(()=>document.querySelector('#cvSendVM').classList.contains('hidden'));
   assert.deepEqual(f.dialogs,[]);
+ }finally{await f.close();}});
+ await check('Disk converter tab: This computer lists the local disks for P2V, checks the chosen disk and converts it to a file on another disk',async()=>{const f=await fixture(browser);try{
+  await f.page.keyboard.press('Alt+7');await f.page.locator('#cvLocal').click();await f.page.waitForFunction(()=>document.querySelectorAll('.cv-local-disk').length===2);
+  assert.equal(await f.page.locator('.cv-local-disk').first().textContent(),'Disk 0 · 128 GB · C: · Windows');
+  await f.page.locator('.cv-local-disk').first().click();await f.page.waitForFunction(()=>document.querySelector('#cvInfoFormat').textContent.startsWith('Disk 0'));
+  assert.equal(await f.page.locator('#cvSource').inputValue(),'\\\\.\\PhysicalDrive0');assert.equal(await f.page.locator('#cvInfoBoot').textContent(),'UEFI (GPT)');assert(!(await f.page.locator('#cvLocalBox').isVisible()));
+  await f.page.locator('#cvFolder').click();await f.page.waitForFunction(()=>document.querySelector('#cvTarget').value.startsWith('E:'));assert.equal(await f.page.locator('#cvTarget').inputValue(),'E:\\Hyper-V\\Disks\\SRV-DEMO-01-PhysicalDrive0.vhdx');
+  await f.page.locator('#cvStart').click();await f.page.waitForTimeout(1300);
+  const start=f.convertCalls.filter(c=>c.action==='start').pop();assert.equal(start.body.source,'\\\\.\\PhysicalDrive0');assert.equal(start.body.format,'vhdx');
+  assert(await f.page.locator('#cvLocal').isDisabled(),'the disk list locks while converting');assert.deepEqual(f.dialogs,[]);
  }finally{await f.close();}});
  await check('Low-resolution windows (800x600 and 1024x768 screens) keep every workspace reachable and legible',async()=>{const f=await fixture(browser);try{
   for(let i=0;i<40;i++)f.logs.push('[INFO] Message '+i);

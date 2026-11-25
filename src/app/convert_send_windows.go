@@ -252,7 +252,11 @@ func (a *application) handleConvertSend(response http.ResponseWriter, request *h
 		convertSendFail(response, http.StatusBadRequest, strings.ToUpper(err.Error()[:1])+err.Error()[1:]+".")
 		return
 	}
-	image, err := openDiskImage(source)
+	if err := vmCheckLocalTarget(source, filepath.Join(spec.Folder, "x")); err != nil {
+		convertSendFail(response, http.StatusBadRequest, err.Error())
+		return
+	}
+	image, err := openConvertSource(source, a.convertLog)
 	if err != nil {
 		convertSendFail(response, http.StatusBadRequest, err.Error())
 		return

@@ -2,6 +2,7 @@
 
 - Disk converter tab: **Send to a host and create the VM** (AGENTS rule 31) for VMware ESXi/vCenter (stream-optimized VMDK through an OVF lease), Hyper-V on this computer, Proxmox VE (Import content upload plus `import-from`), Nutanix AHV (disk image plus clone) and Scale HyperCore 9.2+ (`/VirtualDisk/upload` plus attach).
 - Tests: `vmconvert_send_test.go`, `vmconvert_vsphere_test.go` (vcsim), `vmtarget_import_test.go`, `vmdisk_stream_test.go` (qemu-img check/compare when installed), and a `scripts/test_workspace.cjs` check for the screen.
+- P2V: **This computer…** in the Disk converter converts or sends a disk of this computer, its volumes read from shadow copies (AGENTS rule 32, `TestConverterCopiesADiskOfThisComputer`).
 - Limitations: no run yet against a real ESXi, vCenter, Proxmox VE, Prism Central or HyperCore. The vSphere import sends one disk; multi-disk VMs still go through the VMware tab's Move.
 
 ## Unreleased: fix-ups for converted Windows disks — 2026-11-25

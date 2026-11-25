@@ -29,7 +29,7 @@ A portable **Windows x64 application** for collecting server inventory, exportin
 | Export DHCP, NPS, print, IIS, DNS, firewall, registry and more for recovery. | See what a package can restore onto this server, and why anything cannot. | Restore chosen configuration with a rollback copy saved first. |
 | Move file shares from an old server: files, NTFS permissions and share settings. | Check space, folders and accounts before copying, and verify after cutover. | Copy while users keep working, then cut over with one final copy. |
 | Read a vCenter, ESXi or Hyper-V inventory and check each VM for Hyper-V, HyperCore, Nutanix AHV, Proxmox VE, Azure, EC2 or a physical server. | Plan waves, map networks and storage, check the new cluster's size or cloud quota, write a runbook. | Record a VM's settings before cutover, fix it up after, and compare before and after. |
-| Convert a VMDK, VHD, VHDX, qcow2 or raw disk to any of them, merging snapshot chains, add VirtIO or server drivers so Windows starts on its new platform, and send it straight to ESXi, Hyper-V, Proxmox VE, Nutanix or HyperCore as a new VM. | See the format, size, data and chain of a disk before converting it. | Stop and continue a conversion, or repeat it to copy only what changed. |
+| Convert a VMDK, VHD, VHDX, qcow2 or raw disk to any of them, merging snapshot chains, add VirtIO or server drivers so Windows starts on its new platform, and send it straight to ESXi, Hyper-V, Proxmox VE, Nutanix or HyperCore as a new VM. Copy this computer's own disks the same way (P2V). | See the format, size, data and chain of a disk before converting it. | Stop and continue a conversion, or repeat it to copy only what changed. |
 
 ## Screenshots
 
@@ -220,6 +220,10 @@ It writes VHDX (dynamic), qcow2, VMDK (monolithic sparse, or the ESXi layout of 
 3. Choose **Convert**. Only the parts of the source that hold data are read, empty space stays empty in the new file, and with **Read the converted disk back** ticked every chunk is checked against the source at the end.
 
 The source is only read, and an existing file is never replaced. **Stop** keeps what was copied: **Continue** (or converting again to the same file) carries on from there. Converting again after the source changed, for example a final pass after the VM is shut down, rewrites only the 4 MB chunks that changed. Each output keeps a small `<file>.copy.json` record beside it for this; delete it with the file. Collection, restore, file migration, VMware steps, updates and closing the application wait while a conversion runs.
+
+### Copy this computer to a virtual disk (P2V)
+
+**This computer…** (beside **Browse**) lists the disks of the computer the application runs on. Choose one and convert it like any disk file, or send it straight to a host. Each NTFS and ReFS volume is read from a new Volume Shadow Copy, so the computer keeps running; the shadow copies are deleted when the step ends. Save the new file on another disk or a network share (the disk being copied is refused as the destination). Converting again into the same file later copies only what changed, so a final pass after stopping applications is quick. It needs administrator rights, and volumes that span several disks are refused.
 
 ### Prepare a converted Windows disk for its new platform
 

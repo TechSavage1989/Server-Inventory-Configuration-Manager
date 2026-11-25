@@ -555,6 +555,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
 .cv-fix{border:1px solid #dbe3ed;border-radius:9px;padding:10px 12px;background:#fbfcfe}.cv-fix>summary{cursor:pointer;font-weight:650;font-size:13px;color:#1b2942}.cv-fix[open]>summary{margin-bottom:8px}
 .cv-fix .field-label{margin-top:10px}.cv-fix-grid{display:grid;grid-template-columns:minmax(160px,220px) minmax(0,1fr);gap:0 12px}.cv-fix select{height:34px;width:100%;border:1px solid #bcc9d9;border-radius:7px;padding:0 8px;font:inherit;font-size:13px;background:#fff}
 .cv-fix-actions{margin-top:12px}
+.cv-local{margin-top:8px}.cv-local-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}.cv-local-list button{text-align:left;min-height:34px;padding:6px 10px;border:1px solid #bcc9d9;border-radius:7px;background:#fff;font:inherit;font-size:12px;color:#1b2942;cursor:pointer}.cv-local-list button:hover{border-color:#2f6fdf}.cv-local-list button:disabled{opacity:.55;cursor:default}
 .cv-send-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:0 12px}.cv-send-grid input,.cv-send-grid select{width:100%;box-sizing:border-box}.cv-send-grid input{height:34px;border:1px solid #bcc9d9;border-radius:7px;padding:0 8px;font:inherit;font-size:13px}.cv-send-hint{margin-top:8px}.cv-send-cert{margin-top:10px;padding:10px;border:1px solid #e6c36a;border-radius:8px;background:#fff9e8;font-size:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}.cv-send-cert>div{flex:1 1 260px;overflow-wrap:anywhere}
 @media (max-width:640px){.cv-fix-grid{grid-template-columns:1fr}}
 .cv-stats{display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:8px;font-size:12px;color:#34465f}
@@ -998,7 +999,8 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
         <div class="card-body cv-body">
           <div class="cv-section">
             <label class="field-label" for="cvSource">Disk to convert</label>
-            <div class="cv-row"><input id="cvSource" type="text" spellcheck="false" autocomplete="off" placeholder="D:\VMs\server\server.vmdk"><button class="secondary-button" id="cvBrowse" type="button">Browse&hellip;</button><button class="secondary-button" id="cvInspect" type="button">Check disk</button></div>
+            <div class="cv-row"><input id="cvSource" type="text" spellcheck="false" autocomplete="off" placeholder="D:\VMs\server\server.vmdk"><button class="secondary-button" id="cvBrowse" type="button">Browse&hellip;</button><button class="secondary-button" id="cvLocal" type="button" title="Copy a disk of this computer (physical to virtual)">This computer&hellip;</button><button class="secondary-button" id="cvInspect" type="button">Check disk</button></div>
+            <div class="hidden cv-local" id="cvLocalBox"><div class="cv-hint">Physical to virtual: choose a disk of this computer. Each NTFS and ReFS volume is read from a new shadow copy, so the computer keeps running; save the new file on another disk or a network share.</div><div class="cv-local-list" id="cvLocalList" role="list"></div></div>
             <div class="restore-status" id="cvSourceStatus" role="status" aria-live="polite"></div>
             <div class="hidden" id="cvInfo">
               <div class="restore-facts"><div><span class="restore-fact-label">Format</span><span class="restore-fact-value" id="cvInfoFormat"></span></div><div><span class="restore-fact-label">Disk size</span><span class="restore-fact-value" id="cvInfoSize"></span></div><div><span class="restore-fact-label">Data to copy</span><span class="restore-fact-value" id="cvInfoData"></span></div><div><span class="restore-fact-label">Files</span><span class="restore-fact-value" id="cvInfoFiles"></span></div><div><span class="restore-fact-label">Starts with</span><span class="restore-fact-value" id="cvInfoBoot"></span></div></div>
@@ -1590,6 +1592,19 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       else if(data.selected){byId('cvSource').value=data.path;cvTargetEdited=false;cvInspect();return;}
       if(latestState){renderConvert(latestState);}});
   }
+  function cvLocalDisks(){
+    var status=byId('cvSourceStatus'),box=byId('cvLocalBox'),list=byId('cvLocalList');
+    cvPending=true;status.textContent='Listing this computer\'s disks…';status.className='restore-status';if(latestState){renderConvert(latestState);}
+    request('POST','/api/convert/localdisks',{},function(err,data){cvPending=false;
+      if(err){status.textContent=err;status.className='restore-status error';box.className='hidden cv-local';}
+      else{status.textContent='';box.className='cv-local';list.textContent='';
+        (data.disks||[]).forEach(function(d){var b=document.createElement('button');b.type='button';b.setAttribute('role','listitem');b.className='cv-local-disk';b.setAttribute('data-disk',String(d.number));
+          var mounts=[];(d.volumes||[]).forEach(function(v){(v.mounts||[]).forEach(function(m){mounts.push(m.replace(/\\$/,''));});});
+          b.textContent='Disk '+d.number+' · '+formatBytesShort(d.size)+(mounts.length?' · '+mounts.join(', '):'')+(d.system?' · Windows':'');
+          b.addEventListener('click',function(){byId('cvSource').value='\\\\.\\PhysicalDrive'+d.number;cvTargetEdited=false;byId('cvTarget').value='';box.className='hidden cv-local';cvInspect();});list.appendChild(b);});
+        if(!(data.disks||[]).length){status.textContent='No disks were found.';}}
+      if(latestState){renderConvert(latestState);}});
+  }
   function cvStart(){
     var source=byId('cvSource').value.trim(),target=byId('cvTarget').value.trim();
     if(!source||!target){notice('Choose the disk to convert and where to save it.',true);return;}
@@ -1600,7 +1615,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     var c=state.convert||{};cvBuildFormats(c.formats);
     var running=!!c.running,status=c.status||'idle',busy=running||cvPending,elsewhere=cvBusyElsewhere(state),task=c.task||'convert';
     byId('convertTabBadge').textContent=running?'Running':({success:'Complete',failed:'Failed',canceled:'Stopped'}[status]||'Ready');
-    ['cvSource','cvTarget','cvVerify','cvBrowse','cvInspect','cvFolder'].forEach(function(id){byId(id).disabled=busy;});
+    ['cvSource','cvTarget','cvVerify','cvBrowse','cvLocal','cvInspect','cvFolder'].forEach(function(id){byId(id).disabled=busy;});var localButtons=document.querySelectorAll('.cv-local-disk');for(var lb=0;lb<localButtons.length;lb++){localButtons[lb].disabled=busy;}
     var size=cvInfo?cvInfo.virtualSize:0,limitReason='';
     var radios=document.querySelectorAll('input[name=cvFormat]');for(var i=0;i<radios.length;i++){var f=cvFormatById(radios[i].value),tooBig=!!(f&&size&&f.limit&&size>f.limit);radios[i].disabled=busy;radios[i].parentNode.className='cv-format'+(tooBig?' unavailable':'');radios[i].parentNode.title=tooBig?f.name+' holds at most '+formatBytesShort(f.limit)+'.':'';if(tooBig&&radios[i].value===cvFormat){limitReason=f.name+' holds at most '+formatBytesShort(f.limit)+'; this disk is '+formatBytesShort(size)+'. Choose another format.';}}
     var ready=!!(cvInfo&&byId('cvTarget').value.trim())&&!limitReason;
@@ -3665,6 +3680,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   byId('cvFixApply').addEventListener('click',function(){cvFixSend('apply');});
   byId('cvFixUndo').addEventListener('click',function(){cvFixSend('undo');});
   byId('cvSendBrowse').addEventListener('click',function(){cvSendBrowse('source');});
+  byId('cvLocal').addEventListener('click',cvLocalDisks);
   byId('cvSendFolderBrowse').addEventListener('click',function(){cvSendBrowse('folder');});
   byId('cvSendPath').addEventListener('input',function(){cvSendPathEdited=true;});
   byId('cvSendName').addEventListener('input',function(){cvSendNameEdited=true;if(latestState){renderConvert(latestState);}});
