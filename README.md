@@ -17,7 +17,7 @@
   <img src="docs/images/hero.png" alt="Server Inventory and Migration Manager main window" width="900">
 </p>
 
-A portable **Windows x64 application** for collecting server inventory, exporting supported configurations, reviewing clear, searchable reports, restoring configuration, and moving file shares to a new server.
+A portable **Windows x64 application** for collecting server inventory, exporting supported configurations, reviewing clear, searchable reports, restoring configuration, moving file shares to a new server, and moving VMs off VMware to Hyper-V or Scale Computing HyperCore.
 
 ## Features
 
@@ -28,6 +28,7 @@ A portable **Windows x64 application** for collecting server inventory, exportin
 | Collect available server-role details without treating missing roles as present. | Open HTML offline, print retained report data, or use Word/text outputs. | Choose when to download, install, and restart. |
 | Export DHCP, NPS, print, IIS, DNS, firewall, registry and more for recovery. | See what a package can restore onto this server, and why anything cannot. | Restore chosen configuration with a rollback copy saved first. |
 | Move file shares from an old server: files, NTFS permissions and share settings. | Check space, folders and accounts before copying, and verify after cutover. | Copy while users keep working, then cut over with one final copy. |
+| Read a vCenter or ESXi inventory and check each VM for Hyper-V or HyperCore. | Plan waves, map networks and storage, check the new cluster's size, write a runbook. | Record a VM's settings before cutover, fix it up after, and compare before and after. |
 
 ## Screenshots
 
@@ -60,6 +61,12 @@ A portable **Windows x64 application** for collecting server inventory, exportin
 
 <table>
   <tr><td width="50%"><b>Choose shares and where they go, checked before anything is copied</b><br><img src="docs/images/migrate-choose.png" alt="Choose shares and where they go, checked before anything is copied" width="440"></td><td width="50%"><b>Copy while users keep working; copy again for changes</b><br><img src="docs/images/migrate-copy.png" alt="Copy while users keep working; copy again for changes" width="440"></td></tr>
+</table>
+
+### Move VMs off VMware
+
+<table>
+  <tr><td width="50%"><b>Every VM checked for Hyper-V or HyperCore, with what to fix first</b><br><img src="docs/images/vmware-readiness.png" alt="Every VM checked for Hyper-V or HyperCore, with what to fix first" width="440"></td><td width="50%"><b>Waves, network and storage mapping, and cluster sizing</b><br><img src="docs/images/vmware-plan.png" alt="Waves, network and storage mapping, and cluster sizing" width="440"></td></tr>
 </table>
 
 ### Keep working
@@ -102,7 +109,7 @@ Use the Collection log's search and severity filter to focus on issues; the filt
 
 In the Report Viewer search, `Enter` moves to the next match and `Shift+Enter` to the previous one (`F3` / `Shift+F3` also work); `Esc` clears the search.
 
-**Keyboard shortcuts** (press `?` or choose **Help → Keyboard shortcuts**): `Alt+1/2/3/4/5` switch tabs, `/` or `Ctrl+K` focuses the current tab's search, `Ctrl+S` saves choices and `Ctrl+Enter` starts collection from Setup.
+**Keyboard shortcuts** (press `?` or choose **Help → Keyboard shortcuts**): `Alt+1` to `Alt+6` switch tabs, `/` or `Ctrl+K` focuses the current tab's search, `Ctrl+S` saves choices and `Ctrl+Enter` starts collection from Setup.
 
 
 New HTML reports open on an executive summary: the server profile (operating system, Windows activation status, IPv4 addresses, default gateway, DNS servers, DHCP or static addressing, and more) and detected roles, collection health with links to each collection issue and recovery gap, and inventory counts that jump to their datasets. Items that need attention stay expanded at the top; routine datasets expand on demand. Each section starts with a contents panel that groups its datasets under their headings, shows row counts and marks datasets with failures or warnings. Datasets that returned no data are gathered into one collapsed **No data collected** group instead of a long run of empty entries. Name/value lists and single-record tables read as property sheets. Search includes collapsed sections and raw text. Hover any value and choose **Copy** to copy just that value; **Copy table**, **Copy section** and **Copy full report** copy more, and **Copy path** in the Report Viewer copies the report file location. The report uses the full window width. Printing includes all rows retained by the report snapshot; truncation notices still point to complete supporting exports.
@@ -150,6 +157,17 @@ After cutover, three optional steps help users find the new shares:
 - **Give this server the old server's name**, so existing mapped drives and shortcuts keep working. This is only offered once the old server no longer answers on the network. It adds the name with `netdom` (DNS and Active Directory), needs Domain Admin rights and a restart, and can be undone with the command saved in the logs folder.
 
 Logs and the saved plan are kept under `%LOCALAPPDATA%\Server Inventory Configuration Manager\Migrations\<old server>\`, so a migration can continue after the application is closed. The old server is never changed except by the optional read-only step. Collection, restore, updates and closing the application wait while a migration step runs.
+
+## Move VMs off VMware
+
+The **VMware** tab (Alt+6) helps move virtual machines from VMware vCenter or ESXi to **Hyper-V** or **Scale Computing HyperCore**. Choose the platform under **Moving to**; every check and the runbook follow it. The application never changes anything in vCenter or ESXi, and it does not convert disks: use your platform's own tool for that (for example Scale Computing's migration tools, SC//Move, or a Hyper-V conversion tool).
+
+- **Environment:** type the vCenter or ESXi host name and an account. A read-only account is enough. The password is kept in memory only, until you close the application or choose **Forget**, and is never saved. If Windows does not trust the server's certificate, the tab shows its SHA-256 thumbprint and reads the server only after you choose **Trust this certificate**. Every VM is then checked and marked **Ready**, **Review first** or **Blocked**, with what to fix and how: unsupported or old guest systems, Hyper-V generation and boot disk limits, missing VirtIO drivers for HyperCore, snapshots, shared or RDM disks, independent disks, encryption, vTPM, passthrough and USB devices, connected ISOs, VMware Tools and static IP addresses. The inventory, a readiness report (HTML) and CSV files for VMs, disks, network adapters, snapshots, hosts, clusters, datastores and networks are written to a `VMware_<server>_<time>` folder in your output folder. **Open a saved inventory** plans from that folder later, away from the customer's network.
+- **Plan and runbook:** describe the new cluster (nodes, cores, memory, storage, nodes kept free) to check that the VMs fit. Name the network and VLAN each VMware network becomes and where each datastore's disks go. Put VMs in waves, hold blocked ones and exclude anything not moving; **Suggest waves** puts blocked VMs on hold, powered-off VMs first and the rest in waves of the size you choose. **Write runbook** writes `Migration-Runbook.html`, with before, cutover, check and roll-back steps for every VM in each wave, and `Migration-Plan.csv`. The plan is saved per vCenter under `%LOCALAPPDATA%\Server Inventory Configuration Manager\VMware\`.
+- **This VM:** run the application as administrator on the Windows VM itself. **Record settings** before cutover saves its IP settings (addresses, gateways, DNS, WINS, VLAN), disks, drivers and running services, and checks for VirtIO and Hyper-V drivers, BitLocker, the SAN policy and activation. After the VM starts on the new platform, the same tab puts the recorded IP settings on the new network adapters (the current settings are saved first, and **Undo** puts them back), removes hidden network adapters left by the VMware hardware, brings offline data disks online (never the boot or system disk) and removes VMware Tools. Each of these asks you to type the computer's name. It also lists services that ran before the move and do not run now. The recording is kept under `%LOCALAPPDATA%\Server Inventory Configuration Manager\Guest-Migration\`, with a copy in your output folder, and **Load a recording** brings in a copy from elsewhere.
+- **Before and after:** collect an inventory of the server on the Setup tab before the move and again after it. Choose both packages (or use the last collection) and **Compare**. Services, applications, Windows features, IP addresses, gateways, DNS servers, listening ports, volumes, disks, shares, scheduled tasks, local users and groups, certificates, firewall rules, IIS sites and printers are compared. Changes you would expect from a move, such as VMware Tools going away, are counted separately from the ones to check. A comparison report (HTML) and CSV are written to a `Comparison_<server>_<time>` folder.
+
+Collection, restore, file migration, updates and closing the application wait while a VMware step runs.
 
 ## Updates and settings
 
