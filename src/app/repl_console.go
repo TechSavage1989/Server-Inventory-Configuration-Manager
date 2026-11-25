@@ -31,6 +31,10 @@ type replAgentRecord struct {
 	OS         string    `json:"os"`
 	Added      time.Time `json:"added"`
 	Pushed     bool      `json:"pushed"`
+	// SSH is how a Linux agent was installed (its SSH port and the host
+	// key fingerprint trusted then), so it can be uninstalled the same way.
+	SSHPort    int    `json:"sshPort,omitempty"`
+	SSHHostKey string `json:"sshHostKey,omitempty"`
 	key        string
 }
 
@@ -226,6 +230,19 @@ func (c *replConsole) Forget(id string) error {
 	return errors.New("that agent is not listed")
 }
 
+// SetSSH records how a Linux agent was installed.
+func (c *replConsole) SetSSH(id string, port int, hostKey string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	for _, record := range c.agents {
+		if record.ID == id {
+			record.SSHPort, record.SSHHostKey = port, hostKey
+			return c.saveLocked()
+		}
+	}
+	return errors.New("that agent is not listed")
+}
+
 func (c *replConsole) Record(id string) (replAgentRecord, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -339,7 +356,7 @@ func (c *replConsole) Rows() ([]replAgentRow, replSummary) {
 			switch {
 			case job.Status.State == replStateCutDone:
 				summary.CutOver++
-			case job.Status.State == replStatePaused:
+			case job.Status.State == replStatePaused || job.Status.State == replStateHeld:
 				summary.Paused++
 			case job.Status.State == replStateError:
 				summary.Failing++

@@ -51,6 +51,7 @@ const (
 	replStateSyncing  = "syncing" // a round is running
 	replStatePaused   = "paused"  // the operator paused it
 	replStateError    = "error"   // the last round failed; it retries
+	replStateHeld     = "held"    // the target is held for a VM started from the copy
 	replStateCutover  = "cutting-over"
 	replStateCutDone  = "cut-over" // final round done; nothing more runs
 	replStateNeverRun = "new"
@@ -94,8 +95,11 @@ type replJobSpec struct {
 	ShutdownAfterCutover bool     `json:"shutdownAfterCutover"`
 	// FullReadAtCutover reads every used block in the final round instead
 	// of only what change tracking reports.
-	FullReadAtCutover bool       `json:"fullReadAtCutover"`
-	CutoverAt         *time.Time `json:"cutoverAt,omitempty"`
+	FullReadAtCutover bool `json:"fullReadAtCutover"`
+	// RescanFirst makes a new job's first round compare the receiver's
+	// disks with the source (a failback onto disks holding an older copy).
+	RescanFirst bool       `json:"rescanFirst,omitempty"`
+	CutoverAt   *time.Time `json:"cutoverAt,omitempty"`
 }
 
 type replDiskStatus struct {
@@ -519,7 +523,7 @@ func (a *replAgent) SaveJob(spec replJobSpec) (replJobView, error) {
 		}
 	}
 	if existing == nil {
-		existing = &replJob{status: replJobStatus{State: replStateNeverRun, Message: "Waiting for its first round."}}
+		existing = &replJob{status: replJobStatus{State: replStateNeverRun, Message: "Waiting for its first round.", RescanNext: spec.RescanFirst}}
 		a.jobs[spec.ID] = existing
 		existing.spec = spec
 		a.logLocked(existing, "Job created: %s.", replDescribeSpec(spec))
@@ -695,7 +699,7 @@ func (a *replAgent) Tick() {
 			continue
 		}
 		// Recovery point age.
-		if state != replStatePaused && !job.status.RecoveryPoint.IsZero() {
+		if state != replStatePaused && state != replStateHeld && !job.status.RecoveryPoint.IsZero() {
 			age := now.Sub(job.status.RecoveryPoint)
 			limit := time.Duration(job.spec.RPOMinutes) * time.Minute
 			if age > limit {
@@ -746,6 +750,8 @@ func (a *replAgent) startLocked(job *replJob, cutover bool) {
 	job.status.LastStart = a.now().UTC()
 	if cutover {
 		job.status.State, job.status.Message = replStateCutover, "Cutting over: stopping services, then the last round."
+	} else if job.status.State == replStateHeld {
+		job.status.Message = "Checking whether the VM started from the copy has been removed."
 	} else {
 		job.status.State, job.status.Message = replStateSyncing, "Taking snapshots."
 	}
@@ -816,7 +822,8 @@ func (a *replAgent) runRound(ctx context.Context, job *replJob, spec replJobSpec
 			case final && spec.FullReadAtCutover:
 				ranges = opened.Used[disk.Source]
 			}
-			options := vmCopyOptions{Verify: final, Ranges: ranges, Progress: func(p vmCopyProgress) {
+			round := spec.ID + "@" + opened.Snapshot.UTC().Format(time.RFC3339)
+			options := vmCopyOptions{Verify: final, Ranges: ranges, Round: round, Progress: func(p vmCopyProgress) {
 				a.mu.Lock()
 				if index < len(job.status.Disks) {
 					d := &job.status.Disks[index]
@@ -887,6 +894,18 @@ func (a *replAgent) runRound(ctx context.Context, job *replJob, spec replJobSpec
 			job.status.Message = fmt.Sprintf("Up to date as of %s UTC. Next round at %s UTC.", job.status.RecoveryPoint.Format("15:04:05"), job.status.NextRun.Format("15:04"))
 		}
 		a.logLocked(job, "Round %d finished in %s; recovery point %s UTC.", job.status.Rounds, replAge(a.now().Sub(started)), job.status.RecoveryPoint.Format("2006-01-02 15:04:05"))
+	case errors.Is(err, errVMReceiverHeld) && !final:
+		// A VM was started from the copy on the target (a test failover):
+		// not a failure. The source keeps changing and the next round after
+		// the test ends sends everything that changed.
+		job.status.State = replStateHeld
+		job.status.NextRun = a.now().Add(2 * time.Minute).UTC()
+		job.status.Message = "Paused while a VM runs from the copy on the target (a test failover). Rounds resume by themselves when the test ends."
+		a.clearAlertsLocked(job, "rpo")
+		if job.status.LastError != err.Error() {
+			a.logLocked(job, "The receiver holds the copy for a VM started from it; rounds resume when it is released.")
+		}
+		job.status.LastError = err.Error()
 	case errors.Is(err, context.Canceled):
 		if job.status.State == replStateSyncing {
 			job.status.State, job.status.Message = replStateIdle, "The round was stopped."

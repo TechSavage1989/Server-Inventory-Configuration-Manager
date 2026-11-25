@@ -535,6 +535,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
 .rp-body .vm-field input,.rp-body .vm-field select,.rp-body .vm-field textarea{max-width:520px;box-sizing:border-box;border:1px solid #bcc9d9;border-radius:7px;padding:5px 9px;font:inherit;font-size:13px;min-height:32px;background:#fff;color:#1b2942}.rp-body .vm-field textarea{resize:vertical}
 .rp-body{display:flex;flex-direction:column;gap:12px;overflow-y:auto;overflow-x:hidden;min-height:0;flex:1 1 auto}.rp-summary{display:flex;flex-wrap:wrap;gap:8px}.rp-stat{min-width:86px;padding:7px 10px;border:1px solid #dbe3ed;border-radius:9px;background:#fbfcfe}.rp-stat strong{display:block;font-size:17px;color:#1b2942}.rp-stat span{font-size:11px;color:#52647c}.rp-stat.good{border-color:#a7d8b8;background:#f2fbf5}.rp-stat.warning{border-color:#f0cf8a;background:#fff9ea}.rp-stat.danger{border-color:#f1b3ad;background:#fff4f3}
 .rp-grid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:12px}.rp-two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0 12px}.rp-heading{margin:4px 0 0;font-size:14px;color:#1b2942}.rp-subhead{margin-top:12px;font-weight:700;color:#23334b}
+.fv-end-name{width:12em;max-width:100%;margin:4px 8px 0 0}#vmFailover{margin-top:12px}
 .rp-log{max-height:180px;overflow:auto;margin:8px 0 0;padding:8px;border:1px solid #dbe3ed;border-radius:8px;background:#f7f9fc;font:11px/1.45 Consolas,monospace;color:#23334b;white-space:pre-wrap;overflow-wrap:anywhere}
 .rp-manual{margin-top:12px;border-top:1px solid #e3e8f0;padding-top:8px}.rp-manual summary{cursor:pointer;font-weight:650;color:#23334b}
 .rp-alerts{margin:8px 0 0;padding-left:18px;max-height:260px;overflow:auto}.rp-alerts li{margin:5px 0;overflow-wrap:anywhere}.rp-alerts li.danger{color:#9b2c22}.rp-alerts li.warning{color:#74551f}.rp-alerts li.rp-quiet{list-style:none;margin-left:-18px;color:#596b80}
@@ -978,6 +979,24 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
                 <ul class="vm-findings hidden" id="vmSendResults"></ul>
               </section>
             </div>
+            <section class="migrate-card" id="vmFailover" aria-labelledby="fvTitle">
+              <h4 id="fvTitle">Start a VM from the copies: run on the Hyper-V host that receives them</h4>
+              <p class="migrate-help">A <strong>test failover</strong> starts a VM on new differencing disks whose parents are the copies, so nothing the test VM writes reaches the copies. Replication pauses for those copies while the test runs (the source keeps running) and catches up by itself when you end the test. Leave the network not connected, or choose an isolated switch, so the test VM never meets the real server on the network. Use <strong>production</strong> after the job's cutover: the VM runs from the copies themselves and they stay held.</p>
+              <div class="migrate-row"><button class="secondary-button" id="fvRefresh" type="button">Find copies</button><span class="vm-note" id="fvFolder"></span></div>
+              <div id="fvCopies"></div>
+              <div class="hidden" id="fvForm">
+                <div class="rp-two"><label class="vm-check"><input type="radio" name="fvMode" id="fvModeTest" value="test" checked> Test failover (differencing disks)</label><label class="vm-check"><input type="radio" name="fvMode" id="fvModeProd" value="production"> Production, after cutover</label></div>
+                <div class="rp-two"><label class="vm-field">VM name<input id="fvName" type="text" spellcheck="false" autocomplete="off" maxlength="100"></label><label class="vm-field">Firmware<select id="fvGen"><option value="2">Generation 2 (UEFI)</option><option value="1">Generation 1 (BIOS)</option></select></label></div>
+                <div class="rp-two"><label class="vm-field">Virtual processors<input id="fvCpus" type="text" inputmode="numeric" maxlength="3" value="2"></label><label class="vm-field">Memory in GB<input id="fvMemory" type="text" inputmode="numeric" maxlength="5" value="4"></label></div>
+                <div class="rp-two"><label class="vm-field">Secure boot<select id="fvSecure"><option value="windows">On, Windows</option><option value="linux">On, Linux (Microsoft UEFI CA)</option><option value="off">Off</option></select></label><label class="vm-check"><input id="fvTpm" type="checkbox"> Add a virtual TPM</label></div>
+                <div class="rp-two"><label class="vm-field">Network<select id="fvSwitch"><option value="">Not connected</option></select></label><label class="vm-field">VLAN (blank for none)<input id="fvVlan" type="text" inputmode="numeric" maxlength="4"></label></div>
+                <label class="vm-check"><input id="fvStart" type="checkbox" checked> Start the VM once it is created</label>
+                <label class="vm-field">Type the VM name to confirm<input id="fvConfirm" type="text" spellcheck="false" autocomplete="off"></label>
+                <div class="migrate-row"><button class="primary-button" id="fvStartButton" type="button" disabled>Create the VM</button></div>
+              </div>
+              <div class="migrate-inline-status" id="fvStatus" role="status" aria-live="polite"></div>
+              <div class="hidden" id="fvRunning"><div class="vm-counts-title">VMs started from copies</div><ul class="vm-findings" id="fvList"></ul></div>
+            </section>
           </div>
           <div class="hidden" id="vmViewCompare">
             <p class="migrate-help">Collect an inventory of the server on the Setup tab before the move, and again once it runs on the new platform. Then compare the two packages. Changes you would expect from a move, such as VMware Tools going away, are counted separately from the ones to check.</p>
@@ -1044,10 +1063,12 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
           <div class="rp-grid">
             <section class="migrate-card" aria-labelledby="rpPushTitle">
               <h4 id="rpPushTitle">Install the agent on servers</h4>
-              <p class="migrate-help">Runs on this computer and installs the agent as a Windows service on each server through its administrative share. You need administrator rights there and File and Printer Sharing allowed. To install it by hand instead, run <span class="vm-mono">SIMM-Agent.exe --agent-install</span> as administrator on the server and add it below.</p>
+              <label class="vm-field">The servers run<select id="rpPlatform"><option value="windows">Windows (installed through the administrative share)</option><option value="linux">Linux (installed over SSH)</option></select></label>
+              <p class="migrate-help" id="rpPushHelp">Runs on this computer and installs the agent as a Windows service on each server through its administrative share. You need administrator rights there and File and Printer Sharing allowed. To install it by hand instead, run <span class="vm-mono">SIMM-Agent.exe --agent-install</span> as administrator on the server and add it below.</p>
+              <p class="migrate-help hidden" id="rpPushHelpLinux">Runs on this computer and installs the agent as a systemd service on each server over SSH, using <span class="vm-mono">simm-agent-linux-amd64</span> from the folder this program is in (download it from the same release). Use root or an account that may use sudo. The first time, the server's SSH key is shown so you can check and trust it. Logical volumes on LVM are copied from LVM snapshots; other mounted partitions are copied as they are. To install by hand, run <span class="vm-mono">sudo ./simm-agent-linux-amd64 --agent-install</span> on the server and add it below.</p>
               <label class="vm-field">Servers (names or addresses, one per line or separated by commas)<textarea id="rpHosts" rows="3" spellcheck="false" autocomplete="off" placeholder="app01.example.com&#10;sql01.example.com"></textarea></label>
               <div class="rp-two"><label class="vm-field">Account (blank to use your own sign-in)<input id="rpUser" type="text" spellcheck="false" autocomplete="off" placeholder="EXAMPLE\admin"></label><label class="vm-field">Password<input id="rpPassword" type="password" autocomplete="off"></label></div>
-              <label class="vm-field">Agent port<input id="rpPort" type="text" inputmode="numeric" maxlength="5" value="44390"></label>
+              <div class="rp-two"><label class="vm-field">Agent port<input id="rpPort" type="text" inputmode="numeric" maxlength="5" value="44390"></label><label class="vm-field hidden" id="rpSshPortField">SSH port<input id="rpSshPort" type="text" inputmode="numeric" maxlength="5" value="22"></label></div>
               <div class="migrate-row"><button class="primary-button" id="rpPush" type="button">Install agents</button><button class="secondary-button hidden" id="rpPushStop" type="button">Stop after this server</button></div>
               <div class="migrate-inline-status" id="rpPushStatus" role="status" aria-live="polite"></div>
               <ul class="vm-findings hidden" id="rpPushResults"></ul>
@@ -1067,6 +1088,8 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
             </section>
           </div>
           <h4 class="rp-heading">Servers and jobs</h4>
+          <div class="migrate-row"><button class="secondary-button" id="rpRunbook" type="button" disabled>Write runbook</button><button class="secondary-button hidden" id="rpRunbookOpen" type="button">Open runbook</button><button class="secondary-button hidden" id="rpRunbookDocx" type="button">Open in Word</button><span class="vm-note">Every job with its steps: test failover, cutover, verify and fail back (HTML and Word).</span></div>
+          <div class="migrate-inline-status" id="rpRunbookStatus" role="status" aria-live="polite"></div>
           <div id="rpAgents"></div>
           <section class="migrate-card rp-editor hidden" id="rpEditor" aria-labelledby="rpEditorTitle">
             <h4 id="rpEditorTitle">New replication job</h4>
@@ -1098,6 +1121,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
             <div class="rp-subhead">Cutover</div>
             <label class="vm-field">Services to stop before the last round (comma separated, such as MSSQLSERVER, W3SVC)<input id="rpServices" type="text" spellcheck="false" autocomplete="off"></label>
             <label class="vm-check"><input id="rpShutdown" type="checkbox" checked> Shut this server down after the last round, so the new machine can take its name and address</label>
+            <label class="vm-check"><input id="rpRescanFirst" type="checkbox"> The receiver's disks already hold an older copy of this server (a failback): compare them first and send only what differs</label>
             <label class="vm-check"><input id="rpFullRead" type="checkbox"> Read every used block in the last round instead of only what changed (safest, but the services stay stopped longer)</label>
             <label class="vm-check"><input id="rpLive" type="checkbox"> If Volume Shadow Copy is unavailable, copy volumes as they are (the copy may be inconsistent)</label>
             <div class="migrate-row"><button class="primary-button" id="rpJobSave" type="button">Save and start</button><button class="secondary-button" id="rpJobCancel" type="button">Cancel</button></div>
@@ -2515,7 +2539,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   function renderVmDiskRole(){
     var role=vmDiskRole;
     Array.prototype.forEach.call(document.querySelectorAll('[data-diskrole]'),function(b){b.setAttribute('aria-pressed',b.getAttribute('data-diskrole')===role?'true':'false');});
-    byId('vmReceiveTitle').parentNode.classList.toggle('hidden',role==='send');byId('vmSendTitle').parentNode.classList.toggle('hidden',role==='receive');
+    byId('vmReceiveTitle').parentNode.classList.toggle('hidden',role==='send');byId('vmSendTitle').parentNode.classList.toggle('hidden',role==='receive');byId('vmFailover').classList.toggle('hidden',role==='send');
     byId('vmDiskCards').classList.toggle('vm-one',!!role);
     byId('vmFlowSend').classList.toggle('here',role==='send');byId('vmFlowReceive').classList.toggle('here',role==='receive');
   }
@@ -3576,14 +3600,64 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   byId('vmCompareBody').addEventListener('click',function(e){var tr=e.target.closest('tr[data-compare]');if(!tr){return;}var key=tr.getAttribute('data-compare');vmCompareOpen[key]=!vmCompareOpen[key];renderVmCompare();});
   byId('vmCompareBody').addEventListener('keydown',function(e){if((e.key==='Enter'||e.key===' ')&&e.target.getAttribute('data-compare')){e.preventDefault();var key=e.target.getAttribute('data-compare');vmCompareOpen[key]=!vmCompareOpen[key];renderVmCompare();var row=document.querySelector('[data-compare="'+key+'"]');if(row){row.focus();}}});
   // Replication tab: the central console for replication agents and jobs.
-  var rpState=null,rpBusy=false,rpEditing=null,rpDetail=null,rpDisks=null,rpReceiver=null,rpLastPoll=0,rpPushSerial=-1,rpArm={},rpLogShown=false;
-  var rpStateLabels={'new':'Waiting for the first round',idle:'Up to date',syncing:'Sending changes',paused:'Paused',error:'Failing, will retry','cutting-over':'Cutting over','cut-over':'Cut over'};
+  var rpTrusted={},rpPending={},rpState=null,rpBusy=false,rpEditing=null,rpDetail=null,rpDisks=null,rpReceiver=null,rpLastPoll=0,rpPushSerial=-1,rpArm={},rpLogShown=false;
+  var rpStateLabels={'new':'Waiting for the first round',idle:'Up to date',syncing:'Sending changes',paused:'Paused',error:'Failing, will retry',held:'Paused for a test failover','cutting-over':'Cutting over','cut-over':'Cut over'};
   function rpAgents(){return vmArr(rpState&&rpState.agents);}
   function rpAgent(id){var found=null;rpAgents().forEach(function(a){if(a.id===id){found=a;}});return found;}
   function rpJob(agentId,jobId){var a=rpAgent(agentId),found=null;if(a){vmArr(a.live&&a.live.jobs).forEach(function(j){if(j.spec&&j.spec.id===jobId){found=j;}});}return found;}
   function rpAge(seconds){var s=Math.max(0,Number(seconds)||0);if(s<90){return Math.round(s)+' seconds';}if(s<7200){return Math.round(s/60)+' minutes';}if(s<172800){return (s/3600).toFixed(1)+' hours';}return (s/86400).toFixed(1)+' days';}
+  var fvState=null,fvBusy=false;
+  function fvChecked(){return Array.prototype.filter.call(document.querySelectorAll('[data-fv-copy]'),function(b){return b.checked;}).map(function(b){return b.getAttribute('data-fv-copy');});}
+  function fvLoad(switches){
+    fvBusy=true;syncFv();
+    request('GET','/api/repl/failover'+(switches?'?switches=1':''),null,function(err,data){fvBusy=false;if(err){vmSetStatus('fvStatus',err,true);syncFv();return;}var keep=fvState&&fvState.switches;fvState=data||{};if(!fvState.switches&&keep){fvState.switches=keep;}renderFv();});
+  }
+  function renderFv(){
+    var s=fvState||{},box=byId('fvCopies'),chosen=fvChecked();
+    byId('fvFolder').textContent=s.folder?'Copies in '+s.folder:'';
+    box.textContent='';
+    if(s.hyperV===false){box.appendChild(el('p','restore-alert danger','This computer has no Hyper-V role or module. Run this on the Hyper-V host that receives the copies.'));}
+    if(s.error){box.appendChild(el('p','restore-alert danger',s.error));}
+    var copies=vmArr(s.copies);
+    if(!copies.length&&s.folder){box.appendChild(el('p','vm-note','No finished copies here yet. Copies appear once a replication round or Send has finished.'));}
+    copies.forEach(function(c){
+      var row=el('label','vm-check'),input=document.createElement('input');input.type='checkbox';input.setAttribute('data-fv-copy',c.name);input.checked=chosen.indexOf(c.name)>=0;
+      var why=c.busy?'being received now':(c.held?'in use: '+c.held:(!c.complete?'not finished':''));input.disabled=!!why;if(why){input.checked=false;}
+      row.appendChild(input);
+      var text=' '+c.name+' ('+formatBytesShort(c.size)+', '+(c.generation===2?'UEFI':'BIOS')+(rpWhen(c.recoveryPoint)?', recovery point '+rpWhen(c.recoveryPoint):'')+(c.verified?', verified':'')+')'+(why?': '+why:'');
+      row.appendChild(document.createTextNode(text));box.appendChild(row);
+    });
+    if(copies.length){box.appendChild(el('p','vm-note','Tick every disk of the server, boot disk first in the list. All of them must come from the same round.'));}
+    byId('fvForm').classList.toggle('hidden',!copies.length||s.hyperV===false);
+    var sw=byId('fvSwitch'),current=sw.value;
+    while(sw.options.length>1){sw.remove(1);}
+    vmArr(s.switches).forEach(function(x){var o=document.createElement('option');o.value=x.name;o.textContent=x.name+' ('+x.type+')';sw.appendChild(o);});
+    sw.value=current;if(sw.value!==current){sw.value='';}
+    var list=byId('fvList');list.textContent='';
+    vmArr(s.failovers).forEach(function(f){
+      var li=el('li',f.mode==='test'?'warning':'good');
+      li.appendChild(el('strong','',f.name+': '));
+      li.appendChild(document.createTextNode((f.mode==='test'?'test failover on differencing disks':'production VM')+' from '+vmArr(f.copies).join(', ')+(rpWhen(f.recoveryPoint)?', recovery point '+rpWhen(f.recoveryPoint):'')+'. Started '+rpWhen(f.started)+'. '));
+      var name=document.createElement('input');name.type='text';name.placeholder='Type '+f.name;name.setAttribute('aria-label','Type '+f.name+' to confirm');name.setAttribute('data-fv-endname',f.id);name.className='fv-end-name';
+      var b=el('button','secondary-button',f.mode==='test'?'End test: remove the test VM':'Release the copies');b.type='button';b.setAttribute('data-fv-end',f.id);b.setAttribute('data-fv-vm',f.name);
+      li.appendChild(name);li.appendChild(b);list.appendChild(li);
+    });
+    byId('fvRunning').classList.toggle('hidden',!vmArr(s.failovers).length);
+    syncFv();
+  }
+  function syncFv(){
+    var chosen=fvChecked(),name=trimText(byId('fvName').value),typed=trimText(byId('fvConfirm').value);
+    byId('fvRefresh').disabled=fvBusy;
+    byId('fvStartButton').disabled=fvBusy||!chosen.length||!name||typed.toLowerCase()!==name.toLowerCase();
+    var gen2=byId('fvGen').value==='2';byId('fvSecure').disabled=!gen2;byId('fvTpm').disabled=!gen2;
+    Array.prototype.forEach.call(document.querySelectorAll('[data-fv-end]'),function(b){var input=document.querySelector('[data-fv-endname="'+b.getAttribute('data-fv-end')+'"]');b.disabled=fvBusy||!input||trimText(input.value).toLowerCase()!==String(b.getAttribute('data-fv-vm')).toLowerCase();});
+  }
+  function fvPost(body,done){
+    fvBusy=true;syncFv();vmSetStatus('fvStatus',body.action==='start'?'Creating the VM. This can take a minute.':'Working.',false);
+    request('POST','/api/repl/failover',body,function(err,data){fvBusy=false;if(err){vmSetStatus('fvStatus',err,true);}else{done(data||{});}fvLoad(false);});
+  }
   function rpWhen(text){if(!text||/^0001-/.test(text)){return '';}var d=new Date(text);if(isNaN(d.getTime())){return '';}return d.toLocaleString();}
-  function rpBehind(j){var st=j.status||{};return st.state!=='cut-over'&&st.state!=='paused'&&(!st.recoveryPoint||/^0001-/.test(st.recoveryPoint)||(Number(j.rpoSeconds)||0)>(Number(j.spec&&j.spec.rpoMinutes)||15)*60);}
+  function rpBehind(j){var st=j.status||{};return st.state!=='cut-over'&&st.state!=='paused'&&st.state!=='held'&&(!st.recoveryPoint||/^0001-/.test(st.recoveryPoint)||(Number(j.rpoSeconds)||0)>(Number(j.spec&&j.spec.rpoMinutes)||15)*60);}
   function rpStateText(j){var st=j.status||{},label=rpStateLabels[st.state]||st.state||'Unknown';if(st.state==='idle'&&rpBehind(j)){label='Behind';}return label;}
   function rpPost(path,body,statusId,done){
     if(rpBusy){return;}
@@ -3605,7 +3679,11 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     var log=byId('rpPushLog'),lines=vmArr(s.pushLog);log.textContent=lines.join('\n');log.classList.toggle('hidden',!lines.length);
     if((s.serial||0)!==rpPushSerial){
       var list=byId('rpPushResults');list.textContent='';
-      vmArr(s.pushResults).forEach(function(r){list.appendChild(el('li',r.ok?'good':'warning',r.host+(r.ok?': installed and answering.':': '+r.error)));});
+      vmArr(s.pushResults).forEach(function(r){
+        var item=el('li',r.ok?'good':'warning',r.host+(r.ok?': installed and answering.':': '+r.error+(r.hostKey?'.':'')));
+        if(r.hostKey){rpPending[r.host]=r.hostKey;var trust=el('button','secondary-button rp-trust',r.changed?'Trust the new key and install':'Trust this key and install');trust.type='button';trust.setAttribute('data-rp-trust',r.host);item.appendChild(document.createTextNode(' '));item.appendChild(trust);}
+        list.appendChild(item);
+      });
       list.classList.toggle('hidden',!list.childNodes.length);
       if(rpPushSerial>=0&&!s.pushing){vmSetStatus('rpPushStatus','',false);}
       rpPushSerial=s.serial||0;
@@ -3672,7 +3750,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     byId('rpInterval').value=String(spec.intervalMinutes||0);if(!byId('rpInterval').value){byId('rpInterval').value='0';}
     byId('rpRpo').value=String(spec.rpoMinutes||15);byId('rpCompress').checked=spec.compress!==false;
     var t=spec.throttle||{};byId('rpLimit').value=String(t.limitMbps||0);byId('rpBusinessLimit').value=String(t.businessMbps||0);byId('rpBusinessStart').value=String(t.businessStart||0);byId('rpBusinessEnd').value=String(t.businessEnd||0);
-    byId('rpServices').value=vmArr(spec.stopServices).join(', ');byId('rpShutdown').checked=!!spec.shutdownAfterCutover;byId('rpFullRead').checked=!!spec.fullReadAtCutover;byId('rpLive').checked=!!spec.allowLive;
+    byId('rpServices').value=vmArr(spec.stopServices).join(', ');byId('rpShutdown').checked=!!spec.shutdownAfterCutover;byId('rpFullRead').checked=!!spec.fullReadAtCutover;byId('rpRescanFirst').checked=!!spec.rescanFirst;byId('rpLive').checked=!!spec.allowLive;
     byId('rpJobSave').textContent=job?'Save':'Save and start';vmSetStatus('rpJobStatus','',false);
     renderRpJobDisks();
     rpPost('/api/repl/agent',{action:'disks',id:agentId},'rpJobStatus',function(err,data){if(err){return;}rpDisks=vmArr(data.disks);renderRpJobDisks();});
@@ -3712,7 +3790,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       spec={id:rpEditing.id,name:trimText(byId('rpJobName').value),disks:[],receiver:{address:trimText(byId('rpRecvAddress').value),thumbprint:trimText(byId('rpRecvThumbprint').value).replace(/[\s:]/g,''),code:trimText(byId('rpRecvCode').value)},
         intervalMinutes:Number(byId('rpInterval').value)||0,rpoMinutes:rpNumber('rpRpo',1,10080,'Type the RPO alert as a number of minutes from 1 to 10080.'),compress:byId('rpCompress').checked,
         throttle:{limitMbps:rpNumber('rpLimit',0,100000,'Type the bandwidth limit in Mbps, or 0 for no limit.'),businessMbps:rpNumber('rpBusinessLimit',0,100000,'Type the business-hours limit in Mbps, or 0 for no limit.'),businessStart:rpNumber('rpBusinessStart',0,24,'Business hours are hours from 0 to 24.'),businessEnd:rpNumber('rpBusinessEnd',0,24,'Business hours are hours from 0 to 24.')},
-        stopServices:trimText(byId('rpServices').value)?trimText(byId('rpServices').value).split(/\s*,\s*/).filter(function(x){return !!x;}):[],shutdownAfterCutover:byId('rpShutdown').checked,fullReadAtCutover:byId('rpFullRead').checked,allowLive:byId('rpLive').checked};
+        stopServices:trimText(byId('rpServices').value)?trimText(byId('rpServices').value).split(/\s*,\s*/).filter(function(x){return !!x;}):[],shutdownAfterCutover:byId('rpShutdown').checked,fullReadAtCutover:byId('rpFullRead').checked,rescanFirst:byId('rpRescanFirst').checked,allowLive:byId('rpLive').checked};
     }catch(e){vmSetStatus('rpJobStatus',e.message,true);return;}
     if(spec.receiver.code&&spec.receiver.code.replace(/[\s-]/g,'').length!==20){vmSetStatus('rpJobStatus','Type the 20-character pairing code the receiver shows.',true);return;}
     Array.prototype.forEach.call(document.querySelectorAll('[data-rp-disk]:checked'),function(i){var id=i.getAttribute('data-rp-disk');spec.disks.push({source:id,target:trimText(byId('rpJobDisks').querySelector('[data-rp-target="'+id+'"]').value)});});
@@ -3749,7 +3827,9 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   function syncRpButtons(){
     var s=rpState||{},admin=!!s.isAdministrator;
     byId('rpPush').disabled=rpBusy||!!s.pushing||!trimText(byId('rpHosts').value);
-    ['rpHosts','rpUser','rpPassword','rpPort'].forEach(function(id){byId(id).disabled=!!s.pushing;});
+    ['rpHosts','rpUser','rpPassword','rpPort','rpPlatform','rpSshPort'].forEach(function(id){byId(id).disabled=!!s.pushing;});
+    Array.prototype.forEach.call(document.querySelectorAll('[data-rp-trust]'),function(b){b.disabled=rpBusy||!!s.pushing;});
+    byId('rpRunbook').disabled=rpBusy||!(s.summary&&s.summary.jobs);
     byId('rpAdd').disabled=rpBusy||!trimText(byId('rpAddAddress').value)||!trimText(byId('rpAddThumbprint').value)||!trimText(byId('rpAddKey').value);
     byId('rpJobSave').disabled=rpBusy||!rpDisks;byId('rpRecvCheck').disabled=rpBusy||!trimText(byId('rpRecvAddress').value)||!trimText(byId('rpRecvThumbprint').value)||!trimText(byId('rpRecvCode').value);
     var j=rpDetail&&rpJob(rpDetail.agent,rpDetail.id),st=(j&&j.status)||{},done=st.state==='cut-over',busy=st.state==='cutting-over',typed=j&&trimText(byId('rpCutoverTyped').value).toLowerCase()===String(j.spec.name).toLowerCase();
@@ -3788,11 +3868,30 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     }
   }
   byId('rpAgents').addEventListener('click',onRpAgentClick);
-  byId('rpPush').addEventListener('click',function(){
-    var port=trimText(byId('rpPort').value)||'44390';
+  function rpLinux(){return byId('rpPlatform').value==='linux';}
+  function syncRpPlatform(){
+    var linux=rpLinux();
+    byId('rpPushHelp').classList.toggle('hidden',linux);byId('rpPushHelpLinux').classList.toggle('hidden',!linux);byId('rpSshPortField').classList.toggle('hidden',!linux);
+    byId('rpUser').placeholder=linux?'root':'EXAMPLE\\admin';
+    byId('rpUser').parentNode.firstChild.nodeValue=linux?'Account (root or a sudo account)':'Account (blank to use your own sign-in)';
+  }
+  byId('rpPlatform').addEventListener('change',syncRpPlatform);
+  function rpStartPush(hosts){
+    var port=trimText(byId('rpPort').value)||'44390',linux=rpLinux(),sshPort=trimText(byId('rpSshPort').value)||'22';
     if(!/^[0-9]{4,5}$/.test(port)){vmSetStatus('rpPushStatus','Type the agent port as a number from 1024 to 65535.',true);return;}
-    if(trimText(byId('rpUser').value)&&!byId('rpPassword').value){vmSetStatus('rpPushStatus','Type the account\'s password, or leave the account blank to use your own sign-in.',true);return;}
-    rpPost('/api/repl/push',{hosts:byId('rpHosts').value,user:trimText(byId('rpUser').value),password:byId('rpPassword').value,port:Number(port)},'rpPushStatus',function(err){if(!err){byId('rpPassword').value='';if(rpState){rpState.pushing=true;}renderRp();}});
+    if(linux&&(!trimText(byId('rpUser').value)||!byId('rpPassword').value)){vmSetStatus('rpPushStatus','Type the Linux account and its password.',true);return;}
+    if(linux&&!/^[0-9]{1,5}$/.test(sshPort)){vmSetStatus('rpPushStatus','Type the SSH port as a number.',true);return;}
+    if(!linux&&trimText(byId('rpUser').value)&&!byId('rpPassword').value){vmSetStatus('rpPushStatus','Type the account\'s password, or leave the account blank to use your own sign-in.',true);return;}
+    var body={hosts:hosts,user:trimText(byId('rpUser').value),password:byId('rpPassword').value,port:Number(port)};
+    if(linux){body.platform='linux';body.sshPort=Number(sshPort);body.hostKeys=rpTrusted;}
+    rpPost('/api/repl/push',body,'rpPushStatus',function(err){if(!err){byId('rpPassword').value='';if(rpState){rpState.pushing=true;}renderRp();}});
+  }
+  byId('rpPush').addEventListener('click',function(){rpStartPush(byId('rpHosts').value);});
+  byId('rpPushResults').addEventListener('click',function(e){
+    var b=e.target.closest('[data-rp-trust]');if(!b||b.disabled){return;}
+    var host=b.getAttribute('data-rp-trust');if(!rpPending[host]){return;}
+    if(!byId('rpPassword').value){vmSetStatus('rpPushStatus','Type the password again, then choose Trust.',true);byId('rpPassword').focus();return;}
+    rpTrusted[host]=rpPending[host];rpStartPush(host);
   });
   byId('rpPushStop').addEventListener('click',function(){rpPost('/api/repl/agent',{action:'stop-push'},'rpPushStatus',null);});
   byId('rpAdd').addEventListener('click',function(){rpPost('/api/repl/agent',{action:'add',address:trimText(byId('rpAddAddress').value),thumbprint:trimText(byId('rpAddThumbprint').value).replace(/[\s:]/g,''),key:trimText(byId('rpAddKey').value)},'rpAddStatus',function(err,data){if(!err){byId('rpAddKey').value='';vmSetStatus('rpAddStatus','Added '+(data.name||'the agent')+'.',false);}});});
@@ -3803,6 +3902,34 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   ['rpRecvAddress','rpRecvThumbprint','rpRecvCode'].forEach(function(id){byId(id).addEventListener('input',function(){if(rpReceiver&&id!=='rpRecvCode'){rpReceiver=null;byId('rpRecvNote').textContent='Check the receiver again: its details changed.';renderRpJobDisks();}syncRpButtons();});});
   ['rpHosts','rpAddAddress','rpAddThumbprint','rpAddKey','rpCutoverTyped','rpCutoverAt'].forEach(function(id){byId(id).addEventListener('input',syncRpButtons);});
   byId('rpSync').addEventListener('click',function(){rpJobAction('sync');});
+  byId('fvRefresh').addEventListener('click',function(){vmSetStatus('fvStatus','',false);fvLoad(true);});
+  byId('fvCopies').addEventListener('change',function(e){
+    var b=e.target.closest('[data-fv-copy]');if(!b){return;}
+    var first=fvChecked()[0],c=vmArr(fvState&&fvState.copies).filter(function(x){return x.name===first;})[0];
+    if(c){byId('fvGen').value=String(c.generation===2?2:1);if(!trimText(byId('fvName').value)){byId('fvName').value=String(first).replace(/[-_ ]?disk[-_ ]?\d+\.vhdx$/i,'').replace(/\.vhdx$/i,'')+'-TEST';}}
+    syncFv();
+  });
+  ['fvName','fvConfirm','fvGen'].forEach(function(id){byId(id).addEventListener('input',syncFv);byId(id).addEventListener('change',syncFv);});
+  byId('fvModeProd').addEventListener('change',function(){var n=byId('fvName');if(/-TEST$/.test(n.value)){n.value=n.value.replace(/-TEST$/,'');}syncFv();});
+  byId('fvModeTest').addEventListener('change',syncFv);
+  byId('fvList').addEventListener('input',syncFv);
+  byId('fvStartButton').addEventListener('click',function(){
+    var cpus=Number(trimText(byId('fvCpus').value)),gb=Number(trimText(byId('fvMemory').value)),vlan=trimText(byId('fvVlan').value);
+    if(!(cpus>=1&&cpus<=240)){vmSetStatus('fvStatus','Type 1 to 240 virtual processors.',true);return;}
+    if(!(gb>=0.5&&gb<=12288)){vmSetStatus('fvStatus','Type the memory in GB, at least 0.5.',true);return;}
+    if(vlan&&!/^[0-9]{1,4}$/.test(vlan)){vmSetStatus('fvStatus','Type the VLAN as a number from 1 to 4094, or leave it blank.',true);return;}
+    var name=trimText(byId('fvName').value),gen=Number(byId('fvGen').value);
+    var req={mode:byId('fvModeProd').checked?'production':'test',name:name,copies:fvChecked(),generation:gen,cpus:cpus,memoryMB:Math.round(gb*1024),secureBoot:gen===2?byId('fvSecure').value:'off',tpm:gen===2&&byId('fvTpm').checked,switch:byId('fvSwitch').value,vlan:vlan?Number(vlan):0,start:byId('fvStart').checked};
+    fvPost({action:'start',request:req,confirm:trimText(byId('fvConfirm').value)},function(){byId('fvConfirm').value='';vmSetStatus('fvStatus',name+' was created'+(req.start?' and started':'')+'. Replication into its copies waits until you '+(req.mode==='test'?'end the test':'release them')+'.',false);});
+  });
+  byId('fvList').addEventListener('click',function(e){
+    var b=e.target.closest('[data-fv-end]');if(!b||b.disabled){return;}
+    var id=b.getAttribute('data-fv-end'),input=document.querySelector('[data-fv-endname="'+id+'"]');
+    fvPost({action:'end',id:id,confirm:trimText(input.value)},function(){vmSetStatus('fvStatus',b.getAttribute('data-fv-vm')+(b.textContent.indexOf('End test')===0?': the test VM and its test disks were removed. Replication catches up on its next round.':': the copies are released.'),false);});
+  });
+  byId('rpRunbook').addEventListener('click',function(){rpPost('/api/repl/runbook',{},'rpRunbookStatus',function(err){if(!err){vmSetStatus('rpRunbookStatus','Wrote the runbook.',false);byId('rpRunbookOpen').classList.remove('hidden');byId('rpRunbookDocx').classList.remove('hidden');openKind('replrunbook');}});});
+  byId('rpRunbookOpen').addEventListener('click',function(){openKind('replrunbook');});
+  byId('rpRunbookDocx').addEventListener('click',function(){openKind('replrunbookdocx');});
   byId('rpPause').addEventListener('click',function(){var j=rpJob(rpDetail.agent,rpDetail.id);rpJobAction(j&&j.status.state==='paused'?'resume':'pause');});
   byId('rpRescan').addEventListener('click',function(){rpJobAction('rescan');});
   byId('rpClear').addEventListener('click',function(){rpJobAction('clear');});

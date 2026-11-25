@@ -182,11 +182,23 @@ jobs:
       - name: Build release assets
         shell: powershell
         run: .\scripts\Build-ReleaseManifest.ps1 -ExecutablePath .\build\Server-Inventory-Configuration-Manager.exe -ExpectedVersion '${{ steps.version.outputs.version }}' -OutputDirectory .\dist
+      - name: Build the Linux replication agent
+        shell: powershell
+        run: |
+          $version='${{ steps.version.outputs.version }}'
+          $env:GOOS='linux';$env:GOARCH='amd64';$env:CGO_ENABLED='0'
+          go build -trimpath -ldflags "-s -w -X main.linuxAgentVersion=$version" -o .\dist\simm-agent-linux-amd64 ./src/app
+          if($LASTEXITCODE -ne 0){throw 'Linux agent build failed'}
+          Remove-Item Env:GOOS,Env:GOARCH,Env:CGO_ENABLED
+          $bytes=[IO.File]::ReadAllBytes((Resolve-Path .\dist\simm-agent-linux-amd64))
+          if($bytes.Length -lt 1MB -or $bytes[0] -ne 0x7F -or $bytes[1] -ne 0x45 -or $bytes[2] -ne 0x4C -or $bytes[3] -ne 0x46){throw 'The Linux agent is not an ELF executable'}
+          $hash=(Get-FileHash .\dist\simm-agent-linux-amd64 -Algorithm SHA256).Hash.ToLowerInvariant()
+          [IO.File]::WriteAllText((Join-Path (Resolve-Path .\dist) 'simm-agent-linux-amd64.sha256.txt'),"$hash  simm-agent-linux-amd64`n",(New-Object Text.UTF8Encoding($false)))
       - name: Publish complete new release
         shell: powershell
         run: |
           $version='${{ steps.version.outputs.version }}';$tag="v$version"
-          gh release create $tag .\dist\Server-Inventory-Configuration-Manager.exe .\dist\Server-Inventory-Configuration-Manager.exe.sha256.txt .\dist\update-manifest.json .\dist\Server-Inventory-Configuration-Manager.svg .\dist\Server-Inventory-Configuration-Manager.svg.sha256.txt .\dist\Server-Inventory-Configuration-Manager-Illustrator.svg .\dist\Server-Inventory-Configuration-Manager-Illustrator.svg.sha256.txt .\dist\Report-Preview.png .\dist\Report-Preview.png.sha256.txt .\dist\Application-Preview.png .\dist\Application-Preview.png.sha256.txt .\build\go-test-results.txt --draft --target '${{ github.sha }}' --title "Server Inventory and Migration Manager $version" --notes-file ".\docs\release-notes\$version.md"
+          gh release create $tag .\dist\Server-Inventory-Configuration-Manager.exe .\dist\Server-Inventory-Configuration-Manager.exe.sha256.txt .\dist\update-manifest.json .\dist\Server-Inventory-Configuration-Manager.svg .\dist\Server-Inventory-Configuration-Manager.svg.sha256.txt .\dist\Server-Inventory-Configuration-Manager-Illustrator.svg .\dist\Server-Inventory-Configuration-Manager-Illustrator.svg.sha256.txt .\dist\Report-Preview.png .\dist\Report-Preview.png.sha256.txt .\dist\Application-Preview.png .\dist\Application-Preview.png.sha256.txt .\dist\simm-agent-linux-amd64 .\dist\simm-agent-linux-amd64.sha256.txt .\build\go-test-results.txt --draft --target '${{ github.sha }}' --title "Server Inventory and Migration Manager $version" --notes-file ".\docs\release-notes\$version.md"
           if($LASTEXITCODE -ne 0){throw 'Release create failed'}
           gh release edit $tag --draft=false --latest
           if($LASTEXITCODE -ne 0){throw 'Release publish failed'}
