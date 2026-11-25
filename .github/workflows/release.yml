@@ -92,6 +92,8 @@ jobs:
       - name: Test updater
         shell: powershell
         run: |
+          go mod download
+          if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
           go test -v ./... 2>&1 | Tee-Object .\build\go-test-results.txt
           if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
       - name: Vet Go source
