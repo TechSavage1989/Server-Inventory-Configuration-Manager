@@ -1,3 +1,11 @@
+## Unreleased: phase 2 step 2, VMware snapshot and changed-block replication rounds — 2026-11-25
+
+- `vmware_replicate.go` (`vmReplicateRound`) copies a running VM's disks into one VHDX per disk (`<vm>-diskN.vhdx`) with the copy engine. Each round: refuse other snapshots, encrypted disks, RDMs and snapshot chains; remove a replication snapshot left by an earlier round; optionally turn on changed block tracking; take `Server Inventory and Migration Manager replication` (quiesced when asked and the VM is on); read the frozen base disks over the datastore HTTPS interface; remove the snapshot (always, with its own timeout). A JSON record is saved before each vSphere change.
+- First round: seed only the allocated areas (`QueryChangedDiskAreas` with `*`, chunks outside them recorded as zero). Later rounds: only blocks changed since the change ID kept in the copy record (`vmCopyState.ChangeID`). If tracking is off or cannot answer, a full hashed pass still rewrites only changed chunks.
+- Copy engine: `ChangeID` and `ZeroOutside` options; `vmCopyInRanges` helper.
+- Tests: `TestReplicationRoundsSeedThenCopyOnlyChangedBlocks` (vcsim with a controlled flat disk and a simulated changed-block service: seed reads only allocated areas, CBT turned on, record saved, snapshot removed, delta round reads one chunk with the previous change ID, leftover snapshot removed, foreign snapshot refused) and `TestReplicaDisksRefuseRDMsEncryptionAndChains`.
+- Not yet validated on real vSphere (CBT answers, reading a base disk under a running VM's snapshot through `/folder`). No UI yet; it comes with the Hyper-V step.
+
 ## Unreleased: phase 2 step 1, disk copy engine core — 2026-11-25
 
 Owner-approved phase 2 (copy engine, receiver and in-guest source agent, Hyper-V first). This step adds the engine with no UI yet; later steps add VMware snapshot/CBT rounds, network receiver mode, the source agent and Hyper-V VM creation with the VMware tab UI.
