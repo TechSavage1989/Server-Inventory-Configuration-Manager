@@ -47,6 +47,25 @@ type vmReplicaOptions struct {
 	RecordFolder string
 	Progress     func(disk string, progress vmCopyProgress)
 	Log          func(string)
+	// NewSink, when set, sends each disk somewhere other than a VHDX in
+	// Folder (for example a receiver's raw disk). It returns the sink and a
+	// label for the target; the sink's own copy record decides the mode.
+	NewSink func(index int, capacity int64) (vmCopySink, string, error)
+}
+
+// vmOpenedSink is a sink already opened to read its copy record; the engine's
+// own Open returns that record.
+type vmOpenedSink struct {
+	vmCopySink
+	state   *vmCopyState
+	resumed bool
+}
+
+func (s *vmOpenedSink) Open(source string, size, chunkSize int64) (*vmCopyState, bool, error) {
+	if s.state.Source != source || s.state.Size != size || s.state.ChunkSize != chunkSize {
+		return nil, false, errors.New("the copy target changed between reading its record and copying")
+	}
+	return vmCopyStateClone(s.state), s.resumed, nil
 }
 
 type vmReplicaDiskResult struct {
@@ -193,7 +212,7 @@ func vmReplicateRound(ctx context.Context, client *vim25.Client, ref types.Manag
 	if log == nil {
 		log = func(string) {}
 	}
-	if options.Folder == "" {
+	if options.Folder == "" && options.NewSink == nil {
 		return nil, errors.New("choose a folder for the copied disks")
 	}
 	collector := property.DefaultCollector(client)
@@ -282,8 +301,10 @@ func vmReplicateRound(ctx context.Context, client *vim25.Client, ref types.Manag
 	if err != nil {
 		return nil, err
 	}
-	if err := os.MkdirAll(options.Folder, 0700); err != nil {
-		return nil, err
+	if options.NewSink == nil {
+		if err := os.MkdirAll(options.Folder, 0700); err != nil {
+			return nil, err
+		}
 	}
 	for index, disk := range disks {
 		if err := ctx.Err(); err != nil {
@@ -296,7 +317,34 @@ func vmReplicateRound(ctx context.Context, client *vim25.Client, ref types.Manag
 			label := disk.label
 			copyOptions.Progress = func(p vmCopyProgress) { options.Progress(label, p) }
 		}
-		previous, stateErr := loadVMCopyState(target)
+		var sink vmCopySink
+		var source vmCopySource
+		previous, stateErr := (*vmCopyState)(nil), error(nil)
+		if options.NewSink != nil {
+			// Open the source and the sink first: the sink's record (on the
+			// receiver) says which kind of round this disk needs.
+			if source, err = openDatastoreVMDK(ctx, client, options.Datacenter, disk.file); err != nil {
+				return nil, fmt.Errorf("%s: %w", disk.label, err)
+			}
+			base, label, err := options.NewSink(index, disk.capacity)
+			if err != nil {
+				source.Close()
+				return nil, fmt.Errorf("%s: %w", disk.label, err)
+			}
+			state, resumed, err := base.Open(source.Describe(), source.Size(), vmCopyChunkSize)
+			if err != nil {
+				source.Close()
+				base.Close()
+				return nil, fmt.Errorf("%s: %w", disk.label, err)
+			}
+			sink, item.Target = &vmOpenedSink{vmCopySink: base, state: state, resumed: resumed}, label
+			previous, stateErr = state, nil
+			if !resumed {
+				stateErr = os.ErrNotExist
+			}
+		} else {
+			previous, stateErr = loadVMCopyState(target)
+		}
 		switch {
 		case !cbt || disk.changeID == "":
 			item.Mode = "full"
@@ -319,16 +367,19 @@ func vmReplicateRound(ctx context.Context, client *vim25.Client, ref types.Manag
 		default:
 			item.Mode = "full"
 		}
-		log(fmt.Sprintf("%s: %s copy of %s.", disk.label, item.Mode, disk.file))
-		source, err := openDatastoreVMDK(ctx, client, options.Datacenter, disk.file)
-		if err != nil {
-			return nil, fmt.Errorf("%s: %w", disk.label, err)
+		log(fmt.Sprintf("%s: %s copy of %s to %s.", disk.label, item.Mode, disk.file, item.Target))
+		if source == nil {
+			if source, err = openDatastoreVMDK(ctx, client, options.Datacenter, disk.file); err != nil {
+				return nil, fmt.Errorf("%s: %w", disk.label, err)
+			}
+			sink = &vmLocalSink{target: target}
 		}
 		if source.Size() != disk.capacity {
 			source.Close()
+			sink.Close()
 			return nil, fmt.Errorf("%s: the VMDK is %d bytes but vSphere reports %d", disk.label, source.Size(), disk.capacity)
 		}
-		copied, err := vmCopyDisk(ctx, source, target, copyOptions)
+		copied, err := vmCopyTo(ctx, source, sink, copyOptions)
 		source.Close()
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", disk.label, err)

@@ -61,6 +61,7 @@ type vmwareRuntime struct {
 	compareSerial   uint64
 	compareFolder   string
 	compareError    string
+	target          vmTargetRuntime
 	cancel          context.CancelFunc
 	cancelRequested bool
 	logs            []logEntry
@@ -70,43 +71,44 @@ type vmwareRuntime struct {
 }
 
 type vmwareStateResponse struct {
-	Running         bool                `json:"running"`
-	Action          string              `json:"action"`
-	Status          string              `json:"status"`
-	Message         string              `json:"message"`
-	Server          string              `json:"server"`
-	Account         string              `json:"account"`
-	Certificate     *vmCertificateError `json:"certificate"`
-	Summary         *vmInventorySummary `json:"summary"`
-	InventorySerial uint64              `json:"inventorySerial"`
-	OutputFolder    string              `json:"outputFolder"`
-	ReportPath      string              `json:"reportPath"`
-	RunbookPath     string              `json:"runbookPath"`
-	RunbookDocxPath string              `json:"runbookDocxPath"`
-	DiscoveryPath   string              `json:"discoveryPath"`
-	PlanCSVPath     string              `json:"planCsvPath"`
-	GuestSerial     uint64              `json:"guestSerial"`
-	GuestMessage    string              `json:"guestMessage"`
-	GuestError      bool                `json:"guestError"`
-	GuestWorkPath   string              `json:"guestWorkPath"`
-	CompareSerial   uint64              `json:"compareSerial"`
-	CompareError    string              `json:"compareError"`
-	Prepare         *vmPrepareResult    `json:"prepare"`
-	PrepareSerial   uint64              `json:"prepareSerial"`
-	PrepareError    string              `json:"prepareError"`
-	CanPrepare      bool                `json:"canPrepare"`
-	Move            *vmMoveResult       `json:"move"`
-	MoveSerial      uint64              `json:"moveSerial"`
-	MoveError       string              `json:"moveError"`
-	MoveCopyRoot    string              `json:"moveCopyRoot"`
-	Send            []vmAgentSendResult `json:"send"`
-	SendSerial      uint64              `json:"sendSerial"`
-	SendError       string              `json:"sendError"`
-	Receiver        vmReceiverState     `json:"receiver"`
-	CancelRequested bool                `json:"cancelRequested"`
-	Logs            []logEntry          `json:"logs"`
-	StartedAtUnixMs int64               `json:"startedAtUnixMs"`
-	EndedAtUnixMs   int64               `json:"endedAtUnixMs"`
+	Running         bool                   `json:"running"`
+	Action          string                 `json:"action"`
+	Status          string                 `json:"status"`
+	Message         string                 `json:"message"`
+	Server          string                 `json:"server"`
+	Account         string                 `json:"account"`
+	Certificate     *vmCertificateError    `json:"certificate"`
+	Summary         *vmInventorySummary    `json:"summary"`
+	InventorySerial uint64                 `json:"inventorySerial"`
+	OutputFolder    string                 `json:"outputFolder"`
+	ReportPath      string                 `json:"reportPath"`
+	RunbookPath     string                 `json:"runbookPath"`
+	RunbookDocxPath string                 `json:"runbookDocxPath"`
+	DiscoveryPath   string                 `json:"discoveryPath"`
+	PlanCSVPath     string                 `json:"planCsvPath"`
+	GuestSerial     uint64                 `json:"guestSerial"`
+	GuestMessage    string                 `json:"guestMessage"`
+	GuestError      bool                   `json:"guestError"`
+	GuestWorkPath   string                 `json:"guestWorkPath"`
+	CompareSerial   uint64                 `json:"compareSerial"`
+	CompareError    string                 `json:"compareError"`
+	Prepare         *vmPrepareResult       `json:"prepare"`
+	PrepareSerial   uint64                 `json:"prepareSerial"`
+	PrepareError    string                 `json:"prepareError"`
+	CanPrepare      bool                   `json:"canPrepare"`
+	Move            *vmMoveResult          `json:"move"`
+	MoveSerial      uint64                 `json:"moveSerial"`
+	MoveError       string                 `json:"moveError"`
+	MoveCopyRoot    string                 `json:"moveCopyRoot"`
+	Target          *vmTargetStateResponse `json:"target"`
+	Send            []vmAgentSendResult    `json:"send"`
+	SendSerial      uint64                 `json:"sendSerial"`
+	SendError       string                 `json:"sendError"`
+	Receiver        vmReceiverState        `json:"receiver"`
+	CancelRequested bool                   `json:"cancelRequested"`
+	Logs            []logEntry             `json:"logs"`
+	StartedAtUnixMs int64                  `json:"startedAtUnixMs"`
+	EndedAtUnixMs   int64                  `json:"endedAtUnixMs"`
 }
 
 func (a *application) vmwareRoot() string { return filepath.Join(a.update.appDataRoot, "VMware") }
@@ -146,6 +148,7 @@ func (a *application) vmwareSnapshotLocked() vmwareStateResponse {
 		Send: a.vmware.send, SendSerial: a.vmware.sendSerial, SendError: a.vmware.sendError, Receiver: a.vmReceiverStateLocked(),
 		CanPrepare:      a.vmware.inventory != nil && a.vmware.password != "" && strings.EqualFold(a.vmware.inventory.Server, a.vmware.server),
 		CancelRequested: a.vmware.cancelRequested && a.vmware.action != "",
+		Target:          a.vmTargetStateLocked(),
 		Logs:            append([]logEntry{}, a.vmware.logs...),
 		StartedAtUnixMs: millis(a.vmware.startedAt), EndedAtUnixMs: millis(a.vmware.endedAt),
 	}

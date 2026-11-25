@@ -488,6 +488,9 @@ func buildRunbook(plan vmPlan, inventory *vmInventory) []vmRunbookWave {
 			item.Before = append(item.Before, "Record the guest's IP configuration (addresses, gateway, DNS) before cutover.")
 		}
 		item.Before = append(item.Before, "Confirm a recent, restorable backup of the VM.")
+		if vmTargetUsesReceiver(plan.Target) {
+			item.Before = append(item.Before, vmReceiverRunbookSteps(plan.Target, profile)...)
+		}
 
 		item.Cutover = append(item.Cutover, "Tell users the service is going down, then stop the applications in the guest.")
 		item.Cutover = append(item.Cutover, "Shut the VM down cleanly from the guest operating system.")
