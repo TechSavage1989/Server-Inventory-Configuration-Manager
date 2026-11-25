@@ -1,3 +1,13 @@
+## Unreleased: phase 2 step 1, disk copy engine core — 2026-11-25
+
+Owner-approved phase 2 (copy engine, receiver and in-guest source agent, Hyper-V first). This step adds the engine with no UI yet; later steps add VMware snapshot/CBT rounds, network receiver mode, the source agent and Hyper-V VM creation with the VMware tab UI.
+
+- `vmcopy_vhdx.go` writes and reads dynamic VHDX files directly (MS-VHDX: file identifier, two CRC-32C headers rewritten with new sequence numbers and write GUIDs on open and close, two region tables, metadata with 32 MB blocks and 512/4096 sectors, BAT with chunk-ratio sector bitmap slots, empty log). Blocks are allocated only for non-zero data. It refuses differencing disks, unknown required regions and files with a pending log.
+- `vmcopy_engine.go` (`vmCopyDisk`) copies in 4 MB chunks, keeps per-chunk SHA-256 (or `zero`) in `<target>.copy.json`, saves every 5 seconds and on stop/failure, resumes, runs delta passes that rewrite only changed chunks (overwriting chunks that became zero), takes optional changed-block ranges, retries reads 4 times with backoff and verifies by reading the VHDX back. It refuses to write into a file it did not create or a copy of a different source.
+- `vmcopy_source.go` reads local raw images, local VMDK descriptors with FLAT/VMFS/ZERO extents and datastore VMDKs over the vSphere `/folder` HTTPS interface (HEAD and GET Range only, through the logged-in session). Snapshot deltas, sparse/SEsparse disks and RDMs are refused with the reason; extents must sit beside the descriptor.
+- Tests: `vmcopy_test.go` (VHDX structure and GUID byte order, sparse round trip, stop/resume, delta and changed-block passes, refusal to overwrite, read retries, corruption detection, descriptor parsing and refusals, local and vcsim datastore copies) and `vmcopy_windows_test.go` (Windows mounts a copied VHDX read-only and the physical disk bytes match; a diskpart-created VHDX opens in the reader).
+- Not yet validated against a real ESXi datastore or with Hyper-V booting a copied disk; that comes with the Hyper-V step.
+
 ## 3.2.31 published and verified — 2026-11-25
 
 - [Release v3.2.31](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.31) ("Server Inventory and Migration Manager 3.2.31"), tag and target commit `4584761611b1f3436ad271fd233983a9c8e3af96`. Source: VMware relationships in the discovery report and Environment view (#85), prepared in #86, published by #87. The owner chose to publish on 2026-11-25.
