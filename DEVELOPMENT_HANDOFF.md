@@ -1,3 +1,9 @@
+## Unreleased: change tracking follows files whose data moved — 2026-11-25
+
+- `TestReplicationChangeTrackingMissesNothing` failed now and then on the Windows runner (16 chunks missed after `Optimize-Volume -Defrag`). Cause: data moved into clusters that were in use in both rounds (another file freed them, or defragmentation shuffled files) shows in neither the change journal nor the volume bitmap.
+- Fix: every round scans the shadow copy's MFT (`replMFTReader.Scan`) and keeps a hash of each record's runs (`replMFTLocation`, `<volume>.locations` in the job's tracking folder); records whose runs changed are read. No saved locations, or a failed scan, means a full read.
+- Tests: `TestMFTScanReportsFilesWhoseDataMoved` (synthetic records), and the Windows test now moves a file into a deleted file's clusters with `FSCTL_MOVE_FILE`, the exact case that was missed.
+
 ## Unreleased: send converted disks to a host — 2026-11-25
 
 - Disk converter tab: **Send to a host and create the VM** (AGENTS rule 32) for VMware ESXi/vCenter (stream-optimized VMDK through an OVF lease), Hyper-V on this computer, Proxmox VE (Import content upload plus `import-from`), Nutanix AHV (disk image plus clone) and Scale HyperCore 9.2+ (`/VirtualDisk/upload` plus attach).
