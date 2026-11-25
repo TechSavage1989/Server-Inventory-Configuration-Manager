@@ -75,7 +75,13 @@ try{
     $marker=Get-Content $health -Raw|ConvertFrom-Json
     if($marker.version -ne $ExpectedVersion -or $marker.health_token -ne $token -or -not $marker.visible_window_confirmed -or -not $marker.ui_ready){throw 'Healthy-start marker did not match the update test.'}
 
+    # A child (browser or WebView2) can exit while taskkill walks the tree; that
+    # partial failure is harmless, but its exit code would become the step's.
     & taskkill.exe /PID $marker.pid /T /F | Out-Null
+    $global:LASTEXITCODE=0
+    $started=Get-Date
+    while((Get-Process -Id $marker.pid -ErrorAction SilentlyContinue) -and ((Get-Date)-$started).TotalSeconds -lt 15){Start-Sleep -Milliseconds 250}
+    if(Get-Process -Id $marker.pid -ErrorAction SilentlyContinue){throw "The updated application (PID $($marker.pid)) did not close."}
 
     # Negative control: append a byte so the helper starts but its trusted hash check fails.
     $tampered=Join-Path $temp 'Tampered.exe'
