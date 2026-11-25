@@ -102,6 +102,9 @@ type vmwareStateResponse struct {
 	MoveError       string              `json:"moveError"`
 	MoveCopyRoot    string              `json:"moveCopyRoot"`
 	HostStorage     *vmHostStorage      `json:"hostStorage"`
+	// HVRemote is the remote Hyper-V host or cluster Move VMs is connected
+	// to from this computer (never its password).
+	HVRemote *hvRemoteStateResponse `json:"hvRemote"`
 	// Transfers are the disks this computer is sending or moving, running
 	// first, and those finished in the last hour.
 	Transfers       []vmTransfer           `json:"transfers"`
@@ -153,6 +156,7 @@ func (a *application) vmwareSnapshotLocked() vmwareStateResponse {
 		Send: a.vmware.send, SendSerial: a.vmware.sendSerial, SendError: a.vmware.sendError, Receiver: a.vmReceiverStateLocked(),
 		HyperVHere:      vmHyperVHere(),
 		HostStorage:     vmHostStorageNow(),
+		HVRemote:        a.hvRemoteStateLocked(),
 		Transfers:       []vmTransfer{},
 		CanPrepare:      a.vmware.inventory != nil && a.vmware.password != "" && strings.EqualFold(a.vmware.inventory.Server, a.vmware.server),
 		CancelRequested: a.vmware.cancelRequested && a.vmware.action != "",
