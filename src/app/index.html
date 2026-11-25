@@ -469,7 +469,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
 .vm-table td.vm-changes{background:#fbfcfe}.vm-changes ul{margin:0;padding-left:18px}.vm-changes li{margin:2px 0}
 .vm-detail{margin-top:10px;border:1px solid #dbe3ed;border-radius:10px;padding:10px 12px;background:#fbfcfe;font-size:12px;color:#334156}
 .vm-detail-head{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;font-size:13px;color:#1b2942}
-.vm-detail-line{margin-top:5px;color:#52647c;overflow-wrap:anywhere}
+.vm-detail-line{margin-top:5px;color:#52647c;overflow-wrap:anywhere}.vm-prepare{margin-top:10px;padding-top:8px;border-top:1px solid #e3e8f0}.vm-prepare .secondary-button{margin-top:8px}.vm-hosts{margin-top:12px;border-top:1px solid #e3e8f0;padding-top:6px}.vm-hosts>summary{cursor:pointer;font-weight:700;padding:6px 0}.vm-hosts .vm-table-wrap{margin-top:8px}.vm-attention{margin:6px 0 0;padding-left:18px;color:#7a5410}
 .vm-findings{margin:6px 0 0;padding-left:18px;font-size:12px;color:#334156}.vm-findings li{margin:4px 0;overflow-wrap:anywhere}
 .vm-findings .blocker{color:#8c2626;font-weight:600}.vm-findings .warning{color:#74551f}.vm-findings .good{color:#1d6b43}
 .vm-finding-action{display:block;font-weight:400;color:#52647c}
@@ -764,7 +764,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
 
     <section class="tab-panel" id="tabVmware" role="tabpanel" aria-labelledby="tabButtonVmware">
       <div class="restore-wrap"><div class="card">
-        <div class="card-header"><div><div class="card-title">Move VMs off VMware</div><div class="card-subtitle">Check every VM before moving it to Hyper-V, Scale Computing HyperCore, Nutanix AHV, Proxmox VE, Azure, Amazon EC2 or a physical server, plan the waves, prepare each machine and compare it after the move. vCenter and ESXi are only read, never changed.</div></div></div>
+        <div class="card-header"><div><div class="card-title">Move VMs off VMware</div><div class="card-subtitle">Check every VM before moving it to Hyper-V, Scale Computing HyperCore, Nutanix AHV, Proxmox VE, Azure, Amazon EC2 or a physical server, plan the waves, prepare each machine and compare it after the move. vCenter and ESXi are only read, unless you choose Prepare source for a VM.</div></div></div>
         <div class="vm-bar">
           <div class="vm-views" role="group" aria-label="VMware migration views"><button class="vm-view" type="button" data-vmview="env" aria-pressed="true">Environment</button><button class="vm-view" type="button" data-vmview="plan" aria-pressed="false">Plan and runbook</button><button class="vm-view" type="button" data-vmview="guest" aria-pressed="false">This VM</button><button class="vm-view" type="button" data-vmview="compare" aria-pressed="false">Before and after</button></div>
           <div class="vm-target"><label class="vm-target-label" id="vmTargetLabel" for="vmTargetSelect">Moving to</label><select id="vmTargetSelect"><option value="hyperv">Hyper-V</option><option value="scale">Scale Computing HyperCore</option><option value="nutanix">Nutanix AHV</option><option value="proxmox">Proxmox VE (KVM)</option><option value="azure">Microsoft Azure</option><option value="aws">Amazon EC2</option><option value="physical">Physical server (V2P)</option></select></div>
@@ -788,6 +788,12 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
               <div class="vm-toolbar"><input type="search" id="vmSearch" aria-label="Search VMs" placeholder="Search VMs, guest OS, host or IP" autocomplete="off" spellcheck="false"><span class="vm-note" id="vmTableNote"></span><button class="secondary-button" id="vmOpenReport" type="button">Open readiness report</button><button class="secondary-button" id="vmOpenFolder" type="button">Open folder</button></div>
               <div class="vm-table-wrap"><table class="vm-table"><thead><tr><th>VM</th><th>Power</th><th>Guest OS</th><th>Size</th><th>Disks</th><th>Readiness</th><th>First thing to fix</th></tr></thead><tbody id="vmTableBody"></tbody></table></div>
               <div class="vm-detail hidden" id="vmDetail" aria-live="polite"></div>
+              <details class="vm-hosts" id="vmHostsPanel"><summary>Hosts and licenses <span class="vm-note" id="vmHostsSummary"></span></summary>
+                <div class="vm-toolbar"><span class="vm-note" id="vmHostsNote">Every host's hardware, BIOS, network, storage, services, software packages and alarms are in the discovery report.</span><button class="secondary-button" id="vmOpenDiscovery" type="button">Open discovery report</button></div>
+                <ul class="vm-attention hidden" id="vmHostsWatch" aria-label="Needs attention"></ul>
+                <div class="vm-table-wrap"><table class="vm-table"><thead><tr><th>Host</th><th>Hardware</th><th>Serial</th><th>ESXi</th><th>Management IP</th><th>License</th><th>State</th></tr></thead><tbody id="vmHostsBody"></tbody></table></div>
+                <div class="vm-table-wrap"><table class="vm-table"><thead><tr><th>License</th><th>Key</th><th>Used / total</th><th>Expires</th><th>Assigned to</th></tr></thead><tbody id="vmLicensesBody"></tbody></table></div>
+              </details>
             </div>
           </div>
           <div class="hidden" id="vmViewPlan">
@@ -813,7 +819,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
                 <div class="vm-toolbar"><label for="vmWaveSize">VMs per wave</label><input type="number" id="vmWaveSize" min="1" max="200" step="1" value="10"><button class="secondary-button" id="vmSuggest" type="button">Suggest waves</button><input type="search" id="vmWaveSearch" aria-label="Search VMs in the plan" placeholder="Search VMs" autocomplete="off" spellcheck="false"><span class="vm-note" id="vmWaveSummary"></span></div>
                 <div class="vm-table-wrap"><table class="vm-table"><thead><tr><th>VM</th><th>Readiness</th><th>Wave</th><th>Hold</th><th>Exclude</th><th>Notes</th></tr></thead><tbody id="vmWaveBody"></tbody></table></div>
               </section>
-              <div class="migrate-row"><button class="primary-button" id="vmSavePlan" type="button">Save plan</button><button class="secondary-button" id="vmWriteRunbook" type="button">Write runbook</button><button class="secondary-button hidden" id="vmOpenRunbook" type="button">Open runbook</button><button class="secondary-button hidden" id="vmOpenPlanCsv" type="button">Open plan CSV</button><span class="vm-note" id="vmPlanDirtyNote"></span></div>
+              <div class="migrate-row"><button class="primary-button" id="vmSavePlan" type="button">Save plan</button><button class="secondary-button" id="vmWriteRunbook" type="button">Write runbook</button><button class="secondary-button hidden" id="vmOpenRunbook" type="button">Open runbook</button><button class="secondary-button hidden" id="vmOpenRunbookDocx" type="button">Open in Word</button><button class="secondary-button hidden" id="vmOpenPlanCsv" type="button">Open plan CSV</button><span class="vm-note" id="vmPlanDirtyNote"></span></div>
               <div class="migrate-inline-status" id="vmPlanStatus" role="status" aria-live="polite"></div>
             </div>
           </div>
@@ -832,6 +838,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
               <p class="migrate-help">Run these on the machine once it starts on its new platform. Each step asks you to type this computer's name. Network changes save the current settings first so you can undo them.</p>
               <div class="vm-empty" id="vmGuestEmpty">Choose Check this VM to see what needs fixing.</div>
               <div class="migrate-cards vm-guest-cards hidden" id="vmGuestCards">
+                <div class="migrate-card"><h4>Before removing a virtual TPM: BitLocker keys</h4><div>Saves every BitLocker volume's recovery password to a file in your output folder and suspends BitLocker, so Windows starts without asking for the key after the virtual TPM is removed or the VM moves.</div><div class="migrate-row"><button class="secondary-button" id="vmGuestBitLocker" type="button">Save keys and suspend&hellip;</button></div></div>
                 <div class="migrate-card"><h4>Put back IP settings</h4><div id="vmGuestIpText"></div><div id="vmGuestIpRows"></div><div class="migrate-row"><button class="secondary-button" id="vmGuestApply" type="button">Put back IP settings&hellip;</button><button class="secondary-button hidden" id="vmGuestUndo" type="button">Undo&hellip;</button></div></div>
                 <div class="migrate-card"><h4>Remove hidden network adapters</h4><div id="vmGuestGhostText"></div><div id="vmGuestGhostRows"></div><div class="migrate-row"><button class="secondary-button" id="vmGuestGhosts" type="button">Remove selected&hellip;</button></div></div>
                 <div class="migrate-card"><h4>Bring disks online</h4><div id="vmGuestDiskText"></div><div id="vmGuestDiskRows"></div><div class="migrate-row"><button class="secondary-button" id="vmGuestDisks" type="button">Bring online&hellip;</button></div></div>
@@ -860,7 +867,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
             <div class="log-view migrate-log" id="vmLog" tabindex="0" aria-label="VMware log"></div>
           </details>
         </div>
-        <div class="action-bar setup-action-bar"><div class="scope-note"><span id="vmFooter">Reading vCenter or ESXi changes nothing there. Steps on this VM ask before changing anything.</span></div><div class="setup-actions"><button class="secondary-button danger-button hidden" id="vmStop" type="button">Stop</button></div></div>
+        <div class="action-bar setup-action-bar"><div class="scope-note"><span id="vmFooter">Reading vCenter or ESXi changes nothing there. Every change asks first.</span></div><div class="setup-actions"><button class="secondary-button danger-button hidden" id="vmStop" type="button">Stop</button></div></div>
       </div></div>
     </section>
 
@@ -2060,10 +2067,10 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   // ---- VMware tab ----------------------------------------------------------
   // The server owns VMware state (state.vmware). The inventory, plan, guest
   // result and comparison are fetched when their serial numbers change.
-  var vmView='env',vmInventory=null,vmPlan=null,vmSizing=null,vmInvSerial=0,vmInvLoading=false,vmPlanDirty=false,vmSelectedVM='',vmFilter='all',vmBusy=false,vmTargetLocal='hyperv';
+  var vmView='env',vmAttention=[],vmInventory=null,vmPlan=null,vmSizing=null,vmInvSerial=0,vmInvLoading=false,vmPlanDirty=false,vmSelectedVM='',vmFilter='all',vmBusy=false,vmTargetLocal='hyperv';
   var vmGuest=null,vmGuestSerial=0,vmGuestLoading=false,vmGuestChoices={},vmGhostChoices={},vmDiskChoices={};
   var vmCompare=null,vmCompareDatasets=[],vmCompareSerial=0,vmCompareLoading=false,vmCompareBeforePath='',vmCompareAfterPath='',vmCompareOpen={},vmLogKey='';
-  var vmRowLimit=400,vmStatusLabels={ready:'Ready',review:'Review first',blocked:'Blocked'};
+  var vmRowLimit=400,vmStatusLabels={ready:'Ready',review:'Review first',blocked:'Blocked',skip:'Not moved'};
   function vmwareState(){return (latestState&&latestState.vmware)||null;}
   function vmwareIsRunning(){var v=vmwareState();return !!(v&&v.running);}
   function vmArr(value){if(value===null||value===undefined||value===''){return [];}return Object.prototype.toString.call(value)==='[object Array]'?value:[value];}
@@ -2108,8 +2115,8 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     var guestMessage=byId('vmGuestMessage');guestMessage.textContent=v.guestMessage||'';guestMessage.className='migrate-inline-status'+(v.guestError?' error':'');
     byId('vmGuestAdmin').classList.toggle('hidden',!!state.isAdministrator);
     if(v.compareError&&!v.running){vmSetStatus('vmCompareStatus',v.compareError,true);}
-    byId('vmOpenRunbook').classList.toggle('hidden',!v.runbookPath);byId('vmOpenPlanCsv').classList.toggle('hidden',!v.planCsvPath);
-    byId('vmOpenReport').classList.toggle('hidden',!v.reportPath);byId('vmOpenFolder').classList.toggle('hidden',!v.outputFolder);
+    byId('vmOpenRunbook').classList.toggle('hidden',!v.runbookPath);byId('vmOpenRunbookDocx').classList.toggle('hidden',!v.runbookDocxPath);byId('vmOpenPlanCsv').classList.toggle('hidden',!v.planCsvPath);
+    byId('vmOpenReport').classList.toggle('hidden',!v.reportPath);byId('vmOpenDiscovery').classList.toggle('hidden',!v.discoveryPath);byId('vmOpenFolder').classList.toggle('hidden',!v.outputFolder);
     var last=state.restore&&state.restore.packages&&state.restore.packages.lastCollection;
     byId('vmCompareUseLast').classList.toggle('hidden',!last);
     renderVmLog(v);syncVmButtons();
@@ -2157,11 +2164,37 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       vmInvLoading=false;vmInvSerial=serial;
       if(err){notice(err,true);return;}
       if(data.serial!==undefined){vmInvSerial=data.serial;}
-      vmInventory=data.inventory||null;vmPlan=data.plan||null;vmSizing=data.sizing||null;vmPlanDirty=false;
+      vmInventory=data.inventory||null;vmPlan=data.plan||null;vmSizing=data.sizing||null;vmPlanDirty=false;vmAttention=vmArr(data.attention);
       if(vmPlan&&vmPlan.target){vmTargetLocal=vmPlan.target;}
       if(!vmFind(vmSelectedVM)){vmSelectedVM='';}
-      renderVmTable();renderVmPlan();if(latestState){renderVMware(latestState);}
+      renderVmTable();renderVmHosts();renderVmPlan();if(latestState){renderVMware(latestState);}
     });
+  }
+  function renderVmHosts(){
+    var hosts=vmInventory?vmArr(vmInventory.hosts):[],licenses=vmInventory?vmArr(vmInventory.licenses):[];
+    byId('vmHostsPanel').classList.toggle('hidden',!vmInventory);
+    byId('vmHostsSummary').textContent=vmInventory?'('+vmPlural(hosts.length,'host')+', '+vmPlural(licenses.length,'license')+(vmAttention.length?', '+formatCount(vmAttention.length)+' to check':'')+')':'';
+    var watch=byId('vmHostsWatch');watch.textContent='';watch.classList.toggle('hidden',!vmAttention.length);
+    vmAttention.forEach(function(note){watch.appendChild(el('li','',note));});
+    var body=byId('vmHostsBody');body.textContent='';
+    hosts.forEach(function(h){
+      var d=h.details||{},tr=el('tr',''),name=el('td','');name.appendChild(el('strong','',h.name));if(h.cluster){name.appendChild(el('span','vm-sub',h.cluster));}tr.appendChild(name);
+      var hw=el('td','',[h.vendor,h.model].join(' ').trim());hw.appendChild(el('span','vm-sub',(h.sockets||0)+' x '+(h.cpuModel||'CPU')+', '+formatBytesShort(h.memoryBytes)+(d.biosVersion?', BIOS '+d.biosVersion:'')));tr.appendChild(hw);
+      tr.appendChild(el('td','',d.serialNumber||''));
+      tr.appendChild(el('td','',(h.version||'')+(h.build?' ('+h.build+')':'')));
+      tr.appendChild(el('td','',d.managementIp||''));
+      tr.appendChild(el('td','',h.license?h.license.name:''));
+      tr.appendChild(el('td','',(h.connectionState||'')+(h.maintenance?', maintenance':'')+(d.overallStatus&&d.overallStatus!=='green'&&d.overallStatus!=='gray'?', '+d.overallStatus:'')));
+      body.appendChild(tr);
+    });
+    if(!hosts.length){var row=el('tr',''),cell=el('td','','No hosts.');cell.colSpan=7;row.appendChild(cell);body.appendChild(row);}
+    var lbody=byId('vmLicensesBody');lbody.textContent='';
+    licenses.forEach(function(l){
+      var tr=el('tr',''),name=el('td','');name.appendChild(el('strong','',l.name||l.edition||'License'));if(l.product){name.appendChild(el('span','vm-sub',l.product+(l.version?' '+l.version:'')));}tr.appendChild(name);
+      tr.appendChild(el('td','',l.key||''));tr.appendChild(el('td','',(l.used||0)+' / '+(l.total?l.total:'unlimited')+(l.unit?' '+l.unit:'')));
+      tr.appendChild(el('td','',l.expires||'Never'));tr.appendChild(el('td','',vmArr(l.assignedTo).join(', ')));lbody.appendChild(tr);
+    });
+    if(!licenses.length){var lrow=el('tr',''),lcell=el('td','',vmInventory?'Licenses were not read for this inventory. Read it again from vCenter or ESXi to include them.':'');lcell.colSpan=5;lrow.appendChild(lcell);lbody.appendChild(lrow);}
   }
   function vmMatches(vm,query){if(!query){return true;}return [vm.name,vm.guestOs,vm.guestOsRunning,vm.host,vm.cluster,vm.folder,vm.ipAddress,vm.guestHostName].join(' ').toLowerCase().indexOf(query)>=0;}
   function vmTopFinding(r){
@@ -2207,6 +2240,35 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     if(disks.length){box.appendChild(el('div','vm-detail-line','Disks: '+disks.join('; ')));}
     if(nics.length){box.appendChild(el('div','vm-detail-line','Network: '+nics.join('; ')));}
     var snaps=vmArr(vm.snapshots);if(snaps.length){box.appendChild(el('div','vm-detail-line','Snapshots: '+snaps.map(function(s){return s.name;}).join(', ')));}
+    renderVmPrepare(box,vm,r);
+  }
+  // Prepare source: the only steps that change vSphere, opt-in for one VM.
+  function renderVmPrepare(box,vm,r){
+    var v=vmwareState()||{},windows=/windows/i.test((vm.guestOsRunning||'')+' '+(vm.guestOs||'')+' '+(vm.guestId||''));
+    if(r.status==='skip'||vm.template){return;}
+    var section=el('div','vm-prepare');section.appendChild(el('strong','','Prepare this VM on VMware'));
+    var last=v.prepare&&v.prepare.vm===vm.name?v.prepare:null;
+    if(last){var ul=el('ul','vm-findings');vmArr(last.done).forEach(function(t){ul.appendChild(el('li','good',t));});vmArr(last.skipped).forEach(function(t){ul.appendChild(el('li','',t));});if(v.prepareError){ul.appendChild(el('li','warning',v.prepareError));}if(ul.childNodes.length){section.appendChild(ul);}}
+    if(!v.canPrepare){section.appendChild(el('div','migrate-help','To delete snapshots, remove the virtual TPM or decrypt this VM, read the inventory from vCenter or ESXi in this session (a saved inventory cannot change anything).'));box.appendChild(section);return;}
+    section.appendChild(el('div','migrate-help','These steps change the VM in vSphere. Its current settings are saved first, and each step needs the VM\'s name typed to confirm.'));
+    var powered=vm.powerState==='poweredOn',steps=[
+      {key:'snapshots',label:'Delete all snapshots (consolidates them into the disks)',on:vmArr(vm.snapshots).length>0},
+      {key:'shutdown',label:'Shut down the guest through VMware Tools',on:powered&&(vm.vtpm||vm.encrypted)},
+      {key:'removeTpm',label:'Remove the virtual TPM',on:!!vm.vtpm},
+      {key:'decrypt',label:'Decrypt the VM and its disks',on:!!vm.encrypted}],boxes={};
+    steps.forEach(function(step){var label=el('label','vm-check'),input=document.createElement('input');input.type='checkbox';input.checked=step.on;input.setAttribute('data-vm-prepare',step.key);boxes[step.key]=input;label.appendChild(input);label.appendChild(el('span','',step.label));section.appendChild(label);});
+    var button=el('button','secondary-button','Prepare VM\u2026');button.type='button';button.id='vmPrepareButton';button.disabled=vmLocked();
+    button.addEventListener('click',function(){
+      var chosen={},names=[];steps.forEach(function(step){chosen[step.key]=boxes[step.key].checked;if(chosen[step.key]){names.push(step.label);}});
+      if(!names.length){vmSetStatus('vmwareMessage','Choose at least one step.',true);return;}
+      var paragraphs=['vSphere will run these steps on '+vm.name+' in this order:'];
+      var alert='';
+      if(chosen.removeTpm&&windows){alert='Before removing the virtual TPM, save the BitLocker recovery keys and suspend BitLocker inside Windows (This VM view: Save BitLocker keys). Otherwise Windows asks for the recovery key at the next start.';}
+      if(chosen.decrypt){paragraphs.push('Decrypting rewrites every encrypted disk and needs the key provider online.');}
+      openMigrateDialog({title:'Prepare '+vm.name,path:'/api/vmware/prepare',field:'confirm',body:{vmId:vm.id,steps:chosen},expected:vm.name,label:"Type the VM's name to confirm",button:'Prepare VM',alert:alert,paragraphs:paragraphs,list:names,
+        after:function(){vmMarkRunning('prepare','preparing','Preparing '+vm.name+'.');}});
+    });
+    section.appendChild(button);box.appendChild(section);
   }
   function selectVmRow(row){if(!row||!row.getAttribute('data-vm-id')){return;}vmSelectedVM=row.getAttribute('data-vm-id');Array.prototype.forEach.call(byId('vmTableBody').querySelectorAll('tr.vm-row'),function(tr){tr.classList.toggle('selected',tr===row);});renderVmDetail();}
   function setVmFilter(filter){vmFilter=filter;Array.prototype.forEach.call(document.querySelectorAll('[data-vmfilter]'),function(b){b.setAttribute('aria-pressed',b.getAttribute('data-vmfilter')===filter?'true':'false');});renderVmTable();}
@@ -2375,7 +2437,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     byId('vmGuestApply').disabled=locked||!vmGuestApplyItems().length;
     byId('vmGuestUndo').classList.toggle('hidden',!(g&&g.RollbackAvailable));byId('vmGuestUndo').disabled=locked;
     byId('vmGuestGhosts').disabled=locked||!vmChosenKeys(vmGhostChoices).length;
-    byId('vmGuestDisks').disabled=locked||!vmChosenKeys(vmDiskChoices).length;
+    byId('vmGuestDisks').disabled=locked||!vmChosenKeys(vmDiskChoices).length;byId('vmGuestBitLocker').disabled=locked;
     byId('vmGuestTools').disabled=locked||!tools.Installed||platform.Name==='VMware';
   }
   function vmGuestConfirm(options){
@@ -2447,12 +2509,13 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   byId('vmConnect').addEventListener('click',function(){connectVmware();});
   byId('vmCertTrust').addEventListener('click',function(){var v=vmwareState()||{};if(v.certificate){connectVmware(v.certificate.thumbprint);}});
   byId('vmOpenInventory').addEventListener('click',function(){vmPost('/api/vmware/open-inventory',{},'vmConnectStatus');});
-  byId('vmReset').addEventListener('click',function(){vmPost('/api/vmware/reset',{},'vmConnectStatus',function(err){if(err){return;}byId('vmServer').value='';byId('vmUser').value='';byId('vmPassword').value='';vmInventory=null;vmPlan=null;vmSizing=null;vmSelectedVM='';var v=vmwareState();if(v){v.server='';v.account='';v.summary=null;v.certificate=null;v.message='';v.status='idle';}renderVmTable();renderVmPlan();if(latestState){renderVMware(latestState);}byId('vmServer').focus();});});
+  byId('vmReset').addEventListener('click',function(){vmPost('/api/vmware/reset',{},'vmConnectStatus',function(err){if(err){return;}byId('vmServer').value='';byId('vmUser').value='';byId('vmPassword').value='';vmInventory=null;vmAttention=[];vmPlan=null;vmSizing=null;vmSelectedVM='';var v=vmwareState();if(v){v.server='';v.account='';v.summary=null;v.certificate=null;v.message='';v.status='idle';}renderVmTable();renderVmHosts();renderVmPlan();if(latestState){renderVMware(latestState);}byId('vmServer').focus();});});
   byId('vmStop').addEventListener('click',function(){var button=this;button.disabled=true;request('POST','/api/vmware/cancel',{},function(err){if(err){button.disabled=false;notice(err,true);return;}var v=vmwareState();if(v){v.cancelRequested=true;}syncVmButtons();});});
   byId('vmSearch').addEventListener('input',renderVmTable);
   byId('vmTableBody').addEventListener('click',function(e){selectVmRow(e.target.closest('tr'));});
   byId('vmTableBody').addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();selectVmRow(e.target.closest('tr'));}});
   byId('vmOpenReport').addEventListener('click',function(){openKind('vmwarereport');});
+  byId('vmOpenDiscovery').addEventListener('click',function(){openKind('vmwarediscovery');});
   byId('vmOpenFolder').addEventListener('click',function(){openKind('vmwarefolder');});
   vmCapacityFields.forEach(function(f){byId(f.id).addEventListener('input',vmMarkPlanDirty);});
   byId('vmWaveSearch').addEventListener('input',renderVmWaves);
@@ -2460,6 +2523,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   byId('vmSuggest').addEventListener('click',function(){var size=parseInt(byId('vmWaveSize').value,10);saveVmPlan({suggest:true,waveSize:isNaN(size)?10:size},'Suggested waves and saved the plan. Change any wave before writing the runbook.');});
   byId('vmWriteRunbook').addEventListener('click',function(){saveVmPlan(null,'',function(err){if(err){return;}vmPost('/api/vmware/export-plan',{},'vmPlanStatus',function(err2){if(!err2){vmSetStatus('vmPlanStatus','Wrote the runbook and plan CSV.',false);}});});});
   byId('vmOpenRunbook').addEventListener('click',function(){openKind('vmwarerunbook');});
+  byId('vmOpenRunbookDocx').addEventListener('click',function(){openKind('vmwarerunbookdocx');});
   byId('vmOpenPlanCsv').addEventListener('click',function(){openKind('vmwareplancsv');});
   byId('vmGuestCapture').addEventListener('click',function(){runVmGuest('capture','Recording this VM\'s settings.');});
   byId('vmGuestStatus').addEventListener('click',function(){runVmGuest('status','Reading this VM\'s current state.');});
@@ -2477,6 +2541,10 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     var ids=vmChosenKeys(vmGhostChoices),names={};vmArr(vmGuest&&vmGuest.Ghosts).forEach(function(x){names[x.InstanceId]=x.Description;});
     vmGuestConfirm({action:'remove-ghosts',title:'Remove hidden network adapters',button:'Remove adapters',items:ids.map(function(id){return {instanceId:id};}),running:'Removing hidden network adapters.',
       paragraphs:['These adapters are not connected to this VM any more. Removing them frees their IP addresses. Windows adds an adapter again if the hardware comes back.'],list:ids.map(function(id){return (names[id]||'Adapter')+' ('+id+')';})});
+  });
+  byId('vmGuestBitLocker').addEventListener('click',function(){
+    vmGuestConfirm({action:'bitlocker',title:'Save BitLocker keys and suspend BitLocker',button:'Save keys and suspend',running:'Saving the BitLocker recovery keys and suspending BitLocker.',alert:'The recovery key file unlocks this computer\'s drives. Keep it somewhere safe and delete it after the move. BitLocker stays suspended until you resume it (manage-bde -protectors -enable C:).',
+      paragraphs:['Do this inside the VM before removing its virtual TPM or moving it. Windows then starts on the new platform without the recovery screen.']});
   });
   byId('vmGuestDisks').addEventListener('click',function(){
     var numbers=vmChosenKeys(vmDiskChoices);

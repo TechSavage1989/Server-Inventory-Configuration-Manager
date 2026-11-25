@@ -22,35 +22,88 @@ const (
 	vmStatusReady   = "ready"
 	vmStatusReview  = "review"
 	vmStatusBlocked = "blocked"
+	// vmStatusSkip marks VMware's own machines (vCenter, vCLS agents,
+	// appliances, nested ESXi), which are retired with VMware, not moved.
+	vmStatusSkip = "skip"
+
+	// vmToolsGuestManaged is the ToolsVersion vSphere reports when the guest
+	// manages its own tools (open-vm-tools packaged by the operating system).
+	vmToolsGuestManaged = "2147483647"
 )
 
+var (
+	vmBackupSnapshotPattern = regexp.MustCompile(`(?i)acronis|veeam|commvault|nakivo|cohesity|rubrik|unitrends|altaro|vranger|arcserve|datto|backup|vdp-`)
+	vmDomainControllerName  = regexp.MustCompile(`(?i)(^|[-_. ])(dc|adc|addc|pdc|bdc|ads|ad)[0-9]{0,3}($|[-_. ])|domaincontroller`)
+)
+
+// vmInfrastructureRole names the part of VMware a VM is, or returns "" for
+// an ordinary workload.
+func vmInfrastructureRole(vm vmMachine) string {
+	name := strings.ToLower(vm.Name)
+	osText := strings.ToLower(vm.GuestOS + " " + vm.GuestOSRunning + " " + vm.GuestID)
+	switch {
+	case strings.HasPrefix(name, "vcls-") || strings.HasPrefix(name, "vcls (") || name == "vcls":
+		return "a vSphere Cluster Services (vCLS) agent VM"
+	case strings.Contains(name, "vcenter") || strings.Contains(name, "vcsa"):
+		if strings.Contains(osText, "photon") || strings.Contains(osText, "vmkernel") || strings.Contains(osText, "linux") {
+			return "the vCenter Server appliance"
+		}
+	case strings.Contains(osText, "photon"):
+		return "a VMware appliance (Photon OS)"
+	case strings.Contains(strings.ToLower(vm.GuestID), "vmkernel"):
+		return "a nested ESXi host"
+	}
+	return ""
+}
+
+// vmToolsVersionText turns vSphere's tools version into readable text.
+func vmToolsVersionText(version string) string {
+	if version == vmToolsGuestManaged {
+		return "guest-managed (open-vm-tools)"
+	}
+	return version
+}
+
 type vmInventory struct {
-	Schema       int           `json:"schema"`
-	Server       string        `json:"server"`
-	ServerType   string        `json:"serverType"`
-	Product      string        `json:"product"`
-	APIVersion   string        `json:"apiVersion"`
-	CollectedAt  time.Time     `json:"collectedAt"`
-	CollectedBy  string        `json:"collectedBy"`
-	Datacenters  []string      `json:"datacenters"`
-	Clusters     []vmCluster   `json:"clusters"`
-	Hosts        []vmHost      `json:"hosts"`
-	Datastores   []vmDatastore `json:"datastores"`
-	Networks     []vmNetwork   `json:"networks"`
-	VMs          []vmMachine   `json:"vms"`
-	Warnings     []string      `json:"warnings"`
-	AppVersion   string        `json:"appVersion"`
-	SourceFolder string        `json:"-"`
+	Schema      int           `json:"schema"`
+	Server      string        `json:"server"`
+	ServerType  string        `json:"serverType"`
+	Product     string        `json:"product"`
+	APIVersion  string        `json:"apiVersion"`
+	CollectedAt time.Time     `json:"collectedAt"`
+	CollectedBy string        `json:"collectedBy"`
+	Datacenters []string      `json:"datacenters"`
+	Clusters    []vmCluster   `json:"clusters"`
+	Hosts       []vmHost      `json:"hosts"`
+	Datastores  []vmDatastore `json:"datastores"`
+	Networks    []vmNetwork   `json:"networks"`
+	VMs         []vmMachine   `json:"vms"`
+	// Full discovery (vmware_discovery.go); empty in inventories saved by
+	// 3.2.29 and earlier.
+	Build         string                `json:"build,omitempty"`
+	InstanceUUID  string                `json:"instanceUuid,omitempty"`
+	OSType        string                `json:"osType,omitempty"`
+	Licenses      []vmLicense           `json:"licenses,omitempty"`
+	ResourcePools []vmResourcePool      `json:"resourcePools,omitempty"`
+	Switches      []vmDistributedSwitch `json:"switches,omitempty"`
+	Warnings      []string              `json:"warnings"`
+	AppVersion    string                `json:"appVersion"`
+	SourceFolder  string                `json:"-"`
 }
 
 type vmCluster struct {
-	Name        string `json:"name"`
-	Datacenter  string `json:"datacenter"`
-	Hosts       int    `json:"hosts"`
-	HA          bool   `json:"ha"`
-	DRS         bool   `json:"drs"`
-	CPUCores    int    `json:"cpuCores"`
-	MemoryBytes int64  `json:"memoryBytes"`
+	Name             string `json:"name"`
+	Datacenter       string `json:"datacenter"`
+	Hosts            int    `json:"hosts"`
+	HA               bool   `json:"ha"`
+	DRS              bool   `json:"drs"`
+	CPUCores         int    `json:"cpuCores"`
+	MemoryBytes      int64  `json:"memoryBytes"`
+	EVCMode          string `json:"evcMode,omitempty"`
+	VSAN             bool   `json:"vsan,omitempty"`
+	HAAdmission      bool   `json:"haAdmissionControl,omitempty"`
+	HAHostMonitoring string `json:"haHostMonitoring,omitempty"`
+	DRSBehavior      string `json:"drsBehavior,omitempty"`
 }
 
 type vmHost struct {
@@ -71,6 +124,10 @@ type vmHost struct {
 	PowerState      string `json:"powerState"`
 	Maintenance     bool   `json:"maintenance"`
 	VMCount         int    `json:"vmCount"`
+	// Full discovery (vmware_discovery.go).
+	License *vmLicenseRef  `json:"license,omitempty"`
+	Details *vmHostDetails `json:"details,omitempty"`
+	ref     string
 }
 
 type vmDatastore struct {
@@ -337,6 +394,11 @@ func assessVM(vm vmMachine, target string, now time.Time) vmReadiness {
 		result.Status = vmStatusBlocked
 		return result
 	}
+	if role := vmInfrastructureRole(vm); role != "" {
+		add(vmSeverityInfo, "vmware-infrastructure", "This is "+role+", part of the VMware environment itself.", "It is not migrated: it is retired with VMware. Leave it out of the plan and set up the new platform's own management instead.")
+		result.Status = vmStatusSkip
+		return result
+	}
 	os := classifyGuestOS(vm)
 	efi := strings.EqualFold(vm.Firmware, "efi")
 	if target == vmTargetHyperV || target == vmTargetAzure {
@@ -393,6 +455,9 @@ func assessVM(vm vmMachine, target string, now time.Time) vmReadiness {
 	// Drivers the guest needs before cutover.
 	if os.Family == "linux" {
 		add(vmSeverityWarning, "linux-initramfs", "Linux boots from an initramfs that may not include the target's storage drivers.", "Before cutover, rebuild the initramfs with "+profile.LinuxDrivers+" (for example dracut -f --add-drivers or update-initramfs). Network interface names usually change, so check static IP configuration after cutover.")
+	}
+	if os.Family == "windows" && (vmDomainControllerName.MatchString(vm.Name) || vmDomainControllerName.MatchString(strings.SplitN(vm.GuestHostName, ".", 2)[0])) {
+		add(vmSeverityWarning, "domain-controller", "The name suggests a domain controller.", "Move a domain controller cold: shut it down, copy it, start only the new copy and never run the old one again (or restore it from an older copy), which would cause USN rollback. Check replication with repadmin /replsummary afterwards. Building a new domain controller and demoting the old one is often simpler.")
 	}
 	if os.Family == "windows" && profile.WindowsDrivers != "" {
 		switch profile.Family {
@@ -522,7 +587,18 @@ func assessVM(vm vmMachine, target string, now time.Time) vmReadiness {
 				age = fmt.Sprintf(" The oldest is %d day(s) old.", days)
 			}
 		}
-		add(vmSeverityWarning, "snapshots", fmt.Sprintf("%d snapshot(s).%s", count, age), "Delete or consolidate the snapshots before migrating. Conversion tools read the current state, and long snapshot chains slow the copy.")
+		backup := []string{}
+		for _, snapshot := range vm.Snapshots {
+			if vmBackupSnapshotPattern.MatchString(snapshot.Name) {
+				backup = append(backup, snapshot.Name)
+			}
+		}
+		action := "Delete or consolidate the snapshots before migrating. Conversion tools read the current state, and long snapshot chains slow the copy."
+		if len(backup) > 0 {
+			age += " Made by backup software: " + strings.Join(backup, ", ") + "."
+			action = "Backup software normally deletes its own snapshot when the job ends; a leftover one means a job failed or is still running. Check the backup job, then delete the snapshot in vSphere before migrating."
+		}
+		add(vmSeverityWarning, "snapshots", fmt.Sprintf("%d snapshot(s).%s", count, age), action)
 	}
 	if vm.ConsolidationNeeded {
 		add(vmSeverityWarning, "consolidation", "vSphere reports that the VM's disks need consolidation.", "Run Snapshots > Consolidate in vSphere before migrating.")
@@ -666,6 +742,7 @@ type vmReadinessSummary struct {
 	Ready   int    `json:"ready"`
 	Review  int    `json:"review"`
 	Blocked int    `json:"blocked"`
+	Skip    int    `json:"skip"`
 }
 
 type vmInventorySummary struct {
@@ -727,6 +804,8 @@ func summarizeInventory(inventory *vmInventory) vmInventorySummary {
 				count.Review++
 			case vmStatusBlocked:
 				count.Blocked++
+			case vmStatusSkip:
+				count.Skip++
 			}
 		}
 	}

@@ -2293,6 +2293,7 @@ func (a *application) serve(listener net.Listener) error {
 	mux.HandleFunc("/api/vmware/plan", a.handleVMwarePlan)
 	mux.HandleFunc("/api/vmware/export-plan", a.handleVMwareExportPlan)
 	mux.HandleFunc("/api/vmware/reset", a.handleVMwareReset)
+	mux.HandleFunc("/api/vmware/prepare", a.handleVMwarePrepare)
 	mux.HandleFunc("/api/vmware/guest", a.handleVMwareGuest)
 	mux.HandleFunc("/api/vmware/guest/", a.handleVMwareGuest)
 	mux.HandleFunc("/api/vmware/guest-load", a.handleVMwareGuestLoad)

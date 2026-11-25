@@ -141,7 +141,7 @@ func reconcileVMPlan(plan vmPlan, inventory *vmInventory) vmPlan {
 	for _, vm := range inventory.VMs {
 		item, ok := vms[vm.ID]
 		if !ok {
-			item = vmPlanVM{ID: vm.ID, Exclude: vm.Template}
+			item = vmPlanVM{ID: vm.ID, Exclude: vm.Template || vmInfrastructureRole(vm) != ""}
 		}
 		item.Name = vm.Name
 		plan.VMs = append(plan.VMs, item)
@@ -221,7 +221,7 @@ func suggestWaves(plan vmPlan, inventory *vmInventory, waveSize int) vmPlan {
 		if !ok || item.Wave > 0 || item.Exclude || item.Hold {
 			continue
 		}
-		if vm.Template {
+		if vm.Template || vmInfrastructureRole(vm) != "" {
 			item.Exclude = true
 			continue
 		}

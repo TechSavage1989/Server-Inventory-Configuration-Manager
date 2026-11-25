@@ -48,6 +48,9 @@ type vmwareRuntime struct {
 	guestSerial     uint64
 	guestMessage    string
 	guestError      bool
+	prepare         *vmPrepareResult
+	prepareSerial   uint64
+	prepareError    string
 	compare         *compareResult
 	compareSerial   uint64
 	compareFolder   string
@@ -73,6 +76,8 @@ type vmwareStateResponse struct {
 	OutputFolder    string              `json:"outputFolder"`
 	ReportPath      string              `json:"reportPath"`
 	RunbookPath     string              `json:"runbookPath"`
+	RunbookDocxPath string              `json:"runbookDocxPath"`
+	DiscoveryPath   string              `json:"discoveryPath"`
 	PlanCSVPath     string              `json:"planCsvPath"`
 	GuestSerial     uint64              `json:"guestSerial"`
 	GuestMessage    string              `json:"guestMessage"`
@@ -80,6 +85,10 @@ type vmwareStateResponse struct {
 	GuestWorkPath   string              `json:"guestWorkPath"`
 	CompareSerial   uint64              `json:"compareSerial"`
 	CompareError    string              `json:"compareError"`
+	Prepare         *vmPrepareResult    `json:"prepare"`
+	PrepareSerial   uint64              `json:"prepareSerial"`
+	PrepareError    string              `json:"prepareError"`
+	CanPrepare      bool                `json:"canPrepare"`
 	CancelRequested bool                `json:"cancelRequested"`
 	Logs            []logEntry          `json:"logs"`
 	StartedAtUnixMs int64               `json:"startedAtUnixMs"`
@@ -115,9 +124,11 @@ func (a *application) vmwareSnapshotLocked() vmwareStateResponse {
 		Running: a.vmware.action != "", Action: a.vmware.action, Status: status, Message: a.vmware.message,
 		Server: a.vmware.server, Account: a.vmware.account, Certificate: a.vmware.certificate,
 		InventorySerial: a.vmware.inventorySerial, OutputFolder: a.vmware.outputFolder, ReportPath: a.vmware.reportPath,
-		RunbookPath: a.vmware.runbookPath, PlanCSVPath: a.vmware.planCSVPath,
+		RunbookPath: a.vmware.runbookPath, RunbookDocxPath: vmRunbookDocxFor(a.vmware.runbookPath), DiscoveryPath: vmDiscoveryReportFor(a.vmware.reportPath), PlanCSVPath: a.vmware.planCSVPath,
 		GuestSerial: a.vmware.guestSerial, GuestMessage: a.vmware.guestMessage, GuestError: a.vmware.guestError, GuestWorkPath: a.guestWorkPath(),
 		CompareSerial: a.vmware.compareSerial, CompareError: a.vmware.compareError,
+		Prepare: a.vmware.prepare, PrepareSerial: a.vmware.prepareSerial, PrepareError: a.vmware.prepareError,
+		CanPrepare:      a.vmware.inventory != nil && a.vmware.password != "" && strings.EqualFold(a.vmware.inventory.Server, a.vmware.server),
 		CancelRequested: a.vmware.cancelRequested && a.vmware.action != "",
 		Logs:            append([]logEntry{}, a.vmware.logs...),
 		StartedAtUnixMs: millis(a.vmware.startedAt), EndedAtUnixMs: millis(a.vmware.endedAt),
@@ -460,7 +471,7 @@ func (a *application) handleVMwareInventory(response http.ResponseWriter, reques
 		writeJSON(response, http.StatusOK, map[string]any{"ok": true, "inventory": nil})
 		return
 	}
-	writeJSON(response, http.StatusOK, map[string]any{"ok": true, "serial": serial, "inventory": inventory, "plan": plan, "sizing": sizePlan(*plan, inventory)})
+	writeJSON(response, http.StatusOK, map[string]any{"ok": true, "serial": serial, "inventory": inventory, "plan": plan, "sizing": sizePlan(*plan, inventory), "attention": vmDiscoveryWatch(inventory, time.Now())})
 }
 
 func (a *application) handleVMwarePlan(response http.ResponseWriter, request *http.Request) {
@@ -570,11 +581,12 @@ var guestModes = map[string]string{
 	"remove-ghosts": "RemoveGhostNics",
 	"remove-tools":  "RemoveVmwareTools",
 	"online-disks":  "OnlineDisks",
+	"bitlocker":     "SaveBitLocker",
 }
 
 // guestChangingModes change this computer, so they need the typed computer
 // name.
-var guestChangingModes = map[string]bool{"apply": true, "undo": true, "remove-ghosts": true, "remove-tools": true, "online-disks": true}
+var guestChangingModes = map[string]bool{"apply": true, "undo": true, "remove-ghosts": true, "remove-tools": true, "online-disks": true, "bitlocker": true}
 
 func (a *application) handleVMwareGuest(response http.ResponseWriter, request *http.Request) {
 	if !a.requireAuthorization(response, request) {
@@ -663,6 +675,7 @@ func guestRunningMessage(action string) string {
 		"capture": "Recording this VM's settings.", "status": "Reading this VM's current state.", "apply": "Putting back the IP settings.",
 		"undo": "Restoring the adapter settings saved before the change.", "remove-ghosts": "Removing hidden network adapters.",
 		"remove-tools": "Removing VMware Tools. This can take a few minutes.", "online-disks": "Bringing disks online.",
+		"bitlocker": "Saving the BitLocker recovery keys and suspending BitLocker.",
 	}[action]
 }
 
@@ -693,6 +706,23 @@ func guestDoneMessage(action string, result json.RawMessage) string {
 		return "Removed VMware Tools."
 	case "online-disks":
 		return "Brought the chosen disks online."
+	case "bitlocker":
+		var saved struct {
+			NoBitLocker bool
+			KeyFile     string
+			Suspended   []string
+		}
+		if json.Unmarshal(result, &saved) == nil {
+			if saved.NoBitLocker {
+				return "BitLocker is not on, so there were no keys to save."
+			}
+			suspended := "BitLocker was already suspended."
+			if len(saved.Suspended) > 0 {
+				suspended = "Suspended BitLocker on " + strings.Join(saved.Suspended, ", ") + " until it is resumed."
+			}
+			return "Saved the BitLocker recovery keys to " + saved.KeyFile + ". " + suspended + " Keep that file safe and delete it after the move."
+		}
+		return "Saved the BitLocker recovery keys."
 	}
 	return "Done."
 }
@@ -701,7 +731,7 @@ func guestDoneMessage(action string, result json.RawMessage) string {
 // file the engine reads.
 func validateGuestItems(action string, items []json.RawMessage) ([]byte, error) {
 	switch action {
-	case "capture", "status", "undo", "remove-tools":
+	case "capture", "status", "undo", "remove-tools", "bitlocker":
 		return nil, nil
 	}
 	if len(items) == 0 || len(items) > 64 {
@@ -755,6 +785,9 @@ func (a *application) runGuestEngine(mode string, plan []byte) (json.RawMessage,
 	arguments := []string{"-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", script, "-Mode", mode, "-WorkPath", work, "-ResultPath", resultPath}
 	if mode == "Capture" {
 		arguments = append(arguments, "-ExportPath", a.vmwareOutputFolder("Guest-Capture_"+safeName(a.computerName)))
+	}
+	if mode == "SaveBitLocker" {
+		arguments = append(arguments, "-ExportPath", a.vmwareOutputFolder("BitLocker-Keys_"+safeName(a.computerName)))
 	}
 	if plan != nil {
 		planPath := filepath.Join(runtimeDir, "Plan.json")
@@ -972,10 +1005,14 @@ func (a *application) vmwareOpenTarget(kind string) (target string, folder bool,
 	switch kind {
 	case "vmwarereport":
 		return a.vmware.reportPath, false, true
+	case "vmwarediscovery":
+		return vmDiscoveryReportFor(a.vmware.reportPath), false, true
 	case "vmwarefolder":
 		return a.vmware.outputFolder, true, true
 	case "vmwarerunbook":
 		return a.vmware.runbookPath, false, true
+	case "vmwarerunbookdocx":
+		return vmRunbookDocxFor(a.vmware.runbookPath), false, true
 	case "vmwareplancsv":
 		return a.vmware.planCSVPath, false, true
 	case "guestfolder":
@@ -989,4 +1026,101 @@ func (a *application) vmwareOpenTarget(kind string) (target string, folder bool,
 		return a.vmware.compareFolder, true, true
 	}
 	return "", false, false
+}
+
+// handleVMwarePrepare runs the opt-in prepare-source steps on one VM: the
+// only requests that change vSphere. The typed VM name is checked here, the
+// VM's current settings are saved first, and a running step is never
+// interrupted (vSphere tasks finish on the server either way).
+func (a *application) handleVMwarePrepare(response http.ResponseWriter, request *http.Request) {
+	if !a.requireAuthorization(response, request) {
+		return
+	}
+	var input struct {
+		VMID    string         `json:"vmId"`
+		Confirm string         `json:"confirm"`
+		Steps   vmPrepareSteps `json:"steps"`
+	}
+	if !decodeVMwareRequest(response, request, &input) {
+		return
+	}
+	if !input.Steps.any() {
+		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "Choose at least one step."})
+		return
+	}
+	a.mu.Lock()
+	inventory, server, user, password, thumbprint := a.vmware.inventory, a.vmware.server, a.vmware.account, a.vmware.password, a.vmware.thumbprint
+	a.mu.Unlock()
+	if inventory == nil || password == "" || !strings.EqualFold(inventory.Server, server) {
+		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "Read the inventory from vCenter or ESXi in this session first. A saved inventory cannot change anything."})
+		return
+	}
+	var target *vmMachine
+	for index := range inventory.VMs {
+		if inventory.VMs[index].ID == input.VMID {
+			target = &inventory.VMs[index]
+		}
+	}
+	if target == nil {
+		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "That VM is not in the inventory. Read the inventory again."})
+		return
+	}
+	if !strings.EqualFold(strings.TrimSpace(input.Confirm), target.Name) {
+		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "Type the VM's name exactly to confirm: " + target.Name})
+		return
+	}
+	name, id := target.Name, target.ID
+	if status, message := a.startVMwareAction("prepare"); status != 0 {
+		writeJSON(response, status, map[string]any{"ok": false, "error": message})
+		return
+	}
+	a.mu.Lock()
+	a.vmware.status = "preparing"
+	a.vmware.message = "Preparing " + name + "."
+	a.vmware.prepareError = ""
+	a.mu.Unlock()
+	a.vmwareLog("Preparing %s: %s.", name, strings.Join(vmPrepareStepNames(input.Steps), ", "))
+	go func() {
+		folder := filepath.Join(a.vmwareRoot(), safeName(strings.ToLower(server)), "Prepare")
+		result, err := prepareVSphereVM(context.Background(), vmConnectOptions{Server: server, User: user, Password: password, Thumbprint: thumbprint, UserAgent: displayName + " " + appVersion, AppVersion: appVersion}, id, name, input.Steps, folder, func(text string) { a.vmwareLog("%s", text) })
+		password = ""
+		a.mu.Lock()
+		a.vmware.prepare = &result
+		a.vmware.prepareSerial++
+		if err != nil {
+			a.vmware.prepareError = err.Error()
+		}
+		// Reflect what changed so readiness is checked again.
+		if a.vmware.inventory != nil {
+			for index := range a.vmware.inventory.VMs {
+				vm := &a.vmware.inventory.VMs[index]
+				if vm.ID != id || result.PowerState == "" {
+					continue
+				}
+				vm.PowerState, vm.VTPM, vm.Encrypted = result.PowerState, result.VTPM, result.Encrypted
+				if result.Snapshots == 0 {
+					vm.Snapshots, vm.ConsolidationNeeded = nil, false
+				}
+				if result.PowerState == "poweredOff" {
+					vm.ToolsRunning = false
+				}
+				vm.Readiness = nil
+				for _, target := range vmTargets {
+					vm.Readiness = append(vm.Readiness, assessVM(*vm, target, time.Now()))
+				}
+			}
+			a.vmware.inventorySerial++
+		}
+		a.mu.Unlock()
+		for _, line := range append(result.Done, result.Skipped...) {
+			a.vmwareLog("%s", line)
+		}
+		if err != nil {
+			a.vmwareLog("%s", err.Error())
+			a.finishVMwareAction("connected", "Preparing "+name+" stopped: "+err.Error())
+			return
+		}
+		a.finishVMwareAction("connected", "Prepared "+name+".")
+	}()
+	writeJSON(response, http.StatusAccepted, map[string]any{"ok": true})
 }

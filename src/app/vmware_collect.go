@@ -24,8 +24,10 @@ import (
 )
 
 // Read-only vSphere inventory through the vSphere Web Services API (the API
-// PowerCLI uses), with VMware's own Go library. The session only reads
-// properties: no task is started and nothing is changed.
+// PowerCLI uses), with VMware's own Go library. The inventory session only
+// reads properties: no task is started and nothing is changed. The only
+// changes the application makes are the opt-in prepare-source steps in
+// vmware_prepare.go.
 
 type vmConnectOptions struct {
 	Server     string
@@ -160,21 +162,27 @@ func vmFriendlyConnectError(err error, server string) error {
 }
 
 // collectVSphere connects, reads the inventory and logs out.
-func collectVSphere(parent context.Context, options vmConnectOptions, progress func(string)) (*vmInventory, error) {
-	if progress == nil {
-		progress = func(string) {}
-	}
+// vmSession is a logged-in vSphere session; close it with logout.
+type vmSession struct {
+	client  *vim25.Client
+	manager *session.Manager
+	host    string
+}
+
+func (s *vmSession) logout() {
+	logoutContext, logoutCancel := context.WithTimeout(context.Background(), 15*time.Second)
+	_ = s.manager.Logout(logoutContext)
+	logoutCancel()
+}
+
+// openVSphereSession connects and logs in with the operator's account,
+// trusting the server's certificate only through Windows or a confirmed
+// thumbprint.
+func openVSphereSession(ctx context.Context, options vmConnectOptions, progress func(string)) (*vmSession, error) {
 	u, err := vmServerURL(options.Server)
 	if err != nil {
 		return nil, err
 	}
-	timeout := options.Timeout
-	if timeout <= 0 {
-		timeout = 15 * time.Minute
-	}
-	ctx, cancel := context.WithTimeout(parent, timeout)
-	defer cancel()
-
 	var certificateErr *vmCertificateError
 	soapClient := soap.NewClient(u, options.insecureForTest)
 	if !options.insecureForTest {
@@ -195,14 +203,29 @@ func collectVSphere(parent context.Context, options vmConnectOptions, progress f
 	if err := manager.Login(ctx, url.UserPassword(options.User, options.Password)); err != nil {
 		return nil, vmFriendlyConnectError(err, u.Host)
 	}
-	defer func() {
-		logoutContext, logoutCancel := context.WithTimeout(context.Background(), 15*time.Second)
-		_ = manager.Logout(logoutContext)
-		logoutCancel()
-	}()
+	return &vmSession{client: client, manager: manager, host: u.Host}, nil
+}
+
+func collectVSphere(parent context.Context, options vmConnectOptions, progress func(string)) (*vmInventory, error) {
+	if progress == nil {
+		progress = func(string) {}
+	}
+	timeout := options.Timeout
+	if timeout <= 0 {
+		timeout = 15 * time.Minute
+	}
+	ctx, cancel := context.WithTimeout(parent, timeout)
+	defer cancel()
+	vsphere, err := openVSphereSession(ctx, options, progress)
+	if err != nil {
+		return nil, err
+	}
+	defer vsphere.logout()
+	client, u := vsphere.client, struct{ Host string }{vsphere.host}
 
 	about := client.ServiceContent.About
 	inventory := &vmInventory{Schema: 1, Server: u.Host, Product: about.FullName, APIVersion: about.ApiVersion, CollectedAt: time.Now(), CollectedBy: options.User, AppVersion: options.AppVersion, Warnings: []string{}}
+	inventory.Build, inventory.InstanceUUID, inventory.OSType = about.Build, about.InstanceUuid, about.OsType
 	inventory.ServerType = "ESXi host"
 	if about.ApiType == "VirtualCenter" {
 		inventory.ServerType = "vCenter Server"
@@ -235,6 +258,8 @@ func readVSphereInventory(ctx context.Context, client *vim25.Client, inventory *
 			return err
 		}
 	}
+	progress("Reading licenses.")
+	vmReadLicenses(ctx, client, inventory)
 	sort.Slice(inventory.VMs, func(i, j int) bool {
 		return strings.ToLower(inventory.VMs[i].Name) < strings.ToLower(inventory.VMs[j].Name)
 	})
@@ -264,16 +289,18 @@ func readVSphereDatacenter(ctx context.Context, views *view.Manager, datacenter 
 			item.HA = config.DasConfig.Enabled != nil && *config.DasConfig.Enabled
 			item.DRS = config.DrsConfig.Enabled != nil && *config.DrsConfig.Enabled
 		}
+		vmClusterSettings(cluster, &item)
 		inventory.Clusters = append(inventory.Clusters, item)
 	}
 
 	var hosts []mo.HostSystem
-	if err := container.Retrieve(ctx, []string{"HostSystem"}, []string{"name", "summary", "parent", "vm", "config.network.portgroup", "config.network.vswitch"}, &hosts); err != nil {
+	if err := container.Retrieve(ctx, []string{"HostSystem"}, vmHostProperties, &hosts); err != nil {
 		return err
 	}
 	hostNames, hostClusters := map[string]string{}, map[string]string{}
 	standardVLANs := map[string]map[string]bool{}
 	standardSwitches := map[string]string{}
+	firstHost := len(inventory.Hosts)
 	for _, host := range hosts {
 		hostNames[host.Reference().Value] = host.Name
 		cluster := ""
@@ -293,6 +320,8 @@ func readVSphereDatacenter(ctx context.Context, views *view.Manager, datacenter 
 		item.ConnectionState = string(host.Summary.Runtime.ConnectionState)
 		item.PowerState = string(host.Summary.Runtime.PowerState)
 		item.Maintenance = host.Summary.Runtime.InMaintenanceMode
+		item.ref = host.Reference().Value
+		item.Details = vmHostDetailsFrom(host)
 		inventory.Hosts = append(inventory.Hosts, item)
 		if host.Config != nil && host.Config.Network != nil {
 			for _, portgroup := range host.Config.Network.Portgroup {
@@ -305,7 +334,8 @@ func readVSphereDatacenter(ctx context.Context, views *view.Manager, datacenter 
 			}
 		}
 	}
-	progress(fmt.Sprintf("Read %d host(s) in %s.", len(hosts), datacenter.Name))
+	progress(fmt.Sprintf("Read %d host(s) in %s; reading their software and alarms.", len(hosts), datacenter.Name))
+	vmReadHostExtras(ctx, views.Client(), hosts, inventory, firstHost)
 
 	var datastores []mo.Datastore
 	if err := container.Retrieve(ctx, []string{"Datastore"}, []string{"name", "summary", "vm"}, &datastores); err != nil {
@@ -325,13 +355,27 @@ func readVSphereDatacenter(ctx context.Context, views *view.Manager, datacenter 
 
 	switchNames := map[string]string{}
 	var switches []mo.DistributedVirtualSwitch
-	if err := container.Retrieve(ctx, []string{"DistributedVirtualSwitch"}, []string{"name", "uuid"}, &switches); err != nil && !vmIsMissingType(err) {
+	if err := container.Retrieve(ctx, []string{"DistributedVirtualSwitch"}, []string{"name", "uuid", "config"}, &switches); err != nil && !vmIsMissingType(err) {
 		return err
 	}
 	for _, item := range switches {
 		switchNames[item.Uuid] = item.Name
 		switchNames[item.Reference().Value] = item.Name
 	}
+	vmReadSwitches(switches, datacenter.Name, hostNames, inventory)
+	owners := map[string]string{}
+	for _, cluster := range clusters {
+		owners[cluster.Reference().Value] = cluster.Name
+	}
+	var computeResources []mo.ComputeResource
+	if err := container.Retrieve(ctx, []string{"ComputeResource"}, []string{"name"}, &computeResources); err == nil {
+		for _, resource := range computeResources {
+			owners[resource.Reference().Value] = resource.Name
+		}
+	}
+	vmReadPools(ctx, func(kind string, properties []string, dst any) error {
+		return container.Retrieve(ctx, []string{kind}, properties, dst)
+	}, datacenter.Name, owners, inventory)
 	var portgroups []mo.DistributedVirtualPortgroup
 	if err := container.Retrieve(ctx, []string{"DistributedVirtualPortgroup"}, []string{"name", "config", "vm"}, &portgroups); err != nil && !vmIsMissingType(err) {
 		return err
@@ -505,7 +549,7 @@ func vmFromManagedObject(machine mo.VirtualMachine, datacenter string, hostNames
 		vm.IPAddress = guest.IpAddress
 		vm.ToolsStatus = guest.ToolsVersionStatus2
 		vm.ToolsRunning = guest.ToolsRunningStatus == string(types.VirtualMachineToolsRunningStatusGuestToolsRunning)
-		vm.ToolsVersion = guest.ToolsVersion
+		vm.ToolsVersion = vmToolsVersionText(guest.ToolsVersion)
 		for _, nic := range guest.Net {
 			guestNICs[nic.DeviceConfigId] = nic
 		}

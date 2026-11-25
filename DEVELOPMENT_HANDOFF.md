@@ -1,3 +1,16 @@
+## Unreleased: VMware move engine phase 1 (real-estate fixes, Word runbook, Prepare source, BitLocker keys) — 2026-11-25
+
+The owner asked for a one-stop VM migration tool ("convert and migrate/clone vms from vmware to the other solutions"), a runbook exportable as Word or HTML, and decryption of the vTPM-encrypted VMs found in their vCenter 7.0.3 export. Phase 1 of the agreed plan:
+
+- Real-estate fixes found in that export (kept out of the repository): vCLS agents, the vCenter/Photon appliance and nested ESXi get status `skip` ("Not moved") and are excluded from plans and waves; guest-managed VMware Tools (version 2147483647) shows as "Guest managed"; backup snapshots (Acronis, Veeam and others) name the software; Windows domain controllers get a move-cold/USN-rollback warning.
+- `Migration-Runbook.docx` is written beside the HTML runbook by `vmware_docx.go` (plain OOXML through archive/zip, no dependency) and opened by **Open in Word**.
+- `vmware_prepare.go` and `/api/vmware/prepare`: the only vSphere writes. One VM at a time, typed VM name, record saved first; steps run in order snapshots, guest shutdown (Tools required, never forced), vTPM removal, decrypt (`CryptoSpecDecrypt` on the VM and each encrypted disk). Tested against vcsim in `vmware_prepare_test.go`; vcsim does not implement encryption, so decrypting a real encrypted VM still needs field validation against vCenter with a key provider.
+- Guest mode `SaveBitLocker`: adds a recovery password if needed, writes keys only to `BitLocker-Recovery-Keys-<computer>.txt` in the output folder and suspends protection with `-RebootCount 0`. The `vmguest` CI job runs it; hosted runners have no BitLocker, so it exercises the no-BitLocker path.
+
+- Full VMware discovery (owner: "the vmware discovery should also show each individual host info as reported by vmware, as well as licesing etc. it should be a full discovery"): `vmware_discovery.go` adds per-host hardware/BIOS/serial, pNICs, vSwitches, VMkernel ports with services, storage adapters and devices, DNS/gateway/NTP, services, VIBs and acceptance level, alarms, config issues and certificate expiry; licenses (masked keys) with assignments; cluster EVC/HA admission/DRS behaviour/vSAN; resource pools and vApps; distributed switches. `VMware-Discovery-Report.html` and ten CSVs are written beside the readiness report, and the VMware tab gains **Hosts and licenses** with a needs-attention list (`vmDiscoveryWatch`). vcsim has no image configuration manager, so VIB listing has only unit and warning coverage; check it against a real host.
+
+Next phases: copy engine (snapshot/CBT seed and delta over datastore HTTP, receiver mode, in-guest source agent), VM creation on each target, disk converter, then Azure and AWS.
+
 ## 3.2.29 published and verified — 2026-11-25
 
 - [Release v3.2.29](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.29) ("Server Inventory and Migration Manager 3.2.29"), tag and target commit `1b3ec359022b025383ede67c2ad2e65a6088dddd`. Source: Nutanix AHV, Proxmox VE, Azure, EC2 and physical (V2P) targets and the File shares label (#76), prepared in #77, published by #78, with the install-test fix #79.
