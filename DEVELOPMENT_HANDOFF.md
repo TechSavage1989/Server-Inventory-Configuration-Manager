@@ -1,3 +1,10 @@
+## Unreleased: phase 2 step 4, in-guest source agent — 2026-11-25
+
+- `vmagent.go`: `vmCompositeSource` lays volume readers over a base disk (sorted, non-overlapping, sector aligned) so one disk reads partition tables and small partitions live and each snapshotted volume from its shadow copy.
+- `vmagent_windows.go`: `openVMAgentDisk(diskNumber, allowLive, log)` opens `\\.\PhysicalDriveN`, finds its volumes (FindFirstVolume, IOCTL_VOLUME_GET_VOLUME_DISK_EXTENTS, refusing spanned volumes), takes a `ClientAccessible` shadow copy of each NTFS/ReFS volume through `Win32_ShadowCopy` and reads it from `\\?\GLOBALROOT\Device\HarddiskVolumeShadowCopyN`. Closing the source deletes exactly the shadow copies it took. The source name is `<computer> disk <N>`, so later rounds resume the same copy record and send only changed chunks (works with the receiver from step 3).
+- Tests: `TestCompositeSourceReadsVolumesFromTheirShadowCopies` (all platforms) and `TestAgentCopiesALiveDiskThroughAShadowCopy` (Windows CI: a real NTFS VHDX, a write after the shadow copy stays out of the copy, the copy mounts with the file, the shadow copy is gone).
+- Limits: `Win32_ShadowCopy.Create` is available on Windows Server, not client editions; shadow copies are per volume (crash-consistent per volume, not one set); no NTFS free-space skipping yet; UI and agent run mode come with the Hyper-V step.
+
 ## Unreleased: phase 2 step 3, network receiver — 2026-11-25
 
 - The copy engine now writes through a `vmCopySink`. `vmLocalSink` is the previous local VHDX plus copy record; `vmCopyDisk` is unchanged for callers. `vmCopyTo` takes any sink.
