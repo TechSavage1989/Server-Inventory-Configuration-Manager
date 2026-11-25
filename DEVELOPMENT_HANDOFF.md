@@ -1,6 +1,15 @@
+## 3.2.32 published and verified — 2026-11-25
+
+- [Release v3.2.32](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.32) ("Server Inventory and Migration Manager 3.2.32"), tag and target commit `5fa27e1c895f42cee0d7309d9dfaeb2572b73ab8`. Source: phases 2, 3 and 4 of the migration plan (#89, #90, #92, #93, #94, #96, #95, #98, #97, #99), prepared in #100, published by #101. The owner chose to publish on 2026-11-25.
+- The [publish run](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/45624632611) (push of #101) passed first time: publish job 13:32–13:44 UTC, signed through Azure Artifact Signing over OIDC (`Get-AuthenticodeSignature` Valid, timestamped) before the tests and checksum.
+- The actual 3.2.31-to-3.2.32 upgrade (published signed 3.2.31 EXE through Download and Install, restart into 3.2.32, native health, settings, shortcut, timers, cleanup and rollback) passed in one run, 13:44–13:53 UTC. Source CI on #100 and #101 passed windows, restore, migration, vmguest and disks.
+- Stable EXE: 21,883,176 bytes; SHA-256 `7b1684bb0d506360ac99e06acbe2b500bcbc55a98d9cda7a985c447ca1a3a22d` (release asset digest). All 12 assets are published.
+
+Limits: Hyper-V VM creation, real vSphere changed block tracking, a two-computer send over a real network, HyperCore/Nutanix/Proxmox APIs, booting receiver media and reading a real Hyper-V host were exercised only against simulators, fakes built from public API documentation, synthetic data and runner disks. CI artifacts were not downloaded. No client data was used.
+
 ## 3.2.32 release preparation — 2026-11-25
 
-Combined release of phases 2, 3 and 4 (#89, #90, #92, #93, #94, #96, #95, #98, #97, #99), awaiting the owner's choice on the release card. This branch bumps `appVersion`, `collectorVersion` and the collector `$scriptVersion` to 3.2.32, adds `docs/release-notes/3.2.32.md` (first three bullets free of Markdown) and points `scripts/test_published_upgrade.cjs` and AGENTS.md at the published v3.2.31 executable (SHA-256 `6917b087439a8ee49e2229755707653a1439039d245ddac3e28bbc3b23999cb9`).
+Combined release of phases 2, 3 and 4 (#89, #90, #92, #93, #94, #96, #95, #98, #97, #99). The owner chose "Release 3.2.32 now". This branch bumps `appVersion`, `collectorVersion` and the collector `$scriptVersion` to 3.2.32, adds `docs/release-notes/3.2.32.md` (first three bullets free of Markdown) and points `scripts/test_published_upgrade.cjs` and AGENTS.md at the published v3.2.31 executable (SHA-256 `6917b087439a8ee49e2229755707653a1439039d245ddac3e28bbc3b23999cb9`).
 
 ## Unreleased: phase 4 step 2, Hyper-V as a migration source — 2026-11-25
 

@@ -1,3 +1,12 @@
+## 3.2.32 published and verified — 2026-11-25
+
+- [Release v3.2.32](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.32) ("Server Inventory and Migration Manager 3.2.32"), tag and target commit `5fa27e1c895f42cee0d7309d9dfaeb2572b73ab8`. Source: phases 2, 3 and 4 of the migration plan (#89, #90, #92, #93, #94, #96, #95, #98, #97, #99), prepared in #100, published by #101. The owner chose to publish on 2026-11-25.
+- The [publish run](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/45624632611) (push of #101) passed first time: publish job 13:32–13:44 UTC, signed through Azure Artifact Signing over OIDC (`Get-AuthenticodeSignature` Valid, timestamped) before the tests and checksum.
+- The actual 3.2.31-to-3.2.32 upgrade (published signed 3.2.31 EXE through Download and Install, restart into 3.2.32, native health, settings, shortcut, timers, cleanup and rollback) passed in one run, 13:44–13:53 UTC. Source CI on #100 and #101 passed windows, restore, migration, vmguest and disks.
+- Stable EXE: 21,883,176 bytes; SHA-256 `7b1684bb0d506360ac99e06acbe2b500bcbc55a98d9cda7a985c447ca1a3a22d` (release asset digest). All 12 assets are published.
+
+Limits: Hyper-V VM creation, real vSphere changed block tracking, a two-computer send over a real network, HyperCore/Nutanix/Proxmox APIs, booting receiver media and reading a real Hyper-V host were exercised only against simulators, fakes built from public API documentation, synthetic data and runner disks. CI artifacts were not downloaded. No client data was used.
+
 ## 3.2.31 published and verified — 2026-11-25
 
 - [Release v3.2.31](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.31) ("Server Inventory and Migration Manager 3.2.31"), tag and target commit `4584761611b1f3436ad271fd233983a9c8e3af96`. Source: VMware relationships in the discovery report and Environment view (#85), prepared in #86, published by #87. The owner chose to publish on 2026-11-25.
