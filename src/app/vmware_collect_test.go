@@ -51,7 +51,7 @@ func TestCollectVSphereReadsSimulatedVCenter(t *testing.T) {
 		if vm.NICs[0].Network == "" || vm.NICs[0].MAC == "" {
 			t.Fatalf("incomplete NIC: %+v", vm.NICs[0])
 		}
-		if len(vm.Readiness) != 2 || vm.readinessFor(vmTargetHyperV) == nil || vm.readinessFor(vmTargetScale) == nil {
+		if len(vm.Readiness) != len(vmTargets) || vm.readinessFor(vmTargetHyperV) == nil || vm.readinessFor(vmTargetNutanix) == nil || vm.readinessFor(vmTargetPhysical) == nil {
 			t.Fatalf("readiness missing for %s", vm.Name)
 		}
 	}

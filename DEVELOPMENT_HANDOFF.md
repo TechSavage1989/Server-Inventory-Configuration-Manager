@@ -1,3 +1,17 @@
+## Unreleased: more VMware migration targets, File shares tab label — 2026-11-25
+
+User requests: "ids like to add moveing to nutanix, and honestly options for any potential migration, including Virtual to physical if possible" and "the migrate tab should probably be labled specific to File shares since that's what it's for". Branch `claude/project-thread-741oy5`.
+
+- `src/app/vmware_targets.go` holds one profile per target: Hyper-V, Scale Computing HyperCore, Nutanix AHV, Proxmox VE, Microsoft Azure, Amazon EC2 and Physical server (V2P). `assessVM`, sizing and the runbook read the profiles (drivers, Secure Boot, vTPM, shared disks, passthrough, USB, availability, copy tool). New rules: Azure OS disk over 4 TiB and data disk over 32 TiB are blockers, 32-bit guests are flagged for cloud, BIOS firmware is flagged for physical servers, RDM/passthrough are warnings (not blockers) for physical. Cloud targets size by quota (status `quota`), physical by server (`perserver`).
+- The readiness report has one column per target and `VMs.csv` one `<target> readiness` column per target.
+- `Migrate-VmGuest.ps1`: `Get-Platform` names VMware, HyperCore, Nutanix AHV, Amazon EC2, Azure (chassis asset tag), Hyper-V, Proxmox/KVM, Xen, other virtual or physical; `Get-TargetChecks` gives one driver check per target (AWS ENA/NVMe and the Azure agent added); the hidden-adapter flag and expected-missing services cover the other platforms' adapters and agents.
+- UI: a **Moving to** select replaces the two radios; the capacity section becomes **Cloud quota** or **Servers needed**; This VM shows only the chosen target's driver check. The Migrate tab button now reads **File shares** (IDs unchanged).
+- Comparison treats Nutanix, AWS and Azure guest agents and drivers as expected changes.
+
+Tests: Go unit tests for every target's readiness, profile completeness, runbook and sizing; `scripts/test_workspace.cjs` covers the select, the Nutanix counts, cloud/physical capacity views, the per-target guest check and the tab label (passed locally with Chromium). Screenshots `migrate-choose`, `migrate-copy`, `vmware-readiness` and `vmware-plan` were recaptured from that run.
+
+Limitations: the new targets' rules come from vendor documentation, not migrations run here; platform detection for Nutanix, Proxmox, Azure and EC2 has not run on those platforms (CI runners are Azure VMs, so `Get-Platform` reports Azure there).
+
 ## 3.2.28 published and verified — 2026-11-25
 
 - [Release v3.2.28](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.28) ("Server Inventory and Migration Manager 3.2.28"), tag and target commit `1ff4e961c6ae31c8e4cbddd08a58e7954e6a1a6b`. Source: VMware migration features #70; release preparation #71; publication PR #72 (only `release/VERSION`); release workflow fix #73. The owner chose to merge and publish on 2026-11-25.

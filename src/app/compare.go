@@ -33,7 +33,7 @@ const (
 	compareSummaryCSVPath = "00-Summary/Server-Summary.csv"
 )
 
-var compareExpectedText = regexp.MustCompile(`(?i)vmware|vmtools|vgauth|vm3d|vmci|vmhgfs|vmmemctl|vmrawdsk|vmusb|vmvss|vmxnet|pvscsi|vsock|virtio|viostor|vioscsi|netkvm|balloon|qemu|scale computing|hyper-v|hyperv|^vmic|integration services`)
+var compareExpectedText = regexp.MustCompile(`(?i)vmware|vmtools|vgauth|vm3d|vmci|vmhgfs|vmmemctl|vmrawdsk|vmusb|vmvss|vmxnet|pvscsi|vsock|virtio|viostor|vioscsi|netkvm|balloon|qemu|scale computing|hyper-v|hyperv|^vmic|integration services|nutanix|ngtsvc|amazon|ec2launch|ec2config|awsnvme|^ena$|elastic network adapter|xenbus|xenvif|aws pv|windowsazure|windows azure|rdagent|azure vm agent|guest agent`)
 
 type compareDataset struct {
 	Key            string

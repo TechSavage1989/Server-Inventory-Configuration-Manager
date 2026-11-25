@@ -73,7 +73,11 @@ func TestReadinessBlocksSharedDisksAndPhysicalRDM(t *testing.T) {
 	for _, target := range vmTargets {
 		r := vm.readinessFor(target)
 		codes := vmFindingCodes(r)
-		if r.Status != vmStatusBlocked || codes["shared-disk"] != vmSeverityBlocker || codes["rdm-physical"] != vmSeverityBlocker || codes["independent-disk"] != vmSeverityWarning || codes["snapshots"] != vmSeverityWarning {
+		rdm := vmSeverityBlocker
+		if target == vmTargetPhysical {
+			rdm = vmSeverityWarning // the LUN can be presented to the server itself
+		}
+		if r.Status != vmStatusBlocked || codes["shared-disk"] != vmSeverityBlocker || codes["rdm-physical"] != rdm || codes["independent-disk"] != vmSeverityWarning || codes["snapshots"] != vmSeverityWarning {
 			t.Fatalf("%s: %s %v", target, r.Status, codes)
 		}
 	}
@@ -102,7 +106,11 @@ func TestReadinessLinuxAndObsoleteGuests(t *testing.T) {
 	for _, target := range vmTargets {
 		r := old.readinessFor(target)
 		c := vmFindingCodes(r)
-		if r.Status != vmStatusBlocked || c["os-unsupported"] != vmSeverityBlocker || c["encrypted"] != vmSeverityBlocker || c["tools-missing"] != vmSeverityWarning || c["usb"] != vmSeverityWarning || c["hardware-old"] != vmSeverityWarning {
+		usb := vmSeverityWarning
+		if target == vmTargetPhysical {
+			usb = vmSeverityInfo // plug the device into the server
+		}
+		if r.Status != vmStatusBlocked || c["os-unsupported"] != vmSeverityBlocker || c["encrypted"] != vmSeverityBlocker || c["tools-missing"] != vmSeverityWarning || c["usb"] != usb || c["hardware-old"] != vmSeverityWarning {
 			t.Fatalf("%s: %v", target, c)
 		}
 	}
@@ -231,7 +239,7 @@ func TestReportsAndRunbookRenderEscapedAndSafe(t *testing.T) {
 		t.Fatal(err)
 	}
 	text, _ := os.ReadFile(runbook)
-	for _, expected := range []string{"Wave 1", "Wave 2", "On hold (resolve blockers first)", "Generation 2", "guest pre-flight", "Disconnect the old VM"} {
+	for _, expected := range []string{"Wave 1", "Wave 2", "On hold (resolve blockers first)", "Generation 2", "Record settings", "Disconnect the old VM"} {
 		if !strings.Contains(string(text), expected) {
 			t.Fatalf("runbook missing %q", expected)
 		}
@@ -242,5 +250,152 @@ func TestReportsAndRunbookRenderEscapedAndSafe(t *testing.T) {
 	planText, _ := os.ReadFile(planCSV)
 	if !strings.Contains(string(planText), "Servers-120 > Servers-120 (VLAN 120)") {
 		t.Fatalf("plan CSV network mapping missing: %s", planText)
+	}
+}
+
+func TestReadinessNewTargets(t *testing.T) {
+	inventory := vmSampleInventory()
+	app := inventory.VMs[0] // Windows Server 2022, EFI, Secure Boot, static IP
+	cases := []struct {
+		target   string
+		want     map[string]string
+		absent   []string
+		contains map[string]string
+	}{
+		{vmTargetNutanix, map[string]string{"virtio-drivers": vmSeverityWarning, "secureboot": vmSeverityWarning, "static-ip": vmSeverityWarning, "firmware": vmSeverityInfo}, []string{"aws-drivers", "instance-size"}, map[string]string{"virtio-drivers": "Nutanix VirtIO"}},
+		{vmTargetProxmox, map[string]string{"virtio-drivers": vmSeverityWarning, "static-ip": vmSeverityWarning}, []string{"generation"}, map[string]string{"virtio-drivers": "virtio-win"}},
+		{vmTargetAzure, map[string]string{"generation": vmSeverityInfo, "static-ip": vmSeverityWarning, "instance-size": vmSeverityInfo, "secureboot": vmSeverityInfo}, []string{"virtio-drivers", "aws-drivers"}, map[string]string{"static-ip": "DHCP"}},
+		{vmTargetAWS, map[string]string{"aws-drivers": vmSeverityWarning, "static-ip": vmSeverityWarning, "instance-size": vmSeverityInfo}, []string{"virtio-drivers", "generation"}, map[string]string{"aws-drivers": "ENA"}},
+		{vmTargetPhysical, map[string]string{"hardware-drivers": vmSeverityWarning, "server-size": vmSeverityInfo, "firmware": vmSeverityInfo, "static-ip": vmSeverityWarning}, []string{"virtio-drivers", "instance-size"}, map[string]string{"static-ip": "new server"}},
+	}
+	for _, c := range cases {
+		r := app.readinessFor(c.target)
+		if r == nil {
+			t.Fatalf("%s: no readiness", c.target)
+		}
+		codes := vmFindingCodes(r)
+		for code, severity := range c.want {
+			if codes[code] != severity {
+				t.Fatalf("%s: %s = %q, want %q (%v)", c.target, code, codes[code], severity, codes)
+			}
+		}
+		for _, code := range c.absent {
+			if _, ok := codes[code]; ok {
+				t.Fatalf("%s: unexpected %s", c.target, code)
+			}
+		}
+		for code, text := range c.contains {
+			found := false
+			for _, f := range r.Findings {
+				if f.Code == code && strings.Contains(f.Message+" "+f.Action, text) {
+					found = true
+				}
+			}
+			if !found {
+				t.Fatalf("%s: %s does not mention %q", c.target, code, text)
+			}
+		}
+		if r.Status != vmStatusReview {
+			t.Fatalf("%s: status %s", c.target, r.Status)
+		}
+	}
+	if g := app.readinessFor(vmTargetAzure).Generation; g != 2 {
+		t.Fatalf("Azure generation %d", g)
+	}
+	// SQL01: BIOS boot disk over 2 TB; physical-mode RDM.
+	sql := inventory.VMs[1]
+	if c := vmFindingCodes(sql.readinessFor(vmTargetPhysical)); c["firmware-bios"] != vmSeverityWarning {
+		t.Fatalf("physical BIOS warning missing: %v", c)
+	}
+	big := sql
+	big.Disks = []vmDisk{{Label: "Hard disk 1", CapacityBytes: 5000 << 30, BootCandidate: true}}
+	big.Readiness = nil
+	if c := vmFindingCodes(&[]vmReadiness{assessVM(big, vmTargetAzure, vmTestNow)}[0]); c["azure-os-disk"] != vmSeverityBlocker {
+		t.Fatalf("Azure 4 TiB OS disk limit not enforced: %v", c)
+	}
+	// Linux drivers follow the target.
+	for target, driver := range map[string]string{vmTargetAWS: "ena", vmTargetNutanix: "virtio_scsi", vmTargetAzure: "hv_netvsc"} {
+		found := false
+		for _, f := range inventory.VMs[2].readinessFor(target).Findings {
+			if f.Code == "linux-initramfs" && strings.Contains(f.Action, driver) {
+				found = true
+			}
+		}
+		if !found {
+			t.Fatalf("%s: Linux initramfs action does not name %s", target, driver)
+		}
+	}
+	if r := assessVM(app, "nonsense", vmTestNow); r.Status != vmStatusBlocked {
+		t.Fatal("unknown target was not refused")
+	}
+}
+
+func TestTargetProfilesAreComplete(t *testing.T) {
+	seen := map[string]bool{}
+	for _, p := range vmTargetProfiles {
+		if seen[p.ID] {
+			t.Fatalf("duplicate target %s", p.ID)
+		}
+		seen[p.ID] = true
+		if p.Label == "" || p.Short == "" || p.Tool == "" || p.Family == "" || p.LinuxDrivers == "" || p.SecureBoot == "" || p.VTPM == "" || p.SharedDisks == "" || p.Passthrough == "" || p.USB == "" || p.Availability == "" || p.StorageLabel == "" || p.NetworkLabel == "" {
+			t.Fatalf("incomplete profile %+v", p)
+		}
+		if p.Kind != vmKindCluster && p.Kind != vmKindCloud && p.Kind != vmKindPhysical {
+			t.Fatalf("%s: kind %q", p.ID, p.Kind)
+		}
+	}
+	for _, id := range []string{"hyperv", "scale", "nutanix", "proxmox", "azure", "aws", "physical"} {
+		if !seen[id] {
+			t.Fatalf("missing target %s", id)
+		}
+	}
+}
+
+func TestRunbookAndSizingFollowTarget(t *testing.T) {
+	inventory := vmSampleInventory()
+	for target, expected := range map[string][]string{
+		vmTargetNutanix:  {"Nutanix Move", "Nutanix VirtIO drivers", "Create or check the Nutanix AHV VM", "AHV storage container"},
+		vmTargetAzure:    {"Azure Migrate", "static private IP reservation", "uses DHCP", "Generation 2"},
+		vmTargetAWS:      {"Application Migration Service", "EC2 instance", "ENA"},
+		vmTargetPhysical: {"Prepare the server", "storage controller and network drivers", "Start the new server", "Shut down the new server"},
+		vmTargetProxmox:  {"ESXi import wizard", "virtio-win"},
+	} {
+		plan := suggestWaves(defaultVMPlan(inventory), inventory, 10)
+		plan.Target = target
+		waves := buildRunbook(plan, inventory)
+		text := ""
+		for _, wave := range waves {
+			for _, item := range wave.VMs {
+				text += strings.Join(item.Before, "\n") + strings.Join(item.Cutover, "\n") + strings.Join(item.Rollback, "\n") + strings.Join(item.Disks, "\n")
+			}
+		}
+		for _, want := range expected {
+			if !strings.Contains(text, want) {
+				t.Fatalf("%s runbook missing %q", target, want)
+			}
+		}
+		if strings.Contains(text, "HyperCore") {
+			t.Fatalf("%s runbook mentions HyperCore", target)
+		}
+		sizing := sizePlan(plan, inventory)
+		switch target {
+		case vmTargetAzure, vmTargetAWS:
+			if sizing.Status != "quota" || sizing.Configured {
+				t.Fatalf("%s sizing: %+v", target, sizing)
+			}
+		case vmTargetPhysical:
+			if sizing.Status != "perserver" {
+				t.Fatalf("physical sizing: %+v", sizing)
+			}
+		}
+	}
+	plan := defaultVMPlan(inventory)
+	plan.Target = vmTargetNutanix
+	if validated, err := validateVMPlan(plan, inventory); err != nil || validated.Target != vmTargetNutanix {
+		t.Fatalf("Nutanix plan refused: %v", err)
+	}
+	plan.Target = "xen"
+	if _, err := validateVMPlan(plan, inventory); err == nil {
+		t.Fatal("unknown target accepted")
 	}
 }

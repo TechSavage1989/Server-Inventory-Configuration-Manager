@@ -27,10 +27,11 @@ const (
 )
 
 var vmReportFunctions = template.FuncMap{
-	"bytes":  vmFormatBytes,
-	"mb":     func(mb int64) string { return vmFormatBytes(mb << 20) },
-	"target": vmTargetLabel,
-	"join":   strings.Join,
+	"bytes":   vmFormatBytes,
+	"mb":      func(mb int64) string { return vmFormatBytes(mb << 20) },
+	"target":  vmTargetLabel,
+	"targets": func() []vmTargetProfile { return vmTargetProfiles },
+	"join":    strings.Join,
 	"date": func(t time.Time) string {
 		if t.IsZero() {
 			return ""
@@ -84,8 +85,8 @@ const vmReadinessTemplate = `<!DOCTYPE html>
 {{range .Summary.Readiness}}<tr><td>{{target .Target}}</td><td><span class="chip ready">{{.Ready}}</span></td><td><span class="chip review">{{.Review}}</span></td><td><span class="chip blocked">{{.Blocked}}</span></td></tr>{{end}}
 </table>
 <h2>Virtual machines</h2>
-<table><tr><th>VM</th><th>Power</th><th>Guest OS</th><th>vCPU</th><th>Memory</th><th>Used / provisioned</th><th>Firmware</th><th>VMware Tools</th><th>Hyper-V</th><th>HyperCore</th></tr>
-{{range .Inventory.VMs}}{{if not .Template}}<tr><td><a href="#vm-{{.ID}}">{{.Name}}</a><div class="muted">{{.Cluster}}{{if .Host}} · {{.Host}}{{end}}</div></td><td>{{power .PowerState}}</td><td>{{os .}}</td><td>{{.CPUs}}</td><td>{{mb .MemoryMB}}</td><td>{{bytes .UsedBytes}} / {{bytes .ProvisionedBytes}}</td><td>{{.Firmware}}{{if .SecureBoot}}, Secure Boot{{end}}{{if .VTPM}}, vTPM{{end}}</td><td>{{tools .}}</td>{{with readiness . "hyperv"}}<td><span class="chip {{.Status}}">{{statusLabel .Status}}</span>{{if .Generation}}<div class="muted">Gen {{.Generation}}</div>{{end}}</td>{{end}}{{with readiness . "scale"}}<td><span class="chip {{.Status}}">{{statusLabel .Status}}</span></td>{{end}}</tr>{{end}}{{end}}
+<table><tr><th>VM</th><th>Power</th><th>Guest OS</th><th>vCPU</th><th>Memory</th><th>Used / provisioned</th><th>Firmware</th><th>VMware Tools</th>{{range targets}}<th>{{.Short}}</th>{{end}}</tr>
+{{range .Inventory.VMs}}{{if not .Template}}<tr><td><a href="#vm-{{.ID}}">{{.Name}}</a><div class="muted">{{.Cluster}}{{if .Host}} · {{.Host}}{{end}}</div></td><td>{{power .PowerState}}</td><td>{{os .}}</td><td>{{.CPUs}}</td><td>{{mb .MemoryMB}}</td><td>{{bytes .UsedBytes}} / {{bytes .ProvisionedBytes}}</td><td>{{.Firmware}}{{if .SecureBoot}}, Secure Boot{{end}}{{if .VTPM}}, vTPM{{end}}</td><td>{{tools .}}</td>{{$vm := .}}{{range targets}}{{with readiness $vm .ID}}<td><span class="chip {{.Status}}">{{statusLabel .Status}}</span>{{if .Generation}}<div class="muted">Gen {{.Generation}}</div>{{end}}</td>{{end}}{{end}}</tr>{{end}}{{end}}
 </table>
 <h2>Findings by VM</h2>
 {{range .Inventory.VMs}}{{if not .Template}}<div class="vm" id="vm-{{.ID}}"><h3>{{.Name}}</h3>
@@ -194,18 +195,20 @@ func writeVMwareInventoryOutputs(folder string, inventory *vmInventory) (string,
 	}
 	vmRows, diskRows, nicRows, snapshotRows, readinessRows := [][]string{}, [][]string{}, [][]string{}, [][]string{}, [][]string{}
 	for _, vm := range inventory.VMs {
-		hyperV, scale := vm.readinessFor(vmTargetHyperV), vm.readinessFor(vmTargetScale)
-		status := func(r *vmReadiness) string {
-			if r == nil {
-				return ""
-			}
-			return r.Status
-		}
+		hyperV := vm.readinessFor(vmTargetHyperV)
 		generation := ""
 		if hyperV != nil && hyperV.Generation > 0 {
 			generation = strconv.Itoa(hyperV.Generation)
 		}
-		vmRows = append(vmRows, []string{vm.Name, vm.Datacenter, vm.Cluster, vm.Host, vm.Folder, strconv.FormatBool(vm.Template), vm.PowerState, vmNonEmpty(vm.GuestOSRunning, vm.GuestOS), vm.GuestID, vm.GuestHostName, vm.IPAddress, strconv.Itoa(vm.CPUs), strconv.Itoa(vm.CoresPerSocket), strconv.FormatInt(vm.MemoryMB, 10), gib(vm.ProvisionedBytes), gib(vm.UsedBytes), vm.HardwareVersion, vm.Firmware, strconv.FormatBool(vm.SecureBoot), strconv.FormatBool(vm.VTPM), strconv.FormatBool(vm.Encrypted), vm.ToolsStatus, strconv.FormatBool(vm.ToolsRunning), vm.ToolsVersion, strconv.Itoa(len(vm.Snapshots)), strconv.FormatBool(vm.ChangeTracking), status(hyperV), generation, status(scale)})
+		targetStatus := []string{}
+		for _, target := range vmTargets {
+			status := ""
+			if r := vm.readinessFor(target); r != nil {
+				status = r.Status
+			}
+			targetStatus = append(targetStatus, status)
+		}
+		vmRows = append(vmRows, append([]string{vm.Name, vm.Datacenter, vm.Cluster, vm.Host, vm.Folder, strconv.FormatBool(vm.Template), vm.PowerState, vmNonEmpty(vm.GuestOSRunning, vm.GuestOS), vm.GuestID, vm.GuestHostName, vm.IPAddress, strconv.Itoa(vm.CPUs), strconv.Itoa(vm.CoresPerSocket), strconv.FormatInt(vm.MemoryMB, 10), gib(vm.ProvisionedBytes), gib(vm.UsedBytes), vm.HardwareVersion, vm.Firmware, strconv.FormatBool(vm.SecureBoot), strconv.FormatBool(vm.VTPM), strconv.FormatBool(vm.Encrypted), vm.ToolsStatus, strconv.FormatBool(vm.ToolsRunning), vm.ToolsVersion, strconv.Itoa(len(vm.Snapshots)), strconv.FormatBool(vm.ChangeTracking), generation}, targetStatus...))
 		for _, disk := range vm.Disks {
 			diskRows = append(diskRows, []string{vm.Name, disk.Label, gib(disk.CapacityBytes), disk.Provisioning, disk.RDM, disk.Mode, disk.Sharing, disk.Controller, fmt.Sprintf("%d:%d", disk.Bus, disk.Unit), disk.BusSharing, disk.Datastore, disk.File})
 		}
@@ -234,12 +237,16 @@ func writeVMwareInventoryOutputs(folder string, inventory *vmInventory) (string,
 	for _, network := range inventory.Networks {
 		networkRows = append(networkRows, []string{network.Name, network.Datacenter, network.Kind, network.Switch, network.VLAN, strconv.Itoa(network.VMCount)})
 	}
+	vmTargetColumns := []string{}
+	for _, profile := range vmTargetProfiles {
+		vmTargetColumns = append(vmTargetColumns, profile.Short+" readiness")
+	}
 	files := []struct {
 		name   string
 		header []string
 		rows   [][]string
 	}{
-		{"VMs.csv", []string{"Name", "Datacenter", "Cluster", "Host", "Folder", "Template", "PowerState", "GuestOS", "GuestID", "GuestHostName", "IPAddress", "vCPUs", "CoresPerSocket", "MemoryMB", "ProvisionedGB", "UsedGB", "HardwareVersion", "Firmware", "SecureBoot", "vTPM", "Encrypted", "ToolsStatus", "ToolsRunning", "ToolsVersion", "Snapshots", "ChangeTracking", "HyperVReadiness", "HyperVGeneration", "HyperCoreReadiness"}, vmRows},
+		{"VMs.csv", append([]string{"Name", "Datacenter", "Cluster", "Host", "Folder", "Template", "PowerState", "GuestOS", "GuestID", "GuestHostName", "IPAddress", "vCPUs", "CoresPerSocket", "MemoryMB", "ProvisionedGB", "UsedGB", "HardwareVersion", "Firmware", "SecureBoot", "vTPM", "Encrypted", "ToolsStatus", "ToolsRunning", "ToolsVersion", "Snapshots", "ChangeTracking", "HyperVGeneration"}, vmTargetColumns...), vmRows},
 		{"VM-Disks.csv", []string{"VM", "Disk", "CapacityGB", "Provisioning", "RDM", "Mode", "Sharing", "Controller", "BusUnit", "BusSharing", "Datastore", "File"}, diskRows},
 		{"VM-Network-Adapters.csv", []string{"VM", "Adapter", "Type", "Network", "MAC", "ManualMAC", "Connected", "GuestAddresses", "StaticIP"}, nicRows},
 		{"VM-Snapshots.csv", []string{"VM", "Snapshot", "Created", "Quiesced", "Depth"}, snapshotRows},
@@ -299,7 +306,7 @@ func writeVMwarePlanOutputs(folder string, inventory *vmInventory, plan vmPlan) 
 				storage = append(storage, disk.Datastore+" > "+plan.storageFor(disk.Datastore))
 			}
 			generation := ""
-			if plan.Target == vmTargetHyperV && item.Readiness.Generation > 0 {
+			if item.Readiness.Generation > 0 {
 				generation = strconv.Itoa(item.Readiness.Generation)
 			}
 			rows = append(rows, []string{wave.Label, vm.Name, vmTargetLabel(plan.Target), item.Readiness.Status, generation, strconv.Itoa(vm.CPUs), strconv.FormatInt(vm.MemoryMB, 10), gib(vm.ProvisionedBytes), gib(vm.UsedBytes), strings.Join(networks, "; "), strings.Join(storage, "; "), findingSummary(&item.Readiness, vmSeverityBlocker), findingSummary(&item.Readiness, vmSeverityWarning), item.Entry.Notes})

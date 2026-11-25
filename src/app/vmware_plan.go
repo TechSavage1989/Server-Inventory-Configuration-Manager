@@ -89,7 +89,7 @@ func defaultVMPlan(inventory *vmInventory) vmPlan {
 func reconcileVMPlan(plan vmPlan, inventory *vmInventory) vmPlan {
 	plan.Schema = 1
 	plan.Server = inventory.Server
-	if plan.Target != vmTargetScale {
+	if !vmIsTarget(plan.Target) {
 		plan.Target = vmTargetHyperV
 	}
 	networks := map[string]vmNetworkMap{}
@@ -154,8 +154,8 @@ func validateVMPlan(input vmPlan, inventory *vmInventory) (vmPlan, error) {
 	if inventory == nil {
 		return vmPlan{}, errors.New("Read a VMware inventory first.")
 	}
-	if input.Target != vmTargetHyperV && input.Target != vmTargetScale {
-		return vmPlan{}, errors.New("Choose Hyper-V or Scale Computing HyperCore as the target.")
+	if !vmIsTarget(input.Target) {
+		return vmPlan{}, errors.New("Choose a migration target from the list.")
 	}
 	for _, item := range input.Networks {
 		if len(item.TargetName) > 128 || strings.ContainsAny(item.TargetName, "\x00\r\n") {
@@ -288,6 +288,18 @@ func sizePlan(plan vmPlan, inventory *vmInventory) vmSizing {
 		sizing.ProvisionedBytes += vm.ProvisionedBytes
 		sizing.UsedBytes += vm.UsedBytes
 	}
+	profile, _ := vmTargetProfileFor(plan.Target)
+	switch profile.Kind {
+	case vmKindCloud:
+		sizing.Status = "quota"
+		sizing.Notes = append(sizing.Notes, fmt.Sprintf("%s runs each VM as its own instance, so there is no cluster to fill. Check the subscription or account quota in the target region covers %d vCPUs, and budget for %s of disks (%s if every disk is fully provisioned).", profile.Short, sizing.VCPUs, vmFormatBytes(sizing.UsedBytes), vmFormatBytes(sizing.ProvisionedBytes)))
+		sizing.Notes = append(sizing.Notes, "Pick each instance size from the VM's measured use; allocation in VMware is often larger than needed.")
+		return sizing
+	case vmKindPhysical:
+		sizing.Status = "perserver"
+		sizing.Notes = append(sizing.Notes, fmt.Sprintf("Each VM moves to its own server. The runbook lists the cores, memory and disk each one needs; together they need %d cores and %s of memory.", sizing.VCPUs, vmFormatBytes(sizing.MemoryBytes)))
+		return sizing
+	}
 	capacity := plan.Capacity
 	sizing.UsableNodes = capacity.Nodes - capacity.ReserveNodes
 	if capacity.Nodes <= 0 || capacity.CoresPerNode <= 0 || capacity.MemoryGBPerNode <= 0 || capacity.UsableStorageTB <= 0 {
@@ -392,6 +404,7 @@ func vmHasFinding(readiness vmReadiness, code string) bool {
 func buildRunbook(plan vmPlan, inventory *vmInventory) []vmRunbookWave {
 	waves := map[int]*vmRunbookWave{}
 	target := vmTargetLabel(plan.Target)
+	profile, _ := vmTargetProfileFor(plan.Target)
 	for _, vm := range inventory.VMs {
 		entry := plan.entry(vm.ID)
 		if entry.Exclude || vm.Template {
@@ -437,10 +450,10 @@ func buildRunbook(plan vmPlan, inventory *vmInventory) []vmRunbookWave {
 		}
 		for _, disk := range vm.Disks {
 			destination := plan.storageFor(disk.Datastore)
-			if plan.Target == vmTargetScale {
-				destination = "HyperCore storage"
+			if destination == "" {
+				destination = "(choose " + profile.StorageLabel + ")"
 			}
-			item.Disks = append(item.Disks, fmt.Sprintf("%s, %s %s on %s → %s", disk.Label, vmFormatBytes(disk.CapacityBytes), disk.Provisioning, vmNonEmpty(disk.Datastore, "unknown datastore"), vmNonEmpty(destination, "(choose storage)")))
+			item.Disks = append(item.Disks, fmt.Sprintf("%s, %s %s on %s → %s", disk.Label, vmFormatBytes(disk.CapacityBytes), disk.Provisioning, vmNonEmpty(disk.Datastore, "unknown datastore"), destination))
 		}
 
 		for _, finding := range readiness.Findings {
@@ -457,8 +470,11 @@ func buildRunbook(plan vmPlan, inventory *vmInventory) []vmRunbookWave {
 		if vmHasFinding(readiness, "media") {
 			item.Before = append(item.Before, "Disconnect CD/DVD media.")
 		}
-		if vmHasFinding(readiness, "virtio-drivers") {
-			item.Before = append(item.Before, "Install the Scale Computing guest tools (VirtIO drivers) in the VM.")
+		if vmHasFinding(readiness, "virtio-drivers") || vmHasFinding(readiness, "aws-drivers") || vmHasFinding(readiness, "hardware-drivers") {
+			item.Before = append(item.Before, "Install "+profile.WindowsDrivers+" in the VM, then check them with the guest pre-flight.")
+		}
+		if vmHasFinding(readiness, "firmware-bios") {
+			item.Before = append(item.Before, "Confirm the server can boot this BIOS/MBR disk (legacy boot), or convert the boot disk to GPT first.")
 		}
 		if vmHasFinding(readiness, "linux-initramfs") {
 			item.Before = append(item.Before, "Rebuild the initramfs with the target's storage and network drivers.")
@@ -467,7 +483,7 @@ func buildRunbook(plan vmPlan, inventory *vmInventory) []vmRunbookWave {
 			item.Before = append(item.Before, "Save BitLocker recovery keys and suspend BitLocker.")
 		}
 		if classifyGuestOS(vm).Family == "windows" {
-			item.Before = append(item.Before, "Run Server Inventory and Migration Manager in the VM: a full collection, and the guest pre-flight on the VMware tab.")
+			item.Before = append(item.Before, "Run Server Inventory and Migration Manager in the VM: a full collection, and Record settings under This VM on the VMware tab.")
 		} else if vmHasFinding(readiness, "static-ip") {
 			item.Before = append(item.Before, "Record the guest's IP configuration (addresses, gateway, DNS) before cutover.")
 		}
@@ -475,21 +491,35 @@ func buildRunbook(plan vmPlan, inventory *vmInventory) []vmRunbookWave {
 
 		item.Cutover = append(item.Cutover, "Tell users the service is going down, then stop the applications in the guest.")
 		item.Cutover = append(item.Cutover, "Shut the VM down cleanly from the guest operating system.")
-		item.Cutover = append(item.Cutover, fmt.Sprintf("Run the final conversion or replication to %s with your migration tool.", target))
+		item.Cutover = append(item.Cutover, fmt.Sprintf("Run the final conversion, replication or image restore to %s with %s.", target, profile.Tool))
 		item.Cutover = append(item.Cutover, "Disconnect the old VM's network adapters in vSphere and set it not to start, so it cannot come back with the same addresses. Do not delete it yet.")
-		if plan.Target == vmTargetHyperV {
+		boot := map[bool]string{true: "UEFI", false: "BIOS"}[strings.EqualFold(vm.Firmware, "efi")]
+		size := fmt.Sprintf("%d vCPU, %s memory", vm.CPUs, vmFormatBytes(vm.MemoryMB<<20))
+		switch plan.Target {
+		case vmTargetHyperV:
 			generation := 1
 			if strings.EqualFold(vm.Firmware, "efi") {
 				generation = 2
 			}
-			item.Cutover = append(item.Cutover, fmt.Sprintf("Create or check the Hyper-V VM: Generation %d, %d vCPU, %s memory, network adapters as listed above.", generation, vm.CPUs, vmFormatBytes(vm.MemoryMB<<20)))
-		} else {
-			item.Cutover = append(item.Cutover, fmt.Sprintf("Create or check the HyperCore VM: %d vCPU, %s memory, %s boot, network adapters and VLANs as listed above.", vm.CPUs, vmFormatBytes(vm.MemoryMB<<20), map[bool]string{true: "UEFI", false: "BIOS"}[strings.EqualFold(vm.Firmware, "efi")]))
+			item.Cutover = append(item.Cutover, fmt.Sprintf("Create or check the Hyper-V VM: Generation %d, %s, network adapters as listed above.", generation, size))
+		case vmTargetAzure:
+			item.Cutover = append(item.Cutover, fmt.Sprintf("Check the Azure VM: Generation %d, a size with at least %s, the virtual network and subnet listed above, and a static private IP reservation if the address must stay.", map[bool]int{true: 2, false: 1}[boot == "UEFI"], size))
+		case vmTargetAWS:
+			item.Cutover = append(item.Cutover, fmt.Sprintf("Check the EC2 instance: %s boot mode, an instance type with at least %s, the subnet listed above, and a secondary private IP if the address must stay.", boot, size))
+		case vmTargetPhysical:
+			item.Cutover = append(item.Cutover, fmt.Sprintf("Prepare the server: %s boot, at least %d cores, %s memory and %s of disk, storage and network drivers ready, cabled to the networks listed above.", boot, vm.CPUs, vmFormatBytes(vm.MemoryMB<<20), vmFormatBytes(vm.ProvisionedBytes)))
+		default:
+			item.Cutover = append(item.Cutover, fmt.Sprintf("Create or check the %s VM: %s, %s boot, network adapters and %ss as listed above.", profile.Short, size, boot, profile.NetworkLabel))
 		}
-		item.Cutover = append(item.Cutover, "Start the new VM and sign in at its console.")
+		machine := map[bool]string{true: "server", false: "VM"}[profile.Kind == vmKindPhysical]
+		item.Cutover = append(item.Cutover, "Start the new "+machine+" and sign in at its console.")
 		if classifyGuestOS(vm).Family == "windows" {
-			item.Cutover = append(item.Cutover, "Run the fix-up on the VMware tab: put back the static IP settings, remove VMware Tools and hidden old adapters, and bring offline disks online.")
-		} else if vmHasFinding(readiness, "static-ip") {
+			if profile.Kind == vmKindCloud {
+				item.Cutover = append(item.Cutover, "Check the guest uses DHCP and has the address you reserved. Then run the fix-up on the VMware tab to remove VMware Tools and hidden old adapters, and bring offline disks online.")
+			} else {
+				item.Cutover = append(item.Cutover, "Run the fix-up on the VMware tab: put back the static IP settings, remove VMware Tools and hidden old adapters, and bring offline disks online.")
+			}
+		} else if vmHasFinding(readiness, "static-ip") && profile.Kind != vmKindCloud {
 			item.Cutover = append(item.Cutover, "Reapply the recorded static IP configuration to the new network interface.")
 		}
 		item.Verify = append(item.Verify, "Check the VM can reach its gateway, DNS and domain controllers, and that its applications start.")
@@ -498,7 +528,7 @@ func buildRunbook(plan vmPlan, inventory *vmInventory) []vmRunbookWave {
 			item.Verify = append(item.Verify, "Check Windows activation; a hardware change can require reactivation.")
 		}
 		item.Verify = append(item.Verify, "Ask the application owner to confirm the service works, then add the VM to backup and monitoring on the target.")
-		item.Rollback = append(item.Rollback, "Shut down the new VM.")
+		item.Rollback = append(item.Rollback, "Shut down the new "+machine+".")
 		item.Rollback = append(item.Rollback, "Reconnect the old VM's network adapters in vSphere and start it.")
 		item.Rollback = append(item.Rollback, "Check DNS records point back to the old VM, and note what failed before trying again.")
 		wave.VMs = append(wave.VMs, item)

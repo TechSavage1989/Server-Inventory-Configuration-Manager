@@ -445,7 +445,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
 .vm-view{height:32px;padding:0 14px;border:1px solid #cfd8e4;border-radius:999px;background:#fff;color:#334156;font-size:12px;font-weight:650;cursor:pointer}
 .vm-view:hover{background:#f5f7fa}.vm-view[aria-pressed="true"]{background:#2563eb;border-color:#2563eb;color:#fff}
 .vm-target{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;font-size:12px;color:#334156}.vm-target-label{font-weight:650}
-.vm-target label{display:inline-flex;align-items:center;gap:6px;cursor:pointer}.vm-target input{width:15px;height:15px;margin:0;accent-color:#2563eb}
+.vm-target select{min-width:190px;max-width:100%;padding:5px 8px;font:inherit;font-size:12px;border:1px solid #c7d0dd;border-radius:6px;background:#fff;color:#1f2a3a}
 .vm-counts{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;align-items:stretch}
 .vm-count{min-width:96px;border:1px solid #dbe3ed;border-radius:9px;padding:6px 12px;background:#fff;font:inherit;font-size:12px;color:#52647c;cursor:pointer;text-align:left}
 .vm-count strong{display:block;font-size:18px;line-height:1.2;color:#1b2942}
@@ -551,7 +551,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       <button class="tab-button" id="tabButtonCollection" role="tab" aria-controls="tabCollection" aria-selected="false" tabindex="-1" type="button" data-tab="collection">Collection <span class="tab-badge" id="collectionTabBadge">Ready</span></button>
       <button class="tab-button" id="tabButtonReport" role="tab" aria-controls="tabReport" aria-selected="false" tabindex="-1" type="button" data-tab="report">Report Viewer <span class="tab-badge" id="reportTabBadge">None</span></button>
       <button class="tab-button" id="tabButtonRestore" role="tab" aria-controls="tabRestore" aria-selected="false" tabindex="-1" type="button" data-tab="restore">Restore <span class="tab-badge" id="restoreTabBadge">Ready</span></button>
-      <button class="tab-button" id="tabButtonMigrate" role="tab" aria-controls="tabMigrate" aria-selected="false" tabindex="-1" type="button" data-tab="migrate">Migrate <span class="tab-badge" id="migrateTabBadge">Ready</span></button>
+      <button class="tab-button" id="tabButtonMigrate" role="tab" aria-controls="tabMigrate" aria-selected="false" tabindex="-1" type="button" data-tab="migrate">File shares <span class="tab-badge" id="migrateTabBadge">Ready</span></button>
       <button class="tab-button" id="tabButtonVmware" role="tab" aria-controls="tabVmware" aria-selected="false" tabindex="-1" type="button" data-tab="vmware">VMware <span class="tab-badge" id="vmwareTabBadge">Ready</span></button>
     </div>
 
@@ -764,10 +764,10 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
 
     <section class="tab-panel" id="tabVmware" role="tabpanel" aria-labelledby="tabButtonVmware">
       <div class="restore-wrap"><div class="card">
-        <div class="card-header"><div><div class="card-title">Move VMs off VMware</div><div class="card-subtitle">Check every VM before moving it to Hyper-V or Scale Computing HyperCore, plan the waves, prepare each VM and compare it after the move. vCenter and ESXi are only read, never changed.</div></div></div>
+        <div class="card-header"><div><div class="card-title">Move VMs off VMware</div><div class="card-subtitle">Check every VM before moving it to Hyper-V, Scale Computing HyperCore, Nutanix AHV, Proxmox VE, Azure, Amazon EC2 or a physical server, plan the waves, prepare each machine and compare it after the move. vCenter and ESXi are only read, never changed.</div></div></div>
         <div class="vm-bar">
           <div class="vm-views" role="group" aria-label="VMware migration views"><button class="vm-view" type="button" data-vmview="env" aria-pressed="true">Environment</button><button class="vm-view" type="button" data-vmview="plan" aria-pressed="false">Plan and runbook</button><button class="vm-view" type="button" data-vmview="guest" aria-pressed="false">This VM</button><button class="vm-view" type="button" data-vmview="compare" aria-pressed="false">Before and after</button></div>
-          <div class="vm-target" role="radiogroup" aria-labelledby="vmTargetLabel"><span class="vm-target-label" id="vmTargetLabel">Moving to</span><label><input type="radio" name="vmTarget" id="vmTargetHyperv" value="hyperv" checked>Hyper-V</label><label><input type="radio" name="vmTarget" id="vmTargetScale" value="scale">Scale HyperCore</label></div>
+          <div class="vm-target"><label class="vm-target-label" id="vmTargetLabel" for="vmTargetSelect">Moving to</label><select id="vmTargetSelect"><option value="hyperv">Hyper-V</option><option value="scale">Scale Computing HyperCore</option><option value="nutanix">Nutanix AHV</option><option value="proxmox">Proxmox VE (KVM)</option><option value="azure">Microsoft Azure</option><option value="aws">Amazon EC2</option><option value="physical">Physical server (V2P)</option></select></div>
         </div>
         <div class="card-body" id="vmwareBody">
           <div class="restore-status" id="vmwareMessage" role="status" aria-live="polite"></div>
@@ -795,8 +795,8 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
             <div class="hidden" id="vmPlanContent">
               <section class="migrate-section" aria-labelledby="vmCapacityTitle">
                 <h3 class="migrate-section-title" id="vmCapacityTitle">New cluster size</h3>
-                <p class="migrate-help">Describe the new Hyper-V or HyperCore cluster to check that the VMs you are moving fit, with room for a node to fail.</p>
-                <div class="vm-grid"><label>Nodes<input type="number" id="vmCapNodes" min="0" max="64" step="1"></label><label>Cores per node<input type="number" id="vmCapCores" min="0" max="512" step="1"></label><label>Memory per node (GB)<input type="number" id="vmCapMemory" min="0" max="65536" step="1"></label><label>Usable storage (TB)<input type="number" id="vmCapStorage" min="0" max="100000" step="0.1"></label><label>Nodes kept free<input type="number" id="vmCapReserve" min="0" max="8" step="1"></label><label>Most vCPU per core<input type="number" id="vmCapRatio" min="0" max="32" step="0.5"></label><label>Memory kept for the host (GB)<input type="number" id="vmCapReservedMem" min="0" max="4096" step="1"></label></div>
+                <p class="migrate-help" id="vmCapacityHelp">Describe the new cluster to check that the VMs you are moving fit, with room for a node to fail.</p>
+                <div class="vm-grid" id="vmCapacityGrid"><label>Nodes<input type="number" id="vmCapNodes" min="0" max="64" step="1"></label><label>Cores per node<input type="number" id="vmCapCores" min="0" max="512" step="1"></label><label>Memory per node (GB)<input type="number" id="vmCapMemory" min="0" max="65536" step="1"></label><label>Usable storage (TB)<input type="number" id="vmCapStorage" min="0" max="100000" step="0.1"></label><label>Nodes kept free<input type="number" id="vmCapReserve" min="0" max="8" step="1"></label><label>Most vCPU per core<input type="number" id="vmCapRatio" min="0" max="32" step="0.5"></label><label>Memory kept for the host (GB)<input type="number" id="vmCapReservedMem" min="0" max="4096" step="1"></label></div>
                 <div class="vm-sizing" id="vmSizing" aria-live="polite"></div>
               </section>
               <section class="migrate-section" aria-labelledby="vmMapTitle">
@@ -829,7 +829,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
             </section>
             <section class="migrate-section" aria-labelledby="vmGuestAfterTitle">
               <h3 class="migrate-section-title" id="vmGuestAfterTitle">After cutover: fix up this VM</h3>
-              <p class="migrate-help">Run these on the VM once it starts on Hyper-V or HyperCore. Each step asks you to type this computer's name. Network changes save the current settings first so you can undo them.</p>
+              <p class="migrate-help">Run these on the machine once it starts on its new platform. Each step asks you to type this computer's name. Network changes save the current settings first so you can undo them.</p>
               <div class="vm-empty" id="vmGuestEmpty">Choose Check this VM to see what needs fixing.</div>
               <div class="migrate-cards vm-guest-cards hidden" id="vmGuestCards">
                 <div class="migrate-card"><h4>Put back IP settings</h4><div id="vmGuestIpText"></div><div id="vmGuestIpRows"></div><div class="migrate-row"><button class="secondary-button" id="vmGuestApply" type="button">Put back IP settings&hellip;</button><button class="secondary-button hidden" id="vmGuestUndo" type="button">Undo&hellip;</button></div></div>
@@ -870,7 +870,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
 <dialog class="shortcuts-dialog" id="shortcutsDialog" aria-labelledby="shortcutsTitle">
   <div class="shortcuts-head"><h2 id="shortcutsTitle">Keyboard shortcuts</h2><button class="secondary-button" id="shortcutsClose" type="button">Close</button></div>
   <dl class="shortcuts-list">
-    <dt><kbd>Alt</kbd> + <kbd>1</kbd> to <kbd>6</kbd></dt><dd>Go to Setup, Collection, Report Viewer, Restore, Migrate or VMware</dd>
+    <dt><kbd>Alt</kbd> + <kbd>1</kbd> to <kbd>6</kbd></dt><dd>Go to Setup, Collection, Report Viewer, Restore, File shares or VMware</dd>
     <dt><kbd>/</kbd> or <kbd>Ctrl</kbd> + <kbd>K</kbd></dt><dd>Search the current tab: categories, log or report</dd>
     <dt><kbd>Esc</kbd></dt><dd>Clear the search you are typing in</dd>
     <dt><kbd>Ctrl</kbd> + <kbd>S</kbd></dt><dd>Save collection choices (Setup)</dd>
@@ -2070,7 +2070,9 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   function vmOtherBusy(){return !!(latestState&&latestState.running)||restoreIsRunning(latestState&&latestState.restore)||migrateIsRunning();}
   function vmLocked(){return vmBusy||vmwareIsRunning()||vmOtherBusy();}
   function vmTarget(){return vmPlan&&vmPlan.target?vmPlan.target:vmTargetLocal;}
-  function vmTargetName(target){return target==='scale'?'Scale HyperCore':'Hyper-V';}
+  var vmTargetList=[{id:'hyperv',name:'Hyper-V',kind:'cluster'},{id:'scale',name:'Scale HyperCore',kind:'cluster'},{id:'nutanix',name:'Nutanix AHV',kind:'cluster'},{id:'proxmox',name:'Proxmox VE',kind:'cluster'},{id:'azure',name:'Azure',kind:'cloud'},{id:'aws',name:'AWS EC2',kind:'cloud'},{id:'physical',name:'a physical server',kind:'physical'}];
+  function vmTargetInfo(target){for(var i=0;i<vmTargetList.length;i++){if(vmTargetList[i].id===target){return vmTargetList[i];}}return vmTargetList[0];}
+  function vmTargetName(target){return vmTargetInfo(target).name;}
   function vmReadiness(vm){var list=vmArr(vm.readiness),target=vmTarget();for(var i=0;i<list.length;i++){if(list[i].target===target){return list[i];}}return {target:target,status:'review',findings:[]};}
   function vmChip(status){return el('span','run-chip '+({ready:'run-ready',review:'run-attention',blocked:'run-failed'}[status]||''),vmStatusLabels[status]||status);}
   function vmFind(id){var list=vmInventory?vmArr(vmInventory.vms):[];for(var i=0;i<list.length;i++){if(list[i].id===id){return list[i];}}return null;}
@@ -2119,7 +2121,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     byId('vmOpenInventory').disabled=locked;byId('vmCertTrust').disabled=locked;
     byId('vmReset').classList.toggle('hidden',!v.server&&!v.summary);byId('vmReset').disabled=locked;
     var stop=byId('vmStop');stop.classList.toggle('hidden',!(running&&(v.action==='connect'||v.action==='compare')));stop.disabled=!!v.cancelRequested;stop.textContent=v.cancelRequested?'Stopping...':'Stop';
-    ['vmTargetHyperv','vmTargetScale'].forEach(function(id){byId(id).disabled=vmBusy||running;});
+    byId('vmTargetSelect').disabled=vmBusy||running;
     var hasPlan=!!(vmInventory&&vmPlan);
     byId('vmSavePlan').disabled=locked||!hasPlan;byId('vmSuggest').disabled=locked||!hasPlan;byId('vmWriteRunbook').disabled=locked||!hasPlan;
     byId('vmPlanDirtyNote').textContent=vmPlanDirty?'Unsaved changes.':'';
@@ -2223,7 +2225,11 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   function vmMarkPlanDirty(){vmPlanDirty=true;syncVmButtons();renderVmSizing();}
   function renderVmPlan(){
     var has=!!(vmInventory&&vmPlan);byId('vmPlanEmpty').classList.toggle('hidden',has);byId('vmPlanContent').classList.toggle('hidden',!has);
-    byId('vmTargetHyperv').checked=vmTarget()!=='scale';byId('vmTargetScale').checked=vmTarget()==='scale';
+    byId('vmTargetSelect').value=vmTarget();
+    var kind=vmTargetInfo(vmTarget()).kind;
+    byId('vmCapacityTitle').textContent=kind==='cloud'?'Cloud quota':(kind==='physical'?'Servers needed':'New cluster size');
+    byId('vmCapacityHelp').textContent=kind==='cloud'?'Each VM becomes its own instance, so there is no cluster to size. Check the totals below against your subscription or account quota.':(kind==='physical'?'Each VM moves to its own server. The runbook lists what each one needs.':'Describe the new cluster to check that the VMs you are moving fit, with room for a node to fail.');
+    byId('vmCapacityGrid').classList.toggle('hidden',kind!=='cluster');
     if(!has){return;}
     var capacity=vmPlan.capacity||(vmPlan.capacity={});
     vmCapacityFields.forEach(function(f){var input=byId(f.id);if(document.activeElement!==input){input.value=capacity[f.key]?String(capacity[f.key]):'';}});
@@ -2233,7 +2239,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     var box=byId('vmSizing'),s=vmSizing;box.textContent='';
     if(!s){return;}
     var head=el('div','vm-sizing-head');
-    head.appendChild(el('span','run-chip '+({ok:'run-ready',tight:'run-attention',over:'run-failed'}[s.status]||''),{ok:'Fits',tight:'Tight',over:'Does not fit'}[s.status]||'Not described'));
+    head.appendChild(el('span','run-chip '+({ok:'run-ready',tight:'run-attention',over:'run-failed',quota:'run-attention'}[s.status]||''),{ok:'Fits',tight:'Tight',over:'Does not fit',quota:'Check quota',perserver:'One server each'}[s.status]||'Not described'));
     head.appendChild(el('span','','Moving '+vmPlural(s.vms,'VM')+': '+formatCount(s.vcpus)+' vCPU, '+formatBytesShort(s.memoryBytes)+' memory, '+formatBytesShort(s.usedBytes)+' used ('+formatBytesShort(s.provisionedBytes)+' provisioned).'));
     box.appendChild(head);
     if(s.configured){box.appendChild(el('div','','On '+vmPlural(s.usableNodes,'usable node')+': '+(Number(s.vcpuPerCore)||0).toFixed(1)+' vCPU per core, memory '+Math.round(Number(s.memoryPercent)||0)+'% used, storage '+Math.round(Number(s.storagePercent)||0)+'% used ('+Math.round(Number(s.provisionedPercent)||0)+'% if every disk fills).'));}
@@ -2294,7 +2300,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     if(target===vmTarget()){return;}
     vmTargetLocal=target;
     if(vmPlan){vmPlan.target=target;saveVmPlan(null,'Plan saved for '+vmTargetName(target)+'.');}
-    renderVmSummary(vmwareState()||{});renderVmTable();
+    renderVmSummary(vmwareState()||{});renderVmTable();renderVmPlan();renderVmGuest();
   }
   // ---- This VM ----
   function loadVmGuest(serial){
@@ -2322,6 +2328,8 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     byId('vmGuestOs').textContent=(state.OperatingSystem||'')+(state.Firmware?', '+state.Firmware+(state.SecureBoot?' with Secure Boot':''):'');
     byId('vmGuestRecorded').textContent=capture&&capture.CapturedAt?String(capture.CapturedAt).replace('T',' ').slice(0,16):'Not recorded yet';
     vmArr(capture&&capture.Findings).forEach(function(f){findings.appendChild(el('li',f.Severity==='warning'?'warning':(f.Severity==='good'?'good':''),f.Message));});
+    // Driver checks for the chosen target only; the live state is newer than the capture.
+    vmArr(g.TargetChecks||(capture&&capture.TargetChecks)).forEach(function(f){if(f.Target===vmTarget()){findings.appendChild(el('li',f.Severity==='warning'?'warning':(f.Severity==='good'?'good':''),'For '+vmTargetName(vmTarget())+': '+f.Message));}});
     findings.classList.toggle('hidden',!findings.childNodes.length);
     // IP settings: pair each recorded static adapter with an adapter that exists now.
     var present=vmArr(state.Adapters),rows=byId('vmGuestIpRows'),old=capture?vmArr(capture.State&&capture.State.Adapters).filter(function(a){return a.Static;}):[],missing={};
@@ -2433,7 +2441,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   }
   Array.prototype.forEach.call(document.querySelectorAll('[data-vmview]'),function(b){b.addEventListener('click',function(){setVmView(b.getAttribute('data-vmview'));});});
   Array.prototype.forEach.call(document.querySelectorAll('[data-vmfilter]'),function(b){b.addEventListener('click',function(){setVmFilter(b.getAttribute('data-vmfilter'));});});
-  ['vmTargetHyperv','vmTargetScale'].forEach(function(id){byId(id).addEventListener('change',function(){if(this.checked){changeVmTarget(this.value);}});});
+  byId('vmTargetSelect').addEventListener('change',function(){changeVmTarget(this.value);});
   ['vmServer','vmUser'].forEach(function(id){byId(id).addEventListener('input',syncVmButtons);});
   ['vmServer','vmUser','vmPassword'].forEach(function(id){byId(id).addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();connectVmware();}});});
   byId('vmConnect').addEventListener('click',function(){connectVmware();});
