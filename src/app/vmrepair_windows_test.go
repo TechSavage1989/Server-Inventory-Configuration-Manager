@@ -193,9 +193,10 @@ func TestRepairScriptFixesUpAndUndoesAWindowsDisk(t *testing.T) {
 		}
 		t.Fatalf("the record %s is not found as the latest complete record for %s:\n%s", applied.Applied.Record, image, found.String())
 	}
-	after, _ := vmRunRepair(t, folder, "-Mode", "Check", "-ImagePath", image, "-Target", "kvm")
+	applyLog := out
+	after, out := vmRunRepair(t, folder, "-Mode", "Check", "-ImagePath", image, "-Target", "kvm")
 	if driver := vmFindRepairDriver(t, after, "storahci"); driver.Start != 0 || driver.Override {
-		t.Fatalf("storahci not set to boot start: %+v", driver)
+		t.Fatalf("storahci not set to boot start: %+v\napply:\n%s\ncheck:\n%s", driver, applyLog, out)
 	}
 	if driver := vmFindRepairDriver(t, after, "vmbus"); driver.Start != 0 {
 		t.Fatalf("vmbus changed: %+v", driver)

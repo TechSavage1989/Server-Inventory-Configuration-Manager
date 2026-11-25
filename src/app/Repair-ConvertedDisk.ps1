@@ -165,6 +165,8 @@ function Mount-Hive {
 }
 
 function Dismount-Hives {
+    param([switch]$Strict)
+    $failed = 0
     foreach ($key in @($script:LoadedHives)) {
         $done = $false
         for ($try = 0; $try -lt 10 -and -not $done; $try++) {
@@ -172,9 +174,11 @@ function Dismount-Hives {
             $result = Invoke-Native 'reg.exe' @('unload', ('HKLM\' + $key))
             if ($result.ExitCode -eq 0) { $done = $true } else { Start-Sleep -Milliseconds 300 }
         }
-        if (-not $done) { Write-RepairLog ('The registry hive HKLM\' + $key + ' could not be unloaded.') 'ERROR' }
+        if (-not $done) { Write-RepairLog ('The registry hive HKLM\' + $key + ' could not be unloaded.') 'ERROR'; $failed++ }
     }
     $script:LoadedHives.Clear()
+    # A hive that stays loaded may never write its changes to the image.
+    if ($failed -gt 0 -and $Strict) { throw 'The registry of the disk could not be closed, so the changes may not be saved. Undo the fix-ups and try again.' }
 }
 
 function Get-Value {
@@ -421,7 +425,11 @@ function Invoke-Apply {
             $overrideKey = $path + '\StartOverride'
             if (Test-Path -LiteralPath $overrideKey) {
                 $item = Get-Item -LiteralPath $overrideKey
-                foreach ($property in @($item.Property)) {
+                $properties = @($item.Property)
+                # An open key keeps the hive loaded: reg unload then fails and
+                # the changes never reach the image.
+                $item.Close(); $item = $null
+                foreach ($property in $properties) {
                     [void]$overrides.Add([pscustomobject]@{ Key = ($relative + '\StartOverride'); Name = $property; Value = (Get-Value $overrideKey $property) })
                     Remove-ItemProperty -LiteralPath $overrideKey -Name $property
                 }
@@ -438,7 +446,7 @@ function Invoke-Apply {
         $record.Complete = $true
         Write-JsonFile $recordFile $record
     } finally {
-        Dismount-Hives
+        Dismount-Hives -Strict
     }
     foreach ($change in $changes) { Write-RepairLog ('Set ' + $change.Key + ' ' + $change.Name + ' to ' + $change.New + ' (was ' + $(if ($change.Existed) { [string]$change.Old } else { 'not set' }) + ').') }
     foreach ($override in $overrides) { Write-RepairLog ('Removed ' + $override.Key + ' ' + $override.Name + ' (was ' + $override.Value + ').') }
@@ -478,7 +486,7 @@ function Invoke-Undo {
             $restored++
         }
     } finally {
-        Dismount-Hives
+        Dismount-Hives -Strict
     }
     Write-RepairLog ('Put back ' + $restored + ' value(s).')
     return [pscustomobject]@{ Restored = $restored; Drivers = @($record.Drivers) }
