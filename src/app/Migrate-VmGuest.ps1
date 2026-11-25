@@ -1,6 +1,7 @@
 <#
-Guest pre-flight and post-cutover fix-up for a Windows VM moving from VMware
-to Hyper-V or Scale Computing HyperCore. Embedded in Server Inventory and
+Guest pre-flight and post-cutover fix-up for a Windows computer moving to a
+new platform: VMware, Hyper-V or physical to Hyper-V, Scale Computing
+HyperCore, Nutanix AHV, Proxmox VE, Azure, Amazon EC2 or a physical server. Embedded in Server Inventory and
 Migration Manager and run by it; Windows PowerShell 3.0 compatible.
 
 Modes
@@ -12,7 +13,7 @@ Modes
                    The adapter's current settings are saved first.
   UndoNetwork      Restores the settings saved by the last ApplyNetwork.
   RemoveGhostNics  Removes chosen network adapters that are no longer present
-                   (the old VMware adapters).
+                   (the old platform's adapters).
   RemoveVmwareTools Uninstalls VMware Tools with its own uninstaller.
   OnlineDisks      Brings chosen offline or read-only disks online.
 
@@ -154,14 +155,25 @@ public static class SicmNetDevices {
 function Get-Platform {
     $system = Get-CimInstance -ClassName Win32_ComputerSystem
     $bios = Get-CimInstance -ClassName Win32_BIOS
-    $text = ([string]$system.Manufacturer + ' ' + [string]$system.Model + ' ' + [string]$bios.Manufacturer)
-    $name = 'Other'
+    $assetTag = ''
+    try { $assetTag = [string](@(Get-CimInstance -ClassName Win32_SystemEnclosure -ErrorAction Stop)[0].SMBIOSAssetTag) } catch { }
+    $text = ([string]$system.Manufacturer + ' ' + [string]$system.Model + ' ' + [string]$bios.Manufacturer + ' ' + [string]$bios.Version)
+    $virtual = $true
+    $name = 'Other virtual machine'
     if ($text -match 'VMware') { $name = 'VMware' }
     elseif ($text -match 'Scale Computing|HyperCore') { $name = 'Scale Computing HyperCore' }
-    elseif ($text -match 'Microsoft Corporation' -and [string]$system.Model -match 'Virtual') { $name = 'Hyper-V' }
-    elseif ($text -match 'QEMU|KVM|Red Hat|Nutanix|oVirt') { $name = 'KVM-based' }
-    elseif ($system.Model -notmatch 'Virtual') { $name = 'Physical or unknown' }
-    return [pscustomobject]@{ Name = $name; Manufacturer = [string]$system.Manufacturer; Model = [string]$system.Model }
+    elseif ($text -match 'Nutanix') { $name = 'Nutanix AHV' }
+    elseif ($text -match 'Amazon EC2' -or ($text -match 'Xen' -and $text -match 'Amazon')) { $name = 'Amazon EC2' }
+    elseif ($text -match 'Microsoft Corporation' -and [string]$system.Model -match 'Virtual') {
+        # Azure marks its VMs with this chassis asset tag.
+        if ($assetTag -eq '7783-7084-3265-9085-8269-3286-77') { $name = 'Microsoft Azure' } else { $name = 'Hyper-V' }
+    }
+    elseif ($text -match 'Proxmox') { $name = 'Proxmox VE' }
+    elseif ($text -match 'QEMU|KVM|Red Hat|oVirt|Bochs') { $name = 'KVM (for example Proxmox VE)' }
+    elseif ($text -match 'Xen') { $name = 'Xen' }
+    elseif ($text -match 'VirtualBox|Parallels' -or [string]$system.Model -match 'Virtual') { $name = 'Other virtual machine' }
+    else { $name = 'Physical computer'; $virtual = $false }
+    return [pscustomobject]@{ Name = $name; Virtual = $virtual; Manufacturer = [string]$system.Manufacturer; Model = [string]$system.Model }
 }
 
 function Get-DriverStoreStatus {
@@ -174,7 +186,35 @@ function Get-DriverStoreStatus {
         VirtIONetwork = (& $has 'netkvm.inf_')
         HyperVStorage = (& $has 'storvsc.inf_')
         HyperVNetwork = (& $has 'netvsc.inf_')
+        AwsEna        = (& $has 'ena.inf_')
+        AwsNvme       = ((& $has 'awsnvme.inf_') -or (& $has 'stornvme.inf_'))
+        AzureAgent    = [bool](Get-Service -Name 'WindowsAzureGuestAgent' -ErrorAction SilentlyContinue)
+        StorageControllers = @(Get-CimInstance -ClassName Win32_SCSIController -ErrorAction SilentlyContinue | ForEach-Object { [string]$_.Name } | Sort-Object -Unique)
     }
+}
+
+# What each migration target needs from this Windows installation before
+# cutover, from the drivers in the driver store. One line per target.
+function Get-TargetChecks {
+    param([object]$State)
+    $d = $State.Drivers
+    $checks = New-Object System.Collections.ArrayList
+    $add = { param($Target, $Ok, $Good, $Bad) [void]$checks.Add([pscustomobject]@{ Target = $Target; Severity = $(if ($Ok) { 'good' } else { 'warning' }); Message = $(if ($Ok) { $Good } else { $Bad }) }) }
+    $hyperv = ($d.HyperVStorage -and $d.HyperVNetwork)
+    $virtio = ($d.VirtIOStorage -and $d.VirtIONetwork)
+    & $add 'hyperv' $hyperv 'Hyper-V storage and network drivers are built into this Windows version.' 'Hyper-V drivers were not found in the driver store. Older Windows versions need Hyper-V Integration Services installed before cutover.'
+    & $add 'scale' $virtio 'VirtIO storage and network drivers are in the driver store, as HyperCore needs.' 'VirtIO drivers are not installed. Install the Scale Computing guest tools before cutover.'
+    & $add 'nutanix' $virtio 'VirtIO storage and network drivers are in the driver store, as Nutanix AHV needs.' 'VirtIO drivers are not installed. Install the Nutanix VirtIO drivers before cutover, or let Nutanix Move install them.'
+    & $add 'proxmox' $virtio 'VirtIO storage and network drivers are in the driver store, as Proxmox VE needs for VirtIO disks and adapters.' 'VirtIO drivers are not installed. Install the virtio-win drivers before cutover, or start the VM on SATA and e1000 and switch after installing them.'
+    $azure = $hyperv
+    $azureText = 'Hyper-V drivers are present, which Azure uses.'
+    if ($hyperv -and -not $d.AzureAgent) { $azureText += ' The Azure VM Agent is not installed yet; Azure Migrate can install it, or install it after cutover.' }
+    & $add 'azure' $azure $azureText 'Hyper-V drivers, which Azure uses, were not found. Install Hyper-V Integration Services before cutover.'
+    & $add 'aws' ($d.AwsEna -and $d.AwsNvme) 'The ENA network and NVMe storage drivers are in the driver store, as EC2 Nitro instances need.' 'The AWS ENA network driver is not installed. AWS Application Migration Service adds it during conversion; install ENA and NVMe drivers first if you use another tool.'
+    $controllers = @($d.StorageControllers)
+    $physicalText = 'Before moving to a physical server, install its storage controller and network drivers from the server vendor (or inject them during the restore). Storage controllers here now: ' + $(if ($controllers.Count) { $controllers -join ', ' } else { 'none reported' }) + '.'
+    [void]$checks.Add([pscustomobject]@{ Target = 'physical'; Severity = 'warning'; Message = $physicalText })
+    return @($checks)
 }
 
 function Get-VmwareToolsEntry {
@@ -321,7 +361,7 @@ function Get-GhostAdapters {
             $name = [string]$_[1]
             # Only real adapters: skip software (WAN Miniport, ROOT) and Microsoft filter devices.
             if ($id -match '^(PCI|VMBUS|USB)\\') {
-                [pscustomobject]@{ InstanceId = $id; Description = $name; Vmware = ($name -match 'vmxnet|VMware|Intel\(R\) (PRO/1000|82574L)|E1000') }
+                [pscustomobject]@{ InstanceId = $id; Description = $name; Vmware = ($name -match 'vmxnet|VMware|Intel\(R\) (PRO/1000|82574L)|E1000|Hyper-V Network Adapter|VirtIO|Nutanix|Elastic Network Adapter|AWS PV|Xen') }
             }
         })
 }
@@ -332,10 +372,6 @@ function Get-PreflightFindings {
     $add = { param($Severity, $Message) [void]$findings.Add([pscustomobject]@{ Severity = $Severity; Message = $Message }) }
     $static = @($State.Adapters | Where-Object { $_.Static })
     if ($static.Count -gt 0) { & $add 'info' ("Recorded static IP settings for " + $static.Count + " adapter(s). After cutover, use Put back IP settings on the new adapters.") }
-    if (-not $State.Drivers.VirtIOStorage -or -not $State.Drivers.VirtIONetwork) { & $add 'warning' 'VirtIO drivers are not installed. Install the Scale Computing guest tools before cutover if this VM moves to HyperCore.' }
-    else { & $add 'good' 'VirtIO storage and network drivers are in the driver store (needed for HyperCore).' }
-    if ($State.Drivers.HyperVStorage -and $State.Drivers.HyperVNetwork) { & $add 'good' 'Hyper-V storage and network drivers are built into this Windows version.' }
-    else { & $add 'warning' 'Hyper-V drivers were not found in the driver store. Older Windows versions need Hyper-V Integration Services installed before cutover.' }
     if (@($State.BitLockerOn).Count -gt 0) { & $add 'warning' ('BitLocker protects ' + (@($State.BitLockerOn) -join ', ') + '. Save the recovery keys and suspend BitLocker before cutover.') }
     if ($State.SanPolicy -and $State.SanPolicy -notmatch 'OnlineAll') { & $add 'info' ('The SAN policy is ' + $State.SanPolicy + ', so data disks may start offline on the new hypervisor. The fix-up can bring them online.') }
     if ($State.Activation -and $State.Activation -notmatch '^Licensed') { & $add 'warning' ('Windows activation: ' + $State.Activation + '.') }
@@ -344,10 +380,8 @@ function Get-PreflightFindings {
 
 function Invoke-Capture {
     $state = Get-GuestState
-    if ($state.Platform.Name -ne 'VMware') {
-        Write-GuestLog ('This computer reports ' + $state.Platform.Name + ', not VMware. The capture is still saved.') 'WARN'
-    }
-    $capture = [pscustomobject]@{ Schema = 1; EngineVersion = $script:EngineVersion; CapturedAt = (Get-Date).ToString('o'); State = $state; Findings = Get-PreflightFindings $state }
+    Write-GuestLog ('Recording this computer on ' + $state.Platform.Name + '.')
+    $capture = [pscustomobject]@{ Schema = 1; EngineVersion = $script:EngineVersion; CapturedAt = (Get-Date).ToString('o'); State = $state; Findings = Get-PreflightFindings $state; TargetChecks = Get-TargetChecks $state }
     Write-JsonFile (Join-Path $WorkPath $script:CaptureName) $capture
     Write-JsonFile (Join-Path $WorkPath ('Guest-Capture-' + (Get-Date -Format 'yyyyMMdd-HHmmss') + '.json')) $capture
     if ($ExportPath) {
@@ -377,7 +411,7 @@ function Invoke-Status {
     if ($capture) {
         $running = @{}
         foreach ($name in @($state.RunningAutoServices)) { $running[$name] = $true }
-        $missingServices = @(@($capture.State.RunningAutoServices) | Where-Object { -not $running[$_] -and $_ -notmatch '^(VMTools|VGAuthService|vm3dservice|VMwareCAFManagementAgentHost|vmvss)$' })
+        $missingServices = @(@($capture.State.RunningAutoServices) | Where-Object { -not $running[$_] -and $_ -notmatch '^(VMTools|VGAuthService|vm3dservice|VMwareCAFManagementAgentHost|vmvss|vmic\w+|WindowsAzureGuestAgent|RdAgent|QEMU-GA|NutanixGuestAgent|AmazonSSMAgent|EC2Launch|Ec2Config)$' })
         $present = @{}
         foreach ($adapter in @($state.Adapters)) { foreach ($address in @($adapter.Addresses)) { $present[[string]$address.Address] = $true } }
         foreach ($adapter in @($capture.State.Adapters | Where-Object { $_.Static })) {
@@ -386,7 +420,7 @@ function Invoke-Status {
             }
         }
     }
-    return [pscustomobject]@{ Schema = 1; State = $state; Ghosts = $ghosts; Capture = $capture; RollbackAvailable = $rollback; MissingAutoServices = $missingServices; MissingAddresses = $missingAddresses }
+    return [pscustomobject]@{ Schema = 1; State = $state; Ghosts = $ghosts; Capture = $capture; RollbackAvailable = $rollback; MissingAutoServices = $missingServices; MissingAddresses = $missingAddresses; TargetChecks = Get-TargetChecks $state }
 }
 
 function Get-PlanItems {

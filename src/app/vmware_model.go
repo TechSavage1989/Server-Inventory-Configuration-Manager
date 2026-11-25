@@ -9,15 +9,12 @@ import (
 )
 
 // VMware migration planning: the inventory read from vCenter or a standalone
-// ESXi host (vmware_collect.go), the per-VM readiness checks for Hyper-V and
-// Scale Computing HyperCore, and the migration plan (target mapping, sizing
+// ESXi host (vmware_collect.go), the per-VM readiness checks for every
+// migration target (profiles in vmware_targets.go), and the migration plan (target mapping, sizing
 // and waves). Nothing here changes the VMware environment. This file has no
 // Windows dependency so the rules are unit tested on any platform.
 
 const (
-	vmTargetHyperV = "hyperv"
-	vmTargetScale  = "scale"
-
 	vmSeverityBlocker = "blocker"
 	vmSeverityWarning = "warning"
 	vmSeverityInfo    = "info"
@@ -26,18 +23,6 @@ const (
 	vmStatusReview  = "review"
 	vmStatusBlocked = "blocked"
 )
-
-var vmTargets = []string{vmTargetHyperV, vmTargetScale}
-
-func vmTargetLabel(target string) string {
-	switch target {
-	case vmTargetHyperV:
-		return "Hyper-V"
-	case vmTargetScale:
-		return "Scale Computing HyperCore"
-	}
-	return target
-}
 
 type vmInventory struct {
 	Schema       int           `json:"schema"`
@@ -346,9 +331,15 @@ func assessVM(vm vmMachine, target string, now time.Time) vmReadiness {
 	add := func(severity, code, message, action string) {
 		result.Findings = append(result.Findings, vmFinding{Severity: severity, Code: code, Message: message, Action: action})
 	}
+	profile, known := vmTargetProfileFor(target)
+	if !known {
+		add(vmSeverityBlocker, "target-unknown", "Unknown migration target "+target+".", "Choose a target from the list.")
+		result.Status = vmStatusBlocked
+		return result
+	}
 	os := classifyGuestOS(vm)
 	efi := strings.EqualFold(vm.Firmware, "efi")
-	if target == vmTargetHyperV {
+	if target == vmTargetHyperV || target == vmTargetAzure {
 		result.Generation = 1
 		if efi {
 			result.Generation = 2
@@ -359,19 +350,29 @@ func assessVM(vm vmMachine, target string, now time.Time) vmReadiness {
 		add(vmSeverityInfo, "template", "This is a template, not a running VM.", "Rebuild the template on the target, or convert it to a VM first if it must move as is.")
 	}
 	if vm.Encrypted {
-		add(vmSeverityBlocker, "encrypted", "The VM is encrypted with vSphere VM Encryption.", "Decrypt the VM in vSphere before exporting or converting it. Its disks cannot be read by other hypervisors.")
+		add(vmSeverityBlocker, "encrypted", "The VM is encrypted with vSphere VM Encryption.", "Decrypt the VM in vSphere before exporting or converting it. Its disks cannot be read by other platforms.")
 	}
 
 	// Guest operating system support.
 	switch os.Supported {
 	case "unsupported":
-		add(vmSeverityBlocker, "os-unsupported", fmt.Sprintf("%s is not supported on %s.", vmNonEmpty(os.Name, "This guest operating system"), vmTargetLabel(target)), "Upgrade or rebuild the workload on a supported operating system, or keep it on VMware.")
+		add(vmSeverityBlocker, "os-unsupported", fmt.Sprintf("%s is not supported on %s.", vmNonEmpty(os.Name, "This guest operating system"), profile.Label), "Upgrade or rebuild the workload on a supported operating system, or keep it on VMware.")
 	case "obsolete":
 		action := "Plan an operating system upgrade. If it must move as is, test the conversion first."
-		if os.Family == "windows" && target == vmTargetHyperV {
-			action = "It can run as a Generation 1 VM but needs Hyper-V Integration Services installed before cutover and is outside Microsoft support. Test the conversion first."
-		} else if os.Family == "windows" && target == vmTargetScale {
-			action = "Confirm the VirtIO drivers you have support this version, install them before cutover and test the conversion first."
+		if os.Family == "windows" {
+			switch profile.Family {
+			case "hyperv":
+				action = "It can run as a Generation 1 VM but needs Hyper-V Integration Services installed before cutover and is outside Microsoft support. Test the conversion first."
+				if target == vmTargetAzure {
+					action = "Azure runs only Windows versions it supports; check the Azure supported Windows list and upgrade first if this one is not on it."
+				}
+			case "kvm":
+				action = "Confirm the VirtIO drivers you have support this version, install them before cutover and test the conversion first."
+			case "aws":
+				action = "Check that AWS Application Migration Service supports this Windows version; older versions need the AWS PV drivers instead of ENA and NVMe. Test the conversion first."
+			case "physical":
+				action = "Check that the server vendor still publishes storage and network drivers for this Windows version. Without them it cannot boot on the new hardware."
+			}
 		}
 		add(vmSeverityWarning, "os-obsolete", fmt.Sprintf("%s is out of vendor support.", vmNonEmpty(os.Name, "This guest operating system")), action)
 	case "legacy":
@@ -385,20 +386,28 @@ func assessVM(vm vmMachine, target string, now time.Time) vmReadiness {
 			add(vmSeverityWarning, "os-unknown", "The guest operating system could not be identified.", "Check the guest operating system and confirm the target supports it.")
 		}
 	}
+	if os.Family == "windows" && !os.Bits64 && os.Supported != "unsupported" && os.Name != "" && (profile.Kind == vmKindCloud) {
+		add(vmSeverityWarning, "os-32bit", "The guest looks like a 32-bit Windows.", "Cloud images and migration services expect 64-bit Windows. Confirm the edition, or rebuild it as 64-bit.")
+	}
 
+	// Drivers the guest needs before cutover.
 	if os.Family == "linux" {
-		drivers := "hv_storvsc, hv_netvsc and hv_vmbus"
-		if target == vmTargetScale {
-			drivers = "virtio_blk, virtio_scsi and virtio_net"
+		add(vmSeverityWarning, "linux-initramfs", "Linux boots from an initramfs that may not include the target's storage drivers.", "Before cutover, rebuild the initramfs with "+profile.LinuxDrivers+" (for example dracut -f --add-drivers or update-initramfs). Network interface names usually change, so check static IP configuration after cutover.")
+	}
+	if os.Family == "windows" && profile.WindowsDrivers != "" {
+		switch profile.Family {
+		case "kvm":
+			add(vmSeverityWarning, "virtio-drivers", fmt.Sprintf("Windows needs VirtIO drivers to boot from %s's disk controller and use its network adapter.", profile.Short), "Install "+profile.WindowsDrivers+" in the VM before cutover. The guest pre-flight on this VM shows whether they are present.")
+		case "aws":
+			add(vmSeverityWarning, "aws-drivers", "Windows needs the AWS ENA and NVMe drivers to boot and reach the network on Nitro instances.", "Use "+profile.WindowsDrivers+". The guest pre-flight on this VM shows whether they are present.")
+		case "physical":
+			add(vmSeverityWarning, "hardware-drivers", "Windows needs the new server's storage controller driver to boot, and its network driver to reach the network.", "Install "+profile.WindowsDrivers+" before cutover. The guest pre-flight on this VM lists the storage drivers present now.")
 		}
-		add(vmSeverityWarning, "linux-initramfs", "Linux boots from an initramfs that may not include the target's storage drivers.", "Before cutover, rebuild the initramfs with "+drivers+" (for example dracut -f --add-drivers or update-initramfs). Network interface names usually change, so check static IP configuration after cutover.")
 	}
 
-	if os.Family == "windows" && target == vmTargetScale {
-		add(vmSeverityWarning, "virtio-drivers", "Windows needs VirtIO drivers to boot from HyperCore's disk controller and use its network adapter.", "Install the Scale Computing guest tools (VirtIO drivers) in the VM before cutover. The guest pre-flight on this VM shows whether they are present.")
-	}
-
-	if target == vmTargetHyperV {
+	// Firmware, Secure Boot and TPM.
+	switch target {
+	case vmTargetHyperV:
 		if efi && !os.Bits64 && os.Family != "unknown" {
 			add(vmSeverityWarning, "efi-32bit", "The VM uses EFI firmware but its guest is 32-bit.", "Generation 2 VMs need a 64-bit guest. Use Generation 1, which may need the boot configuration converted to BIOS.")
 		}
@@ -420,22 +429,46 @@ func assessVM(vm vmMachine, target string, now time.Time) vmReadiness {
 			}
 		}
 		if vm.SecureBoot && os.Family == "linux" {
-			add(vmSeverityWarning, "secureboot-linux", "Secure Boot is on for a Linux guest.", "On Hyper-V choose the Microsoft UEFI Certificate Authority Secure Boot template, or turn Secure Boot off for this VM.")
+			add(vmSeverityWarning, "secureboot-linux", "Secure Boot is on for a Linux guest.", profile.SecureBoot)
 		}
 		if len(vm.NICs) > 8 {
 			add(vmSeverityWarning, "nic-count", fmt.Sprintf("%d network adapters. Hyper-V supports 8 network adapters per VM.", len(vm.NICs)), "Consolidate adapters or use VLAN trunking in the guest.")
 		}
-	} else {
+	case vmTargetAzure:
 		if efi {
-			add(vmSeverityInfo, "firmware", "EFI firmware: create the VM with UEFI boot on HyperCore.", "")
+			add(vmSeverityInfo, "generation", "EFI firmware: it moves as a Generation 2 Azure VM.", "Pick a VM size that supports Generation 2.")
+		} else {
+			add(vmSeverityInfo, "generation", "BIOS firmware: it moves as a Generation 1 Azure VM.", "Trusted Launch (Secure Boot and vTPM) needs Generation 2; convert the boot disk to GPT first if you need it.")
+		}
+		for _, disk := range vm.Disks {
+			if disk.BootCandidate && disk.CapacityBytes > 4096*(1<<30) {
+				add(vmSeverityBlocker, "azure-os-disk", fmt.Sprintf("The boot disk %s is %s. Azure OS disks are limited to 4 TiB.", disk.Label, vmFormatBytes(disk.CapacityBytes)), "Move data off the boot disk to a data disk and shrink it before migrating.")
+				break
+			}
+			if !disk.BootCandidate && disk.CapacityBytes > 32*1024*(1<<30) {
+				add(vmSeverityBlocker, "azure-data-disk", fmt.Sprintf("Disk %s is %s. Azure managed data disks are limited to 32 TiB.", disk.Label, vmFormatBytes(disk.CapacityBytes)), "Split the data across smaller disks before migrating.")
+			}
 		}
 		if vm.SecureBoot {
-			add(vmSeverityWarning, "secureboot", "Secure Boot is on.", "Confirm the HyperCore version you are moving to supports Secure Boot for this guest, or turn Secure Boot off for this VM.")
+			add(vmSeverityInfo, "secureboot", "Secure Boot is on.", profile.SecureBoot)
+		}
+	default:
+		if efi {
+			switch profile.Kind {
+			case vmKindPhysical:
+				add(vmSeverityInfo, "firmware", "EFI firmware: set the server to UEFI boot.", "")
+			default:
+				add(vmSeverityInfo, "firmware", "EFI firmware: create the VM with UEFI boot on "+profile.Short+".", "")
+			}
+		} else if profile.Kind == vmKindPhysical {
+			add(vmSeverityWarning, "firmware-bios", "BIOS firmware with an MBR boot disk. Many current servers boot only with UEFI.", "Turn on legacy (CSM) boot on the server if it has one, or convert the boot disk to GPT (MBR2GPT on Windows) before the move.")
+		}
+		if vm.SecureBoot {
+			add(vmSeverityWarning, "secureboot", "Secure Boot is on.", profile.SecureBoot)
 		}
 	}
-
 	if vm.VTPM {
-		add(vmSeverityWarning, "vtpm", "The VM has a virtual TPM. BitLocker keys, Windows Hello and credentials sealed to it do not move with the disks.", "Save BitLocker recovery keys and suspend BitLocker before cutover, then add a virtual TPM on the target (Hyper-V Generation 2 supports one; confirm your HyperCore version does).")
+		add(vmSeverityWarning, "vtpm", "The VM has a virtual TPM. BitLocker keys, Windows Hello and credentials sealed to it do not move with the disks.", "Save BitLocker recovery keys and suspend BitLocker before cutover. "+profile.VTPM)
 	}
 
 	// Disks.
@@ -455,14 +488,18 @@ func assessVM(vm vmMachine, target string, now time.Time) vmReadiness {
 		}
 	}
 	if len(sharedDisk) > 0 {
-		action := "Guest clusters need shared storage on the target: use a Shared VHDX or VHD Set on Hyper-V, or redesign the cluster."
-		if target == vmTargetScale {
-			action = "HyperCore has no shared virtual disks. Redesign the guest cluster (for example in-guest iSCSI or application-level replication)."
-		}
-		add(vmSeverityBlocker, "shared-disk", "Shared or multi-writer disks (guest cluster): "+strings.Join(sharedDisk, ", ")+".", action)
+		add(vmSeverityBlocker, "shared-disk", "Shared or multi-writer disks (guest cluster): "+strings.Join(sharedDisk, ", ")+".", profile.SharedDisks)
 	}
 	if len(physicalRDM) > 0 {
-		add(vmSeverityBlocker, "rdm-physical", "Physical-mode raw device mappings: "+strings.Join(physicalRDM, ", ")+". Their data is on a SAN LUN, not in a virtual disk.", "Copy the data to a virtual disk first, or present the LUN to the guest over iSCSI on the target.")
+		action := "Copy the data to a virtual disk first, or present the LUN to the guest over iSCSI on the target."
+		severity := vmSeverityBlocker
+		if profile.Kind == vmKindPhysical {
+			action = "Present the same LUN to the physical server over its HBA or iSCSI after cutover, and keep it out of the disk image."
+			severity = vmSeverityWarning
+		} else if profile.Kind == vmKindCloud {
+			action = "Copy the data to a disk in the cloud first; SAN LUNs cannot be presented to cloud VMs."
+		}
+		add(severity, "rdm-physical", "Physical-mode raw device mappings: "+strings.Join(physicalRDM, ", ")+". Their data is on a SAN LUN, not in a virtual disk.", action)
 	}
 	if len(virtualRDM) > 0 {
 		add(vmSeverityWarning, "rdm-virtual", "Virtual-mode raw device mappings: "+strings.Join(virtualRDM, ", ")+".", "Convert them to virtual disks (a Storage vMotion that changes the disk format does this) before migrating.")
@@ -491,20 +528,30 @@ func assessVM(vm vmMachine, target string, now time.Time) vmReadiness {
 		add(vmSeverityWarning, "consolidation", "vSphere reports that the VM's disks need consolidation.", "Run Snapshots > Consolidate in vSphere before migrating.")
 	}
 	if vm.FaultTolerance {
-		add(vmSeverityWarning, "fault-tolerance", "vSphere Fault Tolerance is configured.", "Turn off Fault Tolerance before migrating, and plan the target's availability (Hyper-V failover cluster or HyperCore HA).")
+		add(vmSeverityWarning, "fault-tolerance", "vSphere Fault Tolerance is configured.", "Turn off Fault Tolerance before migrating, and plan availability on the target ("+profile.Availability+").")
 	}
 	if len(vm.Passthrough) > 0 {
-		add(vmSeverityBlocker, "passthrough", "PCI passthrough or vGPU devices: "+strings.Join(vm.Passthrough, ", ")+".", "These devices do not move. Plan the equivalent on the target (for example Discrete Device Assignment or GPU partitioning on Hyper-V) or keep the workload on VMware.")
+		severity := vmSeverityBlocker
+		if profile.Kind == vmKindPhysical {
+			severity = vmSeverityWarning
+		}
+		add(severity, "passthrough", "PCI passthrough or vGPU devices: "+strings.Join(vm.Passthrough, ", ")+".", "These devices do not move with the VM. "+profile.Passthrough)
 	}
 	if vm.USBDevices > 0 {
-		action := "Hyper-V does not pass USB devices to VMs. Use a USB-over-network device (common for license dongles) or redesign."
-		if target == vmTargetScale {
-			action = "Check whether your HyperCore version can pass this USB device through, or use a USB-over-network device (common for license dongles)."
+		severity := vmSeverityWarning
+		if profile.Kind == vmKindPhysical {
+			severity = vmSeverityInfo
 		}
-		add(vmSeverityWarning, "usb", fmt.Sprintf("%d USB device(s) connected to the VM.", vm.USBDevices), action)
+		add(severity, "usb", fmt.Sprintf("%d USB device(s) connected to the VM.", vm.USBDevices), profile.USB)
 	}
 	if vm.SerialPorts > 0 || vm.ParallelPorts > 0 {
-		add(vmSeverityWarning, "serial", fmt.Sprintf("%d serial and %d parallel port(s).", vm.SerialPorts, vm.ParallelPorts), "Physical port mappings do not move. Use a network serial device server or named pipes on the target.")
+		action := "Physical port mappings do not move. Use a network serial device server or named pipes on the target."
+		if profile.Kind == vmKindPhysical {
+			action = "Connect the devices to the server's own ports, or a network serial device server."
+		} else if profile.Kind == vmKindCloud {
+			action = "Cloud VMs have no serial or parallel devices. Use a network serial device server reachable from the cloud, or redesign."
+		}
+		add(vmSeverityWarning, "serial", fmt.Sprintf("%d serial and %d parallel port(s).", vm.SerialPorts, vm.ParallelPorts), action)
 	}
 	if len(vm.ConnectedMedia) > 0 {
 		add(vmSeverityWarning, "media", "Connected CD/DVD media: "+strings.Join(vm.ConnectedMedia, ", ")+".", "Disconnect the media before migrating. ISO files on VMware datastores do not move with the VM.")
@@ -518,22 +565,40 @@ func assessVM(vm vmMachine, target string, now time.Time) vmReadiness {
 	case powered && !vm.ToolsRunning:
 		add(vmSeverityWarning, "tools-stopped", "VMware Tools is not running, so guest details may be missing or old.", "Start VMware Tools, or record the guest's IP configuration inside the VM before cutover.")
 	case vm.ToolsStatus != "" && vm.ToolsStatus != "guestToolsUnmanaged" && os.Family == "windows":
-		add(vmSeverityInfo, "tools-remove", "VMware Tools is installed.", "Remove VMware Tools after cutover (the fix-up on the migrated VM can do this). Its drivers do nothing on the target.")
+		add(vmSeverityInfo, "tools-remove", "VMware Tools is installed.", "Remove VMware Tools after cutover (the fix-up on the migrated computer can do this). Its drivers do nothing on the target.")
 	}
 	if statics := vmStaticNICs(vm); len(statics) > 0 {
 		addresses := []string{}
 		for _, nic := range statics {
 			addresses = append(addresses, strings.Join(nic.IPAddresses, ", "))
 		}
-		add(vmSeverityWarning, "static-ip", "Static IP configuration on "+vmPlural(len(statics), "adapter", "adapters")+" ("+strings.Join(addresses, "; ")+"). The target VM gets new network adapters, which start without these settings.", "Run the guest pre-flight inside the VM before cutover, then the fix-up after cutover to put the settings back. Disconnect the old VM's adapters so the address is not used twice.")
+		if profile.Kind == vmKindCloud {
+			add(vmSeverityWarning, "static-ip", "Static IP configuration on "+vmPlural(len(statics), "adapter", "adapters")+" ("+strings.Join(addresses, "; ")+"). "+profile.Short+" assigns addresses through DHCP, and a static address inside the guest cuts it off the network.", "Reserve the address as a static private IP on the new "+profile.NetworkLabel+" (if it fits the subnet), and leave the guest on DHCP. The migration service usually switches the guest to DHCP; check after cutover. Plan DNS changes for addresses that change.")
+		} else {
+			add(vmSeverityWarning, "static-ip", "Static IP configuration on "+vmPlural(len(statics), "adapter", "adapters")+" ("+strings.Join(addresses, "; ")+"). The new "+map[bool]string{true: "server", false: "VM"}[profile.Kind == vmKindPhysical]+" gets new network adapters, which start without these settings.", "Run the guest pre-flight inside the VM before cutover, then the fix-up after cutover to put the settings back. Disconnect the old VM's adapters so the address is not used twice.")
+		}
 	}
 	for _, nic := range vm.NICs {
 		if nic.ManualMAC {
-			add(vmSeverityInfo, "manual-mac", "A manually set MAC address ("+nic.MAC+") on "+nic.Label+".", "Set the same static MAC on the target if licensing or DHCP reservations depend on it.")
+			action := "Set the same static MAC on the target if licensing or DHCP reservations depend on it."
+			if profile.Kind == vmKindCloud {
+				action = "Cloud providers assign MAC addresses. Move licensing or reservations that depend on this MAC to another identifier."
+			} else if profile.Kind == vmKindPhysical {
+				action = "The server's adapters have their own MAC addresses. Update licensing or DHCP reservations that depend on this one."
+			}
+			add(vmSeverityInfo, "manual-mac", "A manually set MAC address ("+nic.MAC+") on "+nic.Label+".", action)
 		}
 	}
 	if version := vmHardwareVersionNumber(vm.HardwareVersion); version > 0 && version < 7 {
 		add(vmSeverityWarning, "hardware-old", "Virtual hardware version "+vm.HardwareVersion+" is very old.", "Upgrade VMware Tools and the virtual hardware, or rebuild, before converting.")
+	}
+
+	// Sizing that depends on the destination.
+	switch profile.Kind {
+	case vmKindCloud:
+		add(vmSeverityInfo, "instance-size", fmt.Sprintf("Needs an instance size with at least %d vCPU and %s memory.", vm.CPUs, vmFormatBytes(vm.MemoryMB<<20)), "Right-size from the VM's actual use rather than its allocation; the migration service's assessment can recommend a size.")
+	case vmKindPhysical:
+		add(vmSeverityInfo, "server-size", fmt.Sprintf("Needs a server with at least %d cores, %s memory and %s of disk.", vm.CPUs, vmFormatBytes(vm.MemoryMB<<20), vmFormatBytes(vm.ProvisionedBytes)), "Windows treats the new hardware as a different computer: plan reactivation and check per-core licensing.")
 	}
 	if !powered && !vm.Template {
 		add(vmSeverityInfo, "powered-off", "The VM is powered off: a good first test migration.", "")
@@ -586,7 +651,7 @@ func vmPlural(count int, one, many string) string {
 	return fmt.Sprintf("%d %s", count, many)
 }
 
-// assessInventory fills every VM's readiness for both targets.
+// assessInventory fills every VM's readiness for every target.
 func assessInventory(inventory *vmInventory, now time.Time) {
 	for index := range inventory.VMs {
 		inventory.VMs[index].Readiness = nil
