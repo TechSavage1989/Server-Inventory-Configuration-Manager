@@ -14,10 +14,27 @@ permissions:
 concurrency:
   group: executable-release
   cancel-in-progress: false
+# Azure Artifact Signing (the same account and certificate profile as Network
+# Toolkit). These names are not secret; the sign-in identifiers are the
+# AZURE_CLIENT_ID, AZURE_TENANT_ID and AZURE_SUBSCRIPTION_ID secrets.
+# See docs/CODE_SIGNING.md.
+env:
+  SIGN_ENDPOINT: https://eus.codesigning.azure.net
+  SIGN_ACCOUNT: networktoolkit-signing
+  SIGN_PROFILE: jpaull-codesign
+  SIGN_TOOL_VERSION: '0.9.1-beta.26552.4'
+  SIGN_TIMESTAMP_URL: http://timestamp.acs.microsoft.com
 jobs:
   publish:
     runs-on: windows-latest
     timeout-minutes: 30
+    # The "release" environment gives the OIDC token the subject
+    # repo:<owner>/<repo>:environment:release, which the Entra federated
+    # credential matches exactly.
+    environment: release
+    permissions:
+      contents: write
+      id-token: write
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
@@ -86,6 +103,48 @@ jobs:
         run: |
           New-Item -ItemType Directory .\build -Force|Out-Null
           go build -trimpath -ldflags "-s -w -H=windowsgui" -o .\build\Server-Inventory-Configuration-Manager.exe ./src/app
+      - name: Decide whether this release is signed
+        id: signing
+        shell: powershell
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        run: |
+          $set=@($env:AZURE_CLIENT_ID,$env:AZURE_TENANT_ID,$env:AZURE_SUBSCRIPTION_ID|Where-Object{$_})
+          if($set.Count -eq 3){"enabled=true"|Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8;exit 0}
+          if($set.Count -ne 0){throw 'Code signing is partly configured: set all of AZURE_CLIENT_ID, AZURE_TENANT_ID and AZURE_SUBSCRIPTION_ID, or none'}
+          "enabled=false"|Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
+          Write-Output '::warning title=Unsigned release::Code signing secrets are not set, so this release executable is not signed. See docs/CODE_SIGNING.md.'
+      - name: Install the Azure Artifact Signing client
+        if: steps.signing.outputs.enabled == 'true'
+        shell: powershell
+        run: |
+          dotnet tool install --global sign --version $env:SIGN_TOOL_VERSION
+          if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
+      - name: Sign in to Azure with OIDC (no stored password)
+        if: steps.signing.outputs.enabled == 'true'
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Sign the executable before validation and checksums
+        if: steps.signing.outputs.enabled == 'true'
+        shell: powershell
+        run: |
+          $exe=(Resolve-Path .\build\Server-Inventory-Configuration-Manager.exe).Path
+          sign code artifact-signing --artifact-signing-endpoint $env:SIGN_ENDPOINT --artifact-signing-account $env:SIGN_ACCOUNT --artifact-signing-certificate-profile $env:SIGN_PROFILE --azure-credential-type azure-cli --timestamp-url $env:SIGN_TIMESTAMP_URL --timestamp-digest SHA256 --file-digest SHA256 --description 'Server Inventory and Migration Manager' --description-url 'https://github.com/${{ github.repository }}' $exe
+          if($LASTEXITCODE -ne 0){throw 'Code signing failed'}
+          $signature=Get-AuthenticodeSignature -FilePath $exe
+          if($signature.Status -ne 'Valid'){throw "Executable signature is not valid: $($signature.Status) $($signature.StatusMessage)"}
+          if(-not $signature.TimeStamperCertificate){throw 'Executable signature has no timestamp'}
+          Write-Output "Signed by: $($signature.SignerCertificate.Subject)"
+          Write-Output "Timestamped by: $($signature.TimeStamperCertificate.Subject)"
+      - name: Sign out of Azure
+        if: always() && steps.signing.outputs.enabled == 'true'
+        shell: powershell
+        run: az logout; az account clear; exit 0
       - name: Validate executable
         shell: powershell
         run: .\scripts\Test-Binary.ps1 -ExecutablePath .\build\Server-Inventory-Configuration-Manager.exe -ExpectedVersion '${{ steps.version.outputs.version }}'

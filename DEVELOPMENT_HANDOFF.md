@@ -1,3 +1,9 @@
+## Unreleased: code signing in the release workflow — 2026-11-25
+
+Owner request: sign the app with the process set up for Network Toolkit (Azure Artifact Signing over GitHub OIDC; Network Toolkit branch `feat/windows-code-signing`, `docs/CODE_SIGNING_PLAN.md`). `release.yml`'s `publish` job now runs in the `release` environment with `id-token: write` and signs the EXE right after `go build`, so every validation step, the manifest SHA-256 and the published asset are the signed bytes. Signing turns on when `AZURE_CLIENT_ID`, `AZURE_TENANT_ID` and `AZURE_SUBSCRIPTION_ID` are set (unsigned with a warning until then). Owner setup: docs/CODE_SIGNING.md (a federated credential for this repository's `release` environment and the three secrets). Signing client pinned to `sign` 0.9.1-beta.26552.4, the latest listed on nuget.org.
+
+Limits: not yet run end to end; the first release after the secrets are set is the real test. Network Toolkit's own signing had not run yet either (its identity validation was still pending when this was added).
+
 ## 3.2.28 published and verified — 2026-11-25
 
 - [Release v3.2.28](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.28) ("Server Inventory and Migration Manager 3.2.28"), tag and target commit `1ff4e961c6ae31c8e4cbddd08a58e7954e6a1a6b`. Source: VMware migration features #70; release preparation #71; publication PR #72 (only `release/VERSION`); release workflow fix #73. The owner chose to merge and publish on 2026-11-25.
