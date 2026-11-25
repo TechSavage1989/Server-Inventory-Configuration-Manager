@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 	"unsafe"
@@ -161,9 +162,90 @@ func TestReplicationChangeTrackingMissesNothing(t *testing.T) {
 		for _, index := range check.ChangedChunks {
 			t.Logf("missed chunk %d at %s", index, vmFormatBytes(int64(index)*check.State.ChunkSize))
 		}
+		replTestNameOwners(t, letter, check.ChangedChunks, check.State.ChunkSize)
 		t.Fatalf("change tracking missed %d chunks", check.Progress.Changed)
 	}
 	if second.Progress.BytesRead*2 > check.Progress.BytesRead {
 		t.Fatalf("the tracked round read %s of the %s disk", vmFormatBytes(second.Progress.BytesRead), vmFormatBytes(check.Progress.BytesRead))
 	}
+}
+
+// replTestNameOwners logs which files hold the clusters of missed chunks,
+// so a tracking miss names what changed unseen.
+func replTestNameOwners(t *testing.T, letter string, chunks []int, chunkSize int64) {
+	t.Helper()
+	offset, err := strconv.ParseInt(strings.TrimSpace(vmPowerShell(t, "[Console]::Out.Write((Get-Partition -DriveLetter "+letter[:1]+").Offset)")), 10, 64)
+	if err != nil {
+		t.Logf("partition offset: %v", err)
+		return
+	}
+	reader, err := newReplMFTReader(`\\.\` + letter[:2])
+	if err != nil {
+		t.Logf("reading the MFT: %v", err)
+		return
+	}
+	defer reader.Close()
+	type span struct{ from, to int64 }
+	spans := []span{}
+	for _, index := range chunks {
+		from := (int64(index)*chunkSize - offset) / reader.clusterSize
+		spans = append(spans, span{from, from + chunkSize/reader.clusterSize})
+	}
+	named := map[int64]bool{}
+	reader.Scan(context.Background(), func(index int64, record []byte) error {
+		runs, _, err := replMFTOwnRuns(record)
+		if err != nil || named[index] {
+			return nil
+		}
+		for _, run := range runs {
+			for _, s := range spans {
+				if run.Start < s.to && run.Start+run.Count > s.from {
+					named[index] = true
+					t.Logf("MFT record %d (%s) holds clusters %d-%d in a missed chunk", index, replTestRecordName(record), run.Start, run.Start+run.Count-1)
+					return nil
+				}
+			}
+		}
+		return nil
+	})
+	if len(named) == 0 {
+		t.Log("no file holds the missed clusters (free space or outside the volume)")
+	}
+}
+
+// replTestRecordName returns the longest $FILE_NAME in an MFT record.
+func replTestRecordName(record []byte) string {
+	fixed := append([]byte(nil), record...)
+	usaOffset, usaCount := int(binary.LittleEndian.Uint16(fixed[4:])), int(binary.LittleEndian.Uint16(fixed[6:]))
+	if usaCount >= 2 && usaOffset+2*usaCount <= len(fixed) {
+		stride := len(fixed) / (usaCount - 1)
+		for i := 1; i < usaCount; i++ {
+			end := i*stride - 2
+			fixed[end], fixed[end+1] = fixed[usaOffset+2*i], fixed[usaOffset+2*i+1]
+		}
+	}
+	name := "?"
+	for at := int(binary.LittleEndian.Uint16(fixed[20:])); at+24 <= len(fixed); {
+		kind, length := binary.LittleEndian.Uint32(fixed[at:]), int(binary.LittleEndian.Uint32(fixed[at+4:]))
+		if kind == 0xFFFFFFFF || length < 16 || at+length > len(fixed) {
+			break
+		}
+		if kind == 0x30 && fixed[at+8] == 0 {
+			content := at + int(binary.LittleEndian.Uint16(fixed[at+20:]))
+			if content+66 <= len(fixed) {
+				count := int(fixed[content+64])
+				if content+66+2*count <= len(fixed) {
+					chars := make([]uint16, count)
+					for i := range chars {
+						chars[i] = binary.LittleEndian.Uint16(fixed[content+66+2*i:])
+					}
+					if candidate := windows.UTF16ToString(chars); len(candidate) > len(name) || name == "?" {
+						name = candidate
+					}
+				}
+			}
+		}
+		at += length
+	}
+	return name
 }
