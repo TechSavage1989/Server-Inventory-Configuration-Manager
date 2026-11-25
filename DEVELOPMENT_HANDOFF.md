@@ -1,3 +1,10 @@
+## Unreleased: target platform requests checked against vendor references — 2026-11-25
+
+- HyperCore (`vmtarget_hypercore.go`), checked against Scale Computing's own Ansible collection: the UEFI machine type `scale-uefi-9.2` did not exist. 9.3 and later now get `options.machineTypeKeyword` (bios, uefi or tpm) with no machineType, 9.2 gets scale-7.2, scale-8.10 or scale-uefi-tpm-9.2, and 9.1 refuses a TPM. The version is read from `/Cluster` (`icosVersion`). Also: the ISO is marked `readyForInsert` after upload (it was left unusable), VM actions carry `cause: INTERNAL`, block devices carry `cacheMode` and the first disk `uuid: primaryDrive`, NVRAM is added for every UEFI or TPM VM, and TaskTag polling no longer loops forever on an empty answer and fails on UNINITIALIZED.
+- Proxmox VE: `ostype` is win11 for Windows 11 and Server 2022 or later (qm.conf), win10 otherwise; the rest of the create body matched qm.conf.
+- Nutanix AHV: the boot types, Q35 for Secure Boot, images upload (`PUT /images/{uuid}/file`, octet-stream) and power-state handling match Nutanix's Ansible collection. `vtpm_config` is not in that collection's v3 code, so the vTPM field still needs a real Prism Central to confirm.
+- Tests: `TestHyperCoreMachineTypeFollowsTheClusterVersion`, `TestProxmoxOSTypeFollowsTheWindowsVersion`, and the HyperCore fake now checks the ISO update and action cause.
+
 ## Unreleased: phase 3, moves to HyperCore, Nutanix AHV, Proxmox VE and physical servers — 2026-11-25
 
 Phase 3 (HyperCore, Nutanix AHV, Proxmox VE and V2P) runs in parallel with phase 2. Approach: the new VM, or the physical server, boots receiver media and the copy is written straight onto its own disks with the same resumable hashed rounds; at cutover it boots from disk.

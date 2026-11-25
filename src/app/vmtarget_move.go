@@ -105,6 +105,7 @@ func vmTargetSpecFor(vm vmMachine, input vmTargetCreateInput, iso string) (vmTar
 	spec := vmTargetVMSpec{
 		Name: vm.Name, CPUs: vm.CPUs, MemoryMiB: vm.MemoryMB, Firmware: "bios", SecureBoot: vm.SecureBoot, TPM: vm.VTPM,
 		Windows:     regexp.MustCompile(`(?i)windows`).MatchString(vm.GuestID + " " + vm.GuestOS + " " + vm.GuestOSRunning),
+		GuestOS:     strings.TrimSpace(vmNonEmpty(vm.GuestOSRunning, vm.GuestOS)),
 		Description: "Moved from VMware (" + vm.Name + ") by Server Inventory and Migration Manager",
 		Storage:     input.Storage, ISO: iso,
 	}

@@ -14,6 +14,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -22,6 +23,8 @@ type vmProxmox struct {
 	http *vmTargetHTTP
 	node string
 }
+
+var vmProxmoxWin11 = regexp.MustCompile(`(?i)windows\s*11|20(2[2-9]|[3-9][0-9])`)
 
 func newVMProxmox(connection vmTargetConnection) (*vmProxmox, error) {
 	if !strings.Contains(connection.User, "!") || connection.Password == "" {
@@ -220,7 +223,12 @@ func vmProxmoxCreateValues(vmid string, spec vmTargetVMSpec) (url.Values, error)
 	values.Set("machine", "q35")
 	values.Set("scsihw", "virtio-scsi-single")
 	if spec.Windows {
+		// Proxmox VE's types: win10 is Windows 10/2016/2019, win11 is
+		// Windows 11/2022/2025 (qm.conf).
 		values.Set("ostype", "win10")
+		if vmProxmoxWin11.MatchString(spec.GuestOS) {
+			values.Set("ostype", "win11")
+		}
 	} else {
 		values.Set("ostype", "l26")
 	}
