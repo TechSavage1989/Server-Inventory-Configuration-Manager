@@ -474,7 +474,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
 .vm-table td.vm-changes{background:#fbfcfe}.vm-changes ul{margin:0;padding-left:18px}.vm-changes li{margin:2px 0}
 .vm-detail{margin-top:10px;border:1px solid #dbe3ed;border-radius:10px;padding:10px 12px;background:#fbfcfe;font-size:12px;color:#334156}
 .vm-detail-head{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;font-size:13px;color:#1b2942}
-.vm-detail-line{margin-top:5px;color:#52647c;overflow-wrap:anywhere}.vm-prepare{margin-top:10px;padding-top:8px;border-top:1px solid #e3e8f0}.vm-prepare .secondary-button{margin-top:8px}.vm-field{display:flex;flex-direction:column;gap:3px;margin-top:6px}.vm-field input{max-width:520px}.vm-move-actions{display:flex;gap:8px;flex-wrap:wrap}.vm-target-step{margin-top:10px}.vm-target-step>strong{display:block;font-size:12.5px}.vm-field select{max-width:520px}.vm-hosts{margin-top:12px;border-top:1px solid #e3e8f0;padding-top:6px}.vm-hosts>summary{cursor:pointer;font-weight:700;padding:6px 0}.vm-hosts .vm-table-wrap{margin-top:8px}.vm-attention{margin:6px 0 0;padding-left:18px;color:#7a5410}
+.vm-detail-line{margin-top:5px;color:#52647c;overflow-wrap:anywhere}.vm-prepare{margin-top:10px;padding-top:8px;border-top:1px solid #e3e8f0}.vm-prepare .secondary-button{margin-top:8px}.vm-field{display:flex;flex-direction:column;gap:3px;margin-top:6px}.vm-receive-code{margin-top:8px;padding:8px 10px;border:1px solid #c9d6ea;border-radius:8px;background:#f5f8fd}.vm-receive-code strong{display:block;font-size:20px;letter-spacing:.06em;color:#1b2942;font-family:Consolas,monospace}.vm-mono{font-family:Consolas,monospace;font-size:11px}.vm-disk-row{display:flex;gap:8px;align-items:flex-start;margin-top:6px}.vm-field input{max-width:520px}.vm-move-actions{display:flex;gap:8px;flex-wrap:wrap}.vm-hosts{margin-top:12px;border-top:1px solid #e3e8f0;padding-top:6px}.vm-hosts>summary{cursor:pointer;font-weight:700;padding:6px 0}.vm-hosts .vm-table-wrap{margin-top:8px}.vm-attention{margin:6px 0 0;padding-left:18px;color:#7a5410}.vm-target-step{margin-top:10px}.vm-target-step>strong{display:block;font-size:12.5px}.vm-field select{max-width:520px}
 .vm-counts-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;margin-top:12px}.vm-counts-head .vm-counts-title{margin-top:0}
 .vm-count.hosts{border-color:#c9d6ea;background:#f5f8fd;margin-right:10px;position:relative}.vm-count.hosts strong{color:#1d4ed8}.vm-count.hosts:hover{background:#eaf1ff}
 .vm-count.hosts::after{content:"";position:absolute;right:-10px;top:6px;bottom:6px;border-right:1px solid #dbe3ed}
@@ -797,7 +797,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       <div class="restore-wrap"><div class="card">
         <div class="card-header"><div><div class="card-title">Move VMs off VMware</div><div class="card-subtitle">Check every VM before moving it to Hyper-V, Scale Computing HyperCore, Nutanix AHV, Proxmox VE, Azure, Amazon EC2 or a physical server, plan the waves, prepare each machine and compare it after the move. vCenter and ESXi are only read, unless you choose to prepare, copy or cut over a VM.</div></div></div>
         <div class="vm-bar">
-          <div class="vm-views" role="group" aria-label="VMware migration views"><button class="vm-view" type="button" data-vmview="env" aria-pressed="true">Environment</button><button class="vm-view" type="button" data-vmview="plan" aria-pressed="false">Plan and runbook</button><button class="vm-view" type="button" data-vmview="guest" aria-pressed="false">This VM</button><button class="vm-view" type="button" data-vmview="compare" aria-pressed="false">Before and after</button></div>
+          <div class="vm-views" role="group" aria-label="VMware migration views"><button class="vm-view" type="button" data-vmview="env" aria-pressed="true">Environment</button><button class="vm-view" type="button" data-vmview="plan" aria-pressed="false">Plan and runbook</button><button class="vm-view" type="button" data-vmview="guest" aria-pressed="false">This VM</button><button class="vm-view" type="button" data-vmview="disks" aria-pressed="false">Disk copy</button><button class="vm-view" type="button" data-vmview="compare" aria-pressed="false">Before and after</button></div>
           <div class="vm-target"><label class="vm-target-label" id="vmTargetLabel" for="vmTargetSelect">Moving to</label><select id="vmTargetSelect"><option value="hyperv">Hyper-V</option><option value="scale">Scale Computing HyperCore</option><option value="nutanix">Nutanix AHV</option><option value="proxmox">Proxmox VE (KVM)</option><option value="azure">Microsoft Azure</option><option value="aws">Amazon EC2</option><option value="physical">Physical server (V2P)</option></select></div>
         </div>
         <div class="card-body" id="vmwareBody">
@@ -879,6 +879,41 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
               </div>
               <ul class="vm-findings hidden" id="vmGuestAfterNotes"></ul>
             </section>
+          </div>
+          <div class="hidden" id="vmViewDisks">
+            <p class="migrate-help">Copy whole disks between computers over the network, for a machine on any hypervisor or a physical server. Run this application on both computers: the new host receives, and the machine being moved sends its own disks. Every disk becomes a VHDX file on the receiving computer, and sending again later sends only what changed.</p>
+            <div class="vm-two">
+              <section class="migrate-card" aria-labelledby="vmReceiveTitle">
+                <h4 id="vmReceiveTitle">Receive disks on this computer</h4>
+                <div id="vmReceiveIdle">
+                  <label class="vm-field">Save received disks in<input id="vmReceiveFolder" type="text" spellcheck="false" autocomplete="off"></label>
+                  <label class="vm-field">Port<input id="vmReceivePort" type="text" inputmode="numeric" value="44380" maxlength="5"></label>
+                  <label class="vm-check"><input id="vmReceiveFirewall" type="checkbox" checked> Allow this port through Windows Firewall while receiving</label>
+                  <div class="migrate-row"><button class="primary-button" id="vmReceiveStart" type="button">Start receiving</button></div>
+                </div>
+                <div class="hidden" id="vmReceiveRunning">
+                  <div class="vm-receive-code"><span class="restore-fact-label">Pairing code</span><strong id="vmReceiveCode"></strong></div>
+                  <dl class="vm-kv"><dt>Address</dt><dd id="vmReceiveAddress"></dd><dt>Certificate thumbprint</dt><dd id="vmReceiveThumbprint" class="vm-mono"></dd><dt>Saving in</dt><dd id="vmReceiveSaving"></dd><dt>Sending now</dt><dd id="vmReceiveSessions"></dd></dl>
+                  <p class="vm-note">Type the address, thumbprint and pairing code into Send on the other computer. A new code and certificate are made each time the receiver starts.</p>
+                  <div class="migrate-row"><button class="secondary-button" id="vmReceiveStop" type="button">Stop receiving</button><button class="secondary-button" id="vmReceiveOpen" type="button">Open folder</button></div>
+                </div>
+                <div class="migrate-inline-status" id="vmReceiveStatus" role="status" aria-live="polite"></div>
+              </section>
+              <section class="migrate-card" aria-labelledby="vmSendTitle">
+                <h4 id="vmSendTitle">Send this computer's disks</h4>
+                <div class="restore-alert danger hidden" id="vmSendAdmin"><strong>Run the application as administrator</strong> to read this computer's disks.</div>
+                <div class="migrate-row"><button class="secondary-button" id="vmSendFind" type="button">Find disks</button><span class="vm-note" id="vmSendComputer"></span></div>
+                <div id="vmSendDisks"></div>
+                <label class="vm-field">Receiving computer (name or address, with :port if not 44380)<input id="vmSendAddress" type="text" spellcheck="false" autocomplete="off" placeholder="hv01.example.com"></label>
+                <label class="vm-field">Certificate thumbprint<input id="vmSendThumbprint" type="text" spellcheck="false" autocomplete="off"></label>
+                <label class="vm-field">Pairing code<input id="vmSendCode" type="password" spellcheck="false" autocomplete="off"></label>
+                <label class="vm-check"><input id="vmSendVerify" type="checkbox" checked> Check every disk against its recorded hashes when it is done</label>
+                <label class="vm-check"><input id="vmSendLive" type="checkbox"> If Volume Shadow Copy is unavailable, copy volumes as they are (the copy may be inconsistent)</label>
+                <div class="migrate-row"><button class="primary-button" id="vmSendStart" type="button">Send disks</button></div>
+                <div class="migrate-inline-status" id="vmSendStatus" role="status" aria-live="polite"></div>
+                <ul class="vm-findings hidden" id="vmSendResults"></ul>
+              </section>
+            </div>
           </div>
           <div class="hidden" id="vmViewCompare">
             <p class="migrate-help">Collect an inventory of the server on the Setup tab before the move, and again once it runs on the new platform. Then compare the two packages. Changes you would expect from a move, such as VMware Tools going away, are counted separately from the ones to check.</p>
@@ -2102,7 +2137,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   // result and comparison are fetched when their serial numbers change.
   var vmView='env',vmAttention=[],vmInventory=null,vmPlan=null,vmSizing=null,vmInvSerial=0,vmInvLoading=false,vmPlanDirty=false,vmSelectedVM='',vmFilter='all',vmBusy=false,vmTargetLocal='hyperv';
   var vmGuest=null,vmGuestSerial=0,vmGuestLoading=false,vmGuestChoices={},vmGhostChoices={},vmDiskChoices={};
-  var vmCompare=null,vmCompareDatasets=[],vmCompareSerial=0,vmMoveSerial=0,vmCompareLoading=false,vmCompareBeforePath='',vmCompareAfterPath='',vmCompareOpen={},vmLogKey='';
+  var vmSendDiskList=null,vmSendSerial=-1,vmReceiveWasRunning=null,vmSendComputerName='',vmCompare=null,vmCompareDatasets=[],vmCompareSerial=0,vmMoveSerial=0,vmCompareLoading=false,vmCompareBeforePath='',vmCompareAfterPath='',vmCompareOpen={},vmLogKey='';
   var vmRowLimit=400,vmStatusLabels={ready:'Ready',review:'Review first',blocked:'Blocked',skip:'Not moved'};
   function vmwareState(){return (latestState&&latestState.vmware)||null;}
   function vmwareIsRunning(){var v=vmwareState();return !!(v&&v.running);}
@@ -2131,7 +2166,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   }
   function setVmView(name){
     vmView=name;
-    ['env','plan','guest','compare'].forEach(function(n){byId('vmView'+n.charAt(0).toUpperCase()+n.slice(1)).classList.toggle('hidden',n!==name);document.querySelector('[data-vmview="'+n+'"]').setAttribute('aria-pressed',n===name?'true':'false');});
+    ['env','plan','guest','disks','compare'].forEach(function(n){byId('vmView'+n.charAt(0).toUpperCase()+n.slice(1)).classList.toggle('hidden',n!==name);document.querySelector('[data-vmview="'+n+'"]').setAttribute('aria-pressed',n===name?'true':'false');});
   }
   function renderVMware(state){
     var v=state.vmware||{status:'idle',logs:[]};
@@ -2147,6 +2182,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     if((v.compareSerial||0)!==vmCompareSerial&&!vmCompareLoading){loadVmCompare(v.compareSerial||0);}
     if((v.moveSerial||0)!==vmMoveSerial){vmMoveSerial=v.moveSerial||0;renderVmDetail();}
     if(v.target&&v.target.serial!==vmTargetSerial){vmTargetSerial=v.target.serial;renderVmDetail();}
+    renderVmDiskCopy(state,v);
     var guestMessage=byId('vmGuestMessage');guestMessage.textContent=v.guestMessage||'';guestMessage.className='migrate-inline-status'+(v.guestError?' error':'');
     byId('vmGuestAdmin').classList.toggle('hidden',!!state.isAdministrator);
     if(v.compareError&&!v.running){vmSetStatus('vmCompareStatus',v.compareError,true);}
@@ -2162,16 +2198,80 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     byId('vmConnect').disabled=locked||!trimText(byId('vmServer').value)||!trimText(byId('vmUser').value);
     byId('vmOpenInventory').disabled=locked;byId('vmCertTrust').disabled=locked;
     byId('vmReset').classList.toggle('hidden',!v.server&&!v.summary);byId('vmReset').disabled=locked;
-    var stop=byId('vmStop');stop.classList.toggle('hidden',!(running&&(v.action==='connect'||v.action==='compare'||v.action==='move'||v.action==='media'||v.action==='upload'||v.action==='target-create')));stop.disabled=!!v.cancelRequested;stop.textContent=v.cancelRequested?'Stopping...':'Stop';
+    var stop=byId('vmStop');stop.classList.toggle('hidden',!(running&&(v.action==='connect'||v.action==='compare'||v.action==='move'||v.action==='media'||v.action==='upload'||v.action==='target-create'||v.action==='send')));stop.disabled=!!v.cancelRequested;stop.textContent=v.cancelRequested?'Stopping...':'Stop';
     byId('vmTargetSelect').disabled=vmBusy||running;
     var hasPlan=!!(vmInventory&&vmPlan);
     byId('vmSavePlan').disabled=locked||!hasPlan;byId('vmSuggest').disabled=locked||!hasPlan;byId('vmWriteRunbook').disabled=locked||!hasPlan;
     byId('vmPlanDirtyNote').textContent=vmPlanDirty?'Unsaved changes.':'';
     ['vmGuestCapture','vmGuestStatus'].forEach(function(id){byId(id).disabled=locked||!admin;});byId('vmGuestLoad').disabled=locked;
     syncVmGuestButtons();
+    syncVmDiskButtons();
     byId('vmCompareBefore').disabled=locked;byId('vmCompareAfter').disabled=locked;byId('vmCompareUseLast').disabled=locked;
     byId('vmCompareRun').disabled=locked||!vmCompareBeforePath||!vmCompareAfterPath;
     byId('vmCompareReport').classList.toggle('hidden',!(vmCompare&&vmCompare.reportPath));byId('vmCompareFolder').classList.toggle('hidden',!vmCompare);
+  }
+  // Disk copy: this computer receives disks, or sends its own through shadow copies.
+  function vmReceiverState(){var v=vmwareState()||{};return v.receiver||{};}
+  function renderVmDiskCopy(state,v){
+    var r=v.receiver||{},running=!!r.running;
+    if(vmReceiveWasRunning!==null&&vmReceiveWasRunning!==running){vmSetStatus('vmReceiveStatus','',false);}vmReceiveWasRunning=running;
+    byId('vmReceiveIdle').classList.toggle('hidden',running);byId('vmReceiveRunning').classList.toggle('hidden',!running);
+    byId('vmReceiveFolder').placeholder=r.defaultFolder||'';
+    if(running){
+      byId('vmReceiveCode').textContent=r.code||'';byId('vmReceiveThumbprint').textContent=r.thumbprint||'';byId('vmReceiveSaving').textContent=r.folder||'';
+      var addresses=vmArr(r.addresses).map(function(a){return (a.indexOf(':')>=0?'['+a+']':a)+(r.port===44380?'':':'+r.port);});
+      byId('vmReceiveAddress').textContent=(addresses.length?addresses.join(', '):'this computer\'s name')+(r.port===44380?' (port 44380)':'')+(r.firewall?', allowed in Windows Firewall':'');
+      byId('vmReceiveSessions').textContent=r.sessions?vmPlural(r.sessions,'disk'):'Nothing yet';
+    }
+    if(r.message&&!running&&!byId('vmReceiveStatus').textContent){vmSetStatus('vmReceiveStatus',r.message,false);}
+    byId('vmSendAdmin').classList.toggle('hidden',!!state.isAdministrator);
+    if((v.sendSerial||0)!==vmSendSerial){if(vmSendSerial>=0){vmSetStatus('vmSendStatus','',false);}vmSendSerial=v.sendSerial||0;renderVmSendResults(v);}
+  }
+  function renderVmSendResults(v){
+    var list=byId('vmSendResults');list.textContent='';
+    vmArr(v.send).forEach(function(d){
+      if(d.error){list.appendChild(el('li','warning','Disk '+d.disk+' ('+d.name+'): '+d.error));return;}
+      list.appendChild(el('li','good','Disk '+d.disk+' sent as '+d.name+': '+formatBytesShort(d.bytesRead)+' read, '+formatBytesShort(d.bytesWritten)+' sent'+(d.passes>1?' (pass '+d.passes+', only what changed)':'')+(d.shadowed?', '+vmPlural(d.shadowed,'volume')+' from a shadow copy':'')+(d.verified?', verified':'')+'.'));
+    });
+    if(v.sendError&&!vmArr(v.send).some(function(d){return !!d.error;})){list.appendChild(el('li','warning',v.sendError));}
+    list.classList.toggle('hidden',!list.childNodes.length);
+  }
+  function renderVmSendDisks(){
+    var box=byId('vmSendDisks');box.textContent='';
+    if(!vmSendDiskList){return;}
+    if(!vmSendDiskList.length){box.appendChild(el('div','vm-empty','No disks were found.'));return;}
+    vmSendDiskList.forEach(function(d){
+      var label=el('label','vm-check'),input=document.createElement('input');input.type='checkbox';input.checked=true;input.setAttribute('data-send-disk',String(d.number));
+      input.addEventListener('change',syncVmButtons);label.appendChild(input);
+      var volumes=vmArr(d.volumes).map(function(x){return (vmArr(x.mounts).join(' ')||'no drive letter')+(x.fileSystem?' '+x.fileSystem:'')+' '+formatBytesShort(x.length);});
+      label.appendChild(el('span','','Disk '+d.number+', '+formatBytesShort(d.size)+(d.system?' (Windows)':'')+(volumes.length?': '+volumes.join('; '):': no volumes')));
+      box.appendChild(label);
+    });
+  }
+  function vmSendChosen(){return Array.prototype.map.call(document.querySelectorAll('[data-send-disk]:checked'),function(i){return Number(i.getAttribute('data-send-disk'));});}
+  function syncVmDiskButtons(){
+    var v=vmwareState()||{},r=v.receiver||{},locked=vmLocked(),admin=!!(latestState&&latestState.isAdministrator);
+    ['vmReceiveFolder','vmReceivePort','vmReceiveFirewall'].forEach(function(id){byId(id).disabled=vmBusy;});
+    byId('vmReceiveStart').disabled=vmBusy||!!r.running;byId('vmReceiveStop').disabled=vmBusy;
+    byId('vmSendFind').disabled=locked||!admin;
+    var sending=!!v.running&&v.action==='send';
+    ['vmSendAddress','vmSendThumbprint','vmSendCode','vmSendVerify','vmSendLive'].forEach(function(id){byId(id).disabled=sending;});
+    Array.prototype.forEach.call(document.querySelectorAll('[data-send-disk]'),function(i){i.disabled=sending;});
+    byId('vmSendStart').disabled=locked||!admin||!!r.running||!vmSendChosen().length||!trimText(byId('vmSendAddress').value)||!trimText(byId('vmSendThumbprint').value)||!trimText(byId('vmSendCode').value);
+  }
+  function startVmReceiver(){
+    var port=trimText(byId('vmReceivePort').value);
+    if(port&&!/^[0-9]{1,5}$/.test(port)){vmSetStatus('vmReceiveStatus','Type the port as a number, such as 44380.',true);return;}
+    vmPost('/api/vmware/receiver',{action:'start',folder:trimText(byId('vmReceiveFolder').value),port:Number(port)||0,firewall:byId('vmReceiveFirewall').checked},'vmReceiveStatus',function(err){});
+  }
+  function findVmSendDisks(){
+    vmPost('/api/vmware/agent/disks',{},'vmSendStatus',function(err,data){if(err){return;}vmSendDiskList=vmArr(data.disks);vmSendComputerName=data.computer||'';byId('vmSendComputer').textContent=vmSendComputerName?'Disks of '+vmSendComputerName:'';renderVmSendDisks();syncVmButtons();});
+  }
+  function startVmSend(){
+    var disks=vmSendChosen(),address=trimText(byId('vmSendAddress').value),thumbprint=trimText(byId('vmSendThumbprint').value).replace(/[\s:]/g,''),code=trimText(byId('vmSendCode').value);
+    if(!/^[0-9A-Fa-f]{64}$/.test(thumbprint)){vmSetStatus('vmSendStatus','Type the 64-character certificate thumbprint the receiving computer shows.',true);return;}
+    if(code.replace(/[\s-]/g,'').length!==20){vmSetStatus('vmSendStatus','Type the 20-character pairing code the receiving computer shows.',true);return;}
+    vmPost('/api/vmware/agent/send',{disks:disks,address:address,thumbprint:thumbprint,code:code,verify:byId('vmSendVerify').checked,allowLive:byId('vmSendLive').checked},'vmSendStatus',function(err){if(!err){vmMarkRunning('send','sending','Sending '+vmPlural(disks.length,'disk')+' to '+address+'.');vmSetStatus('vmSendStatus','Sending. Volume shadow copies are taken first, then each disk is sent.',false);}});
   }
   function renderVmCertificate(v){
     var c=v.certificate,box=byId('vmCert');box.classList.toggle('hidden',!c||!!v.running);
@@ -3047,6 +3147,12 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   byId('vmOpenReport').addEventListener('click',function(){openKind('vmwarereport');});
   byId('vmOpenDiscovery').addEventListener('click',function(){openKind('vmwarediscovery');});
   byId('vmOpenFolder').addEventListener('click',function(){openKind('vmwarefolder');});
+  byId('vmReceiveStart').addEventListener('click',startVmReceiver);
+  byId('vmReceiveStop').addEventListener('click',function(){vmPost('/api/vmware/receiver',{action:'stop'},'vmReceiveStatus',function(err){if(!err){vmSetStatus('vmReceiveStatus','Stopped. Senders resume where they stopped when it starts again.',false);}});});
+  byId('vmReceiveOpen').addEventListener('click',function(){openKind('receivefolder');});
+  byId('vmSendFind').addEventListener('click',findVmSendDisks);
+  byId('vmSendStart').addEventListener('click',startVmSend);
+  ['vmSendAddress','vmSendThumbprint','vmSendCode'].forEach(function(id){byId(id).addEventListener('input',syncVmButtons);});
   vmCapacityFields.forEach(function(f){byId(f.id).addEventListener('input',vmMarkPlanDirty);});
   byId('vmWaveSearch').addEventListener('input',renderVmWaves);
   byId('vmSavePlan').addEventListener('click',function(){saveVmPlan(null,'Plan saved.');});

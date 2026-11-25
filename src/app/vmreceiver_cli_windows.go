@@ -19,7 +19,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"net"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -93,23 +92,6 @@ func vmPrintDisks(out io.Writer, disks []vmWindowsDiskInfo) {
 		}
 		fmt.Fprintf(out, "  %-3d %10s  %s (%s)\n", disk.Number, vmFormatBytes(disk.Size), disk.Label(), state)
 	}
-}
-
-func vmLocalAddresses() []string {
-	addresses := []string{}
-	interfaces, _ := net.Interfaces()
-	for _, item := range interfaces {
-		if item.Flags&net.FlagUp == 0 || item.Flags&net.FlagLoopback != 0 {
-			continue
-		}
-		list, _ := item.Addrs()
-		for _, address := range list {
-			if network, ok := address.(*net.IPNet); ok && network.IP.To4() != nil && !network.IP.IsLinkLocalUnicast() {
-				addresses = append(addresses, network.IP.String())
-			}
-		}
-	}
-	return addresses
 }
 
 // runVMReceiverCommand runs the receiver until Ctrl+C and returns the exit code.
