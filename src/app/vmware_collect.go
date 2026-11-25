@@ -338,7 +338,7 @@ func readVSphereDatacenter(ctx context.Context, views *view.Manager, datacenter 
 	vmReadHostExtras(ctx, views.Client(), hosts, inventory, firstHost)
 
 	var datastores []mo.Datastore
-	if err := container.Retrieve(ctx, []string{"Datastore"}, []string{"name", "summary", "vm"}, &datastores); err != nil {
+	if err := container.Retrieve(ctx, []string{"Datastore"}, []string{"name", "summary", "vm", "host"}, &datastores); err != nil {
 		return err
 	}
 	datastoreNames := map[string]string{}
@@ -350,6 +350,8 @@ func readVSphereDatacenter(ctx context.Context, views *view.Manager, datacenter 
 		if summary.MultipleHostAccess != nil {
 			item.Shared = *summary.MultipleHostAccess
 		}
+		item.URL = summary.Url
+		item.Hosts = vmDatastoreHosts(datastore.Host, hostNames)
 		inventory.Datastores = append(inventory.Datastores, item)
 	}
 

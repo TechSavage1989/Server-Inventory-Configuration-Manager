@@ -202,6 +202,26 @@ func TestCollectVSphereFullDiscoveryAgainstSimulator(t *testing.T) {
 	if !strings.Contains(strings.Join(inventory.Warnings, " "), "software packages (VIBs)") {
 		t.Fatalf("warnings: %v", inventory.Warnings)
 	}
+	for _, datastore := range inventory.Datastores {
+		if len(datastore.Hosts) == 0 || datastore.URL == "" {
+			t.Fatalf("datastore %s has no mounting hosts or URL: %+v", datastore.Name, datastore)
+		}
+	}
+	relations := vmRelationsFor(inventory)
+	if len(relations.Unplaced) != 0 || len(relations.OtherDisks) != 0 {
+		t.Fatalf("simulator VMs not linked: %d unplaced, %d disks elsewhere", len(relations.Unplaced), len(relations.OtherDisks))
+	}
+	linked, mounted := 0, 0
+	for _, host := range relations.Hosts {
+		linked += len(host.VMs)
+		mounted += len(host.Datastores)
+	}
+	if mounted == 0 {
+		t.Fatal("no host is linked to a datastore")
+	}
+	if linked != len(inventory.VMs) {
+		t.Fatalf("%d of %d VMs linked to hosts", linked, len(inventory.VMs))
+	}
 	folder := t.TempDir()
 	inventory.Hosts[0].Name = "<b>esx</b>"
 	report, err := writeVMwareInventoryOutputs(folder, inventory)
@@ -241,5 +261,75 @@ func TestDiscoveryReportHandlesInventoryFromOlderVersions(t *testing.T) {
 	html, _ := os.ReadFile(vmDiscoveryReportFor(report))
 	if !strings.Contains(string(html), "Licenses were not read") {
 		t.Fatal("older inventory not explained")
+	}
+}
+
+func TestRelationsLinkVMsToHostsDatastoresAndNetworks(t *testing.T) {
+	inventory := vmSampleInventory()
+	inventory.Hosts = append(inventory.Hosts, vmHost{Name: "esx02.example.com", Datacenter: "DC1", Cluster: "Cluster-A"}, vmHost{Name: "esx-solo.example.com", Datacenter: "DC1"})
+	inventory.Datastores[0].Hosts = []string{"esx01.example.com", "esx02.example.com", "gone.example.com"}
+	for i := range inventory.VMs {
+		inventory.VMs[i].Host = "esx01.example.com"
+	}
+	inventory.VMs[1].Host = "esx02.example.com"
+	inventory.VMs[2].Host = "missing.example.com"
+	inventory.VMs[3].Disks = append(inventory.VMs[3].Disks, vmDisk{Label: "Hard disk 2", CapacityBytes: 1 << 30, Datastore: "local-esx09"})
+	relations := vmRelationsFor(inventory)
+
+	if len(relations.Clusters) != 2 || relations.Clusters[0].Name != "Cluster-A" || len(relations.Clusters[0].Hosts) != 2 || relations.Clusters[1].Name != "Standalone hosts" || len(relations.Clusters[1].Hosts) != 1 {
+		t.Fatalf("clusters: %+v", relations.Clusters)
+	}
+	esx01, esx02 := relations.Hosts[0], relations.Hosts[1]
+	if len(esx01.VMs) != 3 || len(esx02.VMs) != 1 || esx02.VMs[0].VM.Name != "SQL01" {
+		t.Fatalf("host VMs: esx01 %d esx02 %d", len(esx01.VMs), len(esx02.VMs))
+	}
+	if esx01.VMs[0].VM.Name > esx01.VMs[1].VM.Name {
+		t.Fatal("host VMs are not sorted by name")
+	}
+	if len(esx01.Datastores) != 1 || esx01.Datastores[0].Anchor != relations.Datastores[0].Anchor || len(relations.Hosts[2].Datastores) != 0 {
+		t.Fatalf("mounted datastores: %+v", esx01.Datastores)
+	}
+	if len(relations.Unplaced) != 1 || relations.Unplaced[0].VM.Name != "WEB-LNX" {
+		t.Fatalf("unplaced: %+v", relations.Unplaced)
+	}
+	datastore := relations.Datastores[0]
+	if datastore.Hosts[2].Anchor != "" || datastore.Hosts[0].Anchor != esx01.Anchor {
+		t.Fatalf("datastore hosts: %+v", datastore.Hosts)
+	}
+	disks := 0
+	for _, vm := range inventory.VMs {
+		for _, disk := range vm.Disks {
+			if disk.Datastore == "DS-PROD-01" {
+				disks++
+			}
+		}
+	}
+	if len(datastore.Disks) != disks || datastore.VMs == 0 || datastore.DiskBytes == 0 {
+		t.Fatalf("datastore disks: %d of %d, %d VMs", len(datastore.Disks), disks, datastore.VMs)
+	}
+	// SQL01's physical RDM has no datastore; OLD-NT's second disk is on a
+	// datastore that is not in the inventory.
+	if len(relations.OtherDisks) != 2 || relations.OtherDisks[0].Disk.RDM == "" || relations.OtherDisks[1].Disk.Datastore != "local-esx09" || relations.OtherDisks[1].DatastoreAnchor != "" {
+		t.Fatalf("other disks: %+v", relations.OtherDisks)
+	}
+	servers := relations.Networks[1]
+	if servers.Network.Name != "Servers-120" || len(servers.Adapters) != 1 || servers.Adapters[0].VM != "APP01" || servers.VMs != 1 {
+		t.Fatalf("network: %+v", servers)
+	}
+	app := relations.VMs[0]
+	if app.HostAnchor != esx01.Anchor || app.NICs[0].NetworkAnchor != servers.Anchor || app.Disks[0].DatastoreAnchor != datastore.Anchor {
+		t.Fatalf("VM links: %+v", app)
+	}
+
+	report, err := writeVMwareInventoryOutputs(t.TempDir(), inventory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	html, _ := os.ReadFile(vmDiscoveryReportFor(report))
+	page := string(html)
+	for _, want := range []string{`id="` + esx01.Anchor + `"`, `href="#` + datastore.Anchor + `"`, `href="#` + app.Anchor + `"`, `id="` + app.Anchor + `"`, "Virtual machines on this host (3)", "VM disks on this datastore", "Disks not on a datastore in this inventory", "local-esx09", "Networks and their VMs"} {
+		if !strings.Contains(page, want) {
+			t.Fatalf("discovery report is missing %q", want)
+		}
 	}
 }

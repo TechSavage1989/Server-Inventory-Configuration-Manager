@@ -140,6 +140,9 @@ type vmDatastore struct {
 	Accessible       bool   `json:"accessible"`
 	Shared           bool   `json:"shared"`
 	VMCount          int    `json:"vmCount"`
+	// Hosts that mount the datastore and its URL (3.2.31 and later).
+	Hosts []string `json:"hosts,omitempty"`
+	URL   string   `json:"url,omitempty"`
 }
 
 type vmNetwork struct {

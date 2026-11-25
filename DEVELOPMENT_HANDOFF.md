@@ -1,3 +1,14 @@
+## Unreleased: VMware relationships in the discovery report and Environment view — 2026-11-25
+
+Owner: "the report should show the vms on each associated host and datastore and their disk associations, etc. the report should have an intuitive UX and most of that info should be available via sections and/or dropdowns in the primary Environment tab after reading the vmware inventory."
+
+- `vmware_collect.go` reads each datastore's `host` mounts and URL (`vmDatastore.Hosts`, `URL`; empty in older inventories).
+- `vmware_relations.go` (`vmRelationsFor`) links every VM to its host, every disk to its datastore and every adapter to its network, groups hosts by cluster (standalone hosts last) and lists VMs on unknown hosts and disks with no datastore in the inventory (RDMs, unread datastores).
+- `VMware-Discovery-Report.html` gains a contents bar, per-cluster host tables with VM counts and allocation, a "Virtual machines on this host" table in each host section (disks with datastore links, networks with addresses), per-datastore sections (mounting hosts, every VM disk with its file), per-network sections (every VM adapter) and an all-VMs table; everything links by anchor. Host networking and storage tables now sit in open `<details>`.
+- `VM-Disks.csv` and `VM-Network-Adapters.csv` gain Host and Cluster columns at the end; `Datastores.csv` gains MountedOnHosts and URL.
+- The Environment view gains **Browse hosts, datastores and networks** (`#vmExplorePanel`): group by cluster and host, datastore or network, search, and VM links that select the VM above. Node bodies are built on first open.
+- Tests: `TestRelationsLinkVMsToHostsDatastoresAndNetworks`, simulator checks for datastore mounts and VM placement, and a new workspace check with the browse screenshot (`docs/images/vmware-browse.png`).
+
 ## 3.2.30 release preparation — 2026-11-25
 
 Publishing VMware move engine phase 1 and full discovery (#81), which the owner chose to publish on 2026-11-25. This branch bumps `appVersion`, `collectorVersion` and the collector `$scriptVersion` to 3.2.30, adds `docs/release-notes/3.2.30.md` (first three bullets free of Markdown) and points `scripts/test_published_upgrade.cjs` and AGENTS.md at the published, signed v3.2.29 executable (SHA-256 `d2359fd3f7025a3a32ece98627d3bb69b9dd0f88234587a9d7dc9449e7f046eb`). This is the first signed-to-signed upgrade.
