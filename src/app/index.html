@@ -829,6 +829,13 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
               <div class="migrate-inline-status" id="vmConnectStatus" role="status" aria-live="polite"></div>
               <div class="restore-alert danger vm-cert hidden" id="vmCert"><strong id="vmCertTitle"></strong><div id="vmCertReason"></div><dl><dt>Issued to</dt><dd id="vmCertSubject"></dd><dt>Issued by</dt><dd id="vmCertIssuer"></dd><dt>Expires</dt><dd id="vmCertExpires"></dd><dt>SHA-256</dt><dd id="vmCertThumbprint"></dd></dl><div>Compare the thumbprint with the one shown on the server's console or by your administrator before trusting it. It is trusted only for this session.</div><div class="migrate-row"><button class="secondary-button" id="vmCertTrust" type="button">Trust this certificate and read</button></div></div>
             </section>
+            <section class="migrate-section" aria-labelledby="vmHvTitle">
+              <h3 class="migrate-section-title" id="vmHvTitle">Or read a Hyper-V host</h3>
+              <p class="migrate-help">Leave the host empty to read this computer. The account is optional (yours is used otherwise), is used only for this read and is never saved. Nothing on the host is changed; copy its disks with the Disk converter.</p>
+              <div class="migrate-row"><input type="text" id="vmHvHost" aria-label="Hyper-V host name" placeholder="Hyper-V host, for example hv01.example.com (empty: this computer)" autocomplete="off" spellcheck="false" maxlength="253"></div>
+              <div class="migrate-row"><input type="text" id="vmHvUser" aria-label="Hyper-V host account (optional)" placeholder="Account (optional), for example EXAMPLE\admin" autocomplete="off" spellcheck="false" maxlength="256"><input type="password" id="vmHvPassword" aria-label="Hyper-V host password" placeholder="Password" autocomplete="new-password" maxlength="256"><button class="primary-button" id="vmHvRead" type="button">Read Hyper-V host</button></div>
+              <div class="migrate-inline-status" id="vmHvStatus" role="status" aria-live="polite"></div>
+            </section>
             <div class="hidden" id="vmEnvResult">
               <div class="restore-facts"><div><span class="restore-fact-label">Server</span><span class="restore-fact-value" id="vmFactServer"></span></div><div><span class="restore-fact-label">Version</span><span class="restore-fact-value" id="vmFactProduct"></span></div><div><span class="restore-fact-label">Read at</span><span class="restore-fact-value" id="vmFactRead"></span></div><div><span class="restore-fact-label">Hosts</span><span class="restore-fact-value" id="vmFactHosts"></span></div><div><span class="restore-fact-label">VMs</span><span class="restore-fact-value" id="vmFactVMs"></span></div><div><span class="restore-fact-label">Compute</span><span class="restore-fact-value" id="vmFactCompute"></span></div><div><span class="restore-fact-label">Storage</span><span class="restore-fact-value" id="vmFactStorage"></span></div><div><span class="restore-fact-label">Watch for</span><span class="restore-fact-value" id="vmFactWatch"></span></div></div>
               <div class="vm-counts-head"><span class="vm-counts-title" id="vmCountsTitle">Readiness</span><span class="vm-note" id="vmCountsNote"></span></div>
@@ -2295,12 +2302,13 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   }
   function renderVMware(state){
     var v=state.vmware||{status:'idle',logs:[]};
-    var badge=v.running?(v.action==='connect'?'Reading':'Working'):({connected:'Read',connectfailed:'Failed'}[v.status]||'Ready');
+    var badge=v.running?(v.action==='connect'||v.action==='hyperv'?'Reading':'Working'):({connected:'Read',connectfailed:'Failed'}[v.status]||'Ready');
     byId('vmwareTabBadge').textContent=badge;
     var message=byId('vmwareMessage');message.textContent=v.message||'';message.className='restore-status'+(v.status==='connectfailed'?' error':'');
     var server=byId('vmServer'),user=byId('vmUser');
-    if(v.server&&!server.value&&document.activeElement!==server){server.value=v.server;}
-    if(v.account&&!user.value&&document.activeElement!==user){user.value=v.account;}
+    var hyperV=!!(v.summary&&v.summary.serverType==='Hyper-V host');
+    if(v.server&&!hyperV&&!server.value&&document.activeElement!==server){server.value=v.server;}
+    if(v.account&&!hyperV&&!user.value&&document.activeElement!==user){user.value=v.account;}
     renderVmCertificate(v);renderVmSummary(v);
     if((v.inventorySerial||0)!==vmInvSerial&&!vmInvLoading){loadVmInventory(v.inventorySerial||0);}
     if((v.guestSerial||0)!==vmGuestSerial&&!vmGuestLoading){loadVmGuest(v.guestSerial||0);}
@@ -2319,11 +2327,12 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   }
   function syncVmButtons(){
     var v=vmwareState()||{},locked=vmLocked(),running=!!v.running,admin=!!(latestState&&latestState.isAdministrator);
-    ['vmServer','vmUser','vmPassword'].forEach(function(id){byId(id).disabled=running;});
+    ['vmServer','vmUser','vmPassword','vmHvHost','vmHvUser','vmHvPassword'].forEach(function(id){byId(id).disabled=running;});
+    byId('vmHvRead').disabled=locked;
     byId('vmConnect').disabled=locked||!trimText(byId('vmServer').value)||!trimText(byId('vmUser').value);
     byId('vmOpenInventory').disabled=locked;byId('vmCertTrust').disabled=locked;
     byId('vmReset').classList.toggle('hidden',!v.server&&!v.summary);byId('vmReset').disabled=locked;
-    var stop=byId('vmStop');stop.classList.toggle('hidden',!(running&&(v.action==='connect'||v.action==='compare'||v.action==='move'||v.action==='media'||v.action==='upload'||v.action==='target-create'||v.action==='send')));stop.disabled=!!v.cancelRequested;stop.textContent=v.cancelRequested?'Stopping...':'Stop';
+    var stop=byId('vmStop');stop.classList.toggle('hidden',!(running&&(v.action==='connect'||v.action==='hyperv'||v.action==='compare'||v.action==='move'||v.action==='media'||v.action==='upload'||v.action==='target-create'||v.action==='send')));stop.disabled=!!v.cancelRequested;stop.textContent=v.cancelRequested?'Stopping...':'Stop';
     byId('vmTargetSelect').disabled=vmBusy||running;
     var hasPlan=!!(vmInventory&&vmPlan);
     byId('vmSavePlan').disabled=locked||!hasPlan;byId('vmSuggest').disabled=locked||!hasPlan;byId('vmWriteRunbook').disabled=locked||!hasPlan;
@@ -2589,6 +2598,9 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       ['Storage',formatBytesShort(vm.provisionedBytes)+' provisioned, '+formatBytesShort(vm.usedBytes)+' used'],
       ['Firmware',vmJoin([vm.firmware?String(vm.firmware).toUpperCase():'',vm.secureBoot?'Secure Boot':'',vm.vtpm?'virtual TPM':'',vm.encrypted?'encrypted':''],', ')],
       ['Hardware version',vm.hardwareVersion],
+      ['Generation',vm.generation?'Generation '+vm.generation:''],
+      ['Integration services',vm.source==='hyperv'?(vmJoin([{ok:'responding',noContact:'not answering',lostCommunication:'lost contact',disabled:'turned off',degraded:'degraded'}[vm.integrationServices]||vm.integrationServices,vm.integrationVersion?'version '+vm.integrationVersion:''],', ')||'Unknown'):''],
+      ['Dynamic Memory',vm.dynamicMemory?'On':''],
       ['VMware Tools',vmJoin([vm.toolsStatus,vm.toolsVersion?'version '+vm.toolsVersion:'',vm.toolsRunning?'running':''],', ')],
       ['Changed block tracking',vm.changeTracking?'On':'Off'],
       ['Fault tolerance',vm.faultTolerance?'On':''],
@@ -2598,7 +2610,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     var disks=vmArr(vm.disks);
     vmDrawerSection(box,'Disks',vmPlural(disks.length,'disk')).appendChild(vmTreeTable(['Disk','Size','Datastore','Type','File'],disks.map(function(d){var tr=el('tr','');
       vmCell(tr,d.label+(d.controller?' ('+d.controller+')':''));vmCell(tr,formatBytesShort(d.capacityBytes));vmCell(tr,d.rdm?'Raw device '+d.rdm:vmDatastoreLink(dc,d.datastore));
-      vmCell(tr,vmJoin([d.provisioning,d.mode&&d.mode!=='persistent'?d.mode:'',d.sharing&&d.sharing!=='sharingNone'?'shared':''],', '));vmCell(tr,d.file||'');return tr;})));
+      vmCell(tr,vmJoin([d.provisioning,d.mode&&d.mode!=='persistent'?d.mode:'',d.sharing&&d.sharing!=='sharingNone'?'shared':''],', '));vmCell(tr,vmConvertDiskLink(d));return tr;})));
     var volumes=vmArr(vm.guestDisks);
     if(volumes.length){vmDrawerSection(box,'Volumes inside the guest').appendChild(vmTreeTable(['Volume','Size','Free'],volumes.map(function(g){var tr=el('tr','');vmCell(tr,g.path);vmCell(tr,formatBytesShort(g.capacityBytes));vmCell(tr,formatBytesShort(g.freeBytes));return tr;})));}
     var nics=vmArr(vm.nics);
@@ -3027,6 +3039,21 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     var body={server:server,user:user,password:password};if(thumbprint){body.thumbprint=thumbprint;}
     vmPost('/api/vmware/connect',body,'vmConnectStatus',function(err){if(!err){byId('vmPassword').value='';vmMarkRunning('connect','connecting','Connecting to '+server+' as '+user+'.');}});
   }
+  function readHyperV(){
+    if(vmLocked()){return;}
+    var host=trimText(byId('vmHvHost').value),user=trimText(byId('vmHvUser').value),password=byId('vmHvPassword').value;
+    if(user&&!password){vmSetStatus('vmHvStatus','Type the password for '+user+', or clear the account to use your own.',true);byId('vmHvPassword').focus();return;}
+    var label=host||'this computer';
+    vmPost('/api/vmware/hyperv',{host:host,user:user,password:password},'vmHvStatus',function(err){if(!err){byId('vmHvPassword').value='';vmMarkRunning('hyperv','connecting','Reading Hyper-V host '+label+'.');}});
+  }
+  // Opens a Hyper-V VM's disk in the Disk converter.
+  function vmConvertDiskLink(d){
+    if(!d.localPath){return d.file||'';}
+    var box=el('span','');box.appendChild(document.createTextNode(d.file+' '));
+    var b=el('button','vm-link','Convert');b.type='button';b.title='Open this disk in the Disk converter'+(d.localPath!==d.file?' ('+d.localPath+')':'');
+    b.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();if(convertIsRunning()){return;}byId('cvSource').value=d.localPath;cvTargetEdited=false;switchTab('convert');cvInspect();});
+    box.appendChild(b);return box;
+  }
   // ---- Plan ----
   var vmCapacityFields=[{id:'vmCapNodes',key:'nodes',whole:true},{id:'vmCapCores',key:'coresPerNode',whole:true},{id:'vmCapMemory',key:'memoryGbPerNode',whole:true},{id:'vmCapStorage',key:'usableStorageTb'},{id:'vmCapReserve',key:'reserveNodes',whole:true},{id:'vmCapRatio',key:'maxVcpuPerCore'},{id:'vmCapReservedMem',key:'reservedMemoryGbPerNode',whole:true}];
   function vmMarkPlanDirty(){vmPlanDirty=true;syncVmButtons();renderVmSizing();}
@@ -3252,6 +3279,8 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   ['vmServer','vmUser'].forEach(function(id){byId(id).addEventListener('input',syncVmButtons);});
   ['vmServer','vmUser','vmPassword'].forEach(function(id){byId(id).addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();connectVmware();}});});
   byId('vmConnect').addEventListener('click',function(){connectVmware();});
+  byId('vmHvRead').addEventListener('click',function(){readHyperV();});
+  ['vmHvHost','vmHvUser','vmHvPassword'].forEach(function(id){byId(id).addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();readHyperV();}});});
   byId('vmCertTrust').addEventListener('click',function(){var v=vmwareState()||{};if(v.certificate){connectVmware(v.certificate.thumbprint);}});
   byId('vmOpenInventory').addEventListener('click',function(){vmPost('/api/vmware/open-inventory',{},'vmConnectStatus');});
   byId('vmReset').addEventListener('click',function(){vmPost('/api/vmware/reset',{},'vmConnectStatus',function(err){if(err){return;}byId('vmServer').value='';byId('vmUser').value='';byId('vmPassword').value='';vmInventory=null;vmAttention=[];vmPlan=null;vmSizing=null;vmSelectedVM='';var v=vmwareState();if(v){v.server='';v.account='';v.summary=null;v.certificate=null;v.message='';v.status='idle';}renderVmTable();renderVmHosts();renderVmExplore();renderVmPlan();if(latestState){renderVMware(latestState);}byId('vmServer').focus();});});

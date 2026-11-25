@@ -169,6 +169,11 @@ type vmDisk struct {
 	BusSharing     string `json:"busSharing"`
 	BootCandidate  bool   `json:"bootCandidate"`
 	ControllerType string `json:"-"`
+	// Hyper-V source: the path this computer opens the disk through (an
+	// administrative share for a remote host), its parent and extension.
+	LocalPath  string `json:"localPath,omitempty"`
+	ParentPath string `json:"parentPath,omitempty"`
+	Format     string `json:"format,omitempty"`
 }
 
 type vmNIC struct {
@@ -239,6 +244,13 @@ type vmMachine struct {
 	ParallelPorts       int           `json:"parallelPorts"`
 	GuestDisks          []vmGuestDisk `json:"guestDisks"`
 	Readiness           []vmReadiness `json:"readiness"`
+	// Hyper-V source (hyperv_source.go); empty for VMware.
+	Source              string `json:"source,omitempty"`
+	Generation          int    `json:"generation,omitempty"`
+	ConfigVersion       string `json:"configVersion,omitempty"`
+	IntegrationServices string `json:"integrationServices,omitempty"`
+	IntegrationVersion  string `json:"integrationVersion,omitempty"`
+	DynamicMemory       bool   `json:"dynamicMemory,omitempty"`
 }
 
 type vmFinding struct {
@@ -397,7 +409,8 @@ func assessVM(vm vmMachine, target string, now time.Time) vmReadiness {
 		result.Status = vmStatusBlocked
 		return result
 	}
-	if role := vmInfrastructureRole(vm); role != "" {
+	hyperV := vm.Source == vmSourceHyperV
+	if role := vmInfrastructureRole(vm); role != "" && !hyperV {
 		add(vmSeverityInfo, "vmware-infrastructure", "This is "+role+", part of the VMware environment itself.", "It is not migrated: it is retired with VMware. Leave it out of the plan and set up the new platform's own management instead.")
 		result.Status = vmStatusSkip
 		return result
@@ -414,8 +427,13 @@ func assessVM(vm vmMachine, target string, now time.Time) vmReadiness {
 	if vm.Template {
 		add(vmSeverityInfo, "template", "This is a template, not a running VM.", "Rebuild the template on the target, or convert it to a VM first if it must move as is.")
 	}
-	if vm.Encrypted {
+	if vm.Encrypted && hyperV {
+		add(vmSeverityBlocker, "shielded", "The VM is a shielded VM: its state and disks are protected by the Host Guardian Service.", "Unshield it (turn off the shielding policy and BitLocker in the guest) before copying its disks. Other platforms cannot read them.")
+	} else if vm.Encrypted {
 		add(vmSeverityBlocker, "encrypted", "The VM is encrypted with vSphere VM Encryption.", "Decrypt the VM in vSphere before exporting or converting it. Its disks cannot be read by other platforms.")
+	}
+	if hyperV && target == vmTargetHyperV {
+		add(vmSeverityInfo, "already-hyperv", "The VM already runs on Hyper-V.", "Move it with Hyper-V live migration, storage migration, or export and import, which keep its configuration. Copy its disks with the Disk converter only to rebuild it on a different host by hand.")
 	}
 
 	// Guest operating system support.
@@ -567,7 +585,11 @@ func assessVM(vm vmMachine, target string, now time.Time) vmReadiness {
 		} else if profile.Kind == vmKindCloud {
 			action = "Copy the data to a disk in the cloud first; SAN LUNs cannot be presented to cloud VMs."
 		}
-		add(severity, "rdm-physical", "Physical-mode raw device mappings: "+strings.Join(physicalRDM, ", ")+". Their data is on a SAN LUN, not in a virtual disk.", action)
+		if hyperV {
+			add(severity, "passthrough-disk", "Pass-through disks: "+strings.Join(physicalRDM, ", ")+". Their data is on a physical disk of the host, not in a virtual disk.", action)
+		} else {
+			add(severity, "rdm-physical", "Physical-mode raw device mappings: "+strings.Join(physicalRDM, ", ")+". Their data is on a SAN LUN, not in a virtual disk.", action)
+		}
 	}
 	if len(virtualRDM) > 0 {
 		add(vmSeverityWarning, "rdm-virtual", "Virtual-mode raw device mappings: "+strings.Join(virtualRDM, ", ")+".", "Convert them to virtual disks (a Storage vMotion that changes the disk format does this) before migrating.")
@@ -601,7 +623,15 @@ func assessVM(vm vmMachine, target string, now time.Time) vmReadiness {
 			age += " Made by backup software: " + strings.Join(backup, ", ") + "."
 			action = "Backup software normally deletes its own snapshot when the job ends; a leftover one means a job failed or is still running. Check the backup job, then delete the snapshot in vSphere before migrating."
 		}
-		add(vmSeverityWarning, "snapshots", fmt.Sprintf("%d snapshot(s).%s", count, age), action)
+		if hyperV {
+			action = "Delete the checkpoints in Hyper-V Manager before migrating, which merges the .avhdx files into the disks. To copy without deleting them, convert the newest .avhdx with the Disk converter: it reads the whole chain."
+			if len(backup) > 0 {
+				action = "Backup software normally removes its own checkpoint when the job ends; a leftover one means a job failed or is still running. Check the backup job, then delete the checkpoint before migrating."
+			}
+			add(vmSeverityWarning, "snapshots", fmt.Sprintf("%d checkpoint(s).%s", count, age), action)
+		} else {
+			add(vmSeverityWarning, "snapshots", fmt.Sprintf("%d snapshot(s).%s", count, age), action)
+		}
 	}
 	if vm.ConsolidationNeeded {
 		add(vmSeverityWarning, "consolidation", "vSphere reports that the VM's disks need consolidation.", "Run Snapshots > Consolidate in vSphere before migrating.")
@@ -633,12 +663,28 @@ func assessVM(vm vmMachine, target string, now time.Time) vmReadiness {
 		add(vmSeverityWarning, "serial", fmt.Sprintf("%d serial and %d parallel port(s).", vm.SerialPorts, vm.ParallelPorts), action)
 	}
 	if len(vm.ConnectedMedia) > 0 {
-		add(vmSeverityWarning, "media", "Connected CD/DVD media: "+strings.Join(vm.ConnectedMedia, ", ")+".", "Disconnect the media before migrating. ISO files on VMware datastores do not move with the VM.")
+		if hyperV {
+			add(vmSeverityWarning, "media", "Connected DVD media: "+strings.Join(vm.ConnectedMedia, ", ")+".", "Eject the media before migrating. ISO files on the Hyper-V host do not move with the VM.")
+		} else {
+			add(vmSeverityWarning, "media", "Connected CD/DVD media: "+strings.Join(vm.ConnectedMedia, ", ")+".", "Disconnect the media before migrating. ISO files on VMware datastores do not move with the VM.")
+		}
 	}
 
 	// VMware Tools and guest networking.
 	powered := strings.EqualFold(vm.PowerState, "poweredOn")
 	switch {
+	case hyperV:
+		switch {
+		case !powered:
+		case vm.IntegrationServices == "ok":
+		case vm.IntegrationServices == "disabled":
+			add(vmSeverityWarning, "integration-off", "The Heartbeat integration service is turned off, so Hyper-V cannot report the guest's details.", "Turn the integration services on, or record the guest's IP configuration inside the VM (the guest pre-flight does this) before cutover.")
+		default:
+			add(vmSeverityWarning, "integration-missing", "Hyper-V Integration Services are not answering, so the guest's IP settings may be missing.", "Install or update the integration services in the guest, or record its IP configuration inside the VM (the guest pre-flight does this) before cutover.")
+		}
+		if vm.DynamicMemory && profile.Family != "hyperv" {
+			add(vmSeverityInfo, "dynamic-memory", fmt.Sprintf("Dynamic Memory is on; the VM starts with %s.", vmFormatBytes(vm.MemoryMB<<20)), "Most targets give a VM fixed memory. Size it from what the guest actually uses, not its startup memory.")
+		}
 	case vm.ToolsStatus == "guestToolsNotInstalled":
 		add(vmSeverityWarning, "tools-missing", "VMware Tools is not installed, so vSphere cannot report the guest's IP settings.", "Record the guest's IP configuration manually, or run the guest pre-flight inside the VM before cutover.")
 	case powered && !vm.ToolsRunning:
