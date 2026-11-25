@@ -1,3 +1,12 @@
+## 3.2.28 published and verified — 2026-11-25
+
+- [Release v3.2.28](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.28) ("Server Inventory and Migration Manager 3.2.28"), tag and target commit `1ff4e961c6ae31c8e4cbddd08a58e7954e6a1a6b`. Source: VMware migration features #70; release preparation #71; publication PR #72 (only `release/VERSION`); release workflow fix #73. The owner chose to merge and publish on 2026-11-25.
+- The first [publish run](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/45542307535) (push of #72) failed in "Test updater" before creating a tag or release: `go test` printed `go: downloading github.com/google/uuid` on stderr and the step's `2>&1` made Windows PowerShell stop. #70 had fixed this in `ci.yml` only; #73 added `go mod download` first in `release.yml`. The [re-run](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/45544558464) (`workflow_dispatch`, version 3.2.28, from `1ff4e96`) passed: publish job 04:07–04:16 UTC, published-upgrade job 04:16–04:26 UTC.
+- The actual 3.2.27-to-3.2.28 upgrade (published 3.2.27 EXE through Download and Install, restart into 3.2.28, native health, settings, shortcut, timers, cleanup and rollback) passed in one run. Source CI on #70, #71, #72 and #73 passed windows, restore, migration and the new vmguest job (37 real guest engine checks on a loopback adapter).
+- Stable EXE: 20,290,560 bytes (was 7,728,640; govmomi adds about 12.5 MB, within the 64 MB updater limit); SHA-256 `19b36a7828db836270243b226636beaeb0bb589338f4a875453ba813c05f95cc` (release asset digest). All 12 assets are published. `Report-Preview.png` is unchanged (same digest as 3.2.27).
+
+Limits: the VMware reader has run only against govmomi's vcsim simulator, not a live vCenter or ESXi; ghost-adapter removal and VMware Tools removal have only refusal coverage on hosted runners. CI artifacts were not downloaded. No client data was uploaded.
+
 ## 3.2.27 published and verified — 2026-11-25
 
 - [Release v3.2.27](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.27) ("Server Inventory and Migration Manager 3.2.27"), tag and target commit `df571687c8d7b2c65a4390121c5020871b1029cb` (publication PR #68, changing only `release/VERSION`). Source: AD health and event history collector fixes #66; release preparation #67. The owner chose to merge and publish on 2026-11-25.
