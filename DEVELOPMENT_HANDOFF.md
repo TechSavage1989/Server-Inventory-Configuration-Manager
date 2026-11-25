@@ -1,3 +1,7 @@
+## 3.2.27 release preparation — 2026-11-25
+
+Publishing the AD health and event history collector fixes (#66), which the owner chose to merge and publish on 2026-11-25. This branch bumps `appVersion`, `collectorVersion` and the collector `$scriptVersion` to 3.2.27, adds `docs/release-notes/3.2.27.md` (first three bullets free of Markdown) and points `scripts/test_published_upgrade.cjs` at the published v3.2.26 executable (SHA-256 `39349764101de3ab9dc3d4950ff7875496d1b127ff6306eec582521dfc066a59`, release asset digest). `release/VERSION` changes in a separate publication PR after this source CI passes. `Report-Preview.png` should be unchanged.
+
 ## Unreleased: AD health and event history collectors failed on a domain controller — 2026-11-25
 
 User report: a 3.2.26 collection on a Windows Server 2022 domain controller finished with two failed collectors.
