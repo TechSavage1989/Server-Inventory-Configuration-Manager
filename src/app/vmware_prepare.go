@@ -37,6 +37,19 @@ type vmPrepareSteps struct {
 	Decrypt   bool `json:"decrypt"`
 }
 
+func vmPrepareStepNames(s vmPrepareSteps) []string {
+	names := []string{}
+	for _, step := range []struct {
+		on   bool
+		name string
+	}{{s.Snapshots, "delete snapshots"}, {s.Shutdown, "shut down"}, {s.RemoveTPM, "remove the virtual TPM"}, {s.Decrypt, "decrypt"}} {
+		if step.on {
+			names = append(names, step.name)
+		}
+	}
+	return names
+}
+
 func (s vmPrepareSteps) any() bool { return s.Snapshots || s.Shutdown || s.RemoveTPM || s.Decrypt }
 
 type vmPrepareResult struct {

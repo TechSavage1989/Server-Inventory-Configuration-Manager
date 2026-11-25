@@ -48,6 +48,9 @@ type vmwareRuntime struct {
 	guestSerial     uint64
 	guestMessage    string
 	guestError      bool
+	prepare         *vmPrepareResult
+	prepareSerial   uint64
+	prepareError    string
 	compare         *compareResult
 	compareSerial   uint64
 	compareFolder   string
@@ -81,6 +84,10 @@ type vmwareStateResponse struct {
 	GuestWorkPath   string              `json:"guestWorkPath"`
 	CompareSerial   uint64              `json:"compareSerial"`
 	CompareError    string              `json:"compareError"`
+	Prepare         *vmPrepareResult    `json:"prepare"`
+	PrepareSerial   uint64              `json:"prepareSerial"`
+	PrepareError    string              `json:"prepareError"`
+	CanPrepare      bool                `json:"canPrepare"`
 	CancelRequested bool                `json:"cancelRequested"`
 	Logs            []logEntry          `json:"logs"`
 	StartedAtUnixMs int64               `json:"startedAtUnixMs"`
@@ -119,6 +126,8 @@ func (a *application) vmwareSnapshotLocked() vmwareStateResponse {
 		RunbookPath: a.vmware.runbookPath, RunbookDocxPath: vmRunbookDocxFor(a.vmware.runbookPath), PlanCSVPath: a.vmware.planCSVPath,
 		GuestSerial: a.vmware.guestSerial, GuestMessage: a.vmware.guestMessage, GuestError: a.vmware.guestError, GuestWorkPath: a.guestWorkPath(),
 		CompareSerial: a.vmware.compareSerial, CompareError: a.vmware.compareError,
+		Prepare: a.vmware.prepare, PrepareSerial: a.vmware.prepareSerial, PrepareError: a.vmware.prepareError,
+		CanPrepare:      a.vmware.inventory != nil && a.vmware.password != "" && strings.EqualFold(a.vmware.inventory.Server, a.vmware.server),
 		CancelRequested: a.vmware.cancelRequested && a.vmware.action != "",
 		Logs:            append([]logEntry{}, a.vmware.logs...),
 		StartedAtUnixMs: millis(a.vmware.startedAt), EndedAtUnixMs: millis(a.vmware.endedAt),
@@ -992,4 +1001,101 @@ func (a *application) vmwareOpenTarget(kind string) (target string, folder bool,
 		return a.vmware.compareFolder, true, true
 	}
 	return "", false, false
+}
+
+// handleVMwarePrepare runs the opt-in prepare-source steps on one VM: the
+// only requests that change vSphere. The typed VM name is checked here, the
+// VM's current settings are saved first, and a running step is never
+// interrupted (vSphere tasks finish on the server either way).
+func (a *application) handleVMwarePrepare(response http.ResponseWriter, request *http.Request) {
+	if !a.requireAuthorization(response, request) {
+		return
+	}
+	var input struct {
+		VMID    string         `json:"vmId"`
+		Confirm string         `json:"confirm"`
+		Steps   vmPrepareSteps `json:"steps"`
+	}
+	if !decodeVMwareRequest(response, request, &input) {
+		return
+	}
+	if !input.Steps.any() {
+		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "Choose at least one step."})
+		return
+	}
+	a.mu.Lock()
+	inventory, server, user, password, thumbprint := a.vmware.inventory, a.vmware.server, a.vmware.account, a.vmware.password, a.vmware.thumbprint
+	a.mu.Unlock()
+	if inventory == nil || password == "" || !strings.EqualFold(inventory.Server, server) {
+		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "Read the inventory from vCenter or ESXi in this session first. A saved inventory cannot change anything."})
+		return
+	}
+	var target *vmMachine
+	for index := range inventory.VMs {
+		if inventory.VMs[index].ID == input.VMID {
+			target = &inventory.VMs[index]
+		}
+	}
+	if target == nil {
+		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "That VM is not in the inventory. Read the inventory again."})
+		return
+	}
+	if !strings.EqualFold(strings.TrimSpace(input.Confirm), target.Name) {
+		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "Type the VM's name exactly to confirm: " + target.Name})
+		return
+	}
+	name, id := target.Name, target.ID
+	if status, message := a.startVMwareAction("prepare"); status != 0 {
+		writeJSON(response, status, map[string]any{"ok": false, "error": message})
+		return
+	}
+	a.mu.Lock()
+	a.vmware.status = "preparing"
+	a.vmware.message = "Preparing " + name + "."
+	a.vmware.prepareError = ""
+	a.mu.Unlock()
+	a.vmwareLog("Preparing %s: %s.", name, strings.Join(vmPrepareStepNames(input.Steps), ", "))
+	go func() {
+		folder := filepath.Join(a.vmwareRoot(), safeName(strings.ToLower(server)), "Prepare")
+		result, err := prepareVSphereVM(context.Background(), vmConnectOptions{Server: server, User: user, Password: password, Thumbprint: thumbprint, UserAgent: displayName + " " + appVersion, AppVersion: appVersion}, id, name, input.Steps, folder, func(text string) { a.vmwareLog("%s", text) })
+		password = ""
+		a.mu.Lock()
+		a.vmware.prepare = &result
+		a.vmware.prepareSerial++
+		if err != nil {
+			a.vmware.prepareError = err.Error()
+		}
+		// Reflect what changed so readiness is checked again.
+		if a.vmware.inventory != nil {
+			for index := range a.vmware.inventory.VMs {
+				vm := &a.vmware.inventory.VMs[index]
+				if vm.ID != id || result.PowerState == "" {
+					continue
+				}
+				vm.PowerState, vm.VTPM, vm.Encrypted = result.PowerState, result.VTPM, result.Encrypted
+				if result.Snapshots == 0 {
+					vm.Snapshots, vm.ConsolidationNeeded = nil, false
+				}
+				if result.PowerState == "poweredOff" {
+					vm.ToolsRunning = false
+				}
+				vm.Readiness = nil
+				for _, target := range vmTargets {
+					vm.Readiness = append(vm.Readiness, assessVM(*vm, target, time.Now()))
+				}
+			}
+			a.vmware.inventorySerial++
+		}
+		a.mu.Unlock()
+		for _, line := range append(result.Done, result.Skipped...) {
+			a.vmwareLog("%s", line)
+		}
+		if err != nil {
+			a.vmwareLog("%s", err.Error())
+			a.finishVMwareAction("connected", "Preparing "+name+" stopped: "+err.Error())
+			return
+		}
+		a.finishVMwareAction("connected", "Prepared "+name+".")
+	}()
+	writeJSON(response, http.StatusAccepted, map[string]any{"ok": true})
 }
