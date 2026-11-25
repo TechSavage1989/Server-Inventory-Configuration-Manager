@@ -117,11 +117,29 @@ func TestFailoverPlansTestDisksAndRemovesOnlyThem(t *testing.T) {
 			t.Fatalf("the end script removes a copy: %s", line)
 		}
 	}
+	clustered := request
+	clustered.Cluster = true
+	if plan, _, _ := replFailoverPlan(clustered, folder, tests); plan.ClusterRole || strings.Contains(plan.Script(), "Add-ClusterVirtualMachineRole") {
+		t.Fatal("a test VM must never join the cluster")
+	}
 	production := request
 	production.Mode = "production"
 	plan, children, err = replFailoverPlan(production, folder, tests)
-	if err != nil || len(children) != 0 || plan.Disks[0] != filepath.Join(folder, "APP01-disk0.vhdx") {
+	if err != nil || len(children) != 0 || plan.Disks[0] != filepath.Join(folder, "APP01-disk0.vhdx") || plan.ClusterRole {
 		t.Fatalf("production %+v %v", plan, err)
+	}
+	production.Adapters = 3
+	if plan, _, _ := replFailoverPlan(production, folder, tests); len(plan.Adapters) != 3 || plan.Adapters[2].Label != "Network Adapter 3" {
+		t.Fatalf("adapters %+v", plan.Adapters)
+	}
+	production.Adapters = 9
+	if _, _, err := replFailoverPlan(production, folder, tests); err == nil {
+		t.Fatal("nine adapters were accepted")
+	}
+	production.Adapters = 0
+	production.Cluster = true
+	if plan, _, _ := replFailoverPlan(production, folder, tests); !plan.ClusterRole || !strings.Contains(replFailoverScript(plan, folder, production.Copies, nil), "Add-ClusterVirtualMachineRole") {
+		t.Fatal("a production VM asked to be highly available is not added to the cluster")
 	}
 	for _, bad := range []replFailoverRequest{
 		{Mode: "test", Name: "", Copies: request.Copies, Generation: 2, CPUs: 2, MemoryMB: 2048},

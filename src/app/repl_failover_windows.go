@@ -217,6 +217,12 @@ func (a *application) handleReplFailover(response http.ResponseWriter, request *
 			return
 		}
 		record.VMID = id
+		for _, line := range strings.Split(out, "\n") {
+			if line = strings.TrimSpace(line); strings.HasPrefix(line, vmClusterRoleAdded) || strings.HasPrefix(line, vmClusterRoleFailed) {
+				record.ClusterResult = line
+				a.vmwareLog("%s: %s", plan.Name, line)
+			}
+		}
 		if err := store.Save(append(list, record)); err != nil {
 			a.vmwareLog("%s was created but could not be recorded: %v. End it in Hyper-V Manager.", plan.Name, err)
 		}

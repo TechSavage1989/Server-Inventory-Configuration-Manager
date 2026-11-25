@@ -602,8 +602,9 @@ func (a *application) handleVMwareReset(response http.ResponseWriter, request *h
 // ---- Guest pre-flight and fix-up -----------------------------------------
 
 var (
-	guestMACPattern      = regexp.MustCompile(`^[0-9A-F]{2}(-[0-9A-F]{2}){5}$`)
-	guestInstancePattern = regexp.MustCompile(`^(PCI|VMBUS|USB)\\[A-Za-z0-9_&.{}\\#\-]{1,400}$`)
+	guestMACPattern        = regexp.MustCompile(`^[0-9A-F]{2}(-[0-9A-F]{2}){5}$`)
+	guestProductKeyPattern = regexp.MustCompile(`^[A-Z0-9]{5}(-[A-Z0-9]{5}){4}$`)
+	guestInstancePattern   = regexp.MustCompile(`^(PCI|VMBUS|USB)\\[A-Za-z0-9_&.{}\\#\-]{1,400}$`)
 )
 
 var guestModes = map[string]string{
@@ -615,11 +616,12 @@ var guestModes = map[string]string{
 	"remove-tools":  "RemoveVmwareTools",
 	"online-disks":  "OnlineDisks",
 	"bitlocker":     "SaveBitLocker",
+	"activate":      "Activate",
 }
 
 // guestChangingModes change this computer, so they need the typed computer
 // name.
-var guestChangingModes = map[string]bool{"apply": true, "undo": true, "remove-ghosts": true, "remove-tools": true, "online-disks": true, "bitlocker": true}
+var guestChangingModes = map[string]bool{"apply": true, "undo": true, "remove-ghosts": true, "remove-tools": true, "online-disks": true, "bitlocker": true, "activate": true}
 
 func (a *application) handleVMwareGuest(response http.ResponseWriter, request *http.Request) {
 	if !a.requireAuthorization(response, request) {
@@ -766,6 +768,13 @@ func validateGuestItems(action string, items []json.RawMessage) ([]byte, error) 
 	switch action {
 	case "capture", "status", "undo", "remove-tools", "bitlocker":
 		return nil, nil
+	case "activate":
+		if len(items) == 0 {
+			return nil, nil // activate with the key already installed
+		}
+		if len(items) > 1 {
+			return nil, errors.New("Enter one product key.")
+		}
 	}
 	if len(items) == 0 || len(items) > 64 {
 		return nil, errors.New("Choose at least one item.")
@@ -791,6 +800,18 @@ func validateGuestItems(action string, items []json.RawMessage) ([]byte, error) 
 				return nil, errors.New("Choose hidden adapters from the list.")
 			}
 			clean = append(clean, map[string]any{"instanceId": item.InstanceID})
+		case "activate":
+			var item struct {
+				ProductKey string `json:"productKey"`
+			}
+			key := ""
+			if json.Unmarshal(raw, &item) == nil {
+				key = strings.ToUpper(strings.TrimSpace(item.ProductKey))
+			}
+			if !guestProductKeyPattern.MatchString(key) {
+				return nil, errors.New("Type the product key as XXXXX-XXXXX-XXXXX-XXXXX-XXXXX.")
+			}
+			clean = append(clean, map[string]any{"productKey": key})
 		case "online-disks":
 			var item struct {
 				Number int `json:"number"`

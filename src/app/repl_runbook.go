@@ -113,7 +113,7 @@ func replRunbookJobFor(server, platform string, view replJobView) replRunbookJob
 	}
 	if job.Receiver == "hyperv" {
 		job.Test = []string{
-			"On the Hyper-V host: Migration and replication, Start VMs from copies. Choose Find copies and tick every disk of " + server + ".",
+			"On the Hyper-V host: Migration and replication, Start VMs from copies. The copies list refreshes by itself; check that every disk of " + server + " is ticked.",
 			"Choose Test failover, leave the network Not connected (or choose an isolated switch), type the VM name and create it. Replication into those copies pauses and the job shows Paused for a test failover.",
 			"Sign in to the test VM and check that it starts and the application's data is there. Do not connect it to the production network.",
 			"Choose End test (type the VM name). The test VM and its test disks are removed and replication catches up on its next round.",

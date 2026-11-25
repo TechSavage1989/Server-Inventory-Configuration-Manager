@@ -1,9 +1,19 @@
+## Unreleased: receiver discovery and pairing by approval — 2026-11-25
+
+- Senders find receivers on the same network (UDP 44379, one find request per adapter, or one typed computer across subnets) and pick one; the address and thumbprint fill in. AGENTS.md rule 37.
+- Pairing by approval: the sender asks with the thumbprint pinned, the receiver's panel shows Allow/Deny with a six-digit check number, and the code is handed over once. Receiver media announces itself but needs the typed code.
+- Works with: every migration tool card and tool title says which sources and targets it supports and whether it is agentless, agent-based or run inside the source, live or offline (`migrationModes`, AGENTS.md rule 38). The guide's Ways to do this lists only the modes that fit.
+- Tests: `vmdiscovery_test.go` (Linux and Windows), workspace check "Receiver discovery". Not field-validated: broadcast across real switches/VLANs, the UDP firewall rule on a real host, and Windows PE answering find requests (its firewall is usually off).
+
 ## Unreleased: one Migration and replication area, guided migration and live transfers — 2026-11-25
 
 - The tabs are now Discovery (This server; VMware and Hyper-V), Collection, Report Viewer, Restore and Migration and replication. The Migration area lists Guided migration, Plan and runbook, Move VMs, Replicate servers, Receive and send disks, Start VMs from copies, Move file shares, Convert disk images, Prepare and fix up and Compare before and after, each with what it is for and where it runs. Old tab names still work through `legacyTabs`. See AGENTS.md rule 35.
 - Guided migration walks every source and target with per-step computer, live checks and blocking checks. Receiver details have Copy buttons and paste into all sending fields at once.
 - On a Hyper-V host, copies and the receiver default to the host's virtual hard disk folder; Move VMs offers Cluster Shared Volumes with free space, refuses a copy that does not fit, and can add the VM to the failover cluster at cutover.
 - The receiver lists connected senders and every copy with progress, speed and time left; Send, Move and replication job details show theirs. Replication summary tiles filter the job list with a reason and next step.
+- Start VMs from copies refreshes by itself, ticks finished disks, explains why Create the VM is disabled and why a copy is locked, follows the boot disk's firmware, hides Secure boot for generation 1 and keeps Production off until the job is cut over.
+- The agent sends the source computer's processors, memory, firmware and adapters with each copy; Start VMs from copies fills them in (or from vCenter), warns when lowered, names and confirms test VMs, shows a post-test checklist and the next step, and can make a production VM highly available.
+- Windows activation: Record settings saves the license channel; Check what needs fixing gives the fix for it and Activate Windows can install a key (the published 2025 AVMA keys are built in). Field-validate Activate and AVMA on a real Datacenter Hyper-V host; the vmguest CI job checks only that Status reports the channel.
 - The initial copy is a milestone: the agent records `initialCopyAt` and writes information event 1005 (1004 is the stopped alert); the job row says "Initial copy complete, ready to cut over" with the time and Test failover and Cut over buttons, and the console shows a notice. The guide adds endpoint protection exclusions before installing the agent and a wait for the initial copy before testing.
 - Tested: `go test ./src/app` (Linux), `go vet` for Linux and Windows, and the full `scripts/test_workspace.cjs` in headless Chromium with synthetic state. Not yet field-validated: `Add-ClusterVirtualMachineRole` on a real cluster, CSV detection and the WMI default-path read on a real Hyper-V host.
 

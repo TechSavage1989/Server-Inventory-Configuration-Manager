@@ -36,7 +36,11 @@ type replCopyInfo struct {
 	Updated       time.Time `json:"updated"`
 	Busy          bool      `json:"busy"`
 	Held          string    `json:"held,omitempty"`
-	Generation    int       `json:"generation"`
+	// Generation is 1 (BIOS) or 2 (UEFI), read from a finished copy; 0
+	// while the copy is being written.
+	Generation int `json:"generation"`
+	// Machine is the source computer's shape, when the sender recorded it.
+	Machine *vmSourceMachine `json:"machine,omitempty"`
 }
 
 // replParseRound splits a round tag (job ID @ recovery point).
@@ -73,8 +77,9 @@ func replListCopies(folder string, busy func(string) bool, held func(string) str
 		if err != nil || state == nil {
 			continue // not a copy this application made
 		}
-		info := replCopyInfo{Name: name, Size: state.Size, Complete: state.Complete, Verified: state.Verified, Round: state.Round, Updated: state.Updated, Generation: 1}
+		info := replCopyInfo{Name: name, Size: state.Size, Complete: state.Complete, Verified: state.Verified, Round: state.Round, Updated: state.Updated}
 		info.Job, info.RecoveryPoint = replParseRound(state.Round)
+		info.Machine = state.Machine
 		if busy != nil {
 			info.Busy = busy(name)
 		}
@@ -142,6 +147,12 @@ type replFailoverRequest struct {
 	Switch     string   `json:"switch"`
 	VLAN       int      `json:"vlan"`
 	Start      bool     `json:"start"`
+	// Cluster makes a production VM highly available in this host's
+	// failover cluster (a test VM never joins the cluster).
+	Cluster bool `json:"cluster,omitempty"`
+	// Adapters is how many network adapters the VM gets (the source's
+	// count), all on Switch and VLAN; 0 means one.
+	Adapters int `json:"adapters,omitempty"`
 }
 
 // replFailover records a VM started from copies, so a test can be ended
@@ -157,6 +168,7 @@ type replFailover struct {
 	Switch        string    `json:"switch,omitempty"`
 	RecoveryPoint time.Time `json:"recoveryPoint,omitempty"`
 	Started       time.Time `json:"started"`
+	ClusterResult string    `json:"clusterResult,omitempty"`
 }
 
 var replVMNamePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9 ._()-]{0,99}$`)
@@ -188,6 +200,7 @@ func replFailoverPlan(request replFailoverRequest, folder, testFolder string) (*
 	}
 	plan := &vmHyperVPlan{Name: request.Name, Generation: request.Generation, CPUs: request.CPUs, MemoryBytes: (request.MemoryMB + request.MemoryMB%2) << 20, Start: request.Start}
 	plan.Path = filepath.Join(testFolder, request.Name)
+	plan.ClusterRole = request.Cluster && request.Mode == "production"
 	plan.Notes = "Started from replicated copies by Server Inventory and Migration Manager (production)."
 	if request.Mode == "test" {
 		plan.Notes = "Test failover from replicated copies by Server Inventory and Migration Manager. Ending the test in the application removes this VM and its test disks."
@@ -220,7 +233,13 @@ func replFailoverPlan(request replFailoverRequest, folder, testFolder string) (*
 		plan.Disks = append(plan.Disks, child)
 		children = append(children, child)
 	}
+	if request.Adapters < 0 || request.Adapters > 8 {
+		return nil, nil, errors.New("choose 1 to 8 network adapters")
+	}
 	plan.Adapters = []vmHyperVAdapter{{Label: "Network Adapter", Switch: request.Switch, VLAN: request.VLAN}}
+	for n := 2; n <= request.Adapters; n++ {
+		plan.Adapters = append(plan.Adapters, vmHyperVAdapter{Label: fmt.Sprintf("Network Adapter %d", n), Switch: request.Switch, VLAN: request.VLAN})
+	}
 	return plan, children, nil
 }
 

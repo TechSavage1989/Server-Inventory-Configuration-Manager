@@ -51,6 +51,7 @@ function vmwareGuestFixture(platform){const adapter=(name,mac,index,addresses,is
   State:{ComputerName:'SRV-DEMO-01',Adapters:[Object.assign(adapter('Ethernet0','00-50-56-00-00-01',4,['192.0.2.10'],true),{Description:'vmxnet3 Ethernet Adapter'})],RunningAutoServices:['Spooler','VMTools','W3SVC']}};
  return {Schema:1,Capture:capture,RollbackAvailable:false,MissingAutoServices:['W3SVC'],MissingAddresses:['192.0.2.10'],
   TargetChecks:[{Target:'hyperv',Severity:'good',Message:'Hyper-V drivers are built in.'},{Target:'nutanix',Severity:'warning',Message:'VirtIO drivers are not installed.'}],
+  Activation:{Known:true,Channel:'MAK',Before:'MAK',Licensed:false,Status:'Notification',Severity:'warning',Message:'Windows uses a MAK key. Activate now activates it again over the internet, which uses one activation from the MAK\'s count. Do not activate a test VM. On a Hyper-V host running Windows Server Datacenter, this VM can use AVMA instead: no count is used and no internet is needed.',CanActivate:true,AvmaKey:'WWVGQ-PNHV9-B89P4-8GGM9-9HPQ4',AvmaEdition:'2025 Standard'},
   Ghosts:[{InstanceId:'PCI\\VEN_15AD&DEV_07B0&SUBSYS_07B015AD\\FF565000B8E7AA0000',Description:'vmxnet3 Ethernet Adapter',Vmware:true},{InstanceId:'USB\\VID_0BDA&PID_8153\\000001',Description:'USB Ethernet',Vmware:false}],
   State:{ComputerName:'SRV-DEMO-01',Domain:'example.com',OperatingSystem:'Microsoft Windows Server 2019 Standard',Firmware:'UEFI',SecureBoot:true,Platform:{Name:platform||'Hyper-V'},VmwareTools:{Installed:true,Version:'12.3.0',ProductCode:'{00000000-0000-0000-0000-000000000000}'},
    Adapters:[adapter('Ethernet','00-15-5D-00-00-01',7,['169.254.0.0'].slice(1),false)],Disks:[{Number:0,FriendlyName:'Virtual Disk',SizeBytes:107374182400,IsOffline:false,IsReadOnly:false,IsBoot:true,IsSystem:true},{Number:1,FriendlyName:'Virtual Disk',SizeBytes:214748364800,IsOffline:true,IsReadOnly:false,OfflineReason:'Policy',IsBoot:false,IsSystem:false}]}};}
@@ -67,7 +68,7 @@ async function fixture(browser,old=false){
  const state={status:'idle',phase:'Ready',running:false,computerName:'SRV-DEMO-01',isAdministrator:true,powerShellVersion:'5.1',defaultOutputRoot:'C:\\Reports',update:{status:'current',title:'Up to date',message:'Installed v3.2.10. Latest v3.2.10.',canCheck:true},
   restore:{status:'idle',packages:{lastCollection:'',loadedReport:''},items:[],logs:[]},migrate:migrateIdle(),vmware:vmwareIdle(),convert:convertIdle()};
  const vm={inventory:null,plan:null,sizing:null,guest:null,compare:null};
- const failover={failovers:[],copies:[{name:'APP01-disk0.vhdx',size:107374182400,complete:true,verified:false,round:'a1@2026-11-25T14:19:23Z',job:'a1',recoveryPoint:'2026-11-25T14:19:23Z',updated:'2026-11-25T14:20:00Z',busy:false,generation:2},{name:'APP01-disk1.vhdx',size:536870912000,complete:true,verified:false,round:'a1@2026-11-25T14:19:23Z',job:'a1',recoveryPoint:'2026-11-25T14:19:23Z',updated:'2026-11-25T14:20:00Z',busy:false,generation:1},{name:'SQL01-disk0.vhdx',size:107374182400,complete:false,verified:false,updated:'2026-11-25T14:20:00Z',busy:true,generation:1}]};
+ const failover={failovers:[],copies:[{name:'APP01-disk0.vhdx',size:107374182400,complete:true,verified:false,round:'a1@2026-11-25T14:19:23Z',job:'a1',recoveryPoint:'2026-11-25T14:19:23Z',updated:'2026-11-25T14:20:00Z',busy:false,generation:2,machine:{name:'APP01',cpus:6,memoryMB:12288,firmware:'uefi',adapters:2}},{name:'APP01-disk1.vhdx',size:536870912000,complete:true,verified:false,round:'a1@2026-11-25T14:19:23Z',job:'a1',recoveryPoint:'2026-11-25T14:19:23Z',updated:'2026-11-25T14:20:00Z',busy:false,generation:1},{name:'SQL01-disk0.vhdx',size:107374182400,complete:false,verified:false,updated:'2026-11-25T14:20:00Z',busy:true,generation:1}]};
  const targetTest={running:false,log:[],error:'',tests:[]};
  const repl={ok:true,pushing:false,pushLog:[],pushResults:null,serial:0,isAdministrator:true,defaultPort:44390,agents:[],summary:{agents:0,unreachable:0,jobs:0,healthy:0,behind:0,failing:0,paused:0,cutOver:0,alerts:0}};
  const html=fs.readFileSync(old?'tests/fixtures/index-v3.2.9.html':'src/app/index.html','utf8').replaceAll('__TOKEN__','workspace-test').replaceAll('__APP_VERSION__','3.2.10').replaceAll('__COLLECTOR_VERSION__','3.2.10');
@@ -192,7 +193,7 @@ async function fixture(browser,old=false){
  await new Promise(r=>server.listen(0,'127.0.0.1',r));const context=await browser.newContext({viewport:{width:1440,height:1000}}),page=await context.newPage();
  page.on('dialog',async d=>{dialogs.push(d.message());await d.dismiss();});page.on('pageerror',e=>errors.push(e.message));
  const url='http://127.0.0.1:'+server.address().port+'/';await page.goto(url);await page.waitForFunction(()=>document.querySelector('#serverName').textContent==='SRV-DEMO-01');
- return {page,context,state,vm,repl,receiverPair,targetTest,replCalls,vmwareCalls,convertCalls,rejectConvert(action,message){convertReject[action]=message},setConvertSize(size){convertSize=size},rejectVmware(action,message){vmwareReject[action]=message},logs,dialogs,errors,started,skipRequests,opens,restoreCalls,migrateCalls,rejectMigrate(action,message){migrateReject[action]=message},rejectRestore(message){restoreReject=message},get saved(){return saved},get saveCalls(){return saveCalls},reject(){rejectStart=true},async close(){assert.deepEqual(errors,[]);await context.close();await new Promise(r=>server.close(r));}};
+ return {page,context,state,vm,repl,failover,receiverPair,targetTest,replCalls,vmwareCalls,convertCalls,rejectConvert(action,message){convertReject[action]=message},setConvertSize(size){convertSize=size},rejectVmware(action,message){vmwareReject[action]=message},logs,dialogs,errors,started,skipRequests,opens,restoreCalls,migrateCalls,rejectMigrate(action,message){migrateReject[action]=message},rejectRestore(message){restoreReject=message},get saved(){return saved},get saveCalls(){return saveCalls},reject(){rejectStart=true},async close(){assert.deepEqual(errors,[]);await context.close();await new Promise(r=>server.close(r));}};
 }
 // Tools live in two tabs: Discovery (Alt+1) and Migration and replication (Alt+5).
 const discoveryTools=['server','environment'];
@@ -777,6 +778,31 @@ async function check(name,fn){await fn();report.checks.push({name,result:'passed
   await f.page.locator('[data-gd-source="shares"]').click();assert(await f.page.locator('#gdTargetPick').isHidden());assert.equal(await f.page.locator('#gdPlanTitle').textContent(),'Moving file shares to a new file server');
   assert.deepEqual(f.dialogs,[]);
  }finally{await f.close();}});
+ await check('Works with: every migration tool says which systems it works for and how, and the guide lists only the ways that fit the chosen source and target',async()=>{const f=await fixture(browser);try{
+  await goTool(f,'guide');
+  const card=async id=>(await f.page.locator(`[data-tool="${id}"]`).textContent());
+  {const t=await card('movevms');assert(t.includes('Works with VMware (vCenter or ESXi) or Hyper-V VMs to Hyper-V, Scale HyperCore, Nutanix AHV, Proxmox VE or a physical server')&&t.includes('Agentless')&&t.includes('Live, source keeps running'),t);}
+  {const t=await card('replicate');assert(t.includes('Any running Windows Server or Linux server, physical or a VM on any hypervisor')&&t.includes('Agent on the source'),t);}
+  {const t=await card('convert');assert(t.includes('Offline, source shut down')&&t.includes('VMware ESXi or vCenter'),t);}
+  assert((await card('shares')).includes('to a new Windows file server'));assert((await card('environment')).includes('Read only'));
+  await goTool(f,'convert');assert((await f.page.locator('#toolWorks-tabConvert').textContent()).includes('Offline, source shut down'));
+  await goTool(f,'movevms');assert((await f.page.locator('#toolWorks-tabVmware').textContent()).includes('Agentless'));
+  await goTool(f,'failover');assert((await f.page.locator('#toolWorks-tabVmware').textContent()).includes('Copies received on a Hyper-V host'));
+  await goTool(f,'guide');await f.page.locator('[data-gd-source="vmware"]').click();await f.page.locator('[data-gd-target="hyperv"]').click();
+  const modes=async()=>f.page.locator('[data-gd-mode]').evaluateAll(n=>n.map(x=>x.getAttribute('data-gd-mode')+(x.classList.contains('current')?'*':'')));
+  assert.deepEqual(await modes(),['movevms*','replicate','sendbyhand','convert']);
+  await f.page.locator('[data-gd-target="scale"]').click();assert.deepEqual(await modes(),['movevms*','replicate','sendbyhand','convert']);
+  await f.page.locator('[data-gd-target="physical"]').click();assert.deepEqual(await modes(),['movevms*','replicate','sendbyhand'],'disk images are not written to a physical server');
+  await f.page.locator('[data-gd-mode-open="replicate"]').click();
+  assert.equal(await f.page.locator('[data-gd-source="server"]').getAttribute('aria-pressed'),'true');assert.deepEqual(await modes(),['replicate*','sendbyhand','convert'].filter(m=>m!=='convert'));
+  await f.page.locator('[data-gd-source="image"]').click();await f.page.locator('[data-gd-target="vsphere"]').click();assert.deepEqual(await modes(),['convert*']);
+  assert((await f.page.locator('#gdModes').textContent()).startsWith('How it is done:'));
+  await f.page.locator('[data-gd-source="shares"]').click();assert.deepEqual(await modes(),['shares*']);
+  await f.page.locator('[data-gd-source="vmware"]').click();await f.page.locator('[data-gd-target="hyperv"]').click();
+  await f.page.locator('[data-gd-mode-open="sendbyhand"]').click();assert(await f.page.locator('#vmViewDisks').isVisible(),'a mode without its own steps opens its tool');
+  await f.page.setViewportSize({width:1440,height:1000});await goTool(f,'guide');await f.page.locator('#gdModes').scrollIntoViewIfNeeded();await f.page.screenshot({path:shots+'/guide-modes-1440x1000.png'});
+  assert.deepEqual(f.dialogs,[]);
+ }finally{await f.close();}});
  await check('Receiver connection details: Copy buttons copy each detail and all of them, and pasting the block into any sending field fills all three',async()=>{const f=await fixture(browser);try{
   await f.context.grantPermissions(['clipboard-read','clipboard-write']);
   await goTool(f,'environment');await goTool(f,'diskcopy');
@@ -1028,6 +1054,14 @@ async function check(name,fn){await fn();report.checks.push({name,result:'passed
   await f.page.locator('#vmGuestBitLocker').click();assert((await f.page.locator('#migrateDialog').textContent()).includes('recovery'));await f.page.locator('#migrateConfirmInput').fill('SRV-DEMO-01');await f.page.locator('#migrateConfirmInput').press('Enter');
   await f.page.waitForFunction(()=>!document.querySelector('#migrateDialog').open);assert.deepEqual(vmwareCalls(f,'guest/bitlocker').map(c=>c.body),[{items:[],confirm:'SRV-DEMO-01'}]);
   Object.assign(f.state.vmware,{running:false,action:''});await f.page.waitForTimeout(1100);
+  // Windows activation: the channel's fix, a MAK warning, and the AVMA key on a Hyper-V host.
+  assert((await f.page.locator('#vmGuestActivationText').textContent()).includes('Windows uses a MAK key'));assert(await f.page.locator('#vmGuestAvma').isVisible());
+  await f.page.locator('#vmGuestKey').fill('ABCDE-12345');assert(await f.page.locator('#vmGuestActivate').isDisabled(),'a malformed key is refused');
+  await f.page.locator('#vmGuestAvma').click();assert.equal(await f.page.locator('#vmGuestKey').inputValue(),'WWVGQ-PNHV9-B89P4-8GGM9-9HPQ4');
+  await f.page.locator('#vmGuestActivate').click();assert((await f.page.locator('#migrateDialog').textContent()).includes('AVMA works only on a Hyper-V host running an activated Windows Server Datacenter'));
+  await f.page.locator('#migrateConfirmInput').fill('SRV-DEMO-01');await f.page.locator('#migrateConfirmInput').press('Enter');await f.page.waitForFunction(()=>!document.querySelector('#migrateDialog').open);
+  assert.deepEqual(vmwareCalls(f,'guest/activate').map(c=>c.body),[{items:[{productKey:'WWVGQ-PNHV9-B89P4-8GGM9-9HPQ4'}],confirm:'SRV-DEMO-01'}]);assert.equal(await f.page.locator('#vmGuestKey').inputValue(),'','the key is cleared from the page after use');
+  Object.assign(f.state.vmware,{running:false,action:''});await f.page.waitForTimeout(1100);
   f.vm.guest=vmwareGuestFixture('VMware');f.state.vmware.guestSerial=2;await f.page.waitForTimeout(1100);assert(await f.page.locator('#vmGuestTools').isDisabled(),'VMware Tools stays while the VM is on VMware');
   assert(await f.page.locator('#vmGuestDisks').isEnabled());await f.page.locator('input[data-vm-disk="1"]').uncheck();assert(await f.page.locator('#vmGuestDisks').isDisabled());
   f.state.isAdministrator=false;await f.page.waitForTimeout(1100);assert(await f.page.locator('#vmGuestAdmin').isVisible());assert(await f.page.locator('#vmGuestCapture').isDisabled());
@@ -1152,18 +1186,41 @@ async function check(name,fn){await fn();report.checks.push({name,result:'passed
   assert(await f.page.locator('#vmFailover').isHidden(),'Start VMs from copies is its own tool');assert(await f.page.locator('#vmMediaCard').isVisible(),'receiver media is built in Receive and send disks');await goTool(f,'failover');
   await f.page.locator('#fvRefresh').click();await f.page.waitForFunction(()=>document.querySelectorAll('[data-fv-copy]').length===3);
   assert(await f.page.locator('[data-fv-copy="SQL01-disk0.vhdx"]').isDisabled(),'a copy being received cannot be chosen');
-  assert((await f.page.locator('#fvCopies').textContent()).includes('being received now'));
+  assert((await f.page.locator('#fvCopies').textContent()).includes('being received now. It unlocks by itself when this round finishes'));
+  // Finished copies of the newest round are ticked without a click, and the button says why it is still disabled.
+  assert(await f.page.locator('[data-fv-copy="APP01-disk0.vhdx"]').isChecked());assert(await f.page.locator('[data-fv-copy="APP01-disk1.vhdx"]').isChecked());
+  // A test VM is named NAME-TEST and confirmed for you; the button says why when something is missing.
+  assert.equal(await f.page.locator('#fvConfirm').inputValue(),'APP01-TEST');assert.equal(await f.page.locator('#fvWhy').textContent(),'');
+  await f.page.locator('#fvConfirm').fill('APP01');assert((await f.page.locator('#fvWhy').textContent()).includes('does not match the VM name: type APP01-TEST exactly'));assert(await f.page.locator('#fvStartButton').isDisabled());await f.page.locator('#fvConfirm').fill('');
+  assert.equal(await f.page.locator('#fvWhy').textContent(),'Type APP01-TEST in "Type the VM name to confirm".');
+  // Sized from the source the agent recorded, with a warning when lowered.
+  assert((await f.page.locator('#fvSource').textContent()).includes('From the source (the replication agent on APP01): 6 processors, 12.0 GB memory, UEFI, 2 network adapters'));
+  assert.equal(await f.page.locator('#fvCpus').inputValue(),'6');assert.equal(await f.page.locator('#fvMemory').inputValue(),'12');assert.equal(await f.page.locator('#fvAdapters').inputValue(),'2');
+  await f.page.locator('#fvCpus').fill('4');assert((await f.page.locator('#fvSizeWarn').textContent()).includes('Lower than the source: 4 processors (the source has 6)'));await f.page.locator('#fvCpus').fill('6');assert(await f.page.locator('#fvSizeWarn').isHidden());
+  // The firmware follows the boot disk: a mismatch is explained and Secure boot is hidden for generation 1.
+  await f.page.locator('#fvGen').selectOption('1');assert((await f.page.locator('#fvGenWarn').textContent()).includes('uses UEFI (GPT partitions), so Generation 1 will not start it'));assert(await f.page.locator('#fvUefiRow').isHidden());
+  await f.page.locator('#fvGen').selectOption('2');assert(await f.page.locator('#fvGenWarn').isHidden());assert(await f.page.locator('#fvUefiRow').isVisible());
+  // The list follows the receiver by itself: a copy that finishes unlocks with no click.
+  f.failover.copies[2]=Object.assign({},f.failover.copies[2],{busy:true,generation:0});
+  await f.page.waitForFunction(()=>document.querySelector('#fvCopies').textContent.includes('SQL01-disk0.vhdx (100 GB, firmware known once finished'),null,{timeout:15000});
+  f.failover.copies[2]=Object.assign({},f.failover.copies[2],{busy:false,complete:true,generation:1,round:'s1@2026-11-25T14:10:00Z',job:'s1',recoveryPoint:'2026-11-25T14:10:00Z'});
+  await f.page.waitForFunction(()=>!document.querySelector('[data-fv-copy="SQL01-disk0.vhdx"]').disabled,null,{timeout:15000});
+  assert(!(await f.page.locator('[data-fv-copy="SQL01-disk0.vhdx"]').isChecked()),'a copy that finishes later is not added to the disks already chosen');
+  f.failover.copies[2]=Object.assign({},f.failover.copies[2],{busy:true,complete:false,generation:0});
+  await f.page.waitForFunction(()=>document.querySelector('[data-fv-copy="SQL01-disk0.vhdx"]').disabled,null,{timeout:15000});
   await f.page.locator('[data-fv-copy="APP01-disk0.vhdx"]').check();await f.page.locator('[data-fv-copy="APP01-disk1.vhdx"]').check();
   assert.equal(await f.page.locator('#fvName').inputValue(),'APP01-TEST');assert.equal(await f.page.locator('#fvGen').inputValue(),'2','a GPT boot disk starts as generation 2');
   assert.equal(await f.page.locator('#fvSwitch').inputValue(),'','a test VM starts disconnected');assert.equal(await f.page.locator('#fvSwitch option').count(),3);
-  assert(await f.page.locator('#fvStartButton').isDisabled());await f.page.locator('#fvConfirm').fill('app01-test');
+  assert(await f.page.locator('#fvStartButton').isDisabled());await f.page.locator('#fvConfirm').fill('app01-test');assert(await f.page.locator('#fvStartButton').isEnabled());
   await f.page.locator('#fvStartButton').click();await f.page.waitForFunction(()=>document.querySelector('#fvList').textContent.includes('APP01-TEST'));
   const start=f.replCalls.filter(c=>c.action==='failover'&&c.method==='POST')[0].body;
-  assert.deepEqual(start,{action:'start',confirm:'app01-test',request:{mode:'test',name:'APP01-TEST',copies:['APP01-disk0.vhdx','APP01-disk1.vhdx'],generation:2,cpus:2,memoryMB:4096,secureBoot:'windows',tpm:false,switch:'',vlan:0,start:true}});
+  assert.deepEqual(start,{action:'start',confirm:'app01-test',request:{mode:'test',name:'APP01-TEST',copies:['APP01-disk0.vhdx','APP01-disk1.vhdx'],generation:2,cpus:6,memoryMB:12288,secureBoot:'windows',tpm:false,switch:'',vlan:0,start:true,adapters:2}});
+  assert((await f.page.locator('#fvList').textContent()).includes('Do not activate the test VM'));assert((await f.page.locator('#fvNext').textContent()).includes('Test running: APP01-TEST'));
   assert((await f.page.locator('#fvCopies').textContent()).includes('in use: test failover APP01-TEST'));
   const end=f.page.locator('[data-fv-end="f1"]');assert(await end.isDisabled());await f.page.locator('[data-fv-endname="f1"]').fill('APP01-TEST');assert(await end.isEnabled());
   await end.click();await f.page.waitForFunction(()=>document.querySelector('#fvRunning').classList.contains('hidden'));
   assert((await f.page.locator('#fvStatus').textContent()).includes('catches up'));
+  assert((await f.page.locator('#fvNext').textContent()).includes('Next: cut over'));await f.page.locator('[data-fv-next="replicate"]').click();await f.page.waitForFunction(()=>!document.querySelector('#tabReplication').classList.contains('hidden'));
   assert.deepEqual(f.dialogs,[]);
  }finally{await f.close();}});
 
@@ -1249,7 +1306,7 @@ async function check(name,fn){await fn();report.checks.push({name,result:'passed
    summary:{agents:2,unreachable:1,jobs:3,healthy:1,behind:1,failing:1,paused:0,cutOver:0,alerts:0}});
   await goTool(f,'replicate');await f.page.waitForFunction(()=>document.querySelectorAll('#rpAgents .rp-agent').length===2,null,{timeout:15000});
   const bars=await f.page.locator('#rpAgents .rp-bar').evaluateAll(n=>n.map(b=>b.getAttribute('aria-valuenow')+' '+b.className));assert.deepEqual(bars.slice(0,2),['25 rp-bar active','25 rp-bar active'],bars.join());
-  const rowText=await f.page.locator('#rpAgents .rp-progress-text').allTextContents();assert(rowText[0].startsWith('Round 4: 25%, 25.0 GB of 100 GB read, 4.0 GB sent'),rowText[0]);assert(rowText[1].startsWith('Initial copy: 25%'),rowText[1]);
+  const rowText=await f.page.locator('#rpAgents .rp-progress-text').allTextContents();assert(rowText[0].startsWith('Round 4: 25% compared, 25.0 GB of 100 GB checked for changes, 4.0 GB of changes sent'),rowText[0]);assert(rowText[1].startsWith('Initial copy: 25%, 12.5 GB of 50.0 GB copied'),rowText[1]);
   // The initial copy milestone: a whole copy says so, with Test failover and Cut over; one still copying does not.
   const milestones=await f.page.locator('#rpAgents .rp-milestone').allTextContents();assert.equal(milestones.length,3,milestones.join('|'));assert(milestones.every(t=>t.startsWith('Initial copy complete')&&t.endsWith('ready to cut over.')),milestones.join('|'));
   assert.deepEqual(await f.page.locator('#rpAgents [data-rp-goto-cutover]').evaluateAll(n=>n.map(b=>b.getAttribute('data-rp-goto-cutover'))),['ag1|j1','ag1|j2','ag1|j3']);assert.equal(await f.page.locator('[data-rp-test="ag1|j4"]').count(),0);
