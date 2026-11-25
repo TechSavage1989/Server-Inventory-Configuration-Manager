@@ -292,6 +292,44 @@ func replStreamNames(handle windows.Handle) ([]string, error) {
 // The NTFS metadata files read in full on every tracked round. The first
 // four must answer or the volume is read in full.
 var replMetaRequired = []string{`$MFT`, `$MFTMirr`, `$LogFile`, `$Bitmap`}
+
+// replMetaRecords are the MFT record numbers of replMetaRequired.
+var replMetaRecords = []int64{0, 1, 2, 6}
+
+// replSystemFileRuns reads an NTFS system file's MFT record (record < 16)
+// from the volume and returns where its data lies.
+func replSystemFileRuns(device string, record int64) ([]replRun, error) {
+	volume, err := replOpenVolume(device)
+	if err != nil {
+		return nil, err
+	}
+	defer windows.CloseHandle(volume)
+	out := make([]byte, 128)
+	var returned uint32
+	if err := windows.DeviceIoControl(volume, replFsctlGetNtfsVolumeData, nil, 0, &out[0], uint32(len(out)), &returned, nil); err != nil {
+		return nil, err
+	}
+	clusterSize := int64(binary.LittleEndian.Uint32(out[44:]))
+	recordSize := int64(binary.LittleEndian.Uint32(out[48:]))
+	mftStart := int64(binary.LittleEndian.Uint64(out[64:]))
+	if clusterSize <= 0 || recordSize < 1024 || recordSize > 65536 || record < 0 || record >= 16 {
+		return nil, errors.New("the volume reported an unexpected MFT layout")
+	}
+	offset := mftStart*clusterSize + record*recordSize
+	const align = 4096
+	start := offset / align * align
+	buffer := make([]byte, (offset+recordSize-start+align-1)/align*align)
+	var read uint32
+	overlapped := windows.Overlapped{Offset: uint32(start), OffsetHigh: uint32(start >> 32)}
+	if err := windows.ReadFile(volume, buffer, &read, &overlapped); err != nil {
+		return nil, err
+	}
+	if int64(read) < offset-start+recordSize {
+		return nil, errors.New("the MFT record could not be read in full")
+	}
+	return replMFTDataRuns(buffer[offset-start : offset-start+recordSize])
+}
+
 var replMetaOptional = []string{`$MFT::$BITMAP`, `$Volume`, `$AttrDef`, `$Boot`, `$UpCase`, `$Secure:$SDS`, `$Secure:$SDH:$INDEX_ALLOCATION`, `$Secure:$SII:$INDEX_ALLOCATION`,
 	`:$I30:$INDEX_ALLOCATION`, `$Extend:$I30:$INDEX_ALLOCATION`, `$Extend\$UsnJrnl:$J`, `$Extend\$UsnJrnl:$Max`, `$Extend\$Reparse:$R:$INDEX_ALLOCATION`, `$Extend\$ObjId:$O:$INDEX_ALLOCATION`,
 	`$Extend\$Quota:$O:$INDEX_ALLOCATION`, `$Extend\$Quota:$Q:$INDEX_ALLOCATION`}
@@ -301,10 +339,16 @@ var replMetaOptional = []string{`$MFT::$BITMAP`, `$Volume`, `$AttrDef`, `$Boot`,
 // journal names.
 func replTrackedRuns(ctx context.Context, shadowRoot string, shadow windows.Handle, live windows.Handle, previous replVolumeTrack, prevBitmap, bitmap []byte, clusters int64) ([]replRun, int, error) {
 	runs := replToggled(prevBitmap, bitmap, clusters)
-	for _, name := range replMetaRequired {
+	for index, name := range replMetaRequired {
 		found, err := replPathRuns(shadowRoot + name)
 		if err != nil {
-			return nil, 0, fmt.Errorf("%s: %w", name, err)
+			// Some system files cannot be opened even on a shadow copy;
+			// read where they lie from their MFT records instead.
+			var recordErr error
+			found, recordErr = replSystemFileRuns(strings.TrimSuffix(shadowRoot, `\`), replMetaRecords[index])
+			if recordErr != nil {
+				return nil, 0, fmt.Errorf("%s: %v; from its MFT record: %w", name, err, recordErr)
+			}
 		}
 		runs = append(runs, found...)
 	}
