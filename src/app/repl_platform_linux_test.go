@@ -247,11 +247,16 @@ func TestLinuxExecutableInstallsTheAgentService(t *testing.T) {
 	if os.Geteuid() != 0 {
 		t.Skip("installing a service needs root")
 	}
-	if out, err := exec.Command("systemctl", "is-system-running").CombinedOutput(); err != nil && !strings.Contains(string(out), "degraded") && !strings.Contains(string(out), "running") {
+	// A freshly started runner can still be booting ("starting"): wait for
+	// systemd to finish, a few minutes at most.
+	wait, cancelWait := context.WithTimeout(context.Background(), 3*time.Minute)
+	out, err := exec.CommandContext(wait, "systemctl", "is-system-running", "--wait").CombinedOutput()
+	cancelWait()
+	if err != nil && !strings.Contains(string(out), "degraded") && !strings.Contains(string(out), "running") {
 		t.Skip("systemd is not running: ", strings.TrimSpace(string(out)))
 	}
 	port := 44392
-	out, err := exec.Command(binary, "--agent-install", "--port", strconv.Itoa(port)).CombinedOutput()
+	out, err = exec.Command(binary, "--agent-install", "--port", strconv.Itoa(port)).CombinedOutput()
 	defer exec.Command(binary, "--agent-uninstall").Run()
 	if err != nil {
 		t.Fatalf("install failed: %v\n%s", err, out)
