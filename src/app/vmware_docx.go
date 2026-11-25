@@ -53,14 +53,19 @@ func (d *docxBuilder) heading(level int, text string) {
 	d.paragraph("Heading"+strconv.Itoa(level), text)
 }
 
-// checklist writes numbered steps with an empty box to tick on paper.
+// docxCheckbox is a Word check box content control (Word 2010 and later,
+// and LibreOffice): clicking it in Word ticks it, and it prints as ☐ or ☒.
+const docxCheckbox = `<w:sdt><w:sdtPr><w14:checkbox><w14:checked w14:val="0"/><w14:checkedState w14:val="2612" w14:font="MS Gothic"/><w14:uncheckedState w14:val="2610" w14:font="MS Gothic"/></w14:checkbox></w:sdtPr><w:sdtContent><w:r><w:rPr><w:rFonts w:ascii="MS Gothic" w:eastAsia="MS Gothic" w:hAnsi="MS Gothic" w:hint="eastAsia"/></w:rPr><w:t>☐</w:t></w:r></w:sdtContent></w:sdt>`
+
+// checklist writes numbered steps, each with a check box to tick in Word
+// (box) or on paper.
 func (d *docxBuilder) checklist(items []string, box bool) {
 	for index, item := range items {
-		prefix := fmt.Sprintf("%d. ", index+1)
+		d.body.WriteString(`<w:p><w:pPr><w:pStyle w:val="ListStep"/></w:pPr>` + docxRun(fmt.Sprintf("%d. ", index+1), false))
 		if box {
-			prefix += "☐ "
+			d.body.WriteString(docxCheckbox + docxRun(" ", false))
 		}
-		d.body.WriteString(`<w:p><w:pPr><w:pStyle w:val="ListStep"/></w:pPr>` + docxRun(prefix+item, false) + `</w:p>`)
+		d.body.WriteString(docxRun(item, false) + `</w:p>`)
 	}
 }
 
@@ -118,7 +123,7 @@ func (d *docxBuilder) save(path, title string) error {
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`},
 		{"word/styles.xml", docxStyles},
 		{"word/document.xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>` + d.body.String() + `<w:sectPr><w:pgSz w:w="12240" w:h="15840"/><w:pgMar w:top="1080" w:right="1080" w:bottom="1080" w:left="1080" w:header="720" w:footer="720" w:gutter="0"/></w:sectPr></w:body></w:document>`},
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" mc:Ignorable="w14"><w:body>` + d.body.String() + `<w:sectPr><w:pgSz w:w="12240" w:h="15840"/><w:pgMar w:top="1080" w:right="1080" w:bottom="1080" w:left="1080" w:header="720" w:footer="720" w:gutter="0"/></w:sectPr></w:body></w:document>`},
 	}
 	for _, file := range files {
 		writer, err := zipWriter.Create(file.name)
@@ -156,6 +161,7 @@ func writeRunbookDocx(path string, inventory *vmInventory, plan vmPlan, waves []
 	d.paragraph("Title", title)
 	d.paragraph("Subtitle", fmt.Sprintf("Source %s %s, inventory read %s, plan saved %s. %s %s", inventory.ServerType, inventory.Server, vmReportDate(inventory.CollectedAt), vmReportDate(plan.UpdatedAt), vmReportGeneratorLine, inventory.AppVersion))
 	d.paragraph("Note", "Work through each wave in order. Keep the old VMs powered off but intact until the application owner signs off, so every step can be rolled back.")
+	d.paragraph("Note", "Click a box to tick a step when it is done, then save the document. Printed copies show empty boxes to tick by hand.")
 
 	d.heading(2, "Where each part runs")
 	roleRows := [][]string{}
