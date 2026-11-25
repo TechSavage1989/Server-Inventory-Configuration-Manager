@@ -261,7 +261,12 @@ func vmProxmoxCreateValues(vmid string, spec vmTargetVMSpec) (url.Values, error)
 		counts[bus]++
 		// Sizes are whole GiB, rounded up, so the disk is never smaller
 		// than the source.
-		values.Set(slot, fmt.Sprintf("%s:%d", spec.Storage, vmCeilDiv(disk.Size, 1<<30)))
+		if disk.Import != "" {
+			// qm create converts the uploaded image onto the storage.
+			values.Set(slot, spec.Storage+":0,import-from="+disk.Import)
+		} else {
+			values.Set(slot, fmt.Sprintf("%s:%d", spec.Storage, vmCeilDiv(disk.Size, 1<<30)))
+		}
 		if first == "" {
 			first = slot
 		}
@@ -269,8 +274,12 @@ func vmProxmoxCreateValues(vmid string, spec vmTargetVMSpec) (url.Values, error)
 	if counts["ide"] > 3 || counts["sata"] > 6 || counts["virtio"] > 16 || counts["scsi"] > 16 {
 		return nil, errors.New("too many disks on one bus for Proxmox VE")
 	}
-	values.Set("ide2", spec.ISO+",media=cdrom")
-	values.Set("boot", "order=ide2;"+first)
+	if spec.ISO != "" {
+		values.Set("ide2", spec.ISO+",media=cdrom")
+		values.Set("boot", "order=ide2;"+first)
+	} else {
+		values.Set("boot", "order="+first)
+	}
 	for index, nic := range spec.NICs {
 		if nic.Network == "" {
 			return nil, fmt.Errorf("adapter %d has no bridge", index)

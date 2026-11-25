@@ -46,6 +46,9 @@ type vmTargetConnection struct {
 type vmTargetDisk struct {
 	Size int64  `json:"size"`
 	Bus  string `json:"bus"` // virtio, scsi, sata or ide
+	// Import is the platform's reference to an uploaded disk image
+	// (vmTargetDiskUploader) the disk is made from; empty for a blank disk.
+	Import string `json:"import,omitempty"`
 }
 
 type vmTargetNIC struct {
@@ -360,7 +363,16 @@ func vmValidateTargetSpec(spec *vmTargetVMSpec) error {
 			nic.MAC = strings.ToUpper(mac.String())
 		}
 	}
-	if spec.ISO == "" {
+	imported := 0
+	for _, disk := range spec.Disks {
+		if disk.Import != "" {
+			imported++
+		}
+	}
+	if imported > 0 && imported != len(spec.Disks) {
+		return errors.New("a VM is made either from uploaded disks or from blank disks, not both")
+	}
+	if spec.ISO == "" && imported == 0 {
 		return errors.New("upload the receiver media first")
 	}
 	return nil
@@ -386,6 +398,10 @@ func vmTargetCreate(ctx context.Context, platform vmTargetPlatform, spec vmTarge
 	vm, err := platform.CreateVM(ctx, spec)
 	if err != nil {
 		return nil, err
+	}
+	if spec.ISO == "" {
+		// Made from uploaded disks: it is left off for the operator to start.
+		return vm, nil
 	}
 	log(fmt.Sprintf("Starting %s from the receiver media.", spec.Name))
 	if err := platform.Start(ctx, vm.ID); err != nil {
