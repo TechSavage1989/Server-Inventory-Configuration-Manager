@@ -1,16 +1,28 @@
 ## Unreleased: send converted disks to a host — 2026-11-25
 
-- Disk converter tab: **Send to a host and create the VM** (AGENTS rule 31) for VMware ESXi/vCenter (stream-optimized VMDK through an OVF lease), Hyper-V on this computer, Proxmox VE (Import content upload plus `import-from`), Nutanix AHV (disk image plus clone) and Scale HyperCore 9.2+ (`/VirtualDisk/upload` plus attach).
+- Disk converter tab: **Send to a host and create the VM** (AGENTS rule 32) for VMware ESXi/vCenter (stream-optimized VMDK through an OVF lease), Hyper-V on this computer, Proxmox VE (Import content upload plus `import-from`), Nutanix AHV (disk image plus clone) and Scale HyperCore 9.2+ (`/VirtualDisk/upload` plus attach).
 - Tests: `vmconvert_send_test.go`, `vmconvert_vsphere_test.go` (vcsim), `vmtarget_import_test.go`, `vmdisk_stream_test.go` (qemu-img check/compare when installed), and a `scripts/test_workspace.cjs` check for the screen.
-- P2V: **This computer…** in the Disk converter converts or sends a disk of this computer, its volumes read from shadow copies (AGENTS rule 32, `TestConverterCopiesADiskOfThisComputer`).
+- P2V: **This computer…** in the Disk converter converts or sends a disk of this computer, its volumes read from shadow copies (AGENTS rule 33, `TestConverterCopiesADiskOfThisComputer`).
 - Limitations: no run yet against a real ESXi, vCenter, Proxmox VE, Prism Central or HyperCore. The vSphere import sends one disk; multi-disk VMs still go through the VMware tab's Move.
 
 ## Unreleased: fix-ups for converted Windows disks — 2026-11-25
 
-- Disk converter tab: **Prepare a Windows disk for its new platform** (AGENTS rule 30). `Repair-ConvertedDisk.ps1` mounts a converted VHD/VHDX, reports Windows version, boot firmware, storage drivers and VMware Tools (Check), adds drivers with DISM (virtio-win layout resolved per Windows version), sets the target's storage drivers to boot start and can disable VMware Tools services (Apply), and reverses it from its record (Undo).
+- Disk converter tab: **Prepare a Windows disk for its new platform** (AGENTS rule 31). `Repair-ConvertedDisk.ps1` mounts a converted VHD/VHDX, reports Windows version, boot firmware, storage drivers and VMware Tools (Check), adds drivers with DISM (virtio-win layout resolved per Windows version), sets the target's storage drivers to boot start and can disable VMware Tools services (Apply), and reverses it from its record (Undo).
 - `vmDetectBoot` reads GPT/MBR from any image; the converter shows "Starts with" UEFI or BIOS.
 - Tests: `vmrepair_test.go` (boot detection, PowerShell result shapes), `vmrepair_windows_test.go` (real VHDX with synthetic hives: Check, failing DISM Apply, Apply, Undo), workspace test for the section.
 - Limitations: DISM injection into a real offline Windows image, and booting fixed-up disks on HyperCore, Nutanix and Proxmox, still need field validation. README screenshots of the Disk converter are refreshed with the remote-destination change that follows.
+
+## Unreleased: replication jobs, agent service and central console — 2026-11-25
+
+The owner asked for a full Carbonite Move/Double-Take style solution (feature reference only). This adds:
+- Replication jobs (`repl_job.go`): continuous or interval rounds through shadow copies, recovery point and RPO alerts, three-failure alerts with backoff, scheduled cutover, cutover with service stop, verified final round, optional shutdown, and rollback that restarts services when any step fails. Jobs persist in the agent's `jobs.json`; logs rotate at 4 MB.
+- The agent service (`repl_agent_server.go`, `repl_agent_windows.go`): `SIMMReplicationAgent` on port 44390, pinned self-signed certificate, hashed key, event log alerts, firewall rule, `--agent-install`/`--agent-uninstall`.
+- The central console and Replication tab (Alt+8): push install to many servers, manual add, live status of every agent and job, job editor that reads the agent's disks and the receiver's disks, sync/pause/rescan/schedule/cutover/delete, alerts and logs.
+- Change tracking: free NTFS clusters are presented as zeros (from the shadow copy's bitmap), and between six-hourly checks a round reads only what the change journal, allocation changes and the metadata files show; a check that finds a miss turns tracking off for that volume. A volume without a change journal gets a 32 MB one. The last round can read everything (job option).
+- Throttle: deadline-based token bucket with a one-second starting burst; fixes a flaky `TestCompressedThrottledSendMatchesAndSendsLess`.
+- Dynamic disks: spanned, striped and mirrored volumes are detected through Windows' logical-to-physical mapping and read from one shadow copy across all their disks (also used by Disk copy Send).
+- Tests: `repl_job_test.go`, `repl_console_test.go`, `vmvolume_layout_test.go` on any platform; `repl_agent_windows_test.go`, `repl_track_windows_test.go` and `vmvolume_layout_windows_test.go` on the Windows runner (the striped test skips on Windows Server 2025); `scripts/test_workspace.cjs` covers the tab and low-resolution layout. Screenshots `docs/images/replication.png` and `replication-jobs.png`.
+- Not yet done: the Linux agent, test failover on Hyper-V, failback as a reverse job, and runbook export of replication jobs. Push install has not been run across a real domain.
 
 ## Unreleased: runbook check boxes that tick, and in-app runbook steps — 2026-11-25
 

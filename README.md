@@ -17,7 +17,7 @@
   <img src="docs/images/hero.png" alt="Server Inventory and Migration Manager main window" width="900">
 </p>
 
-A portable **Windows x64 application** for collecting server inventory, exporting supported configurations, reviewing clear, searchable reports, restoring configuration, moving file shares to a new server, moving VMs off VMware or Hyper-V to Hyper-V, Scale Computing HyperCore, Nutanix AHV, Proxmox VE, Azure, Amazon EC2 or a physical server, and converting virtual disks between VMDK, VHDX, VHD, qcow2 and raw.
+A portable **Windows x64 application** for collecting server inventory, exporting supported configurations, reviewing clear, searchable reports, restoring configuration, moving file shares to a new server, moving VMs off VMware or Hyper-V to Hyper-V, Scale Computing HyperCore, Nutanix AHV, Proxmox VE, Azure, Amazon EC2 or a physical server, converting virtual disks between VMDK, VHDX, VHD, qcow2 and raw, and replicating whole running servers to their new machines until cutover.
 
 ## Features
 
@@ -30,6 +30,7 @@ A portable **Windows x64 application** for collecting server inventory, exportin
 | Move file shares from an old server: files, NTFS permissions and share settings. | Check space, folders and accounts before copying, and verify after cutover. | Copy while users keep working, then cut over with one final copy. |
 | Read a vCenter, ESXi or Hyper-V inventory and check each VM for Hyper-V, HyperCore, Nutanix AHV, Proxmox VE, Azure, EC2 or a physical server. | Plan waves, map networks and storage, check the new cluster's size or cloud quota, write a runbook. | Record a VM's settings before cutover, fix it up after, and compare before and after. |
 | Convert a VMDK, VHD, VHDX, qcow2 or raw disk to any of them, merging snapshot chains, add VirtIO or server drivers so Windows starts on its new platform, and send it straight to ESXi, Hyper-V, Proxmox VE, Nutanix or HyperCore as a new VM. Copy this computer's own disks the same way (P2V). | See the format, size, data and chain of a disk before converting it. | Stop and continue a conversion, or repeat it to copy only what changed. |
+| Install a replication agent on many servers at once and keep every disk copied to the new machine. | Watch each job's recovery point, alerts and log from one Replication tab. | Cut over now or at a set time: services stop, the last changes go across and every disk is checked. |
 
 ## Screenshots
 
@@ -74,6 +75,12 @@ A portable **Windows x64 application** for collecting server inventory, exportin
   <tr><td colspan="2"><b>Copy a running VM's disks to Hyper-V, then cut over</b><br><img src="docs/images/vmware-move.png" alt="Copy a running VM's disks to Hyper-V, then cut over" width="880"></td></tr>
   <tr><td colspan="2"><b>Move to Proxmox VE, Nutanix AHV, Scale HyperCore or a physical server through receiver media</b><br><img src="docs/images/vmware-move-target.png" alt="Move to Proxmox VE, Nutanix AHV, Scale HyperCore or a physical server through receiver media" width="880"></td></tr>
   <tr><td colspan="2"><b>Copy a whole machine's disks to another computer: choose which computer this is, then receive on the new host or send from the machine being moved</b><br><img src="docs/images/vmware-disk-copy.png" alt="Receive disks on one computer and send this computer's disks from another" width="880"></td></tr>
+</table>
+
+### Replicate whole servers
+
+<table>
+  <tr><td width="50%"><b>Install the agent on many servers and see every alert in one place</b><br><img src="docs/images/replication.png" alt="Replication tab with agent installation and alerts" width="440"></td><td width="50%"><b>Each server's jobs with their recovery point, rounds and status</b><br><img src="docs/images/replication-jobs.png" alt="Replication jobs with recovery point and status" width="440"></td></tr>
 </table>
 
 ### Convert disks
@@ -126,7 +133,7 @@ Use the Collection log's search and severity filter to focus on issues; the filt
 
 In the Report Viewer search, `Enter` moves to the next match and `Shift+Enter` to the previous one (`F3` / `Shift+F3` also work); `Esc` clears the search.
 
-**Keyboard shortcuts** (press `?` or choose **Help → Keyboard shortcuts**): `Alt+1` to `Alt+6` switch tabs, `/` or `Ctrl+K` focuses the current tab's search, `Ctrl+S` saves choices and `Ctrl+Enter` starts collection from Setup.
+**Keyboard shortcuts** (press `?` or choose **Help → Keyboard shortcuts**): `Alt+1` to `Alt+8` switch tabs, `/` or `Ctrl+K` focuses the current tab's search, `Ctrl+S` saves choices and `Ctrl+Enter` starts collection from Setup.
 
 
 New HTML reports open on an executive summary: the server profile (operating system, Windows activation status, IPv4 addresses, default gateway, DNS servers, DHCP or static addressing, and more) and detected roles, collection health with links to each collection issue and recovery gap, and inventory counts that jump to their datasets. Items that need attention stay expanded at the top; routine datasets expand on demand. Each section starts with a contents panel that groups its datasets under their headings, shows row counts and marks datasets with failures or warnings. Datasets that returned no data are gathered into one collapsed **No data collected** group instead of a long run of empty entries. Name/value lists and single-record tables read as property sheets. Search includes collapsed sections and raw text. Hover any value and choose **Copy** to copy just that value; **Copy table**, **Copy section** and **Copy full report** copy more, and **Copy path** in the Report Viewer copies the report file location. The report uses the full window width. Printing includes all rows retained by the report snapshot; truncation notices still point to complete supporting exports.
@@ -254,6 +261,20 @@ Under **Send to a host and create the VM**, the Disk converter turns a disk stra
 4. Type the VM's name again and choose **Send and create the VM**.
 
 An image or VM name already used on the destination stops the send before anything is uploaded, and nothing there is replaced or deleted. The new VM is left off unless **Start the new VM** is ticked. The password or token secret stays in memory until **Forget** or the application closes; it is never saved or logged. For a Windows disk, fix it up first (convert to VHDX, run **Apply fix-ups**, then send that VHDX). **Stop** before the upload keeps the conversion so the next send continues it; a partly uploaded image has to be deleted on the destination before sending again.
+
+## Replicate whole servers
+
+The **Replication** tab (Alt+8) keeps a running server's disks copied to its new machine, a few minutes behind, until you cut over. It works for physical and virtual Windows servers on any platform, and the new machine can be a Hyper-V VM or anything that boots the receiver media (Scale HyperCore, Nutanix AHV, Proxmox VE or a physical server).
+
+1. **Install the agent.** Type the servers' names, an administrator account (or leave it blank to use your own sign-in) and choose **Install agents**. The agent is copied through each server's administrative share and installed as the Windows service **SIMMReplicationAgent**, listening on port 44390 with its own certificate. The password is used for the install only and never saved. To install by hand, run `SIMM-Agent.exe --agent-install` as administrator on the server and add it under **Add an agent installed by hand** with the key and thumbprint it prints. The console keeps each agent's key encrypted for your Windows account.
+2. **Start a receiver** on the new machine: **Receive** in the VMware tab's Disk copy on a Hyper-V host, or boot the receiver media on a new HyperCore, Nutanix, Proxmox or physical machine.
+3. **Create a job.** Choose **New job** on the server, type the receiver's address, thumbprint and pairing code, choose **Check receiver**, and pick where each disk goes. Include every disk, including the one Windows starts from, so the new machine starts as the old one did. Volumes that span disks (dynamic spanned, striped and mirrored volumes) are read from one shadow copy, so put all of their disks in the same job; RAID-5 volumes are not supported.
+4. **Let it run.** The first round copies the disks; later rounds read each volume from a new Volume Shadow Copy and send only the 4 MB chunks that changed. On NTFS volumes free space is sent as empty (the file system never reads it), and between checks a round reads only what the volume's change journal, its cluster map and its metadata show as changed, so a large server stays a few minutes behind. Every six hours a round reads everything to check this; if it ever finds a change that tracking missed, that volume is read in full from then on. Data is compressed if you choose, within a bandwidth limit that can be lower during business hours. Jobs keep running on the servers when this window is closed. Each job shows its recovery point (the time of the last finished round), and raises an alert when the recovery point is older than its limit, when three rounds fail in a row, or when a cutover is rolled back. Alerts are also written to the server's Application event log (source **SIMM Replication Agent**, events 1001 to 1003) for monitoring tools.
+5. **Cut over** now or at a set time (type the job name to confirm). The agent stops the services you listed, takes the last shadow copies, sends the last changes and checks every disk against its hashes, then shuts the server down if you chose that. Tick **Read every used block in the last round** to have the last round read everything in use rather than only what changed; it is the safest choice, but the services stay stopped for longer. If any step fails, the services start again and replication carries on. Start the new machine once the job says **Cut over**.
+
+**Rescan the receiver** after a test failover started the new machine from its disks, or for a failback onto disks that already hold a copy: the next round compares the receiver's disks with the source and sends only what differs.
+
+Installing agents is refused while another critical operation runs, and closing the application waits for an install to finish.
 
 ## Updates and settings
 

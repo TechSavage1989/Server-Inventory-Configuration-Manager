@@ -204,7 +204,11 @@ func vmListAgentDisks() ([]vmAgentDiskInfo, error) {
 			return nil, err
 		}
 		for _, volume := range volumes {
-			info.Volumes = append(info.Volumes, vmAgentVolume{Name: volume.Name, Mounts: volume.Mounts, FileSystem: volume.FileSystem, Start: volume.Start, Length: volume.Length})
+			item := vmAgentVolume{Name: volume.Name, Mounts: volume.Mounts, FileSystem: volume.FileSystem, Start: volume.Start, Length: volume.Length, Kind: "simple"}
+			if volume.Layout != nil {
+				item.Kind = volume.Layout.Kind
+			}
+			info.Volumes = append(info.Volumes, item)
 			for _, mount := range volume.Mounts {
 				if systemDrive != "" && strings.EqualFold(strings.TrimRight(mount, `\`), systemDrive) {
 					info.System = true
@@ -322,14 +326,19 @@ func (a *application) handleVMwareAgentSend(response http.ResponseWriter, reques
 		log := func(text string) { a.vmwareLog("%s", text) }
 		results := []vmAgentSendResult{}
 		var failure error
+		// Every disk is opened at once so a volume that spans disks is read
+		// from one shadow copy.
+		set, openErr := openVMAgentDisks(disks, input.AllowLive, log)
+		if set != nil {
+			defer set.Close()
+		}
 		for _, disk := range disks {
 			result := vmAgentSendResult{Disk: disk, Name: names[disk]}
 			err := func() error {
-				source, volumes, err := openVMAgentDisk(disk, input.AllowLive, log)
-				if err != nil {
-					return err
+				if openErr != nil {
+					return openErr
 				}
-				defer source.Close()
+				source, volumes := set.Sources[disk], set.Volumes[disk]
 				for _, volume := range volumes {
 					if volume.Shadowed {
 						result.Shadowed++

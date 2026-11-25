@@ -94,14 +94,20 @@ func (s vmThrottleSchedule) Describe() string {
 type vmThrottle struct {
 	mu       sync.Mutex
 	schedule vmThrottleSchedule
-	tokens   float64
-	last     time.Time
-	now      func() time.Time
-	sleep    func(context.Context, time.Duration) error
+	// next is when the bytes already allowed have been sent at the
+	// limit; it never lags now by more than one second (the burst).
+	next  time.Time
+	now   func() time.Time
+	until func(context.Context, time.Time) error
 }
 
+// vmThrottleBurst is how much sending may run ahead of the limit.
+const vmThrottleBurst = time.Second
+
 func newVMThrottle(schedule vmThrottleSchedule) *vmThrottle {
-	return &vmThrottle{schedule: schedule, now: time.Now, sleep: vmSleep}
+	return &vmThrottle{schedule: schedule, now: time.Now, until: func(ctx context.Context, deadline time.Time) error {
+		return vmSleep(ctx, time.Until(deadline))
+	}}
 }
 
 func vmSleep(ctx context.Context, d time.Duration) error {
@@ -122,7 +128,8 @@ func (t *vmThrottle) SetSchedule(schedule vmThrottleSchedule) {
 	t.mu.Unlock()
 }
 
-// Wait blocks until n more bytes may be sent.
+// Wait blocks until n more bytes may be sent. Callers sending at once
+// each reserve their bytes in turn, so they wait one after another.
 func (t *vmThrottle) Wait(ctx context.Context, n int64) error {
 	if t == nil || n <= 0 {
 		return nil
@@ -131,22 +138,18 @@ func (t *vmThrottle) Wait(ctx context.Context, n int64) error {
 	now := t.now()
 	limit := t.schedule.BytesPerSecond(now)
 	if limit <= 0 {
-		t.tokens, t.last = 0, now
+		t.next = time.Time{}
 		t.mu.Unlock()
 		return nil
 	}
-	if !t.last.IsZero() {
-		t.tokens += now.Sub(t.last).Seconds() * float64(limit)
+	if earliest := now.Add(-vmThrottleBurst); t.next.Before(earliest) {
+		t.next = earliest
 	}
-	if t.tokens > float64(limit) {
-		t.tokens = float64(limit) // at most one second of burst
-	}
-	t.last = now
-	t.tokens -= float64(n)
-	debt := t.tokens
+	t.next = t.next.Add(time.Duration(float64(n) / float64(limit) * float64(time.Second)))
+	deadline := t.next
 	t.mu.Unlock()
-	if debt >= 0 {
+	if !deadline.After(now) {
 		return nil
 	}
-	return t.sleep(ctx, time.Duration(-debt/float64(limit)*float64(time.Second)))
+	return t.until(ctx, deadline)
 }
