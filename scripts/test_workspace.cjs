@@ -67,6 +67,7 @@ async function fixture(browser,old=false){
  const state={status:'idle',phase:'Ready',running:false,computerName:'SRV-DEMO-01',isAdministrator:true,powerShellVersion:'5.1',defaultOutputRoot:'C:\\Reports',update:{status:'current',title:'Up to date',message:'Installed v3.2.10. Latest v3.2.10.',canCheck:true},
   restore:{status:'idle',packages:{lastCollection:'',loadedReport:''},items:[],logs:[]},migrate:migrateIdle(),vmware:vmwareIdle(),convert:convertIdle()};
  const vm={inventory:null,plan:null,sizing:null,guest:null,compare:null};
+ const failover={failovers:[],copies:[{name:'APP01-disk0.vhdx',size:107374182400,complete:true,verified:false,round:'a1@2026-11-25T14:19:23Z',job:'a1',recoveryPoint:'2026-11-25T14:19:23Z',updated:'2026-11-25T14:20:00Z',busy:false,generation:2},{name:'APP01-disk1.vhdx',size:536870912000,complete:true,verified:false,round:'a1@2026-11-25T14:19:23Z',job:'a1',recoveryPoint:'2026-11-25T14:19:23Z',updated:'2026-11-25T14:20:00Z',busy:false,generation:1},{name:'SQL01-disk0.vhdx',size:107374182400,complete:false,verified:false,updated:'2026-11-25T14:20:00Z',busy:true,generation:1}]};
  const repl={ok:true,pushing:false,pushLog:[],pushResults:null,serial:0,isAdministrator:true,defaultPort:44390,agents:[],summary:{agents:0,unreachable:0,jobs:0,healthy:0,behind:0,failing:0,paused:0,cutOver:0,alerts:0}};
  const html=fs.readFileSync(old?'tests/fixtures/index-v3.2.9.html':'src/app/index.html','utf8').replaceAll('__TOKEN__','workspace-test').replaceAll('__APP_VERSION__','3.2.10').replaceAll('__COLLECTOR_VERSION__','3.2.10');
  const server=http.createServer(async(req,res)=>{
@@ -139,6 +140,9 @@ async function fixture(browser,old=false){
    let body='';for await(const chunk of req)body+=chunk;const data=body?JSON.parse(body):{},action=url.pathname.slice(10);replCalls.push({action,method:req.method,body:data,token:req.headers['x-app-token']});
    if(req.headers['x-app-token']!=='workspace-test'){send(403,{});return;}
    if(action==='state'){send(200,repl);return;}
+   if(action==='failover'&&req.method==='GET'){send(200,Object.assign({ok:true,hyperV:true,folder:'D:\\Migration\\VMware-Copies\\Received',receiving:true},failover,url.searchParams.get('switches')==='1'?{switches:[{name:'Isolated test',type:'Private'},{name:'LAN',type:'External'}]}:{}));return;}
+   if(action==='failover'&&data.action==='start'){failover.failovers=[{id:'f1',mode:data.request.mode,name:data.request.name,vmId:'6f1d4c3a-0000-4000-8000-000000000001',copies:data.request.copies,recoveryPoint:'2026-11-25T14:19:23Z',started:'2026-11-25T14:30:00Z'}];failover.copies.forEach(c=>{if(data.request.copies.includes(c.name))c.held='test failover '+data.request.name;});send(200,{ok:true});return;}
+   if(action==='failover'&&data.action==='end'){failover.failovers=[];failover.copies.forEach(c=>{delete c.held;});send(200,{ok:true});return;}
    if(action==='push'){Object.assign(repl,{pushing:true,pushLog:['14:02:10  Installing the agent on 2 servers.','14:02:11  app01.example.com: copying the agent.']});send(202,{ok:true});return;}
    if(action==='agent'&&data.action==='disks'){send(200,{ok:true,disks:[{id:'0',size:107374182400,system:true,volumes:[{name:'v1',mounts:[],fileSystem:'FAT32',length:104857600},{name:'v2',mounts:['C:\\'],fileSystem:'NTFS',length:106300000000}]},{id:'1',size:536870912000,system:false,volumes:[{name:'v3',mounts:['D:\\','E:\\'],fileSystem:'NTFS',length:536700000000,kind:'spanned'}]}]});return;}
    if(action==='agent'&&data.action==='receiverdisks'){send(200,{ok:true,folder:false,disks:[{name:'disk-0',label:'Disk 0, QEMU HARDDISK',size:107374182400},{name:'disk-1',label:'Disk 1, QEMU HARDDISK',size:536870912000}]});return;}
@@ -1015,6 +1019,45 @@ async function check(name,fn){await fn();report.checks.push({name,result:'passed
   assert(await f.page.locator('#cvLocal').isDisabled(),'the disk list locks while converting');assert.deepEqual(f.dialogs,[]);
  }finally{await f.close();}});
 
+ await check('Test failover: copies from one round start a disconnected test VM after the typed name; the copies show as held and End test needs the name again',async()=>{const f=await fixture(browser);try{
+  await f.page.keyboard.press('Alt+6');await f.page.locator('[data-vmview="disks"]').click();
+  await f.page.locator('[data-diskrole="send"]').click();assert(await f.page.locator('#vmFailover').isHidden());await f.page.locator('[data-diskrole="receive"]').click();
+  await f.page.locator('#fvRefresh').click();await f.page.waitForFunction(()=>document.querySelectorAll('[data-fv-copy]').length===3);
+  assert(await f.page.locator('[data-fv-copy="SQL01-disk0.vhdx"]').isDisabled(),'a copy being received cannot be chosen');
+  assert((await f.page.locator('#fvCopies').textContent()).includes('being received now'));
+  await f.page.locator('[data-fv-copy="APP01-disk0.vhdx"]').check();await f.page.locator('[data-fv-copy="APP01-disk1.vhdx"]').check();
+  assert.equal(await f.page.locator('#fvName').inputValue(),'APP01-TEST');assert.equal(await f.page.locator('#fvGen').inputValue(),'2','a GPT boot disk starts as generation 2');
+  assert.equal(await f.page.locator('#fvSwitch').inputValue(),'','a test VM starts disconnected');assert.equal(await f.page.locator('#fvSwitch option').count(),3);
+  assert(await f.page.locator('#fvStartButton').isDisabled());await f.page.locator('#fvConfirm').fill('app01-test');
+  await f.page.locator('#fvStartButton').click();await f.page.waitForFunction(()=>document.querySelector('#fvList').textContent.includes('APP01-TEST'));
+  const start=f.replCalls.filter(c=>c.action==='failover'&&c.method==='POST')[0].body;
+  assert.deepEqual(start,{action:'start',confirm:'app01-test',request:{mode:'test',name:'APP01-TEST',copies:['APP01-disk0.vhdx','APP01-disk1.vhdx'],generation:2,cpus:2,memoryMB:4096,secureBoot:'windows',tpm:false,switch:'',vlan:0,start:true}});
+  assert((await f.page.locator('#fvCopies').textContent()).includes('in use: test failover APP01-TEST'));
+  const end=f.page.locator('[data-fv-end="f1"]');assert(await end.isDisabled());await f.page.locator('[data-fv-endname="f1"]').fill('APP01-TEST');assert(await end.isEnabled());
+  await end.click();await f.page.waitForFunction(()=>document.querySelector('#fvRunning').classList.contains('hidden'));
+  assert((await f.page.locator('#fvStatus').textContent()).includes('catches up'));
+  assert.deepEqual(f.dialogs,[]);
+ }finally{await f.close();}});
+
+ await check('Replication tab: Linux servers install over SSH, a new host key is shown and trusted only after the password is typed again',async()=>{const f=await fixture(browser);try{
+  await f.page.keyboard.press('Alt+8');
+  assert(await f.page.locator('#rpSshPortField').isHidden());await f.page.locator('#rpPlatform').selectOption('linux');
+  assert(await f.page.locator('#rpSshPortField').isVisible());assert(await f.page.locator('#rpPushHelpLinux').isVisible());assert(await f.page.locator('#rpPushHelp').isHidden());
+  await f.page.locator('#rpHosts').fill('web01.example.com');await f.page.locator('#rpPassword').fill('Fict1onal!');await f.page.locator('#rpPush').click();
+  assert((await f.page.locator('#rpPushStatus').textContent()).includes('Linux account'));assert.equal(f.replCalls.filter(c=>c.action==='push').length,0);
+  await f.page.locator('#rpUser').fill('root');await f.page.locator('#rpSshPort').fill('2222');await f.page.locator('#rpPush').click();
+  await f.page.waitForFunction(()=>!document.querySelector('#rpPushStop').classList.contains('hidden'));
+  assert.deepEqual(f.replCalls.filter(c=>c.action==='push').map(c=>c.body),[{hosts:'web01.example.com',user:'root',password:'Fict1onal!',port:44390,platform:'linux',sshPort:2222,hostKeys:{}}]);
+  const key='SHA256:Fict1onalHostKeyFingerprint0123456789abcdefABC';
+  Object.assign(f.repl,{pushing:false,serial:1,pushResults:[{host:'web01.example.com',ok:false,error:'web01.example.com offered SSH host key '+key+', which is not trusted yet',hostKey:key}]});
+  await f.page.waitForFunction(()=>document.querySelector('[data-rp-trust]'));
+  await f.page.locator('[data-rp-trust]').click();assert((await f.page.locator('#rpPushStatus').textContent()).includes('password again'));assert.equal(f.replCalls.filter(c=>c.action==='push').length,1);
+  await f.page.locator('#rpPassword').fill('Fict1onal!');await f.page.locator('[data-rp-trust]').click();
+  await f.page.waitForFunction(()=>!document.querySelector('#rpPushStop').classList.contains('hidden'));
+  const second=f.replCalls.filter(c=>c.action==='push')[1].body;
+  assert.deepEqual(second,{hosts:'web01.example.com',user:'root',password:'Fict1onal!',port:44390,platform:'linux',sshPort:2222,hostKeys:{'web01.example.com':key}});
+ }finally{await f.close();}});
+
  await check('Replication tab: Alt+8 reaches it; Install agents posts the servers and account once; a job is built from the agent disks and the receiver disks; cutover needs the typed job name',async()=>{const f=await fixture(browser);try{
   await f.page.keyboard.press('Alt+8');assert.equal(await f.page.locator('#tabButtonReplication').getAttribute('aria-selected'),'true');
   await f.page.waitForFunction(()=>document.querySelector('#rpAgents').textContent.includes('No servers yet'));
@@ -1038,13 +1081,15 @@ async function check(name,fn){await fn();report.checks.push({name,result:'passed
   await f.page.locator('#rpInterval').selectOption('5');await f.page.locator('#rpLimit').fill('100');await f.page.locator('#rpBusinessLimit').fill('20');await f.page.locator('#rpBusinessStart').fill('8');await f.page.locator('#rpBusinessEnd').fill('18');
   await f.page.locator('#rpServices').fill('MSSQLSERVER, W3SVC');await f.page.locator('#rpJobSave').click();
   await f.page.waitForFunction(()=>!document.querySelector('#rpDetails').classList.contains('hidden'));
-  assert.deepEqual(f.replCalls.filter(c=>c.action==='job'&&c.body.action==='save').map(c=>c.body),[{agent:'ag1',action:'save',spec:{id:'',name:'APP01',disks:[{source:'0',target:'disk-0'},{source:'1',target:'disk-1'}],receiver:{address:'192.0.2.50',thumbprint:'3f9a6c0e1b7d4a25c8e0f13b6a9d2c4e7f0a1b3c5d7e9f2a4c6e8b0d1f3a5c7e',code:'K7QMZ-2RT4X-9WBNP-H3VDA'},intervalMinutes:5,rpoMinutes:15,compress:true,throttle:{limitMbps:100,businessMbps:20,businessStart:8,businessEnd:18},stopServices:['MSSQLSERVER','W3SVC'],shutdownAfterCutover:true,fullReadAtCutover:false,allowLive:false}}]);
+  assert.deepEqual(f.replCalls.filter(c=>c.action==='job'&&c.body.action==='save').map(c=>c.body),[{agent:'ag1',action:'save',spec:{id:'',name:'APP01',disks:[{source:'0',target:'disk-0'},{source:'1',target:'disk-1'}],receiver:{address:'192.0.2.50',thumbprint:'3f9a6c0e1b7d4a25c8e0f13b6a9d2c4e7f0a1b3c5d7e9f2a4c6e8b0d1f3a5c7e',code:'K7QMZ-2RT4X-9WBNP-H3VDA'},intervalMinutes:5,rpoMinutes:15,compress:true,throttle:{limitMbps:100,businessMbps:20,businessStart:8,businessEnd:18},stopServices:['MSSQLSERVER','W3SVC'],shutdownAfterCutover:true,fullReadAtCutover:false,rescanFirst:false,allowLive:false}}]);
   assert(await f.page.locator('#rpEditor').isHidden());assert.equal(await f.page.locator('#rpRecvCode').inputValue(),'','the pairing code is cleared');
   await f.page.waitForFunction(()=>document.querySelector('#rpDetailsFacts').textContent.includes('Every 5 minutes'));
   assert((await f.page.locator('#rpAgents').textContent()).includes('Up to date'));
   assert(await f.page.locator('#rpCutover').isDisabled(),'cutover needs the typed name');
   await f.page.locator('#rpCutoverTyped').fill('app01');assert(await f.page.locator('#rpCutover').isEnabled());
   await f.page.locator('#rpLogButton').click();await f.page.waitForFunction(()=>document.querySelector('#rpLog').textContent.includes('Round 2 finished'));
+  await f.page.waitForFunction(()=>!document.querySelector('#rpRunbook').disabled);await f.page.locator('#rpRunbook').click();await f.page.waitForFunction(()=>!document.querySelector('#rpRunbookDocx').classList.contains('hidden'));
+  assert.equal(f.replCalls.filter(c=>c.action==='runbook').length,1);assert(f.opens.includes('replrunbook'));await f.page.locator('#rpRunbookDocx').click();await f.page.waitForFunction(()=>true);
   await f.page.setViewportSize({width:1440,height:1000});await f.page.evaluate(()=>document.activeElement.blur());await f.page.locator('.rp-body').evaluate(e=>e.scrollTop=0);await f.page.screenshot({path:out+'/replication-1440x1000.png'});await f.page.locator('.rp-body').evaluate(e=>{const h=document.querySelector('.rp-heading');e.scrollTop=h.offsetTop-e.offsetTop-8;});await f.page.screenshot({path:out+'/replication-jobs-1440x1000.png'});
   await f.page.locator('#rpCutover').click();await f.page.waitForFunction(()=>document.querySelector('#rpDetailsStatus').textContent.includes('Cutting over'));
   assert.deepEqual(f.replCalls.filter(c=>c.action==='job'&&c.body.action==='cutover').map(c=>c.body),[{agent:'ag1',id:'a1b2c3d4e5f60718',action:'cutover',typed:'app01'}]);

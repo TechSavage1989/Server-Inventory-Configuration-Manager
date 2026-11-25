@@ -146,6 +146,8 @@ func (a *application) handleVMwareReceiver(response http.ResponseWriter, request
 		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "The receiver could not start: " + err.Error()})
 		return
 	}
+	// Copies a VM was started from stay held, before the firewall opens.
+	a.replApplyFailoverHolds(r)
 	firewall := false
 	if input.Firewall {
 		if err := vmAddReceiverFirewallRule(port); err != nil {

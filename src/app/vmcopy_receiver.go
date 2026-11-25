@@ -107,6 +107,49 @@ type vmReceiver struct {
 	mu       sync.Mutex
 	sessions map[string]*vmReceiverSession
 	names    map[string]string
+	// holds are disk names a VM was started from (a test failover or the
+	// production VM); they are refused until released.
+	holds map[string]string
+}
+
+// errVMReceiverHeld is wrapped by the sender when the receiver refuses a disk
+// held for a VM started from the copy.
+var errVMReceiverHeld = errors.New("the target disk is in use by a VM started from the copy")
+
+// Hold refuses new copies into the named disks until Release. It fails when
+// any of them is being received now, so a held copy is never half written.
+func (r *vmReceiver) Hold(names []string, reason string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, name := range names {
+		if _, busy := r.names[strings.ToLower(name)]; busy {
+			return fmt.Errorf("%s is being received right now; wait for the round to finish", name)
+		}
+	}
+	if r.holds == nil {
+		r.holds = map[string]string{}
+	}
+	for _, name := range names {
+		r.holds[strings.ToLower(name)] = reason
+	}
+	return nil
+}
+
+// Release lets copies into the named disks again.
+func (r *vmReceiver) Release(names []string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, name := range names {
+		delete(r.holds, strings.ToLower(name))
+	}
+}
+
+// Busy reports whether a disk is being received now.
+func (r *vmReceiver) Busy(name string) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	_, busy := r.names[strings.ToLower(name)]
+	return busy
 }
 
 type vmReceiverSession struct {
@@ -371,6 +414,11 @@ func (r *vmReceiver) open(w http.ResponseWriter, request *http.Request) {
 	}
 	key := strings.ToLower(body.Name)
 	r.mu.Lock()
+	if reason, held := r.holds[key]; held {
+		r.mu.Unlock()
+		vmReceiverError(w, http.StatusLocked, body.Name+" is held: "+reason+". Copies resume when that ends.")
+		return
+	}
 	if id, busy := r.names[key]; busy {
 		// A sender that vanished (lost connection, closed application)
 		// leaves its session open; after two idle minutes a new sender may
@@ -413,6 +461,13 @@ claim:
 		local := &vmLocalSink{target: filepath.Join(r.folder, body.Name)}
 		state, resumed, err = local.Open(body.Source, body.Size, body.ChunkSize)
 		sink = local
+	}
+	if err == nil && state.Complete {
+		// Mark the record unfinished before any chunk lands, so a copy whose
+		// round stops part-way is never taken as a whole copy.
+		if err = sink.Checkpoint(&vmCopyState{Passes: state.Passes}); err != nil {
+			sink.Close()
+		}
 	}
 	if err != nil {
 		r.mu.Lock()
@@ -753,6 +808,9 @@ func (s *vmRemoteSink) call(method, action string, query url.Values, body []byte
 			problem.Error = response.Status
 		}
 		last = errors.New("the receiver refused: " + problem.Error)
+		if response.StatusCode == http.StatusLocked {
+			return fmt.Errorf("%w (%s)", errVMReceiverHeld, last.Error())
+		}
 		if response.StatusCode < 500 {
 			return last
 		}

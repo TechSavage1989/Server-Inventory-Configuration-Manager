@@ -20,10 +20,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 	"unsafe"
@@ -45,6 +47,8 @@ type replRuntime struct {
 	console   *replConsole
 	loadErr   string
 	pushing   bool
+	failing   bool // a VM is being started from copies, or a test ended
+	runbook   string
 	pushLog   []string
 	pushDone  []replPushResult
 	serial    int
@@ -56,6 +60,10 @@ type replPushResult struct {
 	Host  string `json:"host"`
 	OK    bool   `json:"ok"`
 	Error string `json:"error,omitempty"`
+	// HostKey is an SSH host key to trust before retrying, and Changed
+	// says it differs from the one trusted.
+	HostKey string `json:"hostKey,omitempty"`
+	Changed bool   `json:"changed,omitempty"`
 }
 
 func replSeal(plain []byte) ([]byte, error) {
@@ -230,27 +238,54 @@ func (a *application) replPushOne(ctx context.Context, host, user, password stri
 	if vmNormalizeThumbprint(thumbprint) == "" {
 		return errors.New("the agent started but did not write its certificate thumbprint; check the Application event log on " + host)
 	}
+	_, err = a.replRegister(ctx, host, port, thumbprint, key, log)
+	return err
+}
+
+// replRegister adds a newly installed agent to the console, waiting for it
+// to answer.
+func (a *application) replRegister(ctx context.Context, host string, port int, thumbprint, key string, log func(string)) (*replAgentRecord, error) {
 	a.mu.Lock()
 	console := a.replConsoleLocked()
 	a.mu.Unlock()
 	if console == nil {
-		return errors.New("the console's records could not be opened")
+		return nil, errors.New("the console's records could not be opened")
 	}
 	var last error
 	for attempt := 0; attempt < 15; attempt++ {
 		callCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
-		_, last = console.Add(callCtx, fmt.Sprintf("%s:%d", host, port), thumbprint, key, true)
+		record, err := console.Add(callCtx, net.JoinHostPort(host, strconv.Itoa(port)), thumbprint, key, true)
 		cancel()
-		if last == nil {
+		if err == nil {
 			log(fmt.Sprintf("%s: the agent is installed and answering.", host))
-			return nil
+			return record, nil
 		}
+		last = err
 		if ctx.Err() != nil {
-			return ctx.Err()
+			return nil, ctx.Err()
 		}
 		time.Sleep(4 * time.Second)
 	}
-	return fmt.Errorf("the agent is installed but does not answer on port %d (%v); check that the port is open between this computer and %s", port, last, host)
+	return nil, fmt.Errorf("the agent is installed but does not answer on port %d (%v); check that the port is open between this computer and %s", port, last, host)
+}
+
+// replPushLinux installs the agent on a Linux server over SSH.
+func (a *application) replPushLinux(ctx context.Context, target replSSHTarget, agent []byte, port int, log func(string)) error {
+	key, thumbprint, err := replSSHInstallAgent(ctx, target, agent, port, log)
+	if err != nil {
+		return err
+	}
+	record, err := a.replRegister(ctx, target.Host, port, thumbprint, key, log)
+	if err != nil {
+		return err
+	}
+	a.mu.Lock()
+	console := a.replConsoleLocked()
+	a.mu.Unlock()
+	if console != nil {
+		console.SetSSH(record.ID, target.Port, target.HostKey)
+	}
+	return nil
 }
 
 // replUninstallOne removes the agent from one server.
@@ -341,6 +376,29 @@ func (a *application) handleReplState(response http.ResponseWriter, request *htt
 	writeJSON(response, http.StatusOK, state)
 }
 
+// handleReplRunbook writes the replication runbook (HTML and Word) for every
+// job the console sees into a new folder in the output folder.
+func (a *application) handleReplRunbook(response http.ResponseWriter, request *http.Request) {
+	if !a.requireAuthorization(response, request) || !decodeVMwareRequest(response, request, nil) {
+		return
+	}
+	console := a.replConsoleFor(response)
+	if console == nil {
+		return
+	}
+	rows, _ := console.Rows()
+	folder := a.vmwareOutputFolder("Replication")
+	htmlPath, docxPath, err := writeReplRunbook(folder, rows, time.Now(), appVersion)
+	if err != nil {
+		a.replFail(response, http.StatusBadRequest, "The runbook could not be written: "+err.Error()+".")
+		return
+	}
+	a.mu.Lock()
+	a.repl.runbook = htmlPath
+	a.mu.Unlock()
+	writeJSON(response, http.StatusOK, map[string]any{"ok": true, "runbookPath": htmlPath, "docxPath": docxPath})
+}
+
 func (a *application) replFail(response http.ResponseWriter, status int, message string) {
 	writeJSON(response, status, map[string]any{"ok": false, "error": message})
 }
@@ -364,6 +422,10 @@ func (a *application) handleReplPush(response http.ResponseWriter, request *http
 		User     string `json:"user"`
 		Password string `json:"password"`
 		Port     int    `json:"port"`
+		// Linux servers are reached over SSH.
+		Platform string            `json:"platform"`
+		SSHPort  int               `json:"sshPort"`
+		HostKeys map[string]string `json:"hostKeys"`
 	}
 	if !decodeVMwareRequest(response, request, &input) {
 		return
@@ -382,7 +444,30 @@ func (a *application) handleReplPush(response http.ResponseWriter, request *http
 		return
 	}
 	user, password := strings.TrimSpace(input.User), input.Password
-	if user != "" && password == "" {
+	linux := input.Platform == "linux"
+	var linuxAgent []byte
+	sshPort := input.SSHPort
+	if linux {
+		if user == "" || password == "" {
+			a.replFail(response, http.StatusBadRequest, "Type the Linux account (root, or an account that may use sudo) and its password.")
+			return
+		}
+		if sshPort == 0 {
+			sshPort = 22
+		}
+		if sshPort < 1 || sshPort > 65535 {
+			a.replFail(response, http.StatusBadRequest, "Choose an SSH port from 1 to 65535.")
+			return
+		}
+		self, err := os.Executable()
+		if err == nil {
+			linuxAgent, err = replLoadLinuxAgent(filepath.Join(filepath.Dir(self), replLinuxAgentName))
+		}
+		if err != nil {
+			a.replFail(response, http.StatusBadRequest, err.Error()+".")
+			return
+		}
+	} else if user != "" && password == "" {
 		a.replFail(response, http.StatusBadRequest, "Type the account's password, or leave the account blank to use your own sign-in.")
 		return
 	}
@@ -413,10 +498,19 @@ func (a *application) handleReplPush(response http.ResponseWriter, request *http
 				results = append(results, replPushResult{Host: host, Error: "Stopped before this server."})
 				continue
 			}
-			err := a.replPushOne(ctx, host, user, password, port, a.replLog)
+			var err error
+			if linux {
+				err = a.replPushLinux(ctx, replSSHTarget{Host: host, Port: sshPort, User: user, Password: password, HostKey: input.HostKeys[host]}, linuxAgent, port, a.replLog)
+			} else {
+				err = a.replPushOne(ctx, host, user, password, port, a.replLog)
+			}
 			result := replPushResult{Host: host, OK: err == nil}
 			if err != nil {
 				result.Error = err.Error()
+				var untrusted *replUntrustedHostKey
+				if errors.As(err, &untrusted) {
+					result.HostKey, result.Changed = untrusted.Fingerprint, untrusted.Changed
+				}
 				a.replLog(host + ": " + err.Error())
 			}
 			results = append(results, result)
@@ -443,6 +537,7 @@ func (a *application) handleReplAgent(response http.ResponseWriter, request *htt
 		Code       string `json:"code"`
 		User       string `json:"user"`
 		Password   string `json:"password"`
+		HostKey    string `json:"hostKey"`
 	}
 	if !decodeVMwareRequest(response, request, &input) {
 		return
@@ -477,7 +572,17 @@ func (a *application) handleReplAgent(response http.ResponseWriter, request *htt
 		if index := strings.LastIndex(host, ":"); index > 0 {
 			host = strings.Trim(host[:index], "[]")
 		}
-		if err := replUninstallOne(host, strings.TrimSpace(input.User), input.Password); err != nil {
+		var err error
+		if record.OS == "Linux" {
+			hostKey := record.SSHHostKey
+			if input.HostKey != "" {
+				hostKey = input.HostKey
+			}
+			err = replSSHUninstallAgent(ctx, replSSHTarget{Host: host, Port: record.SSHPort, User: strings.TrimSpace(input.User), Password: input.Password, HostKey: hostKey})
+		} else {
+			err = replUninstallOne(host, strings.TrimSpace(input.User), input.Password)
+		}
+		if err != nil {
 			a.replFail(response, http.StatusBadRequest, "The agent was not removed from "+host+": "+err.Error())
 			return
 		}

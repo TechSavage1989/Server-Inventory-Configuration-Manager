@@ -33,6 +33,10 @@ try{
     Invoke-WebRequest -UseBasicParsing -Uri "$base/Application-Preview.png" -OutFile $appPreview
     $expectedAppPreview=(Get-FileHash (Join-Path $PSScriptRoot '..\build\workspace-validation\setup-desktop.png') -Algorithm SHA256).Hash
     if((Get-FileHash $appPreview -Algorithm SHA256).Hash -ne $expectedAppPreview){throw 'Public application preview differs from the validated fixture.'}
+    $agent=Join-Path $temp 'simm-agent-linux-amd64'
+    Invoke-WebRequest -UseBasicParsing -Uri "$base/simm-agent-linux-amd64" -OutFile $agent
+    $expectedAgent=(Get-FileHash (Join-Path $PSScriptRoot '..\dist\simm-agent-linux-amd64') -Algorithm SHA256).Hash
+    if((Get-FileHash $agent -Algorithm SHA256).Hash -ne $expectedAgent){throw 'Public Linux agent differs from the built agent.'}
     Write-Host 'Public updater feed and release asset verification passed.'
 }
 finally{Remove-Item $temp -Recurse -Force -ErrorAction SilentlyContinue}

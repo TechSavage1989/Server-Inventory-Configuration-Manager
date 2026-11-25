@@ -12,6 +12,15 @@
 - Tests: `vmrepair_test.go` (boot detection, PowerShell result shapes), `vmrepair_windows_test.go` (real VHDX with synthetic hives: Check, failing DISM Apply, Apply, Undo), workspace test for the section.
 - Limitations: DISM injection into a real offline Windows image, and booting fixed-up disks on HyperCore, Nutanix and Proxmox, still need field validation. README screenshots of the Disk converter are refreshed with the remote-destination change that follows.
 
+## Unreleased: Linux agent, SSH install, test failover and failback — 2026-11-25
+
+- Linux replication agent `simm-agent-linux-amd64` (systemd service, LVM snapshots, sysfs disks) built and published by the release workflow; CI job `linuxagent` runs its LVM, job and systemd tests as root.
+- Console push install over SSH with pinned host keys (Trust this key and install), Linux uninstall over SSH.
+- Test failover on the Hyper-V host (Disk copy view, Start a VM from the copies): differencing disks, copies held on the receiver, jobs pause as `held` and catch up; production start after cutover. Copies record their round so every disk starts from one moment.
+- Replication runbook (Write runbook): HTML and Word, every job with test failover, cutover, verify and fail back steps.
+- Failback: a new job with "compare them first" (`rescanFirst`) sends only what differs.
+- Not yet run on a real Hyper-V host (GitHub runners have no Hyper-V role): field-validate test failover there. Linux agent covers 64-bit x86 only; LVM thin, RAID and striped LVs are refused.
+
 ## Unreleased: replication jobs, agent service and central console — 2026-11-25
 
 The owner asked for a full Carbonite Move/Double-Take style solution (feature reference only). This adds:

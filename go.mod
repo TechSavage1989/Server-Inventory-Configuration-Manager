@@ -5,6 +5,7 @@ go 1.20
 require (
 	github.com/vmware/govmomi v0.38.0
 	github.com/wailsapp/go-webview2 v1.0.23
+	golang.org/x/crypto v0.29.0
 	golang.org/x/sys v0.27.0
 )
 

@@ -1858,6 +1858,7 @@ func (a *application) handleShutdown(response http.ResponseWriter, request *http
 	vmwareStep := a.vmware.action
 	converting := a.convertBusyLocked()
 	pushing := a.repl.pushing
+	failing := a.repl.failing
 	a.mu.Unlock()
 	if running {
 		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "The application cannot close while collection is running. Cancel the collection first."})
@@ -1881,6 +1882,10 @@ func (a *application) handleShutdown(response http.ResponseWriter, request *http
 	}
 	if pushing {
 		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "The application cannot close while it installs replication agents. Stop after this server, then close. Replication jobs keep running on the servers either way."})
+		return
+	}
+	if failing {
+		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "The application cannot close while it creates or removes a VM started from replicated copies. Wait a moment for it to finish."})
 		return
 	}
 	writeJSON(response, http.StatusOK, map[string]any{"ok": true})
@@ -2332,6 +2337,8 @@ func (a *application) serve(listener net.Listener) error {
 	mux.HandleFunc("/api/repl/push", a.handleReplPush)
 	mux.HandleFunc("/api/repl/agent", a.handleReplAgent)
 	mux.HandleFunc("/api/repl/job", a.handleReplJob)
+	mux.HandleFunc("/api/repl/failover", a.handleReplFailover)
+	mux.HandleFunc("/api/repl/runbook", a.handleReplRunbook)
 	mux.HandleFunc("/api/vmware/guest", a.handleVMwareGuest)
 	mux.HandleFunc("/api/vmware/guest/", a.handleVMwareGuest)
 	mux.HandleFunc("/api/vmware/guest-load", a.handleVMwareGuestLoad)
