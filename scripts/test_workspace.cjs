@@ -62,7 +62,7 @@ function vmwareCompareFixture(){const change=(dataset,label,kind,item,expected,f
   {key:'printers',label:'Printers',available:false,note:'Not collected in both packages.',beforeCount:0,afterCount:0,added:0,removed:0,changed:0,expected:0,changes:[],more:0}];
  return {result,datasets};}
 async function fixture(browser,old=false){
- let saved=null,started=[],saveCalls=0,rejectStart=false,skipRequests=[],opens=[],restoreReject=null,migrateReject={},vmwareReject={};
+ let saved=null,started=[],saveCalls=0,rejectStart=false,skipRequests=[],opens=[],restoreReject=null,migrateReject={},vmwareReject={};const receiverPair={allowed:false};
  const logs=[],dialogs=[],errors=[],restoreCalls={browse:0,scan:[],start:[],cancel:0,tokens:[]},migrateCalls=[],vmwareCalls=[],convertCalls=[],replCalls=[];let convertReject={},convertSize=0;
  const state={status:'idle',phase:'Ready',running:false,computerName:'SRV-DEMO-01',isAdministrator:true,powerShellVersion:'5.1',defaultOutputRoot:'C:\\Reports',update:{status:'current',title:'Up to date',message:'Installed v3.2.10. Latest v3.2.10.',canCheck:true},
   restore:{status:'idle',packages:{lastCollection:'',loadedReport:''},items:[],logs:[]},migrate:migrateIdle(),vmware:vmwareIdle(),convert:convertIdle()};
@@ -106,6 +106,13 @@ async function fixture(browser,old=false){
    if(action==='browse'){send(200,data.parent?{ok:true,selected:true,path:'E:\\'}:{ok:true,selected:true,path:'F:\\Data\\'+data.share+'-New'});return;}
    send(202,{ok:true});return;
   }
+  if(url.pathname.startsWith('/api/receivers/')){
+   let body='';for await(const chunk of req)body+=chunk;const data=body?JSON.parse(body):{},action='receivers/'+url.pathname.slice(15);vmwareCalls.push({action,method:req.method,body:data,token:req.headers['x-app-token']});
+   if(req.headers['x-app-token']!=='workspace-test'){send(403,{});return;}
+   if(action==='receivers/find'){send(200,{ok:true,receivers:data.host==='hv09.example.com'?[]:[{name:'HV01',port:44380,thumbprint:'3f9a6c0e1b7d4a25c8e0f13b6a9d2c4e7f0a1b3c5d7e9f2a4c6e8b0d1f3a5c7e',folder:true,disks:0,freeBytes:4398046511104,version:'3.2.34',pairing:true,fingerprint:'3F9A 6C0E 1B7D 4A25',seen:['192.0.2.40:44380']},{name:'MINWINPC',port:44380,thumbprint:'ab'.repeat(32),folder:false,disks:2,diskBytes:322122547200,pairing:false,fingerprint:'ABAB ABAB ABAB ABAB',seen:['192.0.2.51:44380']}]});return;}
+   if(action==='receivers/pair'){if(!data.id){send(200,{ok:true,id:'0f'.repeat(16),check:'123 456',state:'pending'});return;}send(200,receiverPair.allowed?{ok:true,state:'allowed',code:'K7QMZ-2RT4X-9WBNP-H3VDA'}:{ok:true,state:'pending'});return;}
+   send(404,{});return;
+  }
   if(url.pathname.startsWith('/api/vmware/')){
    let body='';for await(const chunk of req)body+=chunk;const data=body?JSON.parse(body):{},action=url.pathname.slice(12);vmwareCalls.push({action,method:req.method,body:data,token:req.headers['x-app-token']});
    if(req.headers['x-app-token']!=='workspace-test'){send(403,{});return;}
@@ -125,7 +132,8 @@ async function fixture(browser,old=false){
    if(action==='target/create'){Object.assign(v,{running:true,action:'target-create',status:'creating'});send(202,{ok:true});return;}
    if(action==='target/receiver'){v.target.receivers={[data.vmId]:{link:{address:data.address,thumbprint:data.thumbprint},disks:[{name:'disk-0',label:'Disk 0, QEMU HARDDISK',size:107374182400}],mapping:['disk-0']}};v.target.serial++;send(200,{ok:true});return;}
    if(action==='target/move'){Object.assign(v,{running:true,action:'move',status:'moving'});send(202,{ok:true});return;}
-   if(action==='receiver'){if(data.action==='start'){v.receiver={running:true,port:data.port||44380,code:'K7QMZ-2RT4X-9WBNP-H3VDA',thumbprint:'3f9a6c0e1b7d4a25c8e0f13b6a9d2c4e7f0a1b3c5d7e9f2a4c6e8b0d1f3a5c7e',folder:data.folder||'D:\\Migration\\VMware-Copies\\Received',addresses:['192.0.2.40'],sessions:0,firewall:!!data.firewall,defaultFolder:'D:\\Migration\\VMware-Copies\\Received'};}else{v.receiver={running:false,port:44380,sessions:0,firewall:false,defaultFolder:'D:\\Migration\\VMware-Copies\\Received',message:'Stopped.'};}send(200,{ok:true});return;}
+   if(action==='receiver/pair'){(v.receiver.pairRequests||[]).splice(0);send(200,{ok:true});return;}
+   if(action==='receiver'){if(data.action==='start'){v.receiver={running:true,port:data.port||44380,code:'K7QMZ-2RT4X-9WBNP-H3VDA',thumbprint:'3f9a6c0e1b7d4a25c8e0f13b6a9d2c4e7f0a1b3c5d7e9f2a4c6e8b0d1f3a5c7e',folder:data.folder||'D:\\Migration\\VMware-Copies\\Received',addresses:['192.0.2.40'],sessions:0,firewall:!!data.firewall,fingerprint:'3F9A 6C0E 1B7D 4A25',discoverable:data.discoverable!==false,pairRequests:[],defaultFolder:'D:\\Migration\\VMware-Copies\\Received'};}else{v.receiver={running:false,port:44380,sessions:0,firewall:false,defaultFolder:'D:\\Migration\\VMware-Copies\\Received',message:'Stopped.'};}send(200,{ok:true});return;}
    if(action==='agent/disks'){send(200,{ok:true,computer:'APP01',disks:[{number:0,size:107374182400,system:true,volumes:[{name:'v1',mounts:[],fileSystem:'FAT32',length:104857600},{name:'v2',mounts:['C:\\'],fileSystem:'NTFS',length:106300000000}]},{number:1,size:536870912000,system:false,volumes:[{name:'v3',mounts:['D:\\'],fileSystem:'NTFS',length:536700000000}]}]});return;}
    if(action==='agent/receiverdisks'){send(200,{ok:true,folder:false,disks:[{name:'disk-0',label:'Disk 0, QEMU HARDDISK',size:107374182400,sectorSize:512},{name:'disk-1',label:'Disk 1, QEMU HARDDISK',size:214748364800,sectorSize:512}]});return;}
    if(action==='agent/send'){Object.assign(v,{running:true,action:'send',status:'sending'});send(202,{ok:true});return;}
@@ -184,7 +192,7 @@ async function fixture(browser,old=false){
  await new Promise(r=>server.listen(0,'127.0.0.1',r));const context=await browser.newContext({viewport:{width:1440,height:1000}}),page=await context.newPage();
  page.on('dialog',async d=>{dialogs.push(d.message());await d.dismiss();});page.on('pageerror',e=>errors.push(e.message));
  const url='http://127.0.0.1:'+server.address().port+'/';await page.goto(url);await page.waitForFunction(()=>document.querySelector('#serverName').textContent==='SRV-DEMO-01');
- return {page,context,state,vm,repl,targetTest,replCalls,vmwareCalls,convertCalls,rejectConvert(action,message){convertReject[action]=message},setConvertSize(size){convertSize=size},rejectVmware(action,message){vmwareReject[action]=message},logs,dialogs,errors,started,skipRequests,opens,restoreCalls,migrateCalls,rejectMigrate(action,message){migrateReject[action]=message},rejectRestore(message){restoreReject=message},get saved(){return saved},get saveCalls(){return saveCalls},reject(){rejectStart=true},async close(){assert.deepEqual(errors,[]);await context.close();await new Promise(r=>server.close(r));}};
+ return {page,context,state,vm,repl,receiverPair,targetTest,replCalls,vmwareCalls,convertCalls,rejectConvert(action,message){convertReject[action]=message},setConvertSize(size){convertSize=size},rejectVmware(action,message){vmwareReject[action]=message},logs,dialogs,errors,started,skipRequests,opens,restoreCalls,migrateCalls,rejectMigrate(action,message){migrateReject[action]=message},rejectRestore(message){restoreReject=message},get saved(){return saved},get saveCalls(){return saveCalls},reject(){rejectStart=true},async close(){assert.deepEqual(errors,[]);await context.close();await new Promise(r=>server.close(r));}};
 }
 // Tools live in two tabs: Discovery (Alt+1) and Migration and replication (Alt+5).
 const discoveryTools=['server','environment'];
@@ -930,7 +938,7 @@ async function check(name,fn){await fn();report.checks.push({name,result:'passed
   await f.page.locator('#vmReceivePort').fill('44a');await f.page.locator('#vmReceiveStart').click();assert((await f.page.locator('#vmReceiveStatus').textContent()).includes('as a number'));assert.equal(vmwareCalls(f,'receiver').length,0);
   await f.page.locator('#vmReceivePort').fill('44390');await f.page.locator('#vmReceiveStart').click();
   await f.page.waitForFunction(()=>document.querySelector('#vmReceiveCode').textContent==='K7QMZ-2RT4X-9WBNP-H3VDA');
-  assert.deepEqual(vmwareCalls(f,'receiver').map(c=>c.body),[{action:'start',folder:'',port:44390,firewall:true}]);
+  assert.deepEqual(vmwareCalls(f,'receiver').map(c=>c.body),[{action:'start',folder:'',port:44390,firewall:true,discoverable:true}]);
   const where=await f.page.locator('#vmReceiveAddress').textContent();assert(where.includes('192.0.2.40:44390')&&where.includes('allowed in Windows Firewall'),where);
   assert(await f.page.locator('#vmReceiveStart').isHidden());
   await f.page.locator('#vmSendFind').click();await f.page.waitForFunction(()=>document.querySelectorAll('[data-send-disk]').length===2);
@@ -956,6 +964,44 @@ async function check(name,fn){await fn();report.checks.push({name,result:'passed
   f.state.vmware.receiver={running:true,port:44380,code:'K7QMZ-2RT4X-9WBNP-H3VDA',thumbprint:'3f9a6c0e1b7d4a25c8e0f13b6a9d2c4e7f0a1b3c5d7e9f2a4c6e8b0d1f3a5c7e',folder:'D:\\Migration\\VMware-Copies\\Received',addresses:['192.0.2.40'],sessions:1,firewall:true,defaultFolder:'D:\\Migration\\VMware-Copies\\Received'};
   await f.page.waitForFunction(()=>document.querySelector('#vmReceiveSessions').textContent==='1 disk open');
   await f.page.setViewportSize({width:1440,height:1000});await f.page.evaluate(()=>document.activeElement.blur());await f.page.locator('#vmwareBody').evaluate(e=>e.scrollTop=0);await f.page.screenshot({path:shots+'/vmware-disk-copy-1440x1000.png'});
+  assert.deepEqual(f.dialogs,[]);
+ }finally{await f.close();}});
+
+ await check('Receiver discovery: Find receivers lists what answers, fills the address and thumbprint, pairs by approval with a check number, and the receiver shows Allow and Deny',async()=>{const f=await fixture(browser);try{
+  await goTool(f,'environment');await goTool(f,'diskcopy');
+  await f.page.locator('#vmReceiveDiscover').uncheck();await f.page.locator('#vmReceiveStart').click();
+  await f.page.waitForFunction(()=>document.querySelector('#vmReceiveCode').textContent!=='');
+  assert.equal(vmwareCalls(f,'receiver').at(-1).body.discoverable,false);
+  assert.equal(await f.page.locator('#vmReceiveFingerprint').textContent(),'3F9A 6C0E 1B7D 4A25');assert((await f.page.locator('#vmReceiveDiscoverNote').textContent()).includes('Not announced'));
+  f.state.vmware.receiver.pairRequests=[{id:'0f'.repeat(16),computer:'APP01',address:'192.0.2.60',check:'123 456',state:'pending'}];
+  await f.page.waitForSelector('[data-pair-allow]');
+  const ask=await f.page.locator('#vmReceivePairs').textContent();assert(ask.includes('APP01 (192.0.2.60) asks to send disks here')&&ask.includes('123 456'),ask);
+  await f.page.locator('[data-pair-allow]').click();await f.page.waitForFunction(()=>!document.querySelector('[data-pair-allow]'));
+  assert.deepEqual(vmwareCalls(f,'receiver/pair').map(c=>c.body),[{id:'0f'.repeat(16),allow:true}]);
+  await f.page.locator('#vmReceiveStop').click();await f.page.waitForFunction(()=>!document.querySelector('#vmReceiveIdle').classList.contains('hidden'));
+  // The sender searches, picks one and asks to pair.
+  await f.page.locator('#vmSendFinder [data-finder-host]').fill('hv09.example.com');await f.page.locator('#vmSendFinder [data-finder-find]').click();
+  await f.page.waitForFunction(()=>document.querySelector('#vmSendFinder').textContent.includes('No receiver answered on hv09.example.com'));
+  await f.page.locator('#vmSendFinder [data-finder-host]').fill('');await f.page.locator('#vmSendFinder [data-finder-find]').click();
+  await f.page.waitForFunction(()=>document.querySelectorAll('#vmSendFinder [data-finder-use]').length===2);
+  assert.deepEqual(vmwareCalls(f,'receivers/find').map(c=>c.body),[{host:'hv09.example.com'},{host:''}]);
+  const found=await f.page.locator('#vmSendFinder .vm-found').textContent();assert(found.includes('HV01')&&found.includes('VHDX folder, 4.0 TB free, version 3.2.34')&&found.includes('Fingerprint 3F9A 6C0E 1B7D 4A25')&&found.includes('2 disks (300 GB)'),found);
+  await f.page.locator('#vmSendFinder [data-finder-use="192.0.2.51:44380"]').click();
+  assert.equal(await f.page.locator('#vmSendAddress').inputValue(),'192.0.2.51:44380');assert.equal(await f.page.locator('#vmSendThumbprint').inputValue(),'ab'.repeat(32));
+  assert((await f.page.locator('#vmSendFinder .vm-pair-box').textContent()).includes('Type the pairing code shown on its console'));assert.equal(await f.page.locator('#vmSendFinder [data-finder-pair]').count(),0);
+  await f.page.locator('#vmSendFinder [data-finder-use="192.0.2.40:44380"]').click();
+  assert.equal(await f.page.locator('#vmSendAddress').inputValue(),'192.0.2.40:44380');assert.equal(await f.page.locator('#vmSendCode').inputValue(),'');
+  await f.page.locator('#vmSendFinder [data-finder-pair]').click();
+  await f.page.waitForFunction(()=>document.querySelector('#vmSendFinder .vm-pair-check')&&document.querySelector('#vmSendFinder .vm-pair-check').textContent==='123 456');
+  assert.deepEqual(vmwareCalls(f,'receivers/pair')[0].body,{address:'192.0.2.40:44380',thumbprint:'3f9a6c0e1b7d4a25c8e0f13b6a9d2c4e7f0a1b3c5d7e9f2a4c6e8b0d1f3a5c7e'});
+  await f.page.setViewportSize({width:1440,height:1000});await f.page.evaluate(()=>document.activeElement.blur());await f.page.locator('#vmSendFinder').scrollIntoViewIfNeeded();await f.page.screenshot({path:shots+'/receiver-discovery-1440x1000.png'});
+  f.receiverPair.allowed=true;
+  await f.page.waitForFunction(()=>document.querySelector('#vmSendCode').value==='K7QMZ-2RT4X-9WBNP-H3VDA',null,{timeout:8000});
+  assert((await f.page.locator('#vmSendFinder').textContent()).includes('Paired with HV01'));
+  assert.equal(vmwareCalls(f,'receivers/pair').at(-1).body.id,'0f'.repeat(16));
+  assert(!(await f.page.locator('#vmSendFinder').textContent()).includes('K7QMZ'),'the code is never shown in the finder');
+  // The replication job editor has the same finder.
+  assert.equal(await f.page.locator('#rpRecvFinder [data-finder-find]').count(),1);
   assert.deepEqual(f.dialogs,[]);
  }finally{await f.close();}});
  await check('VMware Inside the VM: recording and checks need no confirmation; fix-ups need the typed computer name and send only the chosen items',async()=>{const f=await fixture(browser);try{

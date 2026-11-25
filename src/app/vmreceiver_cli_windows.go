@@ -154,7 +154,9 @@ func runVMReceiverCommand(args []string) int {
 		vmPrintDisks(out, vmListPhysicalDisks(*records))
 		return fail(errors.New("choose --disks (disk numbers from the list above) or --folder"))
 	}
-	config := vmReceiverConfig{Folder: *folder, Records: *records}
+	// Senders on the same network find it; there is no screen to allow
+	// pairing on, so the code is typed from this console.
+	config := vmReceiverConfig{Folder: *folder, Records: *records, Discovery: fmt.Sprintf(":%d", vmDiscoveryPort), Version: appVersion}
 	if len(numbers) > 0 {
 		if config.Disks, err = vmReceiverPhysicalDisks(numbers, overwrite, *records); err != nil {
 			return fail(err)
