@@ -242,7 +242,7 @@ func TestReportsAndRunbookRenderEscapedAndSafe(t *testing.T) {
 		t.Fatal(err)
 	}
 	text, _ := os.ReadFile(runbook)
-	for _, expected := range []string{"Wave 1", "Wave 2", "On hold (resolve blockers first)", "Generation 2", "Record settings", "Disconnect the old VM"} {
+	for _, expected := range []string{"Wave 1", "Wave 2", "On hold (resolve blockers first)", "Generation 2", "Record settings", "Disconnect the old VM", "Where each part runs", "The Hyper-V host that will run the VM", "On the Hyper-V host, run this application"} {
 		if !strings.Contains(string(text), expected) {
 			t.Fatalf("runbook missing %q", expected)
 		}
@@ -280,7 +280,7 @@ func TestReportsAndRunbookRenderEscapedAndSafe(t *testing.T) {
 		}
 	}
 	document := parts["word/document.xml"]
-	for _, expected := range []string{"Wave 1", "&lt;script&gt;alert(1)&lt;/script&gt;", "Record settings", "\u2610 "} {
+	for _, expected := range []string{"Wave 1", "&lt;script&gt;alert(1)&lt;/script&gt;", "Record settings", "\u2610 ", "Where each part runs", "The Hyper-V host that will run the VM"} {
 		if !strings.Contains(document, expected) {
 			t.Fatalf("Word runbook missing %q", expected)
 		}
@@ -395,7 +395,7 @@ func TestRunbookAndSizingFollowTarget(t *testing.T) {
 		vmTargetAzure:    {"Azure Migrate", "static private IP reservation", "uses DHCP", "Generation 2"},
 		vmTargetAWS:      {"Application Migration Service", "EC2 instance", "ENA"},
 		vmTargetPhysical: {"Prepare the server", "storage controller and network drivers", "Start the new server", "Shut down the new server", "USB stick", "remove the boot media"},
-		vmTargetProxmox:  {"ESXi import wizard", "virtio-win", "Move to Proxmox VE, step 2", "Upload the receiver media to Proxmox VE"},
+		vmTargetProxmox:  {"ESXi import wizard", "virtio-win", "Move to Proxmox VE, step 2", "upload the receiver media to Proxmox VE", "On your admin computer"},
 	} {
 		plan := suggestWaves(defaultVMPlan(inventory), inventory, 10)
 		plan.Target = target
@@ -479,5 +479,37 @@ func TestRealEstateFixes(t *testing.T) {
 	}
 	if vmToolsVersionText("2147483647") != "guest-managed (open-vm-tools)" || vmToolsVersionText("12325") != "12325" {
 		t.Fatal("tools version text")
+	}
+}
+
+func TestMoveRolesNameEveryComputer(t *testing.T) {
+	for _, profile := range vmTargetProfiles {
+		roles := vmMoveRoles(profile.ID)
+		if len(roles) < 3 {
+			t.Fatalf("%s: %d roles", profile.ID, len(roles))
+		}
+		text := ""
+		for _, role := range roles {
+			if role.Where == "" || role.Does == "" || role.Needs == "" {
+				t.Fatalf("%s: incomplete role %+v", profile.ID, role)
+			}
+			text += role.Where + "\n" + role.Does + "\n" + role.Needs + "\n"
+		}
+		if !strings.Contains(text, "The VMware VM being moved") || !strings.Contains(text, "Inside the VM") {
+			t.Fatalf("%s: roles do not cover the source VM: %s", profile.ID, text)
+		}
+		switch profile.ID {
+		case vmTargetHyperV:
+			if !strings.Contains(roles[0].Where, "Hyper-V host") || !strings.Contains(roles[0].Needs, "Hyper-V role") {
+				t.Fatalf("hyperv: first role %+v", roles[0])
+			}
+		case vmTargetScale, vmTargetNutanix, vmTargetProxmox, vmTargetPhysical:
+			if !strings.Contains(roles[0].Where, "admin computer") || !strings.Contains(roles[0].Does, "pass through this computer") || !strings.Contains(text, "receiver media") {
+				t.Fatalf("%s: roles %s", profile.ID, text)
+			}
+			if profile.ID == vmTargetPhysical && strings.Contains(text, "connect to") {
+				t.Fatalf("physical has no platform to connect to: %s", text)
+			}
+		}
 	}
 }

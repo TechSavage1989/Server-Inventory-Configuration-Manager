@@ -157,6 +157,13 @@ func writeRunbookDocx(path string, inventory *vmInventory, plan vmPlan, waves []
 	d.paragraph("Subtitle", fmt.Sprintf("Source %s %s, inventory read %s, plan saved %s. %s %s", inventory.ServerType, inventory.Server, vmReportDate(inventory.CollectedAt), vmReportDate(plan.UpdatedAt), vmReportGeneratorLine, inventory.AppVersion))
 	d.paragraph("Note", "Work through each wave in order. Keep the old VMs powered off but intact until the application owner signs off, so every step can be rolled back.")
 
+	d.heading(2, "Where each part runs")
+	roleRows := [][]string{}
+	for _, role := range vmMoveRoles(plan.Target) {
+		roleRows = append(roleRows, []string{role.Where, role.Does, role.Needs})
+	}
+	d.table([]string{"Computer", "What runs there", "What it needs"}, roleRows)
+
 	d.heading(2, "Capacity check")
 	d.table([]string{"VMs to move", "vCPUs", "Memory", "Storage used"}, [][]string{{strconv.Itoa(sizing.VMs), strconv.Itoa(sizing.VCPUs), vmFormatBytes(sizing.MemoryBytes), vmFormatBytes(sizing.UsedBytes)}})
 	d.bullets(sizing.Notes)

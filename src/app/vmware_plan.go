@@ -483,13 +483,15 @@ func buildRunbook(plan vmPlan, inventory *vmInventory) []vmRunbookWave {
 			item.Before = append(item.Before, "Save BitLocker recovery keys and suspend BitLocker.")
 		}
 		if classifyGuestOS(vm).Family == "windows" {
-			item.Before = append(item.Before, "Run Server Inventory and Migration Manager in the VM: a full collection, and Record settings under This VM on the VMware tab.")
+			item.Before = append(item.Before, "Inside the VMware VM, run Server Inventory and Migration Manager as administrator: a full collection, and Record settings under Inside the VM on the VMware tab.")
 		} else if vmHasFinding(readiness, "static-ip") {
 			item.Before = append(item.Before, "Record the guest's IP configuration (addresses, gateway, DNS) before cutover.")
 		}
 		item.Before = append(item.Before, "Confirm a recent, restorable backup of the VM.")
 		if vmTargetUsesReceiver(plan.Target) {
 			item.Before = append(item.Before, vmReceiverRunbookSteps(plan.Target, profile)...)
+		} else if plan.Target == vmTargetHyperV {
+			item.Before = append(item.Before, "On the Hyper-V host, run this application as administrator, read the inventory from vCenter or ESXi and choose Copy disks in the VM's details (Move to Hyper-V). Copy as often as needed while the VM runs; each copy after the first sends only changed blocks.")
 		}
 
 		item.Cutover = append(item.Cutover, "Tell users the service is going down, then stop the applications in the guest.")
@@ -518,9 +520,9 @@ func buildRunbook(plan vmPlan, inventory *vmInventory) []vmRunbookWave {
 		item.Cutover = append(item.Cutover, "Start the new "+machine+" and sign in at its console.")
 		if classifyGuestOS(vm).Family == "windows" {
 			if profile.Kind == vmKindCloud {
-				item.Cutover = append(item.Cutover, "Check the guest uses DHCP and has the address you reserved. Then run the fix-up on the VMware tab to remove VMware Tools and hidden old adapters, and bring offline disks online.")
+				item.Cutover = append(item.Cutover, "Check the guest uses DHCP and has the address you reserved. Then, inside the new VM, run the fix-up under Inside the VM on the VMware tab to remove VMware Tools and hidden old adapters, and bring offline disks online.")
 			} else {
-				item.Cutover = append(item.Cutover, "Run the fix-up on the VMware tab: put back the static IP settings, remove VMware Tools and hidden old adapters, and bring offline disks online.")
+				item.Cutover = append(item.Cutover, "Inside the new VM, run the fix-up under Inside the VM on the VMware tab: put back the static IP settings, remove VMware Tools and hidden old adapters, and bring offline disks online.")
 			}
 		} else if vmHasFinding(readiness, "static-ip") && profile.Kind != vmKindCloud {
 			item.Cutover = append(item.Cutover, "Reapply the recorded static IP configuration to the new network interface.")
