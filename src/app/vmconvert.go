@@ -35,11 +35,9 @@ func createDiskWriter(format, path string, size int64) (vmDiskWriter, error) {
 	case vmDiskFormatVHD:
 		return createVHD(path, size, false)
 	case vmDiskFormatVHDFixed:
-		writer, err := createVHD(path, size, true)
-		if err == nil {
-			vmMarkSparse(writer.file)
-		}
-		return writer, err
+		// Never marked sparse: Windows and Hyper-V refuse to mount a sparse
+		// VHD ("must not be sparse").
+		return createVHD(path, size, true)
 	case vmDiskFormatQCOW2:
 		return createQCOW2(path, size)
 	case vmDiskFormatVMDK:
