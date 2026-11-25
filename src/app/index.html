@@ -764,7 +764,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
 
     <section class="tab-panel" id="tabVmware" role="tabpanel" aria-labelledby="tabButtonVmware">
       <div class="restore-wrap"><div class="card">
-        <div class="card-header"><div><div class="card-title">Move VMs off VMware</div><div class="card-subtitle">Check every VM before moving it to Hyper-V, Scale Computing HyperCore, Nutanix AHV, Proxmox VE, Azure, Amazon EC2 or a physical server, plan the waves, prepare each machine and compare it after the move. vCenter and ESXi are only read, never changed.</div></div></div>
+        <div class="card-header"><div><div class="card-title">Move VMs off VMware</div><div class="card-subtitle">Check every VM before moving it to Hyper-V, Scale Computing HyperCore, Nutanix AHV, Proxmox VE, Azure, Amazon EC2 or a physical server, plan the waves, prepare each machine and compare it after the move. vCenter and ESXi are only read, unless you choose Prepare source for a VM.</div></div></div>
         <div class="vm-bar">
           <div class="vm-views" role="group" aria-label="VMware migration views"><button class="vm-view" type="button" data-vmview="env" aria-pressed="true">Environment</button><button class="vm-view" type="button" data-vmview="plan" aria-pressed="false">Plan and runbook</button><button class="vm-view" type="button" data-vmview="guest" aria-pressed="false">This VM</button><button class="vm-view" type="button" data-vmview="compare" aria-pressed="false">Before and after</button></div>
           <div class="vm-target"><label class="vm-target-label" id="vmTargetLabel" for="vmTargetSelect">Moving to</label><select id="vmTargetSelect"><option value="hyperv">Hyper-V</option><option value="scale">Scale Computing HyperCore</option><option value="nutanix">Nutanix AHV</option><option value="proxmox">Proxmox VE (KVM)</option><option value="azure">Microsoft Azure</option><option value="aws">Amazon EC2</option><option value="physical">Physical server (V2P)</option></select></div>
@@ -861,7 +861,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
             <div class="log-view migrate-log" id="vmLog" tabindex="0" aria-label="VMware log"></div>
           </details>
         </div>
-        <div class="action-bar setup-action-bar"><div class="scope-note"><span id="vmFooter">Reading vCenter or ESXi changes nothing there. Steps on this VM ask before changing anything.</span></div><div class="setup-actions"><button class="secondary-button danger-button hidden" id="vmStop" type="button">Stop</button></div></div>
+        <div class="action-bar setup-action-bar"><div class="scope-note"><span id="vmFooter">Reading vCenter or ESXi changes nothing there. Every change asks first.</span></div><div class="setup-actions"><button class="secondary-button danger-button hidden" id="vmStop" type="button">Stop</button></div></div>
       </div></div>
     </section>
 
