@@ -1,3 +1,7 @@
+## 3.2.32 release preparation — 2026-11-25
+
+Combined release of phases 2, 3 and 4 (#89, #90, #92, #93, #94, #96, #95, #98, #97, #99), awaiting the owner's choice on the release card. This branch bumps `appVersion`, `collectorVersion` and the collector `$scriptVersion` to 3.2.32, adds `docs/release-notes/3.2.32.md` (first three bullets free of Markdown) and points `scripts/test_published_upgrade.cjs` and AGENTS.md at the published v3.2.31 executable (SHA-256 `6917b087439a8ee49e2229755707653a1439039d245ddac3e28bbc3b23999cb9`).
+
 ## Unreleased: phase 4 step 2, Hyper-V as a migration source — 2026-11-25
 
 - `Read-HyperVHost.ps1` (embedded by `hyperv_windows.go`, PowerShell 3.0): reads this computer or a remote host over CIM (`root\virtualization\v2`; WinRM, then DCOM), no Hyper-V module needed. Read only: queries plus `GetVirtualHardDiskSettingData`/`GetVirtualHardDiskState`. Optional account on standard input only.
