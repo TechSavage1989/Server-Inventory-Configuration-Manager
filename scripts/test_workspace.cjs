@@ -107,6 +107,7 @@ async function fixture(browser,old=false){
    if(vmwareReject[action]){send(400,{error:vmwareReject[action]});return;}
    const v=state.vmware;
    if(action==='inventory'){send(200,vm.inventory?{ok:true,serial:v.inventorySerial,inventory:vm.inventory,plan:vm.plan,sizing:vm.sizing,attention:vm.attention||[]}:{ok:true,inventory:null});return;}
+   if(action==='hyperv'){Object.assign(v,{running:true,action:'hyperv',status:'connecting'});send(202,{ok:true});return;}
    if(action==='connect'){Object.assign(v,{running:true,action:'connect',status:'connecting',server:data.server,account:data.user,certificate:null});send(202,{ok:true});return;}
    if(action==='plan'){vm.plan=JSON.parse(JSON.stringify(data.plan));if(data.suggest){vm.plan.vms.forEach((p,i)=>{p.hold=i===2;p.wave=i===2?0:(i===3?1:2);});}vm.sizing=['azure','aws'].includes(vm.plan.target)?Object.assign(vmwareSizingFixture(false),{status:'quota',notes:['Check the subscription quota covers 14 vCPUs.']}):vmwareSizingFixture(!!vm.plan.capacity.coresPerNode);send(200,{ok:true,plan:vm.plan,sizing:vm.sizing,saved:true});return;}
    if(action==='export-plan'){v.runbookPath='C:\\Reports\\VMware_vc01\\Migration-Runbook.html';v.planCsvPath='C:\\Reports\\VMware_vc01\\Migration-Plan.csv';v.runbookDocxPath='C:\\Reports\\VMware_vc01\\Migration-Runbook.docx';send(200,{ok:true});return;}
@@ -550,6 +551,32 @@ async function check(name,fn){await fn();report.checks.push({name,result:'passed
   await f.page.waitForFunction(()=>document.querySelectorAll('#vmTableBody tr.vm-row').length===4);
  };
  const vmwareCalls=(f,action)=>f.vmwareCalls.filter(c=>c.action===action&&c.method==='POST');
+ await check('VMware tab: Read Hyper-V host reads this computer or a remote host, sends the optional account once, and opens a VM disk in the Disk converter',async()=>{const f=await fixture(browser);try{
+  await f.page.keyboard.press('Alt+6');
+  await f.page.locator('#vmHvUser').fill('EXAMPLE\\admin');await f.page.locator('#vmHvRead').click();
+  assert.equal(await f.page.locator('#vmHvStatus').textContent(),'Type the password for EXAMPLE\\admin, or clear the account to use your own.');assert.equal(vmwareCalls(f,'hyperv').length,0);
+  await f.page.locator('#vmHvUser').fill('');await f.page.locator('#vmHvRead').click();await f.page.waitForFunction(()=>document.querySelector('#vmwareTabBadge').textContent==='Reading');
+  assert.deepEqual(vmwareCalls(f,'hyperv').map(c=>c.body),[{host:'',user:'',password:''}],'an empty host reads this computer as the current user');
+  assert(await f.page.locator('#vmStop').isVisible());assert(await f.page.locator('#vmHvHost').isDisabled());
+  Object.assign(f.state.vmware,{running:false,action:'',status:'idle'});await f.page.waitForFunction(()=>!document.querySelector('#vmHvHost').disabled);
+  await f.page.locator('#vmHvHost').fill('hv01.example.com');await f.page.locator('#vmHvUser').fill('EXAMPLE\\admin');await f.page.locator('#vmHvPassword').fill('Synthetic-Pa55');await f.page.locator('#vmHvPassword').press('Enter');
+  await f.page.waitForFunction(()=>document.querySelector('#vmwareTabBadge').textContent==='Reading');
+  assert.deepEqual(vmwareCalls(f,'hyperv').at(-1).body,{host:'hv01.example.com',user:'EXAMPLE\\admin',password:'Synthetic-Pa55'});assert.equal(await f.page.locator('#vmHvPassword').inputValue(),'','the password leaves the page');
+  const inventory=vmwareInventoryFixture();Object.assign(inventory,{server:'hv01.example.com',serverType:'Hyper-V host',product:'Microsoft Windows Server 2022 Datacenter'});
+  const app=inventory.vms.find(v=>v.id==='vm-app01');Object.assign(app,{source:'hyperv',generation:2,integrationServices:'ok',integrationVersion:'10.0.20348',dynamicMemory:true,toolsStatus:'',toolsVersion:'',toolsRunning:false});
+  app.disks=[{label:'Hard drive on SCSI controller 0 location 0',controller:'SCSI',capacityBytes:136365211648,datastore:'D:',file:'D:\\VMs\\APP01\\APP01.vhdx',localPath:'\\\\hv01.example.com\\D$\\VMs\\APP01\\APP01.vhdx',provisioning:'dynamic',mode:'persistent',sharing:'sharingNone'}];
+  f.vm.inventory=inventory;f.vm.plan=Object.assign(vmwarePlanFixture(),{server:'hv01.example.com'});f.vm.sizing=vmwareSizingFixture(false);
+  Object.assign(f.state.vmware,{running:false,action:'',status:'connected',server:'hv01.example.com',account:'EXAMPLE\\admin',message:'Read 4 VM(s) from Hyper-V host hv01.example.com.',summary:Object.assign(vmwareSummaryFixture(),{server:'hv01.example.com',serverType:'Hyper-V host'}),inventorySerial:1});
+  await f.page.waitForFunction(()=>document.querySelectorAll('#vmTableBody tr.vm-row').length===4);
+  assert.equal(await f.page.locator('#vmFactServer').textContent(),'hv01.example.com (Hyper-V host)');
+  assert.equal(await f.page.locator('#vmServer').inputValue(),'','a Hyper-V host is not offered as a vCenter server');assert.equal(await f.page.locator('#vmUser').inputValue(),'');
+  await f.page.locator('tr[data-vm-id="vm-app01"]').click();const detail=await f.page.locator('#vmDetail').textContent();
+  assert(detail.includes('Generation 2')&&detail.includes('responding, version 10.0.20348'),detail);
+  await f.page.locator('#vmDetail button.vm-link',{hasText:'Convert'}).click();
+  assert.equal(await f.page.locator('#tabButtonConvert').getAttribute('aria-selected'),'true');assert.equal(await f.page.locator('#cvSource').inputValue(),'\\\\hv01.example.com\\D$\\VMs\\APP01\\APP01.vhdx');
+  await f.page.waitForFunction(()=>!document.querySelector('#cvInfo').classList.contains('hidden'));assert.equal(f.convertCalls.filter(c=>c.action==='inspect').at(-1).body.path,'\\\\hv01.example.com\\D$\\VMs\\APP01\\APP01.vhdx');
+  assert(f.vmwareCalls.every(c=>c.token==='workspace-test'));assert.deepEqual(f.dialogs,[]);
+ }finally{await f.close();}});
  await check('VMware tab: Alt+6 reaches it; Read inventory sends the password once; an untrusted certificate needs an explicit trust; readiness filters and details',async()=>{const f=await fixture(browser);try{
   assert.equal(await f.page.locator('#vmwareTabBadge').textContent(),'Ready');
   await f.page.keyboard.press('Alt+6');assert.equal(await f.page.locator('#tabButtonVmware').getAttribute('aria-selected'),'true');assert(await f.page.locator('#tabVmware').isVisible());

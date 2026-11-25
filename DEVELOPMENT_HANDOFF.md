@@ -1,3 +1,12 @@
+## Unreleased: phase 4 step 2, Hyper-V as a migration source — 2026-11-25
+
+- `Read-HyperVHost.ps1` (embedded by `hyperv_windows.go`, PowerShell 3.0): reads this computer or a remote host over CIM (`root\virtualization\v2`; WinRM, then DCOM), no Hyper-V module needed. Read only: queries plus `GetVirtualHardDiskSettingData`/`GetVirtualHardDiskState`. Optional account on standard input only.
+- `hyperv_source.go` (untagged): `hypervInventoryFromReport` maps the report to `vmInventory` (ServerType `Hyper-V host`), so readiness, plans, waves, runbooks, reports and the Environment view work unchanged. New `vmMachine` fields `source`, `generation`, `configVersion`, `integrationServices`, `integrationVersion`, `dynamicMemory`; `vmDisk` gains `localPath`, `parentPath`, `format`. `assessVM` uses Hyper-V wording for these VMs.
+- `/api/vmware/hyperv` runs the read as a stoppable VMware action and writes the usual outputs to `HyperV_<host>_<time>`. A Hyper-V inventory has no vSphere password, so Prepare and Move stay refused.
+- UI: **Or read a Hyper-V host** under the vCenter card; Generation, integration services and Dynamic Memory in a VM's details; a **Convert** link on each disk opens it in the Disk converter.
+- Tests: `hyperv_source_test.go` (mapping, paths, readiness wording, shielded VMs), `hyperv_windows_test.go` (the script on the runner, account never in output), and a `scripts/test_workspace.cjs` check.
+- Not validated: a real Hyper-V host (GitHub runners have no Hyper-V role), remote reads over WinRM/DCOM, failover clusters (each node reads only its own VMs).
+
 ## Unreleased: target platform requests checked against vendor references — 2026-11-25
 
 - HyperCore (`vmtarget_hypercore.go`), checked against Scale Computing's own Ansible collection: the UEFI machine type `scale-uefi-9.2` did not exist. 9.3 and later now get `options.machineTypeKeyword` (bios, uefi or tpm) with no machineType, 9.2 gets scale-7.2, scale-8.10 or scale-uefi-tpm-9.2, and 9.1 refuses a TPM. The version is read from `/Cluster` (`icosVersion`). Also: the ISO is marked `readyForInsert` after upload (it was left unusable), VM actions carry `cause: INTERNAL`, block devices carry `cacheMode` and the first disk `uuid: primaryDrive`, NVRAM is added for every UEFI or TPM VM, and TaskTag polling no longer loops forever on an empty answer and fails on UNINITIALIZED.
