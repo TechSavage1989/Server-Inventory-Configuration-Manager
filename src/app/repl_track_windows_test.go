@@ -73,9 +73,8 @@ func TestReplicationChangeTrackingMissesNothing(t *testing.T) {
 		}
 		return tracked, check, opened
 	}
-	first, _, opened := round(false)
-	used := replRangeBytes(opened.Used[id])
-	t.Logf("first round read %s; %s in use", vmFormatBytes(first.Progress.BytesRead), vmFormatBytes(used))
+	first, _, _ := round(false)
+	t.Logf("first round read %s", vmFormatBytes(first.Progress.BytesRead))
 
 	// The changes.
 	file, err := os.OpenFile(filepath.Join(letter, `data\database.mdf`), os.O_RDWR, 0)
@@ -99,7 +98,7 @@ func TestReplicationChangeTrackingMissesNothing(t *testing.T) {
 	vmPowerShell(t, `icacls '`+filepath.Join(letter, "data")+`' /grant 'Users:(OI)(CI)RX' /T /Q | Out-Null`)
 	vmPowerShell(t, "Optimize-Volume -DriveLetter "+letter[:1]+" -Defrag -ErrorAction SilentlyContinue | Out-Null; Write-VolumeCache -DriveLetter "+letter[:1])
 
-	second, check, opened := round(true)
+	second, check, _ := round(true)
 	t.Logf("tracked round read %s, %d chunks changed; full re-read found %d more", vmFormatBytes(second.Progress.BytesRead), second.Progress.Changed, check.Progress.Changed)
 	if check.Progress.Changed != 0 {
 		for _, index := range check.ChangedChunks {
@@ -107,7 +106,7 @@ func TestReplicationChangeTrackingMissesNothing(t *testing.T) {
 		}
 		t.Fatalf("change tracking missed %d chunks", check.Progress.Changed)
 	}
-	if second.Progress.BytesRead >= replRangeBytes(opened.Used[id]) {
-		t.Fatalf("the tracked round read %s, no less than the %s in use", vmFormatBytes(second.Progress.BytesRead), vmFormatBytes(replRangeBytes(opened.Used[id])))
+	if second.Progress.BytesRead*2 > check.Progress.BytesRead {
+		t.Fatalf("the tracked round read %s of the %s disk", vmFormatBytes(second.Progress.BytesRead), vmFormatBytes(check.Progress.BytesRead))
 	}
 }

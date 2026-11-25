@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 	"regexp"
 	"strconv"
 	"strings"
@@ -22,6 +23,8 @@ const (
 	replFsctlGetVolumeBitmap      = 0x0009006F
 	replFsctlGetRetrievalPointers = 0x00090073
 	replFsctlGetNtfsVolumeData    = 0x00090064
+	replFsctlCreateUsnJournal     = 0x000900E7
+	replErrorJournalNotActive     = windows.Errno(1179)
 	// Change journal reasons for named streams (alternate data streams).
 	replUsnNamedData = 0x00000010 | 0x00000020 | 0x00000040
 )
@@ -73,7 +76,19 @@ func replJournalMarks(numbers []int) map[string]replMark {
 			if err != nil {
 				continue
 			}
-			if mark, err := replQueryJournal(handle); err == nil {
+			mark, err := replQueryJournal(handle)
+			if errors.Is(err, replErrorJournalNotActive) {
+				// A volume without a change journal gets a small one (32 MB),
+				// as backup and search software do; tracking needs it.
+				in := make([]byte, 16)
+				binary.LittleEndian.PutUint64(in, 32<<20)
+				binary.LittleEndian.PutUint64(in[8:], 8<<20)
+				var returned uint32
+				if windows.DeviceIoControl(handle, replFsctlCreateUsnJournal, &in[0], 16, nil, 0, &returned, nil) == nil {
+					mark, err = replQueryJournal(handle)
+				}
+			}
+			if err == nil {
 				marks[volume.Name] = mark
 			}
 			windows.CloseHandle(handle)
@@ -282,9 +297,10 @@ var replMetaOptional = []string{`$MFT::$BITMAP`, `$Volume`, `$AttrDef`, `$Boot`,
 	`$Extend\$Quota:$O:$INDEX_ALLOCATION`, `$Extend\$Quota:$Q:$INDEX_ALLOCATION`}
 
 // replTrackedRuns lists what changed on a shadowed volume since the last
-// round: new clusters, metadata files and the files the journal names.
+// round: clusters allocated or freed, metadata files and the files the
+// journal names.
 func replTrackedRuns(ctx context.Context, shadowRoot string, shadow windows.Handle, live windows.Handle, previous replVolumeTrack, prevBitmap, bitmap []byte, clusters int64) ([]replRun, int, error) {
-	runs := replNewlyAllocated(prevBitmap, bitmap, clusters)
+	runs := replToggled(prevBitmap, bitmap, clusters)
 	for _, name := range replMetaRequired {
 		found, err := replPathRuns(shadowRoot + name)
 		if err != nil {
@@ -393,7 +409,8 @@ type replTrackedVolume struct {
 	disabled string
 }
 
-// replPlanTrackedRound sets a round's used and changed ranges.
+// replPlanTrackedRound shows free clusters of each simple NTFS volume as
+// zeros and sets the round's changed ranges.
 func replPlanTrackedRound(ctx context.Context, trackDir, job string, numbers []int, set *vmAgentDiskSet, marks map[string]replMark, opened *replOpenedDisks, log func(string)) error {
 	var store *replTrackStore
 	state := replTrackState{Volumes: map[string]replVolumeTrack{}}
@@ -404,13 +421,17 @@ func replPlanTrackedRound(ctx context.Context, trackDir, job string, numbers []i
 		}
 		state = store.Load()
 	}
-	opened.Ranges, opened.Used = map[string][]vmCopyRange{}, map[string][]vmCopyRange{}
+	opened.Ranges, opened.Used = map[string][]vmCopyRange{}, nil
 	volumes := []*replTrackedVolume{}
 	now := time.Now()
 	for _, number := range numbers {
 		id := strconv.Itoa(number)
-		size := set.Sources[number].Size()
-		handled, used, changed := []vmCopyRange{}, []vmCopyRange{}, []vmCopyRange{}
+		source, _ := set.Sources[number].(*vmCompositeSource)
+		if source == nil {
+			continue
+		}
+		handled, changed := []vmCopyRange{}, []vmCopyRange{}
+		full := false // read the whole disk: a check or a volume without tracking
 		for _, info := range set.Volumes[number] {
 			device := set.Shadows[info.Name]
 			key := replVolumeKey(info.Name)
@@ -424,6 +445,7 @@ func replPlanTrackedRound(ctx context.Context, trackDir, job string, numbers []i
 			shadow, err := replOpenVolume(device)
 			if err != nil {
 				log(fmt.Sprintf("%s: reading it in full (%v).", volume.label, err))
+				full = true
 				continue
 			}
 			clusterSize, clusters, err := replNTFSGeometry(shadow)
@@ -432,19 +454,26 @@ func replPlanTrackedRound(ctx context.Context, trackDir, job string, numbers []i
 				bitmap, err = replVolumeBitmap(shadow, clusters)
 			}
 			windows.CloseHandle(shadow)
-			if err != nil || clusterSize*clusters > info.Length {
+			if err == nil && clusterSize*clusters > info.Length {
+				err = errors.New("the file system is larger than its partition")
+			}
+			if err == nil && !source.WrapOverlay(info.Start, func(r io.ReaderAt) io.ReaderAt {
+				return &vmFreeZeroReader{Reader: r, Bitmap: bitmap, ClusterSize: clusterSize, Clusters: clusters}
+			}) {
+				err = errors.New("its shadow copy is not laid over the disk")
+			}
+			if err != nil {
 				log(fmt.Sprintf("%s: reading it in full (%v).", volume.label, err))
+				full = true
 				continue
 			}
+			inUse := replRangeBytes(replVolumeToDisk(info.Start, clusterSize, replAllocatedRuns(bitmap, clusters)))
 			volume.bitmap = bitmap
-			inUse := append(replVolumeToDisk(info.Start, clusterSize, replAllocatedRuns(bitmap, clusters)), vmCopyRange{Start: info.Start + info.Length - replTrackTail, Length: replTrackTail})
 			handled = append(handled, vmCopyRange{Start: info.Start, Length: info.Length})
-			used = append(used, inUse...)
 			volume.track = replVolumeTrack{ClusterSize: clusterSize, Clusters: clusters}
 			mark, haveMark := marks[info.Name]
 			volume.mark = mark
 			previous, known := state.Volumes[key]
-			chosen := inUse
 			reason := ""
 			switch {
 			case store == nil:
@@ -459,29 +488,28 @@ func replPlanTrackedRound(ctx context.Context, trackDir, job string, numbers []i
 			case previous.JournalID != mark.ID || previous.ClusterSize != clusterSize || previous.Clusters != clusters:
 				reason = "the volume changed size or its journal was recreated"
 			}
+			var tracked []vmCopyRange
 			if reason == "" {
 				prevBitmap, err := store.LoadBitmap(key, len(bitmap))
 				if err != nil {
 					reason = err.Error()
+				} else if live, err := replOpenVolume(strings.TrimSuffix(info.Name, `\`)); err != nil {
+					reason = err.Error()
 				} else {
-					live, err := replOpenVolume(strings.TrimSuffix(info.Name, `\`))
+					runs, files, err := replTrackedRuns(ctx, device+`\`, 0, live, previous, prevBitmap, bitmap, clusters)
+					windows.CloseHandle(live)
 					if err != nil {
 						reason = err.Error()
 					} else {
-						runs, files, err := replTrackedRuns(ctx, device+`\`, 0, live, previous, prevBitmap, bitmap, clusters)
-						windows.CloseHandle(live)
-						if err != nil {
-							reason = err.Error()
+						tracked = append(replVolumeToDisk(info.Start, clusterSize, runs), vmCopyRange{Start: info.Start + info.Length - replTrackTail, Length: replTrackTail})
+						volume.track.LastCheck = previous.LastCheck
+						if now.Sub(previous.LastCheck) >= replTrackCheckEvery {
+							volume.check, volume.tracked = true, tracked
+							full = true
+							log(fmt.Sprintf("%s: reading all %s in use to check change tracking.", volume.label, vmFormatBytes(inUse)))
 						} else {
-							tracked := append(replVolumeToDisk(info.Start, clusterSize, runs), vmCopyRange{Start: info.Start + info.Length - replTrackTail, Length: replTrackTail})
-							volume.track.LastCheck = previous.LastCheck
-							if now.Sub(previous.LastCheck) >= replTrackCheckEvery {
-								volume.check, volume.tracked = true, tracked
-								log(fmt.Sprintf("%s: reading every used cluster to check change tracking (%s).", volume.label, vmFormatBytes(replRangeBytes(inUse))))
-							} else {
-								chosen = tracked
-								log(fmt.Sprintf("%s: %d changed files, %s to read of %s in use.", volume.label, files, vmFormatBytes(replRangeBytes(tracked)), vmFormatBytes(replRangeBytes(inUse))))
-							}
+							changed = append(changed, tracked...)
+							log(fmt.Sprintf("%s: %d changed files, %s to read of %s in use.", volume.label, files, vmFormatBytes(replRangeBytes(tracked)), vmFormatBytes(inUse)))
 						}
 					}
 				}
@@ -490,15 +518,16 @@ func replPlanTrackedRound(ctx context.Context, trackDir, job string, numbers []i
 				if ctx.Err() != nil {
 					return ctx.Err()
 				}
-				volume.check = true // a used pass: a fresh starting point
-				log(fmt.Sprintf("%s: reading every used cluster (%s; %s).", volume.label, vmFormatBytes(replRangeBytes(inUse)), reason))
+				volume.check, full = true, true // a full pass: a fresh starting point
+				log(fmt.Sprintf("%s: reading all %s in use (%s).", volume.label, vmFormatBytes(inUse), reason))
 			}
-			changed = append(changed, chosen...)
 			volumes = append(volumes, volume)
 		}
-		outside := replOutside(size, handled)
-		opened.Used[id] = replMergeRanges(append(used, outside...))
-		opened.Ranges[id] = replMergeRanges(append(changed, outside...))
+		if full {
+			opened.Ranges[id] = nil
+		} else {
+			opened.Ranges[id] = replMergeRanges(append(changed, replOutside(source.Size(), handled)...))
+		}
 	}
 	opened.Commit = func(results map[string]*vmCopyResult) error {
 		if store == nil {
@@ -512,8 +541,8 @@ func replPlanTrackedRound(ctx context.Context, trackDir, job string, numbers []i
 				if result == nil {
 					continue
 				}
-				// A changed chunk inside this volume that tracking would not
-				// have read is a miss.
+				// A chunk of this volume that changed although tracking
+				// would not have read it is a miss.
 				inVolume := []int{}
 				for _, index := range result.ChangedChunks {
 					start := int64(index) * result.State.ChunkSize
@@ -523,7 +552,7 @@ func replPlanTrackedRound(ctx context.Context, trackDir, job string, numbers []i
 				}
 				if missed := replMissedChunks(volume.tracked, inVolume, result.State.ChunkSize); len(missed) > 0 {
 					track.Disabled = fmt.Sprintf("the check on %s found %d changed chunks tracking did not report (first at %s)", now.UTC().Format(time.RFC3339), len(missed), vmFormatBytes(int64(missed[0])*result.State.ChunkSize))
-					log(fmt.Sprintf("%s: %s, so every used cluster is read from now on.", volume.label, track.Disabled))
+					log(fmt.Sprintf("%s: %s, so it is read in full from now on.", volume.label, track.Disabled))
 				} else {
 					log(fmt.Sprintf("%s: the check found no change that tracking missed.", volume.label))
 				}

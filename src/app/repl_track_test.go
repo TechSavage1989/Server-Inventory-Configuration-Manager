@@ -1,6 +1,7 @@
 package main
 
 import (
+	"io"
 	"reflect"
 	"testing"
 )
@@ -66,4 +67,45 @@ func TestReplTrackStoreKeepsStateAndBitmaps(t *testing.T) {
 	if len(store.Load().Volumes) != 0 {
 		t.Fatal("Forget kept the state")
 	}
+}
+
+func TestFreeZeroReaderHidesFreeClusters(t *testing.T) {
+	data := make([]byte, 64)
+	for i := range data {
+		data[i] = byte(i + 1)
+	}
+	// 8-byte clusters 0, 2, 3 and 6 in use, of 7; the last 8 bytes are past
+	// the clusters and always read.
+	z := &vmFreeZeroReader{Reader: bytesReaderAt(data), Bitmap: []byte{0x4D}, ClusterSize: 8, Clusters: 7}
+	got := make([]byte, 61)
+	if n, err := z.ReadAt(got, 3); n != 61 || err != nil {
+		t.Fatal(n, err)
+	}
+	for i, b := range got {
+		offset := i + 3
+		cluster := offset / 8
+		want := data[offset]
+		if cluster < 7 && (0x4D>>cluster)&1 == 0 {
+			want = 0
+		}
+		if b != want {
+			t.Fatalf("offset %d: %d, want %d", offset, b, want)
+		}
+	}
+	if runs := replToggled([]byte{0x0F}, []byte{0x3C}, 8); !reflect.DeepEqual(runs, []replRun{{0, 2}, {4, 2}}) {
+		t.Fatalf("toggled %v", runs)
+	}
+}
+
+type bytesReaderAt []byte
+
+func (b bytesReaderAt) ReadAt(p []byte, off int64) (int, error) {
+	if off >= int64(len(b)) {
+		return 0, io.EOF
+	}
+	n := copy(p, b[off:])
+	if n < len(p) {
+		return n, io.EOF
+	}
+	return n, nil
 }

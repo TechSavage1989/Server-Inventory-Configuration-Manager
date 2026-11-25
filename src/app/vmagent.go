@@ -141,3 +141,68 @@ func (s *vmCompositeSource) ReadAt(p []byte, off int64) (int, error) {
 	}
 	return total, nil
 }
+
+// vmFreeZeroReader reads an NTFS volume with every cluster the volume
+// bitmap marks free returned as zeros, without reading it. NTFS never reads
+// free clusters, so the copy is the same to the file system, free space
+// compresses to nothing, and a repeat pass that reads the whole volume
+// finds a change only where data or allocation really changed.
+type vmFreeZeroReader struct {
+	Reader      io.ReaderAt
+	Bitmap      []byte
+	ClusterSize int64
+	Clusters    int64
+}
+
+func (z *vmFreeZeroReader) used(cluster int64) bool {
+	return z.Bitmap[cluster/8]&(1<<(uint(cluster)%8)) != 0
+}
+
+func (z *vmFreeZeroReader) ReadAt(p []byte, off int64) (int, error) {
+	total := 0
+	end := z.Clusters * z.ClusterSize
+	for len(p) > 0 {
+		if off >= end {
+			n, err := z.Reader.ReadAt(p, off)
+			return total + n, err
+		}
+		cluster := off / z.ClusterSize
+		state := z.used(cluster)
+		runEnd := (cluster + 1) * z.ClusterSize
+		for runEnd < end && runEnd-off < int64(len(p)) && z.used(runEnd/z.ClusterSize) == state {
+			runEnd += z.ClusterSize
+		}
+		run := runEnd - off
+		if run > int64(len(p)) {
+			run = int64(len(p))
+		}
+		if state {
+			n, err := z.Reader.ReadAt(p[:run], off)
+			total += n
+			if int64(n) < run {
+				if err == nil {
+					err = io.ErrUnexpectedEOF
+				}
+				return total, err
+			}
+		} else {
+			for i := range p[:run] {
+				p[i] = 0
+			}
+			total += int(run)
+		}
+		p, off = p[run:], off+run
+	}
+	return total, nil
+}
+
+// WrapOverlay replaces the reader of the overlay that starts at start.
+func (s *vmCompositeSource) WrapOverlay(start int64, wrap func(io.ReaderAt) io.ReaderAt) bool {
+	for i := range s.overlays {
+		if s.overlays[i].Start == start && s.overlays[i].Map == nil {
+			s.overlays[i].Reader = wrap(s.overlays[i].Reader)
+			return true
+		}
+	}
+	return false
+}

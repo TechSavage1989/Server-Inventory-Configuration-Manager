@@ -246,3 +246,11 @@ func replWriteFileAtomic(path string, data []byte) error {
 	}
 	return nil
 }
+
+// replToggled lists clusters whose allocation changed either way.
+func replToggled(previous, current []byte, total int64) []replRun {
+	return replBitRuns(total, func(i int64) bool {
+		bit := byte(1 << (uint(i) % 8))
+		return (current[i/8]^previous[i/8])&bit != 0
+	})
+}
