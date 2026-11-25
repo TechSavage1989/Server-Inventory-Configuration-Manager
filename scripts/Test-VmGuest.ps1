@@ -31,6 +31,8 @@ function Invoke-Engine([string]$Mode, [object]$Plan, [string]$Name) {
     $result = Join-Path $OutputDirectory ('{0:00}-{1}.json' -f $script:run, $Name)
     $list = @('-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', $engine, '-Mode', $Mode, '-ResultPath', $result, '-WorkPath', $work)
     if ($Mode -eq 'Capture') { $list += @('-ExportPath', $export) }
+    # Recovery keys never go to the uploaded output folder.
+    if ($Mode -eq 'SaveBitLocker') { $list += @('-ExportPath', (Join-Path $env:TEMP 'SICM-BitLocker-Test')) }
     if ($null -ne $Plan) {
         $planPath = Join-Path $OutputDirectory ('{0:00}-{1}-plan.json' -f $script:run, $Name)
         [IO.File]::WriteAllText($planPath, (ConvertTo-Json -InputObject $Plan -Depth 5), (New-Object Text.UTF8Encoding($false)))
@@ -171,6 +173,9 @@ try {
     } else {
         Assert ($tools.code -eq 0 -and $tools.json.result.AlreadyRemoved) 'VMware Tools removal reports nothing to remove'
     }
+    $bitlocker = Invoke-Engine 'SaveBitLocker' $null 'save-bitlocker'
+    Assert ($bitlocker.code -eq 0 -and ($bitlocker.json.result.NoBitLocker -or (Test-Path -LiteralPath ([string]$bitlocker.json.result.KeyFile)))) 'Saving BitLocker keys succeeds, or reports that BitLocker is off'
+    Assert ($bitlocker.log -notmatch 'Recovery password [0-9]') 'Recovery passwords never reach the log'
     $plan = Invoke-Engine 'OnlineDisks' $null 'missing-plan'
     Assert ($plan.code -ne 0 -and $plan.json.error -match 'plan file is missing') 'Changing modes need a plan file'
 }

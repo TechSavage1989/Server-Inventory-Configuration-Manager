@@ -16,6 +16,9 @@ Modes
                    (the old platform's adapters).
   RemoveVmwareTools Uninstalls VMware Tools with its own uninstaller.
   OnlineDisks      Brings chosen offline or read-only disks online.
+  SaveBitLocker    Before removing a virtual TPM: writes every BitLocker
+                   volume's recovery password to a file in ExportPath (never
+                   to the log) and suspends BitLocker until it is resumed.
 
 Every changing mode acts only on items named in the plan file, re-checks
 each one first, and stops at the first failure.
@@ -23,7 +26,7 @@ each one first, and stops at the first failure.
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)]
-    [ValidateSet('Capture', 'Status', 'ApplyNetwork', 'UndoNetwork', 'RemoveGhostNics', 'RemoveVmwareTools', 'OnlineDisks')]
+    [ValidateSet('Capture', 'Status', 'ApplyNetwork', 'UndoNetwork', 'RemoveGhostNics', 'RemoveVmwareTools', 'OnlineDisks', 'SaveBitLocker')]
     [string]$Mode,
     [Parameter(Mandatory = $true)][string]$WorkPath,
     [Parameter(Mandatory = $true)][string]$ResultPath,
@@ -580,6 +583,51 @@ function Invoke-OnlineDisks {
     return [pscustomobject]@{ Disks = $done }
 }
 
+function Invoke-SaveBitLocker {
+    if (-not (Get-Command -Name Get-BitLockerVolume -ErrorAction SilentlyContinue)) {
+        Write-GuestLog 'BitLocker is not installed on this computer, so there are no keys to save.'
+        return [pscustomobject]@{ NoBitLocker = $true; Volumes = @(); Suspended = @(); KeyFile = '' }
+    }
+    $volumes = @(Get-BitLockerVolume | Where-Object { [string]$_.VolumeStatus -ne 'FullyDecrypted' })
+    if ($volumes.Count -eq 0) {
+        Write-GuestLog 'No volume is encrypted with BitLocker.'
+        return [pscustomobject]@{ NoBitLocker = $true; Volumes = @(); Suspended = @(); KeyFile = '' }
+    }
+    if (-not $ExportPath) { throw 'No folder was given for the recovery keys.' }
+    if (-not (Test-Path -LiteralPath $ExportPath)) { New-Item -ItemType Directory -Path $ExportPath -Force | Out-Null }
+    $lines = New-Object System.Collections.ArrayList
+    [void]$lines.Add('BitLocker recovery keys for ' + $env:COMPUTERNAME + ', saved ' + (Get-Date).ToString('yyyy-MM-dd HH:mm') + '.')
+    [void]$lines.Add('Keep this file somewhere safe and delete it once the migration is finished. Anyone with these keys can unlock the volumes.')
+    [void]$lines.Add('')
+    $names = @()
+    foreach ($volume in $volumes) {
+        $mount = [string]$volume.MountPoint
+        $recovery = @($volume.KeyProtector | Where-Object { [string]$_.KeyProtectorType -eq 'RecoveryPassword' })
+        if ($recovery.Count -eq 0) {
+            # Without a recovery password there would be nothing to type at the recovery screen.
+            Write-GuestLog ('Adding a recovery password protector to ' + $mount + '.')
+            Add-BitLockerKeyProtector -MountPoint $mount -RecoveryPasswordProtector -WarningAction SilentlyContinue | Out-Null
+            $recovery = @((Get-BitLockerVolume -MountPoint $mount).KeyProtector | Where-Object { [string]$_.KeyProtectorType -eq 'RecoveryPassword' })
+        }
+        foreach ($protector in $recovery) {
+            [void]$lines.Add('Volume ' + $mount + '  Key ID ' + [string]$protector.KeyProtectorId + '  Recovery password ' + [string]$protector.RecoveryPassword)
+        }
+        $names += $mount
+    }
+    $keyFile = Join-Path $ExportPath ('BitLocker-Recovery-Keys-' + $env:COMPUTERNAME + '.txt')
+    [IO.File]::WriteAllLines($keyFile, [string[]]$lines.ToArray(), (New-Object System.Text.UTF8Encoding($false)))
+    Write-GuestLog ('Saved the recovery passwords for ' + ($names -join ', ') + ' to ' + $keyFile + '.')
+    $suspended = @()
+    foreach ($volume in $volumes) {
+        if ([string]$volume.ProtectionStatus -eq 'On') {
+            Suspend-BitLocker -MountPoint ([string]$volume.MountPoint) -RebootCount 0 | Out-Null
+            $suspended += [string]$volume.MountPoint
+            Write-GuestLog ('Suspended BitLocker on ' + [string]$volume.MountPoint + ' until it is resumed.')
+        }
+    }
+    return [pscustomobject]@{ NoBitLocker = $false; Volumes = $names; Suspended = $suspended; KeyFile = $keyFile }
+}
+
 $exitCode = 0
 $result = $null
 try {
@@ -594,6 +642,7 @@ try {
         'RemoveGhostNics' { $result = Invoke-RemoveGhostNics }
         'RemoveVmwareTools' { $result = Invoke-RemoveVmwareTools }
         'OnlineDisks' { $result = Invoke-OnlineDisks }
+        'SaveBitLocker' { $result = Invoke-SaveBitLocker }
     }
     Write-JsonFile $ResultPath ([pscustomobject]@{ ok = $true; mode = $Mode; result = $result })
 }

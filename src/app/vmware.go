@@ -580,11 +580,12 @@ var guestModes = map[string]string{
 	"remove-ghosts": "RemoveGhostNics",
 	"remove-tools":  "RemoveVmwareTools",
 	"online-disks":  "OnlineDisks",
+	"bitlocker":     "SaveBitLocker",
 }
 
 // guestChangingModes change this computer, so they need the typed computer
 // name.
-var guestChangingModes = map[string]bool{"apply": true, "undo": true, "remove-ghosts": true, "remove-tools": true, "online-disks": true}
+var guestChangingModes = map[string]bool{"apply": true, "undo": true, "remove-ghosts": true, "remove-tools": true, "online-disks": true, "bitlocker": true}
 
 func (a *application) handleVMwareGuest(response http.ResponseWriter, request *http.Request) {
 	if !a.requireAuthorization(response, request) {
@@ -673,6 +674,7 @@ func guestRunningMessage(action string) string {
 		"capture": "Recording this VM's settings.", "status": "Reading this VM's current state.", "apply": "Putting back the IP settings.",
 		"undo": "Restoring the adapter settings saved before the change.", "remove-ghosts": "Removing hidden network adapters.",
 		"remove-tools": "Removing VMware Tools. This can take a few minutes.", "online-disks": "Bringing disks online.",
+		"bitlocker": "Saving the BitLocker recovery keys and suspending BitLocker.",
 	}[action]
 }
 
@@ -703,6 +705,23 @@ func guestDoneMessage(action string, result json.RawMessage) string {
 		return "Removed VMware Tools."
 	case "online-disks":
 		return "Brought the chosen disks online."
+	case "bitlocker":
+		var saved struct {
+			NoBitLocker bool
+			KeyFile     string
+			Suspended   []string
+		}
+		if json.Unmarshal(result, &saved) == nil {
+			if saved.NoBitLocker {
+				return "BitLocker is not on, so there were no keys to save."
+			}
+			suspended := "BitLocker was already suspended."
+			if len(saved.Suspended) > 0 {
+				suspended = "Suspended BitLocker on " + strings.Join(saved.Suspended, ", ") + " until it is resumed."
+			}
+			return "Saved the BitLocker recovery keys to " + saved.KeyFile + ". " + suspended + " Keep that file safe and delete it after the move."
+		}
+		return "Saved the BitLocker recovery keys."
 	}
 	return "Done."
 }
@@ -711,7 +730,7 @@ func guestDoneMessage(action string, result json.RawMessage) string {
 // file the engine reads.
 func validateGuestItems(action string, items []json.RawMessage) ([]byte, error) {
 	switch action {
-	case "capture", "status", "undo", "remove-tools":
+	case "capture", "status", "undo", "remove-tools", "bitlocker":
 		return nil, nil
 	}
 	if len(items) == 0 || len(items) > 64 {
@@ -765,6 +784,9 @@ func (a *application) runGuestEngine(mode string, plan []byte) (json.RawMessage,
 	arguments := []string{"-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", script, "-Mode", mode, "-WorkPath", work, "-ResultPath", resultPath}
 	if mode == "Capture" {
 		arguments = append(arguments, "-ExportPath", a.vmwareOutputFolder("Guest-Capture_"+safeName(a.computerName)))
+	}
+	if mode == "SaveBitLocker" {
+		arguments = append(arguments, "-ExportPath", a.vmwareOutputFolder("BitLocker-Keys_"+safeName(a.computerName)))
 	}
 	if plan != nil {
 		planPath := filepath.Join(runtimeDir, "Plan.json")
