@@ -50,8 +50,18 @@ func TestCompositeSourceReadsVolumesFromTheirShadowCopies(t *testing.T) {
 			t.Fatalf("%s: %v", name, err)
 		}
 	}
-	short, _ := newVMCompositeSource("d", bytes.NewReader(live), size, []vmOverlay{{Start: 0, Length: 4096, Reader: bytes.NewReader(make([]byte, 1024))}}, nil)
-	if _, err := short.ReadAt(make([]byte, 4096), 0); err != io.ErrUnexpectedEOF {
+	short, _ := newVMCompositeSource("d", bytes.NewReader(live), size, []vmOverlay{{Start: 0, Length: 256 << 10, Reader: bytes.NewReader(make([]byte, 1024))}}, nil)
+	if _, err := short.ReadAt(make([]byte, 256<<10), 0); err != io.ErrUnexpectedEOF {
 		t.Fatalf("a short shadow read was not reported: %v", err)
+	}
+	// A shadow copy that ends one sector before its partition: that sector
+	// comes from the disk.
+	tail, _ := newVMCompositeSource("d", bytes.NewReader(live), size, []vmOverlay{{Start: 4096, Length: 8192, Reader: bytes.NewReader(bytes.Repeat([]byte{'S'}, 8192-512))}}, nil)
+	buffer := make([]byte, 16384)
+	if n, err := tail.ReadAt(buffer, 0); n != len(buffer) || err != nil {
+		t.Fatalf("the volume's last sector was not read from the disk: %d %v", n, err)
+	}
+	if buffer[4095] != 'L' || buffer[4096] != 'S' || buffer[4096+8192-513] != 'S' || buffer[4096+8192-512] != 'L' {
+		t.Fatal("the tail fallback read the wrong bytes")
 	}
 }

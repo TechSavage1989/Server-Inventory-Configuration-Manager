@@ -20,6 +20,7 @@ import (
 const (
 	vmIoctlDiskGetLengthInfo         = 0x0007405C
 	vmIoctlVolumeGetVolumeDiskExtent = 0x00560000
+	vmFsctlAllowExtendedDasdIO       = 0x00090083
 )
 
 type vmVolumeOnDisk struct {
@@ -222,6 +223,10 @@ func openVMAgentDisk(diskNumber int, allowLive bool, log func(string)) (vmCopySo
 					return fail(err)
 				}
 				closers = append(closers, shadow)
+				// Lets reads reach the volume's last sectors past the file
+				// system's size; a short tail still refused comes from the disk.
+				var returned uint32
+				windows.DeviceIoControl(windows.Handle(shadow.Fd()), vmFsctlAllowExtendedDasdIO, nil, 0, nil, 0, &returned, nil)
 				length := volume.Length
 				if shadowLength, err := vmDeviceLength(shadow); err == nil && shadowLength > 0 && shadowLength < length {
 					length = shadowLength / vhdxLogicalSector * vhdxLogicalSector

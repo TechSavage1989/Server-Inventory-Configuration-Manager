@@ -25,6 +25,10 @@ type vmOverlay struct {
 	Name   string
 }
 
+// vmOverlayTail is the most of a volume's end that may be read from the
+// disk when its shadow copy refuses it.
+const vmOverlayTail = 64 << 10
+
 // vmCompositeSource reads a base disk with overlays laid over it.
 type vmCompositeSource struct {
 	base     io.ReaderAt
@@ -73,7 +77,7 @@ func (s *vmCompositeSource) ReadAt(p []byte, off int64) (int, error) {
 	}
 	total := 0
 	for len(p) > 0 && off < s.size {
-		reader, readerOffset, run := s.base, off, int64(len(p))
+		reader, readerOffset, run, overlayEnd := s.base, off, int64(len(p)), int64(-1)
 		if run > s.size-off {
 			run = s.size - off
 		}
@@ -82,7 +86,7 @@ func (s *vmCompositeSource) ReadAt(p []byte, off int64) (int, error) {
 				continue
 			}
 			if off >= overlay.Start {
-				reader, readerOffset = overlay.Reader, off-overlay.Start
+				reader, readerOffset, overlayEnd = overlay.Reader, off-overlay.Start, overlay.Start+overlay.Length
 				if limit := overlay.Start + overlay.Length - off; run > limit {
 					run = limit
 				}
@@ -92,6 +96,16 @@ func (s *vmCompositeSource) ReadAt(p []byte, off int64) (int, error) {
 			break
 		}
 		n, err := reader.ReadAt(p[:run], readerOffset)
+		if overlayEnd >= 0 && int64(n) < run && off+run == overlayEnd && run-int64(n) <= vmOverlayTail &&
+			(err == nil || err == io.EOF || err == io.ErrUnexpectedEOF) {
+			// A volume device can end a little before its partition: NTFS
+			// keeps its backup boot sector in the partition's last sector,
+			// past the size the file system reports. Only that short tail
+			// comes from the disk; any other short read is an error.
+			var more int
+			more, err = s.base.ReadAt(p[n:run], off+int64(n))
+			n += more
+		}
 		total += n
 		if int64(n) < run {
 			if err == nil || err == io.EOF {
