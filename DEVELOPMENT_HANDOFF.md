@@ -1,3 +1,11 @@
+## Unreleased: automated test failover on HyperCore, Nutanix AHV and Proxmox VE — 2026-11-25
+
+- Agent action `pause-consistent` and job status `consistent`/`pauseAfterRound` (`repl_job.go`): the job pauses only once the receiver's disks hold one whole recovery point; a running round is never cancelled.
+- `vmTargetTester` (`vmtarget_testfailover.go`) for Proxmox (full clone, `link_down=1`, destroy with purge), Nutanix (v3 clone with no adapters, delete) and HyperCore (VirDomain clone, adapters `connected:false`, delete). `vmTargetTestStart` removes a half-made clone; `vmTargetTestEnd` deletes only the recorded ID under the recorded name.
+- Console: `repl_targettest.go` (tested on Linux with an in-process agent) and `/api/repl/targettest`; the Replication tab job details show **Test failover on the target platform** for receiver-media jobs. Replication resumes as soon as the clone exists.
+- Tests: `vmtarget_testfailover_test.go` (fakes built from the public APIs), `TestReplicationPausesAtAWholeRecoveryPoint`, workspace check in the replication test.
+- Limitation: not yet run against real HyperCore, Prism Central or Proxmox VE; field-validate cloning a running receiver VM on each.
+
 ## Unreleased: Linux agent, SSH install, test failover and failback — 2026-11-25
 
 - Linux replication agent `simm-agent-linux-amd64` (systemd service, LVM snapshots, sysfs disks) built and published by the release workflow; CI job `linuxagent` runs its LVM, job and systemd tests as root.

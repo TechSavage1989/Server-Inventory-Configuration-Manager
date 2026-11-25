@@ -66,6 +66,7 @@ async function fixture(browser,old=false){
   restore:{status:'idle',packages:{lastCollection:'',loadedReport:''},items:[],logs:[]},migrate:migrateIdle(),vmware:vmwareIdle(),convert:convertIdle()};
  const vm={inventory:null,plan:null,sizing:null,guest:null,compare:null};
  const failover={failovers:[],copies:[{name:'APP01-disk0.vhdx',size:107374182400,complete:true,verified:false,round:'a1@2026-11-25T14:19:23Z',job:'a1',recoveryPoint:'2026-11-25T14:19:23Z',updated:'2026-11-25T14:20:00Z',busy:false,generation:2},{name:'APP01-disk1.vhdx',size:536870912000,complete:true,verified:false,round:'a1@2026-11-25T14:19:23Z',job:'a1',recoveryPoint:'2026-11-25T14:19:23Z',updated:'2026-11-25T14:20:00Z',busy:false,generation:1},{name:'SQL01-disk0.vhdx',size:107374182400,complete:false,verified:false,updated:'2026-11-25T14:20:00Z',busy:true,generation:1}]};
+ const targetTest={running:false,log:[],error:'',tests:[]};
  const repl={ok:true,pushing:false,pushLog:[],pushResults:null,serial:0,isAdministrator:true,defaultPort:44390,agents:[],summary:{agents:0,unreachable:0,jobs:0,healthy:0,behind:0,failing:0,paused:0,cutOver:0,alerts:0}};
  const html=fs.readFileSync(old?'tests/fixtures/index-v3.2.9.html':'src/app/index.html','utf8').replaceAll('__TOKEN__','workspace-test').replaceAll('__APP_VERSION__','3.2.10').replaceAll('__COLLECTOR_VERSION__','3.2.10');
  const server=http.createServer(async(req,res)=>{
@@ -140,6 +141,9 @@ async function fixture(browser,old=false){
    if(action==='state'){send(200,repl);return;}
    if(action==='failover'&&req.method==='GET'){send(200,Object.assign({ok:true,hyperV:true,folder:'D:\\Migration\\VMware-Copies\\Received',receiving:true},failover,url.searchParams.get('switches')==='1'?{switches:[{name:'Isolated test',type:'Private'},{name:'LAN',type:'External'}]}:{}));return;}
    if(action==='failover'&&data.action==='start'){failover.failovers=[{id:'f1',mode:data.request.mode,name:data.request.name,vmId:'6f1d4c3a-0000-4000-8000-000000000001',copies:data.request.copies,recoveryPoint:'2026-11-25T14:19:23Z',started:'2026-11-25T14:30:00Z'}];failover.copies.forEach(c=>{if(data.request.copies.includes(c.name))c.held='test failover '+data.request.name;});send(200,{ok:true});return;}
+   if(action==='targettest'&&req.method==='GET'){const t=(state.vmware&&state.vmware.target)||{};send(200,Object.assign({ok:true,connected:!!t.connected,platform:t.platform||'',server:t.server||'',user:t.user||'',node:t.node||''},targetTest));return;}
+   if(action==='targettest'&&data.action==='start'){Object.assign(targetTest,{running:true,log:['14:30:00  Pausing APP01 when its current round finishes, so the copy is one whole recovery point.']});send(200,{ok:true});return;}
+   if(action==='targettest'&&data.action==='end'){targetTest.tests=[];targetTest.log=['14:40:00  The test APP01-TEST ended: its VM and disks were deleted. The replica was not touched.'];send(200,{ok:true});return;}
    if(action==='failover'&&data.action==='end'){failover.failovers=[];failover.copies.forEach(c=>{delete c.held;});send(200,{ok:true});return;}
    if(action==='push'){Object.assign(repl,{pushing:true,pushLog:['14:02:10  Installing the agent on 2 servers.','14:02:11  app01.example.com: copying the agent.']});send(202,{ok:true});return;}
    if(action==='agent'&&data.action==='disks'){send(200,{ok:true,disks:[{id:'0',size:107374182400,system:true,volumes:[{name:'v1',mounts:[],fileSystem:'FAT32',length:104857600},{name:'v2',mounts:['C:\\'],fileSystem:'NTFS',length:106300000000}]},{id:'1',size:536870912000,system:false,volumes:[{name:'v3',mounts:['D:\\','E:\\'],fileSystem:'NTFS',length:536700000000,kind:'spanned'}]}]});return;}
@@ -169,7 +173,7 @@ async function fixture(browser,old=false){
  await new Promise(r=>server.listen(0,'127.0.0.1',r));const context=await browser.newContext({viewport:{width:1440,height:1000}}),page=await context.newPage();
  page.on('dialog',async d=>{dialogs.push(d.message());await d.dismiss();});page.on('pageerror',e=>errors.push(e.message));
  const url='http://127.0.0.1:'+server.address().port+'/';await page.goto(url);await page.waitForFunction(()=>document.querySelector('#serverName').textContent==='SRV-DEMO-01');
- return {page,context,state,vm,repl,replCalls,vmwareCalls,convertCalls,rejectConvert(action,message){convertReject[action]=message},setConvertSize(size){convertSize=size},rejectVmware(action,message){vmwareReject[action]=message},logs,dialogs,errors,started,skipRequests,opens,restoreCalls,migrateCalls,rejectMigrate(action,message){migrateReject[action]=message},rejectRestore(message){restoreReject=message},get saved(){return saved},get saveCalls(){return saveCalls},reject(){rejectStart=true},async close(){assert.deepEqual(errors,[]);await context.close();await new Promise(r=>server.close(r));}};
+ return {page,context,state,vm,repl,targetTest,replCalls,vmwareCalls,convertCalls,rejectConvert(action,message){convertReject[action]=message},setConvertSize(size){convertSize=size},rejectVmware(action,message){vmwareReject[action]=message},logs,dialogs,errors,started,skipRequests,opens,restoreCalls,migrateCalls,rejectMigrate(action,message){migrateReject[action]=message},rejectRestore(message){restoreReject=message},get saved(){return saved},get saveCalls(){return saveCalls},reject(){rejectStart=true},async close(){assert.deepEqual(errors,[]);await context.close();await new Promise(r=>server.close(r));}};
 }
 async function check(name,fn){await fn();report.checks.push({name,result:'passed'});console.log('PASS: '+name);}
 (async()=>{const browser=await chromium.launch(executable?{executablePath:executable,headless:true,args:['--no-sandbox']}:{channel:'msedge',headless:true});try{
@@ -1010,6 +1014,24 @@ async function check(name,fn){await fn();report.checks.push({name,result:'passed
   assert(await f.page.locator('#rpCutover').isDisabled(),'cutover needs the typed name');
   await f.page.locator('#rpCutoverTyped').fill('app01');assert(await f.page.locator('#rpCutover').isEnabled());
   await f.page.locator('#rpLogButton').click();await f.page.waitForFunction(()=>document.querySelector('#rpLog').textContent.includes('Round 2 finished'));
+  // Receiver-media jobs offer the platform test failover.
+  await f.page.waitForFunction(()=>!document.querySelector('#ttSection').classList.contains('hidden'));
+  assert.equal(await f.page.locator('#ttSource').inputValue(),'APP01');assert.equal(await f.page.locator('#ttName').inputValue(),'APP01-TEST');
+  assert(await f.page.locator('#ttStart').isDisabled(),'start needs a connection and the typed name');
+  await f.page.locator('#ttPlatform').selectOption('proxmox');assert((await f.page.locator('#ttUserLabel').textContent()).includes('API token ID'));assert(await f.page.locator('#ttNodeField').isVisible());
+  await f.page.locator('#ttServer').fill('pve1.example.com');await f.page.locator('#ttUser').fill('migrate@pve!move');await f.page.locator('#ttPassword').fill('Synthetic-Token-Secret');
+  await f.page.locator('#ttConnectButton').click();await f.page.waitForFunction(()=>document.querySelector('#ttConnected').textContent.includes('Connected to Proxmox VE at pve1.example.com'));
+  assert.equal(await f.page.locator('#ttPassword').inputValue(),'','the token secret is cleared once sent');assert(await f.page.locator('#ttConnect').isHidden());
+  await f.page.locator('#ttTyped').fill('app01-test');await f.page.locator('#ttStart').click();
+  await f.page.waitForFunction(()=>document.querySelector('#ttLog').textContent.includes('Pausing APP01'));
+  assert.deepEqual(f.replCalls.filter(c=>c.action==='targettest'&&c.method==='POST').map(c=>c.body),[{action:'start',agent:'ag1',job:'a1b2c3d4e5f60718',sourceVM:'APP01',name:'APP01-TEST',confirm:'app01-test'}]);
+  assert(await f.page.locator('#ttCancel').isVisible());
+  Object.assign(f.targetTest,{running:false,log:f.targetTest.log.concat(['14:31:10  APP01-TEST is running from the recovery point of 2026-11-25 14:19:23 UTC with its network disconnected.']),tests:[{id:'t1',platform:'proxmox',server:'pve1.example.com',agent:'ag1',job:'a1b2c3d4e5f60718',jobName:'APP01',sourceVM:'APP01',sourceID:'150',name:'APP01-TEST',vmID:'205',recoveryPoint:'2026-11-25T14:19:23Z',started:'2026-11-25T14:31:10Z'}]});
+  await f.page.waitForFunction(()=>document.querySelector('#ttTests').textContent.includes('APP01-TEST runs on pve1.example.com'),null,{timeout:15000});
+  assert(await f.page.locator('[data-tt-end="t1"]').isDisabled(),'End test needs the name');
+  await f.page.locator('[data-tt-typed="t1"]').fill('APP01-TEST');await f.page.locator('[data-tt-end="t1"]').click();
+  await f.page.waitForFunction(()=>document.querySelector('#ttLog').textContent.includes('replica was not touched'));
+  assert.deepEqual(f.replCalls.filter(c=>c.action==='targettest'&&c.body.action==='end').map(c=>c.body),[{action:'end',id:'t1',confirm:'APP01-TEST'}]);
   await f.page.waitForFunction(()=>!document.querySelector('#rpRunbook').disabled);await f.page.locator('#rpRunbook').click();await f.page.waitForFunction(()=>!document.querySelector('#rpRunbookDocx').classList.contains('hidden'));
   assert.equal(f.replCalls.filter(c=>c.action==='runbook').length,1);assert(f.opens.includes('replrunbook'));await f.page.locator('#rpRunbookDocx').click();await f.page.waitForFunction(()=>true);
   await f.page.setViewportSize({width:1440,height:1000});await f.page.evaluate(()=>document.activeElement.blur());await f.page.locator('.rp-body').evaluate(e=>e.scrollTop=0);await f.page.screenshot({path:out+'/replication-1440x1000.png'});await f.page.locator('.rp-body').evaluate(e=>{const h=document.querySelector('.rp-heading');e.scrollTop=h.offsetTop-e.offsetTop-8;});await f.page.screenshot({path:out+'/replication-jobs-1440x1000.png'});

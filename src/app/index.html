@@ -534,7 +534,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
 .vm-flow-box{padding:5px 10px;border:1px solid #d6e0ee;border-radius:7px;background:#fff}.vm-flow-box.here{border-color:#2563eb;box-shadow:0 0 0 1px #2563eb}.vm-flow-box b{color:#1b2942}
 .rp-body .vm-field input,.rp-body .vm-field select,.rp-body .vm-field textarea{max-width:520px;box-sizing:border-box;border:1px solid #bcc9d9;border-radius:7px;padding:5px 9px;font:inherit;font-size:13px;min-height:32px;background:#fff;color:#1b2942}.rp-body .vm-field textarea{resize:vertical}
 .rp-body{display:flex;flex-direction:column;gap:12px;overflow-y:auto;overflow-x:hidden;min-height:0;flex:1 1 auto}.rp-summary{display:flex;flex-wrap:wrap;gap:8px}.rp-stat{min-width:86px;padding:7px 10px;border:1px solid #dbe3ed;border-radius:9px;background:#fbfcfe}.rp-stat strong{display:block;font-size:17px;color:#1b2942}.rp-stat span{font-size:11px;color:#52647c}.rp-stat.good{border-color:#a7d8b8;background:#f2fbf5}.rp-stat.warning{border-color:#f0cf8a;background:#fff9ea}.rp-stat.danger{border-color:#f1b3ad;background:#fff4f3}
-.rp-grid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:12px}.rp-two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0 12px}.rp-heading{margin:4px 0 0;font-size:14px;color:#1b2942}.rp-subhead{margin-top:12px;font-weight:700;color:#23334b}
+.rp-grid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:12px}.rp-two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0 12px}.rp-heading{margin:4px 0 0;font-size:14px;color:#1b2942}.rp-subhead{margin-top:12px;font-weight:700;color:#23334b}.tt-end-name{width:12em;max-width:100%;margin:0 6px 0 0}
 .fv-end-name{width:12em;max-width:100%;margin:4px 8px 0 0}#vmFailover{margin-top:12px}
 .rp-log{max-height:180px;overflow:auto;margin:8px 0 0;padding:8px;border:1px solid #dbe3ed;border-radius:8px;background:#f7f9fc;font:11px/1.45 Consolas,monospace;color:#23334b;white-space:pre-wrap;overflow-wrap:anywhere}
 .rp-manual{margin-top:12px;border-top:1px solid #e3e8f0;padding-top:8px}.rp-manual summary{cursor:pointer;font-weight:650;color:#23334b}
@@ -1134,6 +1134,23 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
             <table class="vm-table rp-disk-table"><thead><tr><th scope="col">Disk</th><th scope="col">Goes to</th><th scope="col">Size</th><th scope="col">This round</th><th scope="col">Verified</th></tr></thead><tbody id="rpDetailsDisks"></tbody></table>
             <div class="migrate-row"><button class="secondary-button" id="rpSync" type="button">Sync now</button><button class="secondary-button" id="rpPause" type="button">Pause</button><button class="secondary-button" id="rpRescan" type="button">Rescan the receiver</button><button class="secondary-button" id="rpEdit" type="button">Change</button><button class="secondary-button" id="rpClear" type="button">Clear alerts</button><button class="secondary-button" id="rpLogButton" type="button">Show log</button><button class="secondary-button" id="rpDetailsClose" type="button">Close</button></div>
             <p class="migrate-help">Rescan after a test failover started the new machine from its disks, or when the receiver writes onto disks that already hold a copy (a failback to the original server): the next round then sends only what differs.</p>
+            <div class="hidden" id="ttSection">
+              <div class="rp-subhead">Test failover on the target platform</div>
+              <p class="migrate-help">For copies received by receiver media in a VM on Scale Computing HyperCore, Nutanix AHV or Proxmox VE. Runs from this computer: the job pauses when its current round ends, the platform clones the receiver VM (the clone gets its own disks) and replication resumes at once. The clone's network is disconnected, it is set to start from its disk and started. Ending the test turns the clone off and deletes it; the receiver VM and its disks are never changed.</p>
+              <p class="migrate-help" id="ttConnected"></p>
+              <div id="ttConnect">
+                <div class="rp-two"><label class="vm-field">Platform<select id="ttPlatform"><option value="scale">Scale Computing HyperCore</option><option value="nutanix">Nutanix AHV (Prism Central)</option><option value="proxmox">Proxmox VE</option></select></label><label class="vm-field">Server<input id="ttServer" type="text" spellcheck="false" autocomplete="off" placeholder="hc3.example.com"></label></div>
+                <div class="rp-two"><label class="vm-field" id="ttUserLabel">User name<input id="ttUser" type="text" spellcheck="false" autocomplete="off"></label><label class="vm-field" id="ttPasswordLabel">Password<input id="ttPassword" type="password" autocomplete="off"></label></div>
+                <label class="vm-field hidden" id="ttNodeField">Proxmox node (blank for the first)<input id="ttNode" type="text" spellcheck="false" autocomplete="off"></label>
+                <div class="migrate-row"><button class="secondary-button" id="ttConnectButton" type="button">Connect</button><button class="secondary-button hidden" id="ttTrust" type="button">Trust this thumbprint and connect</button></div>
+              </div>
+              <div class="rp-two"><label class="vm-field">VM that runs the receiver<input id="ttSource" type="text" spellcheck="false" autocomplete="off"></label><label class="vm-field">Name for the test VM<input id="ttName" type="text" spellcheck="false" autocomplete="off"></label></div>
+              <label class="vm-field">Type the test VM's name to confirm<input id="ttTyped" type="text" spellcheck="false" autocomplete="off"></label>
+              <div class="migrate-row"><button class="primary-button" id="ttStart" type="button">Start test failover</button><button class="secondary-button hidden" id="ttCancel" type="button">Stop</button></div>
+              <ul class="vm-findings hidden" id="ttTests"></ul>
+              <div class="migrate-inline-status" id="ttStatus" role="status" aria-live="polite"></div>
+              <pre class="rp-log hidden" id="ttLog"></pre>
+            </div>
             <div class="rp-subhead">Cut over</div>
             <p class="migrate-help">Cutover stops the listed services, takes the last snapshots, sends the last changes and checks every disk against its hashes. If any step fails, the services start again and replication carries on. Start the new machine once the job says Cut over.</p>
             <div class="rp-two"><label class="vm-field">Cut over at (this computer's time; blank for now)<input id="rpCutoverAt" type="datetime-local"></label><label class="vm-field">Type the job name to confirm<input id="rpCutoverTyped" type="text" spellcheck="false" autocomplete="off"></label></div>
@@ -3658,7 +3675,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   }
   function rpWhen(text){if(!text||/^0001-/.test(text)){return '';}var d=new Date(text);if(isNaN(d.getTime())){return '';}return d.toLocaleString();}
   function rpBehind(j){var st=j.status||{};return st.state!=='cut-over'&&st.state!=='paused'&&st.state!=='held'&&(!st.recoveryPoint||/^0001-/.test(st.recoveryPoint)||(Number(j.rpoSeconds)||0)>(Number(j.spec&&j.spec.rpoMinutes)||15)*60);}
-  function rpStateText(j){var st=j.status||{},label=rpStateLabels[st.state]||st.state||'Unknown';if(st.state==='idle'&&rpBehind(j)){label='Behind';}return label;}
+  function rpStateText(j){var st=j.status||{},label=rpStateLabels[st.state]||st.state||'Unknown';if(st.state==='idle'&&rpBehind(j)){label='Behind';}if(st.pauseAfterRound&&st.state!=='paused'){label+=', pauses after this round';}return label;}
   function rpPost(path,body,statusId,done){
     if(rpBusy){return;}
     rpBusy=true;syncRpButtons();if(statusId){vmSetStatus(statusId,'',false);}
@@ -3823,7 +3840,64 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     vmArr(st.disks).forEach(function(d){var tr=el('tr');[d.source,d.target,d.size?formatBytesShort(d.size):'',d.chunks?Math.floor((d.done||0)*100/d.chunks)+'% read, '+formatBytesShort(d.sent||0)+' sent'+(d.error?', '+d.error:''):(d.error||'Not started'),d.verified?'Yes':'No'].forEach(function(v){tr.appendChild(el('td','',v));});body.appendChild(tr);});
     var paused=st.state==='paused',done=st.state==='cut-over';
     byId('rpPause').textContent=paused?'Resume':'Pause';
+    renderTt();
   }
+  // Test failover on HyperCore, Nutanix and Proxmox (receiver media jobs).
+  var ttState=null,ttLoaded=0,ttBusy=false,ttJobKey='';
+  function ttJob(){var j=rpDetail&&rpJob(rpDetail.agent,rpDetail.id);if(!j){return null;}var disks=vmArr(j.spec&&j.spec.disks);return disks.length&&disks.every(function(d){return /^disk-/i.test(d.target||'');})?j:null;}
+  function ttLoad(){ttLoaded=Date.now();request('GET','/api/repl/targettest',null,function(err,data){if(err){return;}ttState=data||{};renderTt();});}
+  function ttPost(body,message){
+    if(ttBusy){return;}
+    ttBusy=true;syncTt();vmSetStatus('ttStatus',message||'',false);
+    request('POST','/api/repl/targettest',body,function(err){ttBusy=false;if(err){vmSetStatus('ttStatus',err,true);}else if(body.action!=='cancel'){byId('ttTyped').value='';}ttLoad();});
+  }
+  function renderTt(){
+    var j=ttJob(),section=byId('ttSection');section.classList.toggle('hidden',!j);
+    if(!j){return;}
+    var key=rpDetail.agent+'|'+rpDetail.id;
+    if(key!==ttJobKey){ttJobKey=key;byId('ttSource').value=j.spec.name;byId('ttName').value=j.spec.name+'-TEST';byId('ttTyped').value='';vmSetStatus('ttStatus','',false);}
+    if(!ttState||Date.now()-ttLoaded>(ttState.running?2500:10000)){if(Date.now()-ttLoaded>2000){ttLoad();}}
+    var t=ttState||{},supported=t.connected&&/^(scale|nutanix|proxmox)$/.test(t.platform||''),names={scale:'Scale Computing HyperCore',nutanix:'Nutanix AHV',proxmox:'Proxmox VE'};
+    byId('ttConnected').textContent=t.connected?(supported?'Connected to '+names[t.platform]+' at '+t.server+' as '+t.user+'.':'Connected to '+t.server+', which is not HyperCore, Nutanix or Proxmox. Connect to one of those below.'):'Connect to the platform that runs the receiver VM. The password or token secret stays in memory only.';
+    byId('ttConnect').classList.toggle('hidden',!!supported);
+    var cert=t.certificate&&!t.connected;byId('ttTrust').classList.toggle('hidden',!cert);
+    if(cert){byId('ttTrust').title='SHA-256 '+t.certificate.thumbprint;vmSetStatus('ttStatus',t.certificate.message||('The certificate is not trusted. Its SHA-256 thumbprint is '+t.certificate.thumbprint+'. Check it, then trust it.'),true);}
+    byId('ttCancel').classList.toggle('hidden',!t.running);
+    var log=byId('ttLog'),lines=vmArr(t.log);log.textContent=lines.join('\n');log.classList.toggle('hidden',!lines.length);
+    if(!t.running&&t.error&&!ttBusy){vmSetStatus('ttStatus',t.error,true);}
+    var list=byId('ttTests');list.textContent='';
+    vmArr(t.tests).filter(function(x){return x.job===j.spec.id;}).forEach(function(x){
+      var item=el('li','warning',x.name+' runs on '+x.server+' from the recovery point of '+rpWhen(x.recoveryPoint)+'. ');
+      var typed=el('input','tt-end-name');typed.type='text';typed.placeholder='Type '+x.name;typed.setAttribute('aria-label','Type '+x.name+' to end the test');typed.setAttribute('data-tt-typed',x.id);
+      var end=el('button','secondary-button','End test');end.type='button';end.setAttribute('data-tt-end',x.id);end.setAttribute('data-tt-name',x.name);
+      item.appendChild(typed);item.appendChild(end);list.appendChild(item);
+    });
+    list.classList.toggle('hidden',!list.childNodes.length);
+    syncTt();
+  }
+  function syncTt(){
+    var t=ttState||{},supported=t.connected&&/^(scale|nutanix|proxmox)$/.test(t.platform||''),busy=ttBusy||!!t.running,name=trimText(byId('ttName').value);
+    byId('ttNodeField').classList.toggle('hidden',byId('ttPlatform').value!=='proxmox');
+    byId('ttUserLabel').firstChild.nodeValue=byId('ttPlatform').value==='proxmox'?'API token ID (user@realm!token)':'User name';
+    byId('ttPasswordLabel').firstChild.nodeValue=byId('ttPlatform').value==='proxmox'?'Token secret':'Password';
+    byId('ttConnectButton').disabled=busy||!trimText(byId('ttServer').value)||!trimText(byId('ttUser').value);byId('ttTrust').disabled=byId('ttConnectButton').disabled;
+    byId('ttStart').disabled=busy||!supported||!name||!trimText(byId('ttSource').value)||trimText(byId('ttTyped').value).toLowerCase()!==name.toLowerCase();
+    byId('ttCancel').disabled=ttBusy;
+    Array.prototype.forEach.call(document.querySelectorAll('[data-tt-end]'),function(b){var typed=document.querySelector('[data-tt-typed="'+b.getAttribute('data-tt-end')+'"]');b.disabled=busy||!supported||!typed||trimText(typed.value).toLowerCase()!==b.getAttribute('data-tt-name').toLowerCase();});
+  }
+  function ttConnect(thumbprint){
+    var body={platform:byId('ttPlatform').value,server:trimText(byId('ttServer').value),user:trimText(byId('ttUser').value),password:byId('ttPassword').value,node:trimText(byId('ttNode').value)};
+    if(thumbprint){body.thumbprint=thumbprint;}
+    ttBusy=true;syncTt();vmSetStatus('ttStatus','Connecting.',false);
+    request('POST','/api/vmware/target/connect',body,function(err){ttBusy=false;if(err){vmSetStatus('ttStatus',err,true);}else{byId('ttPassword').value='';vmSetStatus('ttStatus','Connected.',false);}ttLoad();});
+  }
+  byId('ttConnectButton').addEventListener('click',function(){ttConnect('');});
+  byId('ttTrust').addEventListener('click',function(){if(ttState&&ttState.certificate){ttConnect(ttState.certificate.thumbprint);}});
+  byId('ttStart').addEventListener('click',function(){if(!rpDetail){return;}ttPost({action:'start',agent:rpDetail.agent,job:rpDetail.id,sourceVM:trimText(byId('ttSource').value),name:trimText(byId('ttName').value),confirm:trimText(byId('ttTyped').value)},'Starting. The job pauses when its current round ends, then the clone is made.');});
+  byId('ttCancel').addEventListener('click',function(){ttPost({action:'cancel'},'Stopping.');});
+  byId('ttTests').addEventListener('click',function(e){var b=e.target.closest('[data-tt-end]');if(!b||b.disabled){return;}var typed=document.querySelector('[data-tt-typed="'+b.getAttribute('data-tt-end')+'"]');ttPost({action:'end',id:b.getAttribute('data-tt-end'),confirm:trimText(typed.value)},'Turning the test VM off and deleting it.');});
+  ['ttPlatform','ttServer','ttUser','ttPassword','ttNode','ttSource','ttName','ttTyped'].forEach(function(id){byId(id).addEventListener(id==='ttPlatform'?'change':'input',syncTt);});
+  byId('ttTests').addEventListener('input',syncTt);
   function syncRpButtons(){
     var s=rpState||{},admin=!!s.isAdministrator;
     byId('rpPush').disabled=rpBusy||!!s.pushing||!trimText(byId('rpHosts').value);
