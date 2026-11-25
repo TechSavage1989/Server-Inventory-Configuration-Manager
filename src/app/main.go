@@ -270,6 +270,7 @@ type application struct {
 	convert                 convertRuntime
 	convertSend             convertSendRuntime
 	vmReceive               vmReceiverRuntime
+	transfers               *vmTransferBoard
 	repl                    replRuntime
 }
 

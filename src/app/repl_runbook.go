@@ -46,9 +46,9 @@ type replRunbookServer struct {
 // replRunbookRoles says where each part of a replication runs.
 func replRunbookRoles() []vmMoveRole {
 	return []vmMoveRole{
-		{Where: "Your admin computer (the console)", Does: "Run this application here: Replication tab. Install agents, create jobs, watch recovery points and alerts, start cutovers and write this runbook. Disks do not pass through this computer.", Needs: "Windows, and HTTPS access to each server's agent port (44390). For Linux servers, SSH access and simm-agent-linux-amd64 beside this program."},
+		{Where: "Your admin computer (the console)", Does: "Run this application here: Migration and replication, Replicate servers. Install agents, create jobs, watch recovery points and alerts, start cutovers and write this runbook. Disks do not pass through this computer.", Needs: "Windows, and HTTPS access to each server's agent port (44390). For Linux servers, SSH access and simm-agent-linux-amd64 beside this program."},
 		{Where: "Each server being replicated (the source)", Does: "The replication agent runs here as a service (SIMMReplicationAgent on Windows, simm-replication-agent on Linux). It reads every disk from snapshots each round and sends only what changed to the receiver.", Needs: "Administrator or root rights to install the agent, a few GB free for Volume Shadow Copy or LVM snapshots, and a network path to the receiver (port 44380 by default)."},
-		{Where: "The Hyper-V host, for a Hyper-V target", Does: "Run this application here as administrator: VMware tab, Disk copy, Receive. Copies are written here as VHDX files. Test failovers and the production VM are started here (Start a VM from the copies).", Needs: "The Hyper-V role and its PowerShell module, room for the disks, and the receiver port open to the servers."},
+		{Where: "The Hyper-V host, for a Hyper-V target", Does: "Run this application here as administrator: Migration and replication, Receive and send disks, Start receiving. Copies are written here as VHDX files. Test failovers and the production VM are started here (Start VMs from copies).", Needs: "The Hyper-V role and its PowerShell module, room for the disks, and the receiver port open to the servers."},
 		{Where: "The new VM or physical server, for any other target", Does: "Boot it from the receiver media. It shows its address, pairing code and certificate thumbprint and writes each disk onto its own blank disk. At cutover it is set to boot from its disks.", Needs: "Blank disks at least as large as the source disks, and its storage and network drivers on the media."},
 	}
 }
@@ -112,14 +112,14 @@ func replRunbookJobFor(server, platform string, view replJobView) replRunbookJob
 	}
 	if job.Receiver == "hyperv" {
 		job.Test = []string{
-			"On the Hyper-V host: VMware tab, Disk copy, Start a VM from the copies. Choose Find copies and tick every disk of " + server + ".",
+			"On the Hyper-V host: Migration and replication, Start VMs from copies. Choose Find copies and tick every disk of " + server + ".",
 			"Choose Test failover, leave the network Not connected (or choose an isolated switch), type the VM name and create it. Replication into those copies pauses and the job shows Paused for a test failover.",
 			"Sign in to the test VM and check that it starts and the application's data is there. Do not connect it to the production network.",
 			"Choose End test (type the VM name). The test VM and its test disks are removed and replication catches up on its next round.",
 		}
 	} else {
 		job.Test = []string{
-			"For a receiver VM on HyperCore, Nutanix AHV or Proxmox VE: in the Replication tab, open " + spec.Name + " and use Test failover on the target platform. Connect to the platform, name the VM that runs the receiver and the test VM, type the test VM's name and start it.",
+			"For a receiver VM on HyperCore, Nutanix AHV or Proxmox VE: in Migration and replication, Replicate servers, open " + spec.Name + " and use Test failover on the target platform. Connect to the platform, name the VM that runs the receiver and the test VM, type the test VM's name and start it.",
 			"The job pauses when its current round ends, the platform clones the receiver VM (the clone has its own disks) and replication resumes at once. The clone's network is disconnected; it starts from its disk.",
 			"Open the test VM's console on the platform, sign in and check that it starts and the application's data is there. Do not connect it to the production network.",
 			"Choose End test (type the test VM's name): the test VM is turned off and deleted with its disks. The receiver VM and its disks are never changed, so no rescan is needed.",
@@ -127,7 +127,7 @@ func replRunbookJobFor(server, platform string, view replJobView) replRunbookJob
 		}
 	}
 	job.Cutover = []string{
-		"In the Replication tab, open " + spec.Name + " and choose Cut over (type the job name), or let the scheduled cutover run.",
+		"In Migration and replication, Replicate servers, open " + spec.Name + " and choose Cut over (type the job name), or let the scheduled cutover run.",
 		"Wait until the job shows Cut over: services stopped (" + services + "), the last round sent and every disk checked against its hashes.",
 	}
 	if !spec.ShutdownAfterCutover {
@@ -141,7 +141,7 @@ func replRunbookJobFor(server, platform string, view replJobView) replRunbookJob
 	job.Cutover = append(job.Cutover, "Give the new machine the old IP settings if they did not carry over, and check DNS.")
 	job.Verify = []string{
 		"Sign in and check that the application's services are running and users can reach it.",
-		"Collect an inventory of the new machine on the Setup tab and compare it with the one taken before (VMware tab, Before and after).",
+		"Collect an inventory of the new machine (Discovery, This server) and compare it with the one taken before (Migration and replication, Compare before and after).",
 		"Keep the old server powered off but intact until the application owner signs off.",
 	}
 	job.Back = []string{

@@ -15,6 +15,13 @@ import (
 
 // Caller holds a.mu.
 func (a *application) vmwareCopyRootLocked() string {
+	// On a Hyper-V host the copies are the new VM's disks, so they go where
+	// the host keeps virtual hard disks unless the operator chooses a folder.
+	if vmHyperVHere() {
+		if known, vhd, _ := vmHostDefaultFolders(); known && vhd != "" {
+			return vhd
+		}
+	}
 	root := a.defaultOutputRoot
 	if strings.TrimSpace(root) == "" {
 		root = defaultOutputRoot()
@@ -54,6 +61,12 @@ func vmCreateHyperVVM(plan *vmHyperVPlan) (string, error) {
 		}
 		return "", err
 	}
+	for _, line := range strings.Split(out, "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, vmClusterRoleAdded) || strings.HasPrefix(line, vmClusterRoleFailed) {
+			plan.ClusterResult = line
+		}
+	}
 	id := strings.TrimSpace(out[strings.LastIndexAny(out, "\r\n")+1:])
 	if !vmHyperVIDPattern.MatchString(id) {
 		return "", errors.New("Hyper-V did not return the new VM's ID: " + out)
@@ -75,6 +88,7 @@ func (a *application) handleVMwareMove(response http.ResponseWriter, request *ht
 		Quiesce    bool   `json:"quiesce"`
 		KeepMAC    bool   `json:"keepMac"`
 		Start      bool   `json:"start"`
+		Cluster    bool   `json:"cluster"`
 	}
 	if !decodeVMwareRequest(response, request, &input) {
 		return
@@ -122,14 +136,30 @@ func (a *application) handleVMwareMove(response http.ResponseWriter, request *ht
 	if copyFolder == "" {
 		copyFolder = filepath.Join(copyRoot, safeName(target.Name))
 	}
-	if !filepath.IsAbs(copyFolder) || migrateProtectedFolder(copyFolder) != "" {
+	if !filepath.IsAbs(copyFolder) || (migrateProtectedFolder(copyFolder) != "" && !vmHostDefaultAllowed(copyFolder)) {
 		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "Choose a full path for the copied disks outside Windows, Program Files and profile folders."})
 		return
 	}
 	vmFolder := strings.TrimSpace(input.VMFolder)
-	if vmFolder != "" && (!filepath.IsAbs(vmFolder) || migrateProtectedFolder(vmFolder) != "") {
+	if vmFolder != "" && (!filepath.IsAbs(vmFolder) || (migrateProtectedFolder(vmFolder) != "" && !vmHostDefaultAllowed(vmFolder))) {
 		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "Choose a full path for the Hyper-V VM outside Windows, Program Files and profile folders, or leave it empty for the host's default."})
 		return
+	}
+	if input.Cluster && (!vmOnClusterStorage(copyFolder) || !vmOnClusterStorage(vmFolder)) {
+		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "A highly available VM must keep its disks and its configuration on a Cluster Shared Volume (" + vmClusterStorageRoot() + "\\...). Choose one for both folders, or untick Make it highly available."})
+		return
+	}
+	// The first copy needs room for the VM's data; later copies rewrite
+	// what is already there.
+	if input.Action == "copy" && target.UsedBytes > 0 {
+		need := uint64(float64(target.UsedBytes)*1.05) + 1<<30
+		if have := vmFolderBytes(copyFolder); have < need {
+			need -= have
+			if free, _, ok := vmFreeSpace(copyFolder); ok && free < need {
+				writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "There is not enough free space for " + target.Name + "'s disks in " + copyFolder + ": about " + vmFormatBytes(int64(need)) + " is needed and " + vmFormatBytes(int64(free)) + " is free. Choose a folder on a larger volume, such as a Cluster Shared Volume."})
+				return
+			}
+		}
 	}
 	vm := *target
 	// The plan's network map names the Hyper-V switch for each VMware
@@ -166,12 +196,14 @@ func (a *application) handleVMwareMove(response http.ResponseWriter, request *ht
 		defer cancel()
 		log := func(text string) { a.vmwareLog("%s", text) }
 		records := filepath.Join(a.vmwareRoot(), safeName(strings.ToLower(server)), "Move")
+		progress, prefix := a.moveProgress(vm, copyFolder)
 		result, err := a.runMoveRound(ctx, inventory, vm, vmConnectOptions{Server: server, User: user, Password: password, Thumbprint: thumbprint, UserAgent: displayName + " " + appVersion, AppVersion: appVersion},
-			vmMoveRequest{VMID: vm.ID, Name: vm.Name, Datacenter: vm.Datacenter, CopyFolder: copyFolder, Quiesce: input.Quiesce, Cutover: input.Action == "cutover", RecordFolder: records}, log)
+			vmMoveRequest{VMID: vm.ID, Name: vm.Name, Datacenter: vm.Datacenter, CopyFolder: copyFolder, Quiesce: input.Quiesce, Cutover: input.Action == "cutover", RecordFolder: records, Progress: progress}, log)
+		a.copyTransfers().EndRunning(prefix, err, errors.Is(err, context.Canceled), err == nil && input.Action == "cutover")
 		password = ""
 		if err == nil && input.Action == "cutover" {
 			var hyperV *vmHyperVPlan
-			hyperV, err = vmHyperVPlanFor(vm, networks, vmHyperVOptions{Folder: vmFolder, Disks: result.Disks, Switches: switches, KeepMAC: input.KeepMAC, Start: input.Start})
+			hyperV, err = vmHyperVPlanFor(vm, networks, vmHyperVOptions{Folder: vmFolder, Disks: result.Disks, Switches: switches, KeepMAC: input.KeepMAC, Start: input.Start, ClusterRole: input.Cluster})
 			if err == nil {
 				result.HyperV = hyperV
 				for _, warning := range hyperV.Warnings {

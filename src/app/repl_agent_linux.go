@@ -150,7 +150,7 @@ func replInstallLinux(port int, out io.Writer) error {
 	if record := replLinuxOpenFirewall(port); record != "" {
 		os.WriteFile(filepath.Join(replLinuxDataDir, replLinuxFirewall), []byte(record), 0600)
 	}
-	fmt.Fprintf(out, "The replication agent is installed and running on port %d.\n\nIn the console's Replication tab, add this server with:\n  Agent key:              %s\n  Certificate thumbprint: %s\n\nThe key is shown only now; it is not saved on this server.\n", port, key, vmNormalizeThumbprint(thumbprint))
+	fmt.Fprintf(out, "The replication agent is installed and running on port %d.\n\nIn the console's Migration and replication tab, Replicate servers, add this server with:\n  Agent key:              %s\n  Certificate thumbprint: %s\n\nThe key is shown only now; it is not saved on this server.\n", port, key, vmNormalizeThumbprint(thumbprint))
 	return nil
 }
 

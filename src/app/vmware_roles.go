@@ -21,25 +21,25 @@ func vmMoveRoles(target string) []vmMoveRole {
 	short := vmNonEmpty(profile.Short, "the target")
 	source := vmMoveRole{
 		Where: "The VMware VM being moved",
-		Does:  "Nothing has to be installed. Optional: run this application inside it as administrator to save BitLocker keys and record its IP settings (VMware tab, Inside the VM) before the move.",
+		Does:  "Nothing has to be installed. Optional: run this application inside it as administrator to save BitLocker keys and record its IP settings (Migration and replication, Prepare and fix up) before the move.",
 		Needs: "VMware Tools running, so the guest can be quiesced and shut down cleanly.",
 	}
 	after := vmMoveRole{
 		Where: "The new " + vmTargetMachine(target) + ", after it starts",
-		Does:  "Run this application inside it as administrator (VMware tab, Inside the VM) to put back the IP settings, remove VMware Tools and hidden old adapters and bring disks online. Then collect again and compare (Before and after).",
+		Does:  "Run this application inside it as administrator (Migration and replication, Prepare and fix up) to put back the IP settings, remove VMware Tools and hidden old adapters and bring disks online. Then collect again and compare (Compare before and after).",
 		Needs: "Its network and storage drivers, installed before the move.",
 	}
 	switch target {
 	case vmTargetHyperV:
 		return []vmMoveRole{
-			{Where: "The Hyper-V host that will run the VM", Does: "Run this application here as administrator: read vCenter or ESXi, plan, then Copy disks and Cut over in the VM's details. The disks are written here as VHDX files and the Hyper-V VM is created here.", Needs: "The Hyper-V role and its PowerShell module, HTTPS access to vCenter and the ESXi hosts, and room for the disks."},
+			{Where: "The Hyper-V host that will run the VM", Does: "Run this application here as administrator: read vCenter or ESXi (Discovery), plan, then Copy disks and Cut over in Move VMs. The disks are written here as VHDX files and the Hyper-V VM is created here.", Needs: "The Hyper-V role and its PowerShell module, HTTPS access to vCenter and the ESXi hosts, and room for the disks."},
 			source,
 			after,
 		}
 	case vmTargetScale, vmTargetNutanix, vmTargetProxmox, vmTargetPhysical:
 		console := vmMoveRole{
 			Where: "Your admin computer or jump box (Windows)",
-			Does:  "Run this application here: read vCenter or ESXi, plan, build the receiver media, then (in the VM's details) " + map[bool]string{true: "connect to " + short + ", upload the media, create the VM, ", false: ""}[target != vmTargetPhysical] + "check the receiver, Copy disks and Cut over. The disks pass through this computer on their way to the receiver.",
+			Does:  "Run this application here: read vCenter or ESXi (Discovery), plan, build the receiver media, then (in Move VMs) " + map[bool]string{true: "connect to " + short + ", upload the media, create the VM, ", false: ""}[target != vmTargetPhysical] + "check the receiver, Copy disks and Cut over. The disks pass through this computer on their way to the receiver.",
 			Needs: "The Windows ADK and its Windows PE add-on (for the receiver media), HTTPS access to vCenter, the ESXi hosts" + map[bool]string{true: ", " + short, false: ""}[target != vmTargetPhysical] + " and the receiver, and a fast link to both.",
 		}
 		receiver := vmMoveRole{

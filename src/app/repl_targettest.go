@@ -78,7 +78,7 @@ func replTargetTestJob(jobs replAgentJobs, id string) (*replJobView, error) {
 		}
 		for _, disk := range job.Spec.Disks {
 			if !strings.HasPrefix(strings.ToLower(disk.Target), "disk-") {
-				return nil, fmt.Errorf("the job sends %s, a VHDX file, so test it from the Disk copy view on the Hyper-V host instead", disk.Target)
+				return nil, fmt.Errorf("the job sends %s, a VHDX file, so test it from Start VMs from copies on the Hyper-V host instead", disk.Target)
 			}
 		}
 		return job, nil

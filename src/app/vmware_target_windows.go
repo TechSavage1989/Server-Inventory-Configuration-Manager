@@ -249,7 +249,15 @@ func (a *application) handleVMTargetMedia(response http.ResponseWriter, request 
 			a.mu.Unlock()
 			a.vmTargetDone(fmt.Sprintf("Receiver media written to %s (%s, SHA-256 %s).", result.Output, vmFormatBytes(result.Size), result.SHA256), false)
 		}
-		a.finishVMwareAction("connected", "")
+		// Media can be built from Receive and send disks with no inventory
+		// read, so only report "connected" when there is one.
+		status := "connected"
+		a.mu.Lock()
+		if a.vmware.inventory == nil {
+			status = "idle"
+		}
+		a.mu.Unlock()
+		a.finishVMwareAction(status, "")
 	}()
 	writeJSON(response, http.StatusAccepted, map[string]any{"ok": true, "output": output})
 }
@@ -510,8 +518,10 @@ func (a *application) handleVMTargetMove(response http.ResponseWriter, request *
 		a.mu.Lock()
 		inventory := a.vmware.inventory
 		a.mu.Unlock()
+		progress, prefix := a.moveProgress(*vm, "the receiver at "+receiver.Link.Address)
 		result, err := a.runMoveRound(ctx, inventory, *vm, vmConnectOptions{Server: server, User: user, Password: password, Thumbprint: thumbprint, UserAgent: displayName + " " + appVersion, AppVersion: appVersion},
-			vmMoveRequest{VMID: vm.ID, Name: vm.Name, Datacenter: vm.Datacenter, Quiesce: input.Quiesce, Cutover: input.Action == "cutover", RecordFolder: records, NewSink: receiver.Link.sinkFactory(ctx, receiver.Mapping)}, log)
+			vmMoveRequest{VMID: vm.ID, Name: vm.Name, Datacenter: vm.Datacenter, Quiesce: input.Quiesce, Cutover: input.Action == "cutover", RecordFolder: records, NewSink: receiver.Link.sinkFactory(ctx, receiver.Mapping), Progress: progress}, log)
+		a.copyTransfers().EndRunning(prefix, err, errors.Is(err, context.Canceled), err == nil && input.Action == "cutover")
 		password = ""
 		finished := ""
 		if err == nil && input.Action == "cutover" {

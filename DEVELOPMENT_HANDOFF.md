@@ -1,3 +1,11 @@
+## Unreleased: one Migration and replication area, guided migration and live transfers — 2026-11-25
+
+- The tabs are now Discovery (This server; VMware and Hyper-V), Collection, Report Viewer, Restore and Migration and replication. The Migration area lists Guided migration, Plan and runbook, Move VMs, Replicate servers, Receive and send disks, Start VMs from copies, Move file shares, Convert disk images, Prepare and fix up and Compare before and after, each with what it is for and where it runs. Old tab names still work through `legacyTabs`. See AGENTS.md rule 35.
+- Guided migration walks every source and target with per-step computer, live checks and blocking checks. Receiver details have Copy buttons and paste into all sending fields at once.
+- On a Hyper-V host, copies and the receiver default to the host's virtual hard disk folder; Move VMs offers Cluster Shared Volumes with free space, refuses a copy that does not fit, and can add the VM to the failover cluster at cutover.
+- The receiver lists connected senders and every copy with progress, speed and time left; Send, Move and replication job details show theirs. Replication summary tiles filter the job list with a reason and next step.
+- Tested: `go test ./src/app` (Linux), `go vet` for Linux and Windows, and the full `scripts/test_workspace.cjs` in headless Chromium with synthetic state. Not yet field-validated: `Add-ClusterVirtualMachineRole` on a real cluster, CSV detection and the WMI default-path read on a real Hyper-V host.
+
 ## 3.2.33 release preparation — 2026-11-25
 
 Combined release of replication, test failover and the disk converter work (#103, #104, #105, #106, #107, #109, #108, #110, #111). The owner chose "Publish 3.2.33 now" on the release card. This branch bumps `appVersion`, `collectorVersion` and the collector `$scriptVersion` to 3.2.33, adds `docs/release-notes/3.2.33.md` (first three bullets free of Markdown) and points `scripts/test_published_upgrade.cjs` and AGENTS.md at the published v3.2.32 executable (SHA-256 `7b1684bb0d506360ac99e06acbe2b500bcbc55a98d9cda7a985c447ca1a3a22d`).

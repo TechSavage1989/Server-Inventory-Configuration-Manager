@@ -433,7 +433,7 @@ func assessVM(vm vmMachine, target string, now time.Time) vmReadiness {
 		add(vmSeverityBlocker, "encrypted", "The VM is encrypted with vSphere VM Encryption.", "Decrypt the VM in vSphere before exporting or converting it. Its disks cannot be read by other platforms.")
 	}
 	if hyperV && target == vmTargetHyperV {
-		add(vmSeverityInfo, "already-hyperv", "The VM already runs on Hyper-V.", "Move it with Hyper-V live migration, storage migration, or export and import, which keep its configuration. Copy its disks with the Disk converter only to rebuild it on a different host by hand.")
+		add(vmSeverityInfo, "already-hyperv", "The VM already runs on Hyper-V.", "Move it with Hyper-V live migration, storage migration, or export and import, which keep its configuration. Copy its disks with Convert disk images only to rebuild it on a different host by hand.")
 	}
 
 	// Guest operating system support.
@@ -624,7 +624,7 @@ func assessVM(vm vmMachine, target string, now time.Time) vmReadiness {
 			action = "Backup software normally deletes its own snapshot when the job ends; a leftover one means a job failed or is still running. Check the backup job, then delete the snapshot in vSphere before migrating."
 		}
 		if hyperV {
-			action = "Delete the checkpoints in Hyper-V Manager before migrating, which merges the .avhdx files into the disks. To copy without deleting them, convert the newest .avhdx with the Disk converter: it reads the whole chain."
+			action = "Delete the checkpoints in Hyper-V Manager before migrating, which merges the .avhdx files into the disks. To copy without deleting them, convert the newest .avhdx with Convert disk images: it reads the whole chain."
 			if len(backup) > 0 {
 				action = "Backup software normally removes its own checkpoint when the job ends; a leftover one means a job failed or is still running. Check the backup job, then delete the checkpoint before migrating."
 			}

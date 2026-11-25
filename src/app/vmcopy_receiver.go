@@ -110,6 +110,9 @@ type vmReceiver struct {
 	// holds are disk names a VM was started from (a test failover or the
 	// production VM); they are refused until released.
 	holds map[string]string
+	// recent keeps finished copies for the Receive panel (an hour, up to
+	// vmTransferMax).
+	recent []vmTransfer
 }
 
 // errVMReceiverHeld is wrapped by the sender when the receiver refuses a disk
@@ -164,6 +167,26 @@ type vmReceiverSession struct {
 	rescanDone int
 	rescanErr  string
 	rescanned  bool
+
+	// Progress for the Receive panel. The sender's address is shown so the
+	// operator can see who is connected; nothing secret is kept.
+	progress vmTransfer
+	meter    vmRateMeter
+	position vmRateMeter
+}
+
+// snapshot is the session's progress as a transfer. Caller holds s.mu.
+func (s *vmReceiverSession) snapshot(now time.Time) vmTransfer {
+	t := s.progress
+	t.Updated = s.seen
+	if s.rescanning {
+		t.Label = "Rescanning the target"
+		if total := len(s.sink.State().Hashes); total > 0 {
+			t.Chunks, t.Done = total, s.rescanDone
+		}
+	}
+	vmTransferFill(&t, s.meter.Rate(now), s.position.Rate(now))
+	return t
 }
 
 type vmReceiverOpen struct {
@@ -324,6 +347,51 @@ func (r *vmReceiver) Disks() []vmReceiverDisk {
 
 func (r *vmReceiver) ActiveSessions() int { r.mu.Lock(); defer r.mu.Unlock(); return len(r.sessions) }
 
+// Transfers lists the copies being received now and those finished in the
+// last hour, with the sender's address, progress and speed.
+func (r *vmReceiver) Transfers() []vmTransfer {
+	now := time.Now()
+	r.mu.Lock()
+	sessions := make([]*vmReceiverSession, 0, len(r.sessions))
+	for _, session := range r.sessions {
+		sessions = append(sessions, session)
+	}
+	list := make([]vmTransfer, 0, len(sessions)+len(r.recent))
+	for _, t := range r.recent {
+		if now.Sub(t.Finished) <= vmTransferKeep {
+			list = append(list, t)
+		}
+	}
+	r.mu.Unlock()
+	for _, session := range sessions {
+		session.mu.Lock()
+		list = append(list, session.snapshot(now))
+		session.mu.Unlock()
+	}
+	vmSortTransfers(list)
+	return list
+}
+
+// retire moves a session's progress to the recent list. Caller holds r.mu
+// and session.mu.
+func (r *vmReceiver) retire(session *vmReceiverSession, state string) {
+	t := session.snapshot(time.Now())
+	if t.State == "running" {
+		t.State = state
+		if t.Error != "" && state != "stopped" {
+			t.State = "failed"
+		}
+	}
+	t.Finished, t.Rate, t.ETASeconds = time.Now(), 0, 0
+	if t.State == "done" {
+		t.Percent = 100
+	}
+	r.recent = append(r.recent, t)
+	if len(r.recent) > vmTransferMax {
+		r.recent = r.recent[len(r.recent)-vmTransferMax:]
+	}
+}
+
 // Stop closes the listener and every open disk, saving its copy record so
 // the sender can resume against a new receiver later.
 func (r *vmReceiver) Stop() error {
@@ -335,6 +403,7 @@ func (r *vmReceiver) Stop() error {
 	for id, session := range r.sessions {
 		session.mu.Lock()
 		session.sink.Close()
+		r.retire(session, "stopped")
 		session.mu.Unlock()
 		delete(r.sessions, id)
 	}
@@ -426,6 +495,8 @@ func (r *vmReceiver) open(w http.ResponseWriter, request *http.Request) {
 		if old := r.sessions[id]; old != nil && old.mu.TryLock() {
 			if time.Since(old.seen) > 2*time.Minute && !old.rescanning {
 				old.sink.Close()
+				old.progress.Error = "the sender stopped answering; another sender took over"
+				r.retire(old, "stopped")
 				delete(r.sessions, id)
 				delete(r.names, key)
 				busy = false
@@ -480,6 +551,12 @@ claim:
 	rand.Read(idBytes)
 	id := hex.EncodeToString(idBytes)
 	session := &vmReceiverSession{name: key, sink: sink, seen: time.Now()}
+	peer := request.RemoteAddr
+	if host, _, splitErr := net.SplitHostPort(peer); splitErr == nil {
+		peer = host
+	}
+	session.progress = vmTransfer{ID: id, Kind: "receive", Label: body.Name, Source: body.Source, Target: body.Name, Peer: peer, Size: body.Size,
+		Chunks: len(state.Hashes), Pass: state.Passes + 1, Started: time.Now(), State: "running"}
 	if body.Rescan {
 		rescanner, ok := sink.(vmRescanner)
 		if !ok {
@@ -567,9 +644,23 @@ func (r *vmReceiver) chunk(w http.ResponseWriter, request *http.Request) {
 	}
 	written, err := session.sink.Write(index, data, hash)
 	if err != nil {
+		session.progress.Error = err.Error()
 		vmReceiverError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	now := time.Now()
+	p := &session.progress
+	p.Error = ""
+	p.BytesRead += length
+	p.BytesWritten += written
+	if request.ContentLength > 0 && hash != vmCopyZeroHash {
+		p.BytesSent += request.ContentLength
+	}
+	if index+1 > p.Done {
+		p.Done = index + 1
+	}
+	session.meter.Add(now, p.BytesRead)
+	session.position.Add(now, int64(p.Done))
 	vmReceiverJSON(w, map[string]int64{"written": written})
 }
 
@@ -624,13 +715,18 @@ func (r *vmReceiver) lifecycle(w http.ResponseWriter, request *http.Request, act
 			break
 		}
 		state, err = session.sink.Finish(request.Context(), body.State, body.Verify)
+		if err != nil {
+			session.progress.Error = err.Error()
+		}
 		if err == nil {
+			session.progress.State, session.progress.Verified, session.progress.Done = "done", state.Verified, session.progress.Chunks
 			state.Target = filepath.Base(state.Target)
 			r.log(fmt.Sprintf("Finished %s (verified: %t).", state.Target, state.Verified))
 		}
 	case "close":
 		err = session.sink.Close()
 		r.mu.Lock()
+		r.retire(session, "stopped")
 		delete(r.sessions, body.Session)
 		delete(r.names, session.name)
 		r.mu.Unlock()

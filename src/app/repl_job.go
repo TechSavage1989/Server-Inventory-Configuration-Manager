@@ -834,6 +834,15 @@ func (a *replAgent) runRound(ctx context.Context, job *replJob, spec replJobSpec
 		defer opened.Close()
 		a.mu.Lock()
 		job.status.Notes = opened.Notes
+		// The job row's progress bar starts each round at zero; the last
+		// round's numbers would show it already done.
+		for index := range job.status.Disks {
+			d := &job.status.Disks[index]
+			d.Done, d.Read, d.Sent, d.Changed, d.Error = 0, 0, 0, 0, ""
+			if size := opened.Sources[d.Source]; size != nil && d.Chunks == 0 {
+				d.Chunks = int((size.Size() + vmCopyChunkSize - 1) / vmCopyChunkSize)
+			}
+		}
 		if job.status.State == replStateSyncing {
 			job.status.Message = "Sending what changed."
 		}

@@ -343,6 +343,9 @@ func vmCopyTo(ctx context.Context, source vmCopySource, sink vmCopySink, options
 			options.Progress(progress)
 		}
 	}
+	// Report the size of the pass before any chunk, so a progress bar
+	// starts at zero with its total known.
+	report()
 	for index := range state.Hashes {
 		if !selected[index] {
 			progress.Done++

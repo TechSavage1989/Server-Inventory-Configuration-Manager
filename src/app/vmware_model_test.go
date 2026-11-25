@@ -398,7 +398,7 @@ func TestRunbookAndSizingFollowTarget(t *testing.T) {
 	inventory := vmSampleInventory()
 	for target, expected := range map[string][]string{
 		vmTargetNutanix:  {"choose Cut over in the VM's details (Move to Nutanix AHV)", "Nutanix VirtIO drivers", "Check the Nutanix AHV VM", "AHV storage container"},
-		vmTargetAzure:    {"Azure Migrate", "Disk converter tab", "static private IP reservation", "uses DHCP", "Generation 2"},
+		vmTargetAzure:    {"Azure Migrate", "Convert disk images", "static private IP reservation", "uses DHCP", "Generation 2"},
 		vmTargetAWS:      {"Application Migration Service", "EC2 instance", "ENA"},
 		vmTargetPhysical: {"Prepare the server", "storage controller and network drivers", "Start the new server", "Shut down the new server", "USB stick", "remove the boot media"},
 		vmTargetProxmox:  {"choose Cut over in the VM's details (Move to Proxmox VE)", "virtio-win", "Move to Proxmox VE, step 2", "upload the receiver media to Proxmox VE", "On your admin computer"},
@@ -501,7 +501,7 @@ func TestMoveRolesNameEveryComputer(t *testing.T) {
 			}
 			text += role.Where + "\n" + role.Does + "\n" + role.Needs + "\n"
 		}
-		if !strings.Contains(text, "The VMware VM being moved") || !strings.Contains(text, "Inside the VM") {
+		if !strings.Contains(text, "The VMware VM being moved") || !strings.Contains(text, "Prepare and fix up") {
 			t.Fatalf("%s: roles do not cover the source VM: %s", profile.ID, text)
 		}
 		switch profile.ID {

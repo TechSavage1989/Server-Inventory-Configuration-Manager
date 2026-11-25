@@ -27,6 +27,9 @@ type vmReceiverRuntime struct {
 	port     int
 	started  time.Time
 	message  string
+	// last keeps the stopped receiver's transfers so the panel still shows
+	// what was received.
+	last []vmTransfer
 }
 
 type vmReceiverState struct {
@@ -40,6 +43,11 @@ type vmReceiverState struct {
 	Firewall   bool     `json:"firewall"`
 	Message    string   `json:"message,omitempty"`
 	DefaultDir string   `json:"defaultFolder"`
+	// FreeBytes is the free space where the receiver writes (or would).
+	FreeBytes uint64 `json:"freeBytes"`
+	// Transfers are the copies being received (with each sender's address)
+	// and those finished in the last hour.
+	Transfers []vmTransfer `json:"transfers"`
 }
 
 // Caller holds a.mu.
@@ -48,6 +56,19 @@ func (a *application) vmReceiverStateLocked() vmReceiverState {
 	if r := a.vmReceive.receiver; r != nil {
 		state.Running, state.Port, state.Code, state.Thumbprint, state.Folder = true, r.Port(), r.Code(), r.Thumbprint(), r.Folder()
 		state.Addresses, state.Sessions, state.Firewall = vmLocalAddresses(), r.ActiveSessions(), a.vmReceive.firewall
+		state.Transfers = r.Transfers()
+	} else {
+		state.Transfers = a.vmReceive.last
+	}
+	if state.Transfers == nil {
+		state.Transfers = []vmTransfer{}
+	}
+	where := state.Folder
+	if where == "" {
+		where = state.DefaultDir
+	}
+	if free, _, ok := vmFreeSpace(where); ok {
+		state.FreeBytes = free
 	}
 	return state
 }
@@ -84,6 +105,12 @@ func (a *application) stopVMReceiver(message string) {
 		return
 	}
 	r.Stop()
+	transfers := r.Transfers()
+	a.mu.Lock()
+	if a.vmReceive.receiver == nil {
+		a.vmReceive.last = transfers
+	}
+	a.mu.Unlock()
 	if firewall {
 		if err := vmRemoveReceiverFirewallRule(); err != nil {
 			a.vmwareLog("The firewall rule %q could not be removed: %v", vmReceiverFirewallRule, err)
@@ -134,7 +161,7 @@ func (a *application) handleVMwareReceiver(response http.ResponseWriter, request
 	case running:
 		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "The receiver is already running. Stop it first to change its folder or port."})
 		return
-	case !filepath.IsAbs(folder) || migrateProtectedFolder(folder) != "":
+	case !filepath.IsAbs(folder) || (migrateProtectedFolder(folder) != "" && !vmHostDefaultAllowed(folder)):
 		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "Choose a full path for received disks outside Windows, Program Files and profile folders."})
 		return
 	case input.Firewall && !isAdministrator():
@@ -323,6 +350,7 @@ func (a *application) handleVMwareAgentSend(response http.ResponseWriter, reques
 	a.mu.Unlock()
 	a.vmwareLog("Sending %s of %s to %s.", vmPlural(len(disks), "disk", "disks"), host, address)
 	thumbprint, code := input.Thumbprint, input.Code
+	board := a.copyTransfers()
 	go func() {
 		defer cancel()
 		log := func(text string) { a.vmwareLog("%s", text) }
@@ -352,7 +380,10 @@ func (a *application) handleVMwareAgentSend(response http.ResponseWriter, reques
 				}
 				sink.Compress, sink.Throttle = input.Compress, throttle
 				last := -1
+				id := fmt.Sprintf("send-%d", disk)
+				board.Begin(vmTransfer{ID: id, Kind: "send", Label: fmt.Sprintf("Disk %d", disk), Source: fmt.Sprintf("%s, disk %d", host, disk), Target: result.Name, Peer: address, Size: source.Size()})
 				copied, err := vmCopyTo(ctx, source, sink, vmCopyOptions{Verify: input.Verify, Progress: func(p vmCopyProgress) {
+					board.Progress(id, p)
 					if p.Chunks > 0 {
 						if percent := int(p.Done * 100 / p.Chunks); percent/10 != last/10 {
 							last = percent
@@ -365,6 +396,7 @@ func (a *application) handleVMwareAgentSend(response http.ResponseWriter, reques
 					result.Verified, result.Passes = copied.State.Verified, copied.State.Passes
 					result.BytesSent = copied.Progress.BytesSent
 				}
+				board.End(id, err, errors.Is(err, context.Canceled), result.Verified)
 				return err
 			}()
 			if err != nil {
