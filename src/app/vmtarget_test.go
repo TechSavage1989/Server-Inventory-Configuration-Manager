@@ -312,6 +312,7 @@ func TestHyperCoreCreatesBootsAndCutsOver(t *testing.T) {
 	var created map[string]interface{}
 	boot := []interface{}{}
 	var uploaded []byte
+	isoReady := false
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user, password, ok := r.BasicAuth()
 		if !ok || user != "admin" || password != vmTargetTestSecret {
@@ -332,6 +333,12 @@ func TestHyperCoreCreatesBootsAndCutsOver(t *testing.T) {
 		case path == "/ISO/iso1/data":
 			uploaded = raw
 			vmJSON(w, map[string]string{})
+		case path == "/ISO/iso1" && r.Method == http.MethodPatch:
+			if string(raw) != `{"readyForInsert":true}` {
+				t.Errorf("ISO update %s", raw)
+			}
+			isoReady = true
+			vmJSON(w, map[string]string{"taskTag": "5"})
 		case path == "/ISO/iso1":
 			vmJSON(w, []map[string]string{{"path": "scribe/iso1"}})
 		case strings.HasPrefix(path, "/TaskTag/"):
@@ -351,7 +358,7 @@ func TestHyperCoreCreatesBootsAndCutsOver(t *testing.T) {
 		case path == "/VirDomain/action":
 			var actions []map[string]string
 			json.Unmarshal(raw, &actions)
-			if len(actions) != 1 || actions[0]["virDomainUUID"] != "d1" {
+			if len(actions) != 1 || actions[0]["virDomainUUID"] != "d1" || actions[0]["cause"] != "INTERNAL" {
 				t.Errorf("action %s", raw)
 			}
 			if actions[0]["actionType"] == "START" {
@@ -379,7 +386,7 @@ func TestHyperCoreCreatesBootsAndCutsOver(t *testing.T) {
 		t.Fatal("an existing ISO was overwritten")
 	}
 	iso, err := platform.UploadISO(ctx, "receiver.iso", strings.NewReader("ISO"), 3)
-	if err != nil || iso != "scribe/iso1" || string(uploaded) != "ISO" {
+	if err != nil || iso != "scribe/iso1" || string(uploaded) != "ISO" || !isoReady {
 		t.Fatalf("upload %q %v", iso, err)
 	}
 	spec := vmTestSpec(iso)
@@ -394,7 +401,10 @@ func TestHyperCoreCreatesBootsAndCutsOver(t *testing.T) {
 		t.Fatalf("create %+v %v", vm, err)
 	}
 	raw, _ := json.Marshal(created)
-	for _, want := range []string{`"machineType":"scale-uefi-tpm-9.3"`, `"capacity":42950721536,"slot":0,"type":"VIRTIO_DISK"`, `"path":"scribe/iso1","slot":2,"type":"IDE_CDROM"`, `"type":"NVRAM"`, `"type":"VTPM"`, `"vlan":20`, `"mem":8589934592`, `"numVCPU":4`} {
+	if strings.Contains(string(raw), "machineType\":") {
+		t.Errorf("HyperCore 9.3 and later take machineTypeKeyword, not a machine type: %s", raw)
+	}
+	for _, want := range []string{`"machineTypeKeyword":"tpm"`, `"cacheMode":"WRITETHROUGH","capacity":42950721536,"slot":0,"type":"VIRTIO_DISK","uuid":"primaryDrive"`, `"path":"scribe/iso1","slot":2,"type":"IDE_CDROM"`, `"type":"NVRAM"`, `"type":"VTPM"`, `"vlan":20`, `"mem":8589934592`, `"numVCPU":4`} {
 		if !strings.Contains(string(raw), want) {
 			t.Errorf("VM body lacks %s: %s", want, raw)
 		}
@@ -455,6 +465,65 @@ func TestTargetConnectionsCheckCertificatesAndSpecs(t *testing.T) {
 		change(&spec)
 		if err := vmValidateTargetSpec(&spec); err == nil {
 			t.Errorf("bad spec %d was accepted", index)
+		}
+	}
+}
+
+// Machine types by HyperCore version, as Scale's own Ansible collection
+// sends them.
+func TestHyperCoreMachineTypeFollowsTheClusterVersion(t *testing.T) {
+	for _, c := range []struct {
+		version, firmware string
+		tpm               bool
+		want              string
+	}{
+		{"9.4.30.217736", "bios", false, `"options":{"attachGuestToolsISO":false,"machineTypeKeyword":"bios"}`},
+		{"9.3.1", "uefi", false, `"machineTypeKeyword":"uefi"`},
+		{"9.3.1", "uefi", true, `"machineTypeKeyword":"tpm"`},
+		{"9.2.13.211102", "bios", false, `"machineType":"scale-7.2"`},
+		{"9.2.13", "uefi", false, `"machineType":"scale-8.10"`},
+		{"9.2.13", "uefi", true, `"machineType":"scale-uefi-tpm-9.2"`},
+		{"9.1.14", "uefi", false, `"machineType":"scale-8.10"`},
+	} {
+		spec := vmTestSpec("scribe/iso")
+		spec.Firmware, spec.TPM, spec.SecureBoot = c.firmware, c.tpm, false
+		spec.NICs[0].Network = "20"
+		body, err := vmHyperCoreDomainBody(spec, c.version)
+		if err != nil {
+			t.Fatalf("%s %s: %v", c.version, c.firmware, err)
+		}
+		raw, _ := json.Marshal(body)
+		if !strings.Contains(string(raw), c.want) {
+			t.Errorf("%s %s tpm=%v: want %s in %s", c.version, c.firmware, c.tpm, c.want, raw)
+		}
+		if (c.firmware == "uefi") != strings.Contains(string(raw), `"type":"NVRAM"`) {
+			t.Errorf("%s %s: NVRAM device wrong in %s", c.version, c.firmware, raw)
+		}
+	}
+	spec := vmTestSpec("scribe/iso")
+	spec.TPM = true
+	spec.NICs[0].Network = "20"
+	if _, err := vmHyperCoreDomainBody(spec, "9.1.14"); err == nil {
+		t.Fatal("a virtual TPM was requested from HyperCore 9.1, which has none")
+	}
+	if _, err := vmHyperCoreDomainBody(spec, "unknown"); err == nil {
+		t.Fatal("an unreadable version was accepted")
+	}
+}
+
+func TestProxmoxOSTypeFollowsTheWindowsVersion(t *testing.T) {
+	for guest, want := range map[string]string{
+		"Microsoft Windows Server 2019 (64-bit)": "win10",
+		"Microsoft Windows Server 2016 or later": "win10",
+		"Microsoft Windows Server 2022 (64-bit)": "win11",
+		"Microsoft Windows Server 2025 Standard": "win11",
+		"Microsoft Windows 11 (64-bit)":          "win11",
+	} {
+		spec := vmTestSpec("local:iso/r.iso")
+		spec.GuestOS = guest
+		values, err := vmProxmoxCreateValues("101", spec)
+		if err != nil || values.Get("ostype") != want {
+			t.Errorf("%s: ostype %q, want %s (%v)", guest, values.Get("ostype"), want, err)
 		}
 	}
 }

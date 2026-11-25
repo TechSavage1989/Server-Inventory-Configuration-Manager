@@ -56,17 +56,20 @@ type vmTargetNIC struct {
 }
 
 type vmTargetVMSpec struct {
-	Name        string         `json:"name"`
-	Description string         `json:"description"`
-	CPUs        int            `json:"cpus"`
-	MemoryMiB   int64          `json:"memoryMiB"`
-	Firmware    string         `json:"firmware"` // bios or uefi
-	SecureBoot  bool           `json:"secureBoot"`
-	TPM         bool           `json:"tpm"`
-	Windows     bool           `json:"windows"`
-	Storage     string         `json:"storage"`
-	Disks       []vmTargetDisk `json:"disks"`
-	NICs        []vmTargetNIC  `json:"nics"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	CPUs        int    `json:"cpus"`
+	MemoryMiB   int64  `json:"memoryMiB"`
+	Firmware    string `json:"firmware"` // bios or uefi
+	SecureBoot  bool   `json:"secureBoot"`
+	TPM         bool   `json:"tpm"`
+	Windows     bool   `json:"windows"`
+	// GuestOS is the guest's name as VMware reports it, for the platform's
+	// OS type hint (Proxmox VE uses win11 for Windows Server 2022 and later).
+	GuestOS string         `json:"guestOs,omitempty"`
+	Storage string         `json:"storage"`
+	Disks   []vmTargetDisk `json:"disks"`
+	NICs    []vmTargetNIC  `json:"nics"`
 	// ISO is the platform's reference to the uploaded receiver media.
 	ISO string `json:"iso"`
 	// MachineType overrides the HyperCore machine type.
