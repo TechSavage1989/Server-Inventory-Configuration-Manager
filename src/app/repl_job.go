@@ -90,9 +90,12 @@ type replJobSpec struct {
 	// RPOMinutes raises an alert when the recovery point is older.
 	RPOMinutes int `json:"rpoMinutes"`
 	// Cutover settings.
-	StopServices         []string   `json:"stopServices,omitempty"`
-	ShutdownAfterCutover bool       `json:"shutdownAfterCutover"`
-	CutoverAt            *time.Time `json:"cutoverAt,omitempty"`
+	StopServices         []string `json:"stopServices,omitempty"`
+	ShutdownAfterCutover bool     `json:"shutdownAfterCutover"`
+	// FullReadAtCutover reads every used block in the final round instead
+	// of only what change tracking reports.
+	FullReadAtCutover bool       `json:"fullReadAtCutover"`
+	CutoverAt         *time.Time `json:"cutoverAt,omitempty"`
 }
 
 type replDiskStatus struct {
@@ -157,11 +160,14 @@ type replOpenedDisks struct {
 	Sources  map[string]vmCopySource
 	Snapshot time.Time
 	Notes    []string
-	// Ranges optionally limits a disk's round to changed areas.
+	// Ranges optionally limits a disk's round to changed areas, and Used
+	// to the areas in use (both nil: read everything).
 	Ranges map[string][]vmCopyRange
-	// Commit is called after every disk of the round was sent, so change
-	// tracking can move its marker forward. It may be nil.
-	Commit func() error
+	Used   map[string][]vmCopyRange
+	// Commit is called after every disk of the round was sent, with each
+	// disk's result, so change tracking can move its marker forward. It
+	// may be nil.
+	Commit func(results map[string]*vmCopyResult) error
 	Close  func()
 }
 
@@ -626,6 +632,9 @@ func (a *replAgent) Action(id, action string) error {
 			return errors.New("the job is stopping its round; delete it again in a moment")
 		}
 		delete(a.jobs, id)
+		if forgetter, ok := a.platform.(interface{ Forget(job string) }); ok {
+			forgetter.Forget(id)
+		}
 		os.Remove(a.logPath(id))
 		os.Remove(a.logPath(id) + ".old")
 		for i := range a.alerts {
@@ -786,6 +795,7 @@ func (a *replAgent) runRound(ctx context.Context, job *replJob, spec replJobSpec
 		}
 		a.mu.Unlock()
 		var read, sent int64
+		results := map[string]*vmCopyResult{}
 		for index, disk := range spec.Disks {
 			source := opened.Sources[disk.Source]
 			if source == nil {
@@ -799,7 +809,14 @@ func (a *replAgent) runRound(ctx context.Context, job *replJob, spec replJobSpec
 			if rescan {
 				log(fmt.Sprintf("Disk %s: rescanning %s on the receiver.", disk.Source, disk.Target))
 			}
-			options := vmCopyOptions{Verify: final, Ranges: opened.Ranges[disk.Source], Progress: func(p vmCopyProgress) {
+			ranges := opened.Ranges[disk.Source]
+			switch {
+			case rescan:
+				ranges = nil // compare the whole receiver disk
+			case final && spec.FullReadAtCutover:
+				ranges = opened.Used[disk.Source]
+			}
+			options := vmCopyOptions{Verify: final, Ranges: ranges, Progress: func(p vmCopyProgress) {
 				a.mu.Lock()
 				if index < len(job.status.Disks) {
 					d := &job.status.Disks[index]
@@ -823,12 +840,13 @@ func (a *replAgent) runRound(ctx context.Context, job *replJob, spec replJobSpec
 			if err != nil {
 				return fmt.Errorf("disk %s: %w", disk.Source, err)
 			}
+			results[disk.Source] = result
 			read += result.Progress.BytesRead
 			sent += result.Progress.BytesSent
 			log(fmt.Sprintf("Disk %s to %s: %s read, %s sent, %d chunks changed%s.", disk.Source, disk.Target, vmFormatBytes(result.Progress.BytesRead), vmFormatBytes(result.Progress.BytesSent), result.Progress.Changed, map[bool]string{true: ", verified", false: ""}[result.State.Verified]))
 		}
 		if opened.Commit != nil {
-			if err := opened.Commit(); err != nil {
+			if err := opened.Commit(results); err != nil {
 				log("Change tracking could not record this round, so the next round reads every disk: " + err.Error())
 			}
 		}

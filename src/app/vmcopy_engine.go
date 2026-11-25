@@ -87,6 +87,9 @@ type vmCopyResult struct {
 	State    vmCopyState    `json:"state"`
 	Progress vmCopyProgress `json:"progress"`
 	Resumed  bool           `json:"resumed"`
+	// ChangedChunks lists the chunks whose content changed in this pass
+	// (not those copied for the first time).
+	ChangedChunks []int `json:"-"`
 }
 
 func vmCopyStatePath(target string) string { return target + ".copy.json" }
@@ -367,6 +370,7 @@ func vmCopyTo(ctx context.Context, source vmCopySource, sink vmCopySink, options
 			progress.BytesWritten += written
 			if previous != "" {
 				progress.Changed++
+				result.ChangedChunks = append(result.ChangedChunks, index)
 			}
 			state.Hashes[index] = hash
 		}

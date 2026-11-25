@@ -65,7 +65,7 @@ func replWaitState(t *testing.T, agent *replAgent, id string, done func(replJobV
 // copies, sends a later change as a delta round, and at cutover stops a
 // real service, verifies the copy and leaves the service stopped.
 func TestWindowsReplicationJobReplicatesALiveDiskAndCutsOver(t *testing.T) {
-	number, letter, detach := replTestNTFSDisk(t, 256<<20)
+	number, letter, detach := replTestNTFSDisk(t, 4<<30)
 	defer detach()
 	if err := os.WriteFile(filepath.Join(letter, "orders.txt"), []byte("round one"), 0600); err != nil {
 		t.Fatal(err)
@@ -76,7 +76,7 @@ func TestWindowsReplicationJobReplicatesALiveDiskAndCutsOver(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer receiver.Stop()
-	agent, err := newReplAgent(t.TempDir(), replWindowsPlatform{})
+	agent, err := newReplAgent(t.TempDir(), replWindowsPlatform{TrackDir: t.TempDir()})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -120,7 +120,9 @@ func TestWindowsReplicationJobReplicatesALiveDiskAndCutsOver(t *testing.T) {
 	}
 	view = replWaitState(t, agent, id, func(v replJobView) bool { return v.Status.Rounds >= 2 && v.Status.State != replStateSyncing })
 	first := view.Status.Disks[0]
-	if first.Changed == 0 || first.Changed > 16 {
+	// Shadow copy storage and NTFS metadata change too, but far less than
+	// the disk.
+	if first.Changed == 0 || first.Changed > first.Chunks/8 {
 		t.Fatalf("the delta round changed %d chunks", first.Changed)
 	}
 	if err := agent.Action(id, "cutover"); err != nil {

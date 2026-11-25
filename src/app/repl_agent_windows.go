@@ -77,7 +77,11 @@ func replProtectFolder(dir string) error {
 }
 
 // replWindowsPlatform reads this computer's disks and controls its services.
-type replWindowsPlatform struct{}
+type replWindowsPlatform struct {
+	// TrackDir holds each job's change tracking state; empty reads every
+	// used cluster each round.
+	TrackDir string
+}
 
 func (replWindowsPlatform) Name() string { return "Windows" }
 
@@ -97,7 +101,7 @@ func (replWindowsPlatform) ListDisks() ([]replDiskInfo, error) {
 	return list, nil
 }
 
-func (replWindowsPlatform) OpenDisks(ctx context.Context, job string, sources []string, allowLive bool, log func(string)) (*replOpenedDisks, error) {
+func (p replWindowsPlatform) OpenDisks(ctx context.Context, job string, sources []string, allowLive bool, log func(string)) (*replOpenedDisks, error) {
 	opened := &replOpenedDisks{Sources: map[string]vmCopySource{}, Snapshot: time.Now()}
 	closers := []io.Closer{}
 	opened.Close = func() {
@@ -117,6 +121,9 @@ func (replWindowsPlatform) OpenDisks(ctx context.Context, job string, sources []
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
+	// Change journal positions are read before the shadow copies, so
+	// anything written in between is counted again next round, never lost.
+	marks := replJournalMarks(numbers)
 	set, err := openVMAgentDisks(numbers, allowLive, log)
 	if err != nil {
 		return nil, err
@@ -142,7 +149,21 @@ func (replWindowsPlatform) OpenDisks(ctx context.Context, job string, sources []
 		}
 		opened.Notes = append(opened.Notes, note+".")
 	}
+	if err := replPlanTrackedRound(ctx, p.TrackDir, job, numbers, set, marks, opened, log); err != nil {
+		log("Change tracking is unavailable this round, so every disk is read in full: " + err.Error())
+		opened.Ranges, opened.Used, opened.Commit = nil, nil, nil
+	}
 	return opened, nil
+}
+
+// Forget removes a deleted job's change tracking state.
+func (p replWindowsPlatform) Forget(job string) {
+	if p.TrackDir == "" {
+		return
+	}
+	if store, err := newReplTrackStore(p.TrackDir, job); err == nil {
+		store.Forget()
+	}
 }
 
 // replServiceWait waits for a service to reach a state.
@@ -317,7 +338,7 @@ func replRunWindowsAgent(ctx context.Context, events *eventlog.Log, log func(str
 			events.Warning(id, alert.Text)
 		}
 	}
-	err = runReplAgentWith(ctx, dir, replWindowsPlatform{}, replAgentVersion(), log, notify)
+	err = runReplAgentWith(ctx, dir, replWindowsPlatform{TrackDir: filepath.Join(dir, "Tracking")}, replAgentVersion(), log, notify)
 	if _, statErr := os.Stat(filepath.Join(dir, replUninstallTag)); statErr == nil {
 		// The console is removing the agent: remove what it added here.
 		vmFirewall("delete", "rule", "name="+replFirewallRule)
@@ -484,7 +505,7 @@ func runReplAgentCommand(args []string) int {
 		defer stop()
 		var mu sync.Mutex
 		log := func(text string) { mu.Lock(); fmt.Println(time.Now().Format("15:04:05"), text); mu.Unlock() }
-		if err := runReplAgentWith(ctx, replAgentDataDir(), replWindowsPlatform{}, replAgentVersion(), log, func(alert replAlert) { log("ALERT: " + alert.Text) }); err != nil {
+		if err := runReplAgentWith(ctx, replAgentDataDir(), replWindowsPlatform{TrackDir: filepath.Join(replAgentDataDir(), "Tracking")}, replAgentVersion(), log, func(alert replAlert) { log("ALERT: " + alert.Text) }); err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			return 1
 		}

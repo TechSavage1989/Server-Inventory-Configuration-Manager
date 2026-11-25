@@ -244,6 +244,8 @@ func openVMAgentDisk(diskNumber int, allowLive bool, log func(string)) (vmCopySo
 type vmAgentDiskSet struct {
 	Sources map[int]vmCopySource
 	Volumes map[int][]vmAgentVolume
+	// Shadows maps each shadowed volume's name to its shadow copy device.
+	Shadows map[string]string
 	shared  []io.Closer
 }
 
@@ -270,7 +272,7 @@ func openVMAgentDisks(numbers []int, allowLive bool, log func(string)) (*vmAgent
 	if log == nil {
 		log = func(string) {}
 	}
-	set := &vmAgentDiskSet{Sources: map[int]vmCopySource{}, Volumes: map[int][]vmAgentVolume{}}
+	set := &vmAgentDiskSet{Sources: map[int]vmCopySource{}, Volumes: map[int][]vmAgentVolume{}, Shadows: map[string]string{}}
 	fail := func(err error) (*vmAgentDiskSet, error) {
 		set.Close()
 		return nil, err
@@ -310,6 +312,7 @@ func openVMAgentDisks(numbers []int, allowLive bool, log func(string)) (*vmAgent
 		length, _ := vmDeviceLength(shadow)
 		found := &shadowed{reader: shadow, length: length}
 		shadows[volume.Name] = found
+		set.Shadows[volume.Name] = device
 		log(fmt.Sprintf("Shadow copy of %s taken.", strings.Join(append([]string{volume.Name}, volume.Mounts...), " ")))
 		return found, nil
 	}

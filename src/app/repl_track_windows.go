@@ -1,0 +1,547 @@
+//go:build windows
+
+package main
+
+import (
+	"context"
+	"encoding/binary"
+	"errors"
+	"fmt"
+	"regexp"
+	"strconv"
+	"strings"
+	"time"
+	"unsafe"
+
+	"golang.org/x/sys/windows"
+)
+
+const (
+	replFsctlQueryUsnJournal      = 0x000900F4
+	replFsctlReadUsnJournal       = 0x000900BB
+	replFsctlGetVolumeBitmap      = 0x0009006F
+	replFsctlGetRetrievalPointers = 0x00090073
+	replFsctlGetNtfsVolumeData    = 0x00090064
+	// Change journal reasons for named streams (alternate data streams).
+	replUsnNamedData = 0x00000010 | 0x00000020 | 0x00000040
+)
+
+var (
+	replKernel32       = windows.NewLazySystemDLL("kernel32.dll")
+	replProcOpenFileID = replKernel32.NewProc("OpenFileById")
+	replVolumeGUID     = regexp.MustCompile(`\{([0-9A-Fa-f-]{36})\}`)
+)
+
+// replMark is a volume's change journal position at one moment.
+type replMark struct {
+	ID     uint64
+	Lowest int64
+	Next   int64
+}
+
+func replOpenVolume(path string) (windows.Handle, error) {
+	name, err := windows.UTF16PtrFromString(path)
+	if err != nil {
+		return 0, err
+	}
+	return windows.CreateFile(name, windows.GENERIC_READ, windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE|windows.FILE_SHARE_DELETE, nil, windows.OPEN_EXISTING, windows.FILE_FLAG_BACKUP_SEMANTICS, 0)
+}
+
+func replQueryJournal(volume windows.Handle) (replMark, error) {
+	out := make([]byte, 80)
+	var returned uint32
+	if err := windows.DeviceIoControl(volume, replFsctlQueryUsnJournal, nil, 0, &out[0], uint32(len(out)), &returned, nil); err != nil {
+		return replMark{}, err
+	}
+	return replMark{ID: binary.LittleEndian.Uint64(out), Next: int64(binary.LittleEndian.Uint64(out[16:])), Lowest: int64(binary.LittleEndian.Uint64(out[24:]))}, nil
+}
+
+// replJournalMarks reads the journal position of every simple NTFS volume
+// on the disks. Volumes without a journal are left out (read in full).
+func replJournalMarks(numbers []int) map[string]replMark {
+	marks := map[string]replMark{}
+	for _, number := range numbers {
+		volumes, err := vmDiskVolumes(number)
+		if err != nil {
+			continue
+		}
+		for _, volume := range volumes {
+			if volume.FileSystem != "NTFS" || volume.Layout != nil {
+				continue
+			}
+			handle, err := replOpenVolume(strings.TrimSuffix(volume.Name, `\`))
+			if err != nil {
+				continue
+			}
+			if mark, err := replQueryJournal(handle); err == nil {
+				marks[volume.Name] = mark
+			}
+			windows.CloseHandle(handle)
+		}
+	}
+	return marks
+}
+
+// replReadJournal lists the files changed between two journal positions:
+// each file reference with the reasons seen, and each parent folder.
+func replReadJournal(ctx context.Context, volume windows.Handle, id uint64, from, to int64, limit int) (files map[uint64]uint32, folders map[uint64]bool, err error) {
+	files, folders = map[uint64]uint32{}, map[uint64]bool{}
+	in := make([]byte, 40)
+	out := make([]byte, 256<<10)
+	start := from
+	for start < to {
+		if err := ctx.Err(); err != nil {
+			return nil, nil, err
+		}
+		binary.LittleEndian.PutUint64(in[0:], uint64(start))
+		binary.LittleEndian.PutUint32(in[8:], 0xFFFFFFFF)
+		binary.LittleEndian.PutUint32(in[12:], 0)
+		binary.LittleEndian.PutUint64(in[16:], 0)
+		binary.LittleEndian.PutUint64(in[24:], 0)
+		binary.LittleEndian.PutUint64(in[32:], id)
+		var returned uint32
+		if err := windows.DeviceIoControl(volume, replFsctlReadUsnJournal, &in[0], uint32(len(in)), &out[0], uint32(len(out)), &returned, nil); err != nil {
+			return nil, nil, fmt.Errorf("reading the change journal: %w", err)
+		}
+		if returned < 8 {
+			break
+		}
+		next := int64(binary.LittleEndian.Uint64(out))
+		done := false
+		for at := uint32(8); at+60 <= returned; {
+			length := binary.LittleEndian.Uint32(out[at:])
+			if length < 60 || at+length > returned {
+				return nil, nil, errors.New("the change journal returned a malformed record")
+			}
+			record := out[at : at+length]
+			if major := binary.LittleEndian.Uint16(record[4:]); major != 2 {
+				return nil, nil, fmt.Errorf("the change journal uses version %d records", major)
+			}
+			if usn := int64(binary.LittleEndian.Uint64(record[24:])); usn >= to {
+				done = true
+				break
+			}
+			file := binary.LittleEndian.Uint64(record[8:])
+			files[file] |= binary.LittleEndian.Uint32(record[40:])
+			folders[binary.LittleEndian.Uint64(record[16:])] = true
+			if len(files)+len(folders) > limit {
+				return nil, nil, fmt.Errorf("more than %d files changed", limit)
+			}
+			at += length
+		}
+		if done || next <= start {
+			break
+		}
+		start = next
+	}
+	return files, folders, nil
+}
+
+func replNTFSGeometry(volume windows.Handle) (clusterSize, clusters int64, err error) {
+	out := make([]byte, 128)
+	var returned uint32
+	if err := windows.DeviceIoControl(volume, replFsctlGetNtfsVolumeData, nil, 0, &out[0], uint32(len(out)), &returned, nil); err != nil {
+		return 0, 0, err
+	}
+	clusters = int64(binary.LittleEndian.Uint64(out[16:]))
+	clusterSize = int64(binary.LittleEndian.Uint32(out[44:]))
+	if clusterSize <= 0 || clusters <= 0 {
+		return 0, 0, errors.New("the volume reported no clusters")
+	}
+	return clusterSize, clusters, nil
+}
+
+func replVolumeBitmap(volume windows.Handle, clusters int64) ([]byte, error) {
+	in := make([]byte, 8)
+	out := make([]byte, 16+(clusters+7)/8+8)
+	var returned uint32
+	if err := windows.DeviceIoControl(volume, replFsctlGetVolumeBitmap, &in[0], 8, &out[0], uint32(len(out)), &returned, nil); err != nil {
+		return nil, fmt.Errorf("reading the volume bitmap: %w", err)
+	}
+	if size := int64(binary.LittleEndian.Uint64(out[8:])); size != clusters {
+		return nil, fmt.Errorf("the volume bitmap covers %d clusters, not %d", size, clusters)
+	}
+	return append([]byte(nil), out[16:16+(clusters+7)/8]...), nil
+}
+
+// replRetrievalRuns lists where a file stream lies on its volume.
+func replRetrievalRuns(file windows.Handle) ([]replRun, error) {
+	runs := []replRun{}
+	in := make([]byte, 8)
+	out := make([]byte, 64<<10)
+	vcn := int64(0)
+	for {
+		binary.LittleEndian.PutUint64(in, uint64(vcn))
+		var returned uint32
+		err := windows.DeviceIoControl(file, replFsctlGetRetrievalPointers, &in[0], 8, &out[0], uint32(len(out)), &returned, nil)
+		if errors.Is(err, windows.ERROR_HANDLE_EOF) {
+			return runs, nil // resident or empty: kept in the MFT record
+		}
+		more := errors.Is(err, windows.ERROR_MORE_DATA)
+		if err != nil && !more {
+			return nil, err
+		}
+		count := int(binary.LittleEndian.Uint32(out))
+		previous := int64(binary.LittleEndian.Uint64(out[8:]))
+		for i := 0; i < count && 16+i*16+16 <= int(returned); i++ {
+			next := int64(binary.LittleEndian.Uint64(out[16+i*16:]))
+			lcn := int64(binary.LittleEndian.Uint64(out[24+i*16:]))
+			if lcn >= 0 && next > previous {
+				runs = append(runs, replRun{Start: lcn, Count: next - previous})
+			}
+			previous = next
+		}
+		if !more || count == 0 {
+			return runs, nil
+		}
+		vcn = previous
+	}
+}
+
+func replOpenByID(hint windows.Handle, id uint64) (windows.Handle, error) {
+	descriptor := make([]byte, 24)
+	binary.LittleEndian.PutUint32(descriptor, 24)
+	binary.LittleEndian.PutUint64(descriptor[8:], id)
+	handle, _, err := replProcOpenFileID.Call(uintptr(hint), uintptr(unsafe.Pointer(&descriptor[0])), 0x80 /* FILE_READ_ATTRIBUTES */, uintptr(windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE|windows.FILE_SHARE_DELETE), 0, uintptr(windows.FILE_FLAG_BACKUP_SEMANTICS))
+	if windows.Handle(handle) == windows.InvalidHandle {
+		return 0, err
+	}
+	return windows.Handle(handle), nil
+}
+
+func replOpenAttributes(path string) (windows.Handle, error) {
+	name, err := windows.UTF16PtrFromString(path)
+	if err != nil {
+		return 0, err
+	}
+	return windows.CreateFile(name, 0x80, windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE|windows.FILE_SHARE_DELETE, nil, windows.OPEN_EXISTING, windows.FILE_FLAG_BACKUP_SEMANTICS, 0)
+}
+
+// replPathRuns opens a path on the shadow copy and lists its runs.
+func replPathRuns(path string) ([]replRun, error) {
+	handle, err := replOpenAttributes(path)
+	if err != nil {
+		return nil, err
+	}
+	defer windows.CloseHandle(handle)
+	return replRetrievalRuns(handle)
+}
+
+func replFinalPath(handle windows.Handle) (string, error) {
+	buffer := make([]uint16, 1024)
+	n, err := windows.GetFinalPathNameByHandle(handle, &buffer[0], uint32(len(buffer)), 0x2 /* VOLUME_NAME_NT */)
+	if err != nil {
+		return "", err
+	}
+	if int(n) >= len(buffer) {
+		buffer = make([]uint16, n+1)
+		if n, err = windows.GetFinalPathNameByHandle(handle, &buffer[0], uint32(len(buffer)), 0x2); err != nil {
+			return "", err
+		}
+	}
+	return `\\?\GLOBALROOT` + windows.UTF16ToString(buffer[:n]), nil
+}
+
+// replStreamNames lists a file's named streams (":name:$DATA").
+func replStreamNames(handle windows.Handle) ([]string, error) {
+	buffer := make([]byte, 64<<10)
+	if err := windows.GetFileInformationByHandleEx(handle, windows.FileStreamInfo, &buffer[0], uint32(len(buffer))); err != nil {
+		if errors.Is(err, windows.ERROR_HANDLE_EOF) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	names := []string{}
+	for at := 0; at+24 <= len(buffer); {
+		next := int(binary.LittleEndian.Uint32(buffer[at:]))
+		length := int(binary.LittleEndian.Uint32(buffer[at+4:]))
+		if at+24+length > len(buffer) {
+			break
+		}
+		raw := buffer[at+24 : at+24+length]
+		name := make([]uint16, length/2)
+		for i := range name {
+			name[i] = binary.LittleEndian.Uint16(raw[i*2:])
+		}
+		if text := windows.UTF16ToString(name); text != "::$DATA" {
+			names = append(names, text)
+		}
+		if next == 0 {
+			break
+		}
+		at += next
+	}
+	return names, nil
+}
+
+// The NTFS metadata files read in full on every tracked round. The first
+// four must answer or the volume is read in full.
+var replMetaRequired = []string{`$MFT`, `$MFTMirr`, `$LogFile`, `$Bitmap`}
+var replMetaOptional = []string{`$MFT::$BITMAP`, `$Volume`, `$AttrDef`, `$Boot`, `$UpCase`, `$Secure:$SDS`, `$Secure:$SDH:$INDEX_ALLOCATION`, `$Secure:$SII:$INDEX_ALLOCATION`,
+	`:$I30:$INDEX_ALLOCATION`, `$Extend:$I30:$INDEX_ALLOCATION`, `$Extend\$UsnJrnl:$J`, `$Extend\$UsnJrnl:$Max`, `$Extend\$Reparse:$R:$INDEX_ALLOCATION`, `$Extend\$ObjId:$O:$INDEX_ALLOCATION`,
+	`$Extend\$Quota:$O:$INDEX_ALLOCATION`, `$Extend\$Quota:$Q:$INDEX_ALLOCATION`}
+
+// replTrackedRuns lists what changed on a shadowed volume since the last
+// round: new clusters, metadata files and the files the journal names.
+func replTrackedRuns(ctx context.Context, shadowRoot string, shadow windows.Handle, live windows.Handle, previous replVolumeTrack, prevBitmap, bitmap []byte, clusters int64) ([]replRun, int, error) {
+	runs := replNewlyAllocated(prevBitmap, bitmap, clusters)
+	for _, name := range replMetaRequired {
+		found, err := replPathRuns(shadowRoot + name)
+		if err != nil {
+			return nil, 0, fmt.Errorf("%s: %w", name, err)
+		}
+		runs = append(runs, found...)
+	}
+	for _, name := range replMetaOptional {
+		if found, err := replPathRuns(shadowRoot + name); err == nil {
+			runs = append(runs, found...)
+		}
+	}
+	now, err := replQueryJournal(live)
+	if err != nil {
+		return nil, 0, err
+	}
+	if now.ID != previous.JournalID || previous.Mark < now.Lowest {
+		return nil, 0, errors.New("the change journal was reset or has wrapped since the last round")
+	}
+	files, folders, err := replReadJournal(ctx, live, now.ID, previous.Mark, now.Next, replTrackMaxFiles)
+	if err != nil {
+		return nil, 0, err
+	}
+	hint, err := replOpenAttributes(shadowRoot)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer windows.CloseHandle(hint)
+	folders[5|5<<48] = true // the root folder
+	add := func(id uint64, reasons uint32, folder bool) error {
+		handle, err := replOpenByID(hint, id)
+		if err != nil {
+			if errors.Is(err, windows.ERROR_INVALID_PARAMETER) || errors.Is(err, windows.ERROR_FILE_NOT_FOUND) || errors.Is(err, windows.ERROR_PATH_NOT_FOUND) {
+				return nil // deleted before the shadow copy, or reused
+			}
+			return err
+		}
+		defer windows.CloseHandle(handle)
+		found, err := replRetrievalRuns(handle)
+		if err != nil {
+			return err
+		}
+		runs = append(runs, found...)
+		if !folder && reasons&replUsnNamedData == 0 {
+			return nil
+		}
+		path, err := replFinalPath(handle)
+		if err != nil {
+			return err
+		}
+		if folder {
+			if found, err := replPathRuns(path + `:$I30:$INDEX_ALLOCATION`); err == nil {
+				runs = append(runs, found...)
+			}
+			return nil
+		}
+		streams, err := replStreamNames(handle)
+		if err != nil {
+			return err
+		}
+		for _, stream := range streams {
+			found, err := replPathRuns(path + stream)
+			if err != nil {
+				return fmt.Errorf("%s%s: %w", path, stream, err)
+			}
+			runs = append(runs, found...)
+		}
+		return nil
+	}
+	for id, reasons := range files {
+		if err := ctx.Err(); err != nil {
+			return nil, 0, err
+		}
+		if err := add(id, reasons, false); err != nil {
+			return nil, 0, fmt.Errorf("changed file %d: %w", id&0xFFFFFFFFFFFF, err)
+		}
+	}
+	for id := range folders {
+		if err := add(id, 0, true); err != nil {
+			return nil, 0, fmt.Errorf("changed folder %d: %w", id&0xFFFFFFFFFFFF, err)
+		}
+	}
+	return runs, len(files), nil
+}
+
+// replVolumeKey names a volume's tracking files by its GUID.
+func replVolumeKey(name string) string {
+	if match := replVolumeGUID.FindStringSubmatch(name); match != nil {
+		return strings.ToLower(match[1])
+	}
+	return ""
+}
+
+type replTrackedVolume struct {
+	key      string
+	name     string
+	label    string
+	disk     int
+	start    int64
+	length   int64
+	mark     replMark
+	track    replVolumeTrack
+	bitmap   []byte
+	tracked  []vmCopyRange // disk ranges tracking chose, for a check round
+	check    bool
+	disabled string
+}
+
+// replPlanTrackedRound sets a round's used and changed ranges.
+func replPlanTrackedRound(ctx context.Context, trackDir, job string, numbers []int, set *vmAgentDiskSet, marks map[string]replMark, opened *replOpenedDisks, log func(string)) error {
+	var store *replTrackStore
+	state := replTrackState{Volumes: map[string]replVolumeTrack{}}
+	if trackDir != "" {
+		var err error
+		if store, err = newReplTrackStore(trackDir, job); err != nil {
+			return err
+		}
+		state = store.Load()
+	}
+	opened.Ranges, opened.Used = map[string][]vmCopyRange{}, map[string][]vmCopyRange{}
+	volumes := []*replTrackedVolume{}
+	now := time.Now()
+	for _, number := range numbers {
+		id := strconv.Itoa(number)
+		size := set.Sources[number].Size()
+		handled, used, changed := []vmCopyRange{}, []vmCopyRange{}, []vmCopyRange{}
+		for _, info := range set.Volumes[number] {
+			device := set.Shadows[info.Name]
+			key := replVolumeKey(info.Name)
+			if info.FileSystem != "NTFS" || info.Kind != "simple" || device == "" || key == "" || info.Length <= replTrackTail {
+				continue
+			}
+			volume := &replTrackedVolume{key: key, name: info.Name, label: strings.Join(info.Mounts, ", "), disk: number, start: info.Start, length: info.Length}
+			if volume.label == "" {
+				volume.label = info.Name
+			}
+			shadow, err := replOpenVolume(device)
+			if err != nil {
+				log(fmt.Sprintf("%s: reading it in full (%v).", volume.label, err))
+				continue
+			}
+			clusterSize, clusters, err := replNTFSGeometry(shadow)
+			var bitmap []byte
+			if err == nil {
+				bitmap, err = replVolumeBitmap(shadow, clusters)
+			}
+			windows.CloseHandle(shadow)
+			if err != nil || clusterSize*clusters > info.Length {
+				log(fmt.Sprintf("%s: reading it in full (%v).", volume.label, err))
+				continue
+			}
+			volume.bitmap = bitmap
+			inUse := append(replVolumeToDisk(info.Start, clusterSize, replAllocatedRuns(bitmap, clusters)), vmCopyRange{Start: info.Start + info.Length - replTrackTail, Length: replTrackTail})
+			handled = append(handled, vmCopyRange{Start: info.Start, Length: info.Length})
+			used = append(used, inUse...)
+			volume.track = replVolumeTrack{ClusterSize: clusterSize, Clusters: clusters}
+			mark, haveMark := marks[info.Name]
+			volume.mark = mark
+			previous, known := state.Volumes[key]
+			chosen := inUse
+			reason := ""
+			switch {
+			case store == nil:
+				reason = "no tracking folder"
+			case !haveMark:
+				reason = "the volume has no change journal"
+			case !known:
+				reason = "first round"
+			case previous.Disabled != "":
+				reason = "tracking was turned off: " + previous.Disabled
+				volume.disabled = previous.Disabled
+			case previous.JournalID != mark.ID || previous.ClusterSize != clusterSize || previous.Clusters != clusters:
+				reason = "the volume changed size or its journal was recreated"
+			}
+			if reason == "" {
+				prevBitmap, err := store.LoadBitmap(key, len(bitmap))
+				if err != nil {
+					reason = err.Error()
+				} else {
+					live, err := replOpenVolume(strings.TrimSuffix(info.Name, `\`))
+					if err != nil {
+						reason = err.Error()
+					} else {
+						runs, files, err := replTrackedRuns(ctx, device+`\`, 0, live, previous, prevBitmap, bitmap, clusters)
+						windows.CloseHandle(live)
+						if err != nil {
+							reason = err.Error()
+						} else {
+							tracked := append(replVolumeToDisk(info.Start, clusterSize, runs), vmCopyRange{Start: info.Start + info.Length - replTrackTail, Length: replTrackTail})
+							volume.track.LastCheck = previous.LastCheck
+							if now.Sub(previous.LastCheck) >= replTrackCheckEvery {
+								volume.check, volume.tracked = true, tracked
+								log(fmt.Sprintf("%s: reading every used cluster to check change tracking (%s).", volume.label, vmFormatBytes(replRangeBytes(inUse))))
+							} else {
+								chosen = tracked
+								log(fmt.Sprintf("%s: %d changed files, %s to read of %s in use.", volume.label, files, vmFormatBytes(replRangeBytes(tracked)), vmFormatBytes(replRangeBytes(inUse))))
+							}
+						}
+					}
+				}
+			}
+			if reason != "" {
+				if ctx.Err() != nil {
+					return ctx.Err()
+				}
+				volume.check = true // a used pass: a fresh starting point
+				log(fmt.Sprintf("%s: reading every used cluster (%s; %s).", volume.label, vmFormatBytes(replRangeBytes(inUse)), reason))
+			}
+			changed = append(changed, chosen...)
+			volumes = append(volumes, volume)
+		}
+		outside := replOutside(size, handled)
+		opened.Used[id] = replMergeRanges(append(used, outside...))
+		opened.Ranges[id] = replMergeRanges(append(changed, outside...))
+	}
+	opened.Commit = func(results map[string]*vmCopyResult) error {
+		if store == nil {
+			return nil
+		}
+		for _, volume := range volumes {
+			track := volume.track
+			track.Disabled = volume.disabled
+			if volume.check && volume.tracked != nil {
+				result := results[strconv.Itoa(volume.disk)]
+				if result == nil {
+					continue
+				}
+				// A changed chunk inside this volume that tracking would not
+				// have read is a miss.
+				inVolume := []int{}
+				for _, index := range result.ChangedChunks {
+					start := int64(index) * result.State.ChunkSize
+					if start+result.State.ChunkSize > volume.start && start < volume.start+volume.length {
+						inVolume = append(inVolume, index)
+					}
+				}
+				if missed := replMissedChunks(volume.tracked, inVolume, result.State.ChunkSize); len(missed) > 0 {
+					track.Disabled = fmt.Sprintf("the check on %s found %d changed chunks tracking did not report (first at %s)", now.UTC().Format(time.RFC3339), len(missed), vmFormatBytes(int64(missed[0])*result.State.ChunkSize))
+					log(fmt.Sprintf("%s: %s, so every used cluster is read from now on.", volume.label, track.Disabled))
+				} else {
+					log(fmt.Sprintf("%s: the check found no change that tracking missed.", volume.label))
+				}
+			}
+			if volume.check {
+				track.LastCheck = now
+			}
+			if _, ok := marks[volume.name]; !ok {
+				delete(state.Volumes, volume.key)
+				continue
+			}
+			track.JournalID, track.Mark = volume.mark.ID, volume.mark.Next
+			if err := store.SaveBitmap(volume.key, volume.bitmap); err != nil {
+				return err
+			}
+			state.Volumes[volume.key] = track
+		}
+		return store.Save(state)
+	}
+	return nil
+}

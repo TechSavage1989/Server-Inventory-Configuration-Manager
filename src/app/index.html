@@ -1097,6 +1097,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
             <div class="rp-subhead">Cutover</div>
             <label class="vm-field">Services to stop before the last round (comma separated, such as MSSQLSERVER, W3SVC)<input id="rpServices" type="text" spellcheck="false" autocomplete="off"></label>
             <label class="vm-check"><input id="rpShutdown" type="checkbox" checked> Shut this server down after the last round, so the new machine can take its name and address</label>
+            <label class="vm-check"><input id="rpFullRead" type="checkbox"> Read every used block in the last round instead of only what changed (safest, but the services stay stopped longer)</label>
             <label class="vm-check"><input id="rpLive" type="checkbox"> If Volume Shadow Copy is unavailable, copy volumes as they are (the copy may be inconsistent)</label>
             <div class="migrate-row"><button class="primary-button" id="rpJobSave" type="button">Save and start</button><button class="secondary-button" id="rpJobCancel" type="button">Cancel</button></div>
             <div class="migrate-inline-status" id="rpJobStatus" role="status" aria-live="polite"></div>
@@ -3670,7 +3671,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     byId('rpInterval').value=String(spec.intervalMinutes||0);if(!byId('rpInterval').value){byId('rpInterval').value='0';}
     byId('rpRpo').value=String(spec.rpoMinutes||15);byId('rpCompress').checked=spec.compress!==false;
     var t=spec.throttle||{};byId('rpLimit').value=String(t.limitMbps||0);byId('rpBusinessLimit').value=String(t.businessMbps||0);byId('rpBusinessStart').value=String(t.businessStart||0);byId('rpBusinessEnd').value=String(t.businessEnd||0);
-    byId('rpServices').value=vmArr(spec.stopServices).join(', ');byId('rpShutdown').checked=!!spec.shutdownAfterCutover;byId('rpLive').checked=!!spec.allowLive;
+    byId('rpServices').value=vmArr(spec.stopServices).join(', ');byId('rpShutdown').checked=!!spec.shutdownAfterCutover;byId('rpFullRead').checked=!!spec.fullReadAtCutover;byId('rpLive').checked=!!spec.allowLive;
     byId('rpJobSave').textContent=job?'Save':'Save and start';vmSetStatus('rpJobStatus','',false);
     renderRpJobDisks();
     rpPost('/api/repl/agent',{action:'disks',id:agentId},'rpJobStatus',function(err,data){if(err){return;}rpDisks=vmArr(data.disks);renderRpJobDisks();});
@@ -3710,7 +3711,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       spec={id:rpEditing.id,name:trimText(byId('rpJobName').value),disks:[],receiver:{address:trimText(byId('rpRecvAddress').value),thumbprint:trimText(byId('rpRecvThumbprint').value).replace(/[\s:]/g,''),code:trimText(byId('rpRecvCode').value)},
         intervalMinutes:Number(byId('rpInterval').value)||0,rpoMinutes:rpNumber('rpRpo',1,10080,'Type the RPO alert as a number of minutes from 1 to 10080.'),compress:byId('rpCompress').checked,
         throttle:{limitMbps:rpNumber('rpLimit',0,100000,'Type the bandwidth limit in Mbps, or 0 for no limit.'),businessMbps:rpNumber('rpBusinessLimit',0,100000,'Type the business-hours limit in Mbps, or 0 for no limit.'),businessStart:rpNumber('rpBusinessStart',0,24,'Business hours are hours from 0 to 24.'),businessEnd:rpNumber('rpBusinessEnd',0,24,'Business hours are hours from 0 to 24.')},
-        stopServices:trimText(byId('rpServices').value)?trimText(byId('rpServices').value).split(/\s*,\s*/).filter(function(x){return !!x;}):[],shutdownAfterCutover:byId('rpShutdown').checked,allowLive:byId('rpLive').checked};
+        stopServices:trimText(byId('rpServices').value)?trimText(byId('rpServices').value).split(/\s*,\s*/).filter(function(x){return !!x;}):[],shutdownAfterCutover:byId('rpShutdown').checked,fullReadAtCutover:byId('rpFullRead').checked,allowLive:byId('rpLive').checked};
     }catch(e){vmSetStatus('rpJobStatus',e.message,true);return;}
     if(spec.receiver.code&&spec.receiver.code.replace(/[\s-]/g,'').length!==20){vmSetStatus('rpJobStatus','Type the 20-character pairing code the receiver shows.',true);return;}
     Array.prototype.forEach.call(document.querySelectorAll('[data-rp-disk]:checked'),function(i){var id=i.getAttribute('data-rp-disk');spec.disks.push({source:id,target:trimText(byId('rpJobDisks').querySelector('[data-rp-target="'+id+'"]').value)});});
@@ -3738,7 +3739,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     add('Schedule',(spec.intervalMinutes?'Every '+spec.intervalMinutes+' minutes':'Continuously')+(spec.compress?', compressed':'')+((spec.throttle&&(spec.throttle.limitMbps||spec.throttle.businessMbps))?', limited':''));
     add('Rounds',formatCount(st.rounds||0)+(st.lastDurationSeconds?', last took '+rpAge(st.lastDurationSeconds):'')+(st.totalSent?', '+formatBytesShort(st.totalSent)+' sent in all':''));
     if(st.lastError){add('Last error',st.lastError);}
-    add('Cutover',st.state==='cut-over'?'Done '+rpWhen(st.cutoverDone):(spec.cutoverAt?'Scheduled for '+rpWhen(spec.cutoverAt):'Not scheduled')+(vmArr(spec.stopServices).length?'; stops '+vmArr(spec.stopServices).join(', '):'')+(spec.shutdownAfterCutover?'; shuts the server down after':''));
+    add('Cutover',st.state==='cut-over'?'Done '+rpWhen(st.cutoverDone):(spec.cutoverAt?'Scheduled for '+rpWhen(spec.cutoverAt):'Not scheduled')+(vmArr(spec.stopServices).length?'; stops '+vmArr(spec.stopServices).join(', '):'')+(spec.shutdownAfterCutover?'; shuts the server down after':'')+(spec.fullReadAtCutover?'; reads every used block in the last round':''));
     var body=byId('rpDetailsDisks');body.textContent='';
     vmArr(st.disks).forEach(function(d){var tr=el('tr');[d.source,d.target,d.size?formatBytesShort(d.size):'',d.chunks?Math.floor((d.done||0)*100/d.chunks)+'% read, '+formatBytesShort(d.sent||0)+' sent'+(d.error?', '+d.error:''):(d.error||'Not started'),d.verified?'Yes':'No'].forEach(function(v){tr.appendChild(el('td','',v));});body.appendChild(tr);});
     var paused=st.state==='paused',done=st.state==='cut-over';

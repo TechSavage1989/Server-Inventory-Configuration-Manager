@@ -53,7 +53,10 @@ func TestAgentCopiesAStripedDynamicVolumeFromOneShadowCopy(t *testing.T) {
 		defer vmPowerShell(t, "Dismount-DiskImage -ImagePath '"+quoted+"' -ErrorAction SilentlyContinue | Out-Null")
 	}
 	a, b := strconv.Itoa(numbers[0]), strconv.Itoa(numbers[1])
-	vmDiskPart(t, folder, "select disk "+a+"\nconvert dynamic\nselect disk "+b+"\nconvert dynamic\ncreate volume stripe size=160 disk="+a+","+b+"\nformat fs=ntfs quick label=StripeTest\nassign\n", false)
+	if out := vmDiskPart(t, folder, "select disk "+a+"\nconvert dynamic\n", true); !strings.Contains(out, "successfully converted") {
+		t.Skip("this Windows does not convert virtual disks to dynamic disks (Windows Server 2025 and later): ", out)
+	}
+	vmDiskPart(t, folder, "select disk "+b+"\nconvert dynamic\ncreate volume stripe size=160 disk="+a+","+b+"\nformat fs=ntfs quick label=StripeTest\nassign\n", false)
 	volumePath := vmPowerShell(t, "[Console]::Out.Write((Get-Volume -FileSystemLabel StripeTest).Path)")
 	if !strings.HasPrefix(volumePath, `\\?\Volume{`) {
 		t.Fatalf("volume path %q", volumePath)
