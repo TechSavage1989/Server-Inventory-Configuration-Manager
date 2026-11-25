@@ -18,7 +18,12 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-const vmReceiverFirewallRule = "Server Inventory and Migration Manager disk receiver"
+const (
+	vmReceiverFirewallRule = "Server Inventory and Migration Manager disk receiver"
+	// vmDiscoveryFirewallRule lets senders on the network find the
+	// receiver (UDP find requests). Added and removed with the TCP rule.
+	vmDiscoveryFirewallRule = "Server Inventory and Migration Manager disk receiver discovery"
+)
 
 // vmReceiverRuntime is this computer's receiver, if one is running.
 type vmReceiverRuntime struct {
@@ -48,6 +53,10 @@ type vmReceiverState struct {
 	// Transfers are the copies being received (with each sender's address)
 	// and those finished in the last hour.
 	Transfers []vmTransfer `json:"transfers"`
+	// Fingerprint is the short thumbprint senders compare by eye.
+	Fingerprint  string          `json:"fingerprint,omitempty"`
+	Discoverable bool            `json:"discoverable"`
+	PairRequests []vmPairRequest `json:"pairRequests"`
 }
 
 // Caller holds a.mu.
@@ -57,11 +66,15 @@ func (a *application) vmReceiverStateLocked() vmReceiverState {
 		state.Running, state.Port, state.Code, state.Thumbprint, state.Folder = true, r.Port(), r.Code(), r.Thumbprint(), r.Folder()
 		state.Addresses, state.Sessions, state.Firewall = vmLocalAddresses(), r.ActiveSessions(), a.vmReceive.firewall
 		state.Transfers = r.Transfers()
+		state.Fingerprint, state.Discoverable, state.PairRequests = vmFingerprint(r.Thumbprint()), r.discovery != nil, r.PairRequests()
 	} else {
 		state.Transfers = a.vmReceive.last
 	}
 	if state.Transfers == nil {
 		state.Transfers = []vmTransfer{}
+	}
+	if state.PairRequests == nil {
+		state.PairRequests = []vmPairRequest{}
 	}
 	where := state.Folder
 	if where == "" {
@@ -83,13 +96,26 @@ func vmFirewall(args ...string) error {
 	return nil
 }
 
+// vmRemoveReceiverFirewallRule removes this application's own two rules,
+// by their names, and nothing else.
 func vmRemoveReceiverFirewallRule() error {
-	return vmFirewall("delete", "rule", "name="+vmReceiverFirewallRule)
+	err := vmFirewall("delete", "rule", "name="+vmReceiverFirewallRule)
+	_ = vmFirewall("delete", "rule", "name="+vmDiscoveryFirewallRule) // absent when discovery was off
+	return err
 }
 
-func vmAddReceiverFirewallRule(port int) error {
-	_ = vmRemoveReceiverFirewallRule() // only this application's own rule, by its name
-	return vmFirewall("add", "rule", "name="+vmReceiverFirewallRule, "dir=in", "action=allow", "protocol=TCP", "localport="+strconv.Itoa(port), "profile=any")
+func vmAddReceiverFirewallRule(port int, discovery bool) error {
+	_ = vmRemoveReceiverFirewallRule()
+	if err := vmFirewall("add", "rule", "name="+vmReceiverFirewallRule, "dir=in", "action=allow", "protocol=TCP", "localport="+strconv.Itoa(port), "profile=any"); err != nil {
+		return err
+	}
+	if discovery {
+		if err := vmFirewall("add", "rule", "name="+vmDiscoveryFirewallRule, "dir=in", "action=allow", "protocol=UDP", "localport="+strconv.Itoa(vmDiscoveryPort), "profile=any"); err != nil {
+			_ = vmRemoveReceiverFirewallRule()
+			return err
+		}
+	}
+	return nil
 }
 
 // stopVMReceiver stops this computer's receiver and removes the firewall
@@ -129,6 +155,9 @@ func (a *application) handleVMwareReceiver(response http.ResponseWriter, request
 		Folder   string `json:"folder"`
 		Port     int    `json:"port"`
 		Firewall bool   `json:"firewall"`
+		// Discoverable answers find requests from senders on the network;
+		// nil (older pages) means on.
+		Discoverable *bool `json:"discoverable"`
 	}
 	if !decodeVMwareRequest(response, request, &input) {
 		return
@@ -168,7 +197,15 @@ func (a *application) handleVMwareReceiver(response http.ResponseWriter, request
 		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "Opening the firewall port needs the application to run as administrator. Run it as administrator, or open the port yourself and untick that option."})
 		return
 	}
-	r, err := startVMReceiver(":"+strconv.Itoa(port), folder, func(text string) { a.vmwareLog("%s", text) })
+	discoverable := input.Discoverable == nil || *input.Discoverable
+	config := vmReceiverConfig{Folder: folder, Pairing: true, Version: appVersion, FreeBytes: func() uint64 {
+		free, _, _ := vmFreeSpace(folder)
+		return free
+	}}
+	if discoverable {
+		config.Discovery = ":" + strconv.Itoa(vmDiscoveryPort)
+	}
+	r, err := startVMReceiverWith(":"+strconv.Itoa(port), config, func(text string) { a.vmwareLog("%s", text) })
 	if err != nil {
 		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "The receiver could not start: " + err.Error()})
 		return
@@ -177,13 +214,16 @@ func (a *application) handleVMwareReceiver(response http.ResponseWriter, request
 	a.replApplyFailoverHolds(r)
 	firewall := false
 	if input.Firewall {
-		if err := vmAddReceiverFirewallRule(port); err != nil {
+		if err := vmAddReceiverFirewallRule(port, r.discovery != nil); err != nil {
 			r.Stop()
 			writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "The firewall port could not be opened, so the receiver was stopped: " + err.Error()})
 			return
 		}
 		firewall = true
 		a.vmwareLog("Allowed TCP port %d in Windows Firewall (rule %q, removed when the receiver stops).", port, vmReceiverFirewallRule)
+		if r.discovery != nil {
+			a.vmwareLog("Allowed UDP port %d for finding this receiver (rule %q, removed when the receiver stops).", vmDiscoveryPort, vmDiscoveryFirewallRule)
+		}
 	}
 	a.mu.Lock()
 	if a.vmReceive.receiver != nil || a.closing {

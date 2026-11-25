@@ -79,6 +79,17 @@ type vmReceiverConfig struct {
 	Folder  string
 	Disks   []vmReceiverDisk
 	Records string
+	// Discovery is the UDP address that answers find requests (":44379");
+	// empty means senders must type the address.
+	Discovery string
+	// Pairing lets a sender ask for the code, which is given only after the
+	// operator allows the request on this receiver's screen. Off for the
+	// receiver command on boot media, which has no screen to allow it on.
+	Pairing bool
+	// FreeBytes reports the free space where copies are written, for the
+	// find answer. Optional.
+	FreeBytes func() uint64
+	Version   string
 }
 
 // vmReceiverRawTarget closes its device with the session.
@@ -113,6 +124,13 @@ type vmReceiver struct {
 	// recent keeps finished copies for the Receive panel (an hour, up to
 	// vmTransferMax).
 	recent []vmTransfer
+
+	pairing   bool
+	pairs     map[string]*vmPairRequest
+	discovery *vmDiscoveryResponder
+	freeBytes func() uint64
+	version   string
+	hostName  string
 }
 
 // errVMReceiverHeld is wrapped by the sender when the receiver refuses a disk
@@ -309,7 +327,7 @@ func startVMReceiverWith(address string, config vmReceiverConfig, log func(strin
 	if err != nil {
 		return nil, err
 	}
-	r := &vmReceiver{folder: folder, records: records, disks: disks, code: code, thumbprint: thumbprint, listener: listener, log: log, sessions: map[string]*vmReceiverSession{}, names: map[string]string{}}
+	r := &vmReceiver{folder: folder, records: records, disks: disks, code: code, thumbprint: thumbprint, listener: listener, log: log, sessions: map[string]*vmReceiverSession{}, names: map[string]string{}, pairing: config.Pairing, pairs: map[string]*vmPairRequest{}, freeBytes: config.FreeBytes, version: config.Version, hostName: hostName}
 	r.server = &http.Server{
 		Handler:           r,
 		TLSConfig:         &tls.Config{Certificates: []tls.Certificate{certificate}, MinVersion: tls.VersionTLS12},
@@ -317,6 +335,15 @@ func startVMReceiverWith(address string, config vmReceiverConfig, log func(strin
 		IdleTimeout:       2 * time.Minute,
 	}
 	go r.server.ServeTLS(listener, "", "")
+	if config.Discovery != "" {
+		responder, err := startVMDiscoveryResponder(config.Discovery, r.announcement)
+		if err != nil {
+			log("Senders cannot find this receiver automatically (" + err.Error() + "); type its address on the sending computer.")
+		} else {
+			r.discovery = responder
+			log(fmt.Sprintf("Senders on this network can find this receiver (UDP port %d). Its fingerprint is %s.", responder.Addr().(*net.UDPAddr).Port, vmFingerprint(thumbprint)))
+		}
+	}
 	if folder != "" {
 		log(fmt.Sprintf("Receiving into %s on port %d.", folder, r.Port()))
 	}
@@ -397,6 +424,9 @@ func (r *vmReceiver) retire(session *vmReceiverSession, state string) {
 func (r *vmReceiver) Stop() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
+	if r.discovery != nil {
+		r.discovery.Close()
+	}
 	err := r.server.Shutdown(ctx)
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -437,6 +467,10 @@ func (r *vmReceiver) session(id string) *vmReceiverSession {
 func (r *vmReceiver) ServeHTTP(w http.ResponseWriter, request *http.Request) {
 	if !strings.HasPrefix(request.URL.Path, vmReceiverAPI) {
 		vmReceiverError(w, http.StatusNotFound, "not found")
+		return
+	}
+	if request.URL.Path == vmReceiverAPI+"pair" {
+		r.pair(w, request) // asks for the code; needs no code
 		return
 	}
 	if !r.authorized(request) {
@@ -826,6 +860,30 @@ func vmReceiverDescribe(ctx context.Context, address, thumbprint, code string) (
 	return answer.Folder, answer.Disks, nil
 }
 
+// vmReceiverTransport connects only to a receiver whose certificate has
+// exactly the pinned SHA-256 thumbprint: no CA, no proxy.
+func vmReceiverTransport(pinned string) *http.Transport {
+	return &http.Transport{
+		Proxy: nil,
+		TLSClientConfig: &tls.Config{
+			MinVersion:         tls.VersionTLS12,
+			InsecureSkipVerify: true, // replaced by the exact thumbprint check below
+			VerifyConnection: func(state tls.ConnectionState) error {
+				if len(state.PeerCertificates) == 0 {
+					return errors.New("the receiver sent no certificate")
+				}
+				sum := sha256.Sum256(state.PeerCertificates[0].Raw)
+				if got := vmNormalizeThumbprint(hex.EncodeToString(sum[:])); got != pinned {
+					return fmt.Errorf("the receiver's certificate thumbprint is %s, not the one entered; check that you are connecting to the right receiver", got)
+				}
+				return nil
+			},
+		},
+		MaxIdleConnsPerHost:   4,
+		ResponseHeaderTimeout: 5 * time.Minute,
+	}
+}
+
 // vmReceiverPlace is where a receiver writes VHDX files and on which
 // computer; older receivers leave both empty.
 type vmReceiverPlace struct {
@@ -857,25 +915,7 @@ func newVMReceiverClient(ctx context.Context, address, thumbprint, code string) 
 	if err != nil || host == "" || port == "" {
 		return nil, errors.New("enter the receiver as host:port")
 	}
-	transport := &http.Transport{
-		Proxy: nil,
-		TLSClientConfig: &tls.Config{
-			MinVersion:         tls.VersionTLS12,
-			InsecureSkipVerify: true, // replaced by the exact thumbprint check below
-			VerifyConnection: func(state tls.ConnectionState) error {
-				if len(state.PeerCertificates) == 0 {
-					return errors.New("the receiver sent no certificate")
-				}
-				sum := sha256.Sum256(state.PeerCertificates[0].Raw)
-				if got := vmNormalizeThumbprint(hex.EncodeToString(sum[:])); got != pinned {
-					return fmt.Errorf("the receiver's certificate thumbprint is %s, not the one entered; check that you are connecting to the right receiver", got)
-				}
-				return nil
-			},
-		},
-		MaxIdleConnsPerHost:   4,
-		ResponseHeaderTimeout: 5 * time.Minute,
-	}
+	transport := vmReceiverTransport(pinned)
 	sink := &vmRemoteSink{ctx: ctx, client: &http.Client{Transport: transport, Timeout: 10 * time.Minute}, base: &url.URL{Scheme: "https", Host: net.JoinHostPort(host, port), Path: vmReceiverAPI}, code: code, retries: 4, delay: 2 * time.Second}
 	if err := sink.call(http.MethodPost, "hello", nil, nil, nil); err != nil {
 		return nil, err
