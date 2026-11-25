@@ -25,7 +25,7 @@ function migrateDiscoveryFixture(){return {source:'FS-OLD-07',sourceFqdn:'fs-old
  localShares:['ADMIN$','C$'],volumes:[{drive:'C:',freeBytes:900e9,sizeBytes:1000e9},{drive:'D:',freeBytes:400e9,sizeBytes:500e9},{drive:'F:',freeBytes:100e9,sizeBytes:200e9}],warnings:[]};}
 function migrateIdle(){return {running:false,action:'',status:'idle',message:'',source:'',discovery:null,plan:[],space:[],prechecked:false,canCopy:false,canCutover:false,dfs:null,alias:null,sourceReadOnly:false,aliasAdded:'',logs:[],workPath:'',cancelRequested:false,startedAtUnixMs:0,endedAtUnixMs:0,account:'',accessDenied:false};}
 // Synthetic VMware environment: fictional vCenter, hosts and VMs only.
-function vmwareIdle(){return {running:false,action:'',status:'idle',message:'',server:'',account:'',certificate:null,summary:null,inventorySerial:0,outputFolder:'',reportPath:'',runbookPath:'',planCsvPath:'',guestSerial:0,guestMessage:'',guestError:false,guestWorkPath:'C:\\Users\\admin\\AppData\\Local\\Server Inventory Configuration Manager\\Guest-Migration',compareSerial:0,compareError:'',cancelRequested:false,logs:[],startedAtUnixMs:0,endedAtUnixMs:0};}
+function vmwareIdle(){return {running:false,action:'',status:'idle',message:'',server:'',account:'',certificate:null,summary:null,inventorySerial:0,outputFolder:'',reportPath:'',runbookPath:'',planCsvPath:'',guestSerial:0,guestMessage:'',guestError:false,guestWorkPath:'C:\\Users\\admin\\AppData\\Local\\Server Inventory Configuration Manager\\Guest-Migration',compareSerial:0,compareError:'',sendSerial:0,send:null,sendError:'',receiver:{running:false,port:44380,sessions:0,firewall:false,defaultFolder:'D:\\Migration\\VMware-Copies\\Received'},cancelRequested:false,logs:[],startedAtUnixMs:0,endedAtUnixMs:0};}
 // Synthetic disk converter state; formats mirror vmDiskFormatNames in vmdisk_image.go.
 function convertIdle(){return {running:false,status:'idle',message:'',source:'',target:'',format:'',info:null,progress:{pass:0,chunks:0,done:0,bytesRead:0,bytesWritten:0,changed:0,zero:0},result:null,cancelRequested:false,serial:0,startedAtUnixMs:0,endedAtUnixMs:0,
  formats:[{id:'vhdx',name:'VHDX (dynamic)',extension:'.vhdx',use:'Hyper-V, Scale HyperCore, Nutanix AHV',limit:70368744177664},{id:'qcow2',name:'qcow2',extension:'.qcow2',use:'Proxmox VE, Nutanix AHV, Scale HyperCore, KVM',limit:4611686018427387904},{id:'vmdk',name:'VMDK (monolithic sparse)',extension:'.vmdk',use:'VMware Workstation, vmkfstools -i on ESXi, Nutanix AHV',limit:2190433320960},{id:'vmdk-flat',name:'VMDK (ESXi flat)',extension:'.vmdk',use:'ESXi datastores (descriptor plus -flat.vmdk)',limit:4611686018427387904},{id:'vhd',name:'VHD (dynamic)',extension:'.vhd',use:'Older Hyper-V, Scale HyperCore, Virtual PC',limit:2190433320960},{id:'vhd-fixed',name:'VHD (fixed)',extension:'.vhd',use:'Azure uploads and tools that need a fixed VHD',limit:2190433320960},{id:'raw',name:'Raw image',extension:'.img',use:'dd, physical disks (V2P), Proxmox, any hypervisor',limit:4611686018427387904}]};}
@@ -113,6 +113,9 @@ async function fixture(browser,old=false){
    if(action==='reset'){state.vmware=Object.assign(vmwareIdle(),{inventorySerial:v.inventorySerial+1,logs:v.logs});vm.inventory=null;vm.plan=null;send(200,{ok:true});return;}
    if(action==='prepare'){Object.assign(v,{running:true,action:'prepare',status:'preparing'});send(202,{ok:true});return;}
    if(action==='move'){Object.assign(v,{running:true,action:'move',status:'moving'});send(202,{ok:true});return;}
+   if(action==='receiver'){if(data.action==='start'){v.receiver={running:true,port:data.port||44380,code:'K7QMZ-2RT4X-9WBNP-H3VDA',thumbprint:'3f9a6c0e1b7d4a25c8e0f13b6a9d2c4e7f0a1b3c5d7e9f2a4c6e8b0d1f3a5c7e',folder:data.folder||'D:\\Migration\\VMware-Copies\\Received',addresses:['192.0.2.40'],sessions:0,firewall:!!data.firewall,defaultFolder:'D:\\Migration\\VMware-Copies\\Received'};}else{v.receiver={running:false,port:44380,sessions:0,firewall:false,defaultFolder:'D:\\Migration\\VMware-Copies\\Received',message:'Stopped.'};}send(200,{ok:true});return;}
+   if(action==='agent/disks'){send(200,{ok:true,computer:'APP01',disks:[{number:0,size:107374182400,system:true,volumes:[{name:'v1',mounts:[],fileSystem:'FAT32',length:104857600},{name:'v2',mounts:['C:\\'],fileSystem:'NTFS',length:106300000000}]},{number:1,size:536870912000,system:false,volumes:[{name:'v3',mounts:['D:\\'],fileSystem:'NTFS',length:536700000000}]}]});return;}
+   if(action==='agent/send'){Object.assign(v,{running:true,action:'send',status:'sending'});send(202,{ok:true});return;}
    if(action==='guest'){send(200,{ok:true,serial:v.guestSerial,result:vm.guest});return;}
    if(action.startsWith('guest/')){Object.assign(v,{running:true,action:'guest-'+action.slice(6)});send(202,{ok:true});return;}
    if(action==='compare/browse'){send(200,{ok:true,selected:true,path:'D:\\Packages\\'+(data.side==='before'?'Before':'After'),computer:'APP01',collectedAt:data.side==='before'?'2026-11-19 22:00':'2026-11-21 07:30'});return;}
@@ -721,6 +724,34 @@ async function check(name,fn){await fn();report.checks.push({name,result:'passed
   f.rejectVmware('plan','Wave numbers go from 0 to 99.');await f.page.locator('#vmSavePlan').click();await f.page.waitForFunction(()=>document.querySelector('#vmPlanStatus').classList.contains('error'));assert.equal(await f.page.locator('#vmPlanStatus').textContent(),'Wave numbers go from 0 to 99.');
   assert.deepEqual(f.dialogs,[]);
  }finally{await f.close();}});
+ await check('VMware disk copy: the receiver shows its address, code and thumbprint; sending checks them and sends only the chosen disks',async()=>{const f=await fixture(browser);try{
+  await f.page.keyboard.press('Alt+6');await f.page.locator('[data-vmview="disks"]').click();
+  assert.equal(await f.page.locator('#vmReceiveFolder').getAttribute('placeholder'),'D:\\Migration\\VMware-Copies\\Received');
+  await f.page.locator('#vmReceivePort').fill('44a');await f.page.locator('#vmReceiveStart').click();assert((await f.page.locator('#vmReceiveStatus').textContent()).includes('as a number'));assert.equal(vmwareCalls(f,'receiver').length,0);
+  await f.page.locator('#vmReceivePort').fill('44390');await f.page.locator('#vmReceiveStart').click();
+  await f.page.waitForFunction(()=>document.querySelector('#vmReceiveCode').textContent==='K7QMZ-2RT4X-9WBNP-H3VDA');
+  assert.deepEqual(vmwareCalls(f,'receiver').map(c=>c.body),[{action:'start',folder:'',port:44390,firewall:true}]);
+  const where=await f.page.locator('#vmReceiveAddress').textContent();assert(where.includes('192.0.2.40:44390')&&where.includes('allowed in Windows Firewall'),where);
+  assert(await f.page.locator('#vmReceiveStart').isHidden());
+  await f.page.locator('#vmSendFind').click();await f.page.waitForFunction(()=>document.querySelectorAll('[data-send-disk]').length===2);
+  assert((await f.page.locator('#vmSendDisks').textContent()).includes('Disk 0, 100 GB (Windows): no drive letter FAT32'));
+  await f.page.locator('#vmSendAddress').fill('hv01.example.com');await f.page.locator('#vmSendThumbprint').fill('3F:9A:6C:0E 1b7d4a25c8e0f13b6a9d2c4e7f0a1b3c5d7e9f2a4c6e8b0d1f3a5c7e');await f.page.locator('#vmSendCode').fill('K7QMZ-2RT4X');
+  assert(await f.page.locator('#vmSendStart').isDisabled(),'this computer is receiving');
+  await f.page.locator('#vmReceiveStop').click();await f.page.waitForFunction(()=>!document.querySelector('#vmReceiveIdle').classList.contains('hidden'));assert.deepEqual(vmwareCalls(f,'receiver').at(-1).body,{action:'stop'});
+  await f.page.locator('[data-send-disk="1"]').uncheck();
+  await f.page.locator('#vmSendStart').click();assert((await f.page.locator('#vmSendStatus').textContent()).includes('20-character pairing code'));assert.equal(vmwareCalls(f,'agent/send').length,0);
+  await f.page.locator('#vmSendCode').fill('K7QMZ-2RT4X-9WBNP-H3VDA');await f.page.locator('#vmSendStart').click();
+  await f.page.waitForFunction(()=>document.querySelector('#vmwareTabBadge').textContent==='Working');
+  assert.deepEqual(vmwareCalls(f,'agent/send').map(c=>c.body),[{disks:[0],address:'hv01.example.com',thumbprint:'3F9A6C0E1b7d4a25c8e0f13b6a9d2c4e7f0a1b3c5d7e9f2a4c6e8b0d1f3a5c7e',code:'K7QMZ-2RT4X-9WBNP-H3VDA',verify:true,allowLive:false}]);
+  assert(await f.page.locator('#vmStop').isVisible(),'a send can be stopped');assert(await f.page.locator('#vmSendCode').isDisabled());
+  Object.assign(f.state.vmware,{running:false,action:'',status:'idle',message:'Sent 1 disk to hv01.example.com.',send:[{disk:0,name:'APP01-disk0.vhdx',bytesRead:42949672960,bytesWritten:1073741824,resumed:true,verified:true,passes:2,shadowed:1}],sendSerial:1});
+  await f.page.waitForFunction(()=>document.querySelector('#vmSendResults').textContent.includes('APP01-disk0.vhdx'));
+  const sent=await f.page.locator('#vmSendResults').textContent();assert(sent.includes('1.0 GB sent (pass 2, only what changed), 1 volume from a shadow copy, verified'),sent);
+  f.state.vmware.receiver={running:true,port:44380,code:'K7QMZ-2RT4X-9WBNP-H3VDA',thumbprint:'3f9a6c0e1b7d4a25c8e0f13b6a9d2c4e7f0a1b3c5d7e9f2a4c6e8b0d1f3a5c7e',folder:'D:\\Migration\\VMware-Copies\\Received',addresses:['192.0.2.40'],sessions:1,firewall:true,defaultFolder:'D:\\Migration\\VMware-Copies\\Received'};
+  await f.page.waitForFunction(()=>document.querySelector('#vmReceiveSessions').textContent==='1 disk');
+  await f.page.setViewportSize({width:1440,height:1000});await f.page.evaluate(()=>document.activeElement.blur());await f.page.locator('#vmwareBody').evaluate(e=>e.scrollTop=0);await f.page.screenshot({path:shots+'/vmware-disk-copy-1440x1000.png'});
+  assert.deepEqual(f.dialogs,[]);
+ }finally{await f.close();}});
  await check('VMware This VM: recording and checks need no confirmation; fix-ups need the typed computer name and send only the chosen items',async()=>{const f=await fixture(browser);try{
   await f.page.keyboard.press('Alt+6');await f.page.locator('[data-vmview="guest"]').click();assert(await f.page.locator('#vmGuestEmpty').isVisible());
   await f.page.locator('#vmGuestCapture').click();await f.page.waitForFunction(()=>document.querySelector('#vmwareTabBadge').textContent==='Working');assert.deepEqual(vmwareCalls(f,'guest/capture').map(c=>c.body),[{}]);
@@ -831,8 +862,8 @@ async function check(name,fn){await fn();report.checks.push({name,result:'passed
    await f.page.locator('#migrateCutover').scrollIntoViewIfNeeded();await f.page.locator('#migrateCutover').click();await inView('#migrateConfirmInput',24);await inView('#migrateConfirmButton',28);assert.deepEqual(await smallText(),[],label+' migrate dialog text below 10.5px');
    await f.page.locator('#migrateDialogCancel').click();assert(!await f.page.locator('#migrateDialog').isVisible());
    await f.page.locator('#tabButtonVmware').click();await f.page.locator('[data-vmview="env"]').click();await f.page.locator('#vmwareBody').evaluate(e=>e.scrollTop=0);await inView('#vmwareBody',withUpdate?110:150);await inView('#vmServer',24);
-   for(const view of ['env','plan','guest','compare']){await f.page.locator('[data-vmview="'+view+'"]').click();await inView('[data-vmview="'+view+'"]',24);
-    for(const target of {env:['#vmConnect','#vmTableBody tr.vm-row'],plan:['#vmSuggest','#vmWriteRunbook'],guest:['#vmGuestCapture','#vmGuestApply','#vmGuestTools'],compare:['#vmCompareRun','#vmCompareBody tr']}[view]){await f.page.locator(target).first().scrollIntoViewIfNeeded();await inView(target+':visible >> nth=0',20);}
+   for(const view of ['env','plan','guest','disks','compare']){await f.page.locator('[data-vmview="'+view+'"]').click();await inView('[data-vmview="'+view+'"]',24);
+    for(const target of {env:['#vmConnect','#vmTableBody tr.vm-row'],plan:['#vmSuggest','#vmWriteRunbook'],guest:['#vmGuestCapture','#vmGuestApply','#vmGuestTools'],disks:['#vmReceiveStart','#vmSendFind','#vmSendStart'],compare:['#vmCompareRun','#vmCompareBody tr']}[view]){await f.page.locator(target).first().scrollIntoViewIfNeeded();await inView(target+':visible >> nth=0',20);}
     assert.deepEqual(await smallText(),[],label+' vmware '+view+' text below 10.5px');assert(await f.page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),label+' vmware overflow');assert(await f.page.locator('#vmwareBody').evaluate(e=>e.scrollWidth<=e.clientWidth+1),label+' vmware panel overflow '+view);}
    if(size.width===784&&!withUpdate){await f.page.locator('[data-vmview="env"]').click();await f.page.locator('#vmwareBody').evaluate(e=>e.scrollTop=0);await f.page.screenshot({path:out+'/vmware-800x600.png'});}
    await f.page.locator('#tabButtonConvert').click();await inView('#cvStart',28);await inView('#cvSource',24);await inView('#cvBrowse',24);

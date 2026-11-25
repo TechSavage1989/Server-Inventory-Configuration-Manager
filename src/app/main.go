@@ -268,6 +268,7 @@ type application struct {
 	migrate                 migrateRuntime
 	vmware                  vmwareRuntime
 	convert                 convertRuntime
+	vmReceive               vmReceiverRuntime
 }
 
 func utf16Ptr(value string) *uint16 {
@@ -2177,6 +2178,7 @@ func (a *application) stopServer() {
 		// closes during one, ask it to stop after the current item and wait.
 		a.stopRestoreAndWait()
 		a.stopMigrateAndWait()
+		a.stopVMReceiver("")
 		a.stopWindowPersistence()
 		// Keep the local backend alive until its owned browser windows are gone.
 		// A modal page dialog must not leave an orphaned old app window.
@@ -2313,6 +2315,9 @@ func (a *application) serve(listener net.Listener) error {
 	mux.HandleFunc("/api/vmware/reset", a.handleVMwareReset)
 	mux.HandleFunc("/api/vmware/prepare", a.handleVMwarePrepare)
 	mux.HandleFunc("/api/vmware/move", a.handleVMwareMove)
+	mux.HandleFunc("/api/vmware/receiver", a.handleVMwareReceiver)
+	mux.HandleFunc("/api/vmware/agent/disks", a.handleVMwareAgentDisks)
+	mux.HandleFunc("/api/vmware/agent/send", a.handleVMwareAgentSend)
 	mux.HandleFunc("/api/vmware/guest", a.handleVMwareGuest)
 	mux.HandleFunc("/api/vmware/guest/", a.handleVMwareGuest)
 	mux.HandleFunc("/api/vmware/guest-load", a.handleVMwareGuestLoad)
