@@ -1,3 +1,7 @@
+## 3.2.33 release preparation — 2026-11-25
+
+Combined release of replication, test failover and the disk converter work (#103, #104, #105, #106, #107, #109, #110, #111, and #108 once merged). The owner chose "Publish 3.2.33 now" on the release card. This branch bumps `appVersion`, `collectorVersion` and the collector `$scriptVersion` to 3.2.33, adds `docs/release-notes/3.2.33.md` (first three bullets free of Markdown) and points `scripts/test_published_upgrade.cjs` and AGENTS.md at the published v3.2.32 executable (SHA-256 `7b1684bb0d506360ac99e06acbe2b500bcbc55a98d9cda7a985c447ca1a3a22d`).
+
 ## Unreleased: change tracking follows files whose data moved — 2026-11-25
 
 - `TestReplicationChangeTrackingMissesNothing` failed now and then on the Windows runner (16 chunks missed after `Optimize-Volume -Defrag`). Cause: data moved into clusters that were in use in both rounds (another file freed them, or defragmentation shuffled files) shows in neither the change journal nor the volume bitmap.
