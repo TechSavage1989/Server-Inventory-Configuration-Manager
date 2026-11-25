@@ -1,3 +1,12 @@
+## 3.2.30 published and verified — 2026-11-25
+
+- [Release v3.2.30](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.30) ("Server Inventory and Migration Manager 3.2.30"), tag and target commit `2a0d741f92584e7104ec6410ccc554cbf273dc8e`. Source: VMware move engine phase 1 and full discovery (#81), prepared in #82, published by #83. The owner chose to publish on 2026-11-25.
+- The [publish run](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/45563480464) (push of #83) passed first time: publish job 06:49–06:58 UTC, signed through Azure Artifact Signing over OIDC (`Get-AuthenticodeSignature` Valid, timestamped) before the tests and checksum.
+- The actual 3.2.29-to-3.2.30 upgrade, the first from a signed release to a signed release (published 3.2.29 EXE through Download and Install, restart into 3.2.30, native health, settings, shortcut, timers, cleanup and rollback), passed in one run, 06:58–07:07 UTC. Source CI on #81, #82 and #83 passed windows, restore, migration and vmguest.
+- Stable EXE: 20,794,152 bytes; SHA-256 `58d104352bb01324f28fe708ba486e48110a69bfec9d5b5b0f2b1d9e7847b328` (release asset digest). All 12 assets are published.
+
+Limits: decrypting is tested only against vcsim, which has no encryption, and the VIB list has not been read from a real host; both need field validation on the owner's vCenter. CI artifacts were not downloaded. No client data was used.
+
 ## 3.2.30 release preparation — 2026-11-25
 
 Publishing VMware move engine phase 1 and full discovery (#81), which the owner chose to publish on 2026-11-25. This branch bumps `appVersion`, `collectorVersion` and the collector `$scriptVersion` to 3.2.30, adds `docs/release-notes/3.2.30.md` (first three bullets free of Markdown) and points `scripts/test_published_upgrade.cjs` and AGENTS.md at the published, signed v3.2.29 executable (SHA-256 `d2359fd3f7025a3a32ece98627d3bb69b9dd0f88234587a9d7dc9449e7f046eb`). This is the first signed-to-signed upgrade.

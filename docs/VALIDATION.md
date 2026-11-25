@@ -1,3 +1,12 @@
+## 3.2.30 published and verified — 2026-11-25
+
+- [Release v3.2.30](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.30) ("Server Inventory and Migration Manager 3.2.30"), tag and target commit `2a0d741f92584e7104ec6410ccc554cbf273dc8e`. Source: VMware move engine phase 1 and full discovery (#81), prepared in #82, published by #83. The owner chose to publish on 2026-11-25.
+- The [publish run](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/45563480464) (push of #83) passed first time: publish job 06:49–06:58 UTC, signed through Azure Artifact Signing over OIDC (`Get-AuthenticodeSignature` Valid, timestamped) before the tests and checksum.
+- The actual 3.2.29-to-3.2.30 upgrade, the first from a signed release to a signed release (published 3.2.29 EXE through Download and Install, restart into 3.2.30, native health, settings, shortcut, timers, cleanup and rollback), passed in one run, 06:58–07:07 UTC. Source CI on #81, #82 and #83 passed windows, restore, migration and vmguest.
+- Stable EXE: 20,794,152 bytes; SHA-256 `58d104352bb01324f28fe708ba486e48110a69bfec9d5b5b0f2b1d9e7847b328` (release asset digest). All 12 assets are published.
+
+Limits: decrypting is tested only against vcsim, which has no encryption, and the VIB list has not been read from a real host; both need field validation on the owner's vCenter. CI artifacts were not downloaded. No client data was used.
+
 ## 3.2.29 published and verified — 2026-11-25
 
 - [Release v3.2.29](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.29) ("Server Inventory and Migration Manager 3.2.29"), tag and target commit `1b3ec359022b025383ede67c2ad2e65a6088dddd`. Source: Nutanix AHV, Proxmox VE, Azure, EC2 and physical (V2P) targets and the File shares label (#76), prepared in #77, published by #78, with the install-test fix #79.
