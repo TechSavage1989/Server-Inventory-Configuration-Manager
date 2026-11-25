@@ -11,6 +11,15 @@ Tests: Go unit tests with the govmomi vcsim simulator (vCenter and ESXi, wrong p
 
 Limitations: not yet run against a real vCenter or ESXi (only vcsim); the guest engine's ghost-adapter removal and VMware Tools uninstall have only negative-control coverage on CI (runners have no VMware hardware or Tools). No version bump or release yet; publication waits for the owner.
 
+## 3.2.27 published and verified — 2026-11-25
+
+- [Release v3.2.27](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.27) ("Server Inventory and Migration Manager 3.2.27"), tag and target commit `df571687c8d7b2c65a4390121c5020871b1029cb` (publication PR #68, changing only `release/VERSION`). Source: AD health and event history collector fixes #66; release preparation #67. The owner chose to merge and publish on 2026-11-25.
+- [Publish run](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/45526517533) passed in one attempt: publish job 01:32–01:38 UTC, published-upgrade job 01:38–01:47 UTC.
+- The actual 3.2.26-to-3.2.27 upgrade checks all passed in one run with zero unexpected dialogs (update, settings, shortcut, timers, cleanup and rollback). Source CI on #66, #67 and #68 passed windows, restore and migration. `Test-Report.ps1` reproduced the field "Cannot run a document in the middle of a pipeline" failure with a `Get-WinEvent` file on PATH and passed the module-qualified call.
+- Stable EXE: 7,728,640 bytes; SHA-256 `390bc1bf4cc0e403adae35e88706ffdfa30c966ebf89be2d48d72f6cebc2946f` (release asset digest, matches the public feed). All 12 assets are published; the v3.2.26 release still has its 12 assets and the same EXE digest. `Report-Preview.png` is unchanged.
+
+Limits: the Active Directory fix has not run on a domain controller (hosted runners are not domain controllers); confirm with a collection on the affected server. CI artifacts were not downloaded. No client data was uploaded.
+
 ## 3.2.27 release preparation — 2026-11-25
 
 Publishing the AD health and event history collector fixes (#66), which the owner chose to merge and publish on 2026-11-25. This branch bumps `appVersion`, `collectorVersion` and the collector `$scriptVersion` to 3.2.27, adds `docs/release-notes/3.2.27.md` (first three bullets free of Markdown) and points `scripts/test_published_upgrade.cjs` at the published v3.2.26 executable (SHA-256 `39349764101de3ab9dc3d4950ff7875496d1b127ff6306eec582521dfc066a59`, release asset digest). `release/VERSION` changes in a separate publication PR after this source CI passes. `Report-Preview.png` should be unchanged.
