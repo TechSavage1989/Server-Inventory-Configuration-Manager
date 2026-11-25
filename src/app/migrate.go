@@ -429,6 +429,8 @@ func (a *application) startMigrateAction(action string) (int, string) {
 		refusal = "A restore is running. Wait for it to finish first."
 	case a.migrateBusyLocked():
 		refusal = "A migration step is already running."
+	case a.vmwareBusyLocked():
+		refusal = "A VMware step is running. Wait for it to finish first."
 	default:
 		a.migrate.action = action
 		a.migrate.cancelRequested = false

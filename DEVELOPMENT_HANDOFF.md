@@ -1,3 +1,16 @@
+## Unreleased: VMware migration features — 2026-11-25
+
+User request (an MSP migrating VMware/ESXi to Scale Computing HyperCore and Hyper-V): "work on all of the features" from the proposed set. Branch `claude/project-thread-741oy5`. A new **VMware** tab (Alt+6) with four views:
+
+- **Environment:** read-only vCenter/ESXi inventory through govmomi v0.38.0 (`vmware_collect.go`): datacenters, clusters (HA/DRS), hosts, datastores, standard and distributed port groups with VLANs, and every VM's hardware, disks (RDM, sharing, independent), NICs (with guest IPs and static detection), snapshots, media, passthrough, USB, serial, vTPM and encryption. Untrusted certificates need an explicit thumbprint trust. `assessVM` (`vmware_model.go`) marks each VM Ready / Review first / Blocked for Hyper-V and for HyperCore with actions. Outputs: `VMware-Inventory.json`, `VMware-Readiness-Report.html` and CSVs in `<output>\VMware_<server>_<time>`.
+- **Plan and runbook:** cluster sizing with N+reserve, network/VLAN and datastore mapping, waves with hold/exclude/notes and Suggest waves; `Migration-Runbook.html` and `Migration-Plan.csv` (`vmware_plan.go`, `vmware_report.go`). The plan is saved per server under LocalAppData `VMware\`.
+- **This VM:** `Migrate-VmGuest.ps1` records a Windows guest's IP settings, disks, drivers and services before cutover, then puts static IPs back on the new adapters (with Undo), removes hidden old adapters, brings data disks online and removes VMware Tools. Changing steps need the typed computer name.
+- **Before and after:** `compare.go` compares two collection packages (folder or ZIP) across 19 datasets and separates changes expected from a move (VMware Tools, adapters, drivers) from ones to check; writes an HTML report and CSV.
+
+Tests: Go unit tests with the govmomi vcsim simulator (vCenter and ESXi, wrong password, certificate trust/mismatch), readiness/plan/sizing/report escaping/CSV neutralisation, and comparison of synthetic packages. Browser checks in `scripts/test_workspace.cjs` (four new checks plus low-resolution coverage of every VMware view; screenshots `docs/images/vmware-readiness.png`, `vmware-plan.png`). New CI job `vmguest` runs `scripts/Test-VmGuest.ps1`, a real round trip on a Microsoft loopback adapter. The VM guest engine originally logged with `Write-Output`, which would have mixed log lines into every result; it now writes to standard output directly.
+
+Limitations: not yet run against a real vCenter or ESXi (only vcsim); the guest engine's ghost-adapter removal and VMware Tools uninstall have only negative-control coverage on CI (runners have no VMware hardware or Tools). No version bump or release yet; publication waits for the owner.
+
 ## 3.2.27 published and verified — 2026-11-25
 
 - [Release v3.2.27](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.27) ("Server Inventory and Migration Manager 3.2.27"), tag and target commit `df571687c8d7b2c65a4390121c5020871b1029cb` (publication PR #68, changing only `release/VERSION`). Source: AD health and event history collector fixes #66; release preparation #67. The owner chose to merge and publish on 2026-11-25.

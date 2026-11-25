@@ -67,7 +67,7 @@ const (
 	lrLoadFromFile = 0x0010
 )
 
-//go:embed Export-ServerInventory.ps1 Run-Inventory.ps1 Restore-ServerConfiguration.ps1 Migrate-FileShares.ps1 index.html favicon.ico app-icon.png assets/icons/server-inventory.svg
+//go:embed Export-ServerInventory.ps1 Run-Inventory.ps1 Restore-ServerConfiguration.ps1 Migrate-FileShares.ps1 Migrate-VmGuest.ps1 index.html favicon.ico app-icon.png assets/icons/server-inventory.svg
 var embeddedPayloads embed.FS
 
 var (
@@ -170,6 +170,7 @@ type stateResponse struct {
 	LoadedReportSerial      uint64                 `json:"loadedReportSerial"`
 	Restore                 restoreStateResponse   `json:"restore"`
 	Migrate                 migrateStateResponse   `json:"migrate"`
+	VMware                  vmwareStateResponse    `json:"vmware"`
 	Logs                    []logEntry             `json:"logs"`
 	NextLogIndex            int                    `json:"nextLogIndex"`
 }
@@ -264,6 +265,7 @@ type application struct {
 	loadedReportSerial      uint64
 	restore                 restoreRuntime
 	migrate                 migrateRuntime
+	vmware                  vmwareRuntime
 }
 
 func utf16Ptr(value string) *uint16 {
@@ -1317,6 +1319,7 @@ func (a *application) snapshot(since int) stateResponse {
 		LoadedReportSerial:      a.loadedReportSerial,
 		Restore:                 a.restoreSnapshotLocked(),
 		Migrate:                 a.migrateSnapshotLocked(),
+		VMware:                  a.vmwareSnapshotLocked(),
 		Logs:                    logs,
 		NextLogIndex:            a.nextLogIndex,
 	}
@@ -1525,6 +1528,11 @@ func (a *application) handleStart(response http.ResponseWriter, request *http.Re
 		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "A file migration step is running. Wait for it to finish before collecting."})
 		return
 	}
+	if a.vmwareBusyLocked() {
+		a.mu.Unlock()
+		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "A VMware step is running. Wait for it to finish before collecting."})
+		return
+	}
 	a.mu.Unlock()
 
 	runID, err := randomHex(16)
@@ -1551,6 +1559,11 @@ func (a *application) handleStart(response http.ResponseWriter, request *http.Re
 	if a.migrateBusyLocked() {
 		a.mu.Unlock()
 		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "A file migration step is running. Wait for it to finish before collecting."})
+		return
+	}
+	if a.vmwareBusyLocked() {
+		a.mu.Unlock()
+		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "A VMware step is running. Wait for it to finish before collecting."})
 		return
 	}
 	a.state = internalState{
@@ -1683,6 +1696,26 @@ func (a *application) handleOpen(response http.ResponseWriter, request *http.Req
 	case "repository":
 		urlTarget = repositoryURL
 	default:
+		if vmTarget, vmFolder, known := a.vmwareOpenTarget(strings.ToLower(input.Kind)); known {
+			target = vmTarget
+			if vmFolder {
+				if strings.TrimSpace(target) == "" {
+					writeJSON(response, http.StatusNotFound, map[string]any{"ok": false, "error": "The requested output path is not available."})
+					return
+				}
+				if _, err := os.Stat(target); err != nil {
+					writeJSON(response, http.StatusNotFound, map[string]any{"ok": false, "error": "The requested output does not exist: " + err.Error()})
+					return
+				}
+				if err := shellOpenFolder(target); err != nil {
+					writeJSON(response, http.StatusInternalServerError, map[string]any{"ok": false, "error": "Windows could not open the requested output: " + err.Error()})
+					return
+				}
+				writeJSON(response, http.StatusOK, map[string]any{"ok": true})
+				return
+			}
+			break
+		}
 		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "The requested output type was not recognized."})
 		return
 	}
@@ -1806,6 +1839,7 @@ func (a *application) handleShutdown(response http.ResponseWriter, request *http
 	running := a.state.Running
 	restoring := a.restore.status == "running"
 	migrating := a.migrate.action != ""
+	vmwareStep := a.vmware.action
 	a.mu.Unlock()
 	if running {
 		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "The application cannot close while collection is running. Cancel the collection first."})
@@ -1817,6 +1851,10 @@ func (a *application) handleShutdown(response http.ResponseWriter, request *http
 	}
 	if migrating {
 		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "The application cannot close while a file migration step is running. Stop it first; a stopped copy continues where it left off next time."})
+		return
+	}
+	if vmwareStep != "" {
+		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "The application cannot close while a VMware step is running. Wait for it to finish, or stop it."})
 		return
 	}
 	writeJSON(response, http.StatusOK, map[string]any{"ok": true})
@@ -2248,6 +2286,18 @@ func (a *application) serve(listener net.Listener) error {
 	mux.HandleFunc("/api/migrate/alias", a.handleMigrateAlias)
 	mux.HandleFunc("/api/migrate/cancel", a.handleMigrateCancel)
 	mux.HandleFunc("/api/migrate/reset", a.handleMigrateReset)
+	mux.HandleFunc("/api/vmware/connect", a.handleVMwareConnect)
+	mux.HandleFunc("/api/vmware/cancel", a.handleVMwareCancel)
+	mux.HandleFunc("/api/vmware/open-inventory", a.handleVMwareOpenInventory)
+	mux.HandleFunc("/api/vmware/inventory", a.handleVMwareInventory)
+	mux.HandleFunc("/api/vmware/plan", a.handleVMwarePlan)
+	mux.HandleFunc("/api/vmware/export-plan", a.handleVMwareExportPlan)
+	mux.HandleFunc("/api/vmware/reset", a.handleVMwareReset)
+	mux.HandleFunc("/api/vmware/guest", a.handleVMwareGuest)
+	mux.HandleFunc("/api/vmware/guest/", a.handleVMwareGuest)
+	mux.HandleFunc("/api/vmware/guest-load", a.handleVMwareGuestLoad)
+	mux.HandleFunc("/api/vmware/compare/browse", a.handleVMwareCompareBrowse)
+	mux.HandleFunc("/api/vmware/compare", a.handleVMwareCompare)
 	mux.HandleFunc("/api/ui/ready", a.handleUIReady)
 	mux.HandleFunc("/api/update/check", a.handleUpdateCheck)
 	mux.HandleFunc("/api/update/download", a.handleUpdateDownload)

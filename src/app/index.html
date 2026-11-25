@@ -439,6 +439,55 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
 @media(max-height:720px){.migrate-section{margin-top:8px;padding:9px 11px}.migrate-steps{margin-bottom:6px}.migrate-log{max-height:150px;min-height:80px}}
 @media(max-width:900px){.restore-components{grid-template-columns:1fr}.restore-facts{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:520px){.restore-facts{grid-template-columns:1fr}}
+#vmwareBody{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden}
+.vm-bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 16px;padding:10px 18px 0;flex:0 0 auto}
+.vm-views{display:flex;flex-wrap:wrap;gap:6px}
+.vm-view{height:32px;padding:0 14px;border:1px solid #cfd8e4;border-radius:999px;background:#fff;color:#334156;font-size:12px;font-weight:650;cursor:pointer}
+.vm-view:hover{background:#f5f7fa}.vm-view[aria-pressed="true"]{background:#2563eb;border-color:#2563eb;color:#fff}
+.vm-target{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;font-size:12px;color:#334156}.vm-target-label{font-weight:650}
+.vm-target label{display:inline-flex;align-items:center;gap:6px;cursor:pointer}.vm-target input{width:15px;height:15px;margin:0;accent-color:#2563eb}
+.vm-counts{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;align-items:stretch}
+.vm-count{min-width:96px;border:1px solid #dbe3ed;border-radius:9px;padding:6px 12px;background:#fff;font:inherit;font-size:12px;color:#52647c;cursor:pointer;text-align:left}
+.vm-count strong{display:block;font-size:18px;line-height:1.2;color:#1b2942}
+.vm-count.ready strong{color:#1d6b43}.vm-count.review strong{color:#8a5612}.vm-count.blocked strong{color:#a33b3b}
+.vm-count[aria-pressed="true"]{border-color:#2563eb;box-shadow:inset 0 0 0 1px #2563eb;background:#f7faff}
+.vm-counts-title{margin-top:12px;font-size:13px;font-weight:700;color:#1b2942}
+.vm-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:10px}
+.vm-toolbar input[type=search],.vm-toolbar input[type=number]{flex:1 1 200px;min-width:0;max-width:320px;height:32px;box-sizing:border-box;border:1px solid #bcc9d9;border-radius:7px;padding:0 10px;font:inherit;font-size:12px}
+.vm-toolbar input[type=number]{flex:0 0 76px}
+.vm-toolbar label{font-size:12px;color:#334156;font-weight:650}
+.vm-note{font-size:12px;color:#596b80}
+.vm-table-wrap{margin-top:8px;border:1px solid #e0e6ee;border-radius:9px;max-height:360px;overflow:auto}
+.vm-table{width:100%;border-collapse:collapse;font-size:12px}
+.vm-table th{position:sticky;top:0;z-index:1;background:#f5f7fa;text-align:left;padding:6px 8px;color:#334156;font-weight:650;white-space:nowrap}
+.vm-table td{padding:5px 8px;border-top:1px solid #edf1f6;vertical-align:top;overflow-wrap:anywhere;color:#23334b}
+.vm-table tr.vm-row{cursor:pointer}.vm-table tr.vm-row:hover{background:#f7faff}.vm-table tr.vm-row.selected{background:#eaf1ff}
+.vm-table tr.vm-row:focus{outline:2px solid #2563eb;outline-offset:-2px}
+.vm-table input[type=text],.vm-table input[type=number]{width:100%;min-width:60px;box-sizing:border-box;height:28px;border:1px solid #bcc9d9;border-radius:6px;padding:0 6px;font:inherit;font-size:12px}
+.vm-table input[type=number]{max-width:72px}.vm-table input[type=checkbox]{width:15px;height:15px;margin:0;accent-color:#2563eb}
+.vm-table .vm-sub{display:block;color:#596b80;font-size:11px}
+.vm-table td.vm-changes{background:#fbfcfe}.vm-changes ul{margin:0;padding-left:18px}.vm-changes li{margin:2px 0}
+.vm-detail{margin-top:10px;border:1px solid #dbe3ed;border-radius:10px;padding:10px 12px;background:#fbfcfe;font-size:12px;color:#334156}
+.vm-detail-head{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;font-size:13px;color:#1b2942}
+.vm-detail-line{margin-top:5px;color:#52647c;overflow-wrap:anywhere}
+.vm-findings{margin:6px 0 0;padding-left:18px;font-size:12px;color:#334156}.vm-findings li{margin:4px 0;overflow-wrap:anywhere}
+.vm-findings .blocker{color:#8c2626;font-weight:600}.vm-findings .warning{color:#74551f}.vm-findings .good{color:#1d6b43}
+.vm-finding-action{display:block;font-weight:400;color:#52647c}
+.vm-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px 12px;margin-top:8px}
+.vm-grid label{display:block;font-size:12px;font-weight:650;color:#334156;min-width:0}
+.vm-grid input{display:block;width:100%;box-sizing:border-box;height:30px;margin-top:4px;border:1px solid #bcc9d9;border-radius:7px;padding:0 8px;font:inherit;font-size:12px;font-weight:400}
+.vm-sizing{margin-top:10px;font-size:12px;color:#334156}.vm-sizing ul{margin:4px 0 0;padding-left:18px}
+.vm-sizing-head{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin-bottom:4px}
+.vm-empty{margin-top:10px;padding:12px;border:1px dashed #cfd8e4;border-radius:9px;background:#fbfcfe;font-size:12px;color:#596b80}
+.vm-two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:10px}
+.vm-guest-cards{grid-template-columns:repeat(2,minmax(0,1fr))}
+.vm-pick{display:block;margin-top:8px;padding-top:8px;border-top:1px solid #edf1f6}.vm-pick:first-child{border-top:0;padding-top:0}
+.vm-pick-old{font-weight:650;color:#23334b;overflow-wrap:anywhere}
+.vm-pick select{display:block;width:100%;max-width:100%;box-sizing:border-box;height:30px;margin-top:4px;border:1px solid #bcc9d9;border-radius:7px;padding:0 6px;font:inherit;font-size:12px;background:#fff}
+.vm-check{display:flex;align-items:flex-start;gap:7px;margin-top:6px;cursor:pointer;overflow-wrap:anywhere}.vm-check input{width:15px;height:15px;margin:2px 0 0;flex:none;accent-color:#2563eb}
+.vm-cert dl{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:3px 10px;margin:8px 0 0}.vm-cert dt{font-weight:650}.vm-cert dd{margin:0;overflow-wrap:anywhere}
+@media(max-width:900px){.vm-two,.vm-guest-cards{grid-template-columns:1fr}}
+@media(max-height:720px){.vm-table-wrap{max-height:230px}.vm-bar{padding-top:6px}.vm-counts{margin-top:6px}.vm-count strong{font-size:15px}}
 @media(max-height:720px){.restore-log{max-height:160px;min-height:90px}.restore-facts{margin-top:10px;padding:8px 10px}.restore-components{margin-top:10px}.restore-dialog-body{max-height:calc(100vh - 120px)}}
 
 /* Low-resolution support (800x600 and 1024x768 consoles, Server 2012 era browsers).
@@ -503,6 +552,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       <button class="tab-button" id="tabButtonReport" role="tab" aria-controls="tabReport" aria-selected="false" tabindex="-1" type="button" data-tab="report">Report Viewer <span class="tab-badge" id="reportTabBadge">None</span></button>
       <button class="tab-button" id="tabButtonRestore" role="tab" aria-controls="tabRestore" aria-selected="false" tabindex="-1" type="button" data-tab="restore">Restore <span class="tab-badge" id="restoreTabBadge">Ready</span></button>
       <button class="tab-button" id="tabButtonMigrate" role="tab" aria-controls="tabMigrate" aria-selected="false" tabindex="-1" type="button" data-tab="migrate">Migrate <span class="tab-badge" id="migrateTabBadge">Ready</span></button>
+      <button class="tab-button" id="tabButtonVmware" role="tab" aria-controls="tabVmware" aria-selected="false" tabindex="-1" type="button" data-tab="vmware">VMware <span class="tab-badge" id="vmwareTabBadge">Ready</span></button>
     </div>
 
     <div class="app-notice hidden" id="appNotice" role="status"><span id="appNoticeText"></span><button type="button" id="dismissNotice" aria-label="Dismiss message">Dismiss</button></div>
@@ -712,13 +762,115 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       </div></div>
     </section>
 
+    <section class="tab-panel" id="tabVmware" role="tabpanel" aria-labelledby="tabButtonVmware">
+      <div class="restore-wrap"><div class="card">
+        <div class="card-header"><div><div class="card-title">Move VMs off VMware</div><div class="card-subtitle">Check every VM before moving it to Hyper-V or Scale Computing HyperCore, plan the waves, prepare each VM and compare it after the move. vCenter and ESXi are only read, never changed.</div></div></div>
+        <div class="vm-bar">
+          <div class="vm-views" role="group" aria-label="VMware migration views"><button class="vm-view" type="button" data-vmview="env" aria-pressed="true">Environment</button><button class="vm-view" type="button" data-vmview="plan" aria-pressed="false">Plan and runbook</button><button class="vm-view" type="button" data-vmview="guest" aria-pressed="false">This VM</button><button class="vm-view" type="button" data-vmview="compare" aria-pressed="false">Before and after</button></div>
+          <div class="vm-target" role="radiogroup" aria-labelledby="vmTargetLabel"><span class="vm-target-label" id="vmTargetLabel">Moving to</span><label><input type="radio" name="vmTarget" id="vmTargetHyperv" value="hyperv" checked>Hyper-V</label><label><input type="radio" name="vmTarget" id="vmTargetScale" value="scale">Scale HyperCore</label></div>
+        </div>
+        <div class="card-body" id="vmwareBody">
+          <div class="restore-status" id="vmwareMessage" role="status" aria-live="polite"></div>
+          <div id="vmViewEnv">
+            <section class="migrate-section" aria-labelledby="vmConnectTitle">
+              <h3 class="migrate-section-title" id="vmConnectTitle">Read a vCenter or ESXi host</h3>
+              <p class="migrate-help">Use a read-only account. The password is kept in memory until you close the application or choose Forget, and is never saved.</p>
+              <div class="migrate-row"><input type="text" id="vmServer" aria-label="vCenter or ESXi host name" placeholder="vCenter or ESXi host, for example vc01.example.com" autocomplete="off" spellcheck="false" maxlength="260"></div>
+              <div class="migrate-row"><input type="text" id="vmUser" aria-label="vCenter or ESXi user name" placeholder="User, for example readonly@vsphere.local" autocomplete="off" spellcheck="false" maxlength="256"><input type="password" id="vmPassword" aria-label="vCenter or ESXi password" placeholder="Password" autocomplete="new-password" maxlength="256"><button class="primary-button" id="vmConnect" type="button" disabled>Read inventory</button></div>
+              <div class="migrate-row"><button class="secondary-button" id="vmOpenInventory" type="button">Open a saved inventory&hellip;</button><button class="secondary-button hidden" id="vmReset" type="button">Forget</button></div>
+              <div class="migrate-inline-status" id="vmConnectStatus" role="status" aria-live="polite"></div>
+              <div class="restore-alert danger vm-cert hidden" id="vmCert"><strong id="vmCertTitle"></strong><div id="vmCertReason"></div><dl><dt>Issued to</dt><dd id="vmCertSubject"></dd><dt>Issued by</dt><dd id="vmCertIssuer"></dd><dt>Expires</dt><dd id="vmCertExpires"></dd><dt>SHA-256</dt><dd id="vmCertThumbprint"></dd></dl><div>Compare the thumbprint with the one shown on the server's console or by your administrator before trusting it. It is trusted only for this session.</div><div class="migrate-row"><button class="secondary-button" id="vmCertTrust" type="button">Trust this certificate and read</button></div></div>
+            </section>
+            <div class="hidden" id="vmEnvResult">
+              <div class="restore-facts"><div><span class="restore-fact-label">Server</span><span class="restore-fact-value" id="vmFactServer"></span></div><div><span class="restore-fact-label">Version</span><span class="restore-fact-value" id="vmFactProduct"></span></div><div><span class="restore-fact-label">Read at</span><span class="restore-fact-value" id="vmFactRead"></span></div><div><span class="restore-fact-label">Hosts</span><span class="restore-fact-value" id="vmFactHosts"></span></div><div><span class="restore-fact-label">VMs</span><span class="restore-fact-value" id="vmFactVMs"></span></div><div><span class="restore-fact-label">Compute</span><span class="restore-fact-value" id="vmFactCompute"></span></div><div><span class="restore-fact-label">Storage</span><span class="restore-fact-value" id="vmFactStorage"></span></div><div><span class="restore-fact-label">Watch for</span><span class="restore-fact-value" id="vmFactWatch"></span></div></div>
+              <div class="vm-counts-title" id="vmCountsTitle">Readiness</div>
+              <div class="vm-counts" role="group" aria-label="Filter VMs by readiness"><button class="vm-count" type="button" data-vmfilter="all" aria-pressed="true"><strong id="vmCountAll">0</strong>All VMs</button><button class="vm-count blocked" type="button" data-vmfilter="blocked" aria-pressed="false"><strong id="vmCountBlocked">0</strong>Blocked</button><button class="vm-count review" type="button" data-vmfilter="review" aria-pressed="false"><strong id="vmCountReview">0</strong>Review first</button><button class="vm-count ready" type="button" data-vmfilter="ready" aria-pressed="false"><strong id="vmCountReady">0</strong>Ready</button></div>
+              <div class="vm-toolbar"><input type="search" id="vmSearch" aria-label="Search VMs" placeholder="Search VMs, guest OS, host or IP" autocomplete="off" spellcheck="false"><span class="vm-note" id="vmTableNote"></span><button class="secondary-button" id="vmOpenReport" type="button">Open readiness report</button><button class="secondary-button" id="vmOpenFolder" type="button">Open folder</button></div>
+              <div class="vm-table-wrap"><table class="vm-table"><thead><tr><th>VM</th><th>Power</th><th>Guest OS</th><th>Size</th><th>Disks</th><th>Readiness</th><th>First thing to fix</th></tr></thead><tbody id="vmTableBody"></tbody></table></div>
+              <div class="vm-detail hidden" id="vmDetail" aria-live="polite"></div>
+            </div>
+          </div>
+          <div class="hidden" id="vmViewPlan">
+            <div class="vm-empty" id="vmPlanEmpty">Read a vCenter or ESXi inventory, or open a saved one, to plan the move.</div>
+            <div class="hidden" id="vmPlanContent">
+              <section class="migrate-section" aria-labelledby="vmCapacityTitle">
+                <h3 class="migrate-section-title" id="vmCapacityTitle">New cluster size</h3>
+                <p class="migrate-help">Describe the new Hyper-V or HyperCore cluster to check that the VMs you are moving fit, with room for a node to fail.</p>
+                <div class="vm-grid"><label>Nodes<input type="number" id="vmCapNodes" min="0" max="64" step="1"></label><label>Cores per node<input type="number" id="vmCapCores" min="0" max="512" step="1"></label><label>Memory per node (GB)<input type="number" id="vmCapMemory" min="0" max="65536" step="1"></label><label>Usable storage (TB)<input type="number" id="vmCapStorage" min="0" max="100000" step="0.1"></label><label>Nodes kept free<input type="number" id="vmCapReserve" min="0" max="8" step="1"></label><label>Most vCPU per core<input type="number" id="vmCapRatio" min="0" max="32" step="0.5"></label><label>Memory kept for the host (GB)<input type="number" id="vmCapReservedMem" min="0" max="4096" step="1"></label></div>
+                <div class="vm-sizing" id="vmSizing" aria-live="polite"></div>
+              </section>
+              <section class="migrate-section" aria-labelledby="vmMapTitle">
+                <h3 class="migrate-section-title" id="vmMapTitle">Networks and storage</h3>
+                <p class="migrate-help">Name the network and VLAN each VMware network becomes, and where each datastore's disks go. The runbook uses these names.</p>
+                <div class="vm-two">
+                  <div class="vm-table-wrap"><table class="vm-table"><thead><tr><th>VMware network</th><th>New network</th><th>New VLAN</th></tr></thead><tbody id="vmNetBody"></tbody></table></div>
+                  <div class="vm-table-wrap"><table class="vm-table"><thead><tr><th>Datastore</th><th>New storage</th></tr></thead><tbody id="vmStoreBody"></tbody></table></div>
+                </div>
+              </section>
+              <section class="migrate-section" aria-labelledby="vmWaveTitle">
+                <h3 class="migrate-section-title" id="vmWaveTitle">Waves</h3>
+                <p class="migrate-help">Put each VM in a wave, hold blocked VMs until they are fixed, and exclude anything that is not moving. Suggest waves puts blocked VMs on hold, powered-off VMs first and the rest in waves of the size you choose.</p>
+                <div class="vm-toolbar"><label for="vmWaveSize">VMs per wave</label><input type="number" id="vmWaveSize" min="1" max="200" step="1" value="10"><button class="secondary-button" id="vmSuggest" type="button">Suggest waves</button><input type="search" id="vmWaveSearch" aria-label="Search VMs in the plan" placeholder="Search VMs" autocomplete="off" spellcheck="false"><span class="vm-note" id="vmWaveSummary"></span></div>
+                <div class="vm-table-wrap"><table class="vm-table"><thead><tr><th>VM</th><th>Readiness</th><th>Wave</th><th>Hold</th><th>Exclude</th><th>Notes</th></tr></thead><tbody id="vmWaveBody"></tbody></table></div>
+              </section>
+              <div class="migrate-row"><button class="primary-button" id="vmSavePlan" type="button">Save plan</button><button class="secondary-button" id="vmWriteRunbook" type="button">Write runbook</button><button class="secondary-button hidden" id="vmOpenRunbook" type="button">Open runbook</button><button class="secondary-button hidden" id="vmOpenPlanCsv" type="button">Open plan CSV</button><span class="vm-note" id="vmPlanDirtyNote"></span></div>
+              <div class="migrate-inline-status" id="vmPlanStatus" role="status" aria-live="polite"></div>
+            </div>
+          </div>
+          <div class="hidden" id="vmViewGuest">
+            <div class="restore-alert danger hidden" id="vmGuestAdmin"><strong>Run the application as administrator on this VM</strong> to record or fix it.</div>
+            <section class="migrate-section" aria-labelledby="vmGuestBeforeTitle">
+              <h3 class="migrate-section-title" id="vmGuestBeforeTitle">Before cutover: record this VM's settings</h3>
+              <p class="migrate-help">Run this application on the Windows VM while it is still on VMware. Recording saves its IP settings, disks, drivers and running services and checks it is ready to move. Nothing is changed.</p>
+              <div class="migrate-row"><button class="primary-button" id="vmGuestCapture" type="button">Record settings</button><button class="secondary-button" id="vmGuestStatus" type="button">Check this VM</button><button class="secondary-button" id="vmGuestLoad" type="button">Load a recording&hellip;</button><button class="secondary-button" id="vmGuestOpen" type="button">Open work folder</button></div>
+              <div class="migrate-inline-status" id="vmGuestMessage" role="status" aria-live="polite"></div>
+              <div class="restore-facts hidden" id="vmGuestFacts"><div><span class="restore-fact-label">Computer</span><span class="restore-fact-value" id="vmGuestComputer"></span></div><div><span class="restore-fact-label">Running on</span><span class="restore-fact-value" id="vmGuestPlatform"></span></div><div><span class="restore-fact-label">Windows</span><span class="restore-fact-value" id="vmGuestOs"></span></div><div><span class="restore-fact-label">Recorded</span><span class="restore-fact-value" id="vmGuestRecorded"></span></div></div>
+              <ul class="vm-findings hidden" id="vmGuestFindings"></ul>
+            </section>
+            <section class="migrate-section" aria-labelledby="vmGuestAfterTitle">
+              <h3 class="migrate-section-title" id="vmGuestAfterTitle">After cutover: fix up this VM</h3>
+              <p class="migrate-help">Run these on the VM once it starts on Hyper-V or HyperCore. Each step asks you to type this computer's name. Network changes save the current settings first so you can undo them.</p>
+              <div class="vm-empty" id="vmGuestEmpty">Choose Check this VM to see what needs fixing.</div>
+              <div class="migrate-cards vm-guest-cards hidden" id="vmGuestCards">
+                <div class="migrate-card"><h4>Put back IP settings</h4><div id="vmGuestIpText"></div><div id="vmGuestIpRows"></div><div class="migrate-row"><button class="secondary-button" id="vmGuestApply" type="button">Put back IP settings&hellip;</button><button class="secondary-button hidden" id="vmGuestUndo" type="button">Undo&hellip;</button></div></div>
+                <div class="migrate-card"><h4>Remove hidden network adapters</h4><div id="vmGuestGhostText"></div><div id="vmGuestGhostRows"></div><div class="migrate-row"><button class="secondary-button" id="vmGuestGhosts" type="button">Remove selected&hellip;</button></div></div>
+                <div class="migrate-card"><h4>Bring disks online</h4><div id="vmGuestDiskText"></div><div id="vmGuestDiskRows"></div><div class="migrate-row"><button class="secondary-button" id="vmGuestDisks" type="button">Bring online&hellip;</button></div></div>
+                <div class="migrate-card"><h4>Remove VMware Tools</h4><div id="vmGuestToolsText"></div><div class="migrate-row"><button class="secondary-button" id="vmGuestTools" type="button">Remove VMware Tools&hellip;</button></div></div>
+              </div>
+              <ul class="vm-findings hidden" id="vmGuestAfterNotes"></ul>
+            </section>
+          </div>
+          <div class="hidden" id="vmViewCompare">
+            <p class="migrate-help">Collect an inventory of the server on the Setup tab before the move, and again once it runs on the new platform. Then compare the two packages. Changes you would expect from a move, such as VMware Tools going away, are counted separately from the ones to check.</p>
+            <div class="vm-two">
+              <div class="migrate-card"><h4>Before the move</h4><div id="vmCompareBeforeText">Not chosen yet.</div><div class="migrate-row"><button class="secondary-button" id="vmCompareBefore" type="button">Choose package&hellip;</button></div></div>
+              <div class="migrate-card"><h4>After the move</h4><div id="vmCompareAfterText">Not chosen yet.</div><div class="migrate-row"><button class="secondary-button" id="vmCompareAfter" type="button">Choose package&hellip;</button><button class="secondary-button hidden" id="vmCompareUseLast" type="button">Use the last collection</button></div></div>
+            </div>
+            <div class="migrate-row"><button class="primary-button" id="vmCompareRun" type="button" disabled>Compare</button><button class="secondary-button hidden" id="vmCompareReport" type="button">Open comparison report</button><button class="secondary-button hidden" id="vmCompareFolder" type="button">Open folder</button></div>
+            <div class="migrate-inline-status" id="vmCompareStatus" role="status" aria-live="polite"></div>
+            <div class="hidden" id="vmCompareResult">
+              <div class="restore-facts"><div><span class="restore-fact-label">Before</span><span class="restore-fact-value" id="vmCompareFactBefore"></span></div><div><span class="restore-fact-label">After</span><span class="restore-fact-value" id="vmCompareFactAfter"></span></div><div><span class="restore-fact-label">To check</span><span class="restore-fact-value" id="vmCompareFactAttention"></span></div><div><span class="restore-fact-label">Expected after a move</span><span class="restore-fact-value" id="vmCompareFactExpected"></span></div></div>
+              <div class="vm-counts-title" id="vmCompareAttentionTitle">Check these</div>
+              <ul class="vm-findings" id="vmCompareAttention"></ul>
+              <div class="vm-table-wrap"><table class="vm-table"><thead><tr><th>Area</th><th>Before</th><th>After</th><th>Added</th><th>Removed</th><th>Changed</th><th>Expected</th></tr></thead><tbody id="vmCompareBody"></tbody></table></div>
+            </div>
+          </div>
+          <details class="migrate-log-block" id="vmLogBlock">
+            <summary>VMware log</summary>
+            <div class="log-view migrate-log" id="vmLog" tabindex="0" aria-label="VMware log"></div>
+          </details>
+        </div>
+        <div class="action-bar setup-action-bar"><div class="scope-note"><span id="vmFooter">Reading vCenter or ESXi changes nothing there. Steps on this VM ask before changing anything.</span></div><div class="setup-actions"><button class="secondary-button danger-button hidden" id="vmStop" type="button">Stop</button></div></div>
+      </div></div>
+    </section>
+
     <div class="footer">All collection and report viewing remains local to this computer. No server inventory is uploaded by the application.</div>
   </div>
 </div>
 <dialog class="shortcuts-dialog" id="shortcutsDialog" aria-labelledby="shortcutsTitle">
   <div class="shortcuts-head"><h2 id="shortcutsTitle">Keyboard shortcuts</h2><button class="secondary-button" id="shortcutsClose" type="button">Close</button></div>
   <dl class="shortcuts-list">
-    <dt><kbd>Alt</kbd> + <kbd>1</kbd> / <kbd>2</kbd> / <kbd>3</kbd> / <kbd>4</kbd> / <kbd>5</kbd></dt><dd>Go to Setup, Collection, Report Viewer, Restore or Migrate</dd>
+    <dt><kbd>Alt</kbd> + <kbd>1</kbd> to <kbd>6</kbd></dt><dd>Go to Setup, Collection, Report Viewer, Restore, Migrate or VMware</dd>
     <dt><kbd>/</kbd> or <kbd>Ctrl</kbd> + <kbd>K</kbd></dt><dd>Search the current tab: categories, log or report</dd>
     <dt><kbd>Esc</kbd></dt><dd>Clear the search you are typing in</dd>
     <dt><kbd>Ctrl</kbd> + <kbd>S</kbd></dt><dd>Save collection choices (Setup)</dd>
@@ -881,7 +1033,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   }
   function switchTab(name) {
     activeTab = name;
-    var names = ['setup','collection','report','restore','migrate'];
+    var names = ['setup','collection','report','restore','migrate','vmware'];
     for (var i=0;i<names.length;i++) {
       var n=names[i];
       byId('tab'+n.charAt(0).toUpperCase()+n.slice(1)).className = 'tab-panel' + (n===name ? ' active' : '');
@@ -926,8 +1078,8 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     syncCategoryState();markChoicesDirty();
   }
   function setConfigDisabled(disabled){
-    // A running restore or migration step also locks collection; the server enforces the same rule.
-    disabled=!!disabled||configurationBusy||restoreIsRunning(latestState&&latestState.restore)||migrateIsRunning();
+    // A running restore, migration or VMware step also locks collection; the server enforces the same rule.
+    disabled=!!disabled||configurationBusy||restoreIsRunning(latestState&&latestState.restore)||migrateIsRunning()||vmwareIsRunning();
     var nodes=document.querySelectorAll('#configBody input,#configBody button'); for(var i=0;i<nodes.length;i++){nodes[i].disabled=disabled;}
     byId('startButton').disabled=!!disabled;byId('saveChoicesButton').disabled=!!disabled;
     byId('configBody').className=disabled?'card-body locked':'card-body'; if(!disabled){syncCategoryState();}
@@ -1173,6 +1325,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     renderUpdate(state.update,!!state.running);
     renderRestore(state);
     renderMigrate(state);
+    renderVMware(state);
     if(!preferencesLoaded){
       preferencesLoaded=true;
       if(!preferencesDirty){
@@ -1338,7 +1491,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     if(uiLifecycle!=='active'||e.defaultPrevented){return;}
     if(byId('shortcutsDialog').open||byId('aboutDialog').open||byId('restoreDialog').open||byId('migrateDialog').open){return;}
     var key=e.key||'',ctrl=e.ctrlKey||e.metaKey,typing=isTyping(e.target);
-    if(e.altKey&&!ctrl&&(key==='1'||key==='2'||key==='3'||key==='4'||key==='5')){e.preventDefault();var tab=['setup','collection','report','restore','migrate'][Number(key)-1];switchTab(tab);byId('tabButton'+tab.charAt(0).toUpperCase()+tab.slice(1)).focus();return;}
+    if(e.altKey&&!ctrl&&/^[1-6]$/.test(key)){e.preventDefault();var tab=['setup','collection','report','restore','migrate','vmware'][Number(key)-1];switchTab(tab);byId('tabButton'+tab.charAt(0).toUpperCase()+tab.slice(1)).focus();return;}
     if(ctrl&&!e.altKey&&(key==='s'||key==='S')){e.preventDefault();if(activeTab==='setup'){saveChoices();}return;}
     if(ctrl&&!e.altKey&&key==='Enter'){if(activeTab==='setup'){e.preventDefault();startCollection();}return;}
     if(ctrl&&!e.altKey&&(key==='k'||key==='K')){e.preventDefault();focusTabSearch();return;}
@@ -1357,7 +1510,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   function restoreFinished(r){return !!(r&&(r.status==='succeeded'||r.status==='failed'||r.status==='canceled'));}
   function restoreState(){return (latestState&&latestState.restore)||null;}
   function restoreScan(){var r=restoreState();return r&&r.scan&&r.status!=='scanning'?r.scan:null;}
-  function restoreLocked(){var r=restoreState();return restoreBusy||restoreIsRunning(r)||!!(r&&r.status==='scanning')||!!(latestState&&latestState.running)||migrateIsRunning();}
+  function restoreLocked(){var r=restoreState();return restoreBusy||restoreIsRunning(r)||!!(r&&r.status==='scanning')||!!(latestState&&latestState.running)||migrateIsRunning()||vmwareIsRunning();}
   function trimText(value){return String(value||'').replace(/^\s+|\s+$/g,'');}
   function restoreItemsOf(component){
     var items=component.items||[];
@@ -1445,8 +1598,8 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     var r=restoreState()||{},scan=restoreScan(),running=restoreIsRunning(r),collecting=!!(latestState&&latestState.running);
     var progressView=!byId('restoreProgress').classList.contains('hidden'),packages=r.packages||{},locked=restoreLocked(),review=byId('restoreReviewButton');
     review.classList.toggle('hidden',progressView);
-    review.disabled=!scan||!scan.isAdministrator||!restoreSelectedPlan().length||running||collecting||restoreBusy||r.status==='scanning'||migrateIsRunning();
-    review.title=!scan?'Choose an inventory package first.':(!scan.isAdministrator?'Run the application as administrator to restore.':(collecting?'Wait for the collection to finish first.':(migrateIsRunning()?'Wait for the file migration step to finish first.':'')));
+    review.disabled=!scan||!scan.isAdministrator||!restoreSelectedPlan().length||running||collecting||restoreBusy||r.status==='scanning'||migrateIsRunning()||vmwareIsRunning();
+    review.title=!scan?'Choose an inventory package first.':(!scan.isAdministrator?'Run the application as administrator to restore.':(collecting?'Wait for the collection to finish first.':(migrateIsRunning()?'Wait for the file migration step to finish first.':(vmwareIsRunning()?'Wait for the VMware step to finish first.':''))));
     byId('restoreUseLatest').disabled=locked||!packages.lastCollection;byId('restoreUseLoaded').disabled=locked||!packages.loadedReport;byId('restoreBrowse').disabled=locked;
     byId('restoreUseLatest').title=packages.lastCollection||'No collection has finished yet.';
     byId('restoreUseLoaded').title=packages.loadedReport||'Load a report in the Report Viewer first.';
@@ -1579,7 +1732,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   function migrateIsRunning(){var m=migrateState();return !!(m&&m.running);}
   function migrateDiscovery(){var m=migrateState();return m&&m.discovery&&m.action!=='discover'?m.discovery:null;}
   function migrateAdmin(){return !!(latestState&&latestState.isAdministrator);}
-  function migrateLocked(){return migrateBusy||migrateIsRunning()||!!(latestState&&latestState.running)||restoreIsRunning(latestState&&latestState.restore)||!migrateAdmin();}
+  function migrateLocked(){return migrateBusy||migrateIsRunning()||!!(latestState&&latestState.running)||restoreIsRunning(latestState&&latestState.restore)||vmwareIsRunning()||!migrateAdmin();}
   function formatBytesShort(value){var n=Number(value)||0,units=['bytes','KB','MB','GB','TB','PB'],i=0;while(n>=1024&&i<units.length-1){n=n/1024;i++;}return (i===0?String(n):(n>=100?n.toFixed(0):n.toFixed(1)))+' '+units[i];}
   function formatCount(value){var n=Math.round(Number(value)||0),s=String(n);return s.replace(/\B(?=(\d{3})+(?!\d))/g,',');}
   function migrateDefaultDrive(discovery){
@@ -1843,7 +1996,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   function closeMigrateDialog(){if(migrateBusy){return;}var d=byId('migrateDialog');if(d.close){d.close();}else{d.removeAttribute('open');}migrateDialogAction=null;}
   function confirmMigrateDialog(){
     var a=migrateDialogAction;if(!a||!migrateDialogMatches()||migrateBusy){return;}
-    var body={};body[a.field]=trimText(byId('migrateConfirmInput').value);
+    var body={};if(a.body){for(var k in a.body){if(a.body.hasOwnProperty(k)){body[k]=a.body[k];}}}body[a.field]=trimText(byId('migrateConfirmInput').value);
     migrateBusy=true;byId('migrateConfirmButton').disabled=true;byId('migrateDialogCancel').disabled=true;byId('migrateConfirmInput').disabled=true;byId('migrateDialogError').classList.add('hidden');
     request('POST',a.path,body,function(err){
       migrateBusy=false;byId('migrateDialogCancel').disabled=false;byId('migrateConfirmInput').disabled=false;
@@ -1904,6 +2057,437 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   byId('migrateConfirmButton').addEventListener('click',confirmMigrateDialog);
   byId('migrateDialogCancel').addEventListener('click',closeMigrateDialog);
   byId('migrateDialog').addEventListener('cancel',function(e){if(migrateBusy){e.preventDefault();}});
+  // ---- VMware tab ----------------------------------------------------------
+  // The server owns VMware state (state.vmware). The inventory, plan, guest
+  // result and comparison are fetched when their serial numbers change.
+  var vmView='env',vmInventory=null,vmPlan=null,vmSizing=null,vmInvSerial=0,vmInvLoading=false,vmPlanDirty=false,vmSelectedVM='',vmFilter='all',vmBusy=false,vmTargetLocal='hyperv';
+  var vmGuest=null,vmGuestSerial=0,vmGuestLoading=false,vmGuestChoices={},vmGhostChoices={},vmDiskChoices={};
+  var vmCompare=null,vmCompareDatasets=[],vmCompareSerial=0,vmCompareLoading=false,vmCompareBeforePath='',vmCompareAfterPath='',vmCompareOpen={},vmLogKey='';
+  var vmRowLimit=400,vmStatusLabels={ready:'Ready',review:'Review first',blocked:'Blocked'};
+  function vmwareState(){return (latestState&&latestState.vmware)||null;}
+  function vmwareIsRunning(){var v=vmwareState();return !!(v&&v.running);}
+  function vmArr(value){if(value===null||value===undefined||value===''){return [];}return Object.prototype.toString.call(value)==='[object Array]'?value:[value];}
+  function vmOtherBusy(){return !!(latestState&&latestState.running)||restoreIsRunning(latestState&&latestState.restore)||migrateIsRunning();}
+  function vmLocked(){return vmBusy||vmwareIsRunning()||vmOtherBusy();}
+  function vmTarget(){return vmPlan&&vmPlan.target?vmPlan.target:vmTargetLocal;}
+  function vmTargetName(target){return target==='scale'?'Scale HyperCore':'Hyper-V';}
+  function vmReadiness(vm){var list=vmArr(vm.readiness),target=vmTarget();for(var i=0;i<list.length;i++){if(list[i].target===target){return list[i];}}return {target:target,status:'review',findings:[]};}
+  function vmChip(status){return el('span','run-chip '+({ready:'run-ready',review:'run-attention',blocked:'run-failed'}[status]||''),vmStatusLabels[status]||status);}
+  function vmFind(id){var list=vmInventory?vmArr(vmInventory.vms):[];for(var i=0;i<list.length;i++){if(list[i].id===id){return list[i];}}return null;}
+  function vmPower(vm){return {poweredOn:'On',poweredOff:'Off',suspended:'Suspended'}[vm.powerState]||vm.powerState||'';}
+  function vmSetStatus(id,text,error){var node=byId(id);node.textContent=text||'';node.className='migrate-inline-status'+(error?' error':'');}
+  function vmComputer(){return (latestState&&latestState.computerName)||'';}
+  function vmPost(path,body,statusId,done){
+    if(vmBusy){return;}
+    vmBusy=true;syncVmButtons();if(statusId){vmSetStatus(statusId,'',false);}
+    request('POST',path,body,function(err,data){vmBusy=false;if(err){if(statusId){vmSetStatus(statusId,err,true);}else{notice(err,true);}}if(done){done(err,data||{});}syncVmButtons();});
+  }
+  function vmMarkRunning(action,status,message,guest){
+    var v=vmwareState();
+    if(v){v.running=true;v.action=action;v.cancelRequested=false;if(status){v.status=status;}if(guest){v.guestMessage=message;v.guestError=false;}else if(message){v.message=message;}}
+    if(latestState){renderVMware(latestState);setConfigDisabled(!!latestState.running);}
+  }
+  function setVmView(name){
+    vmView=name;
+    ['env','plan','guest','compare'].forEach(function(n){byId('vmView'+n.charAt(0).toUpperCase()+n.slice(1)).classList.toggle('hidden',n!==name);document.querySelector('[data-vmview="'+n+'"]').setAttribute('aria-pressed',n===name?'true':'false');});
+  }
+  function renderVMware(state){
+    var v=state.vmware||{status:'idle',logs:[]};
+    var badge=v.running?(v.action==='connect'?'Reading':'Working'):({connected:'Read',connectfailed:'Failed'}[v.status]||'Ready');
+    byId('vmwareTabBadge').textContent=badge;
+    var message=byId('vmwareMessage');message.textContent=v.message||'';message.className='restore-status'+(v.status==='connectfailed'?' error':'');
+    var server=byId('vmServer'),user=byId('vmUser');
+    if(v.server&&!server.value&&document.activeElement!==server){server.value=v.server;}
+    if(v.account&&!user.value&&document.activeElement!==user){user.value=v.account;}
+    renderVmCertificate(v);renderVmSummary(v);
+    if((v.inventorySerial||0)!==vmInvSerial&&!vmInvLoading){loadVmInventory(v.inventorySerial||0);}
+    if((v.guestSerial||0)!==vmGuestSerial&&!vmGuestLoading){loadVmGuest(v.guestSerial||0);}
+    if((v.compareSerial||0)!==vmCompareSerial&&!vmCompareLoading){loadVmCompare(v.compareSerial||0);}
+    var guestMessage=byId('vmGuestMessage');guestMessage.textContent=v.guestMessage||'';guestMessage.className='migrate-inline-status'+(v.guestError?' error':'');
+    byId('vmGuestAdmin').classList.toggle('hidden',!!state.isAdministrator);
+    if(v.compareError&&!v.running){vmSetStatus('vmCompareStatus',v.compareError,true);}
+    byId('vmOpenRunbook').classList.toggle('hidden',!v.runbookPath);byId('vmOpenPlanCsv').classList.toggle('hidden',!v.planCsvPath);
+    byId('vmOpenReport').classList.toggle('hidden',!v.reportPath);byId('vmOpenFolder').classList.toggle('hidden',!v.outputFolder);
+    var last=state.restore&&state.restore.packages&&state.restore.packages.lastCollection;
+    byId('vmCompareUseLast').classList.toggle('hidden',!last);
+    renderVmLog(v);syncVmButtons();
+  }
+  function syncVmButtons(){
+    var v=vmwareState()||{},locked=vmLocked(),running=!!v.running,admin=!!(latestState&&latestState.isAdministrator);
+    ['vmServer','vmUser','vmPassword'].forEach(function(id){byId(id).disabled=running;});
+    byId('vmConnect').disabled=locked||!trimText(byId('vmServer').value)||!trimText(byId('vmUser').value);
+    byId('vmOpenInventory').disabled=locked;byId('vmCertTrust').disabled=locked;
+    byId('vmReset').classList.toggle('hidden',!v.server&&!v.summary);byId('vmReset').disabled=locked;
+    var stop=byId('vmStop');stop.classList.toggle('hidden',!(running&&(v.action==='connect'||v.action==='compare')));stop.disabled=!!v.cancelRequested;stop.textContent=v.cancelRequested?'Stopping...':'Stop';
+    ['vmTargetHyperv','vmTargetScale'].forEach(function(id){byId(id).disabled=vmBusy||running;});
+    var hasPlan=!!(vmInventory&&vmPlan);
+    byId('vmSavePlan').disabled=locked||!hasPlan;byId('vmSuggest').disabled=locked||!hasPlan;byId('vmWriteRunbook').disabled=locked||!hasPlan;
+    byId('vmPlanDirtyNote').textContent=vmPlanDirty?'Unsaved changes.':'';
+    ['vmGuestCapture','vmGuestStatus'].forEach(function(id){byId(id).disabled=locked||!admin;});byId('vmGuestLoad').disabled=locked;
+    syncVmGuestButtons();
+    byId('vmCompareBefore').disabled=locked;byId('vmCompareAfter').disabled=locked;byId('vmCompareUseLast').disabled=locked;
+    byId('vmCompareRun').disabled=locked||!vmCompareBeforePath||!vmCompareAfterPath;
+    byId('vmCompareReport').classList.toggle('hidden',!(vmCompare&&vmCompare.reportPath));byId('vmCompareFolder').classList.toggle('hidden',!vmCompare);
+  }
+  function renderVmCertificate(v){
+    var c=v.certificate,box=byId('vmCert');box.classList.toggle('hidden',!c||!!v.running);
+    if(!c){return;}
+    byId('vmCertTitle').textContent=c.mismatch?'The certificate changed since it was trusted. Do not continue unless you expected this.':'Windows does not trust this server\'s certificate.';
+    byId('vmCertReason').textContent=c.reason||'';byId('vmCertSubject').textContent=c.subject||'';byId('vmCertIssuer').textContent=c.issuer||'';byId('vmCertExpires').textContent=c.notAfter||'';byId('vmCertThumbprint').textContent=c.thumbprint||'';
+  }
+  function renderVmSummary(v){
+    var s=v.summary;byId('vmEnvResult').classList.toggle('hidden',!s);
+    if(!s){return;}
+    byId('vmFactServer').textContent=s.server+(s.serverType?' ('+s.serverType+')':'');byId('vmFactProduct').textContent=s.product||'Unknown';byId('vmFactRead').textContent=s.collectedAt||'';
+    byId('vmFactHosts').textContent=vmPlural(s.hosts,'host')+(s.clusters?', '+vmPlural(s.clusters,'cluster'):'');
+    byId('vmFactVMs').textContent=formatCount(s.vms)+' ('+formatCount(s.poweredOn)+' on'+(s.templates?', '+vmPlural(s.templates,'template'):'')+')';
+    byId('vmFactCompute').textContent=formatCount(s.vcpus)+' vCPU, '+formatBytesShort(s.memoryBytes)+' memory';
+    byId('vmFactStorage').textContent=formatBytesShort(s.usedBytes)+' used, '+formatBytesShort(s.provisionedBytes)+' provisioned';
+    byId('vmFactWatch').textContent=vmPlural(s.snapshots,'snapshot')+', '+vmPlural(s.staticIpVms,'VM')+' with static IPs';
+    var r={ready:0,review:0,blocked:0};vmArr(s.readiness).forEach(function(x){if(x.target===vmTarget()){r=x;}});
+    byId('vmCountsTitle').textContent='Readiness for '+vmTargetName(vmTarget());
+    byId('vmCountAll').textContent=formatCount(r.ready+r.review+r.blocked);byId('vmCountBlocked').textContent=formatCount(r.blocked);byId('vmCountReview').textContent=formatCount(r.review);byId('vmCountReady').textContent=formatCount(r.ready);
+  }
+  function vmPlural(n,word){n=Number(n)||0;return formatCount(n)+' '+word+(n===1?'':'s');}
+  function loadVmInventory(serial){
+    vmInvLoading=true;
+    request('GET','/api/vmware/inventory',null,function(err,data){
+      vmInvLoading=false;vmInvSerial=serial;
+      if(err){notice(err,true);return;}
+      if(data.serial!==undefined){vmInvSerial=data.serial;}
+      vmInventory=data.inventory||null;vmPlan=data.plan||null;vmSizing=data.sizing||null;vmPlanDirty=false;
+      if(vmPlan&&vmPlan.target){vmTargetLocal=vmPlan.target;}
+      if(!vmFind(vmSelectedVM)){vmSelectedVM='';}
+      renderVmTable();renderVmPlan();if(latestState){renderVMware(latestState);}
+    });
+  }
+  function vmMatches(vm,query){if(!query){return true;}return [vm.name,vm.guestOs,vm.guestOsRunning,vm.host,vm.cluster,vm.folder,vm.ipAddress,vm.guestHostName].join(' ').toLowerCase().indexOf(query)>=0;}
+  function vmTopFinding(r){
+    var findings=vmArr(r.findings),order={blocker:0,warning:1,info:2},best=null;
+    findings.forEach(function(f){if(!best||order[f.severity]<order[best.severity]){best=f;}});
+    if(!best||best.severity==='info'){return 'Nothing to fix.';}
+    var more=findings.filter(function(f){return f.severity!=='info';}).length-1;
+    return best.message+(more>0?' (and '+more+' more)':'');
+  }
+  function renderVmTable(){
+    var body=byId('vmTableBody');body.textContent='';
+    if(!vmInventory){byId('vmDetail').classList.add('hidden');return;}
+    var query=trimText(byId('vmSearch').value).toLowerCase(),shown=0,total=0,fragment=document.createDocumentFragment();
+    vmArr(vmInventory.vms).forEach(function(vm){
+      var r=vmReadiness(vm);if(vmFilter!=='all'&&r.status!==vmFilter){return;}if(!vmMatches(vm,query)){return;}
+      total++;if(shown>=vmRowLimit){return;}shown++;
+      var tr=el('tr','vm-row'+(vm.id===vmSelectedVM?' selected':''));tr.setAttribute('data-vm-id',vm.id);tr.tabIndex=0;
+      var name=el('td','');name.appendChild(el('strong','',vm.name));if(vm.template){name.appendChild(el('span','vm-sub','Template'));}else if(vm.cluster||vm.host){name.appendChild(el('span','vm-sub',vm.cluster||vm.host));}
+      tr.appendChild(name);tr.appendChild(el('td','',vmPower(vm)));tr.appendChild(el('td','',vm.guestOsRunning||vm.guestOs||'Unknown'));
+      tr.appendChild(el('td','',vm.cpus+' vCPU, '+formatBytesShort((Number(vm.memoryMb)||0)*1048576)));
+      tr.appendChild(el('td','',formatBytesShort(vm.provisionedBytes)+(vmArr(vm.disks).length>1?' ('+vmArr(vm.disks).length+')':'')));
+      var status=el('td','');status.appendChild(vmChip(r.status));tr.appendChild(status);tr.appendChild(el('td','',vmTopFinding(r)));
+      fragment.appendChild(tr);
+    });
+    body.appendChild(fragment);
+    if(!total){var empty=el('tr','');var cell=el('td','',query||vmFilter!=='all'?'No VMs match.':'No VMs were found.');cell.colSpan=7;empty.appendChild(cell);body.appendChild(empty);}
+    byId('vmTableNote').textContent=total>shown?'Showing '+shown+' of '+formatCount(total)+'. Search to narrow the list.':vmPlural(total,'VM');
+    renderVmDetail();
+  }
+  function renderVmDetail(){
+    var box=byId('vmDetail'),vm=vmFind(vmSelectedVM);box.textContent='';box.classList.toggle('hidden',!vm);
+    if(!vm){return;}
+    var r=vmReadiness(vm),head=el('div','vm-detail-head');head.appendChild(el('strong','',vm.name));head.appendChild(vmChip(r.status));
+    if(r.generation){head.appendChild(el('span','vm-note','Hyper-V generation '+r.generation));}
+    box.appendChild(head);
+    box.appendChild(el('div','vm-detail-line',[vm.guestOsRunning||vm.guestOs,vm.firmware?String(vm.firmware).toUpperCase()+(vm.secureBoot?' with Secure Boot':''):'','hardware '+(vm.hardwareVersion||'?'),vm.toolsStatus?'VMware Tools '+vm.toolsStatus:'',vm.host?'on '+vm.host:''].filter(function(x){return !!x;}).join(' · ')));
+    var list=el('ul','vm-findings');
+    vmArr(r.findings).forEach(function(f){var li=el('li',f.severity,f.message);if(f.action){li.appendChild(el('span','vm-finding-action',f.action));}list.appendChild(li);});
+    if(!list.childNodes.length){list.appendChild(el('li','good','Nothing to fix before moving to '+vmTargetName(vmTarget())+'.'));}
+    box.appendChild(list);
+    var disks=vmArr(vm.disks).map(function(d){return d.label+' '+formatBytesShort(d.capacityBytes)+(d.datastore?' on '+d.datastore:'')+(d.rdm?' (RDM, '+d.rdm+')':'');});
+    var nics=vmArr(vm.nics).map(function(n){var ips=vmArr(n.ipAddresses);return n.label+' '+(n.adapterType||'')+' on '+(n.network||'no network')+(ips.length?' '+ips.join(', '):'')+(n.static?' (static)':'');});
+    if(disks.length){box.appendChild(el('div','vm-detail-line','Disks: '+disks.join('; ')));}
+    if(nics.length){box.appendChild(el('div','vm-detail-line','Network: '+nics.join('; ')));}
+    var snaps=vmArr(vm.snapshots);if(snaps.length){box.appendChild(el('div','vm-detail-line','Snapshots: '+snaps.map(function(s){return s.name;}).join(', ')));}
+  }
+  function selectVmRow(row){if(!row||!row.getAttribute('data-vm-id')){return;}vmSelectedVM=row.getAttribute('data-vm-id');Array.prototype.forEach.call(byId('vmTableBody').querySelectorAll('tr.vm-row'),function(tr){tr.classList.toggle('selected',tr===row);});renderVmDetail();}
+  function setVmFilter(filter){vmFilter=filter;Array.prototype.forEach.call(document.querySelectorAll('[data-vmfilter]'),function(b){b.setAttribute('aria-pressed',b.getAttribute('data-vmfilter')===filter?'true':'false');});renderVmTable();}
+  function connectVmware(thumbprint){
+    if(vmLocked()){return;}
+    var server=trimText(byId('vmServer').value),user=trimText(byId('vmUser').value),password=byId('vmPassword').value,v=vmwareState()||{};
+    if(!server){vmSetStatus('vmConnectStatus','Type the vCenter or ESXi host name.',true);byId('vmServer').focus();return;}
+    if(!user){vmSetStatus('vmConnectStatus','Type a user name, for example readonly@vsphere.local or root.',true);byId('vmUser').focus();return;}
+    var held=String(v.account||'').toLowerCase()===user.toLowerCase()&&String(v.server||'').toLowerCase()===server.toLowerCase();
+    if(!password&&!held){vmSetStatus('vmConnectStatus','Type the password for '+user+'.',true);byId('vmPassword').focus();return;}
+    var body={server:server,user:user,password:password};if(thumbprint){body.thumbprint=thumbprint;}
+    vmPost('/api/vmware/connect',body,'vmConnectStatus',function(err){if(!err){byId('vmPassword').value='';vmMarkRunning('connect','connecting','Connecting to '+server+' as '+user+'.');}});
+  }
+  // ---- Plan ----
+  var vmCapacityFields=[{id:'vmCapNodes',key:'nodes',whole:true},{id:'vmCapCores',key:'coresPerNode',whole:true},{id:'vmCapMemory',key:'memoryGbPerNode',whole:true},{id:'vmCapStorage',key:'usableStorageTb'},{id:'vmCapReserve',key:'reserveNodes',whole:true},{id:'vmCapRatio',key:'maxVcpuPerCore'},{id:'vmCapReservedMem',key:'reservedMemoryGbPerNode',whole:true}];
+  function vmMarkPlanDirty(){vmPlanDirty=true;syncVmButtons();renderVmSizing();}
+  function renderVmPlan(){
+    var has=!!(vmInventory&&vmPlan);byId('vmPlanEmpty').classList.toggle('hidden',has);byId('vmPlanContent').classList.toggle('hidden',!has);
+    byId('vmTargetHyperv').checked=vmTarget()!=='scale';byId('vmTargetScale').checked=vmTarget()==='scale';
+    if(!has){return;}
+    var capacity=vmPlan.capacity||(vmPlan.capacity={});
+    vmCapacityFields.forEach(function(f){var input=byId(f.id);if(document.activeElement!==input){input.value=capacity[f.key]?String(capacity[f.key]):'';}});
+    renderVmSizing();renderVmMaps();renderVmWaves();syncVmButtons();
+  }
+  function renderVmSizing(){
+    var box=byId('vmSizing'),s=vmSizing;box.textContent='';
+    if(!s){return;}
+    var head=el('div','vm-sizing-head');
+    head.appendChild(el('span','run-chip '+({ok:'run-ready',tight:'run-attention',over:'run-failed'}[s.status]||''),{ok:'Fits',tight:'Tight',over:'Does not fit'}[s.status]||'Not described'));
+    head.appendChild(el('span','','Moving '+vmPlural(s.vms,'VM')+': '+formatCount(s.vcpus)+' vCPU, '+formatBytesShort(s.memoryBytes)+' memory, '+formatBytesShort(s.usedBytes)+' used ('+formatBytesShort(s.provisionedBytes)+' provisioned).'));
+    box.appendChild(head);
+    if(s.configured){box.appendChild(el('div','','On '+vmPlural(s.usableNodes,'usable node')+': '+(Number(s.vcpuPerCore)||0).toFixed(1)+' vCPU per core, memory '+Math.round(Number(s.memoryPercent)||0)+'% used, storage '+Math.round(Number(s.storagePercent)||0)+'% used ('+Math.round(Number(s.provisionedPercent)||0)+'% if every disk fills).'));}
+    var notes=el('ul','');vmArr(s.notes).forEach(function(n){notes.appendChild(el('li','',n));});if(notes.childNodes.length){box.appendChild(notes);}
+    if(vmPlanDirty){box.appendChild(el('div','migrate-detail','Save the plan to check the size again.'));}
+  }
+  function vmCellInput(type,value,label,set,attrs){
+    var td=el('td',''),input=document.createElement('input');input.type=type;input.value=value===undefined||value===null?'':String(value);input.setAttribute('aria-label',label);
+    for(var k in attrs){if(attrs.hasOwnProperty(k)){input.setAttribute(k,attrs[k]);}}
+    input.addEventListener('input',function(){set(input.value);vmMarkPlanDirty();});td.appendChild(input);return td;
+  }
+  function vmCellCheck(checked,label,set){var td=el('td',''),input=document.createElement('input');input.type='checkbox';input.checked=!!checked;input.setAttribute('aria-label',label);input.addEventListener('change',function(){set(input.checked);vmMarkPlanDirty();renderVmWaveSummary();});td.appendChild(input);return td;}
+  function renderVmMaps(){
+    var net=byId('vmNetBody'),store=byId('vmStoreBody');net.textContent='';store.textContent='';
+    vmArr(vmPlan.networks).forEach(function(n){var tr=el('tr','');tr.appendChild(el('td','',n.source+(n.sourceVlan?' (VLAN '+n.sourceVlan+')':'')));
+      tr.appendChild(vmCellInput('text',n.targetName,'New network for '+n.source,function(value){n.targetName=value;},{maxlength:'128'}));
+      tr.appendChild(vmCellInput('text',n.targetVlan,'New VLAN for '+n.source,function(value){n.targetVlan=value;},{maxlength:'4',inputmode:'numeric'}));net.appendChild(tr);});
+    vmArr(vmPlan.storage).forEach(function(s){var tr=el('tr','');tr.appendChild(el('td','',s.source));tr.appendChild(vmCellInput('text',s.target,'New storage for '+s.source,function(value){s.target=value;},{maxlength:'128'}));store.appendChild(tr);});
+    if(!net.childNodes.length){var a=el('tr',''),ac=el('td','','No networks.');ac.colSpan=3;a.appendChild(ac);net.appendChild(a);}
+    if(!store.childNodes.length){var b=el('tr',''),bc=el('td','','No datastores.');bc.colSpan=2;b.appendChild(bc);store.appendChild(b);}
+  }
+  function renderVmWaves(){
+    var body=byId('vmWaveBody'),query=trimText(byId('vmWaveSearch').value).toLowerCase(),shown=0,fragment=document.createDocumentFragment();body.textContent='';
+    vmArr(vmPlan.vms).forEach(function(p){
+      var vm=vmFind(p.id);if(query&&String(p.name).toLowerCase().indexOf(query)<0){return;}
+      if(shown>=vmRowLimit){return;}shown++;
+      var tr=el('tr',''),name=el('td','');name.appendChild(el('strong','',p.name));if(vm){name.appendChild(el('span','vm-sub',vmPower(vm)+', '+formatBytesShort(vm.provisionedBytes)));}tr.appendChild(name);
+      var status=el('td','');if(vm){status.appendChild(vmChip(vmReadiness(vm).status));}tr.appendChild(status);
+      tr.appendChild(vmCellInput('number',p.wave||'','Wave for '+p.name,function(value){var n=parseInt(value,10);p.wave=isNaN(n)?0:Math.max(0,Math.min(99,n));renderVmWaveSummary();},{min:'0',max:'99',step:'1','data-vm-wave':p.id}));
+      tr.appendChild(vmCellCheck(p.hold,'Hold '+p.name,function(on){p.hold=on;}));
+      tr.appendChild(vmCellCheck(p.exclude,'Exclude '+p.name,function(on){p.exclude=on;}));
+      tr.appendChild(vmCellInput('text',p.notes,'Notes for '+p.name,function(value){p.notes=value;},{maxlength:'500'}));
+      fragment.appendChild(tr);
+    });
+    body.appendChild(fragment);renderVmWaveSummary();
+  }
+  function renderVmWaveSummary(){
+    var waves={},hold=0,excluded=0,none=0;
+    vmArr(vmPlan&&vmPlan.vms).forEach(function(p){if(p.exclude){excluded++;}else if(p.hold){hold++;}else if(p.wave>0){waves[p.wave]=(waves[p.wave]||0)+1;}else{none++;}});
+    var parts=Object.keys(waves).sort(function(a,b){return a-b;}).map(function(w){return 'wave '+w+': '+waves[w];});
+    if(none){parts.push(none+' not in a wave');}if(hold){parts.push(hold+' on hold');}if(excluded){parts.push(excluded+' excluded');}
+    byId('vmWaveSummary').textContent=parts.join(', ');
+  }
+  function vmCollectCapacity(){
+    var capacity=vmPlan.capacity||(vmPlan.capacity={});
+    vmCapacityFields.forEach(function(f){var n=Number(byId(f.id).value);if(isNaN(n)||n<0){n=0;}capacity[f.key]=f.whole?Math.round(n):n;});
+  }
+  function saveVmPlan(extra,status,done){
+    if(!vmPlan||vmLocked()){return;}
+    vmCollectCapacity();var body={plan:vmPlan};if(extra){for(var k in extra){if(extra.hasOwnProperty(k)){body[k]=extra[k];}}}
+    vmPost('/api/vmware/plan',body,'vmPlanStatus',function(err,data){
+      if(err){if(done){done(err);}return;}
+      vmPlan=data.plan;vmSizing=data.sizing;vmPlanDirty=false;renderVmPlan();renderVmSummary(vmwareState()||{});renderVmTable();
+      vmSetStatus('vmPlanStatus',data.warning||status||'Plan saved.',!!data.warning);if(done){done(null);}
+    });
+  }
+  function changeVmTarget(target){
+    if(target===vmTarget()){return;}
+    vmTargetLocal=target;
+    if(vmPlan){vmPlan.target=target;saveVmPlan(null,'Plan saved for '+vmTargetName(target)+'.');}
+    renderVmSummary(vmwareState()||{});renderVmTable();
+  }
+  // ---- This VM ----
+  function loadVmGuest(serial){
+    vmGuestLoading=true;
+    request('GET','/api/vmware/guest',null,function(err,data){
+      vmGuestLoading=false;vmGuestSerial=serial;
+      if(err){notice(err,true);return;}
+      if(data.serial!==undefined){vmGuestSerial=data.serial;}
+      vmGuest=data.result||null;renderVmGuest();
+    });
+  }
+  function vmAddressText(adapter){return vmArr(adapter.Addresses).map(function(a){return a.Address+'/'+a.PrefixLength;}).join(', ');}
+  function vmCheckRow(host,label,detail,checked,attr,value,onChange){
+    var row=el('label','vm-check'),box=document.createElement('input');box.type='checkbox';box.checked=!!checked;box.setAttribute(attr,value);box.addEventListener('change',function(){onChange(box.checked);syncVmGuestButtons();});
+    var text=el('span','',label);if(detail){text.appendChild(el('span','vm-sub',detail));}row.appendChild(box);row.appendChild(text);host.appendChild(row);
+  }
+  function renderVmGuest(){
+    var g=vmGuest,state=g&&g.State,capture=g&&g.Capture;
+    byId('vmGuestFacts').classList.toggle('hidden',!state);byId('vmGuestEmpty').classList.toggle('hidden',!!state);byId('vmGuestCards').classList.toggle('hidden',!state);
+    var findings=byId('vmGuestFindings');findings.textContent='';
+    if(!state){findings.classList.add('hidden');byId('vmGuestAfterNotes').classList.add('hidden');syncVmGuestButtons();return;}
+    var platform=state.Platform||{};
+    byId('vmGuestComputer').textContent=state.ComputerName+(state.Domain?' ('+state.Domain+')':'');
+    byId('vmGuestPlatform').textContent=platform.Name||'Unknown';
+    byId('vmGuestOs').textContent=(state.OperatingSystem||'')+(state.Firmware?', '+state.Firmware+(state.SecureBoot?' with Secure Boot':''):'');
+    byId('vmGuestRecorded').textContent=capture&&capture.CapturedAt?String(capture.CapturedAt).replace('T',' ').slice(0,16):'Not recorded yet';
+    vmArr(capture&&capture.Findings).forEach(function(f){findings.appendChild(el('li',f.Severity==='warning'?'warning':(f.Severity==='good'?'good':''),f.Message));});
+    findings.classList.toggle('hidden',!findings.childNodes.length);
+    // IP settings: pair each recorded static adapter with an adapter that exists now.
+    var present=vmArr(state.Adapters),rows=byId('vmGuestIpRows'),old=capture?vmArr(capture.State&&capture.State.Adapters).filter(function(a){return a.Static;}):[],missing={};
+    vmArr(g.MissingAddresses).forEach(function(a){missing[a]=true;});rows.textContent='';
+    var choices={};
+    old.forEach(function(a,i){
+      var mac=String(a.MacAddress||''),done=!vmArr(a.Addresses).some(function(x){return x.Origin==='Manual'&&missing[x.Address];}),prev=vmGuestChoices[mac];
+      var choice=prev||{index:done?0:(present[i]?present[i].InterfaceIndex:(present[0]?present[0].InterfaceIndex:0)),rename:true};choices[mac]=choice;
+      var pick=el('div','vm-pick');pick.appendChild(el('div','vm-pick-old',a.Name+' ('+mac+')'));pick.appendChild(el('div','vm-sub',vmAddressText(a)+(vmArr(a.Gateways).length?', gateway '+vmArr(a.Gateways)[0].NextHop:'')+(done?'. Already on this VM.':'')));
+      var select=document.createElement('select');select.setAttribute('aria-label','New adapter for '+a.Name);select.setAttribute('data-vm-ip',mac);
+      var skip=el('option','','Leave as it is');skip.value='0';select.appendChild(skip);
+      present.forEach(function(p){var o=el('option','',p.Name+' - '+(p.Description||'')+(vmAddressText(p)?' ('+vmAddressText(p)+')':''));o.value=String(p.InterfaceIndex);select.appendChild(o);});
+      select.value=String(choice.index);if(select.value!==String(choice.index)){select.value='0';choice.index=0;}
+      select.addEventListener('change',function(){choice.index=parseInt(select.value,10)||0;syncVmGuestButtons();});pick.appendChild(select);
+      vmCheckRow(pick,'Give it the old name, '+a.Name,'',choice.rename,'data-vm-ip-rename',mac,function(on){choice.rename=on;});
+      rows.appendChild(pick);
+    });
+    vmGuestChoices=choices;
+    byId('vmGuestIpText').textContent=!capture?'Record this VM\'s settings before cutover to put them back here.':(old.length?'Choose the new adapter that takes each old adapter\'s settings.':'No static IP settings were recorded.');
+    // Hidden adapters: VMware ones are ticked by default.
+    var ghosts=vmArr(g.Ghosts),ghostRows=byId('vmGuestGhostRows'),ghostChoices={};ghostRows.textContent='';
+    ghosts.forEach(function(x){var on=vmGhostChoices.hasOwnProperty(x.InstanceId)?vmGhostChoices[x.InstanceId]:!!x.Vmware;ghostChoices[x.InstanceId]=on;vmCheckRow(ghostRows,x.Description||'Network adapter',x.InstanceId,on,'data-vm-ghost',x.InstanceId,function(checked){vmGhostChoices[x.InstanceId]=checked;});});
+    vmGhostChoices=ghostChoices;
+    byId('vmGuestGhostText').textContent=ghosts.length?'Adapters left behind by the old hardware. Their old IP addresses can block putting the settings back.':'No hidden network adapters.';
+    // Offline disks, never the boot or system disk.
+    var disks=vmArr(state.Disks).filter(function(d){return (d.IsOffline||d.IsReadOnly)&&!d.IsBoot&&!d.IsSystem;}),diskRows=byId('vmGuestDiskRows'),diskChoices={};diskRows.textContent='';
+    disks.forEach(function(d){var key=String(d.Number),on=vmDiskChoices.hasOwnProperty(key)?vmDiskChoices[key]:true;diskChoices[key]=on;vmCheckRow(diskRows,'Disk '+d.Number+' '+(d.FriendlyName||''),formatBytesShort(d.SizeBytes)+(d.IsOffline?', offline':'')+(d.IsReadOnly?', read-only':'')+(d.OfflineReason?' ('+d.OfflineReason+')':''),on,'data-vm-disk',key,function(checked){vmDiskChoices[key]=checked;});});
+    vmDiskChoices=diskChoices;
+    byId('vmGuestDiskText').textContent=disks.length?'These disks are offline or read-only, so their drive letters are missing.':'Every disk is online.';
+    var tools=state.VmwareTools||{};
+    byId('vmGuestToolsText').textContent=!tools.Installed?'VMware Tools is not installed.':(platform.Name==='VMware'?'VMware Tools '+tools.Version+' is installed. Remove it after cutover, once the VM runs on the new platform.':'VMware Tools '+tools.Version+' is still installed. Remove it now that the VM no longer runs on VMware.');
+    var notes=byId('vmGuestAfterNotes');notes.textContent='';
+    var services=vmArr(g.MissingAutoServices);if(services.length){notes.appendChild(el('li','warning','Running before the move but not now: '+services.join(', ')+'.'));}
+    var lost=vmArr(g.MissingAddresses);if(lost.length){notes.appendChild(el('li','warning','Recorded addresses not on any adapter yet: '+lost.join(', ')+'.'));}
+    if(capture&&!services.length&&!lost.length&&platform.Name!=='VMware'){notes.appendChild(el('li','good','Every recorded address and running service is back.'));}
+    notes.classList.toggle('hidden',!notes.childNodes.length);
+    syncVmGuestButtons();
+  }
+  function vmGuestApplyItems(){var items=[];for(var mac in vmGuestChoices){if(vmGuestChoices.hasOwnProperty(mac)&&vmGuestChoices[mac].index>0){items.push({capture:mac,interfaceIndex:vmGuestChoices[mac].index,rename:!!vmGuestChoices[mac].rename});}}return items;}
+  function vmChosenKeys(map){var out=[];for(var k in map){if(map.hasOwnProperty(k)&&map[k]){out.push(k);}}return out;}
+  function syncVmGuestButtons(){
+    var g=vmGuest,state=g&&g.State,locked=vmLocked()||!(latestState&&latestState.isAdministrator),tools=(state&&state.VmwareTools)||{},platform=(state&&state.Platform)||{};
+    byId('vmGuestApply').disabled=locked||!vmGuestApplyItems().length;
+    byId('vmGuestUndo').classList.toggle('hidden',!(g&&g.RollbackAvailable));byId('vmGuestUndo').disabled=locked;
+    byId('vmGuestGhosts').disabled=locked||!vmChosenKeys(vmGhostChoices).length;
+    byId('vmGuestDisks').disabled=locked||!vmChosenKeys(vmDiskChoices).length;
+    byId('vmGuestTools').disabled=locked||!tools.Installed||platform.Name==='VMware';
+  }
+  function vmGuestConfirm(options){
+    var computer=vmComputer();
+    openMigrateDialog({title:options.title,path:'/api/vmware/guest/'+options.action,field:'confirm',body:{items:options.items||[]},expected:computer,label:"Type this computer's name to confirm",button:options.button,alert:options.alert,paragraphs:options.paragraphs,list:options.list,
+      after:function(){vmMarkRunning('guest-'+options.action,'',options.running,true);}});
+  }
+  function runVmGuest(action,message){vmPost('/api/vmware/guest/'+action,{},null,function(err){if(!err){vmMarkRunning('guest-'+action,'',message,true);}});}
+  // ---- Before and after ----
+  function loadVmCompare(serial){
+    vmCompareLoading=true;
+    request('GET','/api/vmware/compare',null,function(err,data){
+      vmCompareLoading=false;vmCompareSerial=serial;
+      if(err){notice(err,true);return;}
+      if(data.serial!==undefined){vmCompareSerial=data.serial;}
+      vmCompare=data.result||null;vmCompareDatasets=vmArr(data.datasets);vmCompareOpen={};renderVmCompare();syncVmButtons();
+    });
+  }
+  function vmChangeText(c){
+    var verb={added:'New',removed:'Gone',changed:'Changed'}[c.kind]||c.kind,fields=vmArr(c.fields).map(function(f){return f.name+': '+(f.before||'(empty)')+' → '+(f.after||'(empty)');});
+    return verb+': '+c.item+(fields.length?' ('+fields.join('; ')+')':'');
+  }
+  function renderVmCompare(){
+    var r=vmCompare;byId('vmCompareResult').classList.toggle('hidden',!r);
+    if(!r){return;}
+    var pkg=function(p){return (p.computer||'?')+(p.collectedAt?', '+p.collectedAt:'');};
+    byId('vmCompareFactBefore').textContent=pkg(r.before);byId('vmCompareFactAfter').textContent=pkg(r.after);
+    byId('vmCompareFactAttention').textContent=vmPlural(r.attentionCount,'change');byId('vmCompareFactExpected').textContent=vmPlural(r.expectedCount,'change');
+    var list=byId('vmCompareAttention');list.textContent='';
+    vmArr(r.attention).slice(0,100).forEach(function(c){list.appendChild(el('li',c.important?'blocker':'warning',c.label+'. '+vmChangeText(c)));});
+    if(!list.childNodes.length){list.appendChild(el('li','good','Nothing needs checking. Every difference is one you would expect from a move.'));}
+    byId('vmCompareAttentionTitle').textContent=r.attentionCount>100?'Check these (first 100 of '+formatCount(r.attentionCount)+', all are in the report)':'Check these';
+    var body=byId('vmCompareBody');body.textContent='';
+    vmCompareDatasets.forEach(function(d){
+      var tr=el('tr','vm-row');tr.tabIndex=0;tr.setAttribute('data-compare',d.key);
+      var name=el('td','');name.appendChild(el('strong','',d.label));if(!d.available){name.appendChild(el('span','vm-sub',d.note||'Not in both packages.'));}tr.appendChild(name);
+      [d.beforeCount,d.afterCount,d.added,d.removed,d.changed,d.expected].forEach(function(n){tr.appendChild(el('td','',d.available?formatCount(n):''));});
+      body.appendChild(tr);
+      if(vmCompareOpen[d.key]){
+        var more=el('tr',''),cell=el('td','vm-changes');cell.colSpan=7;var ul=el('ul','');
+        vmArr(d.changes).forEach(function(c){ul.appendChild(el('li',c.expected?'':'warning',vmChangeText(c)+(c.expected?' (expected)':'')));});
+        if(!ul.childNodes.length){ul.appendChild(el('li','','No differences.'));}
+        if(d.more>0){ul.appendChild(el('li','','And '+formatCount(d.more)+' more in the report.'));}
+        cell.appendChild(ul);more.appendChild(cell);body.appendChild(more);
+      }
+    });
+  }
+  function chooseVmComparePackage(side){
+    vmPost('/api/vmware/compare/browse',{side:side},'vmCompareStatus',function(err,data){
+      if(err||!data.selected){return;}
+      var text=data.computer+(data.collectedAt?', collected '+data.collectedAt:'')+' - '+data.path;
+      if(side==='before'){vmCompareBeforePath=data.path;byId('vmCompareBeforeText').textContent=text;}else{vmCompareAfterPath=data.path;byId('vmCompareAfterText').textContent=text;}
+      syncVmButtons();
+    });
+  }
+  function renderVmLog(v){
+    var logs=v.logs||[],log=byId('vmLog'),key=logs.length+':'+(logs.length?logs[logs.length-1].index:'');
+    if(key===vmLogKey){return;}
+    vmLogKey=key;var follow=log.scrollHeight-log.scrollTop-log.clientHeight<40,fragment=document.createDocumentFragment();log.textContent='';
+    if(!logs.length){log.appendChild(el('div','log-empty','No VMware messages yet.'));}
+    logs.forEach(function(line){var u=String(line.text||'').toUpperCase();fragment.appendChild(el('div',u.indexOf('[ERROR]')>=0?'log-line-error':(u.indexOf('[WARN')>=0?'log-line-warn':''),line.text));});
+    log.appendChild(fragment);if(follow){log.scrollTop=log.scrollHeight;}
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('[data-vmview]'),function(b){b.addEventListener('click',function(){setVmView(b.getAttribute('data-vmview'));});});
+  Array.prototype.forEach.call(document.querySelectorAll('[data-vmfilter]'),function(b){b.addEventListener('click',function(){setVmFilter(b.getAttribute('data-vmfilter'));});});
+  ['vmTargetHyperv','vmTargetScale'].forEach(function(id){byId(id).addEventListener('change',function(){if(this.checked){changeVmTarget(this.value);}});});
+  ['vmServer','vmUser'].forEach(function(id){byId(id).addEventListener('input',syncVmButtons);});
+  ['vmServer','vmUser','vmPassword'].forEach(function(id){byId(id).addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();connectVmware();}});});
+  byId('vmConnect').addEventListener('click',function(){connectVmware();});
+  byId('vmCertTrust').addEventListener('click',function(){var v=vmwareState()||{};if(v.certificate){connectVmware(v.certificate.thumbprint);}});
+  byId('vmOpenInventory').addEventListener('click',function(){vmPost('/api/vmware/open-inventory',{},'vmConnectStatus');});
+  byId('vmReset').addEventListener('click',function(){vmPost('/api/vmware/reset',{},'vmConnectStatus',function(err){if(err){return;}byId('vmServer').value='';byId('vmUser').value='';byId('vmPassword').value='';vmInventory=null;vmPlan=null;vmSizing=null;vmSelectedVM='';var v=vmwareState();if(v){v.server='';v.account='';v.summary=null;v.certificate=null;v.message='';v.status='idle';}renderVmTable();renderVmPlan();if(latestState){renderVMware(latestState);}byId('vmServer').focus();});});
+  byId('vmStop').addEventListener('click',function(){var button=this;button.disabled=true;request('POST','/api/vmware/cancel',{},function(err){if(err){button.disabled=false;notice(err,true);return;}var v=vmwareState();if(v){v.cancelRequested=true;}syncVmButtons();});});
+  byId('vmSearch').addEventListener('input',renderVmTable);
+  byId('vmTableBody').addEventListener('click',function(e){selectVmRow(e.target.closest('tr'));});
+  byId('vmTableBody').addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();selectVmRow(e.target.closest('tr'));}});
+  byId('vmOpenReport').addEventListener('click',function(){openKind('vmwarereport');});
+  byId('vmOpenFolder').addEventListener('click',function(){openKind('vmwarefolder');});
+  vmCapacityFields.forEach(function(f){byId(f.id).addEventListener('input',vmMarkPlanDirty);});
+  byId('vmWaveSearch').addEventListener('input',renderVmWaves);
+  byId('vmSavePlan').addEventListener('click',function(){saveVmPlan(null,'Plan saved.');});
+  byId('vmSuggest').addEventListener('click',function(){var size=parseInt(byId('vmWaveSize').value,10);saveVmPlan({suggest:true,waveSize:isNaN(size)?10:size},'Suggested waves and saved the plan. Change any wave before writing the runbook.');});
+  byId('vmWriteRunbook').addEventListener('click',function(){saveVmPlan(null,'',function(err){if(err){return;}vmPost('/api/vmware/export-plan',{},'vmPlanStatus',function(err2){if(!err2){vmSetStatus('vmPlanStatus','Wrote the runbook and plan CSV.',false);}});});});
+  byId('vmOpenRunbook').addEventListener('click',function(){openKind('vmwarerunbook');});
+  byId('vmOpenPlanCsv').addEventListener('click',function(){openKind('vmwareplancsv');});
+  byId('vmGuestCapture').addEventListener('click',function(){runVmGuest('capture','Recording this VM\'s settings.');});
+  byId('vmGuestStatus').addEventListener('click',function(){runVmGuest('status','Reading this VM\'s current state.');});
+  byId('vmGuestLoad').addEventListener('click',function(){vmPost('/api/vmware/guest-load',{},null,function(err,data){if(!err&&data.selected){runVmGuest('status','Reading this VM\'s current state.');}});});
+  byId('vmGuestOpen').addEventListener('click',function(){openKind('guestfolder');});
+  byId('vmGuestApply').addEventListener('click',function(){
+    var items=vmGuestApplyItems(),present={};if(!items.length){return;}
+    vmArr(vmGuest&&vmGuest.State&&vmGuest.State.Adapters).forEach(function(p){present[p.InterfaceIndex]=p.Name;});
+    vmGuestConfirm({action:'apply',title:'Put back IP settings',button:'Put back settings',items:items,running:'Putting back the IP settings.',
+      paragraphs:['The recorded addresses, gateways, DNS servers and DNS suffix are applied to these adapters. Their current settings are saved first so Undo can put them back. If you are connected over the network, you may lose the connection while the address changes.'],
+      list:items.map(function(i){return i.capture+' → '+(present[i.interfaceIndex]||('adapter '+i.interfaceIndex))+(i.rename?' (renamed)':'');})});
+  });
+  byId('vmGuestUndo').addEventListener('click',function(){vmGuestConfirm({action:'undo',title:'Undo IP changes',button:'Undo changes',running:'Restoring the adapter settings saved before the change.',paragraphs:['Puts back the adapter settings saved just before the last Put back IP settings.']});});
+  byId('vmGuestGhosts').addEventListener('click',function(){
+    var ids=vmChosenKeys(vmGhostChoices),names={};vmArr(vmGuest&&vmGuest.Ghosts).forEach(function(x){names[x.InstanceId]=x.Description;});
+    vmGuestConfirm({action:'remove-ghosts',title:'Remove hidden network adapters',button:'Remove adapters',items:ids.map(function(id){return {instanceId:id};}),running:'Removing hidden network adapters.',
+      paragraphs:['These adapters are not connected to this VM any more. Removing them frees their IP addresses. Windows adds an adapter again if the hardware comes back.'],list:ids.map(function(id){return (names[id]||'Adapter')+' ('+id+')';})});
+  });
+  byId('vmGuestDisks').addEventListener('click',function(){
+    var numbers=vmChosenKeys(vmDiskChoices);
+    vmGuestConfirm({action:'online-disks',title:'Bring disks online',button:'Bring online',items:numbers.map(function(n){return {number:Number(n)};}),running:'Bringing disks online.',
+      paragraphs:['These disks are brought online and made writable. The boot and system disks are never changed.'],list:numbers.map(function(n){return 'Disk '+n;})});
+  });
+  byId('vmGuestTools').addEventListener('click',function(){
+    var tools=(vmGuest&&vmGuest.State&&vmGuest.State.VmwareTools)||{};
+    vmGuestConfirm({action:'remove-tools',title:'Remove VMware Tools',button:'Remove VMware Tools',running:'Removing VMware Tools. This can take a few minutes.',alert:'The VM may need a restart afterwards. Do this only after the VM runs on the new platform.',
+      paragraphs:['VMware Tools '+(tools.Version||'')+' is removed with its own uninstaller.']});
+  });
+  byId('vmCompareBefore').addEventListener('click',function(){chooseVmComparePackage('before');});
+  byId('vmCompareAfter').addEventListener('click',function(){chooseVmComparePackage('after');});
+  byId('vmCompareUseLast').addEventListener('click',function(){var last=latestState&&latestState.restore&&latestState.restore.packages&&latestState.restore.packages.lastCollection;if(!last){return;}vmCompareAfterPath=last;byId('vmCompareAfterText').textContent='The last collection - '+last;syncVmButtons();});
+  byId('vmCompareRun').addEventListener('click',function(){vmPost('/api/vmware/compare',{before:vmCompareBeforePath,after:vmCompareAfterPath},'vmCompareStatus',function(err){if(!err){vmMarkRunning('compare','','Comparing the two packages.');}});});
+  byId('vmCompareReport').addEventListener('click',function(){openKind('comparereport');});
+  byId('vmCompareFolder').addEventListener('click',function(){openKind('comparefolder');});
+  byId('vmCompareBody').addEventListener('click',function(e){var tr=e.target.closest('tr[data-compare]');if(!tr){return;}var key=tr.getAttribute('data-compare');vmCompareOpen[key]=!vmCompareOpen[key];renderVmCompare();});
+  byId('vmCompareBody').addEventListener('keydown',function(e){if((e.key==='Enter'||e.key===' ')&&e.target.getAttribute('data-compare')){e.preventDefault();var key=e.target.getAttribute('data-compare');vmCompareOpen[key]=!vmCompareOpen[key];renderVmCompare();var row=document.querySelector('[data-compare="'+key+'"]');if(row){row.focus();}}});
   setReportHeaderCollapsed(window.innerHeight<600); syncCategoryState(); poll();
 }());
 </script>
