@@ -39,6 +39,20 @@ func (a *application) vmRepairRecordFolder(image string) string {
 }
 
 // vmLatestRepairRecord is the newest complete record for image, or "".
+// vmSameImagePath compares two spellings of an image path, such as a short
+// (8.3) and a long name of the same file.
+func vmSameImagePath(a, b string) bool {
+	if strings.EqualFold(filepath.Clean(a), filepath.Clean(b)) {
+		return true
+	}
+	left, err := os.Stat(a)
+	if err != nil {
+		return false
+	}
+	right, err := os.Stat(b)
+	return err == nil && os.SameFile(left, right)
+}
+
 func vmLatestRepairRecord(folder, image string) string {
 	matches, _ := filepath.Glob(filepath.Join(folder, "Repair-*.json"))
 	sort.Sort(sort.Reverse(sort.StringSlice(matches)))
@@ -48,7 +62,7 @@ func vmLatestRepairRecord(folder, image string) string {
 			continue
 		}
 		record, err := parseRepairRecord(data)
-		if err == nil && record.Complete && strings.EqualFold(filepath.Clean(record.Image), filepath.Clean(image)) {
+		if err == nil && record.Complete && vmSameImagePath(record.Image, image) {
 			return match
 		}
 	}

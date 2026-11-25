@@ -185,7 +185,13 @@ func TestRepairScriptFixesUpAndUndoesAWindowsDisk(t *testing.T) {
 		t.Fatalf("expected storahci, intelide, pciide, atapi and VMTools changed and one override removed: %+v\n%s", applied.Applied, out)
 	}
 	if vmLatestRepairRecord(records, image) != applied.Applied.Record {
-		t.Fatalf("the record %s is not found as the latest complete record", applied.Applied.Record)
+		matches, _ := filepath.Glob(filepath.Join(records, "Repair-*.json"))
+		var found strings.Builder
+		for _, match := range matches {
+			data, _ := os.ReadFile(match)
+			found.WriteString(match + ": " + string(data) + "\n")
+		}
+		t.Fatalf("the record %s is not found as the latest complete record for %s:\n%s", applied.Applied.Record, image, found.String())
 	}
 	after, _ := vmRunRepair(t, folder, "-Mode", "Check", "-ImagePath", image, "-Target", "kvm")
 	if driver := vmFindRepairDriver(t, after, "storahci"); driver.Start != 0 || driver.Override {
