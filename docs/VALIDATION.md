@@ -1,3 +1,12 @@
+## 3.2.31 published and verified — 2026-11-25
+
+- [Release v3.2.31](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.31) ("Server Inventory and Migration Manager 3.2.31"), tag and target commit `4584761611b1f3436ad271fd233983a9c8e3af96`. Source: VMware relationships in the discovery report and Environment view (#85), prepared in #86, published by #87. The owner chose to publish on 2026-11-25.
+- The [publish run](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/45571349169) (push of #87) passed first time: publish job 07:51–07:59 UTC, signed through Azure Artifact Signing over OIDC (`Get-AuthenticodeSignature` Valid, timestamped) before the tests and checksum.
+- The actual 3.2.30-to-3.2.31 upgrade (published signed 3.2.30 EXE through Download and Install, restart into 3.2.31, native health, settings, shortcut, timers, cleanup and rollback) passed in one run, 07:59–08:08 UTC. Source CI on #85, #86 and #87 passed windows, restore, migration and vmguest.
+- Stable EXE: 20,845,360 bytes; SHA-256 `6917b087439a8ee49e2229755707653a1439039d245ddac3e28bbc3b23999cb9` (release asset digest). All 12 assets are published.
+
+Limits: datastore mounts were exercised against vcsim and synthetic data, not the owner's vCenter. Decrypting and the VIB list still need field validation. CI artifacts were not downloaded. No client data was used.
+
 ## 3.2.30 published and verified — 2026-11-25
 
 - [Release v3.2.30](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.30) ("Server Inventory and Migration Manager 3.2.30"), tag and target commit `2a0d741f92584e7104ec6410ccc554cbf273dc8e`. Source: VMware move engine phase 1 and full discovery (#81), prepared in #82, published by #83. The owner chose to publish on 2026-11-25.
