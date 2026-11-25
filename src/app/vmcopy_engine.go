@@ -28,16 +28,19 @@ const (
 )
 
 type vmCopyState struct {
-	Version   int       `json:"version"`
-	Source    string    `json:"source"`
-	Target    string    `json:"target"`
-	Size      int64     `json:"size"`
-	ChunkSize int64     `json:"chunkSize"`
-	Hashes    []string  `json:"hashes"`
-	Passes    int       `json:"passes"`
-	Complete  bool      `json:"complete"`
-	Verified  bool      `json:"verified"`
-	Updated   time.Time `json:"updated"`
+	Version   int      `json:"version"`
+	Source    string   `json:"source"`
+	Target    string   `json:"target"`
+	Size      int64    `json:"size"`
+	ChunkSize int64    `json:"chunkSize"`
+	Hashes    []string `json:"hashes"`
+	Passes    int      `json:"passes"`
+	// ChangeID is the vSphere changed-block tracking ID the copy matches,
+	// so the next round asks only for blocks changed since then.
+	ChangeID string    `json:"changeId,omitempty"`
+	Complete bool      `json:"complete"`
+	Verified bool      `json:"verified"`
+	Updated  time.Time `json:"updated"`
 }
 
 type vmCopyProgress struct {
@@ -58,6 +61,11 @@ type vmCopyOptions struct {
 	// Ranges limits a delta pass to these byte ranges (from changed block
 	// tracking); nil means read the whole disk.
 	Ranges []vmCopyRange
+	// ZeroOutside says that, on a first pass with Ranges, everything outside
+	// the ranges is known to be unallocated (zero) on the source.
+	ZeroOutside bool
+	// ChangeID is recorded when the pass completes.
+	ChangeID string
 	// retryDelay is shortened by tests.
 	retryDelay time.Duration
 }
@@ -176,6 +184,15 @@ func vmCopyDisk(ctx context.Context, source vmCopySource, target string, options
 	state.Complete, state.Verified = false, false
 	progress := vmCopyProgress{Pass: state.Passes, Chunks: len(state.Hashes)}
 	selected := vmCopySelected(state, options.Ranges)
+	if options.ZeroOutside && options.Ranges != nil {
+		inRanges := vmCopyInRanges(state, options.Ranges)
+		for index, hash := range state.Hashes {
+			if hash == "" && !inRanges[index] {
+				state.Hashes[index] = vmCopyZeroHash
+			}
+		}
+		selected = vmCopySelected(state, options.Ranges)
+	}
 	buffer := make([]byte, options.ChunkSize)
 	lastSave := time.Now()
 	report := func() {
@@ -248,6 +265,7 @@ func vmCopyDisk(ctx context.Context, source vmCopySource, target string, options
 		}
 	}
 	state.Complete = true
+	state.ChangeID = options.ChangeID
 	report()
 	if options.Verify {
 		if err := vmVerifyCopy(ctx, disk, state); err != nil {
@@ -267,13 +285,9 @@ func vmCopyDisk(ctx context.Context, source vmCopySource, target string, options
 	return result, nil
 }
 
-// vmCopySelected marks the chunks a pass reads: all of them, or the chunks
-// that overlap the changed ranges plus any never copied.
-func vmCopySelected(state *vmCopyState, ranges []vmCopyRange) []bool {
-	selected := make([]bool, len(state.Hashes))
-	for index, hash := range state.Hashes {
-		selected[index] = ranges == nil || hash == ""
-	}
+// vmCopyInRanges marks the chunks that overlap the given byte ranges.
+func vmCopyInRanges(state *vmCopyState, ranges []vmCopyRange) []bool {
+	marked := make([]bool, len(state.Hashes))
 	for _, r := range ranges {
 		if r.Length <= 0 || r.Start < 0 || r.Start >= state.Size {
 			continue
@@ -283,8 +297,18 @@ func vmCopySelected(state *vmCopyState, ranges []vmCopyRange) []bool {
 			last = state.Size - 1
 		}
 		for index := r.Start / state.ChunkSize; index <= last/state.ChunkSize; index++ {
-			selected[index] = true
+			marked[index] = true
 		}
+	}
+	return marked
+}
+
+// vmCopySelected marks the chunks a pass reads: all of them, or the chunks
+// that overlap the changed ranges plus any never copied.
+func vmCopySelected(state *vmCopyState, ranges []vmCopyRange) []bool {
+	selected := vmCopyInRanges(state, ranges)
+	for index, hash := range state.Hashes {
+		selected[index] = selected[index] || ranges == nil || hash == ""
 	}
 	return selected
 }
