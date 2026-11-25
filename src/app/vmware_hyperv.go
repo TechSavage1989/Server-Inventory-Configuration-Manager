@@ -39,6 +39,10 @@ type vmHyperVPlan struct {
 	ClusterRole   bool     `json:"clusterRole,omitempty"`
 	ClusterResult string   `json:"clusterResult,omitempty"`
 	Warnings      []string `json:"warnings"`
+	// Remote writes the script's reports as pipeline output, so they come
+	// back through PowerShell remoting (Invoke-Command) to the admin
+	// computer; [Console]::Out on a remote host reaches nobody.
+	Remote bool `json:"remote,omitempty"`
 }
 
 type vmHyperVOptions struct {
@@ -226,12 +230,16 @@ func (p *vmHyperVPlan) Script() string {
 	line("  # The new VM is left in place, without its disks deleted, so the cause can be checked.")
 	line("  throw ('Creating the VM stopped: ' + $problem.Exception.Message + ' The partly created VM ' + $name + ' was left for review; its copied disks were not changed.')")
 	line("}")
+	report, final := "[Console]::Out.WriteLine(%s)", "[Console]::Out.Write($vm.Id.ToString())"
+	if p.Remote {
+		report, final = "Write-Output (%s)", "Write-Output $vm.Id.ToString()"
+	}
 	if p.ClusterRole {
-		line("try { Import-Module FailoverClusters; Add-ClusterVirtualMachineRole -VMName $name -ErrorAction Stop | Out-Null; [Console]::Out.WriteLine('%s') } catch { [Console]::Out.WriteLine('%s ' + $_.Exception.Message) }", vmClusterRoleAdded, vmClusterRoleFailed)
+		line("try { Import-Module FailoverClusters; Add-ClusterVirtualMachineRole -VMName $name -ErrorAction Stop | Out-Null; "+report+" } catch { "+report+" }", "'"+vmClusterRoleAdded+"'", "'"+vmClusterRoleFailed+" ' + $_.Exception.Message")
 	}
 	if p.Start {
 		line("Start-VM -VM $vm")
 	}
-	line("[Console]::Out.Write($vm.Id.ToString())")
+	line(final)
 	return s.String()
 }
