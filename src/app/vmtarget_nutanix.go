@@ -395,3 +395,41 @@ func (n *vmNutanix) BootFromDisk(ctx context.Context, id string) error {
 		return nil
 	})
 }
+
+// CloneVM clones through Prism Central v3 with no adapters, so the clone
+// starts isolated, and a client-chosen UUID so the clone is known at once.
+func (n *vmNutanix) CloneVM(ctx context.Context, id, name, note string) (*vmTargetVM, error) {
+	uuid, err := vmNewUUID()
+	if err != nil {
+		return nil, err
+	}
+	body := map[string]interface{}{"metadata": map[string]interface{}{"uuid": uuid}, "override_spec": map[string]interface{}{"name": name, "nic_list": []interface{}{}}}
+	var answer map[string]interface{}
+	if err := n.http.do(ctx, http.MethodPost, "/vms/"+id+"/clone", nil, body, "", 0, &answer); err != nil {
+		return nil, err
+	}
+	task, _ := answer["task_uuid"].(string)
+	if task == "" {
+		task = vmNutanixTask(answer)
+	}
+	if err := n.waitTask(ctx, task); err != nil {
+		return nil, err
+	}
+	return &vmTargetVM{ID: uuid, Name: name, State: "stopped"}, nil
+}
+
+// Isolate removes every adapter (a clone is made without any).
+func (n *vmNutanix) Isolate(ctx context.Context, id string) error {
+	return n.update(ctx, id, func(resources map[string]interface{}) error {
+		resources["nic_list"] = []interface{}{}
+		return nil
+	})
+}
+
+func (n *vmNutanix) DeleteVM(ctx context.Context, id string) error {
+	var answer map[string]interface{}
+	if err := n.http.do(ctx, http.MethodDelete, "/vms/"+id, nil, nil, "", 0, &answer); err != nil {
+		return err
+	}
+	return n.waitTask(ctx, vmNutanixTask(answer))
+}

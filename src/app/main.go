@@ -2338,6 +2338,7 @@ func (a *application) serve(listener net.Listener) error {
 	mux.HandleFunc("/api/repl/agent", a.handleReplAgent)
 	mux.HandleFunc("/api/repl/job", a.handleReplJob)
 	mux.HandleFunc("/api/repl/failover", a.handleReplFailover)
+	mux.HandleFunc("/api/repl/targettest", a.handleReplTargetTest)
 	mux.HandleFunc("/api/repl/runbook", a.handleReplRunbook)
 	mux.HandleFunc("/api/vmware/guest", a.handleVMwareGuest)
 	mux.HandleFunc("/api/vmware/guest/", a.handleVMwareGuest)

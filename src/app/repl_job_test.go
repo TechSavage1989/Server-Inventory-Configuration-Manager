@@ -23,6 +23,7 @@ type replFakePlatform struct {
 	openFail error
 	shutdown int
 	snapshot func() time.Time
+	gate     chan struct{} // when set, OpenDisks waits for it
 }
 
 func (p *replFakePlatform) Name() string { return "test" }
@@ -34,6 +35,9 @@ func (p *replFakePlatform) ListDisks() ([]replDiskInfo, error) {
 	return list, nil
 }
 func (p *replFakePlatform) OpenDisks(ctx context.Context, job string, sources []string, allowLive bool, log func(string)) (*replOpenedDisks, error) {
+	if p.gate != nil {
+		<-p.gate
+	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if p.openFail != nil {
