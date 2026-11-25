@@ -134,6 +134,9 @@ try {
     Assert (@($status.json.result.MissingAddresses) -contains '198.51.100.77') 'Status lists the recorded address as missing'
     Assert (-not $status.json.result.RollbackAvailable -and $null -ne $status.json.result.Capture) 'Status includes the capture and no rollback yet'
     Assert (@($status.json.result.State.Adapters | Where-Object { $_.InterfaceIndex -eq $index }).Count -eq 1) 'Status lists the loopback adapter as a target'
+    $advice = $status.json.result.Activation
+    Assert ($null -ne $advice -and [string]$advice.Message) 'Status says what Windows activation needs'
+    if ($advice.Known) { Assert (@('KMS', 'AD', 'MAK', 'Retail', 'OEM', 'AVMA', 'Unknown') -contains [string]$advice.Channel) ('Status names the activation channel (' + [string]$advice.Channel + ')') }
 
     $bad = Invoke-Engine 'ApplyNetwork' @{ items = @(@{ capture = '00-00-5E-00-53-FF'; interfaceIndex = $index; rename = $false }) } 'apply-unknown-capture'
     Assert ($bad.code -ne 0 -and -not $bad.json.ok -and $bad.json.error -match 'not in the capture') 'Apply refuses an adapter that is not in the capture'

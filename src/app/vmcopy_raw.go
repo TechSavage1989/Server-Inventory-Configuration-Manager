@@ -243,6 +243,7 @@ func (s *vmRawSink) Finish(ctx context.Context, state *vmCopyState, verify bool)
 		}
 	}
 	s.record.Passes, s.record.ChangeID, s.record.Round, s.record.Complete, s.record.Verified = state.Passes, state.ChangeID, state.Round, true, false
+	s.record.Machine = state.Machine
 	if verify {
 		if err := vmVerifyCopy(ctx, s.device, &s.record.vmCopyState); err != nil {
 			saveVMRawRecord(s.path, s.record)

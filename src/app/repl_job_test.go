@@ -134,6 +134,11 @@ func replTestSpec(receiver *vmReceiver) replJobSpec {
 }
 
 func TestReplicationJobRunsRoundsTracksRPOAndAlerts(t *testing.T) {
+	saved := replMachineInfo
+	replMachineInfo = func() vmSourceMachine {
+		return vmSourceMachine{Name: "APP01", CPUs: 6, MemoryMB: 12288, Firmware: "uefi", Adapters: 2}
+	}
+	defer func() { replMachineInfo = saved }()
 	agent, platform, clock, receiver, folder := replTestSetup(t)
 	view, err := agent.SaveJob(replTestSpec(receiver))
 	if err != nil {
@@ -170,6 +175,11 @@ func TestReplicationJobRunsRoundsTracksRPOAndAlerts(t *testing.T) {
 		if !bytes.Equal(vmReadVHDX(t, filepath.Join(folder, name)), platform.disks[disk]) {
 			t.Fatalf("%s differs from disk %s", name, disk)
 		}
+	}
+	// Each copy carries the source computer's shape for the VM made from it.
+	copies, err := replListCopies(folder, nil, nil)
+	if err != nil || len(copies) != 2 || copies[0].Machine == nil || copies[0].Machine.CPUs != 6 || copies[0].Machine.MemoryMB != 12288 || copies[0].Machine.Firmware != "uefi" || copies[0].Machine.Adapters != 2 {
+		t.Fatalf("copies %+v %v", copies, err)
 	}
 	// Not due yet: nothing runs.
 	clock.Add(4 * time.Minute)

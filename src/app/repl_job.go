@@ -942,7 +942,8 @@ func (a *replAgent) runRound(ctx context.Context, job *replJob, spec replJobSpec
 				ranges = opened.Used[disk.Source]
 			}
 			round := spec.ID + "@" + opened.Snapshot.UTC().Format(time.RFC3339)
-			options := vmCopyOptions{Verify: final, Ranges: ranges, Round: round, Progress: func(p vmCopyProgress) {
+			machine := replMachineInfo()
+			options := vmCopyOptions{Verify: final, Ranges: ranges, Round: round, Machine: &machine, Progress: func(p vmCopyProgress) {
 				a.mu.Lock()
 				if index < len(job.status.Disks) {
 					d := &job.status.Disks[index]
