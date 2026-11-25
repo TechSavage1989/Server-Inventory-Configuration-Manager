@@ -17,6 +17,17 @@ import (
 // reports a record not in use with errReplMFTUnused, and refuses a record
 // that keeps its attributes elsewhere (an attribute list).
 func replMFTRuns(record []byte) ([]replRun, uint16, error) {
+	return replMFTRecordRuns(record, false)
+}
+
+// replMFTOwnRuns is replMFTRuns for one record on its own: a record with an
+// attribute list gives the runs it holds itself, since the rest lie in
+// other records the scan reads too.
+func replMFTOwnRuns(record []byte) ([]replRun, uint16, error) {
+	return replMFTRecordRuns(record, true)
+}
+
+func replMFTRecordRuns(record []byte, allowList bool) ([]replRun, uint16, error) {
 	if len(record) < 64 || string(record[:4]) != "FILE" {
 		return nil, 0, errors.New("not an MFT record")
 	}
@@ -49,7 +60,7 @@ func replMFTRuns(record []byte) ([]replRun, uint16, error) {
 			return nil, sequence, errors.New("an attribute runs past the end of the MFT record")
 		}
 		attribute := fixed[at : at+length]
-		if kind == 0x20 {
+		if kind == 0x20 && !allowList {
 			return nil, sequence, errors.New("the file keeps its attributes in other MFT records")
 		}
 		if attribute[8] != 0 { // non-resident
@@ -100,4 +111,65 @@ func replMFTOffset(mftRuns []replRun, clusterSize, offset int64) (int64, error) 
 		cluster -= run.Count
 	}
 	return 0, fmt.Errorf("MFT offset %d is past the end of the MFT", offset)
+}
+
+// replMFTLocation sums up where one MFT record's data lies: zero for a
+// record not in use, otherwise a hash of its sequence number and runs. A
+// file whose clusters move (defragmentation, or Windows moving data into
+// space another file freed) keeps its data, so neither the change journal
+// nor the volume bitmap shows the move; its record's runs do.
+func replMFTLocation(record []byte) (uint64, []replRun, error) {
+	if len(record) < 4 || string(record[:4]) != "FILE" {
+		return 0, nil, nil // never used
+	}
+	runs, sequence, err := replMFTOwnRuns(record)
+	if errors.Is(err, errReplMFTUnused) {
+		return 0, nil, nil
+	}
+	if err != nil {
+		return 0, nil, err
+	}
+	hash := uint64(14695981039346656037)
+	mix := func(v uint64) {
+		for i := 0; i < 8; i++ {
+			hash ^= v & 0xFF
+			hash *= 1099511628211
+			v >>= 8
+		}
+	}
+	mix(uint64(sequence) | 1<<16)
+	for _, run := range runs {
+		mix(uint64(run.Start))
+		mix(uint64(run.Count))
+	}
+	if hash == 0 {
+		hash = 1
+	}
+	return hash, runs, nil
+}
+
+// replMovedRuns compares every record's location with the last round's and
+// returns the runs of each record whose location changed. records is the
+// MFT read in order, recordSize bytes each.
+func replMovedRuns(previous []uint64, read func(each func(index int64, record []byte) error) error) ([]uint64, []replRun, error) {
+	locations := []uint64{}
+	moved := []replRun{}
+	err := read(func(index int64, record []byte) error {
+		location, runs, err := replMFTLocation(record)
+		if err != nil {
+			return fmt.Errorf("MFT record %d: %w", index, err)
+		}
+		for int64(len(locations)) < index {
+			locations = append(locations, 0)
+		}
+		locations = append(locations, location)
+		if previous != nil && location != 0 && (index >= int64(len(previous)) || previous[index] != location) {
+			moved = append(moved, runs...)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	return locations, moved, nil
 }

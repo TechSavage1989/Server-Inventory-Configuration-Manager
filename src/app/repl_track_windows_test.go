@@ -5,12 +5,40 @@ package main
 import (
 	"context"
 	"crypto/rand"
+	"encoding/binary"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
 	"testing"
+	"time"
+	"unsafe"
+
+	"golang.org/x/sys/windows"
 )
+
+// replTestMoveFile moves a file's clusters to lcn with FSCTL_MOVE_FILE, as
+// a defragmenter does: the file's data and change journal entries stay as
+// they were.
+func replTestMoveFile(t *testing.T, letter, path string, lcn, clusters int64) error {
+	t.Helper()
+	volume, err := replOpenVolume(`\\.\` + letter[:2])
+	if err != nil {
+		return err
+	}
+	defer windows.CloseHandle(volume)
+	file, err := replOpenAttributes(path)
+	if err != nil {
+		return err
+	}
+	defer windows.CloseHandle(file)
+	in := make([]byte, 32)
+	*(*uintptr)(unsafe.Pointer(&in[0])) = uintptr(file)
+	binary.LittleEndian.PutUint64(in[16:], uint64(lcn))
+	binary.LittleEndian.PutUint32(in[24:], uint32(clusters))
+	var returned uint32
+	return windows.DeviceIoControl(volume, 0x00090074 /* FSCTL_MOVE_FILE */, &in[0], uint32(len(in)), nil, 0, &returned, nil)
+}
 
 // A tracked round reads far less than the volume holds, yet misses
 // nothing: reading the same shadow copies in full afterwards finds no chunk
@@ -38,6 +66,8 @@ func TestReplicationChangeTrackingMissesNothing(t *testing.T) {
 	write(`data\old.txt`, random(300<<10))
 	write(`data\rename-me.bin`, random(2<<20))
 	write(`data\deep\keep.bin`, random(64<<10))
+	write(`data\victim.bin`, random(8<<20))
+	write(`data\mover.bin`, random(8<<20))
 	for i := 0; i < 300; i++ {
 		write(fmt.Sprintf(`data\deep\small-%03d.txt`, i), random(700))
 	}
@@ -97,6 +127,33 @@ func TestReplicationChangeTrackingMissesNothing(t *testing.T) {
 	}
 	vmPowerShell(t, `icacls '`+filepath.Join(letter, "data")+`' /grant 'Users:(OI)(CI)RX' /T /Q | Out-Null`)
 	vmPowerShell(t, "Optimize-Volume -DriveLetter "+letter[:1]+" -Defrag -ErrorAction SilentlyContinue | Out-Null; Write-VolumeCache -DriveLetter "+letter[:1])
+	// A file moved into the clusters another file freed: the bitmap shows
+	// them in use before and after, and the journal has no entry for the
+	// moved file.
+	victim, err := replPathRuns(filepath.Join(letter, `data\victim.bin`))
+	if err != nil || len(victim) == 0 {
+		t.Fatalf("victim runs %v %v", victim, err)
+	}
+	os.Remove(filepath.Join(letter, `data\victim.bin`))
+	vmPowerShell(t, "Write-VolumeCache -DriveLetter "+letter[:1])
+	count := victim[0].Count
+	if count > (8<<20)/4096 {
+		count = (8 << 20) / 4096
+	}
+	moveErr := error(nil)
+	for try := 0; try < 10; try++ {
+		if moveErr = replTestMoveFile(t, letter, filepath.Join(letter, `data\mover.bin`), victim[0].Start, count); moveErr == nil {
+			break
+		}
+		time.Sleep(500 * time.Millisecond) // freed clusters are reusable once NTFS commits the delete
+	}
+	if moveErr != nil {
+		t.Fatalf("moving mover.bin into victim.bin's clusters: %v", moveErr)
+	}
+	if moved, _ := replPathRuns(filepath.Join(letter, `data\mover.bin`)); len(moved) == 0 || moved[0].Start != victim[0].Start {
+		t.Fatalf("mover.bin is at %v, not %d", moved, victim[0].Start)
+	}
+	vmPowerShell(t, "Write-VolumeCache -DriveLetter "+letter[:1])
 
 	second, check, _ := round(true)
 	t.Logf("tracked round read %s, %d chunks changed; full re-read found %d more", vmFormatBytes(second.Progress.BytesRead), second.Progress.Changed, check.Progress.Changed)

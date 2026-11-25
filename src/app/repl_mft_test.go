@@ -81,3 +81,47 @@ func TestMFTOffsetsFollowTheMFTRuns(t *testing.T) {
 		t.Fatal("an offset past the MFT was accepted")
 	}
 }
+
+// A file whose data moved (defragmentation, or data moved into space another
+// file freed) changes neither the change journal nor the bitmap. Its MFT
+// record's runs change, and the scan reports the new runs.
+func TestMFTScanReportsFilesWhoseDataMoved(t *testing.T) {
+	at := func(lcn byte) []byte { return []byte{0x11, 0x10, lcn, 0} } // 16 clusters at lcn
+	unused := replTestMFTRecord(at(0x40))
+	unused[22] = 0
+	mft := func(records ...[]byte) func(func(int64, []byte) error) error {
+		return func(each func(int64, []byte) error) error {
+			for i, record := range records {
+				if err := each(int64(i), record); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}
+	list := replTestMFTRecord([]byte{0x11, 0x08, 0x50, 0}, append([]byte{0x20, 0, 0, 0, 0x18, 0, 0, 0}, make([]byte, 16)...))
+	first, moved, err := replMovedRuns(nil, mft(replTestMFTRecord(at(0x10)), replTestMFTRecord(at(0x20)), make([]byte, 1024), unused, list))
+	if err != nil || len(moved) != 0 || len(first) != 5 {
+		t.Fatalf("first scan %v %v %v", first, moved, err)
+	}
+	if first[0] == 0 || first[1] == 0 || first[2] != 0 || first[3] != 0 || first[4] == 0 {
+		t.Fatalf("locations %v: records in use need a location, others none", first)
+	}
+	// Record 1's data moved into record 0's old clusters and record 0
+	// moved on; record 4 (with an attribute list) is unchanged; a new
+	// record appeared.
+	second, moved, err := replMovedRuns(first, mft(replTestMFTRecord(at(0x30)), replTestMFTRecord(at(0x10)), make([]byte, 1024), unused, list, replTestMFTRecord(at(0x60))))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []replRun{{Start: 0x30, Count: 16}, {Start: 0x10, Count: 16}, {Start: 0x60, Count: 16}}
+	if !reflect.DeepEqual(moved, want) || len(second) != 6 || second[4] != first[4] {
+		t.Fatalf("moved %v, locations %v", moved, second)
+	}
+	// A damaged record in use stops the scan: tracking then reads in full.
+	torn := replTestMFTRecord(at(0x10))
+	torn[510] ^= 0xFF
+	if _, _, err := replMovedRuns(first, mft(torn)); err == nil {
+		t.Fatal("a torn record was accepted")
+	}
+}
