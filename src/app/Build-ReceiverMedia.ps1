@@ -82,13 +82,13 @@ if ($Target -eq 'physical' -and $DriverFolder.Count -eq 0) {
 }
 
 $arguments = "--receiver --disks $Disks --port $Port"
-$plan = @{
+$summary = @{
     adk = $adk; winpe = $wim; oscdimg = $oscdimg; dism = $dism; output = $OutputIso; work = $WorkFolder
     drivers = @($DriverFolder); target = $Target; receiverArguments = $arguments; problems = @($problems)
 }
 if ($Plan -or $problems.Count -gt 0) {
-    $plan.ok = ($problems.Count -eq 0)
-    Write-Result $plan
+    $summary.ok = ($problems.Count -eq 0)
+    Write-Result $summary
     if ($problems.Count -gt 0) { exit 1 }
     exit 0
 }

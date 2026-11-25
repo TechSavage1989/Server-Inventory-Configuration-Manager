@@ -101,6 +101,7 @@ func vmBuildReceiverMedia(ctx context.Context, powershell, receiverExe string, o
 		return nil, err
 	}
 	var result *vmReceiverMediaResult
+	tail := []string{}
 	scanner := bufio.NewScanner(output)
 	scanner.Buffer(make([]byte, 64<<10), 4<<20)
 	for scanner.Scan() {
@@ -114,6 +115,10 @@ func vmBuildReceiverMedia(ctx context.Context, powershell, receiverExe string, o
 		}
 		if line != "" {
 			log(line)
+			tail = append(tail, line)
+			if len(tail) > 12 {
+				tail = tail[1:]
+			}
 		}
 	}
 	waitErr := command.Wait()
@@ -121,7 +126,7 @@ func vmBuildReceiverMedia(ctx context.Context, powershell, receiverExe string, o
 		if waitErr == nil {
 			waitErr = errors.New("the media builder returned no result")
 		}
-		return nil, fmt.Errorf("building the receiver media failed: %w", waitErr)
+		return nil, fmt.Errorf("building the receiver media failed: %w: %s", waitErr, strings.Join(tail, " | "))
 	}
 	return result, nil
 }
