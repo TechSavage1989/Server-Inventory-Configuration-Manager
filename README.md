@@ -29,7 +29,7 @@ A portable **Windows x64 application** for collecting server inventory, exportin
 | Export DHCP, NPS, print, IIS, DNS, firewall, registry and more for recovery. | See what a package can restore onto this server, and why anything cannot. | Restore chosen configuration with a rollback copy saved first. |
 | Move file shares from an old server: files, NTFS permissions and share settings. | Check space, folders and accounts before copying, and verify after cutover. | Copy while users keep working, then cut over with one final copy. |
 | Read a vCenter, ESXi or Hyper-V inventory and check each VM for Hyper-V, HyperCore, Nutanix AHV, Proxmox VE, Azure, EC2 or a physical server. | Plan waves, map networks and storage, check the new cluster's size or cloud quota, write a runbook. | Record a VM's settings before cutover, fix it up after, and compare before and after. |
-| Convert a VMDK, VHD, VHDX, qcow2 or raw disk to any of them, merging snapshot chains. | See the format, size, data and chain of a disk before converting it. | Stop and continue a conversion, or repeat it to copy only what changed. |
+| Convert a VMDK, VHD, VHDX, qcow2 or raw disk to any of them, merging snapshot chains, add VirtIO or server drivers so Windows starts on its new platform, and send it straight to ESXi, Hyper-V, Proxmox VE, Nutanix or HyperCore as a new VM. Copy this computer's own disks the same way (P2V). | See the format, size, data and chain of a disk before converting it. | Stop and continue a conversion, or repeat it to copy only what changed. |
 | Install a replication agent on many servers at once and keep every disk copied to the new machine. | Watch each job's recovery point, alerts and log from one Replication tab. | Cut over now or at a set time: services stop, the last changes go across and every disk is checked. |
 
 ## Screenshots
@@ -88,6 +88,10 @@ A portable **Windows x64 application** for collecting server inventory, exportin
 **Convert a VMDK, VHD, VHDX, qcow2 or raw disk, with its snapshot chain merged and every chunk checked**
 
 <img src="docs/images/disk-converter.png" alt="Disk converter with a three-disk VMDK snapshot chain converted to VHDX" width="900">
+
+**Send a converted disk straight to Proxmox VE, Nutanix, HyperCore, ESXi or Hyper-V as a new VM**
+
+<img src="docs/images/disk-converter-send.png" alt="Send to a host with a Proxmox VE connection and the new VM's settings" width="900">
 
 ### Keep working
 
@@ -225,6 +229,40 @@ It writes VHDX (dynamic), qcow2, VMDK (monolithic sparse, or the ESXi layout of 
 
 The source is only read, and an existing file is never replaced. **Stop** keeps what was copied: **Continue** (or converting again to the same file) carries on from there. Converting again after the source changed, for example a final pass after the VM is shut down, rewrites only the 4 MB chunks that changed. Each output keeps a small `<file>.copy.json` record beside it for this; delete it with the file. Collection, restore, file migration, VMware steps, updates and closing the application wait while a conversion runs.
 
+### Copy this computer to a virtual disk (P2V)
+
+**This computer…** (beside **Browse**) lists the disks of the computer the application runs on. Choose one and convert it like any disk file, or send it straight to a host. Each NTFS and ReFS volume is read from a new Volume Shadow Copy, so the computer keeps running; the shadow copies are deleted when the step ends. Save the new file on another disk or a network share (the disk being copied is refused as the destination). Converting again into the same file later copies only what changed, so a final pass after stopping applications is quick. It needs administrator rights, and volumes that span several disks are refused.
+
+### Prepare a converted Windows disk for its new platform
+
+A Windows disk copied from VMware usually starts only on VMware: its new disk controller's driver is missing or does not start at boot. Under **Prepare a Windows disk for its new platform** (it needs administrator rights):
+
+1. Choose the converted VHD or VHDX (the last conversion is filled in) and the platform it is moving to: Hyper-V, Scale HyperCore, Nutanix AHV, Proxmox VE, VMware ESXi or a physical server.
+2. For HyperCore, Nutanix and Proxmox VE, choose the **VirtIO drivers folder**: the root of the virtio-win ISO (or the Scale Computing or Nutanix VirtIO package). The drivers for the disk's Windows version and architecture are picked automatically. For a physical server choose a folder of the server's storage and network drivers.
+3. **Check disk** shows the Windows version, whether it starts with UEFI or BIOS (so you can create a generation 2 or generation 1 VM), which storage drivers it has, whether VMware Tools is installed and what is still needed. Nothing is changed.
+4. **Apply fix-ups** adds the drivers with DISM, makes the platform's storage drivers start at boot and, if ticked, turns off the VMware Tools services. **Undo fix-ups** puts every value back and removes the drivers it added.
+
+Only the converted disk changes, never the source or this computer. Every changed value and a copy of the disk's SYSTEM registry hive are saved under `%LOCALAPPDATA%\Server Inventory Configuration Manager\Repair` first. VHD and VHDX disks can be fixed up; for qcow2, VMDK or raw, convert to VHDX, fix it up, then convert that to the final format. After a fix-up the disk differs from its source, so converting again needs a new output file. DISM on this computer must be as new as the Windows version in the disk.
+
+### Send a disk to a host and create the VM
+
+Under **Send to a host and create the VM**, the Disk converter turns a disk straight into a new VM on another platform, in the style of a V2V converter's remote destinations:
+
+| Destination | What happens |
+| --- | --- |
+| VMware ESXi or vCenter | A stream-optimized VMDK is written in the folder you choose, then imported through vSphere as a new VM (datacenter, cluster or host, datastore, network, LSI Logic SAS or VMware Paravirtual controller, VMXNET 3 or E1000E adapter, thin or thick). |
+| Hyper-V on this computer | The disk is converted to a VHDX in the folder you choose and a generation 1 (BIOS) or generation 2 (UEFI) VM is created with it, with an optional virtual switch and VLAN. Run the application on the Hyper-V host. |
+| Proxmox VE | The disk is uploaded as qcow2 (or as it is, when it already is qcow2 or raw) to a file storage with the **Import** content type (Proxmox VE 8.4 or later), then imported into a new VM on the storage you choose. Use an API token. |
+| Nutanix AHV | The disk is uploaded to Prism Central as a disk image and a new VM is cloned from it. |
+| Scale HyperCore | The disk is uploaded as a virtual disk (HyperCore 9.2 or later) and attached to a new VM. |
+
+1. Choose the disk to send (the disk you checked, or the last converted file, is filled in) and the destination.
+2. **Connect** with the server's name and an account (for Proxmox VE an API token ID and secret). Nothing changes on the destination yet; its datacenters, hosts, storage and networks are listed. A certificate Windows does not trust is shown with its SHA-256 thumbprint and used only after **Trust this certificate**.
+3. Set the new VM's name, guest operating system, processors, memory, firmware (filled in from the disk: UEFI for GPT, BIOS for MBR), Secure Boot, TPM, storage, network, disk controller and adapter, and the folder for the converted file.
+4. Type the VM's name again and choose **Send and create the VM**.
+
+An image or VM name already used on the destination stops the send before anything is uploaded, and nothing there is replaced or deleted. The new VM is left off unless **Start the new VM** is ticked. The password or token secret stays in memory until **Forget** or the application closes; it is never saved or logged. For a Windows disk, fix it up first (convert to VHDX, run **Apply fix-ups**, then send that VHDX). **Stop** before the upload keeps the conversion so the next send continues it; a partly uploaded image has to be deleted on the destination before sending again.
+
 ## Replicate whole servers
 
 The **Replication** tab (Alt+8) keeps a running server's disks copied to its new machine, a few minutes behind, until you cut over. It works for physical and virtual Windows and Linux servers on any platform, and the new machine can be a Hyper-V VM or anything that boots the receiver media (Scale HyperCore, Nutanix AHV, Proxmox VE or a physical server).
@@ -238,6 +276,8 @@ The **Replication** tab (Alt+8) keeps a running server's disks copied to its new
 5. **Cut over** now or at a set time (type the job name to confirm). The agent stops the services you listed, takes the last shadow copies, sends the last changes and checks every disk against its hashes, then shuts the server down if you chose that. Tick **Read every used block in the last round** to have the last round read everything in use rather than only what changed; it is the safest choice, but the services stay stopped for longer. If any step fails, the services start again and replication carries on. Start the new machine once the job says **Cut over**.
 
 **Test failover on Hyper-V.** On the Hyper-V host, in the VMware tab's Disk copy, choose **Find copies** under **Start a VM from the copies**, tick every disk of the server (all from the same round), and choose **Test failover**. The VM starts on new differencing disks, so nothing it writes reaches the copies, and with no network unless you choose an isolated switch. Replication into those copies pauses while the test runs (the job shows **Paused for a test failover**, without alerts) and catches up on its own once you choose **End test**, which turns the test VM off and removes it and its test disks. After the cutover, choose **Production** to start the VM from the copies themselves.
+
+**Test failover on HyperCore, Nutanix AHV or Proxmox VE.** When the copies go to receiver media in a VM on one of those platforms, open the job and use **Test failover on the target platform**. Connect to the platform (the password or token secret stays in memory only), name the VM that runs the receiver and the test VM, type the test VM's name and choose **Start test failover**. The job pauses when its current round ends, so the copy is one whole recovery point; the platform clones the receiver VM, which gives the clone its own disks, and replication resumes straight away. The clone's network is disconnected, it is set to start from its disk and started, so you can open its console on the platform and check it. **End test** (type the name again) turns the clone off and deletes it; the receiver VM and its disks are never changed.
 
 **Write runbook** under **Servers and jobs** writes every job with its settings and numbered steps (before cutover, test failover, cutover, verify, roll back or fail back) as HTML with check boxes that remember their ticks, and as a Word document with check boxes.
 

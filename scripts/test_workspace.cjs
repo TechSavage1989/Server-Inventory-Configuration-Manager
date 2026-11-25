@@ -28,7 +28,9 @@ function migrateIdle(){return {running:false,action:'',status:'idle',message:'',
 function vmwareIdle(){return {running:false,action:'',status:'idle',message:'',server:'',account:'',certificate:null,summary:null,inventorySerial:0,outputFolder:'',reportPath:'',runbookPath:'',planCsvPath:'',guestSerial:0,guestMessage:'',guestError:false,guestWorkPath:'C:\\Users\\admin\\AppData\\Local\\Server Inventory Configuration Manager\\Guest-Migration',compareSerial:0,compareError:'',sendSerial:0,send:null,sendError:'',receiver:{running:false,port:44380,sessions:0,firewall:false,defaultFolder:'D:\\Migration\\VMware-Copies\\Received'},cancelRequested:false,logs:[],startedAtUnixMs:0,endedAtUnixMs:0};}
 // Synthetic disk converter state; formats mirror vmDiskFormatNames in vmdisk_image.go.
 function convertIdle(){return {running:false,status:'idle',message:'',source:'',target:'',format:'',info:null,progress:{pass:0,chunks:0,done:0,bytesRead:0,bytesWritten:0,changed:0,zero:0},result:null,cancelRequested:false,serial:0,startedAtUnixMs:0,endedAtUnixMs:0,
- formats:[{id:'vhdx',name:'VHDX (dynamic)',extension:'.vhdx',use:'Hyper-V, Scale HyperCore, Nutanix AHV',limit:70368744177664},{id:'qcow2',name:'qcow2',extension:'.qcow2',use:'Proxmox VE, Nutanix AHV, Scale HyperCore, KVM',limit:4611686018427387904},{id:'vmdk',name:'VMDK (monolithic sparse)',extension:'.vmdk',use:'VMware Workstation, vmkfstools -i on ESXi, Nutanix AHV',limit:2190433320960},{id:'vmdk-flat',name:'VMDK (ESXi flat)',extension:'.vmdk',use:'ESXi datastores (descriptor plus -flat.vmdk)',limit:4611686018427387904},{id:'vhd',name:'VHD (dynamic)',extension:'.vhd',use:'Older Hyper-V, Scale HyperCore, Virtual PC',limit:2190433320960},{id:'vhd-fixed',name:'VHD (fixed)',extension:'.vhd',use:'Azure uploads and tools that need a fixed VHD',limit:2190433320960},{id:'raw',name:'Raw image',extension:'.img',use:'dd, physical disks (V2P), Proxmox, any hypervisor',limit:4611686018427387904}]};}
+ formats:[{id:'vhdx',name:'VHDX (dynamic)',extension:'.vhdx',use:'Hyper-V, Scale HyperCore, Nutanix AHV',limit:70368744177664},{id:'qcow2',name:'qcow2',extension:'.qcow2',use:'Proxmox VE, Nutanix AHV, Scale HyperCore, KVM',limit:4611686018427387904},{id:'vmdk',name:'VMDK (monolithic sparse)',extension:'.vmdk',use:'VMware Workstation, vmkfstools -i on ESXi, Nutanix AHV',limit:2190433320960},{id:'vmdk-flat',name:'VMDK (ESXi flat)',extension:'.vmdk',use:'ESXi datastores (descriptor plus -flat.vmdk)',limit:4611686018427387904},{id:'vhd',name:'VHD (dynamic)',extension:'.vhd',use:'Older Hyper-V, Scale HyperCore, Virtual PC',limit:2190433320960},{id:'vhd-fixed',name:'VHD (fixed)',extension:'.vhd',use:'Azure uploads and tools that need a fixed VHD',limit:2190433320960},{id:'raw',name:'Raw image',extension:'.img',use:'dd, physical disks (V2P), Proxmox, any hypervisor',limit:4611686018427387904}],
+ repairTargets:[{id:'hyperv',label:'Hyper-V',driver:'hyperv',virtio:false},{id:'scale',label:'Scale Computing HyperCore',driver:'kvm',virtio:true},{id:'nutanix',label:'Nutanix AHV',driver:'kvm',virtio:true},{id:'proxmox',label:'Proxmox VE (KVM)',driver:'kvm',virtio:true},{id:'vsphere',label:'VMware ESXi',driver:'vmware',virtio:false},{id:'physical',label:'Physical server',driver:'physical',virtio:false}],task:'convert',repairTarget:'',repair:null,log:[],
+ send:{platforms:[{id:'vsphere',name:'VMware ESXi or vCenter',detail:'Imported as a new VM through vSphere (stream-optimized VMDK).'},{id:'hyperv',name:'Hyper-V on this computer',detail:'A VHDX in the folder you choose, attached to a new VM.'},{id:'proxmox',name:'Proxmox VE',detail:'Uploaded to a storage with the Import content type, then imported into a new VM.'},{id:'nutanix',name:'Nutanix AHV',detail:'Uploaded as a disk image in Prism Central, then cloned into a new VM.'},{id:'scale',name:'Scale HyperCore',detail:'Uploaded as a virtual disk (HyperCore 9.2 or later), then attached to a new VM.'}],platform:'',server:'',user:'',node:'',connected:false,version:'',hyperVHere:false,stage:'',done:0,total:0}};}
 function convertInfoFixture(path,size){return {path,format:'vmdk',formatName:'VMDK',variant:'monolithicSparse',virtualSize:size||107374182400,fileSize:21474836480,dataBytes:21474836480,chain:[path,'D:\\VMs\\APP01\\APP01-base.vmdk'],notes:['Differencing disk: 2 disks in the chain are merged into one','<b>not markup</b>']};}
 function vmFixtureVM(name,o){const r=(target,status,findings,generation)=>({target,status,generation,findings});return Object.assign({name,id:'vm-'+name.toLowerCase(),datacenter:'DC-East',cluster:'Prod-Cluster',host:'esx01.example.com',folder:'Servers',template:false,powerState:'poweredOn',guestId:'windows2019srv_64Guest',guestOs:'Microsoft Windows Server 2019 (64-bit)',guestOsRunning:'Microsoft Windows Server 2019 Standard',ipAddress:'192.0.2.10',cpus:4,coresPerSocket:2,memoryMb:16384,hardwareVersion:'vmx-15',firmware:'efi',secureBoot:true,toolsStatus:'toolsOk',toolsRunning:true,provisionedBytes:128849018880,usedBytes:64424509440,
  disks:[{label:'Hard disk 1',controller:'SCSI 0',bus:0,unit:0,capacityBytes:107374182400,datastore:'DS-SSD-01',provisioning:'thin',mode:'persistent',rdm:''}],nics:[{label:'Network adapter 1',adapterType:'VMXNET3',network:'VM-Servers',mac:'00:50:56:00:00:01',connected:true,ipAddresses:['192.0.2.10'],static:true,guestKnown:true}],snapshots:[],
@@ -66,6 +68,7 @@ async function fixture(browser,old=false){
   restore:{status:'idle',packages:{lastCollection:'',loadedReport:''},items:[],logs:[]},migrate:migrateIdle(),vmware:vmwareIdle(),convert:convertIdle()};
  const vm={inventory:null,plan:null,sizing:null,guest:null,compare:null};
  const failover={failovers:[],copies:[{name:'APP01-disk0.vhdx',size:107374182400,complete:true,verified:false,round:'a1@2026-11-25T14:19:23Z',job:'a1',recoveryPoint:'2026-11-25T14:19:23Z',updated:'2026-11-25T14:20:00Z',busy:false,generation:2},{name:'APP01-disk1.vhdx',size:536870912000,complete:true,verified:false,round:'a1@2026-11-25T14:19:23Z',job:'a1',recoveryPoint:'2026-11-25T14:19:23Z',updated:'2026-11-25T14:20:00Z',busy:false,generation:1},{name:'SQL01-disk0.vhdx',size:107374182400,complete:false,verified:false,updated:'2026-11-25T14:20:00Z',busy:true,generation:1}]};
+ const targetTest={running:false,log:[],error:'',tests:[]};
  const repl={ok:true,pushing:false,pushLog:[],pushResults:null,serial:0,isAdministrator:true,defaultPort:44390,agents:[],summary:{agents:0,unreachable:0,jobs:0,healthy:0,behind:0,failing:0,paused:0,cutOver:0,alerts:0}};
  const html=fs.readFileSync(old?'tests/fixtures/index-v3.2.9.html':'src/app/index.html','utf8').replaceAll('__TOKEN__','workspace-test').replaceAll('__APP_VERSION__','3.2.10').replaceAll('__COLLECTOR_VERSION__','3.2.10');
  const server=http.createServer(async(req,res)=>{
@@ -140,6 +143,9 @@ async function fixture(browser,old=false){
    if(action==='state'){send(200,repl);return;}
    if(action==='failover'&&req.method==='GET'){send(200,Object.assign({ok:true,hyperV:true,folder:'D:\\Migration\\VMware-Copies\\Received',receiving:true},failover,url.searchParams.get('switches')==='1'?{switches:[{name:'Isolated test',type:'Private'},{name:'LAN',type:'External'}]}:{}));return;}
    if(action==='failover'&&data.action==='start'){failover.failovers=[{id:'f1',mode:data.request.mode,name:data.request.name,vmId:'6f1d4c3a-0000-4000-8000-000000000001',copies:data.request.copies,recoveryPoint:'2026-11-25T14:19:23Z',started:'2026-11-25T14:30:00Z'}];failover.copies.forEach(c=>{if(data.request.copies.includes(c.name))c.held='test failover '+data.request.name;});send(200,{ok:true});return;}
+   if(action==='targettest'&&req.method==='GET'){const t=(state.vmware&&state.vmware.target)||{};send(200,Object.assign({ok:true,connected:!!t.connected,platform:t.platform||'',server:t.server||'',user:t.user||'',node:t.node||''},targetTest));return;}
+   if(action==='targettest'&&data.action==='start'){Object.assign(targetTest,{running:true,log:['14:30:00  Pausing APP01 when its current round finishes, so the copy is one whole recovery point.']});send(200,{ok:true});return;}
+   if(action==='targettest'&&data.action==='end'){targetTest.tests=[];targetTest.log=['14:40:00  The test APP01-TEST ended: its VM and disks were deleted. The replica was not touched.'];send(200,{ok:true});return;}
    if(action==='failover'&&data.action==='end'){failover.failovers=[];failover.copies.forEach(c=>{delete c.held;});send(200,{ok:true});return;}
    if(action==='push'){Object.assign(repl,{pushing:true,pushLog:['14:02:10  Installing the agent on 2 servers.','14:02:11  app01.example.com: copying the agent.']});send(202,{ok:true});return;}
    if(action==='agent'&&data.action==='disks'){send(200,{ok:true,disks:[{id:'0',size:107374182400,system:true,volumes:[{name:'v1',mounts:[],fileSystem:'FAT32',length:104857600},{name:'v2',mounts:['C:\\'],fileSystem:'NTFS',length:106300000000}]},{id:'1',size:536870912000,system:false,volumes:[{name:'v3',mounts:['D:\\','E:\\'],fileSystem:'NTFS',length:536700000000,kind:'spanned'}]}]});return;}
@@ -153,10 +159,19 @@ async function fixture(browser,old=false){
    if(req.headers['x-app-token']!=='workspace-test'){send(403,{});return;}
    if(convertReject[action]){send(400,{error:convertReject[action]});return;}
    const c=state.convert;
+   if(action==='browse'&&data.kind==='drivers'){send(200,{ok:true,selected:true,path:'F:\\'});return;}
+   if(action==='browse'&&data.kind==='fixup'){send(200,{ok:true,selected:true,path:'E:\\Hyper-V\\Disks\\APP01.vhdx'});return;}
    if(action==='browse'){send(200,data.kind==='folder'?{ok:true,selected:true,path:'E:\\Hyper-V\\Disks'}:{ok:true,selected:true,path:'D:\\VMs\\APP01\\APP01-000001.vmdk'});return;}
-   if(action==='inspect'){const info=convertInfoFixture(data.path,convertSize);send(200,{ok:true,info,suggested:'D:\\VMs\\APP01\\APP01-000001'+({vhdx:'.vhdx',qcow2:'.qcow2',raw:'.img',vhd:'.vhd','vhd-fixed':'.vhd',vmdk:'.vmdk','vmdk-flat':'.vmdk'}[data.format]||'.vhdx')});return;}
+   if(action==='localdisks'){send(200,{ok:true,computer:'SRV-DEMO-01',disks:[{number:0,size:137438953472,system:true,volumes:[{name:'\\\\?\\Volume{1}\\',mounts:['C:\\'],fileSystem:'NTFS',length:136365211648}]},{number:1,size:536870912000,system:false,volumes:[{name:'\\\\?\\Volume{2}\\',mounts:['D:\\'],fileSystem:'NTFS',length:536870912000}]}]});return;}
+   if(action==='inspect'&&/^\\\\\.\\PhysicalDrive\d+$/.test(data.path)){send(200,{ok:true,info:{path:data.path,format:'raw',formatName:'Disk 0 of this computer',variant:'SRV-DEMO-01',virtualSize:137438953472,fileSize:137438953472,dataBytes:137438953472,notes:['C: (NTFS, 127 GB): read from a new shadow copy.']},boot:{partitionStyle:'GPT',firmware:'uefi',systemPartition:true,partitions:4,note:''},suggested:'SRV-DEMO-01-PhysicalDrive0.vhdx'});return;}
+   if(action==='inspect'){const info=convertInfoFixture(data.path,convertSize);send(200,{ok:true,info,boot:{partitionStyle:'GPT',firmware:'uefi',systemPartition:true,partitions:3,note:''},suggested:'D:\\VMs\\APP01\\APP01-000001'+({vhdx:'.vhdx',qcow2:'.qcow2',raw:'.img',vhd:'.vhd','vhd-fixed':'.vhd',vmdk:'.vmdk','vmdk-flat':'.vmdk'}[data.format]||'.vhdx')});return;}
    if(action==='start'){Object.assign(c,{running:true,status:'running',source:data.source,target:data.target,format:data.format,message:'Converting APP01-000001.vmdk.',startedAtUnixMs:Date.now(),endedAtUnixMs:0,progress:{pass:1,chunks:200,done:50,bytesRead:209715200,bytesWritten:104857600,changed:0,zero:10}});send(200,{ok:true});return;}
    if(action==='cancel'){c.cancelRequested=true;send(200,{ok:true});return;}
+   if(action==='connect'&&data.server==='untrusted.example.com'&&!data.thumbprint){c.send=Object.assign({},c.send,{platform:data.platform,certificate:{thumbprint:'AA:BB:CC',subject:'CN=untrusted'}});send(409,{error:'The certificate of untrusted.example.com is not trusted.',certificate:{thumbprint:'AA:BB:CC'}});return;}
+   if(action==='connect'){c.send=Object.assign({},c.send,{platform:data.platform,server:data.server,user:data.user,node:data.node||'pve1',connected:true,certificate:null,version:'Proxmox VE 8.4',inventory:{platform:data.platform,version:'8.4',nodes:[{id:'pve1',name:'pve1'}],networks:[{id:'vmbr0',name:'vmbr0'},{id:'vmbr1',name:'vmbr1',detail:'<b>lab</b>'}],storages:[{id:'local',name:'local',detail:'dir'},{id:'local-lvm',name:'local-lvm',detail:'lvmthin'}]}});send(200,{ok:true,send:c.send});return;}
+   if(action==='forget'){c.send=Object.assign({},c.send,{platform:'',server:'',user:'',connected:false,inventory:null});send(200,{ok:true});return;}
+   if(action==='send'){Object.assign(c,{running:true,status:'running',task:'send',message:'Sending APP01.vhdx to Proxmox VE as APP01.',serial:c.serial+1});c.send=Object.assign({},c.send,{stage:'Uploading',done:25,total:100});send(200,{ok:true});return;}
+   if(action==='repair'){Object.assign(c,{running:true,status:'running',task:'repair',repairTarget:data.target,message:'Fixing up '+data.path.split('\\').pop()+'.',serial:c.serial+1,log:['Opening '+data.path+' for changes.']});send(200,{ok:true});return;}
    send(200,{ok:true});return;
   }
   if(url.pathname==='/api/open'){let body='';for await(const chunk of req)body+=chunk;opens.push(JSON.parse(body).kind);send(200,{ok:true});return;}
@@ -169,7 +184,7 @@ async function fixture(browser,old=false){
  await new Promise(r=>server.listen(0,'127.0.0.1',r));const context=await browser.newContext({viewport:{width:1440,height:1000}}),page=await context.newPage();
  page.on('dialog',async d=>{dialogs.push(d.message());await d.dismiss();});page.on('pageerror',e=>errors.push(e.message));
  const url='http://127.0.0.1:'+server.address().port+'/';await page.goto(url);await page.waitForFunction(()=>document.querySelector('#serverName').textContent==='SRV-DEMO-01');
- return {page,context,state,vm,repl,replCalls,vmwareCalls,convertCalls,rejectConvert(action,message){convertReject[action]=message},setConvertSize(size){convertSize=size},rejectVmware(action,message){vmwareReject[action]=message},logs,dialogs,errors,started,skipRequests,opens,restoreCalls,migrateCalls,rejectMigrate(action,message){migrateReject[action]=message},rejectRestore(message){restoreReject=message},get saved(){return saved},get saveCalls(){return saveCalls},reject(){rejectStart=true},async close(){assert.deepEqual(errors,[]);await context.close();await new Promise(r=>server.close(r));}};
+ return {page,context,state,vm,repl,targetTest,replCalls,vmwareCalls,convertCalls,rejectConvert(action,message){convertReject[action]=message},setConvertSize(size){convertSize=size},rejectVmware(action,message){vmwareReject[action]=message},logs,dialogs,errors,started,skipRequests,opens,restoreCalls,migrateCalls,rejectMigrate(action,message){migrateReject[action]=message},rejectRestore(message){restoreReject=message},get saved(){return saved},get saveCalls(){return saveCalls},reject(){rejectStart=true},async close(){assert.deepEqual(errors,[]);await context.close();await new Promise(r=>server.close(r));}};
 }
 async function check(name,fn){await fn();report.checks.push({name,result:'passed'});console.log('PASS: '+name);}
 (async()=>{const browser=await chromium.launch(executable?{executablePath:executable,headless:true,args:['--no-sandbox']}:{channel:'msedge',headless:true});try{
@@ -953,6 +968,73 @@ async function check(name,fn){await fn();report.checks.push({name,result:'passed
   await f.page.locator('.cv-format[data-format=vhdx]').click();assert(await f.page.locator('#cvStart').isEnabled());
   assert.deepEqual(f.dialogs,[]);assert(f.convertCalls.every(c=>c.token==='workspace-test'));
  }finally{await f.close();}});
+ await check('Disk converter tab: fix-ups take the converted VHDX, pick VirtIO drivers for KVM platforms, post the choice, lock while running and show what Windows has',async()=>{const f=await fixture(browser);try{
+  await f.page.keyboard.press('Alt+7');await f.page.locator('#cvBrowse').click();await f.page.waitForFunction(()=>document.querySelector('#cvInfoBoot').textContent==='UEFI (GPT)');
+  await f.page.locator('#cvFix > summary').click();assert(await f.page.locator('#cvFixApply').isDisabled(),'nothing to fix up yet');
+  assert.deepEqual(await f.page.locator('#cvFixTarget option').evaluateAll(o=>o.map(x=>x.value)),['hyperv','scale','nutanix','proxmox','vsphere','physical']);
+  Object.assign(f.state.convert,{status:'success',result:{target:'E:\\Hyper-V\\Disks\\APP01.vhdx',format:'vhdx',passes:1}});await f.page.waitForTimeout(1300);
+  assert.equal(await f.page.locator('#cvFixPath').inputValue(),'E:\\Hyper-V\\Disks\\APP01.vhdx','the converted VHDX is offered');
+  await f.page.locator('#cvFixTarget').selectOption('proxmox');assert.equal(await f.page.locator('#cvFixDriversLabel').textContent(),'VirtIO drivers folder');
+  await f.page.locator('#cvFixDriversBrowse').click();await f.page.waitForFunction(()=>document.querySelector('#cvFixDrivers').value==='F:\\');
+  await f.page.locator('#cvFixTools').check();await f.page.locator('#cvFixApply').click();await f.page.waitForTimeout(1300);
+  const call=f.convertCalls.filter(c=>c.action==='repair').pop();assert.deepEqual(call.body,{mode:'apply',path:'E:\\Hyper-V\\Disks\\APP01.vhdx',target:'proxmox',drivers:['F:\\'],disableVMwareTools:true});
+  for(const id of ['#cvFixPath','#cvFixTarget','#cvFixApply','#cvFixUndo','#cvStart','#cvSource']){assert(await f.page.locator(id).isDisabled(),id+' locked while fixing up');}
+  assert(!(await f.page.locator('#cvProgress').isVisible()),'the conversion progress is not reused for a fix-up');
+  await f.page.keyboard.press('Alt+1');assert(await f.page.locator('#startButton').isDisabled(),'collection locks while fixing up');await f.page.keyboard.press('Alt+7');
+  Object.assign(f.state.convert,{running:false,status:'success',message:'Fixed up: 3 driver packages added and 4 settings changed. Undo puts them back.',repair:{ok:true,mode:'Apply',boot:{partitionStyle:'GPT',firmware:'uefi',systemPartition:true},
+   windows:[{partition:3,productName:'Windows Server 2019 Datacenter',build:17763,architecture:'amd64',drivers:[{name:'viostor',present:true,start:0,file:true},{name:'storahci',present:true,start:0,file:true}],vmwareTools:true,vmwareServices:['VMTools']}],
+   findings:[{severity:'good',message:'A VirtIO storage driver is in this Windows installation.'},{severity:'info',message:'<b>not markup</b>'}],applied:{record:'C:\\r.json',drivers:['oem3.inf'],changes:[{key:'ControlSet001\\Services\\storahci',name:'Start',old:3,existed:true,new:0}],overrides:[]}},log:['Opening E:\\Hyper-V\\Disks\\APP01.vhdx for changes.','Set ControlSet001\\Services\\storahci Start to 0 (was 3).']});
+  await f.page.waitForTimeout(1300);
+  assert.equal(await f.page.locator('#cvFixStatus').textContent(),'Fixed up: 3 driver packages added and 4 settings changed. Undo puts them back.');
+  assert.equal(await f.page.locator('#cvFixWindows').textContent(),'Windows Server 2019 Datacenter (build 17763)');assert.equal(await f.page.locator('#cvFixStorage').textContent(),'VirtIO block (starts at boot), SATA (AHCI) (starts at boot)');
+  assert.equal(await f.page.locator('#cvFixFindings b').count(),0,'findings are text');assert((await f.page.locator('#cvFixFindings').textContent()).includes('Changed storahci Start to 0.'));
+  assert((await f.page.locator('#cvLog').textContent()).includes('storahci Start to 0'));assert(await f.page.locator('#cvFixUndo').isEnabled());
+  await f.page.screenshot({path:out+'/convert-fixups.png'});
+  f.rejectConvert('repair','No fix-up of this disk was recorded on this computer, so there is nothing to undo.');await f.page.locator('#cvFixUndo').click();await f.page.waitForFunction(()=>document.querySelector('#cvFixStatus').textContent.includes('nothing to undo'));
+  assert.deepEqual(f.dialogs,[]);
+ }finally{await f.close();}});
+ await check('Disk converter tab: Send to a host connects (trusting a certificate only on request), sends the password once, needs the typed VM name, posts the VM settings and locks while sending',async()=>{const f=await fixture(browser);try{
+  await f.page.keyboard.press('Alt+7');await f.page.locator('#cvBrowse').click();await f.page.waitForFunction(()=>document.querySelector('#cvInfoBoot').textContent==='UEFI (GPT)');
+  await f.page.locator('#cvSend > summary').click();
+  assert.deepEqual(await f.page.locator('#cvSendPlatform option').evaluateAll(o=>o.map(x=>x.value)),['vsphere','hyperv','proxmox','nutanix','scale']);
+  assert.equal(await f.page.locator('#cvSendPath').inputValue(),'D:\\VMs\\APP01\\APP01-000001.vmdk','the checked disk is offered');
+  assert(!(await f.page.locator('#cvSendVM').isVisible()),'VM settings wait for a connection');
+  await f.page.locator('#cvSendPlatform').selectOption('hyperv');assert(!(await f.page.locator('#cvSendServer').isVisible()),'Hyper-V needs no server');
+  assert((await f.page.locator('#cvSendStatus').textContent()).includes('not a Hyper-V host'));
+  await f.page.locator('#cvSendPlatform').selectOption('proxmox');assert.equal(await f.page.locator('#cvSendUserLabel').textContent(),'API token ID (user@realm!token)');
+  await f.page.locator('#cvSendServer').fill('untrusted.example.com');await f.page.locator('#cvSendUser').fill('migrate@pve!move');await f.page.locator('#cvSendPassword').fill('token-secret');
+  await f.page.locator('#cvSendConnect').click();await f.page.waitForFunction(()=>!document.querySelector('#cvSendCert').classList.contains('hidden'));
+  assert((await f.page.locator('#cvSendCertText').textContent()).includes('AA:BB:CC'));assert.equal(await f.page.locator('#cvSendPassword').inputValue(),'','the password is cleared after it is sent');
+  await f.page.locator('#cvSendServer').fill('pve.example.com');await f.page.locator('#cvSendConnect').click();await f.page.waitForFunction(()=>!document.querySelector('#cvSendVM').classList.contains('hidden'));
+  const connects=f.convertCalls.filter(c=>c.action==='connect');assert.equal(connects[0].body.password,'token-secret');assert.equal(connects[1].body.password,'','the password is sent once');assert.equal(connects[0].body.thumbprint,'');
+  assert.deepEqual(await f.page.locator('#cvSendImport option').evaluateAll(o=>o.map(x=>x.value)),['local','local-lvm']);
+  assert.equal(await f.page.locator('#cvSendNetwork option b').count(),0,'choices are text');assert.equal(await f.page.locator('#cvSendFirmware').inputValue(),'uefi','firmware follows the disk');
+  await f.page.locator('#cvSendName').fill('APP01');await f.page.locator('#cvSendStorage').selectOption('local-lvm');await f.page.locator('#cvSendImport').selectOption('local');await f.page.locator('#cvSendNetwork').selectOption('vmbr0');
+  await f.page.locator('#cvSendCPUs').fill('4');await f.page.locator('#cvSendMemory').fill('8');await f.page.locator('#cvSendVLAN').fill('20');await f.page.locator('#cvSendSecureBoot').check();await f.page.locator('#cvSendFolderBrowse').click();await f.page.waitForFunction(()=>document.querySelector('#cvSendFolder').value==='E:\\Hyper-V\\Disks');
+  assert(await f.page.locator('#cvSendGo').isDisabled(),'sending needs the typed VM name');await f.page.locator('#cvSendConfirm').fill('APP02');assert(await f.page.locator('#cvSendGo').isDisabled());
+  await f.page.locator('#cvSendConfirm').fill('APP01');assert(await f.page.locator('#cvSendGo').isEnabled());await f.page.locator('#cvSendGo').click();await f.page.waitForTimeout(1300);
+  const sent=f.convertCalls.filter(c=>c.action==='send').pop();
+  assert.deepEqual(sent.body,{source:'D:\\VMs\\APP01\\APP01-000001.vmdk',confirm:'APP01',spec:{platform:'proxmox',name:'APP01',cpus:4,memoryMiB:8192,firmware:'uefi',secureBoot:true,tpm:false,windows:true,guestOs:'Microsoft Windows Server 2022',storage:'local-lvm',importStorage:'local',network:'vmbr0',vlan:20,bus:'virtio',nic:'virtio',controller:'',datacenter:'',compute:'',folder:'E:\\Hyper-V\\Disks',thick:false,start:false}});
+  assert(!JSON.stringify(sent.body).includes('token-secret'),'the send never carries the secret');
+  assert.equal(await f.page.locator('#cvSendTitle').textContent(),'Uploading 25%');
+  for(const id of ['#cvSendGo','#cvSendPlatform','#cvSendName','#cvStart','#cvFixApply']){assert(await f.page.locator(id).isDisabled(),id+' locked while sending');}
+  await f.page.keyboard.press('Alt+1');assert(await f.page.locator('#startButton').isDisabled(),'collection locks while sending');await f.page.keyboard.press('Alt+7');
+  await f.page.screenshot({path:out+'/convert-send.png'});
+  Object.assign(f.state.convert,{running:false,status:'success',message:'Created APP01 on Proxmox VE. It is off; check its settings, then start it.'});f.state.convert.send=Object.assign({},f.state.convert.send,{result:{platform:'proxmox',vmId:'105',vmName:'APP01'}});await f.page.waitForTimeout(1300);
+  assert.equal(await f.page.locator('#cvSendTitle').textContent(),'VM created');assert(await f.page.locator('#cvSendGo').isDisabled(),'the confirmation is cleared after a send');
+  await f.page.locator('#cvSendForget').click();await f.page.waitForFunction(()=>document.querySelector('#cvSendVM').classList.contains('hidden'));
+  assert.deepEqual(f.dialogs,[]);
+ }finally{await f.close();}});
+ await check('Disk converter tab: This computer lists the local disks for P2V, checks the chosen disk and converts it to a file on another disk',async()=>{const f=await fixture(browser);try{
+  await f.page.keyboard.press('Alt+7');await f.page.locator('#cvLocal').click();await f.page.waitForFunction(()=>document.querySelectorAll('.cv-local-disk').length===2);
+  assert.equal(await f.page.locator('.cv-local-disk').first().textContent(),'Disk 0 · 128 GB · C: · Windows');
+  await f.page.locator('.cv-local-disk').first().click();await f.page.waitForFunction(()=>document.querySelector('#cvInfoFormat').textContent.startsWith('Disk 0'));
+  assert.equal(await f.page.locator('#cvSource').inputValue(),'\\\\.\\PhysicalDrive0');assert.equal(await f.page.locator('#cvInfoBoot').textContent(),'UEFI (GPT)');assert(!(await f.page.locator('#cvLocalBox').isVisible()));
+  await f.page.locator('#cvFolder').click();await f.page.waitForFunction(()=>document.querySelector('#cvTarget').value.startsWith('E:'));assert.equal(await f.page.locator('#cvTarget').inputValue(),'E:\\Hyper-V\\Disks\\SRV-DEMO-01-PhysicalDrive0.vhdx');
+  await f.page.locator('#cvStart').click();await f.page.waitForTimeout(1300);
+  const start=f.convertCalls.filter(c=>c.action==='start').pop();assert.equal(start.body.source,'\\\\.\\PhysicalDrive0');assert.equal(start.body.format,'vhdx');
+  assert(await f.page.locator('#cvLocal').isDisabled(),'the disk list locks while converting');assert.deepEqual(f.dialogs,[]);
+ }finally{await f.close();}});
 
  await check('Test failover: copies from one round start a disconnected test VM after the typed name; the copies show as held and End test needs the name again',async()=>{const f=await fixture(browser);try{
   await f.page.keyboard.press('Alt+6');await f.page.locator('[data-vmview="disks"]').click();
@@ -1023,6 +1105,24 @@ async function check(name,fn){await fn();report.checks.push({name,result:'passed
   assert(await f.page.locator('#rpCutover').isDisabled(),'cutover needs the typed name');
   await f.page.locator('#rpCutoverTyped').fill('app01');assert(await f.page.locator('#rpCutover').isEnabled());
   await f.page.locator('#rpLogButton').click();await f.page.waitForFunction(()=>document.querySelector('#rpLog').textContent.includes('Round 2 finished'));
+  // Receiver-media jobs offer the platform test failover.
+  await f.page.waitForFunction(()=>!document.querySelector('#ttSection').classList.contains('hidden'));
+  assert.equal(await f.page.locator('#ttSource').inputValue(),'APP01');assert.equal(await f.page.locator('#ttName').inputValue(),'APP01-TEST');
+  assert(await f.page.locator('#ttStart').isDisabled(),'start needs a connection and the typed name');
+  await f.page.locator('#ttPlatform').selectOption('proxmox');assert((await f.page.locator('#ttUserLabel').textContent()).includes('API token ID'));assert(await f.page.locator('#ttNodeField').isVisible());
+  await f.page.locator('#ttServer').fill('pve1.example.com');await f.page.locator('#ttUser').fill('migrate@pve!move');await f.page.locator('#ttPassword').fill('Synthetic-Token-Secret');
+  await f.page.locator('#ttConnectButton').click();await f.page.waitForFunction(()=>document.querySelector('#ttConnected').textContent.includes('Connected to Proxmox VE at pve1.example.com'));
+  assert.equal(await f.page.locator('#ttPassword').inputValue(),'','the token secret is cleared once sent');assert(await f.page.locator('#ttConnect').isHidden());
+  await f.page.locator('#ttTyped').fill('app01-test');await f.page.locator('#ttStart').click();
+  await f.page.waitForFunction(()=>document.querySelector('#ttLog').textContent.includes('Pausing APP01'));
+  assert.deepEqual(f.replCalls.filter(c=>c.action==='targettest'&&c.method==='POST').map(c=>c.body),[{action:'start',agent:'ag1',job:'a1b2c3d4e5f60718',sourceVM:'APP01',name:'APP01-TEST',confirm:'app01-test'}]);
+  assert(await f.page.locator('#ttCancel').isVisible());
+  Object.assign(f.targetTest,{running:false,log:f.targetTest.log.concat(['14:31:10  APP01-TEST is running from the recovery point of 2026-11-25 14:19:23 UTC with its network disconnected.']),tests:[{id:'t1',platform:'proxmox',server:'pve1.example.com',agent:'ag1',job:'a1b2c3d4e5f60718',jobName:'APP01',sourceVM:'APP01',sourceID:'150',name:'APP01-TEST',vmID:'205',recoveryPoint:'2026-11-25T14:19:23Z',started:'2026-11-25T14:31:10Z'}]});
+  await f.page.waitForFunction(()=>document.querySelector('#ttTests').textContent.includes('APP01-TEST runs on pve1.example.com'),null,{timeout:15000});
+  assert(await f.page.locator('[data-tt-end="t1"]').isDisabled(),'End test needs the name');
+  await f.page.locator('[data-tt-typed="t1"]').fill('APP01-TEST');await f.page.locator('[data-tt-end="t1"]').click();
+  await f.page.waitForFunction(()=>document.querySelector('#ttLog').textContent.includes('replica was not touched'));
+  assert.deepEqual(f.replCalls.filter(c=>c.action==='targettest'&&c.body.action==='end').map(c=>c.body),[{action:'end',id:'t1',confirm:'APP01-TEST'}]);
   await f.page.waitForFunction(()=>!document.querySelector('#rpRunbook').disabled);await f.page.locator('#rpRunbook').click();await f.page.waitForFunction(()=>!document.querySelector('#rpRunbookDocx').classList.contains('hidden'));
   assert.equal(f.replCalls.filter(c=>c.action==='runbook').length,1);assert(f.opens.includes('replrunbook'));await f.page.locator('#rpRunbookDocx').click();await f.page.waitForFunction(()=>true);
   await f.page.setViewportSize({width:1440,height:1000});await f.page.evaluate(()=>document.activeElement.blur());await f.page.locator('.rp-body').evaluate(e=>e.scrollTop=0);await f.page.screenshot({path:out+'/replication-1440x1000.png'});await f.page.locator('.rp-body').evaluate(e=>{const h=document.querySelector('.rp-heading');e.scrollTop=h.offsetTop-e.offsetTop-8;});await f.page.screenshot({path:out+'/replication-jobs-1440x1000.png'});

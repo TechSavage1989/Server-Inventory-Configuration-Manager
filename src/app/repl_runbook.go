@@ -119,8 +119,11 @@ func replRunbookJobFor(server, platform string, view replJobView) replRunbookJob
 		}
 	} else {
 		job.Test = []string{
-			"For a receiver on HyperCore, Nutanix, Proxmox or a physical server there is no separate test copy: test by starting the new machine from its disks on an isolated network, then boot it from the receiver media again.",
-			"Back in the Replication tab, choose Rescan the receiver on " + spec.Name + " so the next round compares the disks and sends only what differs.",
+			"For a receiver VM on HyperCore, Nutanix AHV or Proxmox VE: in the Replication tab, open " + spec.Name + " and use Test failover on the target platform. Connect to the platform, name the VM that runs the receiver and the test VM, type the test VM's name and start it.",
+			"The job pauses when its current round ends, the platform clones the receiver VM (the clone has its own disks) and replication resumes at once. The clone's network is disconnected; it starts from its disk.",
+			"Open the test VM's console on the platform, sign in and check that it starts and the application's data is there. Do not connect it to the production network.",
+			"Choose End test (type the test VM's name): the test VM is turned off and deleted with its disks. The receiver VM and its disks are never changed, so no rescan is needed.",
+			"For a physical server receiving the copy there is no clone: test by starting it from its disks on an isolated network, boot it from the receiver media again, then choose Rescan the receiver on " + spec.Name + " so the next round sends only what differs.",
 		}
 	}
 	job.Cutover = []string{

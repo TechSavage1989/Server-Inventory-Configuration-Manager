@@ -134,9 +134,16 @@ type replJobStatus struct {
 	Disks         []replDiskStatus `json:"disks"`
 	// RescanNext makes the next round rebuild the receiver's records from
 	// the targets first (after a test failover booted them).
-	RescanNext bool      `json:"rescanNext"`
-	CutoverAt  time.Time `json:"cutoverDone,omitempty"`
-	Notes      []string  `json:"notes,omitempty"`
+	RescanNext bool `json:"rescanNext"`
+	// Consistent is true while the receiver's disks hold exactly the last
+	// recovery point: after a finished round and until the next one starts.
+	Consistent bool `json:"consistent"`
+	// PauseAfterRound pauses the job when the running (or next) round
+	// finishes, so the receiver's disks stay at one recovery point (a test
+	// failover on a platform clones them).
+	PauseAfterRound bool      `json:"pauseAfterRound,omitempty"`
+	CutoverAt       time.Time `json:"cutoverDone,omitempty"`
+	Notes           []string  `json:"notes,omitempty"`
 }
 
 type replAlert struct {
@@ -591,10 +598,39 @@ func (a *replAgent) Action(id, action string) error {
 			job.cancel()
 		}
 		job.status.State, job.status.Message = replStatePaused, "Paused. Resume to replicate again."
+		job.status.PauseAfterRound = false
 		a.logLocked(job, "Paused by the operator.")
+	case "pause-consistent":
+		// Pause with the receiver's disks at one whole recovery point:
+		// never stop a round half way.
+		if done || job.status.State == replStateCutover {
+			return errors.New("the job is " + job.status.State)
+		}
+		if job.status.State == replStatePaused && job.status.Consistent {
+			return nil
+		}
+		if !job.running && job.status.Consistent {
+			job.status.State, job.status.PauseAfterRound = replStatePaused, false
+			job.status.Message = fmt.Sprintf("Paused at the recovery point of %s UTC. Resume to replicate again.", job.status.RecoveryPoint.Format("2006-01-02 15:04:05"))
+			a.logLocked(job, "Paused at a whole recovery point.")
+			break
+		}
+		job.status.PauseAfterRound = true
+		if !job.running {
+			if job.status.State == replStatePaused {
+				job.status.State = replStateIdle
+			}
+			job.status.NextRun = time.Time{}
+		}
+		a.logLocked(job, "The job pauses when the next round finishes, so the receiver's disks hold one whole recovery point.")
 	case "resume":
-		if job.status.State != replStatePaused {
+		if job.status.State != replStatePaused && !job.status.PauseAfterRound {
 			return errors.New("the job is not paused")
+		}
+		job.status.PauseAfterRound = false
+		if job.running {
+			a.logLocked(job, "The pause after this round was cancelled.")
+			break
 		}
 		job.status.State, job.status.Message, job.status.NextRun = replStateIdle, "Resumed.", time.Time{}
 		a.logLocked(job, "Resumed by the operator.")
@@ -759,6 +795,8 @@ func (a *replAgent) startLocked(job *replJob, cutover bool) {
 	spec.Disks = append([]replDiskMap(nil), job.spec.Disks...)
 	spec.StopServices = append([]string(nil), job.spec.StopServices...)
 	rescan := job.status.RescanNext
+	// From here the receiver's disks may hold parts of two recovery points.
+	job.status.Consistent = false
 	a.wg.Add(1)
 	go func() {
 		defer a.wg.Done()
@@ -884,7 +922,12 @@ func (a *replAgent) runRound(ctx context.Context, job *replJob, spec replJobSpec
 		if !job.status.RecoveryPoint.IsZero() && a.now().Sub(job.status.RecoveryPoint) <= time.Duration(spec.RPOMinutes)*time.Minute {
 			a.clearAlertsLocked(job, "rpo")
 		}
-		if !final {
+		job.status.Consistent = true
+		if !final && job.status.PauseAfterRound {
+			job.status.State, job.status.PauseAfterRound = replStatePaused, false
+			job.status.Message = fmt.Sprintf("Paused at the recovery point of %s UTC. Resume to replicate again.", job.status.RecoveryPoint.Format("2006-01-02 15:04:05"))
+			a.logLocked(job, "Paused after the round, at a whole recovery point.")
+		} else if !final {
 			job.status.State = replStateIdle
 			next := started.Add(interval)
 			if spec.IntervalMinutes == 0 {

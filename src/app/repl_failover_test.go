@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -177,5 +178,84 @@ func TestFailbackJobRescansTheReceiverFirst(t *testing.T) {
 	view = replWaitIdle(t, agent, view.Spec.ID)
 	if view.Status.State != replStateIdle || view.Status.RescanNext {
 		t.Fatalf("after the first round: %+v", view.Status)
+	}
+}
+
+// A test failover on a platform clones the receiver VM, so the job must
+// pause with the receiver's disks at one whole recovery point: never in the
+// middle of a round.
+func TestReplicationPausesAtAWholeRecoveryPoint(t *testing.T) {
+	agent, platform, clock, receiver, _ := replTestSetup(t)
+	view, err := agent.SaveJob(replTestSpec(receiver))
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := view.Spec.ID
+	agent.Tick()
+	view = replWaitIdle(t, agent, id)
+	if !view.Status.Consistent || view.Status.Rounds != 1 {
+		t.Fatalf("after a round: %+v", view.Status)
+	}
+	// Idle and consistent: pauses at once.
+	if err := agent.Action(id, "pause-consistent"); err != nil {
+		t.Fatal(err)
+	}
+	view = replWaitIdle(t, agent, id)
+	if view.Status.State != replStatePaused || !view.Status.Consistent || view.Status.PauseAfterRound {
+		t.Fatalf("idle pause: %+v", view.Status)
+	}
+	if err := agent.Action(id, "resume"); err != nil {
+		t.Fatal(err)
+	}
+	// While a round runs: the round finishes, then the job pauses.
+	platform.gate = make(chan struct{})
+	platform.disks["0"][5<<20] ^= 0xff
+	clock.Add(6 * time.Minute)
+	agent.Tick()
+	agent.mu.Lock()
+	running, consistent := agent.jobs[id].running, agent.jobs[id].status.Consistent
+	agent.mu.Unlock()
+	if !running || consistent {
+		t.Fatalf("a running round must not count as consistent (running %v, consistent %v)", running, consistent)
+	}
+	if err := agent.Action(id, "pause-consistent"); err != nil {
+		t.Fatal(err)
+	}
+	close(platform.gate)
+	view = replWaitIdle(t, agent, id)
+	if view.Status.State != replStatePaused || !view.Status.Consistent || view.Status.Rounds != 2 || view.Status.Disks[0].Changed != 1 {
+		t.Fatalf("pause after round: %+v", view.Status)
+	}
+	clock.Add(30 * time.Minute)
+	agent.Tick()
+	view = replWaitIdle(t, agent, id)
+	if view.Status.Rounds != 2 {
+		t.Fatal("a paused job ran a round")
+	}
+	// A failed round leaves the disks inconsistent: the pause waits for a
+	// round that finishes.
+	if err := agent.Action(id, "resume"); err != nil {
+		t.Fatal(err)
+	}
+	platform.gate = nil
+	platform.openFail = errors.New("VSS is busy")
+	clock.Add(6 * time.Minute)
+	agent.Tick()
+	view = replWaitIdle(t, agent, id)
+	if view.Status.Consistent {
+		t.Fatal("a failed round counted as consistent")
+	}
+	if err := agent.Action(id, "pause-consistent"); err != nil {
+		t.Fatal(err)
+	}
+	view = replWaitIdle(t, agent, id)
+	if view.Status.State == replStatePaused || !view.Status.PauseAfterRound {
+		t.Fatalf("paused on an inconsistent copy: %+v", view.Status)
+	}
+	platform.openFail = nil
+	agent.Tick()
+	view = replWaitIdle(t, agent, id)
+	if view.Status.State != replStatePaused || !view.Status.Consistent || view.Status.Rounds != 3 {
+		t.Fatalf("pause after the retried round: %+v", view.Status)
 	}
 }

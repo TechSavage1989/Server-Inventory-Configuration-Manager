@@ -44,10 +44,15 @@ var (
 )
 
 type replRuntime struct {
-	console   *replConsole
-	loadErr   string
-	pushing   bool
-	failing   bool // a VM is being started from copies, or a test ended
+	console *replConsole
+	loadErr string
+	pushing bool
+	failing bool // a VM is being started from copies, or a test ended
+	// Test failover on a target platform (repl_targettest_windows.go).
+	ttRunning bool
+	ttLog     []string
+	ttError   string
+	ttCancel  context.CancelFunc
 	runbook   string
 	pushLog   []string
 	pushDone  []replPushResult

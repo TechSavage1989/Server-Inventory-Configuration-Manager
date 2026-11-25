@@ -83,6 +83,7 @@ type vmHyperCoreBlockDevice struct {
 }
 
 type vmHyperCoreNetDevice struct {
+	UUID       string `json:"uuid,omitempty"`
 	Type       string `json:"type"`
 	VLAN       int    `json:"vlan"`
 	MacAddress string `json:"macAddress,omitempty"`
@@ -300,6 +301,10 @@ func vmHyperCoreDomainBody(spec vmTargetVMSpec, version string) (map[string]inte
 	}
 	devices := []vmHyperCoreBlockDevice{}
 	for index, disk := range spec.Disks {
+		if disk.Import != "" {
+			// Uploaded disks are attached after the VM exists.
+			continue
+		}
 		// Whole MiB, rounded up, so the disk is never smaller than the source.
 		device := vmHyperCoreBlockDevice{Type: vmHyperCoreDiskType(disk.Bus), Capacity: vmCeilDiv(disk.Size, 1<<20) << 20, Slot: index, CacheMode: "WRITETHROUGH"}
 		if index == 0 {
@@ -307,7 +312,9 @@ func vmHyperCoreDomainBody(spec vmTargetVMSpec, version string) (map[string]inte
 		}
 		devices = append(devices, device)
 	}
-	devices = append(devices, vmHyperCoreBlockDevice{Type: "IDE_CDROM", Path: spec.ISO, Slot: len(spec.Disks), CacheMode: "WRITETHROUGH"})
+	if spec.ISO != "" {
+		devices = append(devices, vmHyperCoreBlockDevice{Type: "IDE_CDROM", Path: spec.ISO, Slot: len(spec.Disks), CacheMode: "WRITETHROUGH"})
+	}
 	// UEFI needs an NVRAM device and a TPM machine needs NVRAM and VTPM;
 	// HyperCore places both itself (slot -1).
 	if spec.Firmware == "uefi" || spec.TPM {
@@ -358,6 +365,14 @@ func (c *vmHyperCore) CreateVM(ctx context.Context, spec vmTargetVMSpec) (*vmTar
 	}
 	if err := c.waitTask(ctx, created.TaskTag); err != nil {
 		return nil, err
+	}
+	for index, disk := range spec.Disks {
+		if disk.Import == "" {
+			continue
+		}
+		if err := c.attachDisk(ctx, disk.Import, created.CreatedUUID, disk, index); err != nil {
+			return &vmTargetVM{ID: created.CreatedUUID, Name: spec.Name, State: "stopped"}, fmt.Errorf("%s was created but its uploaded disk could not be attached: %w", spec.Name, err)
+		}
 	}
 	// Boot the receiver CD-ROM first while the disks are blank.
 	domain, err := c.domain(ctx, created.CreatedUUID)
@@ -424,4 +439,48 @@ func vmHyperCoreSorted(devices []vmHyperCoreBlockDevice) []vmHyperCoreBlockDevic
 	sorted := append([]vmHyperCoreBlockDevice(nil), devices...)
 	sort.SliceStable(sorted, func(i, j int) bool { return sorted[i].Slot < sorted[j].Slot })
 	return sorted
+}
+
+// CloneVM clones the VM (HyperCore copies every disk) under a new name.
+func (c *vmHyperCore) CloneVM(ctx context.Context, id, name, note string) (*vmTargetVM, error) {
+	var created vmHyperCoreCreated
+	if err := c.http.do(ctx, http.MethodPost, "/VirDomain/"+id+"/clone", nil, map[string]interface{}{"template": map[string]interface{}{"name": name, "description": note}}, "", 0, &created); err != nil {
+		return nil, err
+	}
+	if created.CreatedUUID == "" {
+		return nil, errors.New("HyperCore did not return the clone's ID")
+	}
+	if err := c.waitTask(ctx, created.TaskTag); err != nil {
+		return nil, err
+	}
+	return &vmTargetVM{ID: created.CreatedUUID, Name: name, State: "stopped"}, nil
+}
+
+// Isolate disconnects every adapter.
+func (c *vmHyperCore) Isolate(ctx context.Context, id string) error {
+	domain, err := c.domain(ctx, id)
+	if err != nil {
+		return err
+	}
+	for _, device := range domain.NetDevs {
+		if device.UUID == "" {
+			return errors.New("HyperCore returned an adapter without its ID")
+		}
+		var answer vmHyperCoreCreated
+		if err := c.http.do(ctx, http.MethodPatch, "/VirDomainNetDevice/"+device.UUID, nil, map[string]interface{}{"connected": false}, "", 0, &answer); err != nil {
+			return err
+		}
+		if err := c.waitTask(ctx, answer.TaskTag); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *vmHyperCore) DeleteVM(ctx context.Context, id string) error {
+	var answer vmHyperCoreCreated
+	if err := c.http.do(ctx, http.MethodDelete, "/VirDomain/"+id, nil, nil, "", 0, &answer); err != nil {
+		return err
+	}
+	return c.waitTask(ctx, answer.TaskTag)
 }

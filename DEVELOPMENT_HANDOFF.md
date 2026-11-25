@@ -5,6 +5,28 @@
 - Tests: `go test ./src/app -run HyperV` (fake host, real VHDX files: full, delta with a cleared chunk, verified cutover, refusals, checkpoint removal on failure and cancel); `TestMoveHyperVScriptOnThisComputer` on Windows; the Hyper-V check in `scripts/test_workspace.cjs`.
 - Limitation: GitHub runners have no Hyper-V role. Real checkpoints, remote WMI access and the guest shutdown need a field test on a Hyper-V host before customer use.
 
+## Unreleased: send converted disks to a host — 2026-11-25
+
+- Disk converter tab: **Send to a host and create the VM** (AGENTS rule 32) for VMware ESXi/vCenter (stream-optimized VMDK through an OVF lease), Hyper-V on this computer, Proxmox VE (Import content upload plus `import-from`), Nutanix AHV (disk image plus clone) and Scale HyperCore 9.2+ (`/VirtualDisk/upload` plus attach).
+- Tests: `vmconvert_send_test.go`, `vmconvert_vsphere_test.go` (vcsim), `vmtarget_import_test.go`, `vmdisk_stream_test.go` (qemu-img check/compare when installed), and a `scripts/test_workspace.cjs` check for the screen.
+- P2V: **This computer…** in the Disk converter converts or sends a disk of this computer, its volumes read from shadow copies (AGENTS rule 33, `TestConverterCopiesADiskOfThisComputer`).
+- Limitations: no run yet against a real ESXi, vCenter, Proxmox VE, Prism Central or HyperCore. The vSphere import sends one disk; multi-disk VMs still go through the VMware tab's Move.
+
+## Unreleased: fix-ups for converted Windows disks — 2026-11-25
+
+- Disk converter tab: **Prepare a Windows disk for its new platform** (AGENTS rule 31). `Repair-ConvertedDisk.ps1` mounts a converted VHD/VHDX, reports Windows version, boot firmware, storage drivers and VMware Tools (Check), adds drivers with DISM (virtio-win layout resolved per Windows version), sets the target's storage drivers to boot start and can disable VMware Tools services (Apply), and reverses it from its record (Undo).
+- `vmDetectBoot` reads GPT/MBR from any image; the converter shows "Starts with" UEFI or BIOS.
+- Tests: `vmrepair_test.go` (boot detection, PowerShell result shapes), `vmrepair_windows_test.go` (real VHDX with synthetic hives: Check, failing DISM Apply, Apply, Undo), workspace test for the section.
+- Limitations: DISM injection into a real offline Windows image, and booting fixed-up disks on HyperCore, Nutanix and Proxmox, still need field validation. README screenshots of the Disk converter are refreshed with the remote-destination change that follows.
+
+## Unreleased: automated test failover on HyperCore, Nutanix AHV and Proxmox VE — 2026-11-25
+
+- Agent action `pause-consistent` and job status `consistent`/`pauseAfterRound` (`repl_job.go`): the job pauses only once the receiver's disks hold one whole recovery point; a running round is never cancelled.
+- `vmTargetTester` (`vmtarget_testfailover.go`) for Proxmox (full clone, `link_down=1`, destroy with purge), Nutanix (v3 clone with no adapters, delete) and HyperCore (VirDomain clone, adapters `connected:false`, delete). `vmTargetTestStart` removes a half-made clone; `vmTargetTestEnd` deletes only the recorded ID under the recorded name.
+- Console: `repl_targettest.go` (tested on Linux with an in-process agent) and `/api/repl/targettest`; the Replication tab job details show **Test failover on the target platform** for receiver-media jobs. Replication resumes as soon as the clone exists.
+- Tests: `vmtarget_testfailover_test.go` (fakes built from the public APIs), `TestReplicationPausesAtAWholeRecoveryPoint`, workspace check in the replication test.
+- Limitation: not yet run against real HyperCore, Prism Central or Proxmox VE; field-validate cloning a running receiver VM on each.
+
 ## Unreleased: Linux agent, SSH install, test failover and failback — 2026-11-25
 
 - Linux replication agent `simm-agent-linux-amd64` (systemd service, LVM snapshots, sysfs disks) built and published by the release workflow; CI job `linuxagent` runs its LVM, job and systemd tests as root.
