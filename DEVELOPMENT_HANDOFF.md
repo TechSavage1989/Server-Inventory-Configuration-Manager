@@ -1,3 +1,7 @@
+## 3.2.28 release preparation — 2026-11-25
+
+Publishing the VMware migration features (#70), which the owner chose to merge and publish on 2026-11-25. This branch bumps `appVersion`, `collectorVersion` and the collector `$scriptVersion` to 3.2.28, adds `docs/release-notes/3.2.28.md` (first three bullets free of Markdown) and points `scripts/test_published_upgrade.cjs` at the published v3.2.27 executable (SHA-256 `390bc1bf4cc0e403adae35e88706ffdfa30c966ebf89be2d48d72f6cebc2946f`, release asset digest). `release/VERSION` changes in a separate publication PR after this source CI passes. `Report-Preview.png` should be unchanged. The EXE grows from about 7.7 MB to about 20 MB (govmomi); the updater's size limit is 64 MB.
+
 ## Unreleased: VMware migration features — 2026-11-25
 
 User request (an MSP migrating VMware/ESXi to Scale Computing HyperCore and Hyper-V): "work on all of the features" from the proposed set. Branch `claude/project-thread-741oy5`. A new **VMware** tab (Alt+6) with four views:
