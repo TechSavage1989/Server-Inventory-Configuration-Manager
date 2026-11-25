@@ -296,38 +296,73 @@ var replMetaRequired = []string{`$MFT`, `$MFTMirr`, `$LogFile`, `$Bitmap`}
 // replMetaRecords are the MFT record numbers of replMetaRequired.
 var replMetaRecords = []int64{0, 1, 2, 6}
 
-// replSystemFileRuns reads an NTFS system file's MFT record (record < 16)
-// from the volume and returns where its data lies.
-func replSystemFileRuns(device string, record int64) ([]replRun, error) {
+// replMFTReader reads MFT records straight from a shadowed volume, for
+// files Windows will not open even on a shadow copy ($LogFile on Windows
+// Server 2025, some files under System Volume Information).
+type replMFTReader struct {
+	volume      windows.Handle
+	clusterSize int64
+	recordSize  int64
+	mftRuns     []replRun
+}
+
+func newReplMFTReader(device string) (*replMFTReader, error) {
 	volume, err := replOpenVolume(device)
 	if err != nil {
 		return nil, err
 	}
-	defer windows.CloseHandle(volume)
 	out := make([]byte, 128)
 	var returned uint32
 	if err := windows.DeviceIoControl(volume, replFsctlGetNtfsVolumeData, nil, 0, &out[0], uint32(len(out)), &returned, nil); err != nil {
+		windows.CloseHandle(volume)
 		return nil, err
 	}
-	clusterSize := int64(binary.LittleEndian.Uint32(out[44:]))
-	recordSize := int64(binary.LittleEndian.Uint32(out[48:]))
+	r := &replMFTReader{volume: volume, clusterSize: int64(binary.LittleEndian.Uint32(out[44:])), recordSize: int64(binary.LittleEndian.Uint32(out[48:]))}
 	mftStart := int64(binary.LittleEndian.Uint64(out[64:]))
-	if clusterSize <= 0 || recordSize < 1024 || recordSize > 65536 || record < 0 || record >= 16 {
+	if r.clusterSize <= 0 || r.recordSize < 1024 || r.recordSize > 65536 || mftStart <= 0 {
+		r.Close()
 		return nil, errors.New("the volume reported an unexpected MFT layout")
 	}
-	offset := mftStart*clusterSize + record*recordSize
+	// Record 0 is $MFT itself, at the MFT's first cluster.
+	r.mftRuns = []replRun{{Start: mftStart, Count: (r.recordSize + r.clusterSize - 1) / r.clusterSize}}
+	runs, _, err := r.Runs(0)
+	if err != nil || len(runs) == 0 || runs[0].Start != mftStart {
+		r.Close()
+		if err == nil {
+			err = errors.New("the MFT does not start where the volume says")
+		}
+		return nil, fmt.Errorf("reading the MFT's own record: %w", err)
+	}
+	r.mftRuns = runs
+	return r, nil
+}
+
+func (r *replMFTReader) Close() {
+	if r.volume != 0 {
+		windows.CloseHandle(r.volume)
+		r.volume = 0
+	}
+}
+
+// Runs returns the runs of every non-resident attribute of one record and
+// its sequence number.
+func (r *replMFTReader) Runs(record int64) ([]replRun, uint16, error) {
+	offset, err := replMFTOffset(r.mftRuns, r.clusterSize, record*r.recordSize)
+	if err != nil {
+		return nil, 0, err
+	}
 	const align = 4096
 	start := offset / align * align
-	buffer := make([]byte, (offset+recordSize-start+align-1)/align*align)
+	buffer := make([]byte, (offset+r.recordSize-start+align-1)/align*align)
 	var read uint32
 	overlapped := windows.Overlapped{Offset: uint32(start), OffsetHigh: uint32(start >> 32)}
-	if err := windows.ReadFile(volume, buffer, &read, &overlapped); err != nil {
-		return nil, err
+	if err := windows.ReadFile(r.volume, buffer, &read, &overlapped); err != nil {
+		return nil, 0, err
 	}
-	if int64(read) < offset-start+recordSize {
-		return nil, errors.New("the MFT record could not be read in full")
+	if int64(read) < offset-start+r.recordSize {
+		return nil, 0, errors.New("the MFT record could not be read in full")
 	}
-	return replMFTDataRuns(buffer[offset-start : offset-start+recordSize])
+	return replMFTRuns(buffer[offset-start : offset-start+r.recordSize])
 }
 
 var replMetaOptional = []string{`$MFT::$BITMAP`, `$Volume`, `$AttrDef`, `$Boot`, `$UpCase`, `$Secure:$SDS`, `$Secure:$SDH:$INDEX_ALLOCATION`, `$Secure:$SII:$INDEX_ALLOCATION`,
@@ -339,13 +374,29 @@ var replMetaOptional = []string{`$MFT::$BITMAP`, `$Volume`, `$AttrDef`, `$Boot`,
 // journal names.
 func replTrackedRuns(ctx context.Context, shadowRoot string, shadow windows.Handle, live windows.Handle, previous replVolumeTrack, prevBitmap, bitmap []byte, clusters int64) ([]replRun, int, error) {
 	runs := replToggled(prevBitmap, bitmap, clusters)
+	var mft *replMFTReader
+	defer func() {
+		if mft != nil {
+			mft.Close()
+		}
+	}()
+	// fromRecord finds where a file lies from its MFT record, for files
+	// Windows will not open even on a shadow copy.
+	fromRecord := func(record int64) ([]replRun, uint16, error) {
+		if mft == nil {
+			reader, err := newReplMFTReader(strings.TrimSuffix(shadowRoot, `\`))
+			if err != nil {
+				return nil, 0, err
+			}
+			mft = reader
+		}
+		return mft.Runs(record)
+	}
 	for index, name := range replMetaRequired {
 		found, err := replPathRuns(shadowRoot + name)
 		if err != nil {
-			// Some system files cannot be opened even on a shadow copy;
-			// read where they lie from their MFT records instead.
 			var recordErr error
-			found, recordErr = replSystemFileRuns(strings.TrimSuffix(shadowRoot, `\`), replMetaRecords[index])
+			found, _, recordErr = fromRecord(replMetaRecords[index])
 			if recordErr != nil {
 				return nil, 0, fmt.Errorf("%s: %v; from its MFT record: %w", name, err, recordErr)
 			}
@@ -380,7 +431,20 @@ func replTrackedRuns(ctx context.Context, shadowRoot string, shadow windows.Hand
 			if errors.Is(err, windows.ERROR_INVALID_PARAMETER) || errors.Is(err, windows.ERROR_FILE_NOT_FOUND) || errors.Is(err, windows.ERROR_PATH_NOT_FOUND) {
 				return nil // deleted before the shadow copy, or reused
 			}
-			return err
+			if !errors.Is(err, windows.ERROR_ACCESS_DENIED) && !errors.Is(err, windows.ERROR_SHARING_VIOLATION) {
+				return err
+			}
+			// Every non-resident attribute of its record: data, named
+			// streams and, for a folder, its index.
+			found, sequence, recordErr := fromRecord(int64(id & 0xFFFFFFFFFFFF))
+			if errors.Is(recordErr, errReplMFTUnused) || (recordErr == nil && sequence != uint16(id>>48)) {
+				return nil // deleted before the shadow copy, or reused
+			}
+			if recordErr != nil {
+				return fmt.Errorf("%v; from its MFT record: %w", err, recordErr)
+			}
+			runs = append(runs, found...)
+			return nil
 		}
 		defer windows.CloseHandle(handle)
 		found, err := replRetrievalRuns(handle)

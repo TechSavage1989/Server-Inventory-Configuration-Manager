@@ -11,31 +11,33 @@ import (
 	"fmt"
 )
 
-// replMFTDataRuns returns the cluster runs of the unnamed $DATA attribute in
-// one MFT record. It applies the update sequence fixups first, and refuses
-// a record that keeps its attributes elsewhere (an attribute list).
-func replMFTDataRuns(record []byte) ([]replRun, error) {
+// replMFTRuns returns the cluster runs of every non-resident attribute in
+// one MFT record (data, named streams, folder indexes, bitmaps) and the
+// record's sequence number. It applies the update sequence fixups first,
+// reports a record not in use with errReplMFTUnused, and refuses a record
+// that keeps its attributes elsewhere (an attribute list).
+func replMFTRuns(record []byte) ([]replRun, uint16, error) {
 	if len(record) < 64 || string(record[:4]) != "FILE" {
-		return nil, errors.New("not an MFT record")
+		return nil, 0, errors.New("not an MFT record")
 	}
 	fixed := append([]byte(nil), record...)
 	usaOffset, usaCount := int(binary.LittleEndian.Uint16(fixed[4:])), int(binary.LittleEndian.Uint16(fixed[6:]))
 	if usaCount < 2 || usaOffset+2*usaCount > len(fixed) || len(fixed)%(usaCount-1) != 0 {
-		return nil, errors.New("the MFT record's update sequence is damaged")
+		return nil, 0, errors.New("the MFT record's update sequence is damaged")
 	}
 	stride := len(fixed) / (usaCount - 1)
 	for i := 1; i < usaCount; i++ {
 		end := i*stride - 2
 		if fixed[end] != fixed[usaOffset] || fixed[end+1] != fixed[usaOffset+1] {
-			return nil, errors.New("the MFT record is torn (its update sequence does not match)")
+			return nil, 0, errors.New("the MFT record is torn (its update sequence does not match)")
 		}
 		fixed[end], fixed[end+1] = fixed[usaOffset+2*i], fixed[usaOffset+2*i+1]
 	}
+	sequence := binary.LittleEndian.Uint16(fixed[16:])
 	if binary.LittleEndian.Uint16(fixed[22:])&1 == 0 {
-		return nil, errors.New("the MFT record is not in use")
+		return nil, sequence, errReplMFTUnused
 	}
 	runs := []replRun{}
-	found := false
 	at := int(binary.LittleEndian.Uint16(fixed[20:]))
 	for at+16 <= len(fixed) {
 		kind := binary.LittleEndian.Uint32(fixed[at:])
@@ -44,19 +46,15 @@ func replMFTDataRuns(record []byte) ([]replRun, error) {
 		}
 		length := int(binary.LittleEndian.Uint32(fixed[at+4:]))
 		if length < 16 || at+length > len(fixed) {
-			return nil, errors.New("an attribute runs past the end of the MFT record")
+			return nil, sequence, errors.New("an attribute runs past the end of the MFT record")
 		}
 		attribute := fixed[at : at+length]
-		switch {
-		case kind == 0x20:
-			return nil, errors.New("the file keeps its attributes in other MFT records")
-		case kind == 0x80 && attribute[9] == 0: // unnamed $DATA
-			found = true
-			if attribute[8] == 0 {
-				break // resident: inside the MFT, which is tracked itself
-			}
+		if kind == 0x20 {
+			return nil, sequence, errors.New("the file keeps its attributes in other MFT records")
+		}
+		if attribute[8] != 0 { // non-resident
 			if length < 64 {
-				return nil, errors.New("a $DATA attribute is too short")
+				return nil, sequence, errors.New("a non-resident attribute is too short")
 			}
 			pairs := int(binary.LittleEndian.Uint16(attribute[32:]))
 			lcn := int64(0)
@@ -64,7 +62,7 @@ func replMFTDataRuns(record []byte) ([]replRun, error) {
 				header := attribute[p]
 				lengthSize, offsetSize := int(header&0x0F), int(header>>4)
 				if lengthSize == 0 || lengthSize > 8 || offsetSize > 8 || p+1+lengthSize+offsetSize > length {
-					return nil, errors.New("a $DATA run list is damaged")
+					return nil, sequence, errors.New("a run list is damaged")
 				}
 				count := int64(0)
 				for i := lengthSize - 1; i >= 0; i-- {
@@ -77,7 +75,7 @@ func replMFTDataRuns(record []byte) ([]replRun, error) {
 					}
 					lcn += delta
 					if lcn < 0 || count <= 0 {
-						return nil, errors.New("a $DATA run points outside the volume")
+						return nil, sequence, errors.New("a run points outside the volume")
 					}
 					runs = append(runs, replRun{Start: lcn, Count: count})
 				}
@@ -86,8 +84,20 @@ func replMFTDataRuns(record []byte) ([]replRun, error) {
 		}
 		at += length
 	}
-	if !found {
-		return nil, fmt.Errorf("the MFT record has no $DATA attribute")
+	return runs, sequence, nil
+}
+
+var errReplMFTUnused = errors.New("the MFT record is not in use")
+
+// replMFTOffset maps a byte offset inside the MFT to a byte offset on the
+// volume through the MFT's own runs (in file order).
+func replMFTOffset(mftRuns []replRun, clusterSize, offset int64) (int64, error) {
+	cluster := offset / clusterSize
+	for _, run := range mftRuns {
+		if cluster < run.Count {
+			return (run.Start+cluster)*clusterSize + offset%clusterSize, nil
+		}
+		cluster -= run.Count
 	}
-	return runs, nil
+	return 0, fmt.Errorf("MFT offset %d is past the end of the MFT", offset)
 }

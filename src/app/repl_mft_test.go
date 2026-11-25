@@ -45,7 +45,7 @@ func TestMFTRecordRunsAreDecoded(t *testing.T) {
 	// 0x30000 clusters at LCN 0x2000, then a sparse run, then 16 clusters
 	// 0x100 clusters before the first run's start (a negative offset).
 	pairs := []byte{0x23, 0x00, 0x00, 0x03, 0x00, 0x20, 0x01, 0x08, 0x21, 0x10, 0x00, 0xFF, 0x00}
-	runs, err := replMFTDataRuns(replTestMFTRecord(pairs))
+	runs, _, err := replMFTRuns(replTestMFTRecord(pairs))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,16 +55,29 @@ func TestMFTRecordRunsAreDecoded(t *testing.T) {
 	}
 	torn := replTestMFTRecord(pairs)
 	torn[510] ^= 1
-	if _, err := replMFTDataRuns(torn); err == nil {
+	if _, _, err := replMFTRuns(torn); err == nil {
 		t.Fatal("a torn record was accepted")
 	}
 	list := make([]byte, 24)
 	binary.LittleEndian.PutUint32(list, 0x20)
 	binary.LittleEndian.PutUint32(list[4:], 24)
-	if _, err := replMFTDataRuns(replTestMFTRecord(pairs, list)); err == nil {
+	if _, _, err := replMFTRuns(replTestMFTRecord(pairs, list)); err == nil {
 		t.Fatal("a record with an attribute list was accepted")
 	}
-	if _, err := replMFTDataRuns(make([]byte, 1024)); err == nil {
+	if _, _, err := replMFTRuns(make([]byte, 1024)); err == nil {
 		t.Fatal("a blank record was accepted")
+	}
+}
+
+func TestMFTOffsetsFollowTheMFTRuns(t *testing.T) {
+	runs := []replRun{{Start: 100, Count: 4}, {Start: 900, Count: 2}}
+	for offset, want := range map[int64]int64{0: 100 * 4096, 4096*3 + 1024: 103*4096 + 1024, 4096 * 4: 900 * 4096, 4096*5 + 4095: 901*4096 + 4095} {
+		got, err := replMFTOffset(runs, 4096, offset)
+		if err != nil || got != want {
+			t.Errorf("offset %d: %d %v, want %d", offset, got, err, want)
+		}
+	}
+	if _, err := replMFTOffset(runs, 4096, 4096*6); err == nil {
+		t.Fatal("an offset past the MFT was accepted")
 	}
 }
