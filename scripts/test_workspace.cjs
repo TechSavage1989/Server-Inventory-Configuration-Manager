@@ -61,10 +61,11 @@ function vmwareCompareFixture(){const change=(dataset,label,kind,item,expected,f
  return {result,datasets};}
 async function fixture(browser,old=false){
  let saved=null,started=[],saveCalls=0,rejectStart=false,skipRequests=[],opens=[],restoreReject=null,migrateReject={},vmwareReject={};
- const logs=[],dialogs=[],errors=[],restoreCalls={browse:0,scan:[],start:[],cancel:0,tokens:[]},migrateCalls=[],vmwareCalls=[],convertCalls=[];let convertReject={},convertSize=0;
+ const logs=[],dialogs=[],errors=[],restoreCalls={browse:0,scan:[],start:[],cancel:0,tokens:[]},migrateCalls=[],vmwareCalls=[],convertCalls=[],replCalls=[];let convertReject={},convertSize=0;
  const state={status:'idle',phase:'Ready',running:false,computerName:'SRV-DEMO-01',isAdministrator:true,powerShellVersion:'5.1',defaultOutputRoot:'C:\\Reports',update:{status:'current',title:'Up to date',message:'Installed v3.2.10. Latest v3.2.10.',canCheck:true},
   restore:{status:'idle',packages:{lastCollection:'',loadedReport:''},items:[],logs:[]},migrate:migrateIdle(),vmware:vmwareIdle(),convert:convertIdle()};
  const vm={inventory:null,plan:null,sizing:null,guest:null,compare:null};
+ const repl={ok:true,pushing:false,pushLog:[],pushResults:null,serial:0,isAdministrator:true,defaultPort:44390,agents:[],summary:{agents:0,unreachable:0,jobs:0,healthy:0,behind:0,failing:0,paused:0,cutOver:0,alerts:0}};
  const html=fs.readFileSync(old?'tests/fixtures/index-v3.2.9.html':'src/app/index.html','utf8').replaceAll('__TOKEN__','workspace-test').replaceAll('__APP_VERSION__','3.2.10').replaceAll('__COLLECTOR_VERSION__','3.2.10');
  const server=http.createServer(async(req,res)=>{
   const url=new URL(req.url,'http://localhost');
@@ -132,6 +133,17 @@ async function fixture(browser,old=false){
    if(action==='cancel'){v.cancelRequested=true;send(202,{ok:true});return;}
    send(200,{ok:true,selected:false});return;
   }
+  if(url.pathname.startsWith('/api/repl/')){
+   let body='';for await(const chunk of req)body+=chunk;const data=body?JSON.parse(body):{},action=url.pathname.slice(10);replCalls.push({action,method:req.method,body:data,token:req.headers['x-app-token']});
+   if(req.headers['x-app-token']!=='workspace-test'){send(403,{});return;}
+   if(action==='state'){send(200,repl);return;}
+   if(action==='push'){Object.assign(repl,{pushing:true,pushLog:['14:02:10  Installing the agent on 2 servers.','14:02:11  app01.example.com: copying the agent.']});send(202,{ok:true});return;}
+   if(action==='agent'&&data.action==='disks'){send(200,{ok:true,disks:[{id:'0',size:107374182400,system:true,volumes:[{name:'v1',mounts:[],fileSystem:'FAT32',length:104857600},{name:'v2',mounts:['C:\\'],fileSystem:'NTFS',length:106300000000}]},{id:'1',size:536870912000,system:false,volumes:[{name:'v3',mounts:['D:\\','E:\\'],fileSystem:'NTFS',length:536700000000,kind:'spanned'}]}]});return;}
+   if(action==='agent'&&data.action==='receiverdisks'){send(200,{ok:true,folder:false,disks:[{name:'disk-0',label:'Disk 0, QEMU HARDDISK',size:107374182400},{name:'disk-1',label:'Disk 1, QEMU HARDDISK',size:536870912000}]});return;}
+   if(action==='job'&&data.action==='save'){const now=new Date();const job={spec:Object.assign({},data.spec,{id:'a1b2c3d4e5f60718',receiver:{address:data.spec.receiver.address+':44380',thumbprint:data.spec.receiver.thumbprint}}),status:{state:'idle',message:'Up to date as of 14:20:05 UTC. Next round at 14:21 UTC.',rounds:2,recoveryPoint:new Date(now-95000).toISOString(),lastStart:now.toISOString(),nextRun:new Date(+now+60000).toISOString(),lastDurationSeconds:42,lastSent:268435456,totalSent:161061273600,disks:data.spec.disks.map((d,i)=>({source:d.source,target:d.target,size:i?536870912000:107374182400,passes:2,chunks:100,done:100,sent:134217728,verified:false}))},rpoSeconds:95,hasCode:true};repl.agents[0].live.jobs.push(job);repl.summary.jobs++;repl.summary.healthy++;send(200,{ok:true,job});return;}
+   if(action==='job'&&data.action==='log'){send(200,{ok:true,lines:['2026-11-25 14:18:00  Round 1 finished in 41 minutes; recovery point 2026-11-25 13:37:00.','2026-11-25 14:20:05  Round 2 finished in 42 seconds; recovery point 2026-11-25 14:19:23.']});return;}
+   send(200,{ok:true});return;
+  }
   if(url.pathname.startsWith('/api/convert/')){
    let body='';for await(const chunk of req)body+=chunk;const data=body?JSON.parse(body):{},action=url.pathname.slice(13);convertCalls.push({action,body:data,token:req.headers['x-app-token']});
    if(req.headers['x-app-token']!=='workspace-test'){send(403,{});return;}
@@ -153,7 +165,7 @@ async function fixture(browser,old=false){
  await new Promise(r=>server.listen(0,'127.0.0.1',r));const context=await browser.newContext({viewport:{width:1440,height:1000}}),page=await context.newPage();
  page.on('dialog',async d=>{dialogs.push(d.message());await d.dismiss();});page.on('pageerror',e=>errors.push(e.message));
  const url='http://127.0.0.1:'+server.address().port+'/';await page.goto(url);await page.waitForFunction(()=>document.querySelector('#serverName').textContent==='SRV-DEMO-01');
- return {page,context,state,vm,vmwareCalls,convertCalls,rejectConvert(action,message){convertReject[action]=message},setConvertSize(size){convertSize=size},rejectVmware(action,message){vmwareReject[action]=message},logs,dialogs,errors,started,skipRequests,opens,restoreCalls,migrateCalls,rejectMigrate(action,message){migrateReject[action]=message},rejectRestore(message){restoreReject=message},get saved(){return saved},get saveCalls(){return saveCalls},reject(){rejectStart=true},async close(){assert.deepEqual(errors,[]);await context.close();await new Promise(r=>server.close(r));}};
+ return {page,context,state,vm,repl,replCalls,vmwareCalls,convertCalls,rejectConvert(action,message){convertReject[action]=message},setConvertSize(size){convertSize=size},rejectVmware(action,message){vmwareReject[action]=message},logs,dialogs,errors,started,skipRequests,opens,restoreCalls,migrateCalls,rejectMigrate(action,message){migrateReject[action]=message},rejectRestore(message){restoreReject=message},get saved(){return saved},get saveCalls(){return saveCalls},reject(){rejectStart=true},async close(){assert.deepEqual(errors,[]);await context.close();await new Promise(r=>server.close(r));}};
 }
 async function check(name,fn){await fn();report.checks.push({name,result:'passed'});console.log('PASS: '+name);}
 (async()=>{const browser=await chromium.launch(executable?{executablePath:executable,headless:true,args:['--no-sandbox']}:{channel:'msedge',headless:true});try{
@@ -198,7 +210,7 @@ async function check(name,fn){await fn();report.checks.push({name,result:'passed
    await f.page.locator('#presetCore').click();f.logs.push('[INFO] Existing diagnostic detail');await f.page.waitForTimeout(1100);f.reject();await f.page.locator('#startButton').click();await f.page.waitForFunction(()=>document.querySelector('#appNotice').textContent.includes('not writable'));assert((await f.page.locator('#logView').textContent()).includes('Existing diagnostic'));assert.equal(await f.page.locator('#profileName').textContent(),'Core server');assert.deepEqual(f.dialogs,[]);
   });
   await check('Application tabs support arrow keys, Home and End with correct selection semantics',async()=>{
-   await f.page.locator('#tabButtonSetup').focus();await f.page.keyboard.press('ArrowRight');assert.equal(await f.page.locator('#tabButtonCollection').getAttribute('aria-selected'),'true');await f.page.keyboard.press('End');assert.equal(await f.page.locator('#tabButtonConvert').getAttribute('aria-selected'),'true');await f.page.keyboard.press('ArrowLeft');assert.equal(await f.page.locator('#tabButtonVmware').getAttribute('aria-selected'),'true');await f.page.keyboard.press('ArrowLeft');assert.equal(await f.page.locator('#tabButtonMigrate').getAttribute('aria-selected'),'true');await f.page.keyboard.press('Home');assert.equal(await f.page.locator('#tabButtonSetup').getAttribute('aria-selected'),'true');
+   await f.page.locator('#tabButtonSetup').focus();await f.page.keyboard.press('ArrowRight');assert.equal(await f.page.locator('#tabButtonCollection').getAttribute('aria-selected'),'true');await f.page.keyboard.press('End');assert.equal(await f.page.locator('#tabButtonReplication').getAttribute('aria-selected'),'true');await f.page.keyboard.press('ArrowLeft');assert.equal(await f.page.locator('#tabButtonConvert').getAttribute('aria-selected'),'true');await f.page.keyboard.press('ArrowLeft');assert.equal(await f.page.locator('#tabButtonVmware').getAttribute('aria-selected'),'true');await f.page.keyboard.press('Home');assert.equal(await f.page.locator('#tabButtonSetup').getAttribute('aria-selected'),'true');
   });
   await check('Log search and severity filters retain all received text and safely render markup',async()=>{
    await f.page.locator('#tabButtonCollection').click();f.logs.push('[WARN] DNS slow','[ERROR] Access denied','[INFO] <img src=x onerror=alert(1)>');for(let i=0;i<100;i++)f.logs.push('[INFO] Row '+i);await f.page.waitForTimeout(1100);
@@ -395,7 +407,7 @@ async function check(name,fn){await fn();report.checks.push({name,result:'passed
  await check('Migrate tab: Alt+5 reaches it; Connect posts the server name; shares get editable defaults and system shares start unticked',async()=>{const f=await fixture(browser);try{
   assert.equal(await f.page.locator('#migrateTabBadge').textContent(),'Ready');
   await f.page.keyboard.press('Alt+5');assert.equal(await f.page.locator('#tabButtonMigrate').getAttribute('aria-selected'),'true');assert(await f.page.locator('#tabMigrate').isVisible());assert.equal(await f.page.evaluate(()=>document.activeElement.id),'tabButtonMigrate');
-  assert((await f.page.locator('#tabButtonMigrate').textContent()).startsWith('File shares'));assert(/Restore, File shares, VMware or Disk converter/.test(await f.page.locator('#shortcutsDialog').textContent()));
+  assert((await f.page.locator('#tabButtonMigrate').textContent()).startsWith('File shares'));assert(/Restore, File shares, VMware, Disk converter or Replication/.test(await f.page.locator('#shortcutsDialog').textContent()));
   assert(await f.page.locator('#migrateConnect').isDisabled(),'Connect needs a server name');assert(await f.page.locator('#migrateCheck').isDisabled());assert(await f.page.locator('#migrateCopy').isDisabled());assert(await f.page.locator('#migrateCutover').isDisabled());
   assert.equal(await f.page.locator('#migrateSteps li.current').getAttribute('data-step'),'1');
   await migrateConnect(f);assert.deepEqual(migrateCalls(f,'discover').map(c=>c.body),[{source:'FS-OLD-07'}]);
@@ -924,6 +936,42 @@ async function check(name,fn){await fn();report.checks.push({name,result:'passed
   await f.page.locator('.cv-format[data-format=vhdx]').click();assert(await f.page.locator('#cvStart').isEnabled());
   assert.deepEqual(f.dialogs,[]);assert(f.convertCalls.every(c=>c.token==='workspace-test'));
  }finally{await f.close();}});
+
+ await check('Replication tab: Alt+8 reaches it; Install agents posts the servers and account once; a job is built from the agent disks and the receiver disks; cutover needs the typed job name',async()=>{const f=await fixture(browser);try{
+  await f.page.keyboard.press('Alt+8');assert.equal(await f.page.locator('#tabButtonReplication').getAttribute('aria-selected'),'true');
+  await f.page.waitForFunction(()=>document.querySelector('#rpAgents').textContent.includes('No servers yet'));
+  assert(await f.page.locator('#rpPush').isDisabled(),'nothing to install yet');
+  await f.page.locator('#rpHosts').fill('app01.example.com, sql01.example.com');await f.page.locator('#rpUser').fill('EXAMPLE\\admin');
+  await f.page.locator('#rpPush').click();assert((await f.page.locator('#rpPushStatus').textContent()).includes('password'));assert.equal(f.replCalls.filter(c=>c.action==='push').length,0);
+  await f.page.locator('#rpPassword').fill('Fict1onal!');await f.page.locator('#rpPush').click();
+  await f.page.waitForFunction(()=>!document.querySelector('#rpPushStop').classList.contains('hidden'));
+  assert.deepEqual(f.replCalls.filter(c=>c.action==='push').map(c=>c.body),[{hosts:'app01.example.com, sql01.example.com',user:'EXAMPLE\\admin',password:'Fict1onal!',port:44390}]);
+  assert.equal(await f.page.locator('#rpPassword').inputValue(),'','the password is cleared once sent');assert(await f.page.locator('#rpHosts').isDisabled());
+  Object.assign(f.repl,{pushing:false,serial:1,pushResults:[{host:'app01.example.com',ok:true},{host:'sql01.example.com',ok:false,error:'the account or password was refused by sql01.example.com'}],
+   agents:[{id:'ag1',name:'APP01',address:'app01.example.com:44390',thumbprint:'3F:9A',os:'Windows',pushed:true,live:{reachable:true,version:'3.3.0',computer:'APP01',platform:'Windows',jobs:[],alerts:[{id:1,time:'2026-11-25T13:10:00Z',job:'x',jobName:'FILE01',level:'warning',kind:'rpo',text:'FILE01 is behind: its recovery point is 32 minutes old, more than the 15 minutes allowed.',cleared:false}]}}],
+   summary:{agents:1,unreachable:0,jobs:0,healthy:0,behind:0,failing:0,paused:0,cutOver:0,alerts:1}});
+  await f.page.waitForFunction(()=>document.querySelector('#rpPushResults').textContent.includes('refused by sql01'));
+  assert((await f.page.locator('#rpAlerts').textContent()).includes('FILE01 is behind'));assert.equal(await f.page.locator('#replicationTabBadge').textContent(),'1 alert');
+  await f.page.locator('[data-rp-new="ag1"]').click();await f.page.waitForFunction(()=>document.querySelectorAll('[data-rp-disk]').length===2);
+  assert.equal(await f.page.locator('[data-rp-target="0"]').inputValue(),'APP01-disk0.vhdx');assert((await f.page.locator('#rpJobDisks').textContent()).includes('(spanned)'));
+  await f.page.locator('#rpRecvAddress').fill('192.0.2.50');await f.page.locator('#rpRecvThumbprint').fill('3f9a6c0e1b7d4a25c8e0f13b6a9d2c4e7f0a1b3c5d7e9f2a4c6e8b0d1f3a5c7e');await f.page.locator('#rpRecvCode').fill('K7QMZ-2RT4X-9WBNP-H3VDA');
+  await f.page.locator('#rpRecvCheck').click();await f.page.waitForFunction(()=>document.querySelector('[data-rp-target="1"]').tagName==='SELECT');
+  assert.equal(await f.page.locator('[data-rp-target="1"]').inputValue(),'disk-1');
+  await f.page.locator('#rpInterval').selectOption('5');await f.page.locator('#rpLimit').fill('100');await f.page.locator('#rpBusinessLimit').fill('20');await f.page.locator('#rpBusinessStart').fill('8');await f.page.locator('#rpBusinessEnd').fill('18');
+  await f.page.locator('#rpServices').fill('MSSQLSERVER, W3SVC');await f.page.locator('#rpJobSave').click();
+  await f.page.waitForFunction(()=>!document.querySelector('#rpDetails').classList.contains('hidden'));
+  assert.deepEqual(f.replCalls.filter(c=>c.action==='job'&&c.body.action==='save').map(c=>c.body),[{agent:'ag1',action:'save',spec:{id:'',name:'APP01',disks:[{source:'0',target:'disk-0'},{source:'1',target:'disk-1'}],receiver:{address:'192.0.2.50',thumbprint:'3f9a6c0e1b7d4a25c8e0f13b6a9d2c4e7f0a1b3c5d7e9f2a4c6e8b0d1f3a5c7e',code:'K7QMZ-2RT4X-9WBNP-H3VDA'},intervalMinutes:5,rpoMinutes:15,compress:true,throttle:{limitMbps:100,businessMbps:20,businessStart:8,businessEnd:18},stopServices:['MSSQLSERVER','W3SVC'],shutdownAfterCutover:true,fullReadAtCutover:false,allowLive:false}}]);
+  assert(await f.page.locator('#rpEditor').isHidden());assert.equal(await f.page.locator('#rpRecvCode').inputValue(),'','the pairing code is cleared');
+  await f.page.waitForFunction(()=>document.querySelector('#rpDetailsFacts').textContent.includes('Every 5 minutes'));
+  assert((await f.page.locator('#rpAgents').textContent()).includes('Up to date'));
+  assert(await f.page.locator('#rpCutover').isDisabled(),'cutover needs the typed name');
+  await f.page.locator('#rpCutoverTyped').fill('app01');assert(await f.page.locator('#rpCutover').isEnabled());
+  await f.page.locator('#rpLogButton').click();await f.page.waitForFunction(()=>document.querySelector('#rpLog').textContent.includes('Round 2 finished'));
+  await f.page.setViewportSize({width:1440,height:1000});await f.page.evaluate(()=>document.activeElement.blur());await f.page.locator('.rp-body').evaluate(e=>e.scrollTop=0);await f.page.screenshot({path:out+'/replication-1440x1000.png'});await f.page.locator('.rp-body').evaluate(e=>{const h=document.querySelector('.rp-heading');e.scrollTop=h.offsetTop-e.offsetTop-8;});await f.page.screenshot({path:out+'/replication-jobs-1440x1000.png'});
+  await f.page.locator('#rpCutover').click();await f.page.waitForFunction(()=>document.querySelector('#rpDetailsStatus').textContent.includes('Cutting over'));
+  assert.deepEqual(f.replCalls.filter(c=>c.action==='job'&&c.body.action==='cutover').map(c=>c.body),[{agent:'ag1',id:'a1b2c3d4e5f60718',action:'cutover',typed:'app01'}]);
+  assert(f.replCalls.every(c=>c.token==='workspace-test'));assert.deepEqual(f.errors,[]);assert.deepEqual(f.dialogs,[]);
+ }finally{await f.close();}});
  await check('Low-resolution windows (800x600 and 1024x768 screens) keep every workspace reachable and legible',async()=>{const f=await fixture(browser);try{
   for(let i=0;i<40;i++)f.logs.push('[INFO] Message '+i);
   f.state.restore={status:'ready',packages:{lastCollection:'C:\\Reports\\SRV-DEMO-01',loadedReport:''},packagePath:'C:\\Reports\\SRV-DEMO-01',scan:restoreScanFixture(),items:[],logs:[]};
@@ -968,6 +1016,10 @@ async function check(name,fn){await fn();report.checks.push({name,result:'passed
    for(const target of ['.cv-format[data-format=raw]','#cvTarget','#cvVerify']){await f.page.locator(target).scrollIntoViewIfNeeded();await inView(target,12);}
    assert.deepEqual(await smallText(),[],label+' converter text below 10.5px');assert(await f.page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),label+' converter overflow');
    if(size.width===784&&!withUpdate){await f.page.locator('.cv-body').evaluate(e=>e.scrollTop=0);await f.page.screenshot({path:out+'/convert-800x600.png'});}
+   await f.page.locator('#tabButtonReplication').click();await inView('.rp-body',withUpdate?110:150);
+   for(const target of ['#rpPush','#rpHosts','#rpAlerts','#rpAgents']){await f.page.locator(target).scrollIntoViewIfNeeded();await inView(target,target==='#rpPush'?28:12);}
+   assert.deepEqual(await smallText(),[],label+' replication text below 10.5px');assert(await f.page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),label+' replication overflow');
+   assert(await f.page.locator('.rp-body').evaluate(e=>e.scrollWidth<=e.clientWidth+1),label+' replication panel overflow');
    const small=await f.page.evaluate(()=>Array.from(document.querySelectorAll('body *')).filter(e=>e.offsetParent&&e.childNodes.length&&Array.from(e.childNodes).some(n=>n.nodeType===3&&n.nodeValue.trim())&&parseFloat(getComputedStyle(e).fontSize)<10.5).map(e=>e.className||e.id||e.tagName));assert.deepEqual(small,[],label+' text below 10.5px');
    if(size.width===784&&!withUpdate){await f.page.locator('#tabButtonCollection').click();await f.page.screenshot({path:out+'/collection-800x600.png'});await f.page.locator('#tabButtonSetup').click();await f.page.screenshot({path:out+'/setup-800x600.png'});}
   }}

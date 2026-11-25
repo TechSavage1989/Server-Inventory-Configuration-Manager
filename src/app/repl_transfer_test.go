@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/rand"
 	"strconv"
+	"sync"
 	"testing"
 	"time"
 )
@@ -29,11 +30,19 @@ func TestCompressedThrottledSendMatchesAndSendsLess(t *testing.T) {
 		t.Fatal(err)
 	}
 	sink.Compress = true
-	waited := time.Duration(0)
 	throttle := newVMThrottle(vmThrottleSchedule{LimitMbps: 8})
-	clock := time.Date(2026, 11, 25, 12, 0, 0, 0, time.Local)
-	throttle.now = func() time.Time { return clock }
-	throttle.sleep = func(_ context.Context, d time.Duration) error { waited += d; clock = clock.Add(d); return nil }
+	start := time.Date(2026, 11, 25, 12, 0, 0, 0, time.Local)
+	var clockMu sync.Mutex
+	clock := start
+	throttle.now = func() time.Time { clockMu.Lock(); defer clockMu.Unlock(); return clock }
+	throttle.until = func(_ context.Context, deadline time.Time) error {
+		clockMu.Lock()
+		defer clockMu.Unlock()
+		if deadline.After(clock) {
+			clock = deadline
+		}
+		return nil
+	}
 	sink.Throttle = throttle
 	result, err := vmCopyTo(ctx, &vmBytesSource{data: data, name: "app disk 0"}, sink, vmCopyOptions{ChunkSize: 1 << 20, Verify: true})
 	if err != nil {
@@ -47,7 +56,8 @@ func TestCompressedThrottledSendMatchesAndSendsLess(t *testing.T) {
 	}
 	// 8 Mbps is 1 MB/s: everything past the first second of burst waits.
 	want := time.Duration(float64(result.Progress.BytesSent-1_000_000) / 1_000_000 * float64(time.Second))
-	if waited < want-time.Second || waited > want+time.Second {
+	waited := clock.Sub(start)
+	if waited < want-100*time.Millisecond || waited > want+100*time.Millisecond {
 		t.Fatalf("throttle waited %v for %d bytes, want about %v", waited, result.Progress.BytesSent, want)
 	}
 }

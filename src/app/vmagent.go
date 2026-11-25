@@ -23,6 +23,12 @@ type vmOverlay struct {
 	Length int64
 	Reader io.ReaderAt
 	Name   string
+	// Map, when set, gives the reader offset for a disk offset inside the
+	// overlay and how many bytes follow contiguously (a striped, spanned or
+	// mirrored volume's part on this disk). VolumeLength is then the whole
+	// volume's length, for the short tail a shadow copy may refuse.
+	Map          func(diskOffset int64) (readerOffset, run int64)
+	VolumeLength int64
 }
 
 // vmOverlayTail is the most of a volume's end that may be read from the
@@ -77,7 +83,7 @@ func (s *vmCompositeSource) ReadAt(p []byte, off int64) (int, error) {
 	}
 	total := 0
 	for len(p) > 0 && off < s.size {
-		reader, readerOffset, run, overlayEnd := s.base, off, int64(len(p)), int64(-1)
+		reader, readerOffset, run, overlayEnd, mapped := s.base, off, int64(len(p)), int64(-1), int64(0)
 		if run > s.size-off {
 			run = s.size - off
 		}
@@ -90,13 +96,28 @@ func (s *vmCompositeSource) ReadAt(p []byte, off int64) (int, error) {
 				if limit := overlay.Start + overlay.Length - off; run > limit {
 					run = limit
 				}
+				if overlay.Map != nil {
+					var limit int64
+					readerOffset, limit = overlay.Map(off)
+					if limit <= 0 {
+						return total, fmt.Errorf("the volume %s has no data at disk offset %d", overlay.Name, off)
+					}
+					if run > limit {
+						run = limit
+					}
+					mapped = overlay.VolumeLength
+				}
 			} else if limit := overlay.Start - off; run > limit {
 				run = limit
 			}
 			break
 		}
 		n, err := reader.ReadAt(p[:run], readerOffset)
-		if overlayEnd >= 0 && int64(n) < run && off+run == overlayEnd && run-int64(n) <= vmOverlayTail &&
+		atEnd := off+run == overlayEnd
+		if mapped > 0 {
+			atEnd = mapped-(readerOffset+int64(n)) <= vmOverlayTail
+		}
+		if overlayEnd >= 0 && int64(n) < run && atEnd && run-int64(n) <= vmOverlayTail &&
 			(err == nil || err == io.EOF || err == io.ErrUnexpectedEOF) {
 			// A volume device can end a little before its partition: NTFS
 			// keeps its backup boot sector in the partition's last sector,
@@ -119,4 +140,69 @@ func (s *vmCompositeSource) ReadAt(p []byte, off int64) (int, error) {
 		return total, io.EOF
 	}
 	return total, nil
+}
+
+// vmFreeZeroReader reads an NTFS volume with every cluster the volume
+// bitmap marks free returned as zeros, without reading it. NTFS never reads
+// free clusters, so the copy is the same to the file system, free space
+// compresses to nothing, and a repeat pass that reads the whole volume
+// finds a change only where data or allocation really changed.
+type vmFreeZeroReader struct {
+	Reader      io.ReaderAt
+	Bitmap      []byte
+	ClusterSize int64
+	Clusters    int64
+}
+
+func (z *vmFreeZeroReader) used(cluster int64) bool {
+	return z.Bitmap[cluster/8]&(1<<(uint(cluster)%8)) != 0
+}
+
+func (z *vmFreeZeroReader) ReadAt(p []byte, off int64) (int, error) {
+	total := 0
+	end := z.Clusters * z.ClusterSize
+	for len(p) > 0 {
+		if off >= end {
+			n, err := z.Reader.ReadAt(p, off)
+			return total + n, err
+		}
+		cluster := off / z.ClusterSize
+		state := z.used(cluster)
+		runEnd := (cluster + 1) * z.ClusterSize
+		for runEnd < end && runEnd-off < int64(len(p)) && z.used(runEnd/z.ClusterSize) == state {
+			runEnd += z.ClusterSize
+		}
+		run := runEnd - off
+		if run > int64(len(p)) {
+			run = int64(len(p))
+		}
+		if state {
+			n, err := z.Reader.ReadAt(p[:run], off)
+			total += n
+			if int64(n) < run {
+				if err == nil {
+					err = io.ErrUnexpectedEOF
+				}
+				return total, err
+			}
+		} else {
+			for i := range p[:run] {
+				p[i] = 0
+			}
+			total += int(run)
+		}
+		p, off = p[run:], off+run
+	}
+	return total, nil
+}
+
+// WrapOverlay replaces the reader of the overlay that starts at start.
+func (s *vmCompositeSource) WrapOverlay(start int64, wrap func(io.ReaderAt) io.ReaderAt) bool {
+	for i := range s.overlays {
+		if s.overlays[i].Start == start && s.overlays[i].Map == nil {
+			s.overlays[i].Reader = wrap(s.overlays[i].Reader)
+			return true
+		}
+	}
+	return false
 }
