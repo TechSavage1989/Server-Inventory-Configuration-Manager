@@ -2329,6 +2329,7 @@ func (a *application) serve(listener net.Listener) error {
 	mux.HandleFunc("/api/convert/inspect", a.handleConvertInspect)
 	mux.HandleFunc("/api/convert/start", a.handleConvertStart)
 	mux.HandleFunc("/api/convert/cancel", a.handleConvertCancel)
+	mux.HandleFunc("/api/convert/repair", a.handleConvertRepair)
 	mux.HandleFunc("/api/ui/ready", a.handleUIReady)
 	mux.HandleFunc("/api/update/check", a.handleUpdateCheck)
 	mux.HandleFunc("/api/update/download", a.handleUpdateDownload)

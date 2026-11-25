@@ -29,7 +29,7 @@ A portable **Windows x64 application** for collecting server inventory, exportin
 | Export DHCP, NPS, print, IIS, DNS, firewall, registry and more for recovery. | See what a package can restore onto this server, and why anything cannot. | Restore chosen configuration with a rollback copy saved first. |
 | Move file shares from an old server: files, NTFS permissions and share settings. | Check space, folders and accounts before copying, and verify after cutover. | Copy while users keep working, then cut over with one final copy. |
 | Read a vCenter, ESXi or Hyper-V inventory and check each VM for Hyper-V, HyperCore, Nutanix AHV, Proxmox VE, Azure, EC2 or a physical server. | Plan waves, map networks and storage, check the new cluster's size or cloud quota, write a runbook. | Record a VM's settings before cutover, fix it up after, and compare before and after. |
-| Convert a VMDK, VHD, VHDX, qcow2 or raw disk to any of them, merging snapshot chains. | See the format, size, data and chain of a disk before converting it. | Stop and continue a conversion, or repeat it to copy only what changed. |
+| Convert a VMDK, VHD, VHDX, qcow2 or raw disk to any of them, merging snapshot chains, then add VirtIO or server drivers so Windows starts on its new platform. | See the format, size, data and chain of a disk before converting it. | Stop and continue a conversion, or repeat it to copy only what changed. |
 
 ## Screenshots
 
@@ -214,6 +214,17 @@ It writes VHDX (dynamic), qcow2, VMDK (monolithic sparse, or the ESXi layout of 
 3. Choose **Convert**. Only the parts of the source that hold data are read, empty space stays empty in the new file, and with **Read the converted disk back** ticked every chunk is checked against the source at the end.
 
 The source is only read, and an existing file is never replaced. **Stop** keeps what was copied: **Continue** (or converting again to the same file) carries on from there. Converting again after the source changed, for example a final pass after the VM is shut down, rewrites only the 4 MB chunks that changed. Each output keeps a small `<file>.copy.json` record beside it for this; delete it with the file. Collection, restore, file migration, VMware steps, updates and closing the application wait while a conversion runs.
+
+### Prepare a converted Windows disk for its new platform
+
+A Windows disk copied from VMware usually starts only on VMware: its new disk controller's driver is missing or does not start at boot. Under **Prepare a Windows disk for its new platform** (it needs administrator rights):
+
+1. Choose the converted VHD or VHDX (the last conversion is filled in) and the platform it is moving to: Hyper-V, Scale HyperCore, Nutanix AHV, Proxmox VE, VMware ESXi or a physical server.
+2. For HyperCore, Nutanix and Proxmox VE, choose the **VirtIO drivers folder**: the root of the virtio-win ISO (or the Scale Computing or Nutanix VirtIO package). The drivers for the disk's Windows version and architecture are picked automatically. For a physical server choose a folder of the server's storage and network drivers.
+3. **Check disk** shows the Windows version, whether it starts with UEFI or BIOS (so you can create a generation 2 or generation 1 VM), which storage drivers it has, whether VMware Tools is installed and what is still needed. Nothing is changed.
+4. **Apply fix-ups** adds the drivers with DISM, makes the platform's storage drivers start at boot and, if ticked, turns off the VMware Tools services. **Undo fix-ups** puts every value back and removes the drivers it added.
+
+Only the converted disk changes, never the source or this computer. Every changed value and a copy of the disk's SYSTEM registry hive are saved under `%LOCALAPPDATA%\Server Inventory Configuration Manager\Repair` first. VHD and VHDX disks can be fixed up; for qcow2, VMDK or raw, convert to VHDX, fix it up, then convert that to the final format. After a fix-up the disk differs from its source, so converting again needs a new output file. DISM on this computer must be as new as the Windows version in the disk.
 
 ## Updates and settings
 

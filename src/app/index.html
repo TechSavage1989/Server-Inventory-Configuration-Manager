@@ -343,7 +343,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
 .restore-source-actions{display:flex;flex-wrap:wrap;gap:8px}
 .restore-path{margin-top:8px;font-size:12px;color:#34465f;overflow-wrap:anywhere}
 .restore-status{margin-top:6px;font-size:12px;color:#52647c}.restore-status:empty{display:none}.restore-status.error{color:#a33b3b;font-weight:600}
-.restore-facts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px 16px;margin-top:14px;padding:12px 14px;border:1px solid #dbe3ed;border-radius:9px;background:#fbfcfe}
+.restore-facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px 16px;margin-top:14px;padding:12px 14px;border:1px solid #dbe3ed;border-radius:9px;background:#fbfcfe}
 .restore-facts div{min-width:0}.restore-fact-label{display:block;font-size:11px;color:#596b80;font-weight:650;text-transform:uppercase;letter-spacing:.04em}.restore-fact-value{display:block;font-size:13px;font-weight:600;color:#1b2942;overflow-wrap:anywhere}
 .restore-alert{margin-top:12px;padding:10px 12px;border-radius:8px;font-size:12px;border:1px solid #f0cf8a;background:#fff9ea;color:#74551f}
 .restore-alert.danger{border-color:#f0b4b4;background:#fff2f2;color:#8c2626}.restore-alert.ok{border-color:#a9ddbf;background:#effaf3;color:#1d6b43}
@@ -532,6 +532,10 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
 .cv-check{display:flex;gap:8px;align-items:center;margin-top:10px;font-size:12px;color:#334156}
 .cv-hint{margin-top:6px;font-size:11.5px;color:#596b80}
 .cv-notes{margin:10px 0 0;padding-left:18px;font-size:12px;color:#34465f}.cv-notes:empty{display:none}
+.cv-fix{border:1px solid #dbe3ed;border-radius:9px;padding:10px 12px;background:#fbfcfe}.cv-fix>summary{cursor:pointer;font-weight:650;font-size:13px;color:#1b2942}.cv-fix[open]>summary{margin-bottom:8px}
+.cv-fix .field-label{margin-top:10px}.cv-fix-grid{display:grid;grid-template-columns:minmax(160px,220px) minmax(0,1fr);gap:0 12px}.cv-fix select{height:34px;width:100%;border:1px solid #bcc9d9;border-radius:7px;padding:0 8px;font:inherit;font-size:13px;background:#fff}
+.cv-fix-actions{margin-top:12px}
+@media (max-width:640px){.cv-fix-grid{grid-template-columns:1fr}}
 .cv-stats{display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:8px;font-size:12px;color:#34465f}
 @media(max-height:720px){.cv-section{margin-bottom:10px}.cv-formats{grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:6px}.cv-format{padding:5px 8px}.cv-format small{display:none}}
 @media(max-height:720px){.vm-table-wrap{max-height:230px}.vm-bar{padding-top:6px}.vm-counts{margin-top:6px}.vm-count strong{font-size:15px}}
@@ -972,7 +976,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
             <div class="cv-row"><input id="cvSource" type="text" spellcheck="false" autocomplete="off" placeholder="D:\VMs\server\server.vmdk"><button class="secondary-button" id="cvBrowse" type="button">Browse&hellip;</button><button class="secondary-button" id="cvInspect" type="button">Check disk</button></div>
             <div class="restore-status" id="cvSourceStatus" role="status" aria-live="polite"></div>
             <div class="hidden" id="cvInfo">
-              <div class="restore-facts"><div><span class="restore-fact-label">Format</span><span class="restore-fact-value" id="cvInfoFormat"></span></div><div><span class="restore-fact-label">Disk size</span><span class="restore-fact-value" id="cvInfoSize"></span></div><div><span class="restore-fact-label">Data to copy</span><span class="restore-fact-value" id="cvInfoData"></span></div><div><span class="restore-fact-label">Files</span><span class="restore-fact-value" id="cvInfoFiles"></span></div></div>
+              <div class="restore-facts"><div><span class="restore-fact-label">Format</span><span class="restore-fact-value" id="cvInfoFormat"></span></div><div><span class="restore-fact-label">Disk size</span><span class="restore-fact-value" id="cvInfoSize"></span></div><div><span class="restore-fact-label">Data to copy</span><span class="restore-fact-value" id="cvInfoData"></span></div><div><span class="restore-fact-label">Files</span><span class="restore-fact-value" id="cvInfoFiles"></span></div><div><span class="restore-fact-label">Starts with</span><span class="restore-fact-value" id="cvInfoBoot"></span></div></div>
               <ul class="cv-notes" id="cvInfoNotes"></ul>
             </div>
           </div>
@@ -991,6 +995,25 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
             <div class="progress-track" id="cvBar" role="progressbar" aria-label="Conversion progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="progress-fill" id="cvFill"></div></div>
             <div class="cv-stats" id="cvStats"></div>
           </div>
+          <details class="cv-section cv-fix" id="cvFix">
+            <summary>Prepare a Windows disk for its new platform <span class="vm-note" id="cvFixSummary">Optional: drivers and boot settings</span></summary>
+            <div class="cv-hint">Windows only starts on a new platform if the driver for its new disk controller starts at boot. This adds drivers (for example VirtIO for HyperCore, Nutanix and Proxmox VE), makes the platform's storage drivers start at boot and can turn off the VMware Tools services. It changes the converted VHD or VHDX only, never the source, and saves every value it changes so Undo can put them back. It needs administrator rights.</div>
+            <label class="field-label" for="cvFixPath">Converted Windows disk (VHD or VHDX)</label>
+            <div class="cv-row"><input id="cvFixPath" type="text" spellcheck="false" autocomplete="off" placeholder="E:\Hyper-V\server.vhdx"><button class="secondary-button" id="cvFixBrowse" type="button">Browse&hellip;</button></div>
+            <div class="cv-fix-grid">
+              <div><label class="field-label" for="cvFixTarget">Moving to</label><select id="cvFixTarget"></select></div>
+              <div><label class="field-label" for="cvFixDrivers" id="cvFixDriversLabel">Drivers folder (optional)</label><div class="cv-row"><input id="cvFixDrivers" type="text" spellcheck="false" autocomplete="off" placeholder="F:\ (the virtio-win ISO)"><button class="secondary-button" id="cvFixDriversBrowse" type="button">Browse&hellip;</button></div></div>
+            </div>
+            <div class="cv-hint" id="cvFixDriversHint"></div>
+            <label class="cv-check"><input id="cvFixTools" type="checkbox"> Turn off the VMware Tools services (uninstall VMware Tools after the first start)</label>
+            <div class="cv-row cv-fix-actions"><button class="secondary-button" id="cvFixCheck" type="button">Check disk</button><button class="primary-button" id="cvFixApply" type="button">Apply fix-ups</button><button class="secondary-button" id="cvFixUndo" type="button">Undo fix-ups</button></div>
+            <div class="restore-status" id="cvFixStatus" role="status" aria-live="polite"></div>
+            <div class="hidden" id="cvFixResult">
+              <div class="restore-facts"><div><span class="restore-fact-label">Windows</span><span class="restore-fact-value" id="cvFixWindows"></span></div><div><span class="restore-fact-label">Starts with</span><span class="restore-fact-value" id="cvFixBoot"></span></div><div><span class="restore-fact-label">Storage drivers</span><span class="restore-fact-value" id="cvFixStorage"></span></div><div><span class="restore-fact-label">VMware Tools</span><span class="restore-fact-value" id="cvFixVMware"></span></div></div>
+              <ul class="vm-findings" id="cvFixFindings"></ul>
+            </div>
+            <details class="migrate-log-block" id="cvLogBlock"><summary>Fix-up log</summary><div class="log-view migrate-log" id="cvLog" tabindex="0" aria-label="Fix-up log"></div></details>
+          </details>
         </div>
         <div class="action-bar setup-action-bar"><div class="scope-note"><span id="cvSummary">Choose a disk to convert.</span></div><div class="setup-actions"><button class="secondary-button danger-button hidden" id="cvStop" type="button">Stop</button><button class="secondary-button hidden" id="cvOpenFolder" type="button">Open folder</button><button class="primary-button" id="cvStart" type="button" disabled>Convert</button></div></div>
       </div></div>
@@ -1474,13 +1497,15 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     var notes=byId('cvInfoNotes');notes.textContent='';(info.notes||[]).forEach(function(n){var li=document.createElement('li');li.textContent=n;notes.appendChild(li);});
     if(info.chain&&info.chain.length>1){var li=document.createElement('li');li.textContent='Chain: '+info.chain.join(' → ');notes.appendChild(li);}
   }
+  function cvBootText(boot){if(!boot){return '';}return boot.firmware==='uefi'?'UEFI (GPT)':(boot.firmware==='bios'?'BIOS ('+boot.partitionStyle+')':'Unknown');}
+  function cvShowBoot(boot){byId('cvInfoBoot').textContent=cvBootText(boot)||'Unknown';byId('cvInfoBoot').title=(boot&&boot.note)||'';if(boot&&boot.note){var li=document.createElement('li');li.textContent=boot.note;byId('cvInfoNotes').appendChild(li);}}
   function cvInspect(){
     var path=byId('cvSource').value.trim(),status=byId('cvSourceStatus');
     if(!path){status.textContent='Choose the disk image with Browse, or type its full path.';status.className='restore-status error';return;}
     cvPending=true;status.textContent='Checking the disk…';status.className='restore-status';cvShowInfo(null);if(latestState){renderConvert(latestState);}
     request('POST','/api/convert/inspect',{path:path,format:cvFormat},function(err,data){cvPending=false;
       if(err){status.textContent=err;status.className='restore-status error';cvSuggested='';}
-      else{status.textContent='';cvShowInfo(data.info);cvSuggested=data.suggested||'';if(!cvTargetEdited||!byId('cvTarget').value.trim()){byId('cvTarget').value=cvSuggested;cvTargetEdited=false;}}
+      else{status.textContent='';cvShowInfo(data.info);cvShowBoot(data.boot);cvSuggested=data.suggested||'';if(!cvTargetEdited||!byId('cvTarget').value.trim()){byId('cvTarget').value=cvSuggested;cvTargetEdited=false;}}
       if(latestState){renderConvert(latestState);}});
   }
   function cvBrowse(kind){
@@ -1499,7 +1524,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   }
   function renderConvert(state){
     var c=state.convert||{};cvBuildFormats(c.formats);
-    var running=!!c.running,status=c.status||'idle',busy=running||cvPending,elsewhere=cvBusyElsewhere(state);
+    var running=!!c.running,status=c.status||'idle',busy=running||cvPending,elsewhere=cvBusyElsewhere(state),task=c.task||'convert';
     byId('convertTabBadge').textContent=running?'Running':({success:'Complete',failed:'Failed',canceled:'Stopped'}[status]||'Ready');
     ['cvSource','cvTarget','cvVerify','cvBrowse','cvInspect','cvFolder'].forEach(function(id){byId(id).disabled=busy;});
     var size=cvInfo?cvInfo.virtualSize:0,limitReason='';
@@ -1507,9 +1532,10 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     var ready=!!(cvInfo&&byId('cvTarget').value.trim())&&!limitReason;
     byId('cvStart').disabled=busy||elsewhere||!ready;byId('cvStart').textContent=status==='canceled'&&c.target===byId('cvTarget').value.trim()?'Continue':'Convert';
     byId('cvStop').className=running?'secondary-button danger-button':'secondary-button danger-button hidden';byId('cvStop').disabled=!!c.cancelRequested;byId('cvStop').textContent=c.cancelRequested?'Stopping…':'Stop';
-    byId('cvOpenFolder').className=(!running&&status==='success')?'secondary-button':'secondary-button hidden';
-    byId('cvSummary').textContent=running?'Converting. Updates, collections and other steps wait until it finishes.':(limitReason||(elsewhere?'Another step is running. Converting waits until it finishes.':(cvInfo?'Ready to convert to '+(cvFormatById(cvFormat)||{name:cvFormat}).name+'.':'Choose a disk to convert.')));
-    var show=running||status==='success'||status==='failed'||status==='canceled';byId('cvProgress').className='cv-section'+(show?'':' hidden');
+    byId('cvOpenFolder').className=(!running&&status==='success'&&task==='convert')?'secondary-button':'secondary-button hidden';
+    byId('cvSummary').textContent=running&&task==='repair'?'Fixing up the disk. Updates, collections and other steps wait until it finishes.':running?'Converting. Updates, collections and other steps wait until it finishes.':(limitReason||(elsewhere?'Another step is running. Converting waits until it finishes.':(cvInfo?'Ready to convert to '+(cvFormatById(cvFormat)||{name:cvFormat}).name+'.':'Choose a disk to convert.')));
+    renderConvertFix(state,c,busy,elsewhere);
+    var show=task==='convert'&&(running||status==='success'||status==='failed'||status==='canceled');byId('cvProgress').className='cv-section'+(show?'':' hidden');
     if(show){var p=c.progress||{},pct=p.chunks?Math.floor(p.done*100/p.chunks):(status==='success'?100:0);if(status==='success'){pct=100;}
       byId('cvFill').style.width=pct+'%';byId('cvFill').className='progress-fill'+(status==='success'?' success':(status==='failed'?' failed':''));byId('cvBar').setAttribute('aria-valuenow',String(pct));
       byId('cvIndicator').className='status-indicator'+(running?' running':(status==='success'?' success':(status==='failed'?' failed':'')));
@@ -1518,7 +1544,55 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       var stats=byId('cvStats');stats.textContent='';[['Pass',p.pass||(c.result&&c.result.passes)||1],['Read',formatBytesShort(p.bytesRead||0)],['Written',formatBytesShort(p.bytesWritten||0)],['Changed chunks',p.changed||0]].forEach(function(item){var span=document.createElement('span');span.textContent=item[0]+': '+item[1];stats.appendChild(span);});
       if(c.target){var t=document.createElement('span');t.textContent='Output: '+c.target;stats.appendChild(t);}
       byId('cvElapsed').textContent=c.startedAtUnixMs?formatElapsed((c.endedAtUnixMs||Date.now())-c.startedAtUnixMs):'00:00:00';}
-    if(cvLastStatus!==status){if(cvLastStatus==='running'&&status==='failed'){notice(c.message||'The conversion failed.',true);}cvLastStatus=status;}
+    if(cvLastStatus!==status){if(cvLastStatus==='running'&&status==='failed'&&task==='convert'){notice(c.message||'The conversion failed.',true);}cvLastStatus=status;}
+  }
+  var cvFixTargetsBuilt=false,cvFixPathEdited=false,cvFixLastResult='',cvFixLogLength=-1;
+  function cvFixTargetById(id,targets){for(var i=0;i<targets.length;i++){if(targets[i].id===id){return targets[i];}}return null;}
+  function cvFixSend(mode){
+    var path=byId('cvFixPath').value.trim(),status=byId('cvFixStatus');
+    if(!path){status.textContent='Choose the converted VHD or VHDX first.';status.className='restore-status error';return;}
+    var drivers=byId('cvFixDrivers').value.trim();
+    cvPending=true;status.textContent='';status.className='restore-status';if(latestState){renderConvert(latestState);}
+    request('POST','/api/convert/repair',{mode:mode,path:path,target:byId('cvFixTarget').value,drivers:drivers?[drivers]:[],disableVMwareTools:byId('cvFixTools').checked},function(err){cvPending=false;if(err){status.textContent=err;status.className='restore-status error';}if(latestState){renderConvert(latestState);}});
+  }
+  function cvFixBrowse(kind){
+    cvPending=true;if(latestState){renderConvert(latestState);}
+    request('POST','/api/convert/browse',{kind:kind,current:byId(kind==='drivers'?'cvFixDrivers':'cvFixPath').value.trim()},function(err,data){cvPending=false;
+      if(err){notice(err,true);}else if(data.selected){if(kind==='drivers'){byId('cvFixDrivers').value=data.path;}else{byId('cvFixPath').value=data.path;cvFixPathEdited=true;}}
+      if(latestState){renderConvert(latestState);}});
+  }
+  function cvFixDriverText(windows){
+    var names={storvsc:'Hyper-V',viostor:'VirtIO block',vioscsi:'VirtIO SCSI',pvscsi:'VMware Paravirtual',LSI_SAS:'LSI SAS',storahci:'SATA (AHCI)',stornvme:'NVMe',intelide:'IDE'},found=[];
+    (windows.drivers||[]).forEach(function(d){if(d.present&&d.file&&names[d.name]){found.push(names[d.name]+(d.start===0?' (starts at boot)':''));}});
+    return found.length?found.join(', '):'None found';
+  }
+  function renderConvertFix(state,c,busy,elsewhere){
+    var targets=c.repairTargets||[],select=byId('cvFixTarget');
+    if(!cvFixTargetsBuilt&&targets.length){cvFixTargetsBuilt=true;select.textContent='';targets.forEach(function(t){var o=document.createElement('option');o.value=t.id;o.textContent=t.label;select.appendChild(o);});if(c.repairTarget){select.value=c.repairTarget;}}
+    var target=cvFixTargetById(select.value,targets)||{},virtio=!!target.virtio;
+    byId('cvFixDriversLabel').textContent=virtio?'VirtIO drivers folder':(target.id==='physical'?'Server drivers folder':'Drivers folder (optional)');
+    byId('cvFixDriversHint').textContent=virtio?'Choose the root of the virtio-win ISO (or the Scale Computing or Nutanix VirtIO package). The drivers that match the disk\'s Windows version are picked automatically.':(target.id==='physical'?'Choose a folder with the new server\'s storage controller and network drivers (.inf files). Every driver in it is added.':'Only needed for drivers Windows does not include. Every driver in the folder is added.');
+    if(!cvFixPathEdited&&c.result&&c.result.target&&/\.vhdx?$/i.test(c.result.target)&&!byId('cvFixPath').value.trim()){byId('cvFixPath').value=c.result.target;}
+    var repairRunning=!!c.running&&c.task==='repair';
+    ['cvFixPath','cvFixBrowse','cvFixTarget','cvFixDrivers','cvFixDriversBrowse','cvFixTools'].forEach(function(id){byId(id).disabled=busy;});
+    var hasPath=!!byId('cvFixPath').value.trim();
+    ['cvFixCheck','cvFixApply','cvFixUndo'].forEach(function(id){byId(id).disabled=busy||elsewhere||!hasPath;});
+    byId('cvFixApply').textContent=repairRunning?'Working…':'Apply fix-ups';
+    if(!state.isAdministrator){byId('cvFixSummary').textContent='Needs administrator rights';}
+    if(c.task==='repair'){
+      var status=byId('cvFixStatus');
+      if(repairRunning){status.textContent=c.message||'Working…';status.className='restore-status';byId('cvFix').open=true;}
+      else if(c.status==='failed'||c.status==='success'){var key=c.serial+':'+c.status;if(cvFixLastResult!==key){cvFixLastResult=key;status.textContent=c.message||'';status.className='restore-status'+(c.status==='failed'?' error':'');}}
+      var report=c.repair,box=byId('cvFixResult');
+      if(report&&report.windows&&report.windows.length){var w=report.windows[0];box.className='';
+        byId('cvFixWindows').textContent=(w.productName||'Windows')+(w.build?' (build '+w.build+')':'')+(w.architecture&&w.architecture!=='amd64'?' '+w.architecture:'');
+        byId('cvFixBoot').textContent=report.boot?cvBootText(report.boot):'Unknown';byId('cvFixStorage').textContent=cvFixDriverText(w);
+        byId('cvFixVMware').textContent=w.vmwareTools?'Installed':'Not installed';
+        var list=byId('cvFixFindings');list.textContent='';(report.findings||[]).forEach(function(f){var li=document.createElement('li');li.className=f.severity==='warning'?'warning':(f.severity==='good'?'good':'');li.textContent=f.message;list.appendChild(li);});
+        if(report.applied){(report.applied.changes||[]).forEach(function(ch){var li=document.createElement('li');li.textContent='Changed '+ch.key.split('\\').pop()+' '+ch.name+' to '+ch.new+'.';list.appendChild(li);});}
+      }else if(!repairRunning&&c.status==='failed'){box.className='hidden';}
+    }
+    var log=c.log||[];if(log.length!==cvFixLogLength){cvFixLogLength=log.length;var view=byId('cvLog');view.textContent=log.join('\n');view.scrollTop=view.scrollHeight;}
   }
   function markIdleBadges(){var badges=document.querySelectorAll('.tab-badge');for(var i=0;i<badges.length;i++){var text=badges[i].textContent;if(text==='Ready'||text==='None'){badges[i].setAttribute('data-idle','');}else{badges[i].removeAttribute('data-idle');}}}
   function renderState(state){
@@ -3361,6 +3435,13 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   byId('cvStart').addEventListener('click',cvStart);
   byId('cvStop').addEventListener('click',function(){byId('cvStop').disabled=true;request('POST','/api/convert/cancel',{},function(err){if(err){notice(err,true);}});});
   byId('cvOpenFolder').addEventListener('click',function(){openKind('convertfolder');});
+  byId('cvFixBrowse').addEventListener('click',function(){cvFixBrowse('fixup');});
+  byId('cvFixDriversBrowse').addEventListener('click',function(){cvFixBrowse('drivers');});
+  byId('cvFixPath').addEventListener('input',function(){cvFixPathEdited=true;if(latestState){renderConvert(latestState);}});
+  byId('cvFixTarget').addEventListener('change',function(){if(latestState){renderConvert(latestState);}});
+  byId('cvFixCheck').addEventListener('click',function(){cvFixSend('check');});
+  byId('cvFixApply').addEventListener('click',function(){cvFixSend('apply');});
+  byId('cvFixUndo').addEventListener('click',function(){cvFixSend('undo');});
   byId('vmCompareBody').addEventListener('click',function(e){var tr=e.target.closest('tr[data-compare]');if(!tr){return;}var key=tr.getAttribute('data-compare');vmCompareOpen[key]=!vmCompareOpen[key];renderVmCompare();});
   byId('vmCompareBody').addEventListener('keydown',function(e){if((e.key==='Enter'||e.key===' ')&&e.target.getAttribute('data-compare')){e.preventDefault();var key=e.target.getAttribute('data-compare');vmCompareOpen[key]=!vmCompareOpen[key];renderVmCompare();var row=document.querySelector('[data-compare="'+key+'"]');if(row){row.focus();}}});
   setReportHeaderCollapsed(window.innerHeight<600); syncCategoryState(); poll();

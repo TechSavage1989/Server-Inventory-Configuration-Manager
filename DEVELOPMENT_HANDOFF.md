@@ -1,3 +1,10 @@
+## Unreleased: fix-ups for converted Windows disks — 2026-11-25
+
+- Disk converter tab: **Prepare a Windows disk for its new platform** (AGENTS rule 30). `Repair-ConvertedDisk.ps1` mounts a converted VHD/VHDX, reports Windows version, boot firmware, storage drivers and VMware Tools (Check), adds drivers with DISM (virtio-win layout resolved per Windows version), sets the target's storage drivers to boot start and can disable VMware Tools services (Apply), and reverses it from its record (Undo).
+- `vmDetectBoot` reads GPT/MBR from any image; the converter shows "Starts with" UEFI or BIOS.
+- Tests: `vmrepair_test.go` (boot detection, PowerShell result shapes), `vmrepair_windows_test.go` (real VHDX with synthetic hives: Check, failing DISM Apply, Apply, Undo), workspace test for the section.
+- Limitations: DISM injection into a real offline Windows image, and booting fixed-up disks on HyperCore, Nutanix and Proxmox, still need field validation. README screenshots of the Disk converter are refreshed with the remote-destination change that follows.
+
 ## 3.2.32 published and verified — 2026-11-25
 
 - [Release v3.2.32](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.32) ("Server Inventory and Migration Manager 3.2.32"), tag and target commit `5fa27e1c895f42cee0d7309d9dfaeb2572b73ab8`. Source: phases 2, 3 and 4 of the migration plan (#89, #90, #92, #93, #94, #96, #95, #98, #97, #99), prepared in #100, published by #101. The owner chose to publish on 2026-11-25.
