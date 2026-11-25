@@ -77,6 +77,25 @@ The console itself starts Windows PowerShell with `-ExecutionPolicy Bypass`
 restore, file share migration, guest preparation and Hyper-V steps. These run
 only when an operator starts them, on the computer running the console.
 
+### Move VMs from one console (remote Hyper-V host or cluster)
+
+When **Move VMs** connects from an admin computer to a Hyper-V host or
+failover cluster, nothing is copied to the host as a program, no service is
+created and no remote process is started by hand. It uses only the standard
+management channels Windows Admin Center and SCVMM use:
+
+| Behaviour | Where | Why |
+| --- | --- | --- |
+| `powershell.exe -ExecutionPolicy RemoteSigned -File Connect-HyperVTarget.ps1` (signed script, never Bypass, no hidden-window or encoded-command flags) | Admin computer | Reads the host and creates the VM through PowerShell remoting |
+| `Invoke-Command` over WinRM (TCP 5985, Kerberos), running in `wsmprovhost.exe` | Hyper-V host or cluster node | Reads Windows version, Hyper-V default folders, switches, VM names and the cluster's nodes and Cluster Shared Volumes; at cutover runs `New-VM`, `Add-VMHardDiskDrive`, `Add-VMNetworkAdapter` and, when asked, `Add-ClusterVirtualMachineRole` |
+| SMB writes of `.vhdx` files and their `.copy.json` records to `\\node\C$\...` (or the drive's `$` share) | Admin computer to node | The copy rounds. Writes only inside the folder chosen for the VM's disks |
+| HTTPS to a receiver on the node (44380), only when **Through a receiver on the node** is chosen | Admin computer to node | The operator starts that receiver on the node themselves |
+
+The account typed for the host reaches PowerShell only as one JSON line on
+standard input and is kept in memory until **Forget** or exit. If your EDR
+watches remote PowerShell, allow `wsmprovhost.exe` running the Hyper-V and
+FailoverClusters cmdlets above for the admin computers you migrate from.
+
 ## Exclusions
 
 Use the narrowest form your product allows. Prefer the signer (certificate)

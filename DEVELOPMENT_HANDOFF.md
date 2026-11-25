@@ -1,3 +1,10 @@
+## Unreleased: Move VMs from one console to a remote Hyper-V host or cluster — 2026-11-25
+
+- Move VMs can now run on an admin computer: it connects to vCenter/ESXi and, over PowerShell remoting (WinRM), to a remote Hyper-V host or failover cluster. Copy rounds (VMware CBT, the VM keeps running) write VHDX files straight onto the chosen node's storage through its administrative share, or through a receiver started on the node; cutover re-reads the host, shuts the guest down through VMware Tools, copies and verifies the last changes, creates the VM on the node and optionally adds it as a clustered role. AGENTS.md rule 39.
+- Nothing is installed or started on the host: no service, no WMI process creation, no Bypass. The script is signed with the others in `release.yml`. See docs/EDR-EXCLUSIONS.md.
+- Supported and labelled in the UI and the guide (`onevmhv` mode): vCenter/ESXi 6.5 to 8.0 to Windows Server 2012 R2 to 2025 or Hyper-V Server 2012 R2 to 2019, standalone or clustered with CSVs.
+- Tests: `hyperv_remote_test.go` (paths, versions, nodes, CSV and space, switches, script output), `TestConnectHyperVTargetScriptRemoting` (Windows runner, no Hyper-V role; reads this computer only where WinRM answers), workspace check "Move VMs from one console". Not field-validated: a real Hyper-V host or cluster, Kerberos double-hop around `Add-ClusterVirtualMachineRole` in a remote session, SMB writes to a CSV through `C$`, and the receiver path.
+
 ## Unreleased: receiver discovery and pairing by approval — 2026-11-25
 
 - Senders find receivers on the same network (UDP 44379, one find request per adapter, or one typed computer across subnets) and pick one; the address and thumbprint fill in. AGENTS.md rule 37.

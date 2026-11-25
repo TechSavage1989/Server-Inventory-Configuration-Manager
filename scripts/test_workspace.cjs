@@ -761,11 +761,11 @@ async function check(name,fn){await fn();report.checks.push({name,result:'passed
   await f.page.waitForFunction(()=>!!document.querySelector('#vmHvrCopy'));
   assert.equal(await f.page.locator('[data-hvr="password"]').count(),0,'the password field is gone once connected');
   assert((await f.page.locator('#vmHvrFacts').textContent()).includes('Connected to HV01 in failover cluster HVCLU01 as EXAMPLE\\admin'));
-  assert(await f.page.locator('#vmHvrNode option[value="HV03"]').isDisabled(),'a paused node cannot be chosen');
+  assert(await f.page.locator('#vmHvrNode option[value="HV03"]').evaluate(o=>o.disabled),'a paused node cannot be chosen');
   await f.page.locator('#vmHvrNode').selectOption('HV02');
-  await f.page.locator('[data-hvr-storage="C:\\ClusterStorage\\Volume2"]').click();
+  await f.page.locator('[data-hvr-storage]').nth(2).click();
   assert((await f.page.locator('#vmHvrSpace').textContent()).includes('Not enough'));assert(await f.page.locator('#vmHvrCopy').isDisabled(),'a volume that is too small refuses the copy');
-  await f.page.locator('[data-hvr-storage="C:\\ClusterStorage\\Volume1"]').click();
+  await f.page.locator('[data-hvr-storage]').nth(1).click();
   assert.equal(await f.page.locator('[data-hvr="folder"]').inputValue(),'C:\\ClusterStorage\\Volume1\\VMs\\APP01');assert.equal(await f.page.locator('[data-hvr="vmFolder"]').inputValue(),'C:\\ClusterStorage\\Volume1\\VMs');
   assert(await f.page.locator('input[data-hvr-opt="cluster"]').isChecked(),'a CSV ticks high availability');assert(!await f.page.locator('#vmHvrCopy').isDisabled());
   await f.page.locator('#vmHvrCopy').click();const copyText=await f.page.locator('#migrateDialogText').textContent();assert(copyText.includes('C:\\ClusterStorage\\Volume1\\VMs\\APP01 on HV02'),copyText);
