@@ -96,6 +96,9 @@ type vmHostVMkernel struct {
 	MTU       int      `json:"mtu"`
 	Stack     string   `json:"stack"`
 	Services  []string `json:"services"`
+	// VLAN is the port group's VLAN ID on a standard switch (empty when
+	// untagged or on a distributed switch).
+	VLAN string `json:"vlan,omitempty"`
 }
 
 type vmHostAdapter struct {
@@ -106,6 +109,10 @@ type vmHostAdapter struct {
 	Status     string `json:"status"`
 	Identifier string `json:"identifier"`
 	PCI        string `json:"pci"`
+	// SendTargets and StaticTargets are an iSCSI adapter's configured
+	// discovery portals (address:port) and static targets (iqn@address:port).
+	SendTargets   []string `json:"sendTargets,omitempty"`
+	StaticTargets []string `json:"staticTargets,omitempty"`
 }
 
 type vmHostLUN struct {
@@ -428,8 +435,14 @@ func vmHostDetailsFrom(host mo.HostSystem) *vmHostDetails {
 			}
 			details.PhysicalNICs = append(details.PhysicalNICs, item)
 		}
+		portgroupVLAN := map[string]string{}
+		for _, portgroup := range network.Portgroup {
+			if portgroup.Spec.VlanId > 0 && portgroup.Spec.VlanId < 4095 {
+				portgroupVLAN[portgroup.Spec.Name] = fmt.Sprint(portgroup.Spec.VlanId)
+			}
+		}
 		for _, vnic := range network.Vnic {
-			item := vmHostVMkernel{Device: vnic.Device, Portgroup: vnic.Portgroup, MAC: vnic.Spec.Mac, MTU: int(vnic.Spec.Mtu), Stack: vnic.Spec.NetStackInstanceKey, Services: vmkernelServices[vnic.Device]}
+			item := vmHostVMkernel{Device: vnic.Device, Portgroup: vnic.Portgroup, MAC: vnic.Spec.Mac, MTU: int(vnic.Spec.Mtu), Stack: vnic.Spec.NetStackInstanceKey, Services: vmkernelServices[vnic.Device], VLAN: portgroupVLAN[vnic.Portgroup]}
 			if item.Services == nil {
 				item.Services = []string{}
 			}
@@ -465,6 +478,12 @@ func vmHostDetailsFrom(host mo.HostSystem) *vmHostDetails {
 					item.Kind = "iSCSI (software)"
 				}
 				item.Identifier = hba.IScsiName
+				for _, target := range hba.ConfiguredSendTarget {
+					item.SendTargets = append(item.SendTargets, fmt.Sprintf("%s:%d", target.Address, vmISCSIPort(target.Port)))
+				}
+				for _, target := range hba.ConfiguredStaticTarget {
+					item.StaticTargets = append(item.StaticTargets, fmt.Sprintf("%s@%s:%d", target.IScsiName, target.Address, vmISCSIPort(target.Port)))
+				}
 			case *types.HostParallelScsiHba:
 				item.Kind = "SCSI"
 			case *types.HostBlockHba:
@@ -707,4 +726,12 @@ func vmDiscoveryWatch(inventory *vmInventory, now time.Time) []string {
 		}
 	}
 	return notes
+}
+
+// vmISCSIPort is an iSCSI target's port, 3260 when vSphere left it unset.
+func vmISCSIPort(port int32) int32 {
+	if port <= 0 {
+		return 3260
+	}
+	return port
 }

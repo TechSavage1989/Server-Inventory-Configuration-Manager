@@ -63,6 +63,7 @@ A portable **Windows x64 application** for collecting server inventory, exportin
 
 <table>
   <tr><td colspan="2"><b>Guided migration: pick what you are moving and where to, then follow every step with the computer it runs on and a live check</b><br><img src="docs/images/guided-migration.png" alt="Guided migration for a VMware VM moving to Hyper-V, with the steps and the computers involved" width="880"></td></tr>
+  <tr><td colspan="2"><b>Build the new Hyper-V hosts or cluster from the VMware data: every step previewed, then applied only after you type the plan's name</b><br><img src="docs/images/hyperv-build.png" alt="Build Hyper-V hosts with a plan drafted from a VMware cluster and the roles step previewed on two nodes" width="880"></td></tr>
   <tr><td colspan="2"><b>The receiver shows who is connected and every copy arriving, with progress, speed and time left</b><br><img src="docs/images/receive-transfers.png" alt="Receiver with connected senders and copies in progress" width="880"></td></tr>
 </table>
 
@@ -158,6 +159,7 @@ Every migration and replication tool lives in one **Migration and replication** 
 | --- | --- | --- | --- |
 | Start here | **Guided migration** | Pick what you are moving and where to; every step in order, with checks that stop you on the wrong computer, without a receiver or short of space. | The computer each step names |
 | Plan | **Plan and runbook** | Waves, network map, sizing and the runbook (HTML and Word). | Your admin computer |
+| Plan | **Build Hyper-V hosts** | Set up the new Hyper-V hosts or cluster from the VMware data: roles, SET switches and VLANs, iSCSI or Fibre Channel, Cluster Shared Volumes, the cluster, quorum and live migration, each step previewed before you approve it. | Your admin computer, changing the new nodes over WinRM |
 | Move servers | **Move VMs** | Copy a VMware or Hyper-V VM while it runs, then cut over. | The Hyper-V host, or your admin computer connected to it (to Hyper-V); otherwise your admin computer |
 | Move servers | **Replicate servers** | Keep any Windows or Linux server copied until cutover, through an agent on the source. | Your admin computer; the agent on each source |
 | Disks | **Receive and send disks** | The receiver every copy goes to, receiver media, and Send by hand. | The receiving computer; Send inside the source |
@@ -256,6 +258,18 @@ The application changes nothing in vCenter or ESXi unless you choose **Prepare s
 - **Copy running Hyper-V VMs:** after reading a Hyper-V host, a VM's details offer the same **Copy disks** and **Cut over** as a VMware VM, for every target (Hyper-V, HyperCore, Nutanix AHV, Proxmox VE and physical servers). Each copy takes a checkpoint named "Server Inventory and Migration Manager copy" on the source host, copies the disks it froze while the VM keeps running, and removes the checkpoint again (Hyper-V merges it back), even when the copy fails or is stopped. Copy as often as you like: each copy after the first writes only the chunks that changed, and a stopped copy resumes. **Cut over** shuts the guest down through the Hyper-V shutdown integration service (never a forced power-off), copies the last changes with no checkpoint and checks every disk against its recorded hashes. Disks are read through the host's administrative shares with your own Windows account, so run the application as an account that is an administrator on the source host. The source VM is left off and otherwise unchanged, so going back is starting it again. Both steps ask you to type the VM's name. This has been tested against a simulated host only; try it on a test VM before a production one.
 
 Collection, restore, file migration, updates and closing the application wait while a VMware step runs.
+
+## Build Hyper-V hosts from VMware
+
+**Build Hyper-V hosts** (in **Migration and replication**, under **Plan**) sets up the new Hyper-V hosts, or a failover cluster, that the VMs will move to. It runs on your admin computer and reaches each new node over PowerShell remoting (WinRM); nothing is installed on the nodes.
+
+1. **Draft the plan.** With a VMware inventory open (read in **Discovery → VMware and Hyper-V**), choose the VMware cluster it replaces and select **Draft plan from VMware**. The plan gets one node per ESXi host, a SET switch for each VMware switch that carries VMs, management or vMotion, a live migration adapter from the vMotion port with its VLAN, every port group mapped to a switch and VLAN, the iSCSI portals (or Fibre Channel arrays) the hosts use, and a Cluster Shared Volume for each datastore, sized from what it uses. Or start an empty plan and type it all in.
+2. **Fill in what VMware cannot tell.** Type each node's DNS name, pick its physical adapters for each switch, and type the addresses for live migration, cluster and storage adapters, the cluster's name and address, and the witness (a disk, a file share or an Azure storage account). Then **Save plan**; plans are saved without passwords under your local application data folder.
+3. **Read nodes**, then work down the steps: install roles (Hyper-V, Failover Clustering, MPIO), restart nodes that need it, build switches and host adapters, connect storage and claim it for MPIO, prepare new disks, validate, create or join the cluster, add Cluster Shared Volumes, set the quorum, name the cluster networks, and set live migration and the default VM folders.
+4. **Preview, then approve.** **Preview** lists exactly what a step would change on each computer and changes nothing. **Approve and apply** needs a preview of the same plan from the last 30 minutes with nothing blocking it, and asks you to type the plan's name. Each computer then checks that its list still matches before it changes anything, and stops at the first change that fails.
+5. **Use for Move VMs** writes the plan's switches and VLANs into the migration plan's network map.
+
+Steps only add what is missing: they never remove or replace a switch, address, disk, cluster or setting. Only blank disks (RAW) are formatted, and never the boot or system disk. Steps are safe to run again; one that is already done shows **Nothing to change**. Cluster steps run on your admin computer with your own Windows account, so run the application as a domain account that is an administrator on every node. You can type another account for the node steps; its password and a cloud witness key stay in memory until you select **Use my Windows account** or close the application. The nodes need Windows Server 2012 R2 to 2025 installed, joined to the domain for a cluster, with WinRM enabled; Windows Server 2016 and later get Switch Embedded Teaming, 2012 R2 a NIC team. This has not yet been run against real nodes, SANs or clusters; try it on test hardware first.
 
 ## Convert virtual disks
 
