@@ -207,6 +207,10 @@ async function fixture(browser,old=false){
 // Tools live in two tabs: Discovery (Alt+1) and Migration and replication (Alt+5).
 const discoveryTools=['server','environment'];
 async function goTool(f,id){await f.page.keyboard.press(discoveryTools.includes(id)?'Alt+1':'Alt+5');await f.page.locator('[data-tool="'+id+'"]').click();}
+// The VMware and Hyper-V inventory: open an item from the tree, and read the tree as 'level label' lines.
+async function openVm(f,id){await f.page.locator('#vmInvTree li[data-inv-id="vm:'+id+'"] > .vm-inv-row').click();}
+async function openTree(f,label){await f.page.locator('#vmInvTree li.vm-inv-item > .vm-inv-row').filter({has:f.page.locator('.vm-inv-label',{hasText:new RegExp('^'+label.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'$')})}).first().click();}
+async function treeLines(f){return f.page.locator('#vmInvTree li.vm-inv-item').evaluateAll(list=>list.map(li=>li.getAttribute('aria-level')+' '+li.querySelector('.vm-inv-label').textContent));}
 async function check(name,fn){await fn();report.checks.push({name,result:'passed'});console.log('PASS: '+name);}
 (async()=>{const browser=await chromium.launch(executable?{executablePath:executable,headless:true,args:['--no-sandbox']}:{channel:'msedge',headless:true});try{
  await check('Published 3.2.9 reproduces unstyled cards and an inventory checkbox that cannot be deselected',async()=>{const f=await fixture(browser,true);try{
@@ -621,16 +625,19 @@ async function check(name,fn){await fn();report.checks.push({name,result:'passed
   f.vm.inventory=inventory;f.vm.plan=Object.assign(vmwarePlanFixture(),{server:'hv01.example.com'});f.vm.sizing=vmwareSizingFixture(false);
   Object.assign(f.state.vmware,{running:false,action:'',status:'connected',server:'hv01.example.com',account:'EXAMPLE\\admin',message:'Read 4 VM(s) from Hyper-V host hv01.example.com.',summary:Object.assign(vmwareSummaryFixture(),{server:'hv01.example.com',serverType:'Hyper-V host'}),inventorySerial:1});
   await f.page.waitForFunction(()=>document.querySelectorAll('#vmTableBody tr.vm-row').length===4);
-  assert.equal(await f.page.locator('#vmFactServer').textContent(),'hv01.example.com (Hyper-V host)');
+  assert.equal(await f.page.locator('#vmDrawerTitle').textContent(),'hv01.example.com');assert.equal(await f.page.locator('#vmDrawerKind').textContent(),'Hyper-V host');
+  assert.deepEqual(await treeLines(f),['1 hv01.example.com','2 Prod-Cluster','3 esx01.example.com','4 APP01','4 LEGACY03','3 esx02.example.com','4 SQL01','3 esx03.example.com','4 WEB02'],'a Hyper-V read has no datacenter level');
+  await f.page.locator('[data-inv-view="storage"]').click();assert.equal(await f.page.locator('#vmInvViewName').textContent(),'Storage: volumes, CSVs and shares');await f.page.locator('[data-inv-view="hosts"]').click();
   assert.equal(await f.page.locator('#vmServer').inputValue(),'','a Hyper-V host is not offered as a vCenter server');assert.equal(await f.page.locator('#vmUser').inputValue(),'');
-  await f.page.locator('tr[data-vm-id="vm-app01"]').click();const detail=await f.page.locator('#vmDetail').textContent();
-  assert(detail.includes('Generation 2')&&detail.includes('responding, version 10.0.20348'),detail);
-  await f.page.locator('#vmDetail button.vm-link',{hasText:'Convert'}).click();
+  await openVm(f,'vm-app01');const detail=await f.page.locator('#vmDetail').textContent();
+  assert(detail.includes('Generation 2')&&detail.includes('responding, version 10.0.20348')&&detail.includes('Integration services'),detail);assert(!(await f.page.locator('#vmDetail dt').allTextContents()).includes('VMware Tools'),'no VMware wording for a Hyper-V VM');
+  assert.deepEqual(await f.page.locator('#vmObjTabs .vm-obj-tab').evaluateAll(t=>t.map(x=>x.firstChild.textContent)),['Summary','Readiness','Configure','Storage','Networks','Checkpoints']);
+  await f.page.locator('#vmObjTab-datastores').click();await f.page.locator('#vmDetail button.vm-link',{hasText:'Convert'}).click();
   assert.equal(await f.page.locator('[data-tool="convert"]').getAttribute('aria-pressed'),'true');assert(await f.page.locator('#tabConvert').isVisible());assert.equal(await f.page.locator('#cvSource').inputValue(),'\\\\hv01.example.com\\D$\\VMs\\APP01\\APP01.vhdx');
   await f.page.waitForFunction(()=>!document.querySelector('#cvInfo').classList.contains('hidden'));assert.equal(f.convertCalls.filter(c=>c.action==='inspect').at(-1).body.path,'\\\\hv01.example.com\\D$\\VMs\\APP01\\APP01.vhdx');
   // A Hyper-V VM is copied through checkpoints with this computer's account: no vSphere session, no Prepare, no quiesce.
   f.state.vmware.hyperVHere=true;f.state.vmware.inventorySerial=2;await goTool(f,'environment');
-  await goTool(f,'movevms');await f.page.locator('tr[data-vm-id="vm-app01"]').click();await f.page.locator('#vmMoveCopy').waitFor();
+  await goTool(f,'movevms');await openVm(f,'vm-app01');await f.page.locator('#vmMoveCopy').waitFor();
   assert(!await f.page.locator('#vmMoveCopy').isDisabled()&&!await f.page.locator('#vmMoveCutover').isDisabled(),'a Hyper-V source needs no vSphere session');
   assert.equal(await f.page.locator('#vmDetail button',{hasText:'Prepare on VMware'}).count(),0);assert(!(await f.page.locator('#vmDetail').textContent()).includes('Prepare this VM on VMware'));
   assert.equal(await f.page.locator('input[data-vm-move="quiesce"]').count(),0);assert((await f.page.locator('#vmMove').textContent()).includes('takes a checkpoint on the source host'));
@@ -662,33 +669,39 @@ async function check(name,fn){await fn();report.checks.push({name,result:'passed
   Object.assign(f.state.vmware,{running:false,action:'',status:'connected',message:'Read 4 VM(s) on 3 host(s) from vc01.example.com.',certificate:null,summary:vmwareSummaryFixture(),inventorySerial:1,outputFolder:'C:\\Reports\\VMware_vc01',reportPath:'C:\\Reports\\VMware_vc01\\VMware-Readiness-Report.html'});
   await f.page.waitForFunction(()=>document.querySelectorAll('#vmTableBody tr.vm-row').length===4);
   assert.equal(await f.page.locator('#vmwareTabBadge').textContent(),'Read');assert(!await f.page.locator('#vmCert').isVisible());
-  assert.equal(await f.page.locator('#vmFactServer').textContent(),'vc01.example.com (vCenter Server)');assert.equal(await f.page.locator('#vmCountBlocked').textContent(),'1');assert.equal(await f.page.locator('#vmCountsTitle').textContent(),'Readiness for Hyper-V');
+  assert.equal(await f.page.locator('#vmDrawerTitle').textContent(),'vc01.example.com');assert.equal(await f.page.locator('#vmDrawerKind').textContent(),'vCenter Server');assert((await f.page.locator('#vmDrawerBody').textContent()).includes('1 snapshot, 4 VMs with static IPs'));assert.equal(await f.page.locator('#vmCountBlocked').textContent(),'1');assert.equal(await f.page.locator('#vmCountsTitle').textContent(),'Readiness for Hyper-V');
   await f.page.locator('[data-vmfilter="blocked"]').click();assert.deepEqual(await f.page.locator('#vmTableBody tr.vm-row strong').allTextContents(),['LEGACY03']);
   await f.page.locator('[data-vmfilter="all"]').click();await f.page.locator('#vmSearch').fill('ubuntu');assert.deepEqual(await f.page.locator('#vmTableBody tr.vm-row strong').allTextContents(),['WEB02']);await f.page.locator('#vmSearch').fill('');
   await f.page.setViewportSize({width:1440,height:1000});await f.page.evaluate(()=>document.activeElement.blur());await f.page.locator('#vmEnvResult').evaluate(e=>e.scrollIntoView({block:'start'}));await f.page.screenshot({path:shots+'/vmware-readiness-1440x1000.png'});
-  await f.page.locator('tr[data-vm-id="vm-sql01"]').click();assert(await f.page.locator('#vmDetail').isVisible());const detail=await f.page.locator('#vmDetail').textContent();
-  assert(detail.includes('Delete or consolidate snapshots before cutover.')&&detail.includes('Before patching <b>not markup</b>'),detail);assert.equal(await f.page.locator('#vmDetail b').count(),0);
-  assert.equal(await f.page.locator('#vmDrawerKind').textContent(),'Virtual machine');assert.equal(await f.page.locator('#vmDrawerTitle').textContent(),'SQL01');assert(await f.page.locator('tr[data-vm-id="vm-sql01"]').evaluate(e=>e.classList.contains('selected')));
-  assert.deepEqual(await f.page.locator('#vmDetail tbody td:nth-child(3) .vm-link').allTextContents(),['DS-SSD-01','DS-NL-02'],'each disk links to its datastore');
-  await f.page.setViewportSize({width:1440,height:1000});await f.page.evaluate(()=>document.activeElement.blur());await f.page.screenshot({path:shots+'/vmware-vm-details-1440x1000.png'});
+  await openVm(f,'vm-sql01');assert(await f.page.locator('#vmDetail').isVisible());const detail=await f.page.locator('#vmDetail').textContent();
+  assert(detail.includes('Delete or consolidate snapshots before cutover.')&&detail.includes('1 snapshot'),detail);
+  await f.page.locator('#vmObjTab-snapshots').click();assert((await f.page.locator('#vmDetail').textContent()).includes('Before patching <b>not markup</b>'));assert.equal(await f.page.locator('#vmDetail b').count(),0);
+  await f.page.locator('#vmObjTab-readiness').click();assert((await f.page.locator('#vmDetail').textContent()).includes('Scale HyperCore: Review first'),'other platforms are listed');
+  assert.equal(await f.page.locator('#vmDrawerKind').textContent(),'Virtual machine');assert.equal(await f.page.locator('#vmDrawerTitle').textContent(),'SQL01');assert(await f.page.locator('tr[data-vm-id="vm-sql01"]').evaluate(e=>e.classList.contains('selected')));assert.equal(await f.page.locator('#vmInvTree li[aria-selected="true"] > .vm-inv-row .vm-inv-label').textContent(),'SQL01');
+  await f.page.locator('#vmObjTab-datastores').click();assert.deepEqual(await f.page.locator('#vmDetail tbody').first().locator('td:nth-child(3) .vm-link').allTextContents(),['DS-SSD-01','DS-NL-02'],'each disk links to its datastore');
+  await f.page.locator('#vmObjTab-networks').click();assert.deepEqual(await f.page.locator('#vmDetail tbody').first().locator('.vm-link').allTextContents(),['VM-Servers']);
+  await f.page.locator('#vmObjTab-summary').click();await f.page.locator('#vmObjTab-summary').press('ArrowRight');assert.equal(await f.page.evaluate(()=>document.activeElement.id),'vmObjTab-readiness','arrow keys move between tabs');await f.page.locator('#vmObjTab-summary').click();
+  await f.page.setViewportSize({width:1440,height:1000});await f.page.evaluate(()=>document.activeElement.blur());await f.page.locator('#vmInv').evaluate(e=>e.scrollIntoView({block:'start'}));await f.page.screenshot({path:shots+'/vmware-vm-details-1440x1000.png'});
   await f.page.locator('#vmDetail .vm-kv .vm-link',{hasText:'esx02.example.com'}).click();assert.equal(await f.page.locator('#vmDrawerKind').textContent(),'Host');assert.equal(await f.page.locator('#vmDrawerTitle').textContent(),'esx02.example.com');
-  assert.equal(await f.page.locator('#vmDrawerBack').textContent(),'\u2039 SQL01');assert.deepEqual(await f.page.locator('#vmDrawerBody tbody td:first-child .vm-link').allTextContents(),['SQL01'],'the host lists its VMs');
-  await f.page.locator('#vmDrawerBody .vm-kv .vm-link',{hasText:'Prod-Cluster'}).click();assert.equal(await f.page.locator('#vmDrawerKind').textContent(),'Cluster');assert((await f.page.locator('#vmDrawerBody').textContent()).includes('vSphere 8 Enterprise Plus'),'the cluster shows its licensing');
+  assert.equal(await f.page.locator('#vmDrawerBack').textContent(),'\u2039 SQL01');assert.equal(await f.page.locator('#vmInvTree li[aria-selected="true"] > .vm-inv-row .vm-inv-label').textContent(),'esx02.example.com','the tree follows the link');
+  await f.page.locator('#vmObjTab-vms').click();assert.deepEqual(await f.page.locator('#vmDrawerBody tbody td:first-child .vm-link').allTextContents(),['SQL01'],'the host lists its VMs');
+  await f.page.locator('#vmObjTab-summary').click();await f.page.locator('#vmDrawerBody .vm-kv .vm-link',{hasText:'Prod-Cluster'}).click();assert.equal(await f.page.locator('#vmDrawerKind').textContent(),'Cluster');assert((await f.page.locator('#vmDrawerBody').textContent()).includes('vSphere 8 Enterprise Plus'),'the cluster shows its licensing');
   await f.page.locator('#vmDrawerBack').click();assert.equal(await f.page.locator('#vmDrawerTitle').textContent(),'esx02.example.com');await f.page.locator('#vmDrawerBack').click();assert.equal(await f.page.locator('#vmDrawerTitle').textContent(),'SQL01');
-  await f.page.keyboard.press('Escape');assert(!await f.page.locator('#vmDrawer').isVisible());assert.equal(await f.page.locator('#vmTableBody tr.selected').count(),0);
-  await f.page.locator('tr[data-vm-id="vm-app01"]').focus();await f.page.keyboard.press('Space');assert.equal(await f.page.locator('#vmDrawerTitle').textContent(),'APP01');await f.page.keyboard.press('ArrowDown');assert.equal(await f.page.locator('#vmDrawerTitle').textContent(),'SQL01','arrow keys move through the VMs');
-  assert.equal(await f.page.evaluate(()=>document.activeElement.getAttribute('data-vm-id')),'vm-sql01');await f.page.locator('#vmDrawerClose').click();assert(!await f.page.locator('#vmDrawer').isVisible());
+  await f.page.keyboard.press('Escape');assert.equal(await f.page.locator('#vmDrawerTitle').textContent(),'vc01.example.com','Escape goes back');assert.equal(await f.page.locator('#vmTableBody tr.selected').count(),0);
+  await f.page.locator('#vmInvTree li[data-inv-id="vm:vm-app01"]').focus();await f.page.keyboard.press('Space');assert.equal(await f.page.locator('#vmDrawerTitle').textContent(),'APP01');await f.page.keyboard.press('ArrowDown');assert.equal(await f.page.locator('#vmDrawerTitle').textContent(),'LEGACY03','arrow keys move through the tree');
+  assert.equal(await f.page.evaluate(()=>document.activeElement.getAttribute('data-inv-id')),'vm:vm-legacy03');await f.page.keyboard.press('ArrowLeft');assert.equal(await f.page.locator('#vmDrawerTitle').textContent(),'esx01.example.com','left goes to the parent');
+  await f.page.keyboard.press('ArrowLeft');assert.equal(await f.page.locator('#vmInvTree li[aria-selected="true"]').getAttribute('aria-expanded'),'false','left again collapses it');await f.page.keyboard.press('ArrowRight');assert.equal(await f.page.locator('#vmInvTree li[aria-selected="true"]').getAttribute('aria-expanded'),'true');
   assert.equal(await f.page.locator('#vmTargetSelect option').count(),7,'every target is offered');
   await f.page.locator('#vmTargetSelect').selectOption('scale');await f.page.waitForFunction(()=>document.querySelector('#vmCountsTitle').textContent==='Readiness for Scale HyperCore');
   assert.equal(await f.page.locator('tr[data-vm-id="vm-app01"] .run-chip').textContent(),'Review first');assert.equal(vmwareCalls(f,'plan').at(-1).body.plan.target,'scale','the target is saved with the plan');
   await f.page.locator('#vmTargetSelect').selectOption('nutanix');await f.page.waitForFunction(()=>document.querySelector('#vmCountsTitle').textContent==='Readiness for Nutanix AHV');assert.equal(await f.page.locator('#vmCountReview').textContent(),'4');assert.equal(await f.page.locator('#vmCountBlocked').textContent(),'0','the cards follow the VM list');assert.equal(vmwareCalls(f,'plan').at(-1).body.plan.target,'nutanix');
-  await f.page.locator('#vmOpenReport').click();await f.page.waitForTimeout(200);assert.deepEqual(f.opens,['vmwarereport']);
+  await f.page.locator('[data-vmfilter="all"]').click();await f.page.locator('#vmOpenReport').click();await f.page.waitForTimeout(200);assert.deepEqual(f.opens,['vmwarereport']);
   await f.page.locator('#vmReset').click();await f.page.waitForFunction(()=>document.querySelector('#vmEnvResult').classList.contains('hidden'));assert.equal(await f.page.locator('#vmServer').inputValue(),'');
   assert(f.vmwareCalls.every(c=>c.token==='workspace-test'));assert.deepEqual(f.dialogs,[]);
  }finally{await f.close();}});
  await check('VMware prepare source: needs a live session, preselects the needed steps, and posts them only after the VM name is typed',async()=>{const f=await fixture(browser);try{
   await vmwareConnected(f);
-  await f.page.locator('tr[data-vm-id="vm-legacy03"]').click();await f.page.locator('#vmMoveLinkButton').waitFor();assert.equal(await f.page.locator('#vmPrepareButton').count(),0,'Discovery only reads: no Prepare there');await f.page.locator('#vmMoveLinkButton').click();assert.equal(await f.page.locator('#tabButtonMigration').getAttribute('aria-selected'),'true');assert.equal(await f.page.locator('[data-tool="movevms"]').getAttribute('aria-pressed'),'true');assert(await f.page.locator('#vmDetail').isVisible(),'the VM stays open in Move VMs');assert(await f.page.locator('#vmServer').isHidden(),'Move VMs does not ask for the connection again');await f.page.locator('tr[data-vm-id="vm-legacy03"]').click();assert((await f.page.locator('#vmDetail').textContent()).includes('read the inventory from vCenter or ESXi in this session'));assert.equal(await f.page.locator('#vmPrepareButton').count(),0);
+  await openVm(f,'vm-legacy03');await f.page.locator('#vmMoveLinkButton').waitFor();assert.equal(await f.page.locator('#vmPrepareButton').count(),0,'Discovery only reads: no Prepare there');await f.page.locator('#vmMoveLinkButton').click();assert.equal(await f.page.locator('#tabButtonMigration').getAttribute('aria-selected'),'true');assert.equal(await f.page.locator('[data-tool="movevms"]').getAttribute('aria-pressed'),'true');assert(await f.page.locator('#vmDetail').isVisible(),'the VM stays open in Move VMs');assert(await f.page.locator('#vmServer').isHidden(),'Move VMs does not ask for the connection again');await openVm(f,'vm-legacy03');assert((await f.page.locator('#vmDetail').textContent()).includes('read the inventory from vCenter or ESXi in this session'));assert.equal(await f.page.locator('#vmPrepareButton').count(),0);
   Object.assign(f.vm.inventory.vms[2],{vtpm:true,encrypted:true});f.state.vmware.canPrepare=true;f.state.vmware.inventorySerial=2;
   await f.page.waitForFunction(()=>!!document.querySelector('#vmPrepareButton'));
   assert(!await f.page.locator('input[data-vm-prepare="snapshots"]').isChecked());for(const key of ['shutdown','removeTpm','decrypt']){assert(await f.page.locator('input[data-vm-prepare="'+key+'"]').isChecked(),key);}
@@ -703,7 +716,7 @@ async function check(name,fn){await fn();report.checks.push({name,result:'passed
  }finally{await f.close();}});
  await check('VMware move to Hyper-V: copy and cut over need a live session and the typed VM name, post the folders and options, and show each disk\'s result',async()=>{const f=await fixture(browser);try{
   await vmwareConnected(f);
-  await goTool(f,'movevms');await f.page.locator('tr[data-vm-id="vm-app01"]').click();assert((await f.page.locator('#vmMove').textContent()).includes('run this on the Hyper-V host'));assert.equal(await f.page.locator('#vmMoveCopy').count(),0);
+  await goTool(f,'movevms');await openVm(f,'vm-app01');assert((await f.page.locator('#vmMove').textContent()).includes('run this on the Hyper-V host'));assert.equal(await f.page.locator('#vmMoveCopy').count(),0);
   f.state.vmware.canPrepare=true;f.state.vmware.hyperVHere=false;f.state.vmware.moveCopyRoot='D:\\Migration\\VMware-Copies';f.state.vmware.inventorySerial=2;
   // Off a Hyper-V host the move offers the remote host first; this check covers the local move.
   await f.page.waitForFunction(()=>!!document.querySelector('#vmHvrConnect'));await f.page.locator('[data-vm-hvwhere="here"]').click();
@@ -714,8 +727,8 @@ async function check(name,fn){await fn();report.checks.push({name,result:'passed
   await f.page.waitForFunction(()=>document.querySelector('#vmMove .vm-runs-on').textContent.includes('Runs on the Hyper-V host (this computer)')&&!document.querySelector('#vmMoveCopy').disabled);
   await f.page.locator('#vmRoles > summary').click();assert.equal(await f.page.locator('#vmRolesGrid .vm-role').count(),3);
   assert.equal(await f.page.locator('#vmRolesGrid .vm-role.here h4').textContent(),'The Hyper-V host that will run the VM');assert((await f.page.locator('#vmRolesFlow').textContent()).includes('this application on the Hyper-V host'));
-  await f.page.locator('#vmDrawerClose').click();await f.page.setViewportSize({width:1440,height:1000});await f.page.locator('#vmwareBody').evaluate(e=>e.scrollTop=0);await f.page.screenshot({path:shots+'/vmware-roles-1440x1000.png'});
-  await goTool(f,'movevms');await f.page.locator('#vmRoles > summary').click();await f.page.locator('tr[data-vm-id="vm-app01"]').click();await f.page.locator('#vmMoveCopy').waitFor();
+  await f.page.setViewportSize({width:1440,height:1000});await f.page.locator('#vmwareBody').evaluate(e=>e.scrollTop=0);await f.page.screenshot({path:shots+'/vmware-roles-1440x1000.png'});
+  await goTool(f,'movevms');await f.page.locator('#vmRoles > summary').click();await openVm(f,'vm-app01');await f.page.locator('#vmMoveCopy').waitFor();
   assert.equal(await f.page.locator('#vmMoveFolder').getAttribute('placeholder'),'D:\\Migration\\VMware-Copies\\APP01');
   assert((await f.page.locator('#vmMove').textContent()).includes('No Hyper-V switch is named for VM-Servers'));
   assert(await f.page.locator('input[data-vm-move="quiesce"]').isChecked());assert(!await f.page.locator('input[data-vm-move="start"]').isChecked());
@@ -745,7 +758,7 @@ async function check(name,fn){await fn();report.checks.push({name,result:'passed
  await check('Move VMs from one console: connect to a remote Hyper-V cluster, pick a node and Cluster Shared Volume, copy over its admin share or a receiver, cut over with high availability, and label the supported systems',async()=>{const f=await fixture(browser);try{
   await vmwareConnected(f);
   Object.assign(f.state.vmware,{canPrepare:true,hyperVHere:false,inventorySerial:2});
-  await goTool(f,'movevms');await f.page.locator('tr[data-vm-id="vm-app01"]').click();await f.page.locator('#vmHvrConnect').waitFor();
+  await goTool(f,'movevms');await openVm(f,'vm-app01');await f.page.locator('#vmHvrConnect').waitFor();
   assert.equal(await f.page.locator('[data-vm-hvwhere="remote"]').getAttribute('aria-pressed'),'true','off a Hyper-V host the remote host is the default');
   const works=await f.page.locator('#vmHvrWorks').textContent();
   assert(works.includes('ESXi 6.5, 6.7, 7.0 or 8.0')&&works.includes('Windows Server 2012 R2, 2016, 2019, 2022 or 2025')&&works.includes('failover cluster with Cluster Shared Volumes')&&works.includes('free ESXi'),works);
@@ -790,7 +803,7 @@ async function check(name,fn){await fn();report.checks.push({name,result:'passed
   // The guided flow accepts the remote connection instead of running on the host.
   await goTool(f,'guide');
   const guide=await f.page.locator('#tabGuide').textContent();assert(!guide.includes('is not a Hyper-V host. Run this application on the Hyper-V host'),'the guide still blocks a remote move');
-  await goTool(f,'movevms');await f.page.locator('tr[data-vm-id="vm-app01"]').click();await f.page.locator('#vmHvrForget').click();
+  await goTool(f,'movevms');await openVm(f,'vm-app01');await f.page.locator('#vmHvrForget').click();
   await f.page.waitForFunction(()=>!!document.querySelector('#vmHvrConnect'));
   assert.deepEqual(f.dialogs,[]);
  }finally{await f.close();}});
@@ -798,7 +811,7 @@ async function check(name,fn){await fn();report.checks.push({name,result:'passed
   await vmwareConnected(f);
   Object.assign(f.state.vmware,{canPrepare:true,hyperVHere:true,moveCopyRoot:'C:\\ProgramData\\Microsoft\\Windows\\Hyper-V\\Virtual Hard Disks',inventorySerial:2,hostStorage:{known:true,vhdPath:'C:\\ProgramData\\Microsoft\\Windows\\Hyper-V\\Virtual Hard Disks',vmPath:'C:\\ProgramData\\Microsoft\\Windows\\Hyper-V',clustered:true,volumes:[
    {path:'C:\\ClusterStorage\\Volume1',label:'Volume1',freeBytes:536870912000,totalBytes:2199023255552,csv:true},{path:'C:\\ClusterStorage\\Volume2',label:'Volume2',freeBytes:21474836480,totalBytes:107374182400,csv:true},{path:'C:\\',label:'',freeBytes:85899345920,totalBytes:274877906944,csv:false}]}});
-  await goTool(f,'movevms');await f.page.locator('tr[data-vm-id="vm-app01"]').click();await f.page.locator('#vmMoveCopy').waitFor();
+  await goTool(f,'movevms');await openVm(f,'vm-app01');await f.page.locator('#vmMoveCopy').waitFor();
   assert.equal(await f.page.locator('[data-vm-storage]').count(),3);
   assert(await f.page.locator('[data-vm-storage]').nth(1).evaluate(e=>e.classList.contains('short')),'a volume smaller than the VM is marked');
   assert.equal(await f.page.locator('#vmMoveFolder').getAttribute('placeholder'),'C:\\ProgramData\\Microsoft\\Windows\\Hyper-V\\Virtual Hard Disks\\APP01');
@@ -810,6 +823,7 @@ async function check(name,fn){await fn();report.checks.push({name,result:'passed
   assert(await f.page.locator('input[data-vm-move="cluster"]').isChecked(),'choosing a CSV ticks highly available');assert(!await f.page.locator('#vmMoveCopy').isDisabled());
   assert((await f.page.locator('#vmMoveSpace').textContent()).includes('500 GB is free on C:\\ClusterStorage\\Volume1'));
   f.state.vmware.inventorySerial=3;await f.page.waitForTimeout(700);assert.equal(await f.page.locator('#vmMoveFolder').inputValue(),'C:\\ClusterStorage\\Volume1\\APP01','the choice survives a refresh');
+  await f.page.setViewportSize({width:1440,height:1000});await f.page.evaluate(()=>document.activeElement.blur());await f.page.locator('#vmMove').evaluate(e=>e.scrollIntoView({block:'start'}));await f.page.screenshot({path:shots+'/vmware-move-cluster-1440x1000.png'});
   await f.page.locator('#vmMoveCutover').click();assert((await f.page.locator('#migrateDialogText').textContent()).includes('make it highly available in the cluster'));
   await f.page.locator('#migrateConfirmInput').fill('APP01');await f.page.locator('#migrateConfirmButton').click();
   await f.page.waitForFunction(()=>document.querySelector('#vmwareTabBadge').textContent==='Working');
@@ -885,7 +899,7 @@ async function check(name,fn){await fn();report.checks.push({name,result:'passed
  await check('VMware move to Proxmox VE and physical servers: connect, receiver media, create, receiver and copy each post what was chosen, with the typed VM name where vSphere or the platform changes',async()=>{const f=await fixture(browser);try{
   await vmwareConnected(f);f.state.vmware.canPrepare=true;f.state.vmware.inventorySerial=2;
   await f.page.locator('#vmTargetSelect').selectOption('proxmox');await f.page.waitForFunction(()=>document.querySelector('#vmCountsTitle').textContent==='Readiness for Proxmox VE');
-  await goTool(f,'movevms');await f.page.locator('tr[data-vm-id="vm-app01"]').click();await f.page.locator('#vmMoveTarget').waitFor();assert.equal(await f.page.locator('#vmMove').count(),0,'the Hyper-V panel is only for Hyper-V');
+  await goTool(f,'movevms');await openVm(f,'vm-app01');await f.page.locator('#vmMoveTarget').waitFor();assert.equal(await f.page.locator('#vmMove').count(),0,'the Hyper-V panel is only for Hyper-V');
   assert((await f.page.locator('#vmMoveTarget .vm-runs-on').textContent()).includes('Runs on this computer, your admin computer or jump box'));
   assert.deepEqual(await f.page.locator('#vmMoveTarget .vm-step-where').allTextContents(),['From this computer','On this computer','On Proxmox VE',"On the new VM's console",'From this computer: vCenter to the receiver']);
   assert((await f.page.locator('#vmRolesSummary').textContent()).includes('the new VM on Proxmox VE boots the receiver media'));
@@ -927,7 +941,7 @@ async function check(name,fn){await fn();report.checks.push({name,result:'passed
   await f.page.locator('#vmTargetSelect').selectOption('azure');await f.page.waitForFunction(()=>!document.querySelector('#vmMoveTarget'));
   assert.deepEqual(f.dialogs,[]);
  }finally{await f.close();}});
- await check('VMware Hosts card: every cluster and host with hardware, licensing and items to check, all linked',async()=>{const f=await fixture(browser);try{
+ await check('VMware Hosts card and pages: the inventory, cluster, host and license pages with hardware, licensing, monitoring and configuration, all linked',async()=>{const f=await fixture(browser);try{
   await vmwareConnected(f);
   assert.equal(await f.page.locator('#vmCountHosts').textContent(),'3');assert.equal(await f.page.locator('#vmCountHostsSub').textContent(),'1 cluster, 1 license');
   f.vm.inventory.hosts=[{name:'esx01.example.com',datacenter:'DC-East',cluster:'Prod-Cluster',vendor:'Example',model:'R760',cpuModel:'Xeon Gold',sockets:2,cores:32,threads:64,memoryBytes:549755813888,version:'8.0.2',build:'22380479',connectionState:'connected',license:{name:'vSphere 8 Enterprise Plus',key:'AB12C-*****-*****-*****-MN90P'},details:{serialNumber:'SVC1234',biosVendor:'Example Inc.',biosVersion:'2.19.1',managementIp:'192.0.2.21',overallStatus:'yellow',ntpServers:['192.0.2.123'],ntpRunning:true,physicalNics:[{device:'vmnic0',driver:'ixgben',speedMb:10000,duplex:true,mac:'00:00:5e:00:53:01',switch:'vSwitch0'}],switches:[{name:'vSwitch0',kind:'Standard',mtu:1500,uplinks:['vmnic0'],portgroups:['VM-Servers']}],services:[{key:'ntpd',label:'NTP Daemon',running:true,policy:'on'},{key:'TSM-SSH',label:'SSH',running:false,policy:'off'}],packages:[{name:'esx-base',version:'8.0.2-0.0.22380479',vendor:'VMware',acceptance:'VMwareCertified'}],alarms:['Host hardware sensor <b>warning</b>']}},{name:'esx02 <b>x</b>',datacenter:'DC-East',cluster:'Prod-Cluster',connectionState:'connected',maintenance:true}];
@@ -935,28 +949,26 @@ async function check(name,fn){await fn();report.checks.push({name,result:'passed
   f.vm.attention=['License vSphere 8 Enterprise Plus (AB12C-*****-*****-*****-MN90P) expires on 2026-12-15.','Host esx02 <b>x</b> is in maintenance mode.'];
   Object.assign(f.state.vmware,{inventorySerial:2,discoveryPath:'C:\\Reports\\VMware_vc01\\VMware-Discovery-Report.html'});
   await f.page.waitForFunction(()=>document.querySelector('#vmCountHostsSub').textContent==='1 cluster, 2 licenses');assert.equal(await f.page.locator('#vmCountHosts').textContent(),'2');
-  await f.page.locator('#vmExploreBy').selectOption('network');await f.page.locator('#vmExplorePanel > summary').click();assert(!await f.page.locator('#vmExplorePanel').evaluate(e=>e.open));
-  await f.page.locator('#vmHostsCard').click();assert(await f.page.locator('#vmExplorePanel').evaluate(e=>e.open),'the Hosts card opens Browse');assert.equal(await f.page.locator('#vmExploreBy').inputValue(),'host');
-  assert.equal(await f.page.evaluate(()=>document.activeElement.parentElement.className),'vm-host-node','focus lands on the first host');
-  assert.equal(await f.page.locator('#vmHostsWatch li').count(),2);assert.equal(await f.page.locator('#vmExplorePanel b').count(),0,'names and notes are text');
-  const cluster=f.page.locator('#vmExploreTree > details.vm-cluster-node');assert(await cluster.evaluate(e=>e.open));
-  const facts=await cluster.locator('.vm-tree-body > dl.vm-kv').first().textContent();assert(facts.includes('High availabilityOn')&&facts.includes('DRSOn'),facts);
-  const esx01=cluster.locator('details.vm-host-node').first();const kv=await esx01.locator('dl.vm-kv').first().textContent();
-  assert(kv.includes('SVC1234')&&kv.includes('8.0.2 build 22380479')&&kv.includes('192.0.2.21')&&kv.includes('vSphere 8 Enterprise Plus')&&kv.includes('health yellow'),kv);
-  const fold=re=>esx01.locator('details > summary').filter({hasText:re}).first().locator('..');
-  assert((await fold(/^Alarms and configuration issues/).textContent()).includes('Host hardware sensor <b>warning</b>'));
+  await f.page.locator('#vmHostsCard').click();assert.equal(await f.page.locator('#vmDrawerTitle').textContent(),'vc01.example.com');assert.equal(await f.page.locator('#vmObjTab-hosts').getAttribute('aria-selected'),'true','the Hosts card opens the inventory\'s hosts');
+  assert.equal(await f.page.evaluate(()=>document.activeElement.id),'vmObjTab-hosts');assert.equal(await f.page.locator('#vmDrawerBody tbody tr').count(),2);assert.equal(await f.page.locator('#vmDrawerBody b').count(),0,'names are text');
+  assert((await f.page.locator('#vmDrawerBody tbody tr').nth(1).textContent()).includes('maintenance mode'));
+  await f.page.locator('#vmObjTab-summary').click();assert.equal(await f.page.locator('#vmHostsWatch li').count(),2);assert.equal(await f.page.locator('#vmHostsWatch b').count(),0,'notes are text');
+  await f.page.locator('#vmObjTab-licenses').click();assert.equal(await f.page.locator('#vmDrawerBody tbody tr').count(),2,'every license');
+  await f.page.locator('#vmOpenDiscovery').click();await f.page.waitForTimeout(200);assert.deepEqual(f.opens,['vmwarediscovery']);
+  assert.equal(await f.page.locator('#vmInvTree li.vm-inv-item.off .vm-inv-label',{hasText:'esx02'}).textContent(),'esx02 <b>x</b>','a host in maintenance mode is dimmed');assert.equal(await f.page.locator('#vmInvTree b').count(),0);
+  await openTree(f,'Prod-Cluster');assert.equal(await f.page.locator('#vmDrawerKind').textContent(),'Cluster');
+  const facts=await f.page.locator('#vmDrawerBody').textContent();assert(facts.includes('High availabilityOn')&&facts.includes('DRSOn')&&facts.includes('vSphere 8 Enterprise Plus'),facts);
+  await f.page.locator('#vmObjTab-configure').click();const licRow=await f.page.locator('#vmDrawerBody .vm-drawer-section',{hasText:'Licensing'}).locator('tbody tr').textContent();assert(licRow.includes('AB12C-*****-*****-*****-MN90P')&&licRow.includes('4 / 8 cpuPackage')&&licRow.includes('2026-12-15'),licRow);
+  await openTree(f,'esx01.example.com');const kv=await f.page.locator('#vmDrawerBody').textContent();
+  assert(kv.includes('SVC1234')&&kv.includes('8.0.2 build 22380479')&&kv.includes('192.0.2.21')&&kv.includes('vSphere 8 Enterprise Plus')&&kv.includes('health yellow')&&kv.includes('1 item reported by the host.'),kv);
+  await f.page.setViewportSize({width:1440,height:1000});await f.page.evaluate(()=>document.activeElement.blur());await f.page.locator('#vmInv').evaluate(e=>e.scrollIntoView({block:'start'}));await f.page.screenshot({path:shots+'/vmware-hosts-1440x1000.png'});
+  await f.page.locator('#vmObjTab-monitor').click();const mon=await f.page.locator('#vmDrawerBody').textContent();assert(mon.includes('Host hardware sensor <b>warning</b>')&&mon.includes('1 of 2 running'),mon);
+  await f.page.locator('#vmObjTab-configure').click();const fold=re=>f.page.locator('#vmDrawerBody details > summary').filter({hasText:re}).first().locator('..');
   const hw=fold(/^Hardware and firmware/);await hw.locator('> summary').click();await hw.locator('dl').waitFor();assert((await hw.textContent()).includes('Example Inc. 2.19.1'));
   const net=fold(/^Network/);await net.locator('> summary').click();await net.locator('tbody').first().waitFor();assert((await net.textContent()).includes('10 Gb full'));assert.deepEqual(await net.locator('.vm-link').allTextContents(),['VM-Servers'],'port groups link to their network');
-  const svc=fold(/^Services/);assert((await svc.locator('> summary').textContent()).includes('1 of 2 running'));
-  assert((await cluster.locator('details.vm-host-node').nth(1).locator('> summary').textContent()).includes('maintenance mode'));
-  const lic=cluster.locator('> .vm-tree-body > details.vm-section-node',{hasText:'Licensing'});assert((await lic.locator('> summary').textContent()).includes('1 license'));await lic.locator('> summary').click();await lic.locator('tbody').waitFor();
-  const licRow=await lic.locator('tbody tr').textContent();assert(licRow.includes('AB12C-*****-*****-*****-MN90P')&&licRow.includes('4 / 8 cpuPackage')&&licRow.includes('2026-12-15'),licRow);
-  await f.page.setViewportSize({width:1440,height:1000});await f.page.evaluate(()=>document.activeElement.blur());await f.page.locator('#vmExplorePanel').evaluate(e=>e.scrollIntoView({block:'start'}));await f.page.screenshot({path:shots+'/vmware-hosts-1440x1000.png'});
-  await lic.locator('tbody .vm-link',{hasText:'vSphere 8 Enterprise Plus'}).click();assert.equal(await f.page.locator('#vmDrawerKind').textContent(),'License');
-  await f.page.locator('#vmDrawerBody tbody .vm-link',{hasText:'esx01.example.com'}).click();assert.equal(await f.page.locator('#vmDrawerKind').textContent(),'Host');assert((await f.page.locator('#vmDrawerBody').textContent()).includes('SVC1234'));
-  await f.page.locator('#vmDrawerBody button',{hasText:'Show its VMs in the list'}).click();assert.equal(await f.page.locator('#vmSearch').inputValue(),'esx01.example.com');
-  const all=f.page.locator('#vmExploreTree > details',{hasText:'All licenses'});assert((await all.locator('> summary').textContent()).includes('2 licenses'));
-  await f.page.locator('#vmOpenDiscovery').click();await f.page.waitForTimeout(200);assert.deepEqual(f.opens,['vmwarediscovery']);
+  await f.page.locator('#vmObjTab-summary').click();await f.page.locator('#vmDrawerBody .vm-link',{hasText:'vSphere 8 Enterprise Plus'}).click();assert.equal(await f.page.locator('#vmDrawerKind').textContent(),'License');
+  await f.page.locator('#vmObjTab-hosts').click();await f.page.locator('#vmDrawerBody tbody .vm-link',{hasText:'esx01.example.com'}).click();assert.equal(await f.page.locator('#vmDrawerKind').textContent(),'Host');assert((await f.page.locator('#vmDrawerBody').textContent()).includes('SVC1234'));
+  await f.page.locator('#vmDrawerBody .vm-stat',{hasText:'VMs'}).click();assert.equal(await f.page.locator('#vmObjTab-vms').getAttribute('aria-selected'),'true','a count opens its tab');assert.deepEqual(await f.page.locator('#vmDrawerBody tbody td:first-child .vm-link').allTextContents(),['APP01','LEGACY03']);
   assert.deepEqual(f.dialogs,[]);
  }finally{await f.close();}});
  await check('VMware counts: All VMs matches the list, VMware system VMs are counted as Not moved and can be listed',async()=>{const f=await fixture(browser);try{
@@ -967,32 +979,32 @@ async function check(name,fn){await fn();report.checks.push({name,result:'passed
   const sum=['#vmCountBlocked','#vmCountReview','#vmCountReady','#vmCountSkip'];let total=0;for(const id of sum){total+=Number(await f.page.locator(id).textContent());}assert.equal(total,5,'the cards add up to All VMs');
   assert.equal(await f.page.locator('#vmCountsNote').textContent(),'4 VMs to move; 1 VMware system VM stays behind.');
   await f.page.locator('[data-vmfilter="skip"]').click();assert.deepEqual(await f.page.locator('#vmTableBody tr.vm-row strong').allTextContents(),['vCLS-0001']);assert.equal(await f.page.locator('#vmTableBody tr.vm-row td').nth(6).textContent(),'VMware system VM, not moved.');
-  await goTool(f,'movevms');await f.page.locator('tr[data-vm-id="vm-vcls-0001"]').click();assert.equal(await f.page.locator('#vmPrepareButton').count(),0,'system VMs cannot be prepared');assert.equal(await f.page.locator('#vmDetail .vm-actions button',{hasText:'Prepare on VMware'}).count(),0);
+  await goTool(f,'movevms');await openVm(f,'vm-vcls-0001');assert.equal(await f.page.locator('#vmPrepareButton').count(),0,'system VMs cannot be prepared');assert.equal(await f.page.locator('#vmObjActions button',{hasText:'Prepare on VMware'}).count(),0);
   assert.deepEqual(f.dialogs,[]);
  }finally{await f.close();}});
- await check('VMware browse: each host with its VMs, each datastore with its disks and each network with its VMs, searchable, linking to the VM',async()=>{const f=await fixture(browser);try{
+ await check('VMware inventory tree: hosts and clusters, VMs and templates, storage and networking views, readiness dots, keyboard, filter, and links that follow the tree',async()=>{const f=await fixture(browser);try{
   await vmwareConnected(f);
-  assert(await f.page.locator('#vmExplorePanel').evaluate(e=>e.open),'browse is open after a read');assert.equal(await f.page.locator('#vmExploreSummary').textContent(),'(3 hosts, 2 datastores, 2 networks, 1 license)');
-  const cluster=f.page.locator('#vmExploreTree > details.vm-cluster-node');assert.equal(await cluster.count(),1);assert(await cluster.evaluate(e=>e.open),'a single cluster opens');
-  assert((await cluster.locator('> summary').textContent()).includes('Prod-Cluster')&&(await cluster.locator('> summary').textContent()).includes('3 hosts, 4 VMs'));
-  const hosts=cluster.locator('details.vm-host-node');assert.equal(await hosts.count(),3);const esx01=hosts.nth(0);assert((await esx01.locator('summary').textContent()).includes('2 VMs (2 on)'));
-  await esx01.locator('> summary').click();await esx01.locator('tbody .vm-link').first().waitFor();assert.deepEqual(await esx01.locator('tbody td:first-child .vm-link').allTextContents(),['APP01','LEGACY03']);
-  assert((await esx01.locator('dl.vm-kv').first().textContent()).includes('DatastoresDS-SSD-01'));assert((await esx01.textContent()).includes('Hard disk 1 100 GB on DS-SSD-01'));
-  await hosts.nth(1).locator('> summary').click();await hosts.nth(1).locator('tbody').waitFor();assert((await hosts.nth(1).textContent()).includes('Hard disk 2 1.0 TB on DS-NL-02'));
-  await f.page.setViewportSize({width:1440,height:1000});await f.page.evaluate(()=>document.activeElement.blur());await f.page.locator('#vmExplorePanel').evaluate(e=>e.scrollIntoView({block:'start'}));await f.page.screenshot({path:shots+'/vmware-browse-1440x1000.png'});
-  await f.page.locator('#vmExploreBy').selectOption('datastore');const stores=f.page.locator('#vmExploreTree > details');assert.equal(await stores.count(),2);
-  assert((await stores.nth(0).locator('summary').textContent()).includes('4 VMs, 4 disks'));assert.equal(await stores.nth(0).locator('.vm-meter').count(),1);
-  await stores.nth(1).locator('summary').click();await stores.nth(1).locator('tbody').waitFor();const nl=await stores.nth(1).textContent();assert(nl.includes('SQL01')&&nl.includes('[DS-NL-02] SQL01/SQL01_1.vmdk')&&nl.includes('Mounted on: esx02.example.com, esx03.example.com'),nl);
-  await f.page.locator('#vmExploreBy').selectOption('network');const nets=f.page.locator('#vmExploreTree > details');assert.equal(await nets.count(),2);assert((await nets.nth(1).locator('summary').textContent()).includes('VLAN 30'));
-  await nets.nth(1).locator('summary').click();await nets.nth(1).locator('tbody .vm-link').first().waitFor();assert.deepEqual(await nets.nth(1).locator('tbody td:first-child .vm-link').allTextContents(),['WEB02']);
-  await f.page.locator('#vmExploreBy').selectOption('host');await f.page.locator('#vmExploreSearch').fill('sql');
-  const found=f.page.locator('#vmExploreTree details.vm-host-node[open]');assert.equal(await found.count(),1,'only the host with a match');assert.deepEqual(await found.locator('tbody td:first-child .vm-link').allTextContents(),['SQL01']);
-  await found.locator('tbody td:first-child .vm-link').click();assert.equal(await f.page.locator('#vmSearch').inputValue(),'','opening a VM keeps the list as it was');assert(await f.page.locator('#vmDetail').isVisible());assert.equal(await f.page.locator('#vmDrawerTitle').textContent(),'SQL01');
-  assert.equal(await f.page.evaluate(()=>document.activeElement.id),'vmDrawerTitle');await f.page.locator('#vmDrawerClose').click();
-  await found.locator('.vm-tree-body > dl.vm-kv .vm-link',{hasText:'DS-NL-02'}).click();assert.equal(await f.page.locator('#vmDrawerKind').textContent(),'Datastore');assert((await f.page.locator('#vmDrawerBody').textContent()).includes('[DS-NL-02] SQL01/SQL01_1.vmdk'));await f.page.keyboard.press('Escape');
-  await f.page.locator('#vmExploreSearch').fill('nothing-like-this');assert.equal(await f.page.locator('#vmExploreTree').textContent(),'Nothing matches.');
-  f.vm.inventory.vms[0].name='APP <b>01</b>';f.vm.inventory.vms[0].id='vm-x';f.state.vmware.inventorySerial=2;await f.page.locator('#vmExploreSearch').fill('app');
-  await f.page.waitForFunction(()=>document.querySelector('#vmExploreTree').textContent.includes('APP <b>01</b>'));assert.equal(await f.page.locator('#vmExploreTree b').count(),0,'names are text');
+  assert.deepEqual(await treeLines(f),['1 vc01.example.com','2 DC-East','3 Prod-Cluster','4 esx01.example.com','5 APP01','5 LEGACY03','4 esx02.example.com','5 SQL01','4 esx03.example.com','5 WEB02'],'hosts and clusters open to the VMs');
+  assert.deepEqual(await f.page.locator('#vmInvTree li[data-inv-id^="vm:"] .vm-inv-dot').evaluateAll(d=>d.map(x=>x.className)),['vm-inv-dot ready','vm-inv-dot blocked','vm-inv-dot review','vm-inv-dot ready'],'each VM shows its readiness');
+  assert(await f.page.locator('#vmInvTree li[data-inv-id="vm:vm-web02"]').evaluate(e=>e.classList.contains('off')),'a powered-off VM is dimmed');
+  await f.page.setViewportSize({width:1440,height:1000});await f.page.evaluate(()=>document.activeElement.blur());await f.page.locator('#vmInv').evaluate(e=>e.scrollIntoView({block:'start'}));await f.page.screenshot({path:shots+'/vmware-browse-1440x1000.png'});
+  await f.page.locator('#vmInvTree li.vm-inv-item',{hasText:'esx01.example.com'}).last().locator('> .vm-inv-row .vm-inv-twisty').click();assert(!(await treeLines(f)).includes('5 APP01'),'the arrow collapses a branch');
+  await f.page.locator('[data-inv-view="storage"]').click();assert.deepEqual(await treeLines(f),['1 vc01.example.com','2 DC-East','3 DS-SSD-01','3 DS-NL-02']);
+  await openTree(f,'DS-NL-02');assert.equal(await f.page.locator('#vmDrawerKind').textContent(),'Datastore');const ds=await f.page.locator('#vmDrawerBody').textContent();assert(ds.includes('esx02.example.com, esx03.example.com')&&ds.includes('8.0 TB'),ds);
+  await f.page.locator('#vmObjTab-vms').click();const nl=await f.page.locator('#vmDrawerBody').textContent();assert(nl.includes('SQL01')&&nl.includes('[DS-NL-02] SQL01/SQL01_1.vmdk'),nl);
+  await f.page.locator('[data-inv-view="network"]').click();assert.deepEqual(await treeLines(f),['1 vc01.example.com','2 DC-East','3 dvs-prod','4 VM-Servers','4 VM-DMZ']);
+  await openTree(f,'VM-DMZ');assert((await f.page.locator('#vmDrawerBody').textContent()).includes('VLAN30'));await f.page.locator('#vmObjTab-vms').click();assert.deepEqual(await f.page.locator('#vmDrawerBody tbody td:first-child .vm-link').allTextContents(),['WEB02']);
+  await openTree(f,'dvs-prod');assert.equal(await f.page.locator('#vmDrawerKind').textContent(),'Switch');assert.equal(await f.page.locator('#vmObjTab-networks').textContent(),'Port groups2');
+  await f.page.locator('[data-inv-view="vms"]').click();assert.deepEqual(await treeLines(f),['1 vc01.example.com','2 DC-East','3 Servers','4 APP01','4 LEGACY03','4 SQL01','4 WEB02']);
+  await openTree(f,'Servers');assert.equal(await f.page.locator('#vmDrawerKind').textContent(),'Folder');
+  await f.page.locator('[data-inv-view="hosts"]').click();await f.page.locator('#vmInvSearch').fill('sql');assert.deepEqual(await treeLines(f),['1 vc01.example.com','2 DC-East','3 Prod-Cluster','4 esx02.example.com','5 SQL01'],'the filter keeps only matches and their parents');
+  await openVm(f,'vm-sql01');assert.equal(await f.page.locator('#vmSearch').inputValue(),'','opening a VM keeps the list as it was');assert.equal(await f.page.locator('#vmDrawerTitle').textContent(),'SQL01');
+  await f.page.locator('#vmDrawerBody .vm-kv .vm-link',{hasText:'DS-NL-02'}).click();assert.equal(await f.page.locator('#vmDrawerKind').textContent(),'Datastore');
+  assert.equal(await f.page.locator('[data-inv-view="storage"]').getAttribute('aria-selected'),'true','a datastore link switches to the storage view');assert.equal(await f.page.locator('#vmInvTree li[aria-selected="true"] > .vm-inv-row .vm-inv-label').textContent(),'DS-NL-02');
+  await f.page.keyboard.press('Escape');assert.equal(await f.page.locator('#vmDrawerTitle').textContent(),'SQL01');
+  await f.page.locator('#vmInvSearch').fill('nothing-like-this');assert.equal(await f.page.locator('#vmInvTree').textContent(),'Nothing matches.');
+  f.vm.inventory.vms[0].name='APP <b>01</b>';f.vm.inventory.vms[0].id='vm-x';f.state.vmware.inventorySerial=2;await f.page.locator('#vmInvSearch').fill('app');
+  await f.page.waitForFunction(()=>document.querySelector('#vmInvTree').textContent.includes('APP <b>01</b>'));assert.equal(await f.page.locator('#vmInvTree b').count(),0,'names are text');
   assert.deepEqual(f.dialogs,[]);
  }finally{await f.close();}});
  await check('VMware plan: capacity, network and wave edits survive polls; Suggest waves and Save post the plan; the runbook is written after saving',async()=>{const f=await fixture(browser);try{
@@ -1450,7 +1462,7 @@ async function check(name,fn){await fn();report.checks.push({name,result:'passed
    await f.page.locator('#migrateDialogCancel').click();assert(!await f.page.locator('#migrateDialog').isVisible());
    await goTool(f,'environment');await f.page.locator('#vmwareBody').evaluate(e=>e.scrollTop=0);await inView('#vmwareBody',withUpdate?110:150);await inView('#vmServer',24);
    for(const view of ['env','plan','guest','disks','failover','compare']){await goTool(f,{env:'movevms',disks:'diskcopy'}[view]||view);await inView('[data-tool="'+({env:'movevms',disks:'diskcopy'}[view]||view)+'"]',24);
-    for(const target of {env:['#vmTableBody tr.vm-row'],plan:['#vmSuggest','#vmWriteRunbook'],guest:['#vmGuestCapture','#vmGuestApply','#vmGuestTools'],disks:['#vmReceiveStart','#vmSendFind','#vmSendStart','#vmMediaBuild'],failover:['#fvRefresh'],compare:['#vmCompareRun','#vmCompareBody tr']}[view]){await f.page.locator(target).first().scrollIntoViewIfNeeded();await inView(target+':visible >> nth=0',20);}
+    for(const target of {env:['#vmInvTree .vm-inv-row','#vmDrawerTitle','.vm-obj-tab'],plan:['#vmSuggest','#vmWriteRunbook'],guest:['#vmGuestCapture','#vmGuestApply','#vmGuestTools'],disks:['#vmReceiveStart','#vmSendFind','#vmSendStart','#vmMediaBuild'],failover:['#fvRefresh'],compare:['#vmCompareRun','#vmCompareBody tr']}[view]){await f.page.locator(target).first().scrollIntoViewIfNeeded();await inView(target+':visible >> nth=0',20);}
     assert.deepEqual(await smallText(),[],label+' vmware '+view+' text below 10.5px');assert(await f.page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),label+' vmware overflow');assert(await f.page.locator('#vmwareBody').evaluate(e=>e.scrollWidth<=e.clientWidth+1),label+' vmware panel overflow '+view);}
    if(size.width===784&&!withUpdate){await goTool(f,'environment');await f.page.locator('#vmwareBody').evaluate(e=>e.scrollTop=0);await f.page.screenshot({path:out+'/vmware-800x600.png'});}
    await goTool(f,'convert');await inView('#cvStart',28);await inView('#cvSource',24);await inView('#cvBrowse',24);
