@@ -1,6 +1,10 @@
+## 3.2.37 release preparation — 2026-11-26
+
+Owner asked to publish ("publish") after the MATCHC-DC01 fix. Contents: #149 (receiver as a local Windows service), #152 (VMware Tools removed by hand when its uninstaller refuses), #153 (Guided migration folded into New migration, nothing clips, network map and guest account fixes), #154 (discovery chooses where reports are saved) and #155 (running VMware VMs read through the snapshot export when the datastore refuses the disk). Version 3.2.37 in `main.go` and the collector, release notes in `docs/release-notes/3.2.37.md`, and the published-upgrade test now starts from signed 3.2.36 (`9b2511f0...0801`).
+
 ## Unreleased: optional SQL Server and domain controller checks in readiness — 2026-11-26
 
-- What: optional, read-only checks of Windows servers before they move (AGENTS.md rule 55). `Test-RolePreflight.ps1` (signed) reaches a server over WinRM or PowerShell Direct with nothing installed there; `preflight.go` turns the facts into readiness findings, report rows (HTML, Word, PDF) and wave roles; `preflight_windows.go` serves `/api/vmware/preflight/run|stop|forget` and keeps results per server in LocalAppData `VMware\<server>\preflight.json`.
+- What: optional, read-only checks of Windows servers before they move (AGENTS.md rule 56). `Test-RolePreflight.ps1` (signed) reaches a server over WinRM or PowerShell Direct with nothing installed there; `preflight.go` turns the facts into readiness findings, report rows (HTML, Word, PDF) and wave roles; `preflight_windows.go` serves `/api/vmware/preflight/run|stop|forget` and keeps results per server in LocalAppData `VMware\<server>\preflight.json`.
 - Where in the page: a VM's Readiness tab, the readiness list's **SQL and DC checks…**, and New migration's Review.
 - Tests: `go test ./...` (`preflight_test.go`), `TestRolePreflightScriptReadsAServerThroughRemoting` on the Windows runner, the workspace check "SQL and DC checks".
 - Limits: not run against a real domain controller or SQL Server yet. Each check reads only the checked DC's own replication status (a remote session cannot pass the account on), so forest-wide `repadmin /replsummary` stays a manual step. dcdiag output is parsed in English; on other languages its last lines are kept and shown.
