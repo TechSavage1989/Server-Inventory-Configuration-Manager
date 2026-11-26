@@ -1,0 +1,32 @@
+# Temporary: runs the change tracking test many times on Windows. Removed
+# before merging.
+name: Change tracking stress
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  stress:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.20.14'
+          cache: false
+      - name: Run the change tracking test repeatedly
+        shell: powershell
+        run: |
+          go mod download
+          if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
+          go test -v -count=5 -run 'TestReplicationChangeTrackingMissesNothing$' ./src/app 2>&1 | Tee-Object stress.txt
+          $code=$LASTEXITCODE
+          $pass=(Select-String -Path stress.txt -Pattern '^--- PASS: TestReplicationChangeTrackingMissesNothing').Count
+          $fail=(Select-String -Path stress.txt -Pattern '^--- FAIL: TestReplicationChangeTrackingMissesNothing').Count
+          "PASSED $pass FAILED $fail"
+          exit $code
