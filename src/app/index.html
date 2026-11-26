@@ -1264,7 +1264,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
               <label><input type="checkbox" id="mpStartVMs" checked> Start each new VM after its cutover</label>
               <label><input type="checkbox" id="mpCluster"> Make the new VMs highly available (both folders on a Cluster Shared Volume)</label>
               <label><input type="checkbox" id="mpQuiesce"> Application-consistent copies (VMware Tools quiesces the guest)</label>
-              <label><input type="checkbox" id="mpDisconnect"> After cutover, set the old VMware VM's adapters to not connect (recorded first)</label>
+              <label><input type="checkbox" id="mpDisconnect" checked> After cutover, set the old VMware VM's adapters to not connect (recorded first)</label>
             </div>
             <div class="migrate-row"><button class="primary-button" id="mpCreate" type="button">Create plan</button><button class="secondary-button" id="mpCancelNew" type="button">Cancel</button></div>
             <div class="migrate-inline-status" id="mpNewStatus" role="status" aria-live="polite"></div>
@@ -5401,7 +5401,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   function mpFillForm(p){
     var s=(p&&p.settings)||{};byId('mpName').value=p?p.name:'';
     byId('mpSync').value=String(s.syncMinutes||60);byId('mpConcurrency').value=String(s.concurrency||2);byId('mpCopyRoot').value=s.copyRoot||'';byId('mpVMFolder').value=s.vmFolder||'';byId('mpTestSwitch').value=s.testSwitch||'';
-    byId('mpKeepMac').checked=p?!!s.keepMac:true;byId('mpStartVMs').checked=p?!!s.startVms:true;byId('mpCluster').checked=!!s.cluster;byId('mpQuiesce').checked=!!s.quiesce;byId('mpDisconnect').checked=!!s.disconnectSource;
+    byId('mpKeepMac').checked=p?!!s.keepMac:true;byId('mpStartVMs').checked=p?!!s.startVms:true;byId('mpCluster').checked=!!s.cluster;byId('mpQuiesce').checked=!!s.quiesce;byId('mpDisconnect').checked=p?!!s.disconnectSource:true;
     var t=s.throttle||{};byId('mpBizMbps').value=String(t.businessMbps||0);byId('mpOffMbps').value=String(t.limitMbps||0);byId('mpBizStart').value=String(p?t.businessStart||0:8);byId('mpBizEnd').value=String(p?t.businessEnd||0:18);
     var at=mpLocalInput(s.startAt);byId('mpStartMode').value=at?'at':'now';byId('mpStartAt').value=at;byId('mpStartAtField').classList.toggle('hidden',!at);
     byId('mpCopyRoot').disabled=!!(p&&vmArr(p.vms).some(function(v){return v.state!=='waiting';}));
