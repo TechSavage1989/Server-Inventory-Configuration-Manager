@@ -60,50 +60,6 @@ var vmReportFunctions = template.FuncMap{
 	"pct": func(value float64) string { return strconv.FormatFloat(value, 'f', 0, 64) + "%" },
 }
 
-const vmReadinessTemplate = `<!DOCTYPE html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'"><title>VMware migration readiness - {{.Inventory.Server}}</title><style>{{.Style}}</style></head>
-<body><main>
-<h1>VMware migration readiness</h1>
-<p class="sub">{{.Inventory.ServerType}} {{.Inventory.Server}} · {{.Inventory.Product}} · read {{date .Inventory.CollectedAt}} by {{.Inventory.CollectedBy}} · {{.Generator}} {{.Inventory.AppVersion}}</p>
-<div class="note">Read-only inventory: nothing in VMware was changed. Readiness is a guide based on the VM configuration vSphere reports. Confirm against your target's current supported guest list and test a migration before moving production VMs.</div>
-<div class="cards">
-<div class="card"><b>{{.Summary.VMs}}</b><span>VMs ({{.Summary.PoweredOn}} powered on){{if .Summary.Templates}}, {{.Summary.Templates}} templates{{end}}</span></div>
-<div class="card"><b>{{.Summary.VCPUs}}</b><span>vCPUs</span></div>
-<div class="card"><b>{{bytes .Summary.MemoryBytes}}</b><span>configured memory</span></div>
-<div class="card"><b>{{bytes .Summary.UsedBytes}}</b><span>storage used ({{bytes .Summary.ProvisionedBytes}} provisioned)</span></div>
-<div class="card"><b>{{.Summary.Hosts}}</b><span>hosts in {{.Summary.Clusters}} cluster(s)</span></div>
-<div class="card"><b>{{.Summary.Snapshots}}</b><span>snapshots</span></div>
-<div class="card"><b>{{.Summary.StaticIPVMs}}</b><span>VMs with static IPs</span></div>
-</div>
-<h2>Readiness by target</h2>
-<table><tr><th>Target</th><th>Ready</th><th>Review</th><th>Blocked</th><th>Not moved</th></tr>
-{{range .Summary.Readiness}}<tr><td>{{target .Target}}</td><td><span class="chip ready">{{.Ready}}</span></td><td><span class="chip review">{{.Review}}</span></td><td><span class="chip blocked">{{.Blocked}}</span></td><td><span class="chip skip">{{.Skip}}</span></td></tr>{{end}}
-</table>
-<h2>Virtual machines</h2>
-<table><tr><th>VM</th><th>Power</th><th>Guest OS</th><th>vCPU</th><th>Memory</th><th>Used / provisioned</th><th>Firmware</th><th>VMware Tools</th>{{range targets}}<th>{{.Short}}</th>{{end}}</tr>
-{{range .Inventory.VMs}}{{if not .Template}}<tr><td><a href="#vm-{{.ID}}">{{.Name}}</a><div class="muted">{{.Cluster}}{{if .Host}} · {{.Host}}{{end}}</div></td><td>{{power .PowerState}}</td><td>{{os .}}</td><td>{{.CPUs}}</td><td>{{mb .MemoryMB}}</td><td>{{bytes .UsedBytes}} / {{bytes .ProvisionedBytes}}</td><td>{{.Firmware}}{{if .SecureBoot}}, Secure Boot{{end}}{{if .VTPM}}, vTPM{{end}}</td><td>{{tools .}}</td>{{$vm := .}}{{range targets}}{{with readiness $vm .ID}}<td><span class="chip {{.Status}}">{{statusLabel .Status}}</span>{{if .Generation}}<div class="muted">Gen {{.Generation}}</div>{{end}}</td>{{end}}{{end}}</tr>{{end}}{{end}}
-</table>
-<h2>Findings by VM</h2>
-{{range .Inventory.VMs}}{{if not .Template}}<div class="vm" id="vm-{{.ID}}"><h3>{{.Name}}</h3>
-<div class="muted">{{os .}} · {{.CPUs}} vCPU · {{mb .MemoryMB}} · {{.HardwareVersion}} · {{len .Disks}} disk(s) · {{len .NICs}} network adapter(s){{if .GuestHostName}} · guest name {{.GuestHostName}}{{end}}</div>
-<div class="grid2">{{$vm := .}}{{range .Readiness}}<div><h3>{{target .Target}} <span class="chip {{.Status}}">{{statusLabel .Status}}</span></h3><ul>{{range .Findings}}<li><span class="chip {{.Severity}}">{{severityLabel .Severity}}</span> {{.Message}}{{if .Action}} <span class="muted">{{.Action}}</span>{{end}}</li>{{else}}<li>No findings.</li>{{end}}</ul></div>{{end}}</div>
-<table><tr><th>Disk</th><th>Size</th><th>Type</th><th>Controller</th><th>Datastore</th><th>Mode</th></tr>{{range .Disks}}<tr><td>{{.Label}}</td><td>{{bytes .CapacityBytes}}</td><td>{{.Provisioning}}{{if .RDM}} ({{.RDM}} RDM){{end}}</td><td>{{.Controller}} {{.Bus}}:{{.Unit}}{{if and .BusSharing (ne .BusSharing "noSharing")}} ({{.BusSharing}}){{end}}</td><td>{{.Datastore}}</td><td>{{.Mode}}{{if and .Sharing (ne .Sharing "sharingNone")}}, {{.Sharing}}{{end}}</td></tr>{{end}}</table>
-<table><tr><th>Network adapter</th><th>Type</th><th>Network</th><th>MAC</th><th>Guest addresses</th></tr>{{range .NICs}}<tr><td>{{.Label}}{{if not .Connected}} (disconnected){{end}}</td><td>{{.AdapterType}}</td><td>{{.Network}}</td><td>{{.MAC}}{{if .ManualMAC}} (manual){{end}}</td><td>{{join .IPAddresses ", "}}{{if .Static}} <span class="chip warning">Static</span>{{end}}</td></tr>{{end}}</table>
-{{if .Snapshots}}<table><tr><th>Snapshot</th><th>Created</th><th>Quiesced</th></tr>{{range .Snapshots}}<tr><td>{{.Name}}</td><td>{{date .Created}}</td><td>{{.Quiesced}}</td></tr>{{end}}</table>{{end}}
-</div>{{end}}{{end}}
-{{if .Templates}}<h2>Templates</h2><table><tr><th>Template</th><th>Guest OS</th><th>Provisioned</th></tr>{{range .Templates}}<tr><td>{{.Name}}</td><td>{{os .}}</td><td>{{bytes .ProvisionedBytes}}</td></tr>{{end}}</table>{{end}}
-<h2>Clusters</h2>
-<table><tr><th>Cluster</th><th>Datacenter</th><th>Hosts</th><th>Cores</th><th>Memory</th><th>HA</th><th>DRS</th></tr>{{range .Inventory.Clusters}}<tr><td>{{.Name}}</td><td>{{.Datacenter}}</td><td>{{.Hosts}}</td><td>{{.CPUCores}}</td><td>{{bytes .MemoryBytes}}</td><td>{{.HA}}</td><td>{{.DRS}}</td></tr>{{else}}<tr><td colspan="7">No clusters (standalone hosts).</td></tr>{{end}}</table>
-<h2>Hosts</h2>
-<p class="muted">Each host in full (hardware, BIOS, network, storage, services, software and licenses) is in VMware-Discovery-Report.html in this folder.</p>
-<table><tr><th>Host</th><th>Cluster</th><th>Model</th><th>CPU</th><th>Cores</th><th>Memory</th><th>Version</th><th>State</th><th>VMs</th></tr>{{range .Inventory.Hosts}}<tr><td>{{.Name}}</td><td>{{.Cluster}}</td><td>{{.Vendor}} {{.Model}}</td><td>{{.CPUModel}}</td><td>{{.Sockets}} × {{.Cores}} cores</td><td>{{bytes .MemoryBytes}}</td><td>{{.Version}} ({{.Build}})</td><td>{{.ConnectionState}}{{if .Maintenance}}, maintenance{{end}}</td><td>{{.VMCount}}</td></tr>{{end}}</table>
-<h2>Datastores</h2>
-<table><tr><th>Datastore</th><th>Type</th><th>Capacity</th><th>Free</th><th>Provisioned</th><th>Shared</th><th>VMs</th></tr>{{range .Inventory.Datastores}}<tr><td>{{.Name}}</td><td>{{.Type}}</td><td>{{bytes .CapacityBytes}}</td><td>{{bytes .FreeBytes}}</td><td>{{bytes .ProvisionedBytes}}</td><td>{{.Shared}}</td><td>{{.VMCount}}</td></tr>{{end}}</table>
-<h2>Networks</h2>
-<table><tr><th>Network</th><th>Kind</th><th>Switch</th><th>VLAN</th><th>VMs</th></tr>{{range .Inventory.Networks}}<tr><td>{{.Name}}</td><td>{{.Kind}}</td><td>{{.Switch}}</td><td>{{.VLAN}}</td><td>{{.VMCount}}</td></tr>{{end}}</table>
-{{if .Inventory.Warnings}}<h2>Collection warnings</h2><ul>{{range .Inventory.Warnings}}<li>{{.}}</li>{{end}}</ul>{{end}}
-</main></body></html>`
-
 const vmRunbookTemplate = `<!DOCTYPE html>
 <html lang="en" data-runbook="{{.Inventory.Server}}|{{.Plan.Target}}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src '{{.ScriptHash}}'"><title>Migration runbook - {{.Inventory.Server}} to {{target .Plan.Target}}</title><style>{{.Style}}</style></head>
 <body><main>
@@ -176,8 +132,7 @@ func vmReportStatusLabel(status string) string {
 }
 
 var (
-	vmReadinessTmpl = template.Must(template.New("readiness").Funcs(vmReportFunctions).Parse(vmReadinessTemplate))
-	vmRunbookTmpl   = template.Must(template.New("runbook").Funcs(vmReportFunctions).Parse(vmRunbookTemplate))
+	vmRunbookTmpl = template.Must(template.New("runbook").Funcs(vmReportFunctions).Parse(vmRunbookTemplate))
 )
 
 // csvSafe stops spreadsheet programs treating names from vCenter as formulas.
@@ -305,21 +260,25 @@ func writeVMwareInventoryOutputs(folder string, inventory *vmInventory) (string,
 			return "", err
 		}
 	}
-	templates := []vmMachine{}
-	for _, vm := range inventory.VMs {
-		if vm.Template {
-			templates = append(templates, vm)
-		}
-	}
-	if _, err := writeVMwareDiscoveryOutputs(folder, inventory, time.Now()); err != nil {
+	model := vmReportBuild(inventory, time.Now())
+	if _, err := writeVMwareDiscoveryOutputs(folder, inventory, model); err != nil {
 		return "", err
 	}
-	var page bytes.Buffer
-	if err := vmReadinessTmpl.Execute(&page, map[string]any{"Inventory": inventory, "Summary": summarizeInventory(inventory), "Templates": templates, "Style": template.CSS(vmReportStylesheet), "Generator": vmReportGeneratorLine}); err != nil {
+	page, err := vmReportHTML(model, "overview")
+	if err != nil {
 		return "", err
 	}
 	report := filepath.Join(folder, vmReadinessReport)
-	return report, os.WriteFile(report, page.Bytes(), 0600)
+	if err := os.WriteFile(report, page, 0600); err != nil {
+		return "", err
+	}
+	if err := writeVMReportDocx(filepath.Join(folder, vmReportDocx), model); err != nil {
+		return "", err
+	}
+	if err := writeVMReportPDF(filepath.Join(folder, vmReportPDF), model); err != nil {
+		return "", err
+	}
+	return report, nil
 }
 
 // writeVMwarePlanOutputs writes the runbook (HTML and Word) and the plan CSV

@@ -1,6 +1,6 @@
 ## Unreleased: migration scenarios and rolling conversion on the same hardware — 2026-11-26
 
-- Plan and runbook starts with a **Migration scenario** (AGENTS.md rule 44): New hardware, or Reuse the existing hosts (rolling, one host at a time). Rolling fills New cluster size from the recorded hosts, flags which datastores can be reused, suggests one stage per host and checks every stage on both sides with N+1 warnings. Stages, waves and sizes are all editable.
+- Plan and runbook starts with a **Migration scenario** (AGENTS.md rule 45): New hardware, or Reuse the existing hosts (rolling, one host at a time). Rolling fills New cluster size from the recorded hosts, flags which datastores can be reused, suggests one stage per host and checks every stage on both sides with N+1 warnings. Stages, waves and sizes are all editable.
 - The same data feeds Build Hyper-V hosts (nodes in stage order, named after their ESXi hosts, vMotion address kept, switch adapters matched by MAC after Read nodes), Migration plans (pick a stage's wave) and the runbook (HTML and Word stage sections).
 - Fixed: a VMware network with VLAN 0 gave a plan that could not be saved ("The target VLAN ... must be a number from 1 to 4094"); VLAN 0 now maps to no VLAN.
 - Tests: `vmscenario_test.go` (fill, storage flags, suggestion, editing and refusals, cloud targets, runbook HTML and Word, Build Hyper-V hosts reuse), workspace check "Rolling conversion". Not field-validated on a real rolling conversion.
@@ -18,6 +18,12 @@ Limits: remote Hyper-V hosts and clusters over PowerShell remoting, PowerShell D
 ## 3.2.35 release preparation — 2026-11-26
 
 Combined release of #119 (Move VMs from one console to a remote Hyper-V host or cluster), #123 (nothing installed in the machine being moved, one-step guide, vTPM VMs not blocked), #124 (change tracking no longer misses shadow copy storage), #125 (Build Hyper-V hosts), #126 (vSphere-style inventory) and #127 (Migration plans). The owner approved publication on 2026-11-26 ("publish when ready"). This branch bumps `appVersion`, `collectorVersion` and the collector `$scriptVersion` to 3.2.35, adds `docs/release-notes/3.2.35.md` (first three bullets free of Markdown) and points `scripts/test_published_upgrade.cjs` and AGENTS.md at the published v3.2.34 executable (SHA-256 `dfbba653d26cc37e969eb5f0666eb94f50bfc9d989cfa858cf483c21a578cbfa`).
+
+## Unreleased: interactive discovery and readiness reports, in Word and PDF too — 2026-11-26
+
+- The VMware and Hyper-V discovery and readiness reports are now one interactive, self-contained HTML page (AGENTS.md rule 44): a sidebar tree like the application's, a page for every host, cluster, VM, datastore and network with tabs, clickable summary tiles and readiness bars that filter the VM list, a VM list filtered by target, status, snapshots, static IPs or text and sortable by any column, and issues grouped per target with their fix and the VMs they apply to. One hash-pinned script, no requests, readable without script, prints every page.
+- New `Discovery-and-Readiness-Report.docx` (clickable contents, bookmarks and links between hosts, VMs, datastores, networks and issues, colour-coded readiness, linked tiles, bar tables, landscape VM table, page numbers) and `Discovery-and-Readiness-Report.pdf` (same content, contents with page numbers, internal links and bookmarks). The vCenter's page offers Report in Word and Report as PDF. The PDF uses github.com/go-pdf/fpdf v0.9.0 (MIT, no dependencies beyond the standard library).
+- Tests: `vmreport_test.go` (model, links resolve in HTML and Word, PDF outline), `scripts/test_vm_report.cjs` in CI against the synthetic samples. Word was checked by converting with LibreOffice and the PDF with an embedded font and with Helvetica on Linux; Segoe UI embedding runs on the Windows CI runner. Not yet opened in Microsoft Word itself.
 
 ## Unreleased: Migration plans (Nutanix Move-style batches) — 2026-11-26
 
