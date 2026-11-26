@@ -27,6 +27,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"unsafe"
 
@@ -156,6 +157,57 @@ func replConnectIPC(host, user, password string) (func(), error) {
 		return nil, fmt.Errorf("could not connect to %s: %w", host, windows.Errno(result))
 	}
 	return func() { replWNetCancelConnection2.Call(uintptr(unsafe.Pointer(remote)), 0, 1) }, nil
+}
+
+// replIPCShared counts the users of each run-scoped IPC$ connection, so
+// several copy rounds to the same host (a migration plan copies VMs in
+// parallel) share one connection and the last to finish removes it.
+var replIPCShared = struct {
+	sync.Mutex
+	hosts map[string]*replIPCEntry
+}{hosts: map[string]*replIPCEntry{}}
+
+type replIPCEntry struct {
+	user  string
+	count int
+	close func()
+}
+
+// replConnectIPCShared is replConnectIPC for callers that may overlap.
+func replConnectIPCShared(host, user, password string) (func(), error) {
+	if user == "" {
+		return func() {}, nil
+	}
+	key := strings.ToLower(strings.TrimSpace(host))
+	replIPCShared.Lock()
+	defer replIPCShared.Unlock()
+	entry := replIPCShared.hosts[key]
+	if entry != nil && !strings.EqualFold(entry.user, user) {
+		return nil, errors.New("this computer is already connected to " + host + " under another account for another copy; wait for it to finish")
+	}
+	if entry == nil {
+		closer, err := replConnectIPC(host, user, password)
+		if err != nil {
+			return nil, err
+		}
+		entry = &replIPCEntry{user: user, close: closer}
+		replIPCShared.hosts[key] = entry
+	}
+	entry.count++
+	var once sync.Once
+	return func() {
+		once.Do(func() {
+			replIPCShared.Lock()
+			defer replIPCShared.Unlock()
+			entry.count--
+			if entry.count == 0 {
+				entry.close()
+				if replIPCShared.hosts[key] == entry {
+					delete(replIPCShared.hosts, key)
+				}
+			}
+		})
+	}, nil
 }
 
 // replSystemDrive asks the server where ADMIN$ points (its Windows folder)

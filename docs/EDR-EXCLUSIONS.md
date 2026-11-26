@@ -112,7 +112,7 @@ management channels Windows Admin Center and SCVMM use:
 
 | Behaviour | Where | Why |
 | --- | --- | --- |
-| `powershell.exe -ExecutionPolicy RemoteSigned -File Connect-HyperVTarget.ps1` (signed script, never Bypass, no hidden-window or encoded-command flags) | Admin computer | Reads the host and creates the VM through PowerShell remoting |
+| `powershell.exe -ExecutionPolicy RemoteSigned -File Connect-HyperVTarget.ps1` (signed script, never Bypass, no hidden-window or encoded-command flags) | Admin computer | Reads the host, creates the VM and, for migration plans, makes and removes test VMs on differencing disks, all through PowerShell remoting (Invoke-Command) |
 | `Invoke-Command` over WinRM (TCP 5985, Kerberos), running in `wsmprovhost.exe` | Hyper-V host or cluster node | Reads Windows version, Hyper-V default folders, switches, VM names and the cluster's nodes and Cluster Shared Volumes; at cutover runs `New-VM`, `Add-VMHardDiskDrive`, `Add-VMNetworkAdapter` and, when asked, `Add-ClusterVirtualMachineRole` |
 | SMB writes of `.vhdx` files and their `.copy.json` records to `\\node\C$\...` (or the drive's `$` share) | Admin computer to node | The copy rounds. Writes only inside the folder chosen for the VM's disks |
 | HTTPS to a receiver on the node (44380), only when **Through a receiver on the node** is chosen | Admin computer to node | The operator starts that receiver on the node themselves |

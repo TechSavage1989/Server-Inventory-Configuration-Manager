@@ -45,9 +45,9 @@ A step bar across the top (1 What, 2 Where, 3 How, 4 When, 5 Review, 6 Status). 
 
 ## Phase 2
 
-- Run a batch to a remote Hyper-V host or cluster from an admin computer (Migration plans with the remote target of rule 39).
+- Done (step 1): run a batch to a remote Hyper-V host or cluster from an admin computer. Where connects to the host inline and the migration plan gets `remoteHost` and `node`; every round, VM creation and test uses rule 39's remoting and administrative-share path.
 - Create replication jobs inside the wizard for servers. The All servers console now lets a job target this computer (`/api/repl/job` with `local:true`), so no Receive panel, thumbprint or pairing code is needed.
-- HyperCore, Nutanix and Proxmox targets in the wizard.
+- Done (step 3): HyperCore, Nutanix and Proxmox. Where connects to the platform inline, and How lists every chosen VM with where it stands and opens its Move panel. Each new VM's receiver shows its own pairing code on its console and the boot-media receiver takes no pairing requests, so these moves are paired one VM at a time by design; the wizard does not batch them.
 
 ## Rules
 

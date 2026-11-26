@@ -395,6 +395,10 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   f.state.update={status:'available',title:'Update available',message:'Installed 3.2.10. Latest 99.0.0.',latestVersion:'99.0.0',available:true,canCheck:true,canDownload:true,notes:['First note']};await f.page.waitForTimeout(1100);
   assert(await f.page.locator('#aboutShowUpdate').isVisible());await f.page.locator('#aboutShowUpdate').click();assert(!await f.page.locator('#aboutDialog').isVisible());assert(await f.page.locator('#updateBanner').isVisible());assert.equal(await f.page.evaluate(()=>document.activeElement.id),'updateDownloadButton');
   f.state.update={...f.state.update,status:'error',title:'Update download failed',message:'Hash mismatch.'};await f.page.waitForTimeout(1100);assert(await f.page.locator('#updateBanner').isVisible());assert((await f.page.locator('#updateBanner').getAttribute('class')).includes('error'));
+  // A failed install names itself, gives the reason and the manual fallback, and offers Try again instead of looping silently.
+  f.state.update={status:'ready',title:'Update ready',message:'Installed 3.2.35. Version 3.2.36 is downloaded and verified.',available:true,canInstall:true,canDownload:true,installFailed:true,notice:'Version 3.2.36 was not installed. The installed executable could not be replaced because another program held it open or access was denied. To install it by hand, close this application and copy C:\\Ready\\x.exe over C:\\Tools\\x.exe.'};await f.page.waitForTimeout(1100);
+  assert(await f.page.locator('#updateBanner').isVisible());assert((await f.page.locator('#updateBanner').getAttribute('class')).includes('warning'));assert.equal(await f.page.locator('#updateTitle').textContent(),'Update not installed');assert(/could not be replaced.*To install it by hand/.test(await f.page.locator('#updateStatus').textContent()));assert.equal(await f.page.locator('#updateInstallButton').textContent(),'Try again');
+  f.state.update={...f.state.update,installFailed:false,notice:''};await f.page.waitForTimeout(1100);assert.equal(await f.page.locator('#updateInstallButton').textContent(),'Install and restart');assert.equal(await f.page.locator('#updateTitle').textContent(),'Update ready');
   f.state.update={status:'current',title:'Up to date',message:'Installed.',canCheck:true};await f.page.waitForTimeout(1100);assert(!await f.page.locator('#updateBanner').isVisible());assert.deepEqual(f.dialogs,[]);
  }finally{await f.close();}});
  await check('Native feel: no browser right-click menu or selection on interface text; fields and values stay selectable',async()=>{const f=await fixture(browser);try{
@@ -1755,15 +1759,62 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   await f.page.setViewportSize({width:1008,height:690});await f.page.locator('[data-nw-step]').first().waitFor();
   assert(await f.page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1),'no horizontal scroll at 1024x768');
  }finally{await f.close();}});
- await check('New migration: a target this host cannot run hands off to its tool with the VMs selected',async()=>{const f=await fixture(browser);try{
+ await check('New migration: a Proxmox target connects inside Where, lists each VM with where it stands, and hands off to Move VMs with the VMs selected',async()=>{const f=await fixture(browser);try{
   f.vm.inventory=vmwareInventoryFixture();f.vm.plan=vmwarePlanFixture();f.state.vmware=Object.assign(vmwareIdle(),{status:'connected',server:'vc01.example.com',summary:vmwareSummaryFixture(),inventorySerial:1,canPrepare:true,hyperVHere:false});
   await goTool(f,'wizard');await f.page.locator('[data-nw-source="vms"]').click();await f.page.waitForSelector('#nwVmList [data-nw-pick]');await f.page.locator('[data-nw-pick="vm-app01"]').check();await f.page.locator('#nwNext').click();
   assert(await f.page.locator('[data-nw-target="here"]').isDisabled(),'this host is not a Hyper-V host');assert((await f.page.locator('[data-nw-target="here"]').textContent()).includes('is not a Hyper-V host'));
-  await f.page.locator('[data-nw-target="proxmox"]').click();await f.page.locator('#nwNext').click();
+  await f.page.locator('[data-nw-target="proxmox"]').click();await f.page.locator('#nwPfConnect').waitFor();
+  assert((await f.page.locator('#nwPfPanel .vm-runs-on').textContent()).includes('Runs on this computer, your admin computer'));
+  assert.equal(await f.page.locator('#nwWhy').textContent(),'Connect to Proxmox VE (above).','the platform connection is part of Where');
+  await f.page.locator('#nwPfServer').fill('pve1.example.com');await f.page.locator('#nwPfUser').fill('migrate@pve!move');await f.page.locator('#nwPfConnect').click();
+  assert.equal(await f.page.locator('#nwPfStatus').textContent(),'Type the token secret.');
+  await f.page.locator('#nwPfSecret').fill('Synthetic-Token-Secret');await f.page.locator('#nwPfSecret').press('Enter');
+  await f.page.waitForFunction(()=>document.querySelector('#nwPfForget'),null,{timeout:15000});
+  assert.deepEqual(f.vmwareCalls.filter(c=>c.action==='target/connect').map(c=>c.body),[{platform:'proxmox',server:'pve1.example.com',user:'migrate@pve!move',password:'Synthetic-Token-Secret',node:''}]);
+  assert(!(await f.page.content()).includes('Synthetic-Token-Secret'),'the token secret is not kept in the page');
+  assert.equal(await f.page.locator('#nwWhy').textContent(),'');
+  await f.page.locator('#nwNext').click();
   assert.equal(await f.page.locator('.nw-stepper-item').count(),3,'a hand-off ends at How');
+  assert.equal(await f.page.locator('.nw-queue tbody tr').count(),1,'each chosen VM is listed with where it stands');assert((await f.page.locator('.nw-queue').textContent()).includes('Not created yet'));
+  assert.equal(await f.page.locator('.nw-steps li').count(),5,'the steps of this way are listed');
   assert.equal(await f.page.locator('#nwNext').textContent(),'Continue in Move VMs');await f.page.locator('#nwNext').click();
   assert.equal(await f.page.locator('[data-tool="movevms"]').getAttribute('aria-pressed'),'true');assert.equal(await f.page.locator('#vmTargetSelect').inputValue(),'proxmox','the target comes along');
   assert(await f.page.locator('#vmDetail').isVisible(),'the VM opens in Move VMs');
+ }finally{await f.close();}});
+ await check('New migration: from an admin computer, connect to a remote Hyper-V cluster inside Where, pick a node and Cluster Shared Volume, and start a migration plan that runs against it',async()=>{const f=await fixture(browser);try{
+  f.vm.inventory=vmwareInventoryFixture();f.vm.plan=vmwarePlanFixture();f.state.vmware=Object.assign(vmwareIdle(),{status:'connected',server:'vc01.example.com',account:'administrator@vsphere.local',summary:vmwareSummaryFixture(),inventorySerial:1,canPrepare:true,hyperVHere:false});
+  await goTool(f,'wizard');await f.page.locator('[data-nw-source="vms"]').click();await f.page.waitForSelector('#nwVmList [data-nw-pick]');await f.page.locator('[data-nw-pick="vm-app01"]').check();await f.page.locator('#nwNext').click();
+  assert((await f.page.locator('[data-nw-target="here"]').textContent()).includes('Another Hyper-V host or cluster'),'the disabled local target points to the remote one');
+  await f.page.locator('[data-nw-target="hvremote"]').click();await f.page.locator('#nwHvConnect').waitFor();
+  assert((await f.page.locator('#nwHvPanel .vm-runs-on').textContent()).includes('Runs on this computer, your admin computer'));
+  assert.equal(await f.page.locator('#nwWhy').textContent(),'Connect to the Hyper-V host or cluster (above).');assert(await f.page.locator('#nwNext').isDisabled());
+  await f.page.locator('#nwHvHost').fill('hvclu01.example.com');await f.page.locator('#nwHvUser').fill('EXAMPLE\\admin');await f.page.locator('#nwHvConnect').click();
+  assert.equal(await f.page.locator('#nwHvStatus').textContent(),'Type the password for EXAMPLE\\admin, or leave the account empty to use your Windows account.');
+  await f.page.locator('#nwHvPassword').fill('Synthetic-Pass-1');await f.page.locator('#nwHvPassword').press('Enter');
+  for(let i=0;i<100&&!f.vmwareCalls.some(c=>c.action==='hvremote/connect');i++){await new Promise(r=>setTimeout(r,50));}
+  assert.deepEqual(f.vmwareCalls.filter(c=>c.action==='hvremote/connect').map(c=>c.body),[{host:'hvclu01.example.com',user:'EXAMPLE\\admin',password:'Synthetic-Pass-1'}]);
+  assert.equal(await f.page.evaluate(()=>{const p=document.querySelector('#nwHvPassword');return p?p.value:'';}),'','the password is cleared from the page');
+  const info={host:'hvclu01.example.com',computer:'HV01',caption:'Microsoft Windows Server 2022 Datacenter',build:20348,systemDrive:'C:',hyperV:true,hyperVModule:true,clusterModule:true,cluster:'HVCLU01',vhdPath:'C:\\ClusterStorage\\Volume1\\Hyper-V',vmPath:'C:\\ClusterStorage\\Volume1\\Hyper-V',
+   nodes:[{name:'HV01',state:'Up'},{name:'HV02',state:'Up'},{name:'HV03',state:'Paused'}],volumes:[{path:'C:\\',label:'',freeBytes:42949672960,totalBytes:137438953472,csv:false},{path:'C:\\ClusterStorage\\Volume1',label:'CSV1',freeBytes:536870912000,totalBytes:2199023255552,csv:true},{path:'C:\\ClusterStorage\\Volume2',label:'CSV2',freeBytes:1073741824,totalBytes:107374182400,csv:true}],
+   switches:[{name:'LAN',type:'External'}],vms:['OTHER01'],warnings:[],supported:true,support:'Windows Server 2022 Datacenter is supported; failover cluster HVCLU01 can make the VM highly available.'};
+  Object.assign(f.state.vmware,{running:false,action:'',status:'connected',hvRemote:{connected:true,host:'hvclu01.example.com',user:'EXAMPLE\\admin',info,receiver:'',message:'Connected to HV01.',failed:false,serial:1}});
+  await f.page.waitForSelector('#nwNode',{timeout:15000});
+  assert.equal(await f.page.locator('#nwNode').inputValue(),'HV01','the node that answered is chosen');assert(await f.page.evaluate(()=>document.querySelector('#nwNode option[value="HV03"]').disabled),'a paused node cannot be chosen');
+  assert.equal(await f.page.locator('#nwCopyRoot').inputValue(),'C:\\ClusterStorage\\Volume1\\Migrations','the Cluster Shared Volume with the most room is filled in');
+  assert.equal(await f.page.locator('#nwVMFolder').inputValue(),'C:\\ClusterStorage\\Volume1\\VMs');assert(await f.page.locator('#nwCluster').isChecked(),'high availability is on for a cluster');
+  assert.equal(await f.page.locator('[data-nw-switch="VM-Servers"]').inputValue(),'LAN','the host\'s only external switch is filled in');
+  await f.page.locator('#nwNode').selectOption('HV02');await f.page.locator('[data-nw-volume$="Volume2"]').click();assert.equal(await f.page.locator('#nwCopyRoot').inputValue(),'C:\\ClusterStorage\\Volume2\\Migrations');
+  await f.page.locator('[data-nw-volume$="Volume1"]').click();
+  assert.equal(await f.page.locator('#nwWhy').textContent(),'');await f.page.locator('#nwNext').click();
+  assert.equal(await f.page.locator('[data-nw-method="plans"]').getAttribute('aria-pressed'),'true','a migration plan is recommended for a remote host too');assert((await f.page.locator('[data-nw-method="plans"]').textContent()).includes('Runs from here, start to finish'));
+  await f.page.locator('#nwNext').click();await f.page.locator('#nwNext').click();
+  {const t=await f.page.locator('.nw-checks').textContent();assert(t.includes('runs the migration and is connected to cluster HVCLU01'),t);assert(t.includes('created on HV02'),t);}
+  assert((await f.page.locator('.nw-summary').textContent()).includes('Hyper-V host HV02 in cluster HVCLU01, run from this computer'));
+  const name=await f.page.locator('#nwName').inputValue();await f.page.locator('#nwConfirm').fill(name);await f.page.locator('#nwNext').click();
+  for(let i=0;i<100&&!f.planCalls.some(c=>c.body.action==='create');i++){await new Promise(r=>setTimeout(r,50));}
+  const created=f.planCalls.find(c=>c.body.action==='create');assert(created,'the plan is created');
+  assert.equal(created.body.settings.remoteHost,'hvclu01.example.com');assert.equal(created.body.settings.node,'HV02');assert.equal(created.body.settings.copyRoot,'C:\\ClusterStorage\\Volume1\\Migrations');assert.equal(created.body.settings.cluster,true);
+  assert(!JSON.stringify(f.planCalls).includes('Synthetic-Pass-1'),'the Hyper-V password never reaches the plan');
  }finally{await f.close();}});
  await check('New migration: with no inventory the sign-in is on the first screen',async()=>{const f=await fixture(browser);try{
   await goTool(f,'wizard');await f.page.locator('[data-nw-source="vms"]').click();
