@@ -211,17 +211,38 @@ func vmProbeDiskFormat(file *os.File, size int64, name string) (string, error) {
 }
 
 func vmLooksLikeDescriptor(head []byte) bool {
-	// Some tools pad the descriptor with zeros to a whole sector. QEMU can
-	// leave a line feed after the first zero byte (it pads, then writes the
-	// final newline), so only zeros and line breaks may follow it.
-	if end := bytes.IndexByte(head, 0); end >= 0 {
-		if len(bytes.Trim(head[end:], "\x00\r\n")) != 0 {
-			return false
-		}
-		head = head[:end]
+	text, ok := vmDescriptorText(head)
+	if !ok {
+		return false
 	}
-	text := string(head)
 	return strings.Contains(text, "# Disk DescriptorFile") || strings.Contains(text, "createType")
+}
+
+// vmDescriptorText returns a VMDK descriptor's text: everything before the
+// first zero byte. Some tools pad the descriptor with zeros to a whole
+// sector, and QEMU can leave a few bytes of the old text after that zero:
+// when it records a new CID it prints it without leading zeros, so the text
+// gets shorter, and it writes back the whole old buffer (vmdk_write_cid). So
+// after the first zero only zeros may follow, apart from line breaks or a
+// copy of the text's own last few bytes right after the zero. Anything else
+// is binary data and the file is not a descriptor.
+func vmDescriptorText(raw []byte) (string, bool) {
+	end := bytes.IndexByte(raw, 0)
+	if end < 0 {
+		return string(raw), true
+	}
+	text, rest := raw[:end], raw[end+1:]
+	if len(bytes.Trim(rest, "\x00\r\n")) == 0 {
+		return string(text), true
+	}
+	tail := rest
+	if zero := bytes.IndexByte(rest, 0); zero >= 0 {
+		tail = rest[:zero]
+	}
+	if len(tail) == 0 || len(tail) > 8 || !bytes.HasSuffix(text, tail) || !vmIsZero(rest[len(tail):]) {
+		return "", false
+	}
+	return string(text), true
 }
 
 // vmResolveParentPath finds a parent image named relative to its child or
