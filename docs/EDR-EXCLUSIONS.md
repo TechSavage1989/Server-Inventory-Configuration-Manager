@@ -71,6 +71,8 @@ The SHA-256 must equal the release's `Server-Inventory-Configuration-Manager.exe
 | A listening HTTPS port (44390) and large outbound HTTPS transfers to the receiver (44380) | Console commands, and sending disk data | Always, and during rounds |
 | `netsh advfirewall firewall add rule name="Server Inventory and Migration Manager replication agent"` | The agent's own inbound rule | Service start |
 | `shutdown.exe /s` | "Shut down after cutover" | Cutover only |
+| One TCP connection to each address of a pasted receiver block (at most 8, the receiver's own port, nothing sent) | Picking the receiver address that answers from this computer | When receiver connection details with several addresses are pasted |
+| A receiver listening on 44380 when the application opens | A receiver left running starts again by itself after a restart or update | Only when it was running when the application closed; **Stop receiving** ends that |
 
 The console itself starts Windows PowerShell with `-ExecutionPolicy Bypass`
 (process scope only, never changing machine policy) for inventory collection,

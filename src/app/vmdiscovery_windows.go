@@ -125,3 +125,26 @@ func (a *application) handleReceiversPair(response http.ResponseWriter, request 
 	}
 	writeJSON(response, http.StatusOK, answer)
 }
+
+// handleReceiversReach tells which of the receiver addresses the operator
+// pasted (a receiver lists every address of its computer) answer from here,
+// so the sender keeps one it can reach rather than the first listed.
+func (a *application) handleReceiversReach(response http.ResponseWriter, request *http.Request) {
+	if !a.requireAuthorization(response, request) {
+		return
+	}
+	var input struct {
+		Addresses []string `json:"addresses"`
+	}
+	if !decodeVMwareRequest(response, request, &input) {
+		return
+	}
+	ctx, cancel := context.WithTimeout(request.Context(), 4*time.Second)
+	defer cancel()
+	reachable, err := vmReachableAddresses(ctx, input.Addresses, 2500*time.Millisecond)
+	if err != nil {
+		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "The receiver addresses were not accepted: " + err.Error() + "."})
+		return
+	}
+	writeJSON(response, http.StatusOK, map[string]any{"ok": true, "reachable": reachable})
+}

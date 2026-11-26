@@ -1250,6 +1250,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
                   <label class="vm-field">Save received disks in<input id="vmReceiveFolder" type="text" spellcheck="false" autocomplete="off" data-browse="folder" data-browse-title="Choose the folder on this computer for the received disks. It needs room for every disk."></label>
                   <label class="vm-field">Port<input id="vmReceivePort" type="text" inputmode="numeric" value="44380" maxlength="5"></label>
                   <label class="vm-check"><input id="vmReceiveFirewall" type="checkbox" checked> Allow this port through Windows Firewall while receiving</label>
+                  <label class="vm-check"><input id="vmReceiveNewIdentity" type="checkbox"> Make a new pairing code and certificate (senders and replication jobs then need the new ones)</label>
                   <label class="vm-check"><input id="vmReceiveDiscover" type="checkbox" checked> Let senders on this network find this receiver (they still need your approval here, or the pairing code)</label>
                   <div class="migrate-row"><button class="primary-button" id="vmReceiveStart" type="button">Start receiving</button></div>
                 </div>
@@ -1257,7 +1258,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
                   <div class="vm-receive-code"><span class="restore-fact-label">Pairing code</span><strong id="vmReceiveCode"></strong> <button class="link-button" id="vmCopyCode" type="button" data-copy="code">Copy</button></div>
                   <dl class="vm-kv"><dt>Address</dt><dd><span id="vmReceiveAddress"></span> <button class="link-button" id="vmCopyAddress" type="button" data-copy="address">Copy</button></dd><dt>Certificate thumbprint</dt><dd><span id="vmReceiveThumbprint" class="vm-mono"></span> <button class="link-button" id="vmCopyThumbprint" type="button" data-copy="thumbprint">Copy</button></dd><dt>Fingerprint</dt><dd><span id="vmReceiveFingerprint" class="vm-mono"></span> <span class="vm-note" id="vmReceiveDiscoverNote"></span></dd><dt>Saving in</dt><dd id="vmReceiveSaving"></dd><dt>Connected senders</dt><dd id="vmReceiveSessions"></dd></dl>
                   <div class="vm-pairs" id="vmReceivePairs" aria-live="polite"></div>
-                  <p class="vm-note">Copy all three at once and paste them into the receiver address box where the copy is started: Send, a replication job or a VM's Move section. A new code and certificate are made each time the receiver starts.</p>
+                  <p class="vm-note">Copy all three at once and paste them into the receiver address box where the copy is started: Send, a replication job or a VM's Move section. The code and certificate stay the same when the receiver restarts, and a receiver left running starts again by itself when this application opens (after a restart or an update), so jobs carry on; tick Make a new pairing code and certificate before starting to change them.</p>
                   <div class="migrate-row"><button class="secondary-button" id="vmCopyAll" type="button" data-copy="all">Copy all connection details</button><button class="secondary-button" id="vmReceiveStop" type="button">Stop receiving</button><button class="secondary-button" id="vmReceiveOpen" type="button">Open folder</button></div>
                 </div>
                 <div class="migrate-inline-status" id="vmReceiveStatus" role="status" aria-live="polite"></div>
@@ -2637,18 +2638,19 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   // computer, pasted into any receiver address box to fill all three fields.
   function vmReceiverDetails(){
     var r=vmReceiverState(),addresses=vmArr(r.addresses).map(function(a){return a.indexOf(':')>=0?'['+a+']':a;});
-    var address=(addresses[0]||(latestState&&latestState.computerName)||'')+':'+(r.port||44380);
-    return {address:address,thumbprint:r.thumbprint||'',code:r.code||''};
+    var port=':'+(r.port||44380),address=(addresses[0]||(latestState&&latestState.computerName)||'')+port;
+    return {address:address,others:addresses.slice(1).map(function(a){return a+port;}),thumbprint:r.thumbprint||'',code:r.code||''};
   }
   function vmCopyReceiver(button){
     var d=vmReceiverDetails(),kind=button.getAttribute('data-copy');
-    var text=kind==='all'?'Receiver: '+d.address+'\r\nThumbprint: '+d.thumbprint+'\r\nPairing code: '+d.code:d[kind];
+    var text=kind==='all'?'Receiver: '+d.address+(d.others.length?'\r\nOther addresses: '+d.others.join(', '):'')+'\r\nThumbprint: '+d.thumbprint+'\r\nPairing code: '+d.code:d[kind];
     var label=button.textContent;
     copyText(text,function(ok){button.textContent=ok?'Copied':'Copy failed: select the text';setTimeout(function(){button.textContent=label;},1600);});
   }
   function vmParseReceiverDetails(text){
     text=String(text||'');var out={},m;
-    m=text.match(/Receiver\s*:\s*(\S+)/i);if(m){out.address=m[1];}
+    m=text.match(/Receiver\s*:\s*([^\s,]+)/i);if(m){out.address=m[1];}
+    m=text.match(/Other addresses\s*:\s*([^\r\n]+)/i);if(m){out.others=m[1].split(/[\s,]+/).filter(function(a){return a;}).slice(0,7);}
     m=text.match(/\b([0-9A-Fa-f]{2}(?::?[0-9A-Fa-f]{2}){31})\b/);if(m){out.thumbprint=m[1];}
     m=text.match(/\b([A-Za-z0-9]{5}(?:-[A-Za-z0-9]{5}){3})\b/);if(m){out.code=m[1];}
     return out;
@@ -2657,10 +2659,26 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   // the details fills every field instead of pasting the block into one.
   function vmAcceptReceiverPaste(fields){
     Object.keys(fields).forEach(function(key){var input=fields[key];if(!input){return;}input.addEventListener('paste',function(e){
-      var text=(e.clipboardData||window.clipboardData).getData('text'),d=vmParseReceiverDetails(text),found=Object.keys(d).length;
-      if(found<2){return;}e.preventDefault();
-      Object.keys(fields).forEach(function(k){if(d[k]&&fields[k]){fields[k].value=d[k];fields[k].dispatchEvent(new Event('input'));fields[k].dispatchEvent(new Event('change'));}});
+      var text=(e.clipboardData||window.clipboardData).getData('text'),d=vmParseReceiverDetails(text),others=d.others||[];delete d.others;
+      if(Object.keys(d).length<2){return;}e.preventDefault();
+      var candidates=d.address?[d.address].concat(others):[],current=trimText(fields.address?fields.address.value:'');
+      // A receiver lists every address of its computer (storage and cluster
+      // networks too). Keep the address already filled (a found receiver)
+      // when it is one of them; otherwise keep the first that answers here.
+      if(current&&candidates.some(function(c){return vmSameReceiverHost(c,current);})){delete d.address;}
+      Object.keys(fields).forEach(function(k){if(d[k]&&fields[k]){vmFinderFill(fields,(function(){var o={};o[k]=d[k];return o;})());}});
+      if(d.address&&others.length){vmPickReachable(fields,candidates);}
     });});
+  }
+  function vmReceiverHostOf(address){var a=trimText(address),m=a.match(/^\[([^\]]+)\](?::\d+)?$/);if(m){return m[1].toLowerCase();}var parts=a.split(':');return (parts.length===2?parts[0]:a).toLowerCase();}
+  function vmSameReceiverHost(a,b){return vmReceiverHostOf(a)===vmReceiverHostOf(b);}
+  function vmPickReachable(fields,candidates){
+    var input=fields.address;if(!input){return;}var asked=trimText(input.value);
+    request('POST','/api/receivers/reach',{addresses:candidates},function(err,data){
+      if(err||trimText(input.value)!==asked){return;}
+      var reachable=vmArr(data&&data.reachable);if(!reachable.length||reachable[0]===asked){return;}
+      vmFinderFill(fields,{address:reachable[0]});
+    },true);
   }
   // Receiver discovery: one find request per network adapter (never a sweep
   // of addresses), or one typed computer for another subnet. A found
@@ -2675,6 +2693,14 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     return what+(a.freeBytes?', '+formatBytesShort(a.freeBytes)+' free':'')+(a.version?', version '+a.version:'');
   }
   function vmFindAddress(a){var seen=vmArr(a.seen)[0]||'';return seen;}
+  // vmThumbHex reduces a pasted or typed SHA-256 thumbprint to its 64 hex
+  // digits: colons, spaces, dashes and invisible characters are dropped, so
+  // 9E:AB:... from the receiver's screen and 9EAB... are the same thumbprint.
+  var vmSendRecheck=null,rpRecvRecheck=null;
+  function vmThumbHex(value){return String(value||'').replace(/[^0-9A-Fa-f]/g,'');}
+  // vmReceiverReady says whether address, thumbprint and code are complete
+  // enough to ask the receiver, so a changed field can be re-checked by itself.
+  function vmReceiverReady(address,thumbprint,code){return !!trimText(address)&&vmThumbHex(thumbprint).length===64&&String(code||'').replace(/[^0-9A-Za-z]/g,'').length===20;}
   function vmFinderFill(fields,values){Object.keys(values).forEach(function(k){var input=fields[k];if(!input){return;}input.value=values[k];input.dispatchEvent(new Event('input'));input.dispatchEvent(new Event('change'));});}
   function vmFinder(box,fields,options){
     options=options||{};var id=box.id,st=vmFinderState(id);box.innerHTML='';
@@ -4138,7 +4164,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     if(running){
       byId('vmReceiveCode').textContent=r.code||'';byId('vmReceiveThumbprint').textContent=r.thumbprint||'';byId('vmReceiveSaving').textContent=(r.folder||'')+(r.freeBytes?' ('+formatBytesShort(r.freeBytes)+' free)':'');
       var addresses=vmArr(r.addresses).map(function(a){return (a.indexOf(':')>=0?'['+a+']':a)+(r.port===44380?'':':'+r.port);});
-      byId('vmReceiveAddress').textContent=(addresses.length?addresses.join(', '):'this computer\'s name')+(r.port===44380?' (port 44380)':'')+(r.firewall?', allowed in Windows Firewall':'');
+      byId('vmReceiveAddress').textContent=(addresses.length?addresses[0]+(addresses.length>1?' (default route; also '+addresses.slice(1).join(', ')+')':''):'this computer\'s name')+(r.port===44380?' (port 44380)':'')+(r.firewall?', allowed in Windows Firewall':'');
       var peers={};vmArr(r.transfers).forEach(function(t){if(t.state==='running'&&t.peer){peers[t.peer]=1;}});var peerList=Object.keys(peers);
       byId('vmReceiveFingerprint').textContent=r.fingerprint||'';byId('vmReceiveDiscoverNote').textContent=r.discoverable===false?'Not announced: senders type the address.':'Senders that find this receiver show the same fingerprint.';
       renderVmPairRequests(vmArr(r.pairRequests));
@@ -4190,7 +4216,8 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   }
   function vmSendTargets(){var t={};Array.prototype.forEach.call(document.querySelectorAll('[data-send-target]'),function(s){t[s.getAttribute('data-send-target')]=s.value;});return t;}
   function checkVmSendReceiver(){
-    var thumbprint=trimText(byId('vmSendThumbprint').value).replace(/[\s:]/g,'');
+    clearTimeout(vmSendRecheck);
+    var thumbprint=vmThumbHex(byId('vmSendThumbprint').value);
     vmPost('/api/vmware/agent/receiverdisks',{address:trimText(byId('vmSendAddress').value),thumbprint:thumbprint,code:trimText(byId('vmSendCode').value)},'vmSendStatus',function(err,data){
       if(err){return;}
       vmSendReceiver={folder:!!data.folder,disks:vmArr(data.disks)};
@@ -4201,7 +4228,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   function vmSendChosen(){return Array.prototype.map.call(document.querySelectorAll('[data-send-disk]:checked'),function(i){return Number(i.getAttribute('data-send-disk'));});}
   function syncVmDiskButtons(){
     var v=vmwareState()||{},r=v.receiver||{},locked=vmLocked(),admin=!!(latestState&&latestState.isAdministrator);
-    ['vmReceiveFolder','vmReceivePort','vmReceiveFirewall','vmReceiveDiscover'].forEach(function(id){byId(id).disabled=vmBusy;});
+    ['vmReceiveFolder','vmReceivePort','vmReceiveFirewall','vmReceiveDiscover','vmReceiveNewIdentity'].forEach(function(id){byId(id).disabled=vmBusy;});
     byId('vmReceiveStart').disabled=vmBusy||!!r.running;byId('vmReceiveStop').disabled=vmBusy;
     byId('vmSendFind').disabled=locked||!admin;
     var sending=!!v.running&&v.action==='send';
@@ -4214,14 +4241,14 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   function startVmReceiver(){
     var port=trimText(byId('vmReceivePort').value);
     if(port&&!/^[0-9]{1,5}$/.test(port)){vmSetStatus('vmReceiveStatus','Type the port as a number, such as 44380.',true);return;}
-    vmPost('/api/vmware/receiver',{action:'start',folder:trimText(byId('vmReceiveFolder').value),port:Number(port)||0,firewall:byId('vmReceiveFirewall').checked,discoverable:byId('vmReceiveDiscover').checked},'vmReceiveStatus',function(err){});
+    vmPost('/api/vmware/receiver',{action:'start',folder:trimText(byId('vmReceiveFolder').value),port:Number(port)||0,firewall:byId('vmReceiveFirewall').checked,discoverable:byId('vmReceiveDiscover').checked,newIdentity:byId('vmReceiveNewIdentity').checked},'vmReceiveStatus',function(err){if(!err){byId('vmReceiveNewIdentity').checked=false;}});
   }
   function findVmSendDisks(){
     vmPost('/api/vmware/agent/disks',{},'vmSendStatus',function(err,data){if(err){return;}vmSendDiskList=vmArr(data.disks);vmSendComputerName=data.computer||'';byId('vmSendComputer').textContent=vmSendComputerName?'Disks of '+vmSendComputerName:'';renderVmSendDisks();syncVmButtons();});
   }
   function startVmSend(){
-    var disks=vmSendChosen(),address=trimText(byId('vmSendAddress').value),thumbprint=trimText(byId('vmSendThumbprint').value).replace(/[\s:]/g,''),code=trimText(byId('vmSendCode').value);
-    if(!/^[0-9A-Fa-f]{64}$/.test(thumbprint)){vmSetStatus('vmSendStatus','Type the 64-character certificate thumbprint the receiving computer shows.',true);return;}
+    var disks=vmSendChosen(),address=trimText(byId('vmSendAddress').value),thumbprint=vmThumbHex(byId('vmSendThumbprint').value),code=trimText(byId('vmSendCode').value);
+    if(thumbprint.length!==64){vmSetStatus('vmSendStatus','Type the certificate thumbprint the receiving computer shows (64 hexadecimal digits; colons and spaces are fine).',true);return;}
     if(code.replace(/[\s-]/g,'').length!==20){vmSetStatus('vmSendStatus','Type the 20-character pairing code the receiving computer shows.',true);return;}
     var limit=trimText(byId('vmSendLimit').value)||'0';
     if(!/^[0-9]{1,6}$/.test(limit)){vmSetStatus('vmSendStatus','Type the bandwidth limit as a number of megabits per second, or 0 for no limit.',true);return;}
@@ -5283,7 +5310,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       var off=vmLocked()||!v.canPrepare;copy.disabled=off||short;cut.disabled=off;}
     syncSpace();
     var target=function(){return (trimText(folder.value)||folder.placeholder)+' on '+(vmHvrForm.node||info.computer);};
-    var body=function(action){return {vmId:vm.id,action:action,node:vmHvrForm.node||info.computer,copyFolder:trimText(folder.value),vmFolder:trimText(vmFolder.value),path:vmHvrForm.path,address:trimText(vmHvrForm.address),thumbprint:trimText(vmHvrForm.thumbprint),code:trimText(vmHvrForm.code),quiesce:!!(checks.quiesce&&checks.quiesce.checked),keepMac:checks.keepMac.checked,start:after.start(),cluster:!!(checks.cluster&&checks.cluster.checked),disconnectSource:after.disconnect(),fixUp:after.fixUp()};};
+    var body=function(action){return {vmId:vm.id,action:action,node:vmHvrForm.node||info.computer,copyFolder:trimText(folder.value),vmFolder:trimText(vmFolder.value),path:vmHvrForm.path,address:trimText(vmHvrForm.address),thumbprint:vmThumbHex(vmHvrForm.thumbprint),code:trimText(vmHvrForm.code),quiesce:!!(checks.quiesce&&checks.quiesce.checked),keepMac:checks.keepMac.checked,start:after.start(),cluster:!!(checks.cluster&&checks.cluster.checked),disconnectSource:after.disconnect(),fixUp:after.fixUp()};};
     var sent=function(){vmHvrForm.code='';};
     copy.addEventListener('click',function(){
       openMigrateDialog({title:'Copy '+vm.name,path:'/api/hvremote/move',field:'confirm',body:body('copy'),expected:vm.name,label:"Type the VM's name to confirm",button:'Copy disks',
@@ -5388,7 +5415,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     var tf=el('div','vm-finder');tf.id='vmTargetFinder';rc.insertBefore(tf,rc.querySelector('[data-vm-target="code"]').parentNode);
     vmFinder(tf,{address:rc.querySelector('[data-vm-target="address"]'),thumbprint:rc.querySelector('[data-vm-target="thumbprint"]'),code:rc.querySelector('[data-vm-target="code"]')},{disks:true});
     rc.appendChild(vmTargetButton('vmTargetReceiver','Check receiver',function(){
-      vmPost('/api/vmware/target/receiver',{vmId:vm.id,address:trimText(vmTargetForm.address),code:trimText(vmTargetForm.code),thumbprint:trimText(vmTargetForm.thumbprint)},'vmTargetStatus',function(err){if(!err){vmTargetForm.code='';}});
+      vmPost('/api/vmware/target/receiver',{vmId:vm.id,address:trimText(vmTargetForm.address),code:trimText(vmTargetForm.code),thumbprint:vmThumbHex(vmTargetForm.thumbprint)},'vmTargetStatus',function(err){if(!err){vmTargetForm.code='';}});
     }));
     if(receiver){var ul=el('ul','vm-findings');vmArr(receiver.mapping).forEach(function(name,i){var d=vmArr(vm.disks)[i]||{},rd=vmArr(receiver.disks).filter(function(x){return x.name===name;})[0]||{};ul.appendChild(el('li','good',(d.label||'Disk '+(i+1))+' ('+formatBytesShort(d.capacityBytes)+') goes to '+name+(rd.label?', '+rd.label:'')+' ('+formatBytesShort(rd.size)+').'));});rc.appendChild(ul);}
     var hv=vm.source==='hyperv';
@@ -6091,7 +6118,12 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   byId('vmSendFind').addEventListener('click',findVmSendDisks);
   byId('vmSendStart').addEventListener('click',startVmSend);
   byId('vmSendCheck').addEventListener('click',checkVmSendReceiver);
-  ['vmSendAddress','vmSendThumbprint','vmSendCode'].forEach(function(id){byId(id).addEventListener('input',function(){if(vmSendReceiver){vmSendReceiver=null;byId('vmSendReceiverNote').textContent='Check the receiver again: its details changed.';renderVmSendTargets();}});});
+  ['vmSendAddress','vmSendThumbprint','vmSendCode'].forEach(function(id){byId(id).addEventListener('input',function(){
+    var had=!!vmSendReceiver;if(had){vmSendReceiver=null;renderVmSendTargets();}
+    clearTimeout(vmSendRecheck);
+    if(vmReceiverReady(byId('vmSendAddress').value,byId('vmSendThumbprint').value,byId('vmSendCode').value)){byId('vmSendReceiverNote').textContent='Checking the receiver…';vmSendRecheck=setTimeout(function(){if(!byId('vmSendCheck').disabled){checkVmSendReceiver();}},600);}
+    else if(had){byId('vmSendReceiverNote').textContent='The receiver\'s details changed. Fill in its address, thumbprint and pairing code to check it again.';}
+  });});
   ['vmSendAddress','vmSendThumbprint','vmSendCode'].forEach(function(id){byId(id).addEventListener('input',syncVmButtons);});
   vmCapacityFields.forEach(function(f){byId(f.id).addEventListener('input',function(){if(vmPlanRolling()&&vmPlan.rolling&&vmPlan.rolling.autoCapacity){vmPlan.rolling.autoCapacity=false;byId('vmCapAuto').checked=false;}vmMarkPlanDirty();});});
   byId('vmCapAuto').addEventListener('change',function(){if(!vmPlanRolling()){return;}vmPlan.rolling=vmPlan.rolling||{stages:[]};vmPlan.rolling.autoCapacity=this.checked;if(this.checked){saveVmPlan(null,'New cluster size filled from the hosts being reused.');}else{vmMarkPlanDirty();}});
@@ -6518,7 +6550,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     if(!rpEditing){return;}
     var spec;
     try{
-      spec={id:rpEditing.id,name:trimText(byId('rpJobName').value),disks:[],receiver:{address:trimText(byId('rpRecvAddress').value),thumbprint:trimText(byId('rpRecvThumbprint').value).replace(/[\s:]/g,''),code:trimText(byId('rpRecvCode').value)},
+      spec={id:rpEditing.id,name:trimText(byId('rpJobName').value),disks:[],receiver:{address:trimText(byId('rpRecvAddress').value),thumbprint:vmThumbHex(byId('rpRecvThumbprint').value),code:trimText(byId('rpRecvCode').value)},
         intervalMinutes:Number(byId('rpInterval').value)||0,rpoMinutes:rpNumber('rpRpo',1,10080,'Type the RPO alert as a number of minutes from 1 to 10080.'),compress:byId('rpCompress').checked,
         throttle:{limitMbps:rpNumber('rpLimit',0,100000,'Type the bandwidth limit in Mbps, or 0 for no limit.'),businessMbps:rpNumber('rpBusinessLimit',0,100000,'Type the business-hours limit in Mbps, or 0 for no limit.'),businessStart:rpNumber('rpBusinessStart',0,24,'Business hours are hours from 0 to 24.'),businessEnd:rpNumber('rpBusinessEnd',0,24,'Business hours are hours from 0 to 24.')},
         stopServices:trimText(byId('rpServices').value)?trimText(byId('rpServices').value).split(/\s*,\s*/).filter(function(x){return !!x;}):[],shutdownAfterCutover:byId('rpShutdown').checked,fullReadAtCutover:byId('rpFullRead').checked,rescanFirst:byId('rpRescanFirst').checked,allowLive:byId('rpLive').checked};
@@ -6529,7 +6561,8 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     rpPost('/api/repl/job',{agent:rpEditing.agent,action:'save',spec:spec},'rpJobStatus',function(err,data){if(err){return;}var agent=rpEditing.agent;rpEditing=null;byId('rpEditor').classList.add('hidden');byId('rpRecvCode').value='';if(data.job&&data.job.spec){rpDetail={agent:agent,id:data.job.spec.id};byId('rpDetails').classList.remove('hidden');var job=data.job,msg=!spec.id?'Saved. The first round starts within a few seconds; it copies every disk once, then only what changes.':(job.status&&job.status.state==='paused'?'Changed. The job is still paused: choose Resume to replicate with the new settings.':(/Stopping the current round/.test((job.status&&job.status.message)||'')?'Changed. The running round is being stopped; a new round starts with the new settings and resumes where it stopped.':'Changed. The next round uses the new settings.'));vmSetStatus('rpDetailsStatus',msg,false);}});
   }
   function checkRpReceiver(){
-    rpPost('/api/repl/agent',{action:'receiverdisks',address:trimText(byId('rpRecvAddress').value),thumbprint:trimText(byId('rpRecvThumbprint').value).replace(/[\s:]/g,''),code:trimText(byId('rpRecvCode').value)},'rpJobStatus',function(err,data){
+    clearTimeout(rpRecvRecheck);
+    rpPost('/api/repl/agent',{action:'receiverdisks',address:trimText(byId('rpRecvAddress').value),thumbprint:vmThumbHex(byId('rpRecvThumbprint').value),code:trimText(byId('rpRecvCode').value)},'rpJobStatus',function(err,data){
       if(err){return;}rpReceiver={folder:!!data.folder,disks:vmArr(data.disks)};
       byId('rpRecvNote').textContent=(rpReceiver.folder?'Saves VHDX files':'')+(rpReceiver.folder&&rpReceiver.disks.length?' and writes ':'')+(rpReceiver.disks.length?(rpReceiver.folder?'':'Writes ')+vmPlural(rpReceiver.disks.length,'disk')+' of the new machine':'')+'.';
       renderRpJobDisks();
@@ -6735,12 +6768,17 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     rpTrusted[host]=rpPending[host];rpStartPush(host);
   });
   byId('rpPushStop').addEventListener('click',function(){rpPost('/api/repl/agent',{action:'stop-push'},'rpPushStatus',null);});
-  byId('rpAdd').addEventListener('click',function(){rpPost('/api/repl/agent',{action:'add',address:trimText(byId('rpAddAddress').value),thumbprint:trimText(byId('rpAddThumbprint').value).replace(/[\s:]/g,''),key:trimText(byId('rpAddKey').value)},'rpAddStatus',function(err,data){if(!err){byId('rpAddKey').value='';vmSetStatus('rpAddStatus','Added '+(data.name||'the agent')+'.',false);}});});
+  byId('rpAdd').addEventListener('click',function(){rpPost('/api/repl/agent',{action:'add',address:trimText(byId('rpAddAddress').value),thumbprint:vmThumbHex(byId('rpAddThumbprint').value),key:trimText(byId('rpAddKey').value)},'rpAddStatus',function(err,data){if(!err){byId('rpAddKey').value='';vmSetStatus('rpAddStatus','Added '+(data.name||'the agent')+'.',false);}});});
   byId('rpJobSave').addEventListener('click',saveRpJob);
   byId('rpJobCancel').addEventListener('click',function(){rpEditing=null;byId('rpEditor').classList.add('hidden');byId('rpRecvCode').value='';});
   byId('rpRecvCheck').addEventListener('click',checkRpReceiver);
   byId('rpJobName').addEventListener('change',function(){if(rpDisks&&!(rpEditing&&rpEditing.spec)){Array.prototype.forEach.call(document.querySelectorAll('input[data-rp-target]'),function(i){i.value=rpDefaultTarget(trimText(byId('rpJobName').value),i.getAttribute('data-rp-target'));});}});
-  ['rpRecvAddress','rpRecvThumbprint','rpRecvCode'].forEach(function(id){byId(id).addEventListener('input',function(){if(rpReceiver&&id!=='rpRecvCode'){rpReceiver=null;byId('rpRecvNote').textContent='Check the receiver again: its details changed.';renderRpJobDisks();}syncRpButtons();});});
+  ['rpRecvAddress','rpRecvThumbprint','rpRecvCode'].forEach(function(id){byId(id).addEventListener('input',function(){
+    var had=!!rpReceiver&&id!=='rpRecvCode';if(had){rpReceiver=null;renderRpJobDisks();}
+    syncRpButtons();clearTimeout(rpRecvRecheck);
+    if((had||!rpReceiver)&&vmReceiverReady(byId('rpRecvAddress').value,byId('rpRecvThumbprint').value,byId('rpRecvCode').value)){byId('rpRecvNote').textContent='Checking the receiver…';rpRecvRecheck=setTimeout(function(){if(!byId('rpRecvCheck').disabled){checkRpReceiver();}},600);}
+    else if(had){byId('rpRecvNote').textContent='The receiver\'s details changed. Fill in its address, thumbprint and pairing code to check it again.';}
+  });});
   ['rpHosts','rpAddAddress','rpAddThumbprint','rpAddKey','rpCutoverTyped','rpCutoverAt'].forEach(function(id){byId(id).addEventListener('input',syncRpButtons);});
   byId('rpSync').addEventListener('click',function(){rpJobAction('sync');});
   byId('fvRefresh').addEventListener('click',function(){vmSetStatus('fvStatus','',false);fvLoad(true);});

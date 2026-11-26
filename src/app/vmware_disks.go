@@ -5,6 +5,7 @@ package main
 // its own disks through shadow copies (the agent in vmagent_windows.go).
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -12,6 +13,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 )
 
 const vmReceiverDefaultPort = 44380
@@ -107,7 +110,91 @@ func vmLocalAddresses() []string {
 	}
 	sort.Strings(v4)
 	sort.Strings(v6)
-	return append(v4, v6...)
+	return vmPrimaryFirst(append(v4, v6...), vmDefaultRouteAddress())
+}
+
+// vmDefaultRouteAddress is the address this computer sends from on its
+// default route: the one other networks most likely reach. A UDP "dial"
+// only asks the routing table; no packet is sent. A host with storage,
+// cluster or backup networks lists those addresses too, and the first in
+// sorted order was often one a sender cannot reach.
+func vmDefaultRouteAddress() string {
+	for _, probe := range []string{"192.0.2.1:9", "[2001:db8::1]:9"} {
+		conn, err := net.Dial("udp", probe)
+		if err != nil {
+			continue
+		}
+		local, _ := conn.LocalAddr().(*net.UDPAddr)
+		conn.Close()
+		if local != nil && !local.IP.IsLoopback() && !local.IP.IsUnspecified() {
+			return local.IP.String()
+		}
+	}
+	return ""
+}
+
+// vmPrimaryFirst moves primary to the front of addresses when it is there.
+func vmPrimaryFirst(addresses []string, primary string) []string {
+	if primary == "" {
+		return addresses
+	}
+	out := make([]string, 0, len(addresses))
+	found := false
+	for _, address := range addresses {
+		if address == primary {
+			found = true
+			continue
+		}
+		out = append(out, address)
+	}
+	if !found {
+		return addresses
+	}
+	return append([]string{primary}, out...)
+}
+
+// vmReachMax limits how many pasted receiver addresses one check tries.
+const vmReachMax = 8
+
+// vmReachableAddresses opens one TCP connection to each candidate receiver
+// address (all given by the operator, never a range or a port sweep) and
+// returns those that answered, in the order given. It sends nothing over
+// the connection: the receiver is then checked through its pinned
+// certificate as usual.
+func vmReachableAddresses(ctx context.Context, candidates []string, timeout time.Duration) ([]string, error) {
+	if len(candidates) > vmReachMax {
+		return nil, fmt.Errorf("give at most %d receiver addresses", vmReachMax)
+	}
+	clean := make([]string, 0, len(candidates))
+	for _, candidate := range candidates {
+		address, err := vmReceiverAddress(candidate)
+		if err != nil {
+			return nil, err
+		}
+		clean = append(clean, address)
+	}
+	ok := make([]bool, len(clean))
+	var wait sync.WaitGroup
+	for index, address := range clean {
+		wait.Add(1)
+		go func(index int, address string) {
+			defer wait.Done()
+			dialer := net.Dialer{Timeout: timeout}
+			conn, err := dialer.DialContext(ctx, "tcp", address)
+			if err == nil {
+				conn.Close()
+				ok[index] = true
+			}
+		}(index, address)
+	}
+	wait.Wait()
+	reachable := []string{}
+	for index, address := range clean {
+		if ok[index] {
+			reachable = append(reachable, address)
+		}
+	}
+	return reachable, nil
 }
 
 // vmAgentTargetNames picks what the receiver writes for each source disk:

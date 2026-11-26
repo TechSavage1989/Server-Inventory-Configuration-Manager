@@ -143,6 +143,7 @@ async function fixture(browser,old=false){
    let body='';for await(const chunk of req)body+=chunk;const data=body?JSON.parse(body):{},action='receivers/'+url.pathname.slice(15);vmwareCalls.push({action,method:req.method,body:data,token:req.headers['x-app-token']});
    if(req.headers['x-app-token']!=='workspace-test'){send(403,{});return;}
    if(action==='receivers/find'){send(200,{ok:true,receivers:data.host==='hv09.example.com'?[]:[{name:'HV01',port:44380,thumbprint:'3f9a6c0e1b7d4a25c8e0f13b6a9d2c4e7f0a1b3c5d7e9f2a4c6e8b0d1f3a5c7e',folder:true,disks:0,freeBytes:4398046511104,version:'3.2.34',pairing:true,fingerprint:'3F9A 6C0E 1B7D 4A25',seen:['192.0.2.40:44380']},{name:'MINWINPC',port:44380,thumbprint:'ab'.repeat(32),folder:false,disks:2,diskBytes:322122547200,pairing:false,fingerprint:'ABAB ABAB ABAB ABAB',seen:['192.0.2.51:44380']}]});return;}
+   if(action==='receivers/reach'){send(200,{ok:true,reachable:(data.addresses||[]).filter(a=>a.startsWith('192.0.2.'))});return;}
    if(action==='receivers/pair'){if(!data.id){send(200,{ok:true,id:'0f'.repeat(16),check:'123 456',state:'pending'});return;}send(200,receiverPair.allowed?{ok:true,state:'allowed',code:'K7QMZ-2RT4X-9WBNP-H3VDA'}:{ok:true,state:'pending'});return;}
    send(404,{});return;
   }
@@ -1063,6 +1064,24 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   await f.page.locator('[data-diskrole="send"]').click();
   await f.page.locator('#vmSendAddress').evaluate((e,text)=>{const d=new DataTransfer();d.setData('text/plain',text);e.dispatchEvent(new ClipboardEvent('paste',{clipboardData:d,bubbles:true,cancelable:true}));},all);
   assert.equal(await f.page.locator('#vmSendAddress').inputValue(),'192.0.2.40:44380');assert.equal(await f.page.locator('#vmSendThumbprint').inputValue(),'3f9a6c0e1b7d4a25c8e0f13b6a9d2c4e7f0a1b3c5d7e9f2a4c6e8b0d1f3a5c7e');assert.equal(await f.page.locator('#vmSendCode').inputValue(),'K7QMZ-2RT4X-9WBNP-H3VDA');
+  // A receiver with storage and cluster networks lists every address: the
+  // default-route one first, the rest under Other addresses. A paste keeps
+  // the one that answers, or the one already found.
+  f.state.vmware.receiver={running:true,port:44380,code:'K7QMZ-2RT4X-9WBNP-H3VDA',thumbprint:'3F:9A:6C:0E:1B:7D:4A:25:C8:E0:F1:3B:6A:9D:2C:4E:7F:0A:1B:3C:5D:7E:9F:2A:4C:6E:8B:0D:1F:3A:5C:7E',folder:'D:\\Hyper-V\\Disks',addresses:['10.10.100.11','192.0.2.40','10.10.200.11'],sessions:0,firewall:true,defaultFolder:'D:\\Hyper-V\\Disks'};
+  await f.page.locator('[data-diskrole="receive"]').click();
+  await f.page.waitForFunction(()=>/^10\.10\.100\.11 \(default route; also 192\.0\.2\.40, 10\.10\.200\.11\)/.test(document.querySelector('#vmReceiveAddress').textContent));
+  await f.page.locator('#vmCopyAll').click();await f.page.waitForFunction(()=>document.querySelector('#vmCopyAll').textContent==='Copied');
+  const many=await f.page.evaluate(()=>navigator.clipboard.readText());assert(many.includes('Receiver: 10.10.100.11:44380')&&many.includes('Other addresses: 192.0.2.40:44380, 10.10.200.11:44380'),many);
+  f.state.vmware.receiver={running:false,port:44380,sessions:0,firewall:false,defaultFolder:'D:\\Hyper-V\\Disks'};
+  await f.page.locator('[data-diskrole="send"]').click();
+  const paste=async text=>f.page.locator('#vmSendThumbprint').evaluate((e,t)=>{const d=new DataTransfer();d.setData('text/plain',t);e.dispatchEvent(new ClipboardEvent('paste',{clipboardData:d,bubbles:true,cancelable:true}));},text);
+  await f.page.locator('#vmSendAddress').fill('');await paste(many);
+  await f.page.waitForFunction(()=>document.querySelector('#vmSendAddress').value==='192.0.2.40:44380');
+  assert.deepEqual(vmwareCalls(f,'receivers/reach').at(-1).body,{addresses:['10.10.100.11:44380','192.0.2.40:44380','10.10.200.11:44380']});
+  const reaches=vmwareCalls(f,'receivers/reach').length;
+  await f.page.locator('#vmSendAddress').fill('10.10.200.11:44380');await paste(many);
+  assert.equal(await f.page.locator('#vmSendAddress').inputValue(),'10.10.200.11:44380','an address already filled that the receiver lists is kept');
+  assert.equal(vmwareCalls(f,'receivers/reach').length,reaches);
   assert.deepEqual(f.dialogs,[]);
  }finally{await f.close();}});
  await check('VMware move to Proxmox VE and physical servers: connect, receiver media, create, receiver and copy each post what was chosen, with the typed VM name where vSphere or the platform changes',async()=>{const f=await fixture(browser);try{
@@ -1096,7 +1115,7 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   await f.page.waitForFunction(()=>document.querySelector('#vmMoveTarget').textContent.includes('Created on Proxmox VE as APP01 (101).'));
   await f.page.locator('[data-vm-target="address"]').fill('192.0.2.50:8443');await f.page.locator('[data-vm-target="code"]').fill('ABCDE-FGHIJ-KLMNO-PQRST');await f.page.locator('[data-vm-target="thumbprint"]').fill('AA:BB');
   await f.page.locator('#vmTargetReceiver').click();await f.page.waitForFunction(()=>document.querySelector('#vmMoveTarget').textContent.includes('goes to disk-0, Disk 0, QEMU HARDDISK'));
-  assert.deepEqual(vmwareCalls(f,'target/receiver').map(c=>c.body),[{vmId:'vm-app01',address:'192.0.2.50:8443',code:'ABCDE-FGHIJ-KLMNO-PQRST',thumbprint:'AA:BB'}]);
+  assert.deepEqual(vmwareCalls(f,'target/receiver').map(c=>c.body),[{vmId:'vm-app01',address:'192.0.2.50:8443',code:'ABCDE-FGHIJ-KLMNO-PQRST',thumbprint:'AABB'}]);
   assert.equal(await f.page.locator('[data-vm-target="code"]').inputValue(),'','the pairing code is not kept in the page');
   await f.page.locator('#vmTargetCopy').click();const copyText=await f.page.locator('#migrateDialogText').textContent();assert(copyText.includes('192.0.2.50:8443')&&copyText.includes('changed block tracking'),copyText);
   await f.page.locator('#migrateConfirmInput').fill('APP01');await f.page.locator('#migrateConfirmInput').press('Enter');await f.page.waitForFunction(()=>document.querySelector('#vmwareTabBadge').textContent==='Working');
@@ -1306,7 +1325,7 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   await f.page.locator('#vmReceivePort').fill('44a');await f.page.locator('#vmReceiveStart').click();assert((await f.page.locator('#vmReceiveStatus').textContent()).includes('as a number'));assert.equal(vmwareCalls(f,'receiver').length,0);
   await f.page.locator('#vmReceivePort').fill('44390');await f.page.locator('#vmReceiveStart').click();
   await f.page.waitForFunction(()=>document.querySelector('#vmReceiveCode').textContent==='K7QMZ-2RT4X-9WBNP-H3VDA');
-  assert.deepEqual(vmwareCalls(f,'receiver').map(c=>c.body),[{action:'start',folder:'',port:44390,firewall:true,discoverable:true}]);
+  assert.deepEqual(vmwareCalls(f,'receiver').map(c=>c.body),[{action:'start',folder:'',port:44390,firewall:true,discoverable:true,newIdentity:false}]);
   const where=await f.page.locator('#vmReceiveAddress').textContent();assert(where.includes('192.0.2.40:44390')&&where.includes('allowed in Windows Firewall'),where);
   assert(await f.page.locator('#vmReceiveStart').isHidden());
   await f.page.locator('#vmSendFind').click();await f.page.waitForFunction(()=>document.querySelectorAll('[data-send-disk]').length===2);
@@ -1320,10 +1339,15 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   await f.page.locator('#vmSendCheck').click();await f.page.waitForFunction(()=>document.querySelectorAll('[data-send-target]').length===1);
   assert.equal(await f.page.locator('[data-send-target="0"]').inputValue(),'disk-0','a raw receiver maps disks in order');
   assert((await f.page.locator('#vmSendReceiverNote').textContent()).includes('Writes 2 disks of the new VM or server'));
+  const checks=vmwareCalls(f,'agent/receiverdisks').length;
+  await f.page.locator('#vmSendThumbprint').fill('3f:9a:6c:0e:1b:7d:4a:25:c8:e0:f1:3b:6a:9d:2c:4e:7f:0a:1b:3c:5d:7e:9f:2a:4c:6e:8b:0d:1f:3a:5c:7e');
+  await f.page.waitForFunction(()=>document.querySelector('#vmSendReceiverNote').textContent.includes('Writes 2 disks of the new VM or server')&&document.querySelectorAll('[data-send-target]').length===1);
+  assert(vmwareCalls(f,'agent/receiverdisks').length>checks,'a changed thumbprint is checked again by itself');
+  assert.equal(vmwareCalls(f,'agent/receiverdisks').at(-1).body.thumbprint,'3f9a6c0e1b7d4a25c8e0f13b6a9d2c4e7f0a1b3c5d7e9f2a4c6e8b0d1f3a5c7e','colons are dropped');
   await f.page.locator('[data-send-target="0"]').selectOption('disk-1');await f.page.locator('#vmSendLimit').fill('200');
   await f.page.locator('#vmSendStart').click();
   await f.page.waitForFunction(()=>document.querySelector('#vmwareTabBadge').textContent==='Working');
-  assert.deepEqual(vmwareCalls(f,'agent/send').map(c=>c.body),[{disks:[0],address:'hv01.example.com',thumbprint:'3F9A6C0E1b7d4a25c8e0f13b6a9d2c4e7f0a1b3c5d7e9f2a4c6e8b0d1f3a5c7e',code:'K7QMZ-2RT4X-9WBNP-H3VDA',verify:true,allowLive:false,targets:{'0':'disk-1'},compress:true,limitMbps:200}]);
+  assert.deepEqual(vmwareCalls(f,'agent/send').map(c=>c.body),[{disks:[0],address:'hv01.example.com',thumbprint:'3f9a6c0e1b7d4a25c8e0f13b6a9d2c4e7f0a1b3c5d7e9f2a4c6e8b0d1f3a5c7e',code:'K7QMZ-2RT4X-9WBNP-H3VDA',verify:true,allowLive:false,targets:{'0':'disk-1'},compress:true,limitMbps:200}]);
   assert(await f.page.locator('[data-send-target="0"]').isDisabled(),'targets are locked while sending');
   assert(await f.page.locator('#vmStop').isVisible(),'a send can be stopped');assert(await f.page.locator('#vmSendCode').isDisabled());
   Object.assign(f.state.vmware,{running:false,action:'',status:'idle',message:'Sent 1 disk to hv01.example.com.',send:[{disk:0,name:'APP01-disk0.vhdx',bytesRead:42949672960,bytesWritten:1073741824,resumed:true,verified:true,passes:2,shadowed:1,bytesSent:536870912}],sendSerial:1});
