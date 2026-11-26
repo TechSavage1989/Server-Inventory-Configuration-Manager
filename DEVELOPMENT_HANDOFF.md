@@ -1,3 +1,7 @@
+## 3.2.35 release preparation — 2026-11-26
+
+Combined release of #119 (Move VMs from one console to a remote Hyper-V host or cluster), #123 (nothing installed in the machine being moved, one-step guide, vTPM VMs not blocked), #124 (change tracking no longer misses shadow copy storage), #125 (Build Hyper-V hosts), #126 (vSphere-style inventory) and #127 (Migration plans). The owner approved publication on 2026-11-26 ("publish when ready"). This branch bumps `appVersion`, `collectorVersion` and the collector `$scriptVersion` to 3.2.35, adds `docs/release-notes/3.2.35.md` (first three bullets free of Markdown) and points `scripts/test_published_upgrade.cjs` and AGENTS.md at the published v3.2.34 executable (SHA-256 `dfbba653d26cc37e969eb5f0666eb94f50bfc9d989cfa858cf483c21a578cbfa`).
+
 ## Unreleased: Migration plans (Nutanix Move-style batches) — 2026-11-26
 
 - New **Migration plans** tool in Migration and replication (AGENTS.md rule 41), from a review of Nutanix Move's public documentation (feature reference only): many VMware or Hyper-V VMs in one plan, seeded from a start time, kept in sync on an interval with a per-plan concurrency limit and a business-hours bandwidth schedule, test cutover on differencing disks (network disconnected or a chosen test switch, syncs held), and bulk cutover now or at a scheduled time in wave order, each VM independent. Dashboard tiles filter the VM list; each VM shows progress, speed and time left.
