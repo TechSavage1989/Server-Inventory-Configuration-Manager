@@ -241,6 +241,25 @@ func mbDue(plans []*mbPlan, now time.Time, limit int) []mbWork {
 	return work
 }
 
+// mbMissedCutovers cancels scheduled cutovers whose time has come while the
+// VM's first copy is still unfinished: running them hours later, when the
+// copy ends, could take a server down outside its maintenance window. Each
+// such VM gets a note and keeps syncing. It reports whether anything changed.
+func mbMissedCutovers(plans []*mbPlan, now time.Time) bool {
+	changed := false
+	for _, plan := range plans {
+		for _, vm := range plan.VMs {
+			if vm.CutoverAt.IsZero() || now.Before(vm.CutoverAt) || vm.Seeded || vm.State == mbDone || vm.State == mbCutting {
+				continue
+			}
+			vm.Notes = append(vm.Notes, vm.CutoverAt.Local().Format("2006-01-02 15:04")+": the scheduled cutover did not run because the first copy had not finished. Schedule it again.")
+			vm.CutoverAt = time.Time{}
+			changed = true
+		}
+	}
+	return changed
+}
+
 // mbSummary counts a plan's VMs for the dashboard tiles.
 type mbSummary struct {
 	Total     int `json:"total"`
@@ -601,7 +620,11 @@ func (r *mbRunner) ScheduleCutover(id string, ids []string, at time.Time) error 
 			return errors.New("a chosen VM is no longer in the plan")
 		}
 		if !at.IsZero() {
-			if why := mbCanCutOver(vm); why != "" {
+			// A cutover may be scheduled before the first copy finishes,
+			// so a whole migration can be set up at once; if the copy is
+			// still not finished when the time comes, the cutover is
+			// cancelled (mbMissedCutovers), never run late.
+			if why := mbCanCutOver(vm); why != "" && !(vm.State != mbDone && vm.State != mbTesting && vm.State != mbCutting && !vm.Seeded && at.After(r.now())) {
 				return errors.New(why)
 			}
 		}
@@ -679,6 +702,9 @@ func (r *mbRunner) Sweep() {
 		return
 	}
 	now := r.now()
+	if mbMissedCutovers(r.plans, now) {
+		r.saveLocked()
+	}
 	ready := []*mbPlan{}
 	r.blocked = ""
 	for _, plan := range r.plans {
