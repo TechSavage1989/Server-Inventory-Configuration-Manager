@@ -640,6 +640,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
 .hb-result{margin-top:6px}.hb-result>summary{cursor:pointer;font-size:12px;color:#334156}.hb-run{margin-top:6px}.hb-run strong{font-size:12px}.hb-note{color:#52647c}.hb-empty{color:#52647c;font-size:12.5px}
 .cv-section{margin-bottom:16px}.cv-section:last-child{margin-bottom:0}
 .cv-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.path-pick{display:flex;gap:6px;align-items:stretch;width:100%;min-width:0}.path-pick>input{flex:1 1 auto;min-width:0;width:auto}.path-pick>.path-pick-button{flex:0 0 auto;min-height:0;padding:0 10px;white-space:nowrap}.path-pick-error{display:block;color:#a2261d;font-size:12px;overflow-wrap:anywhere}.path-pick-error:empty{display:none}
 .cv-row input[type=text]{flex:1 1 320px;min-width:0;height:34px;box-sizing:border-box;border:1px solid #bcc9d9;border-radius:7px;padding:0 10px;font:inherit;font-size:13px}
 .cv-formats{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px}
 .cv-format{display:flex;gap:9px;align-items:flex-start;border:1px solid #dbe3ed;border-radius:9px;padding:8px 10px;background:#fff;cursor:pointer;min-width:0}
@@ -1165,7 +1166,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
               <section class="migrate-card" aria-labelledby="vmReceiveTitle">
                 <h4 id="vmReceiveTitle">Receive: run on the computer receiving the disks</h4>
                 <div id="vmReceiveIdle">
-                  <label class="vm-field">Save received disks in<input id="vmReceiveFolder" type="text" spellcheck="false" autocomplete="off"></label>
+                  <label class="vm-field">Save received disks in<input id="vmReceiveFolder" type="text" spellcheck="false" autocomplete="off" data-browse="folder" data-browse-title="Choose the folder on this computer for the received disks. It needs room for every disk."></label>
                   <label class="vm-field">Port<input id="vmReceivePort" type="text" inputmode="numeric" value="44380" maxlength="5"></label>
                   <label class="vm-check"><input id="vmReceiveFirewall" type="checkbox" checked> Allow this port through Windows Firewall while receiving</label>
                   <label class="vm-check"><input id="vmReceiveDiscover" type="checkbox" checked> Let senders on this network find this receiver (they still need your approval here, or the pairing code)</label>
@@ -1205,7 +1206,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
             <section class="migrate-card" id="vmMediaCard" aria-labelledby="vmMediaTitle">
               <h4 id="vmMediaTitle">Receiver media: for a new HyperCore, Nutanix AHV, Proxmox VE or physical machine</h4>
               <p class="migrate-help">Builds a Windows PE ISO with this program as the receiver, using the Windows ADK and its Windows PE add-on on this computer. Boot the new machine from it: the receiver takes every blank disk and shows its address, thumbprint and pairing code on the console. Add the drivers the new machine needs to see its disks and network, such as the VirtIO drivers (virtio-win) for HyperCore, Nutanix and Proxmox, or the server vendor's storage and network drivers.</p>
-              <div class="rp-two"><label class="vm-field">The new machine runs on<select id="vmMediaTarget"><option value="scale">Scale Computing HyperCore</option><option value="nutanix">Nutanix AHV</option><option value="proxmox">Proxmox VE (KVM)</option><option value="physical">Physical server</option></select></label><label class="vm-field">Driver folders (separate with ;)<input id="vmMediaDrivers" type="text" spellcheck="false" autocomplete="off" placeholder="D:\virtio-win\amd64\2k22"></label></div>
+              <div class="rp-two"><label class="vm-field">The new machine runs on<select id="vmMediaTarget"><option value="scale">Scale Computing HyperCore</option><option value="nutanix">Nutanix AHV</option><option value="proxmox">Proxmox VE (KVM)</option><option value="physical">Physical server</option></select></label><label class="vm-field">Driver folders (separate with ;)<input id="vmMediaDrivers" type="text" spellcheck="false" autocomplete="off" placeholder="D:\virtio-win\amd64\2k22" data-browse="folder" data-browse-append data-browse-title="Choose a drivers folder to add, for example D:\virtio-win\amd64\2k22. Each Browse adds one more folder."></label></div>
               <div class="migrate-row"><button class="secondary-button" id="vmMediaBuild" type="button">Build receiver media</button><span class="vm-note">Runs on this computer. To have the VM created and started for you, use Move VMs instead.</span></div>
               <div class="migrate-inline-status" id="vmMediaStatus" role="status" aria-live="polite"></div>
             </section>
@@ -1406,8 +1407,8 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
             </div>
             <h5 class="mp-heading">The new VMs</h5>
             <div class="rp-two">
-              <label class="vm-field">Folder for the copied disks (blank for the host's default)<input id="mpCopyRoot" type="text" spellcheck="false" autocomplete="off" placeholder="C:\ClusterStorage\Volume1\Migrations"></label>
-              <label class="vm-field">Folder for the VMs (blank for the host's default)<input id="mpVMFolder" type="text" spellcheck="false" autocomplete="off"></label>
+              <label class="vm-field">Folder for the copied disks (blank for the host's default)<input id="mpCopyRoot" type="text" spellcheck="false" autocomplete="off" placeholder="C:\ClusterStorage\Volume1\Migrations" data-browse="folder" data-browse-title="Choose the folder on this Hyper-V host for the copied disks. Each VM gets its own folder inside it, and runs from it after the cutover."></label>
+              <label class="vm-field">Folder for the VMs (blank for the host's default)<input id="mpVMFolder" type="text" spellcheck="false" autocomplete="off" data-browse="folder" data-browse-title="Choose the folder on this Hyper-V host for the new VMs' configuration files."></label>
             </div>
             <label class="vm-field">Network for test VMs<select id="mpTestSwitch"><option value="">Disconnected (recommended)</option></select></label>
             <div class="mp-checks">
@@ -2301,6 +2302,9 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     var mg=el('div','hb-grid');mg.appendChild(hbSelect(se,'migrationAuth','Live migration authentication',[['Kerberos','Kerberos'],['CredSSP','CredSSP']]));mg.appendChild(hbSelect(se,'performance','Live migration traffic',[['Compression','Compression'],['SMB','SMB (with RDMA)'],['TCPIP','TCP/IP']]));
     mg.appendChild(hbSelect(se,'maxMigrations','Simultaneous live migrations',[1,2,3,4,6,8].map(function(n){return [String(n),String(n)];}),{number:true}));mg.appendChild(hbSelect(se,'maxStorageMigrations','Simultaneous storage migrations',[1,2,3,4].map(function(n){return [String(n),String(n)];}),{number:true}));cs.appendChild(mg);
     var pg2=el('div','hb-grid');pg2.appendChild(hbInput(se,'vhdPath','Default virtual hard disk folder (optional)',{max:260,placeholder:plan.nodes.length>1?'C:\\ClusterStorage\\Volume1\\Hyper-V':'D:\\Hyper-V\\Virtual Hard Disks'}));pg2.appendChild(hbInput(se,'vmPath','Default VM folder (optional)',{max:260,placeholder:plan.nodes.length>1?'C:\\ClusterStorage\\Volume1\\Hyper-V':'D:\\Hyper-V'}));cs.appendChild(pg2);
+    var hbHost=function(){var n=vmArr(plan.nodes).filter(function(x){return trimText(x.name);})[0];return n?trimText(n.name):'';};
+    Array.prototype.forEach.call(pg2.querySelectorAll('input'),function(input){pathBrowse(input,{remote:hbHost,noHost:'Type the first node\'s name in step 1 first.',title:'Choose the default folder on the nodes.'});});
+    var hbBrowseNote=el('div','vm-note','These are paths on the nodes. Browse host opens the first node\'s drives through its administrative shares (C$, D$) with your Windows account; a folder on a Cluster Shared Volume is the same on every node.');hbBrowseNote.id='hbBrowseNote';cs.appendChild(hbBrowseNote);
   }
   function hbSuggest(){vmPost('/api/hvbuild/suggest',{cluster:hbCluster},'hbSaveStatus',function(err,data){if(err){return;}hbPlan=data.plan;hbDirty=true;hbRenderEditor();hbSave(function(e){if(!e){hbStatus('Drafted from '+(hbCluster?'VMware cluster '+hbCluster:'the ESXi hosts')+'. Type the node names and choose their adapters, then Save plan and Read nodes.',false);}});});}
   function hbSave(done){if(!hbPlan){return;}vmPost('/api/hvbuild/save',{plan:hbPlan},'hbSaveStatus',function(err,data){if(!err){hbDirty=false;hbPlan=data.plan;hbStatus(data.warning||'Saved.',!!data.warning);hbRenderEditor();}hbSync();if(done){done(err,data);}});}
@@ -3029,6 +3033,29 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       if(uiLifecycle==='active'){pollTimer=window.setTimeout(poll,900);}
     });
   }
+  // Browse buttons for path fields: the native Windows picker on this computer, or (remote) a folder on a Hyper-V host through its administrative shares. It only fills the field.
+  function pathBrowse(input,o){
+    o=o||{};if(!input||!input.parentNode||input.getAttribute('data-browse-ready')){return null;}
+    input.setAttribute('data-browse-ready','1');
+    var row=el('span','path-pick'),button=el('button','secondary-button path-pick-button',o.remote?'Browse host\u2026':'Browse\u2026'),note=el('span','path-pick-error');
+    button.type='button';note.setAttribute('role','status');button.setAttribute('aria-label',(o.remote?'Browse the host\'s folders for ':'Browse for ')+(input.getAttribute('aria-label')||input.id||'this path'));
+    if(o.remote){button.title='Opens the host\'s drives (C$, D$ ...) with your Windows account. Explorer on this computer cannot show the host\'s own disks any other way.';}
+    input.parentNode.insertBefore(row,input);row.appendChild(input);row.appendChild(button);row.parentNode.insertBefore(note,row.nextSibling);
+    var pending=false;function sync(){button.disabled=pending||input.disabled;}
+    if(window.MutationObserver){new MutationObserver(sync).observe(input,{attributes:true,attributeFilter:['disabled']});}sync();
+    button.addEventListener('click',function(){
+      var host=o.remote?trimText(typeof o.remote==='function'?o.remote():o.remote):'';
+      if(o.remote&&!host){note.textContent=o.noHost||'Connect to the Hyper-V host first.';return;}
+      var parts=String(input.value).split(';'),current=trimText(o.append?parts[parts.length-1]:input.value)||trimText(o.start?o.start():'')||(/^[A-Za-z]:\\/.test(input.placeholder||'')?input.placeholder:'');
+      pending=true;sync();note.textContent='';
+      request('POST','/api/pick',{kind:o.remote?'remote':(o.kind||'folder'),filter:o.filter||'',title:o.title||'',current:current,host:host},function(err,data){pending=false;sync();
+        if(err){note.textContent=err;return;}
+        if(!data.selected||!data.path){return;}
+        var path=data.path;
+        if(o.append&&trimText(input.value)){var list=String(input.value).split(';').map(trimText).filter(function(x){return x;});if(list.indexOf(path)<0){list.push(path);}path=list.join(';');}
+        input.value=path;input.dispatchEvent(new Event('input',{bubbles:true}));input.dispatchEvent(new Event('change',{bubbles:true}));});});
+    return button;
+  }
   function browseFolder(){ request('POST','/api/browse',{},function(err,data){if(err){notice(err,true);return;}if(data.path){byId('outputPath').value=data.path;markChoicesDirty();}}); }
   function startCollection(){
     if(configurationBusy||byId('startButton').disabled){return;}var body=validateChoices();if(!body){return;}
@@ -3073,6 +3100,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     syncCategoryState();markChoicesDirty();
   });}
   byId('presetMaximum').addEventListener('click',function(){applyPreset('maximum');}); byId('presetInventory').addEventListener('click',function(){applyPreset('inventory');}); byId('presetCore').addEventListener('click',function(){applyPreset('core');}); byId('presetClear').addEventListener('click',function(){applyPreset('clear');});
+  Array.prototype.forEach.call(document.querySelectorAll('input[data-browse]'),function(input){pathBrowse(input,{kind:input.getAttribute('data-browse'),title:input.getAttribute('data-browse-title')||'',append:input.hasAttribute('data-browse-append')});});
   byId('browseButton').addEventListener('click',browseFolder); byId('startButton').addEventListener('click',startCollection); byId('skipACLButton').addEventListener('click',skipACLExport); byId('cancelButton').addEventListener('click',function(){request('POST','/api/cancel',{},function(err){if(err){notice(err,true);}});});
   byId('clearLogButton').addEventListener('click',clearLogs); byId('openDiagnosticsButton').addEventListener('click',function(){openKind('diagnostics');}); byId('newInventoryButton').addEventListener('click',resetInterface); byId('viewReportButton').addEventListener('click',function(){switchTab('report');openViewer(false);});
   byId('loadPreviousButton').addEventListener('click',loadPrevious); byId('emptyLoadPreviousButton').addEventListener('click',loadPrevious); byId('reopenReportButton').addEventListener('click',function(){openViewer(false);byId('reopenReportButton').className='secondary-button hidden';});
@@ -4906,6 +4934,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
         b.addEventListener('click',function(){folder.value=vol.path+'\\'+vm.name;vmFolder.value=vol.csv?vol.path:'';kept.copy=folder.value;kept.vm=vmFolder.value;if(vol.csv&&checks.cluster){checks.cluster.checked=true;kept.cluster=true;}syncSpace();});picks.appendChild(b);});
       section.appendChild(picks);}
     [['Copied disks',folder],['Hyper-V VM folder',vmFolder]].forEach(function(pair){var label=el('label','vm-field');label.appendChild(el('span','',pair[0]));label.appendChild(pair[1]);section.appendChild(label);});
+    pathBrowse(folder,{title:'Choose the folder on this Hyper-V host for '+vm.name+'\'s copied disks. The VM runs from them after the cutover.'});pathBrowse(vmFolder,{title:'Choose the folder on this Hyper-V host for '+vm.name+'\'s configuration files.'});
     var space=el('div','migrate-detail');space.id='vmMoveSpace';section.appendChild(space);
     function chosenVolume(){var path=(trimText(folder.value)||folder.placeholder).toLowerCase(),best=null;vols.forEach(function(vol){var root=vol.path.toLowerCase();if((path===root||path.indexOf(root+'\\')===0)&&(!best||root.length>best.path.length)){best=vol;}});return best;}
     var short=false;
@@ -4982,6 +5011,8 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     if(vols.length){var picks=el('div','vm-storage-picks');vols.forEach(function(vol){var b=el('button','secondary-button vm-storage-pick'+(need&&vol.freeBytes<need?' short':''),(vol.csv?'Cluster Shared Volume ':'Drive ')+vol.path+': '+formatBytesShort(vol.freeBytes)+' free');b.type='button';b.setAttribute('data-hvr-storage',vol.path);
       b.addEventListener('click',function(){var root=String(vol.path).replace(/\\+$/,'');folder.value=root+'\\'+(vol.csv?'VMs\\':'Hyper-V\\')+vm.name;vmFolder.value=vol.csv?root+'\\VMs':'';vmHvrForm.folder=folder.value;vmHvrForm.vmFolder=vmFolder.value;if(vol.csv&&checks.cluster){checks.cluster.checked=true;vmHvrForm.cluster=true;}syncSpace();});picks.appendChild(b);});s2.appendChild(picks);}
     s2.appendChild(folderWrap);s2.appendChild(vmFolderWrap);
+    var hvrHost=function(){return vmHvrForm.node||info.computer||'';};pathBrowse(folder,{remote:hvrHost,title:'Choose the folder on the node for '+vm.name+'\'s copied disks.'});pathBrowse(vmFolder,{remote:hvrHost,title:'Choose the folder on the node for '+vm.name+'\'s configuration files.'});
+    var hvrBrowseNote=el('div','vm-note','These are paths on the node that runs the VM. Explorer on this computer cannot browse the node\'s own disks, so Browse host opens its drives through the administrative shares (C$, D$) with your Windows account. If that is not allowed, pick a volume above or type the path.');hvrBrowseNote.id='vmHvrBrowseNote';s2.appendChild(hvrBrowseNote);
     var space=el('div','migrate-detail');space.id='vmHvrSpace';s2.appendChild(space);var short=false;
     function chosenVolume(){var path=(trimText(folder.value)||folder.placeholder).toLowerCase(),best=null;vols.forEach(function(vol){var root=String(vol.path).replace(/\\+$/,'').toLowerCase();if((path===root||path.indexOf(root+'\\')===0)&&(!best||root.length>String(best.path).replace(/\\+$/,'').length)){best=vol;}});return best;}
     // 3. How the disks travel
@@ -5068,7 +5099,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       if(connected&&t.inventory){c.appendChild(el('div','migrate-detail good','Connected to '+t.server+': '+(t.inventory.version||label)+'.'));}
     }
     var m=vmTargetStep(section,(creatable?'2. ':'1. ')+'Receiver media','Builds a Windows PE ISO with this program as the receiver, using the Windows ADK and its Windows PE add-on on this computer. Add the drivers the new machine needs to see its disks and network: the VirtIO drivers (virtio-win) for '+label+(target==='physical'?' guests, or the server vendor\'s storage and network drivers':'')+'.','On this computer');
-    m.appendChild(vmTargetInput('drivers','Driver folders (separate with ;)',target==='physical'?'':'',{placeholder:target==='physical'?'D:\\Drivers\\Server':'D:\\virtio-win\\amd64\\2k22'}));
+    var driversWrap=vmTargetInput('drivers','Driver folders (separate with ;)',target==='physical'?'':'',{placeholder:target==='physical'?'D:\\Drivers\\Server':'D:\\virtio-win\\amd64\\2k22'});m.appendChild(driversWrap);pathBrowse(driversWrap.querySelector('input'),{append:true,title:'Choose a drivers folder on this computer to add. Each Browse adds one more folder.'});
     var mrow=el('div','vm-move-actions');
     mrow.appendChild(vmTargetButton('vmTargetMedia','Build receiver media',function(){
       vmPost('/api/vmware/target/media',{target:target,drivers:vmTargetList_(vmTargetForm.drivers)},'vmTargetStatus',function(err){if(!err){vmMarkRunning('media','media','Building receiver media.');}});
@@ -5076,7 +5107,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     m.appendChild(mrow);
     if(t.mediaPath){m.appendChild(el('div','migrate-detail good','Built: '+t.mediaPath));}
     if(creatable){
-      m.appendChild(vmTargetInput('isoPath','ISO to upload',t.mediaPath||'',{placeholder:'C:\\Path\\receiver.iso'}));
+      var isoWrap=vmTargetInput('isoPath','ISO to upload',t.mediaPath||'',{placeholder:'C:\\Path\\receiver.iso'});m.appendChild(isoWrap);pathBrowse(isoWrap.querySelector('input'),{kind:'file',filter:'iso',title:'Choose the receiver ISO to upload'});
       var defaultName='receiver-'+String(vm.name).toLowerCase().replace(/[^a-z0-9.-]+/g,'-')+'.iso';
       m.appendChild(vmTargetInput('isoName',target==='proxmox'?'Upload as (storage/file.iso)':'Upload as',target==='proxmox'?'local/'+defaultName:defaultName));
       var upload=vmTargetButton('vmTargetUpload','Upload to '+label,function(){vmPost('/api/vmware/target/upload',{path:trimText(vmTargetForm.isoPath),name:trimText(vmTargetForm.isoName)},'vmTargetStatus',function(err){if(!err){vmMarkRunning('upload','uploading','Uploading the receiver media.');}});});

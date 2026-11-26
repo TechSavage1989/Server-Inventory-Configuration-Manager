@@ -327,6 +327,12 @@ func relaunchElevated() error {
 }
 
 func chooseFolder(title string) (string, bool, error) {
+	return chooseFolderAt(title, "")
+}
+
+// chooseFolderAt opens the folder picker with initial selected when it is
+// not empty (a local or UNC folder that exists).
+func chooseFolderAt(title, initial string) (string, bool, error) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
@@ -343,6 +349,13 @@ func chooseFolder(title string) (string, bool, error) {
 		lpszTitle:      utf16Ptr(title),
 		ulFlags:        bifReturnOnlyFSDirs | bifEditBox | bifNewDialogStyle | bifShareable,
 	}
+	var initialPtr *uint16
+	if initial != "" {
+		initialPtr = utf16Ptr(initial)
+		info.lpfn = folderPickerCallback
+		info.lParam = uintptr(unsafe.Pointer(initialPtr))
+	}
+	defer runtime.KeepAlive(initialPtr)
 
 	pidl, _, callErr := procSHBrowseForFolderW.Call(uintptr(unsafe.Pointer(&info)))
 	if pidl == 0 {
@@ -2302,6 +2315,7 @@ func (a *application) serve(listener net.Listener) error {
 	mux.HandleFunc("/api/state", a.handleState)
 	mux.HandleFunc("/api/browse", a.handleBrowse)
 	mux.HandleFunc("/api/browse-report", a.handleBrowseReport)
+	mux.HandleFunc("/api/pick", a.handlePick)
 	mux.HandleFunc("/report/current", a.handleCurrentReport)
 	mux.HandleFunc("/api/start", a.handleStart)
 	mux.HandleFunc("/api/preferences", a.handlePreferences)
