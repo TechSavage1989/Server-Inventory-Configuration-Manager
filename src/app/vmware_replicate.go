@@ -168,6 +168,9 @@ type vmReplicaDisk struct {
 	file     string
 	changeID string
 	capacity int64
+	// slot is the disk's controller slot ("VirtualLsiLogicSASController0:0"),
+	// which names it in a snapshot export.
+	slot string
 	// chain lists the parent files under file, nearest first; empty for a
 	// disk with no snapshot delta.
 	chain []string
@@ -177,6 +180,12 @@ type vmReplicaDisk struct {
 // delta chains, refusing disks that cannot be copied at all.
 func vmReplicaDiskList(devices []types.BaseVirtualDevice) ([]vmReplicaDisk, error) {
 	disks := []vmReplicaDisk{}
+	controllers := map[int32]types.BaseVirtualDevice{}
+	for _, device := range devices {
+		if _, ok := device.(types.BaseVirtualController); ok {
+			controllers[device.GetVirtualDevice().Key] = device
+		}
+	}
 	for _, device := range devices {
 		disk, ok := device.(*types.VirtualDisk)
 		if !ok {
@@ -201,7 +210,11 @@ func vmReplicaDiskList(devices []types.BaseVirtualDevice) ([]vmReplicaDisk, erro
 		if capacity == 0 {
 			capacity = disk.CapacityInKB * 1024
 		}
-		disks = append(disks, vmReplicaDisk{key: disk.Key, label: label, file: backing.FileName, changeID: backing.ChangeId, capacity: capacity, chain: chain})
+		slot := ""
+		if controller, ok := controllers[disk.ControllerKey]; ok && disk.UnitNumber != nil {
+			slot = fmt.Sprintf("%s%d:%d", strings.TrimPrefix(fmt.Sprintf("%T", controller), "*types."), controller.(types.BaseVirtualController).GetVirtualController().BusNumber, *disk.UnitNumber)
+		}
+		disks = append(disks, vmReplicaDisk{key: disk.Key, label: label, file: backing.FileName, changeID: backing.ChangeId, capacity: capacity, slot: slot, chain: chain})
 	}
 	if len(disks) == 0 {
 		return nil, errors.New("the VM has no virtual disks")
@@ -437,6 +450,36 @@ func vmReplicateRound(ctx context.Context, client *vim25.Client, ref types.Manag
 			return nil, err
 		}
 	}
+	// Disks are read through the datastore (/folder), which allows ranged
+	// reads. A host that refuses a disk the running VM holds open gets the
+	// snapshot read through vSphere's export of it instead (vmware_export.go).
+	// The export is ended here, before the deferred snapshot removal above.
+	var export vmSnapshotExport
+	roundOK := false
+	defer func() {
+		if export != nil {
+			export.End(roundOK)
+		}
+	}()
+	openSource := func(disk vmReplicaDisk) (vmCopySource, error) {
+		if export == nil {
+			source, err := openDatastoreVMDK(ctx, client, options.Datacenter, disk.file)
+			if err == nil || !vmFolderRefused(err) {
+				return source, err
+			}
+			log(fmt.Sprintf("%s: the datastore would not open %s while the VM runs (%v); reading this round's snapshot through vSphere's export instead.", disk.label, disk.file, err))
+			total := int64(0)
+			for _, item := range disks {
+				total += item.capacity
+			}
+			opened, exportErr := vmOpenSnapshotExport(ctx, client, snapshot, total, log)
+			if exportErr != nil {
+				return nil, fmt.Errorf("%w; reading the snapshot through vSphere's export also failed: %v", err, exportErr)
+			}
+			export = opened
+		}
+		return openExportedDisk(ctx, export, disk, len(disks))
+	}
 	for index, disk := range disks {
 		if err := ctx.Err(); err != nil {
 			return nil, err
@@ -455,7 +498,7 @@ func vmReplicateRound(ctx context.Context, client *vim25.Client, ref types.Manag
 		if options.NewSink != nil {
 			// Open the source and the sink first: the sink's record (on the
 			// receiver) says which kind of round this disk needs.
-			if source, err = openDatastoreVMDK(ctx, client, options.Datacenter, disk.file); err != nil {
+			if source, err = openSource(disk); err != nil {
 				return nil, fmt.Errorf("%s: %w", disk.label, err)
 			}
 			base, label, err := options.NewSink(index, disk.capacity)
@@ -501,7 +544,7 @@ func vmReplicateRound(ctx context.Context, client *vim25.Client, ref types.Manag
 		}
 		log(fmt.Sprintf("%s: %s copy of %s to %s.", disk.label, item.Mode, disk.file, item.Target))
 		if source == nil {
-			if source, err = openDatastoreVMDK(ctx, client, options.Datacenter, disk.file); err != nil {
+			if source, err = openSource(disk); err != nil {
 				return nil, fmt.Errorf("%s: %w", disk.label, err)
 			}
 			sink = &vmLocalSink{target: target}
@@ -520,6 +563,7 @@ func vmReplicateRound(ctx context.Context, client *vim25.Client, ref types.Manag
 		result.Disks = append(result.Disks, item)
 	}
 	result.Finished = time.Now().UTC()
+	roundOK = true
 	return result, nil
 }
 
