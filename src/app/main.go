@@ -136,6 +136,7 @@ type stateResponse struct {
 	Update                  updateStateResponse    `json:"update"`
 	BuildIdentity           string                 `json:"buildIdentity"`
 	ComputerName            string                 `json:"computerName"`
+	SignedInAccount         string                 `json:"signedInAccount"`
 	IsAdministrator         bool                   `json:"isAdministrator"`
 	PowerShellPath          string                 `json:"powerShellPath"`
 	PowerShellVersion       string                 `json:"powerShellVersion"`
@@ -239,6 +240,7 @@ type application struct {
 	closing                 bool
 	token                   string
 	computerName            string
+	signedInAccount         string
 	admin                   bool
 	powerShellPath          string
 	powerShellVersion       string
@@ -1138,6 +1140,20 @@ func (a *application) setLoadedReport(htmlPath, packagePath, docxPath, summaryPa
 	a.loadedReportSerial++
 }
 
+// signedInAccountName is DOMAIN\user of the account running this
+// application, offered as the guest account for PowerShell Direct (which
+// still needs that account's password: it cannot reuse the sign-in).
+func signedInAccountName() string {
+	user := strings.TrimSpace(os.Getenv("USERNAME"))
+	if user == "" {
+		return ""
+	}
+	if domain := strings.TrimSpace(os.Getenv("USERDOMAIN")); domain != "" {
+		return domain + `\` + user
+	}
+	return user
+}
+
 func newApplication() (*application, error) {
 	token, err := randomHex(24)
 	if err != nil {
@@ -1151,6 +1167,7 @@ func newApplication() (*application, error) {
 	app := &application{
 		token:               token,
 		computerName:        computerName,
+		signedInAccount:     signedInAccountName(),
 		admin:               isAdministrator(),
 		powerShellPath:      psPath,
 		powerShellVersion:   queryPowerShellVersion(psPath),
@@ -1316,6 +1333,7 @@ func (a *application) snapshot(since int) stateResponse {
 		Update:                  a.updateSnapshot(),
 		BuildIdentity:           binaryIdentityMarker,
 		ComputerName:            a.computerName,
+		SignedInAccount:         a.signedInAccount,
 		IsAdministrator:         a.admin,
 		PowerShellPath:          a.powerShellPath,
 		PowerShellVersion:       a.powerShellVersion,

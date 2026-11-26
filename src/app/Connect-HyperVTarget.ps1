@@ -70,6 +70,28 @@ $readHost = {
                 $result.clusterModule = $true
                 $result.cluster = [string](Get-Cluster).Name
                 $result.nodes = @(Get-ClusterNode | ForEach-Object { @{ name = [string]$_.Name; state = [string]$_.State } })
+                # A clustered VM can run on any node, so offer only the
+                # switches every node has. Reading another node from this
+                # session can be refused (no CredSSP is used); then the list
+                # stays this node's and a warning says so.
+                if ($result.hyperVModule) {
+                    $common = @{}
+                    foreach ($sw in @($result.switches)) { $common[$sw.name.ToLowerInvariant()] = $true }
+                    $unread = @()
+                    foreach ($node in @(Get-ClusterNode | Where-Object { $_.State -eq 'Up' -and [string]$_.Name -ne [string]$env:COMPUTERNAME })) {
+                        try {
+                            $there = @{}
+                            foreach ($other in @(Get-VMSwitch -ComputerName ([string]$node.Name) -ErrorAction Stop)) { $there[([string]$other.Name).ToLowerInvariant()] = $true }
+                            foreach ($key in @($common.Keys)) { if (-not $there.ContainsKey($key)) { $common.Remove($key) } }
+                        } catch {
+                            $unread += [string]$node.Name
+                        }
+                    }
+                    $result.switches = @(@($result.switches) | Where-Object { $common.ContainsKey($_.name.ToLowerInvariant()) })
+                    if ($unread.Count) {
+                        [void]$warnings.Add('The switches of ' + ($unread -join ', ') + ' could not be read from ' + $env:COMPUTERNAME + ', so the switch list is this node''s. Check that each switch you choose exists with the same name on every node.')
+                    }
+                }
                 foreach ($csv in @(Get-ClusterSharedVolume)) {
                     foreach ($info in @($csv.SharedVolumeInfo)) {
                         [void]$volumes.Add(@{ path = [string]$info.FriendlyVolumeName; label = [string]$csv.Name; freeBytes = [uint64]$info.Partition.FreeSpace; totalBytes = [uint64]$info.Partition.Size; csv = $true })

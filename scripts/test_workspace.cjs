@@ -74,7 +74,7 @@ const hvBuildStepCount=hvBuildFixture.steps.length;
 async function fixture(browser,old=false){
  let saved=null,started=[],saveCalls=0,rejectStart=false,skipRequests=[],opens=[],restoreReject=null,migrateReject={},vmwareReject={};const receiverPair={allowed:false};
  const logs=[],dialogs=[],errors=[],restoreCalls={browse:0,scan:[],start:[],cancel:0,tokens:[]},migrateCalls=[],vmwareCalls=[],convertCalls=[],replCalls=[],planCalls=[],serverCalls=[];const servers={rows:[],summary:{total:0,states:{},scheduled:0,methods:{}},bulk:{running:false,action:'',total:0,results:[]},hyperVHere:true,isAdministrator:true,local:{hyperV:true,computer:'HV01',running:false,folder:'',defaultFolder:'C:\\ClusterStorage\\Volume1\\Hyper-V\\Received',port:44380,addresses:['192.0.2.40']}};const plans={plans:[],inventory:{open:true,server:'vc01.example.com',serverType:'vCenter Server',live:true}};let convertReject={},convertSize=0;const pickCalls=[],outputRootCalls=[];let pickReject='';
- const state={status:'idle',phase:'Ready',running:false,computerName:'SRV-DEMO-01',isAdministrator:true,powerShellVersion:'5.1',defaultOutputRoot:'C:\\Reports',update:{status:'current',title:'Up to date',message:'Installed v3.2.10. Latest v3.2.10.',canCheck:true},
+ const state={status:'idle',phase:'Ready',running:false,computerName:'SRV-DEMO-01',signedInAccount:'EXAMPLE\\operator',isAdministrator:true,powerShellVersion:'5.1',defaultOutputRoot:'C:\\Reports',update:{status:'current',title:'Up to date',message:'Installed v3.2.10. Latest v3.2.10.',canCheck:true},
   restore:{status:'idle',packages:{lastCollection:'',loadedReport:''},items:[],logs:[]},migrate:migrateIdle(),vmware:vmwareIdle(),convert:convertIdle()};
  const vm={inventory:null,plan:null,sizing:null,guest:null,compare:null};
  const failover={failovers:[],copies:[{name:'APP01-disk0.vhdx',size:107374182400,complete:true,verified:false,round:'a1@2026-11-25T14:19:23Z',job:'a1',recoveryPoint:'2026-11-25T14:19:23Z',updated:'2026-11-25T14:20:00Z',busy:false,generation:2,machine:{name:'APP01',cpus:6,memoryMB:12288,firmware:'uefi',adapters:2}},{name:'APP01-disk1.vhdx',size:536870912000,complete:true,verified:false,round:'a1@2026-11-25T14:19:23Z',job:'a1',recoveryPoint:'2026-11-25T14:19:23Z',updated:'2026-11-25T14:20:00Z',busy:false,generation:1},{name:'SQL01-disk0.vhdx',size:107374182400,complete:false,verified:false,updated:'2026-11-25T14:20:00Z',busy:true,generation:1}]};
@@ -412,6 +412,49 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   assert(await f.page.locator('#updateBanner').isVisible());assert((await f.page.locator('#updateBanner').getAttribute('class')).includes('warning'));assert.equal(await f.page.locator('#updateTitle').textContent(),'Update not installed');assert(/could not be replaced.*To install it by hand/.test(await f.page.locator('#updateStatus').textContent()));assert.equal(await f.page.locator('#updateInstallButton').textContent(),'Try again');
   f.state.update={...f.state.update,installFailed:false,notice:''};await f.page.waitForTimeout(1100);assert.equal(await f.page.locator('#updateInstallButton').textContent(),'Install and restart');assert.equal(await f.page.locator('#updateTitle').textContent(),'Update ready');
   f.state.update={status:'current',title:'Up to date',message:'Installed.',canCheck:true};await f.page.waitForTimeout(1100);assert(!await f.page.locator('#updateBanner').isVisible());assert.deepEqual(f.dialogs,[]);
+ }finally{await f.close();}});
+ await check('Nothing is cut off: every tool and every New migration screen at 1024x768, 1366x768 and 1920x1080 scrolls instead of clipping, and Back and Next stay in view',async()=>{const f=await fixture(browser);try{
+  f.vm.inventory=vmwareInventoryFixture();f.vm.plan=vmwarePlanFixture();
+  f.state.vmware=Object.assign(vmwareIdle(),{status:'connected',server:'vc01.example.com',account:'administrator@vsphere.local',summary:vmwareSummaryFixture(),inventorySerial:1,canPrepare:true,hyperVHere:true,hostStorage:{known:true,vhdPath:'D:\\Hyper-V\\Disks',vmPath:'D:\\Hyper-V',clustered:true,volumes:[{path:'C:\\ClusterStorage\\Volume1',freeBytes:1099511627776,totalBytes:2199023255552,csv:true}]}});
+  // A box that hides overflow while its content is taller than it is cuts
+  // content off; so does a panel that runs past the bottom of the window
+  // when the page itself cannot scroll. One-line ellipsis and line clamps
+  // are deliberate and left alone.
+  const clipped=()=>f.page.evaluate(()=>{
+   const bad=[],H=innerHeight,doc=document.scrollingElement||document.documentElement,pageScrolls=doc.scrollHeight>H+1&&getComputedStyle(doc).overflowY!=='hidden'&&getComputedStyle(document.body).overflowY!=='hidden';
+   const name=e=>e.tagName.toLowerCase()+(e.id?'#'+e.id:'')+(typeof e.className==='string'&&e.className?'.'+e.className.trim().split(/\s+/).slice(0,2).join('.'):'');
+   const root=document.querySelector('.tab-panel.active');if(!root){return ['no active tab'];}
+   for(const e of [root,...root.querySelectorAll('*')]){
+    const cs=getComputedStyle(e);if(cs.display==='none'||cs.visibility==='hidden'||!e.getClientRects().length){continue;}
+    const r=e.getBoundingClientRect();if(r.width<2||r.height<24){continue;}
+    if(cs.whiteSpace==='nowrap'||cs.textOverflow==='ellipsis'||(cs.webkitLineClamp&&cs.webkitLineClamp!=='none')){continue;}
+    if(/hidden|clip/.test(cs.overflowY)&&e.scrollHeight-e.clientHeight>2){bad.push(name(e)+' hides '+(e.scrollHeight-e.clientHeight)+' px');}
+    if(!pageScrolls&&/auto|scroll/.test(cs.overflowY)&&r.bottom>H+1){let inner=false;for(let p=e.parentElement;p&&p!==document.body;p=p.parentElement){if(/auto|scroll/.test(getComputedStyle(p).overflowY)&&p.getBoundingClientRect().bottom<=H+1){inner=true;break;}}if(!inner){bad.push(name(e)+' runs '+Math.round(r.bottom-H)+' px past the window');}}
+   }
+   return [...new Set(bad)];
+  });
+  const inView=sel=>f.page.locator(sel).evaluate(e=>{const r=e.getBoundingClientRect();return r.width>0&&r.top>=0&&r.bottom<=innerHeight&&r.left>=0&&r.right<=innerWidth;});
+  const sizes=[{width:1008,height:690},{width:1350,height:690},{width:1904,height:1000}];
+  const migration=await f.page.locator('#migrationNav [data-tool]').evaluateAll(n=>n.map(x=>x.getAttribute('data-tool')));
+  const all=['server','environment',...migration];
+  for(const size of sizes){await f.page.setViewportSize(size);
+   for(const id of all){await goTool(f,id);await f.page.waitForTimeout(150);const bad=await clipped();assert.deepEqual(bad,[],id+' at '+size.width+'x'+size.height+': '+bad.join('; '));}
+   for(const tab of ['Collection','Report','Restore']){const b=f.page.locator('#tabButton'+tab);if(await b.count()){await b.click();await f.page.waitForTimeout(100);const bad=await clipped();assert.deepEqual(bad,[],tab+' at '+size.width+'x'+size.height+': '+bad.join('; '));}}
+  }
+  // Every New migration screen, including the tallest: Where with a cluster
+  // and the steps of a way that continues in its own tool.
+  const screens=async label=>{for(const size of sizes){await f.page.setViewportSize(size);await f.page.waitForTimeout(150);const bad=await clipped();assert.deepEqual(bad,[],'New migration '+label+' at '+size.width+'x'+size.height+': '+bad.join('; '));assert(await inView('#nwNext'),'Next is in view on '+label+' at '+size.width+'x'+size.height);if(await f.page.locator('#nwBack').isVisible()){assert(await inView('#nwBack'),'Back is in view on '+label);}}};
+  await goTool(f,'wizard');await f.page.locator('[data-nw-source="vms"]').click();await f.page.waitForSelector('#nwVmList [data-nw-pick]');
+  await f.page.locator('[data-nw-pick="vm-app01"]').check();await f.page.locator('[data-nw-pick="vm-sql01"]').check();await screens('What');
+  await f.page.locator('#nwNext').click();await f.page.locator('[data-nw-target="here"]').click();await f.page.locator('[data-nw-switch="VM-Servers"]').selectOption('Isolated');await screens('Where');
+  const step=f.page.locator('#nwStep');await f.page.setViewportSize(sizes[0]);
+  assert(await step.evaluate(e=>e.scrollHeight>e.clientHeight),'at 1024x768 the Where screen is taller than its space');
+  await step.evaluate(e=>e.scrollTop=e.scrollHeight);assert(await f.page.locator('#nwCluster').evaluate(e=>{const r=e.getBoundingClientRect(),s=document.querySelector('#nwStep').getBoundingClientRect();return r.top>=s.top&&r.bottom<=s.bottom;}),'scrolling the step reaches the last option');
+  await f.page.locator('#nwNext').click();await screens('How (migration plan)');
+  await f.page.locator('[data-nw-method="movevms"]').click();await f.page.waitForSelector('#gdSteps li.gd-step');await screens('How (steps for Move VMs)');
+  await f.page.locator('[data-nw-method="plans"]').click();await f.page.locator('#nwNext').click();await screens('When');
+  await f.page.locator('#nwNext').click();await screens('Review');
+  assert.deepEqual(f.dialogs,[]);
  }finally{await f.close();}});
  await check('Native feel: no browser right-click menu or selection on interface text; fields and values stay selectable',async()=>{const f=await fixture(browser);try{
   await f.page.evaluate(()=>{window.menuLog=[];window.addEventListener('contextmenu',e=>{window.menuLog.push((e.target.id||e.target.className||e.target.nodeName)+':'+(e.defaultPrevented?'blocked':'shown'));});});
@@ -811,7 +854,12 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   // No-touch cutover: start, disconnect the old VM and fix up are on by default.
   for(const k of ['start','disconnect','fixUp']){assert(await f.page.locator('input[data-vm-after="'+k+'"]').isChecked(),k+' is ticked by default');}
   assert((await f.page.locator('#vmAfterNote').textContent()).includes('Enter the guest account'),'the fix-up asks for the guest account');
-  await f.page.locator('#vmGaUser').fill('EXAMPLE\\admin');await f.page.locator('#vmGaPassword').fill('Synthetic-Guest-1');await f.page.locator('#vmGaUse').click();
+  // Use the account I'm signed in with fills the name only; the password is still asked for, inline, without a request.
+  await f.page.locator('#vmGaMine').click();assert.equal(await f.page.locator('#vmGaUser').inputValue(),'EXAMPLE\\operator');
+  assert((await f.page.locator('#vmGaPanel').textContent()).includes('cannot reuse your Windows sign-in'));
+  await f.page.locator('#vmGaUse').click();assert.equal(await f.page.locator('#vmGaStatus').textContent(),'Type the password of EXAMPLE\\operator.');assert.equal(vmwareCalls(f,'guest-auto').length,0);
+  // Values the browser fills in without an input event are still read.
+  await f.page.locator('#vmGaUser').evaluate(e=>{e.value='EXAMPLE\\admin';});await f.page.locator('#vmGaPassword').evaluate(e=>{e.value='Synthetic-Guest-1';});await f.page.locator('#vmGaUse').click();
   await f.page.waitForFunction(()=>document.querySelector('#vmGaPanel')&&document.querySelector('#vmGaPanel').textContent.includes('sign in to the new VMs as EXAMPLE\\admin'));
   assert.deepEqual(vmwareCalls(f,'guest-auto').map(c=>c.body),[{user:'EXAMPLE\\admin',password:'Synthetic-Guest-1'}]);
   assert.equal(await f.page.locator('#vmGaPassword').count(),0,'the password field is gone once the account is held');
@@ -917,9 +965,6 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   await f.page.waitForFunction(()=>document.querySelector('#vmMove').textContent.includes('Made highly available in the failover cluster.'));
   assert.equal(await f.page.locator('[data-hvr="code"]').inputValue(),'','the pairing code is cleared after use');
   await f.page.setViewportSize({width:1440,height:1000});await f.page.evaluate(()=>document.activeElement.blur());await f.page.locator('#vmMove').evaluate(e=>e.scrollIntoView({block:'start'}));await f.page.screenshot({path:shots+'/vmware-move-remote-1440x1000.png'});
-  // The guided flow accepts the remote connection instead of running on the host.
-  await goTool(f,'guide');
-  const guide=await f.page.locator('#tabGuide').textContent();assert(!guide.includes('is not a Hyper-V host. Run this application on the Hyper-V host'),'the guide still blocks a remote move');
   await goTool(f,'movevms');await openVm(f,'vm-app01');await f.page.locator('#vmHvrForget').click();
   await f.page.waitForFunction(()=>!!document.querySelector('#vmHvrConnect'));
   assert.deepEqual(f.dialogs,[]);
@@ -976,84 +1021,53 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   await f.page.waitForFunction(()=>document.querySelector('#vmMove').textContent.includes('not made highly available: The cluster service is not running.'));
   assert.deepEqual(f.dialogs,[]);
  }finally{await f.close();}});
- await check('Guided migration: each flow lists every step with the computer it runs on, and a step on the wrong computer or short of space is blocked',async()=>{const f=await fixture(browser);try{
-  await goTool(f,'guide');assert(await f.page.locator('#gdPlan').isHidden(),'nothing is shown until source and target are chosen');
-  await f.page.locator('[data-gd-source="vmware"]').click();assert(await f.page.locator('#gdTargetPick').isVisible());
-  assert.deepEqual(await f.page.locator('[data-gd-target]').evaluateAll(n=>n.map(x=>x.getAttribute('data-gd-target'))),['hyperv','scale','nutanix','proxmox','physical']);
-  await f.page.locator('[data-gd-target="hyperv"]').click();
-  assert.equal(await f.page.locator('#gdPlanTitle').textContent(),'Moving a VMware VM to Hyper-V');
+ await check('New migration holds the former Guided migration: every way that continues in its own tool lists its steps in order with the computer each runs on, live checks that block the wrong computer or too little space, an inline vCenter sign-in, and Prepare and fix up reaching the new VM',async()=>{const f=await fixture(browser);try{
+  f.vm.inventory=vmwareInventoryFixture();f.vm.plan=vmwarePlanFixture();
+  f.state.vmware=Object.assign(vmwareIdle(),{status:'connected',server:'vc01.example.com',account:'administrator@vsphere.local',summary:vmwareSummaryFixture(),inventorySerial:1,canPrepare:true,hyperVHere:true,hostStorage:{known:true,vhdPath:'D:\\Hyper-V\\Disks',vmPath:'D:\\Hyper-V',clustered:false,volumes:[{path:'D:\\',freeBytes:1099511627776,totalBytes:2199023255552,csv:false}]}});
+  await f.page.keyboard.press('Alt+5');assert.equal(await f.page.locator('[data-tool="guide"]').count(),0,'there is no separate Guided migration tool');assert.equal(await f.page.locator('#tabGuide').count(),0);
+  {const card=async id=>(await f.page.locator(`[data-tool="${id}"]`).textContent());
+   const t=await card('movevms');assert(t.includes('Works with VMware (vCenter or ESXi) or Hyper-V VMs to Hyper-V, Scale HyperCore, Nutanix AHV, Proxmox VE or a physical server')&&t.includes('Agentless')&&t.includes('Live, source keeps running'),t);
+   assert((await card('replicate')).includes('Agent on the source'));assert((await card('convert')).includes('Offline, source shut down'));assert((await card('shares')).includes('to a new Windows file server'));
+   assert((await card('wizard')).includes('every other source and target gets its steps in order'));}
+  await goTool(f,'wizard');assert.equal(await f.page.locator('#nwHere [data-gd-fact]').count(),5,'the first screen says what this computer is');
+  await f.page.locator('[data-nw-source="vms"]').click();await f.page.waitForSelector('#nwVmList [data-nw-pick]');await f.page.locator('[data-nw-pick="vm-app01"]').check();await f.page.locator('#nwNext').click();
+  await f.page.locator('[data-nw-target="here"]').click();await f.page.locator('[data-nw-switch="VM-Servers"]').selectOption('Isolated');await f.page.locator('#nwNext').click();
+  const methods=()=>f.page.locator('[data-nw-method]').evaluateAll(n=>n.map(x=>x.getAttribute('data-nw-method')));
+  assert.deepEqual(await methods(),['plans','movevms','replicate']);assert.equal(await f.page.locator('#gdSteps').count(),0,'a way that runs here from start to finish needs no step list');
+  await f.page.locator('[data-nw-method="movevms"]').click();await f.page.waitForSelector('#gdSteps li.gd-step');
+  assert.equal(await f.page.locator('#gdPlanTitle').textContent(),'Moving a VMware VM to Hyper-V: the steps, in order');assert.equal(await f.page.locator('#nwNext').textContent(),'Continue in Move VMs');
   const titles=await f.page.locator('#gdSteps .gd-head strong').allTextContents();
-  for(const want of ['Read vCenter or ESXi','Choose where the VM\'s files go','Copy the disks while the VM runs','Cut over: this builds the Hyper-V VM','Make it highly available (failover cluster only)','Fix up the new machine'])assert(titles.includes(want),titles.join(' | '));
-  const storage=f.page.locator('#gdSteps li.gd-step').filter({hasText:'Choose where the VM\'s files go'});
-  assert(await storage.evaluate(e=>e.classList.contains('blocked')),'blocked on a computer that is not a Hyper-V host');assert(await storage.locator('[data-gd-open]').isDisabled());
-  assert((await storage.locator('[data-gd-check]').textContent()).includes('is not a Hyper-V host'));
-  await vmwareConnected(f);await goTool(f,'guide');
-  Object.assign(f.state.vmware,{hyperVHere:true,inventorySerial:2,hostStorage:{known:true,vhdPath:'D:\\Hyper-V\\Disks',clustered:false,volumes:[{path:'D:\\',freeBytes:21474836480,totalBytes:107374182400,csv:false}]}});
-  await f.page.waitForFunction(()=>[...document.querySelectorAll('#gdSteps li.gd-step')].some(li=>li.textContent.includes('Not enough space')));
-  Object.assign(f.state.vmware,{inventorySerial:3,hostStorage:{known:true,vhdPath:'D:\\Hyper-V\\Disks',clustered:true,volumes:[{path:'C:\\ClusterStorage\\Volume1',freeBytes:1099511627776,totalBytes:2199023255552,csv:true}]}});
-  await f.page.waitForFunction(()=>[...document.querySelectorAll('#gdSteps li.gd-step')].some(li=>li.textContent.includes('choose a Cluster Shared Volume')&&!li.classList.contains('blocked')));
-  await f.page.locator('[data-gd-source="server"]').click();await f.page.locator('[data-gd-target="hyperv"]').click();
-  const serverTitles=await f.page.locator('#gdSteps .gd-head strong').allTextContents();
-  assert(serverTitles.includes('Choose where the copies go')&&serverTitles.includes('Install the agent on the server being moved')&&serverTitles.includes('Add the agent to your endpoint protection exclusions')&&serverTitles.includes('Wait for the initial copy to complete'),serverTitles.join(' | '));
-  assert((await f.page.locator('#gdComputers').textContent()).includes('The new Hyper-V host'));
-  await f.page.locator('[data-gd-source="shares"]').click();assert(await f.page.locator('#gdTargetPick').isHidden());assert.equal(await f.page.locator('#gdPlanTitle').textContent(),'Moving file shares to a new file server');
-  assert.deepEqual(f.dialogs,[]);
- }finally{await f.close();}});
- await check('Works with: every migration tool says which systems it works for and how, and the guide lists only the ways that fit the chosen source and target',async()=>{const f=await fixture(browser);try{
-  await goTool(f,'guide');
-  const card=async id=>(await f.page.locator(`[data-tool="${id}"]`).textContent());
-  {const t=await card('movevms');assert(t.includes('Works with VMware (vCenter or ESXi) or Hyper-V VMs to Hyper-V, Scale HyperCore, Nutanix AHV, Proxmox VE or a physical server')&&t.includes('Agentless')&&t.includes('Live, source keeps running'),t);}
-  {const t=await card('replicate');assert(t.includes('Any running Windows Server or Linux server, physical or a VM on any hypervisor')&&t.includes('Agent on the source'),t);}
-  {const t=await card('convert');assert(t.includes('Offline, source shut down')&&t.includes('VMware ESXi or vCenter'),t);}
-  assert((await card('shares')).includes('to a new Windows file server'));assert((await card('environment')).includes('Read only'));
-  await goTool(f,'convert');assert((await f.page.locator('#toolWorks-tabConvert').textContent()).includes('Offline, source shut down'));
-  await goTool(f,'movevms');assert((await f.page.locator('#toolWorks-tabVmware').textContent()).includes('Agentless'));
-  await goTool(f,'failover');assert((await f.page.locator('#toolWorks-tabVmware').textContent()).includes('Copies received on a Hyper-V host'));
-  await goTool(f,'guide');await f.page.locator('[data-gd-source="vmware"]').click();await f.page.locator('[data-gd-target="hyperv"]').click();
-  const modes=async()=>f.page.locator('[data-gd-mode]').evaluateAll(n=>n.map(x=>x.getAttribute('data-gd-mode')+(x.classList.contains('current')?'*':'')));
-  assert.deepEqual(await modes(),['movevms*','plans','onevmhv','replicate','sendbyhand','convert']);
-  {const t=await f.page.locator('[data-gd-mode="onevmhv"]').textContent();assert(t.includes('remote Hyper-V host or failover cluster (Windows Server 2012 R2 to 2025')&&t.includes('vCenter Server or ESXi 6.5 to 8.0')&&t.includes('Agentless'),t);}
-  await f.page.locator('[data-gd-target="scale"]').click();assert.deepEqual(await modes(),['movevms*','replicate','sendbyhand','convert']);
-  await f.page.locator('[data-gd-target="physical"]').click();assert.deepEqual(await modes(),['movevms*','replicate','sendbyhand'],'disk images are not written to a physical server');
-  await f.page.locator('[data-gd-mode-open="replicate"]').click();
-  assert.equal(await f.page.locator('[data-gd-source="server"]').getAttribute('aria-pressed'),'true');assert.deepEqual(await modes(),['replicate*','sendbyhand','convert'].filter(m=>m!=='convert'));
-  await f.page.locator('[data-gd-source="image"]').click();await f.page.locator('[data-gd-target="vsphere"]').click();assert.deepEqual(await modes(),['convert*']);
-  assert((await f.page.locator('#gdModes').textContent()).startsWith('How it is done:'));
-  await f.page.locator('[data-gd-source="shares"]').click();assert.deepEqual(await modes(),['shares*']);
-  await f.page.locator('[data-gd-source="vmware"]').click();await f.page.locator('[data-gd-target="hyperv"]').click();
-  await f.page.locator('[data-gd-mode-open="sendbyhand"]').click();assert(await f.page.locator('#vmViewDisks').isVisible(),'a mode without its own steps opens its tool');
-  await f.page.setViewportSize({width:1440,height:1000});await goTool(f,'guide');await f.page.locator('#gdModes').scrollIntoViewIfNeeded();await f.page.screenshot({path:shots+'/guide-modes-1440x1000.png'});
-  assert.deepEqual(f.dialogs,[]);
- }finally{await f.close();}});
- await check('Guided migration shows one step at a time with Next, folds optional steps, asks for the vCenter password inside a blocked step, and Prepare and fix up reaches the new VM with nothing installed in it',async()=>{const f=await fixture(browser);try{
-  await goTool(f,'guide');await f.page.locator('[data-gd-source="vmware"]').click();await f.page.locator('[data-gd-target="hyperv"]').click();
+  for(const want of ['Read vCenter or ESXi','Check readiness','Choose where the VM\'s files go','Copy the disks while the VM runs','Cut over: this builds the Hyper-V VM','Make it highly available (failover cluster only)','Fix up the new machine'])assert(titles.includes(want),titles.join(' | '));
   assert.equal(await f.page.locator('#gdSteps li.gd-step.current').count(),1,'exactly one step is open');
-  assert.equal(await f.page.locator('#gdSteps li.gd-step.current .gd-head strong').textContent(),'Read vCenter or ESXi');
-  assert(!await f.page.locator('#gdSteps li.gd-step').nth(1).locator('.gd-text').isVisible(),'other steps are folded');
+  await f.page.setViewportSize({width:1440,height:1000});await f.page.locator('#nwStep').evaluate(e=>{const g=document.querySelector('#gdPlan');e.scrollTop=g.offsetTop-e.offsetTop-150;});await f.page.screenshot({path:out+'/new-migration-steps-1440x1000.png'});
   const optional=await f.page.locator('#gdSteps li.gd-step.optional .gd-head strong').allTextContents();
   for(const want of ['Plan waves and write a runbook','Save BitLocker keys (only with BitLocker or a virtual TPM)','Compare before and after'])assert(optional.includes(want),optional.join(' | '));
-  const all=(await f.page.locator('#tabGuide').textContent());assert(!/Copy this application into the VM/.test(all),'no step asks to copy the application into the VM');
-  assert((await f.page.locator('#gdModes').textContent()).includes('Pick this when'),'each way of moving says when to pick it');
-  await f.page.locator('#gdSteps li.gd-step.current [data-gd-next]').click();
-  assert.equal(await f.page.locator('#gdSteps li.gd-step.current .gd-head strong').textContent(),'Check readiness');
-  assert((await f.page.locator('#gdProgress').textContent()).startsWith('Step 2 of '));
-  await f.page.locator('#gdSteps li.gd-step').filter({hasText:'Fix up the new machine'}).locator('.gd-head').click();
-  const fixup=f.page.locator('#gdSteps li.gd-step.current');assert.equal(await fixup.locator('.gd-head strong').textContent(),'Fix up the new machine');
-  assert((await fixup.locator('.gd-text').textContent()).includes('PowerShell Direct'));
-  await vmwareConnected(f);Object.assign(f.state.vmware,{hyperVHere:true,canPrepare:false,inventorySerial:2,hostStorage:{known:true,vhdPath:'D:\\Hyper-V\\Disks',clustered:false,volumes:[{path:'D:\\',freeBytes:1099511627776,totalBytes:2199023255552,csv:false}]}});
-  await goTool(f,'guide');await f.page.locator('#gdSteps li.gd-step').filter({hasText:'Copy the disks while the VM runs'}).locator('.gd-head').click();
+  assert(!/Copy this application into the VM/.test(await f.page.locator('#nwStep').textContent()),'no step asks to copy the application into the VM');
+  const stepNo=async()=>Number((await f.page.locator('#gdProgress').textContent()).match(/^Step (\d+) of /)[1]);
+  const first=await stepNo();await f.page.locator('#gdSteps li.gd-step.current [data-gd-next]').click();assert.equal(await stepNo(),first+1,'Next step opens the next one');
+  const storage=f.page.locator('#gdSteps li.gd-step').filter({hasText:'Choose where the VM\'s files go'});
+  f.state.vmware.hostStorage={known:true,vhdPath:'D:\\Hyper-V\\Disks',clustered:false,volumes:[{path:'D:\\',freeBytes:21474836480,totalBytes:107374182400,csv:false}]};
+  await f.page.waitForFunction(()=>[...document.querySelectorAll('#gdSteps li.gd-step')].some(li=>li.textContent.includes('Not enough space')&&li.classList.contains('blocked')));
+  assert(await storage.locator('[data-gd-open]').isDisabled(),'a blocked step cannot be opened');
+  f.state.vmware.hostStorage={known:true,vhdPath:'D:\\Hyper-V\\Disks',clustered:true,volumes:[{path:'C:\\ClusterStorage\\Volume1',freeBytes:1099511627776,totalBytes:2199023255552,csv:true}]};
+  await f.page.waitForFunction(()=>[...document.querySelectorAll('#gdSteps li.gd-step')].some(li=>li.textContent.includes('choose a Cluster Shared Volume')&&!li.classList.contains('blocked')));
+  Object.assign(f.state.vmware,{canPrepare:false,inventorySerial:2});
+  await f.page.waitForFunction(()=>!!document.querySelector('#gdSteps li.gd-step'));
+  await f.page.locator('#gdSteps li.gd-step').filter({hasText:'Copy the disks while the VM runs'}).locator('.gd-head').click();
   const copy=f.page.locator('#gdSteps li.gd-step.current');await f.page.waitForFunction(()=>!!document.querySelector('#gdSteps li.gd-step.current [data-gd-vcpass]'));
   assert((await copy.locator('[data-gd-check]').textContent()).includes('does not hold the vCenter password'));
-  assert((await copy.locator('[data-gd-fix]').textContent()).includes('readonly@vsphere.local on vc01.example.com'));
+  assert((await copy.locator('[data-gd-fix]').textContent()).includes('administrator@vsphere.local on vc01.example.com'));
   await copy.locator('[data-gd-vcpass]').fill('Synthetic-Pa55');await copy.locator('[data-gd-vcconnect]').click();
   await f.page.waitForFunction(()=>document.querySelector('#vmwareTabBadge').textContent==='Reading');
-  assert.deepEqual(vmwareCalls(f,'connect').at(-1).body,{server:'vc01.example.com',user:'readonly@vsphere.local',password:'Synthetic-Pa55'},'the inline fix reconnects with the held server and account');
+  assert.deepEqual(vmwareCalls(f,'connect').at(-1).body,{server:'vc01.example.com',user:'administrator@vsphere.local',password:'Synthetic-Pa55'},'the inline fix reconnects with the held server and account');
   Object.assign(f.state.vmware,{running:false,action:'',status:'connected',canPrepare:true,move:{vm:'APP01',cutover:true,hyperVId:'4f6c1d6e-2b1a-4c55-9d3e-0f1e2d3c4b5a'},moveSerial:3});
-  await goTool(f,'guide');await f.page.locator('#gdSteps li.gd-step').filter({hasText:'Fix up the new machine'}).locator('.gd-head').click();
+  await f.page.waitForFunction(()=>!!document.querySelector('#gdSteps li.gd-step')&&!document.querySelector('[data-gd-vcpass]'));
+  await f.page.locator('#gdSteps li.gd-step').filter({hasText:'Fix up the new machine'}).locator('.gd-head').click();
+  assert((await f.page.locator('#gdSteps li.gd-step.current .gd-text').textContent()).includes('PowerShell Direct'));
   await f.page.waitForFunction(()=>document.querySelector('#gdSteps li.gd-step.current [data-gd-check]').textContent.includes('The new VM APP01 exists'));
   await f.page.locator('#gdSteps li.gd-step.current [data-gd-open]').click();
   assert(await f.page.locator('#vmViewGuest').isVisible());
-  assert(await f.page.locator('input[name="vmGuestMode"][value="direct"]').isChecked(),'after a cutover on the host the guide picks PowerShell Direct');
+  assert(await f.page.locator('input[name="vmGuestMode"][value="direct"]').isChecked(),'after a cutover on the host the steps pick PowerShell Direct');
   assert.equal(await f.page.locator('#vmGuestVmName').inputValue(),'APP01','the new VM is filled in');
   assert(await f.page.locator('input[name="vmGuestMode"][value="hostdirect"]').isDisabled(),'the connected-host option needs a connection');
   await f.page.locator('#vmGuestUser').fill('.\\Administrator');await f.page.locator('#vmGuestPassword').fill('Synthetic-Guest-1');await f.page.locator('#vmGuestUse').click();
@@ -1062,11 +1076,25 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   f.state.vmware.guestTarget={mode:'direct',modeName:'A VM on this Hyper-V host (PowerShell Direct)',label:'APP01',vm:'APP01',computer:'',host:'',user:'.\\Administrator',hasPassword:true,kept:'C:\\x',keptSource:'vCenter',keptAt:'2026-11-26T03:00:00Z'};
   await f.page.waitForFunction(()=>document.querySelector('#vmGuestTargetNote').textContent.includes('Checks run on APP01'));
   assert((await f.page.locator('#vmGuestTargetNote').textContent()).includes('Recording kept here: from vCenter'));
-  await f.page.waitForFunction(()=>true);await f.page.waitForTimeout(400);
-  assert(vmwareCalls(f,'guest/status').length>=1,'Use this machine reads the VM straight away');
+  await f.page.waitForTimeout(400);assert(vmwareCalls(f,'guest/status').length>=1,'Use this machine reads the VM straight away');
   await f.page.locator('input[name="vmGuestMode"][value="winrm"]').check();assert(await f.page.locator('#vmGuestComputerName').isVisible()&&!await f.page.locator('#vmGuestVmName').isVisible());
-  await f.page.setViewportSize({width:1440,height:1000});await f.page.locator('#vmGuestWhere').scrollIntoViewIfNeeded();await f.page.screenshot({path:shots+'/guest-which-machine-1440x1000.png'});
-  await goTool(f,'guide');await f.page.screenshot({path:shots+'/guide-one-step-1440x1000.png'});
+  await f.page.locator('#vmGuestWhere').scrollIntoViewIfNeeded();await f.page.screenshot({path:out+'/guest-which-machine-1440x1000.png'});
+  // Replicate servers follows the running-server steps.
+  await goTool(f,'wizard');await f.page.locator('[data-nw-method="replicate"]').click();await f.page.waitForSelector('#gdSteps li.gd-step');
+  const serverTitles=await f.page.locator('#gdSteps .gd-head strong').allTextContents();
+  assert(serverTitles.includes('Choose where the copies go')&&serverTitles.includes('Install the agent on the server being moved')&&serverTitles.includes('Add the agent to your endpoint protection exclusions')&&serverTitles.includes('Wait for the initial copy to complete'),serverTitles.join(' | '));
+  assert((await f.page.locator('#gdComputers').textContent()).includes('The new Hyper-V host'));
+  // Only ways that can write to the chosen target are offered.
+  await f.page.locator('[data-nw-step="0"]').click();await f.page.locator('#nwNext').click();await f.page.locator('[data-nw-target="physical"]').click();await f.page.locator('#nwNext').click();
+  assert.deepEqual(await methods(),['movevms','replicate'],'disk images are not written to a physical server');
+  // File shares and disk images get their own steps.
+  await f.page.locator('[data-nw-step="0"]').click();await f.page.locator('[data-nw-source="shares"]').click();await f.page.locator('#nwNext').click();await f.page.locator('[data-nw-target="fileserver"]').click();await f.page.locator('#nwNext').click();
+  assert.deepEqual(await methods(),['shares']);assert.equal(await f.page.locator('#gdPlanTitle').textContent(),'Moving file shares to a new file server: the steps, in order');
+  assert((await f.page.locator('#gdSteps').textContent()).includes('Connect to the old server and choose shares'));
+  f.state.vmware.hyperVHere=false;
+  await f.page.locator('[data-nw-step="0"]').click();await f.page.locator('[data-nw-source="images"]').click();await f.page.locator('#nwNext').click();await f.page.locator('[data-nw-target="here"]').click();await f.page.locator('#nwNext').click();
+  assert.deepEqual(await methods(),['convert']);assert((await f.page.locator('#gdSteps').textContent()).includes('Check the disk'));
+  await f.page.waitForFunction(()=>[...document.querySelectorAll('#gdSteps li.gd-step')].some(li=>li.textContent.includes('Send it to Hyper-V and create the VM')&&li.classList.contains('blocked')&&li.textContent.includes('is not a Hyper-V host')),null,{timeout:5000}).catch(async()=>{throw new Error('a Hyper-V step is not blocked on a computer that is not a Hyper-V host: '+await f.page.locator('#gdSteps li.gd-step').filter({hasText:'Send it to Hyper-V'}).evaluate(e=>e.className+' | '+e.querySelector('[data-gd-check]').textContent));});
   assert.deepEqual(f.dialogs,[]);
  }finally{await f.close();}});
  await check('Receiver connection details: Copy buttons copy each detail and all of them, and pasting the block into any sending field fills all three',async()=>{const f=await fixture(browser);try{
@@ -1827,7 +1855,7 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   assert(await f.page.locator('#vmDetail').isVisible(),'the VM opens in Move VMs');
  }finally{await f.close();}});
  await check('New migration: from an admin computer, connect to a remote Hyper-V cluster inside Where, pick a node and Cluster Shared Volume, and start a migration plan that runs against it',async()=>{const f=await fixture(browser);try{
-  f.vm.inventory=vmwareInventoryFixture();f.vm.plan=vmwarePlanFixture();f.state.vmware=Object.assign(vmwareIdle(),{status:'connected',server:'vc01.example.com',account:'administrator@vsphere.local',summary:vmwareSummaryFixture(),inventorySerial:1,canPrepare:true,hyperVHere:false});
+  f.vm.inventory=vmwareInventoryFixture();f.vm.plan=vmwarePlanFixture();f.vm.plan.networks[0].targetName='VM-Servers';f.state.vmware=Object.assign(vmwareIdle(),{status:'connected',server:'vc01.example.com',account:'administrator@vsphere.local',summary:vmwareSummaryFixture(),inventorySerial:1,canPrepare:true,hyperVHere:false});
   await goTool(f,'wizard');await f.page.locator('[data-nw-source="vms"]').click();await f.page.waitForSelector('#nwVmList [data-nw-pick]');await f.page.locator('[data-nw-pick="vm-app01"]').check();await f.page.locator('#nwNext').click();
   assert((await f.page.locator('[data-nw-target="here"]').textContent()).includes('Another Hyper-V host or cluster'),'the disabled local target points to the remote one');
   await f.page.locator('[data-nw-target="hvremote"]').click();await f.page.locator('#nwHvConnect').waitFor();
@@ -1847,13 +1875,21 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   assert.equal(await f.page.locator('#nwNode').inputValue(),'HV01','the node that answered is chosen');assert(await f.page.evaluate(()=>document.querySelector('#nwNode option[value="HV03"]').disabled),'a paused node cannot be chosen');
   assert.equal(await f.page.locator('#nwCopyRoot').inputValue(),'C:\\ClusterStorage\\Volume1\\Migrations','the Cluster Shared Volume with the most room is filled in');
   assert.equal(await f.page.locator('#nwVMFolder').inputValue(),'C:\\ClusterStorage\\Volume1\\VMs');assert(await f.page.locator('#nwCluster').isChecked(),'high availability is on for a cluster');
-  assert.equal(await f.page.locator('[data-nw-switch="VM-Servers"]').inputValue(),'LAN','the host\'s only external switch is filled in');
+  assert.equal(await f.page.locator('[data-nw-switch="VM-Servers"]').inputValue(),'LAN','the host\'s only external switch is filled in, not the plan\'s port group name the cluster lacks');
+  assert.equal(await f.page.locator('[data-nw-vlan="VM-Servers"]').inputValue(),'20','the VLAN comes from the port group');
+  // A switch the cluster does not have blocks Where and Review, and Review never also says every network is fine.
+  f.state.vmware.hvRemote=Object.assign({},f.state.vmware.hvRemote,{serial:2,info:Object.assign({},info,{switches:[{name:'Other',type:'External'},{name:'Second',type:'External'}]})});
+  await f.page.waitForFunction(()=>document.querySelector('#nwWhy').textContent==='Switch LAN is not on cluster HVCLU01. Choose a switch for VM-Servers.',null,{timeout:15000});
+  assert((await f.page.locator('[data-nw-switch="VM-Servers"] option:checked').textContent()).includes('not on every node'));
+  f.state.vmware.hvRemote=Object.assign({},f.state.vmware.hvRemote,{serial:3,info});
+  await f.page.waitForFunction(()=>document.querySelector('#nwWhy').textContent!=='Switch LAN is not on cluster HVCLU01. Choose a switch for VM-Servers.',null,{timeout:15000});
   await f.page.locator('#nwNode').selectOption('HV02');await f.page.locator('[data-nw-volume$="Volume2"]').click();assert.equal(await f.page.locator('#nwCopyRoot').inputValue(),'C:\\ClusterStorage\\Volume2\\Migrations');
   await f.page.locator('[data-nw-volume$="Volume1"]').click();
   assert.equal(await f.page.locator('#nwWhy').textContent(),'');await f.page.locator('#nwNext').click();
   assert.equal(await f.page.locator('[data-nw-method="plans"]').getAttribute('aria-pressed'),'true','a migration plan is recommended for a remote host too');assert((await f.page.locator('[data-nw-method="plans"]').textContent()).includes('Runs from here, start to finish'));
   await f.page.locator('#nwNext').click();await f.page.locator('#nwNext').click();
   {const t=await f.page.locator('.nw-checks').textContent();assert(t.includes('runs the migration and is connected to cluster HVCLU01'),t);assert(t.includes('created on HV02'),t);}
+  {const t=await f.page.locator('.nw-checks').textContent();assert(t.includes('Every network has a switch cluster HVCLU01 has'),t);}
   assert((await f.page.locator('.nw-summary').textContent()).includes('Hyper-V host HV02 in cluster HVCLU01, run from this computer'));
   const name=await f.page.locator('#nwName').inputValue();await f.page.locator('#nwConfirm').fill(name);await f.page.locator('#nwNext').click();
   for(let i=0;i<100&&!f.planCalls.some(c=>c.body.action==='create');i++){await new Promise(r=>setTimeout(r,50));}
@@ -2066,7 +2102,7 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   assert.deepEqual(await f.page.locator('#rpAgents .rp-agent-title strong').allTextContents(),['WEB01']);
   await f.page.locator('.rp-filter-bar [data-rp-filter]').click();assert.equal(await f.page.locator('.rp-filter-bar').count(),0);assert.equal(await f.page.locator('#rpAgents .rp-agent').count(),2);
   await f.page.locator('#rpSummary [data-rp-filter="healthy"]').click();await f.page.locator('#rpSummary [data-rp-filter="healthy"]').click();assert.equal(await f.page.locator('.rp-filter-bar').count(),0,'the same tile clears the filter');
-  await goTool(f,'guide');assert.equal(await f.page.locator('#gdHere [data-gd-fact]').count(),5);await f.page.locator('#gdHere [data-gd-fact="diskcopy"]').click();assert.equal(await f.page.locator('[data-tool="diskcopy"]').getAttribute('aria-pressed'),'true');
+  await goTool(f,'wizard');assert.equal(await f.page.locator('#nwHere [data-gd-fact]').count(),5);await f.page.locator('#nwHere [data-gd-fact="diskcopy"]').click();assert.equal(await f.page.locator('[data-tool="diskcopy"]').getAttribute('aria-pressed'),'true');
   assert.deepEqual(f.dialogs,[]);
  }finally{await f.close();}});
  await check('A cutover that stops moving says so and can be cancelled: no progress, verifying on the receiver, Cancel cutover and both logs',async()=>{const f=await fixture(browser);try{
