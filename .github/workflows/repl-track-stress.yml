@@ -24,7 +24,7 @@ jobs:
         run: |
           go mod download
           if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
-          go test -v -count=5 -run 'TestReplicationChangeTrackingMissesNothing$' ./src/app 2>&1 | Tee-Object stress.txt
+          go test -v -count=12 -run 'TestReplicationChangeTrackingMissesNothing$' ./src/app 2>&1 | Tee-Object stress.txt
           $code=$LASTEXITCODE
           $pass=(Select-String -Path stress.txt -Pattern '^--- PASS: TestReplicationChangeTrackingMissesNothing').Count
           $fail=(Select-String -Path stress.txt -Pattern '^--- FAIL: TestReplicationChangeTrackingMissesNothing').Count
