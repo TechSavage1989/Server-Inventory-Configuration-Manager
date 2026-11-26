@@ -4,6 +4,7 @@
 - Where in the page: a VM's Readiness tab, the readiness list's **SQL and DC checks…**, and New migration's Review.
 - Tests: `go test ./...` (`preflight_test.go`), `TestRolePreflightScriptReadsAServerThroughRemoting` on the Windows runner, the workspace check "SQL and DC checks".
 - Limits: not run against a real domain controller or SQL Server yet. Each check reads only the checked DC's own replication status (a remote session cannot pass the account on), so forest-wide `repadmin /replsummary` stays a manual step. dcdiag output is parsed in English; on other languages its last lines are kept and shown.
+
 ## Unreleased: Guided migration folded into New migration; nothing clips — 2026-11-26
 
 - The separate Guided migration tool is gone (owner: one tool instead of two). New migration's How screen shows the same step list for every way that continues in its own tool (Move VMs one at a time, Replicate servers, Convert disk images, Move file shares, HyperCore/Nutanix/Proxmox/physical targets), with the computer each step runs on, live checks that block the wrong computer or too little space, the inline vCenter sign-in and Open buttons. The first screen shows this computer's facts. Old `guide` links open New migration. How only offers ways that can reach the chosen target (a disk image is no longer offered for a physical server).
