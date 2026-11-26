@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 )
 
 // Bulk Prepare on VMware (2026-11-26, user-requested: apply the prepare steps
@@ -23,13 +24,19 @@ type vmPrepareBatchRequest struct {
 }
 
 type vmPrepareBatchItem struct {
-	ID      string         `json:"id"`
-	VM      string         `json:"vm"`
-	Steps   vmPrepareSteps `json:"steps"`
-	State   string         `json:"state"` // waiting, running, done, failed, stopped
-	Done    []string       `json:"done"`
-	Skipped []string       `json:"skipped"`
-	Error   string         `json:"error,omitempty"`
+	ID    string         `json:"id"`
+	VM    string         `json:"vm"`
+	Steps vmPrepareSteps `json:"steps"`
+	State string         `json:"state"` // waiting, running, done, failed, stopped
+	// Step is what the running VM is doing now and Percent vSphere's
+	// progress of a decrypt (-1 when there is none), for live progress.
+	Step      string     `json:"step,omitempty"`
+	Percent   int        `json:"percent"`
+	StartedAt *time.Time `json:"startedAt,omitempty"`
+	EndedAt   *time.Time `json:"endedAt,omitempty"`
+	Done      []string   `json:"done"`
+	Skipped   []string   `json:"skipped"`
+	Error     string     `json:"error,omitempty"`
 }
 
 // vmPrepareBatchConfirmText is what the operator types to confirm a batch.
@@ -79,7 +86,7 @@ func vmPlanPrepareBatch(inventory *vmInventory, requests []vmPrepareBatchRequest
 		if role := vmInfrastructureRole(vm); role != "" {
 			return nil, fmt.Errorf("%s is %s, which is not migrated. It is never changed.", vm.Name, role)
 		}
-		items = append(items, vmPrepareBatchItem{ID: vm.ID, VM: vm.Name, Steps: request.Steps, State: "waiting", Done: []string{}, Skipped: []string{}})
+		items = append(items, vmPrepareBatchItem{ID: vm.ID, VM: vm.Name, Steps: request.Steps, State: "waiting", Percent: -1, Done: []string{}, Skipped: []string{}})
 	}
 	expected := vmPrepareBatchConfirmText(len(items))
 	if !strings.EqualFold(strings.Join(strings.Fields(confirm), " "), expected) {
@@ -103,7 +110,8 @@ func vmPrepareBatchRun(ctx context.Context, items []vmPrepareBatchItem, prepare 
 			stopped++
 			continue
 		}
-		items[index].State = "running"
+		started := time.Now()
+		items[index].State, items[index].StartedAt = "running", &started
 		snapshot()
 		result, err := func() (result vmPrepareResult, err error) {
 			defer func() {
@@ -113,6 +121,8 @@ func vmPrepareBatchRun(ctx context.Context, items []vmPrepareBatchItem, prepare 
 			}()
 			return prepare(items[index])
 		}()
+		ended := time.Now()
+		items[index].EndedAt, items[index].Step, items[index].Percent = &ended, "", -1
 		items[index].Done = append([]string{}, result.Done...)
 		items[index].Skipped = append([]string{}, result.Skipped...)
 		if err != nil {
@@ -126,4 +136,38 @@ func vmPrepareBatchRun(ctx context.Context, items []vmPrepareBatchItem, prepare 
 	}
 	snapshot()
 	return done, failed, stopped
+}
+
+// vmApplyPrepareResult puts what a prepare changed into the inventory and
+// checks readiness again, so a decrypted VM is no longer blocked until the
+// next read. It reports whether the inventory was there to change.
+func vmApplyPrepareResult(inventory *vmInventory, id string, result vmPrepareResult, now time.Time) bool {
+	if inventory == nil {
+		return false
+	}
+	for index := range inventory.VMs {
+		vm := &inventory.VMs[index]
+		if vm.ID != id || result.PowerState == "" {
+			continue
+		}
+		vm.PowerState, vm.VTPM, vm.Encrypted = result.PowerState, result.VTPM, result.Encrypted
+		if !result.Encrypted {
+			// Decrypted (or never encrypted): no disk is encrypted any more.
+			for disk := range vm.Disks {
+				vm.Disks[disk].Encrypted = false
+			}
+			vm.EncryptionRead = true
+		}
+		if result.Snapshots == 0 {
+			vm.Snapshots, vm.ConsolidationNeeded = nil, false
+		}
+		if result.PowerState == "poweredOff" {
+			vm.ToolsRunning = false
+		}
+		vm.Readiness = nil
+		for _, target := range vmTargets {
+			vm.Readiness = append(vm.Readiness, assessVM(*vm, target, now))
+		}
+	}
+	return true
 }
