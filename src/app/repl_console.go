@@ -98,6 +98,7 @@ type replAgentAPI interface {
 	Action(ctx context.Context, id, action string) error
 	Schedule(ctx context.Context, id string, at *time.Time) error
 	Log(ctx context.Context, id string) ([]string, error)
+	CheckReceiver(ctx context.Context, link replReceiverLink) (replReceiverCheck, error)
 }
 
 func newReplConsole(path string, seal, unseal func([]byte) ([]byte, error)) (*replConsole, error) {

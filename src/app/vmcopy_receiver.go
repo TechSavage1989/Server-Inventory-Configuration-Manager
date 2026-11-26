@@ -42,6 +42,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -110,6 +111,10 @@ func (t vmReceiverRawTarget) Close() error {
 }
 
 type vmReceiver struct {
+	// stopping ends work that outlives a request (a verification) when the
+	// receiver stops.
+	stopping   context.Context
+	stopAll    context.CancelFunc
 	folder     string
 	records    string
 	disks      map[string]vmReceiverDisk
@@ -178,10 +183,20 @@ func (r *vmReceiver) Busy(name string) bool {
 }
 
 type vmReceiverSession struct {
-	mu   sync.Mutex
-	name string
-	sink vmReceiverTarget
-	seen time.Time
+	mu    sync.Mutex
+	name  string
+	owner string
+	sink  vmReceiverTarget
+	seen  time.Time
+
+	// finishing is set while a finish (with its verification, which reads
+	// the whole disk back) runs; it is read without the session lock.
+	finishing atomic.Bool
+	// finished remembers the last successful finish, so a sender that
+	// gave up waiting and asks again gets the result instead of a second
+	// verification. Any write clears it.
+	finishedKey   string
+	finishedState *vmCopyState
 
 	// A rescan rebuilds the record from the target's content in the
 	// background; chunks are refused until it ends.
@@ -195,6 +210,25 @@ type vmReceiverSession struct {
 	progress vmTransfer
 	meter    vmRateMeter
 	position vmRateMeter
+
+	// shown is the last snapshot, for Transfers while a long request (a
+	// verification) holds mu: the window never waits on a busy session.
+	shownMu sync.Mutex
+	shown   vmTransfer
+}
+
+// show records the snapshot Transfers uses while the session is busy.
+// Caller holds s.mu.
+func (s *vmReceiverSession) show(t vmTransfer) {
+	s.shownMu.Lock()
+	s.shown = t
+	s.shownMu.Unlock()
+}
+
+func (s *vmReceiverSession) lastShown() vmTransfer {
+	s.shownMu.Lock()
+	defer s.shownMu.Unlock()
+	return s.shown
 }
 
 // snapshot is the session's progress as a transfer. Caller holds s.mu.
@@ -219,6 +253,10 @@ type vmReceiverOpen struct {
 	// Rescan rebuilds the copy record from the target's content before any
 	// chunk is accepted (after a test failover, or for a failback).
 	Rescan bool `json:"rescan,omitempty"`
+	// Owner names the sender (a replication job's ID): the same owner may
+	// take over its own idle session at once, after a round it abandoned
+	// because a read hung, instead of waiting two minutes.
+	Owner string `json:"owner,omitempty"`
 }
 
 type vmReceiverOpened struct {
@@ -332,7 +370,8 @@ func startVMReceiverWith(address string, config vmReceiverConfig, log func(strin
 	if err != nil {
 		return nil, err
 	}
-	r := &vmReceiver{folder: folder, records: records, disks: disks, code: code, thumbprint: thumbprint, listener: listener, log: log, sessions: map[string]*vmReceiverSession{}, names: map[string]string{}, pairing: config.Pairing, pairs: map[string]*vmPairRequest{}, freeBytes: config.FreeBytes, version: config.Version, hostName: hostName}
+	stopping, stopAll := context.WithCancel(context.Background())
+	r := &vmReceiver{stopping: stopping, stopAll: stopAll, folder: folder, records: records, disks: disks, code: code, thumbprint: thumbprint, listener: listener, log: log, sessions: map[string]*vmReceiverSession{}, names: map[string]string{}, pairing: config.Pairing, pairs: map[string]*vmPairRequest{}, freeBytes: config.FreeBytes, version: config.Version, hostName: hostName}
 	r.server = &http.Server{
 		Handler:           r,
 		TLSConfig:         &tls.Config{Certificates: []tls.Certificate{certificate}, MinVersion: tls.VersionTLS12},
@@ -396,9 +435,20 @@ func (r *vmReceiver) Transfers() []vmTransfer {
 	}
 	r.mu.Unlock()
 	for _, session := range sessions {
-		session.mu.Lock()
-		list = append(list, session.snapshot(now))
-		session.mu.Unlock()
+		if session.mu.TryLock() {
+			t := session.snapshot(now)
+			session.show(t)
+			session.mu.Unlock()
+			list = append(list, t)
+			continue
+		}
+		// Busy (verifying, most often): show the last known progress
+		// rather than wait, so the window keeps answering.
+		t := session.lastShown()
+		if session.finishing.Load() {
+			t.Label = "Verifying the copy (reading it back)"
+		}
+		list = append(list, t)
 	}
 	vmSortTransfers(list)
 	return list
@@ -429,6 +479,7 @@ func (r *vmReceiver) retire(session *vmReceiverSession, state string) {
 func (r *vmReceiver) Stop() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
+	r.stopAll()
 	if r.discovery != nil {
 		r.discovery.Close()
 	}
@@ -537,9 +588,13 @@ func (r *vmReceiver) open(w http.ResponseWriter, request *http.Request) {
 		// leaves its session open; after two idle minutes a new sender may
 		// take over, resuming from the saved record.
 		if old := r.sessions[id]; old != nil && old.mu.TryLock() {
-			if time.Since(old.seen) > 2*time.Minute && !old.rescanning {
+			own := body.Owner != "" && body.Owner == old.owner
+			if (own || time.Since(old.seen) > 2*time.Minute) && !old.rescanning {
 				old.sink.Close()
 				old.progress.Error = "the sender stopped answering; another sender took over"
+				if own {
+					old.progress.Error = "the sender started this copy again"
+				}
 				r.retire(old, "stopped")
 				delete(r.sessions, id)
 				delete(r.names, key)
@@ -550,7 +605,15 @@ func (r *vmReceiver) open(w http.ResponseWriter, request *http.Request) {
 		if !busy {
 			goto claim
 		}
+		finishing := false
+		if old := r.sessions[id]; old != nil {
+			finishing = old.finishing.Load()
+		}
 		r.mu.Unlock()
+		if finishing {
+			vmReceiverError(w, http.StatusConflict, body.Name+" is still being verified from the previous round; try again in a few minutes")
+			return
+		}
 		vmReceiverError(w, http.StatusConflict, body.Name+" is already being received")
 		return
 	}
@@ -594,7 +657,7 @@ claim:
 	idBytes := make([]byte, 16)
 	rand.Read(idBytes)
 	id := hex.EncodeToString(idBytes)
-	session := &vmReceiverSession{name: key, sink: sink, seen: time.Now()}
+	session := &vmReceiverSession{name: key, owner: body.Owner, sink: sink, seen: time.Now()}
 	peer := request.RemoteAddr
 	if host, _, splitErr := net.SplitHostPort(peer); splitErr == nil {
 		peer = host
@@ -686,6 +749,7 @@ func (r *vmReceiver) chunk(w http.ResponseWriter, request *http.Request) {
 			return
 		}
 	}
+	session.finishedKey, session.finishedState = "", nil
 	written, err := session.sink.Write(index, data, hash)
 	if err != nil {
 		session.progress.Error = err.Error()
@@ -749,6 +813,7 @@ func (r *vmReceiver) lifecycle(w http.ResponseWriter, request *http.Request, act
 	var err error
 	switch action {
 	case "checkpoint":
+		session.finishedKey, session.finishedState = "", nil
 		if body.State == nil {
 			body.State = &vmCopyState{Passes: session.sink.State().Passes}
 		}
@@ -758,11 +823,34 @@ func (r *vmReceiver) lifecycle(w http.ResponseWriter, request *http.Request, act
 			err = errors.New("the finish request does not describe this disk")
 			break
 		}
-		state, err = session.sink.Finish(request.Context(), body.State, body.Verify)
+		raw, _ := json.Marshal(body.State)
+		sum := sha256.Sum256(raw)
+		key := fmt.Sprintf("%x %t", sum, body.Verify)
+		if session.finishedKey == key && session.finishedState != nil {
+			// The same finish again (the sender stopped waiting for the
+			// first): answer with its result.
+			state = vmCopyStateClone(session.finishedState)
+			state.Target = filepath.Base(state.Target)
+			break
+		}
+		if body.Verify {
+			r.log(fmt.Sprintf("Verifying %s: reading the whole copy back.", session.name))
+		}
+		shown := session.snapshot(time.Now())
+		shown.Label = "Verifying the copy (reading it back)"
+		session.show(shown)
+		session.finishing.Store(true)
+		// Not the request's context: a sender that stops waiting must not
+		// throw away a verification that is nearly done. Only stopping the
+		// receiver ends it.
+		state, err = session.sink.Finish(r.stopping, body.State, body.Verify)
+		session.finishing.Store(false)
+		session.seen = time.Now()
 		if err != nil {
 			session.progress.Error = err.Error()
 		}
 		if err == nil {
+			session.finishedKey, session.finishedState = key, vmCopyStateClone(state)
 			session.progress.State, session.progress.Verified, session.progress.Done = "done", state.Verified, session.progress.Chunks
 			state.Target = filepath.Base(state.Target)
 			r.log(fmt.Sprintf("Finished %s (verified: %t).", state.Target, state.Verified))
@@ -793,7 +881,10 @@ type vmRemoteSink struct {
 	session string
 	retries int
 	delay   time.Duration
+	size    int64 // the disk being copied, for the finish time limit
 
+	// Owner is sent when a copy opens (see vmReceiverOpen.Owner).
+	Owner string
 	// Compress deflates chunks on the wire; the receiver inflates and
 	// checks each against its hash as before.
 	Compress bool
@@ -921,7 +1012,10 @@ func newVMReceiverClient(ctx context.Context, address, thumbprint, code string) 
 		return nil, errors.New("enter the receiver as host:port")
 	}
 	transport := vmReceiverTransport(pinned)
-	sink := &vmRemoteSink{ctx: ctx, client: &http.Client{Transport: transport, Timeout: 10 * time.Minute}, base: &url.URL{Scheme: "https", Host: net.JoinHostPort(host, port), Path: vmReceiverAPI}, code: code, retries: 4, delay: 2 * time.Second}
+	// Every request has its own limit (callTimeout); a fixed header limit
+	// would fail a long verification.
+	transport.ResponseHeaderTimeout = 0
+	sink := &vmRemoteSink{ctx: ctx, client: &http.Client{Transport: transport}, base: &url.URL{Scheme: "https", Host: net.JoinHostPort(host, port), Path: vmReceiverAPI}, code: code, retries: 4, delay: 2 * time.Second}
 	if err := sink.call(http.MethodPost, "hello", nil, nil, nil); err != nil {
 		return nil, err
 	}
@@ -941,24 +1035,41 @@ func (s *vmRemoteSink) call(method, action string, query url.Values, body []byte
 			case <-time.After(s.delay * time.Duration(attempt)):
 			}
 		}
-		request, err := http.NewRequestWithContext(s.ctx, method, u.String(), bytes.NewReader(body))
+		// Each attempt has its own time limit, so a receiver that stops
+		// answering fails the request (and it is tried again) instead of
+		// holding the copy for good.
+		attemptCtx, cancel := context.WithTimeout(s.ctx, s.callTimeout(action))
+		request, err := http.NewRequestWithContext(attemptCtx, method, u.String(), bytes.NewReader(body))
 		if err != nil {
+			cancel()
 			return err
 		}
 		request.Header.Set("Authorization", "Bearer "+s.code)
 		response, err := s.client.Do(request)
 		if err != nil {
+			cancel()
 			last = err
 			if s.ctx.Err() != nil {
 				return s.ctx.Err()
+			}
+			if attemptCtx.Err() == context.DeadlineExceeded {
+				last = fmt.Errorf("the receiver did not answer within %s (%s)", replAge(s.callTimeout(action)), action)
 			}
 			if strings.Contains(err.Error(), "thumbprint") {
 				return err
 			}
 			continue
 		}
-		raw, _ := io.ReadAll(io.LimitReader(response.Body, 64<<20))
+		raw, readErr := io.ReadAll(io.LimitReader(response.Body, 64<<20))
 		response.Body.Close()
+		cancel()
+		if readErr != nil && response.StatusCode == http.StatusOK {
+			last = readErr
+			if s.ctx.Err() != nil {
+				return s.ctx.Err()
+			}
+			continue
+		}
 		if response.StatusCode == http.StatusOK {
 			if out != nil {
 				return json.Unmarshal(raw, out)
@@ -983,8 +1094,26 @@ func (s *vmRemoteSink) call(method, action string, query url.Values, body []byte
 	return last
 }
 
+// vmReceiverCallLimit bounds one request to a receiver; finishing a copy
+// with verification reads the whole disk back, so it gets
+// vmReceiverFinishLimit plus time for the disk's size.
+var (
+	vmReceiverCallLimit   = 3 * time.Minute
+	vmReceiverFinishLimit = 15 * time.Minute
+)
+
+func (s *vmRemoteSink) callTimeout(action string) time.Duration {
+	if action != "finish" {
+		return vmReceiverCallLimit
+	}
+	// At least 20 MB/s for the read back, which every disk managed in
+	// testing; a slower one fails the round, which is tried again.
+	return vmReceiverFinishLimit + time.Duration(s.size/(20<<20))*time.Second
+}
+
 func (s *vmRemoteSink) Open(source string, size, chunkSize int64) (*vmCopyState, bool, error) {
-	raw, _ := json.Marshal(vmReceiverOpen{Name: s.name, Source: source, Size: size, ChunkSize: chunkSize, Rescan: s.Rescan})
+	s.size = size
+	raw, _ := json.Marshal(vmReceiverOpen{Name: s.name, Source: source, Size: size, ChunkSize: chunkSize, Rescan: s.Rescan, Owner: s.Owner})
 	var opened vmReceiverOpened
 	if err := s.call(http.MethodPost, "open", nil, raw, &opened); err != nil {
 		return nil, false, err

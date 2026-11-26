@@ -68,6 +68,7 @@ The SHA-256 must equal the release's `Server-Inventory-Configuration-Manager.exe
 | A service created remotely through the service manager and the administrative share | Push install (**Install agents**). Same pattern as PsExec | Once per server, from the console. Avoid it by installing locally: copy the EXE to the server and run `SIMM-Agent.exe --agent-install` as administrator, then add the server in the console with the key and thumbprint it prints |
 | Volume Shadow Copy backup sessions (VSS writers freeze and thaw) | Each round | Every round, on every NTFS and ReFS volume of the job's disks |
 | Raw reads of `\\.\PhysicalDriveN` and shadow copy devices | Copying disks | Every round |
+| `TerminateProcess` of one process of this same application (same executable path or name) that still listens on the receiver's port, after checking its path again | **Close the other copy and start receiving**, when a copy left running without a window holds port 44380 | Only when the operator chooses that button; no other process is ever ended |
 | A listening HTTPS port (44390) and large outbound HTTPS transfers to the receiver (44380) | Console commands, and sending disk data | Always, and during rounds |
 | `netsh advfirewall firewall add rule name="Server Inventory and Migration Manager replication agent"` | The agent's own inbound rule | Service start |
 | `shutdown.exe /s` | "Shut down after cutover" | Cutover only |

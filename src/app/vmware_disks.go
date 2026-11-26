@@ -9,6 +9,8 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"os"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strconv"
@@ -227,4 +229,25 @@ func vmAgentTargetNames(disks []int, targets map[string]string, vhdx func(int) s
 		names[disk] = name
 	}
 	return names, nil
+}
+
+// vmReceiverLogLimit is the size at which a receiver log moves to .old.
+const vmReceiverLogLimit = 4 << 20
+
+// vmAppendLogLine adds one timestamped line to a log file, keeping one
+// older file once it passes vmReceiverLogLimit. Errors are ignored: the
+// log is a help, never a reason for a copy to fail. Callers never pass a
+// pairing code or password.
+func vmAppendLogLine(path, text string) {
+	if info, err := os.Stat(path); err == nil && info.Size() > vmReceiverLogLimit {
+		os.Remove(path + ".old")
+		os.Rename(path, path+".old")
+	}
+	os.MkdirAll(filepath.Dir(path), 0700)
+	file, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+	if err != nil {
+		return
+	}
+	defer file.Close()
+	file.WriteString(time.Now().Format("2006-01-02 15:04:05") + "  " + strings.TrimRight(text, "\r\n") + "\r\n")
 }

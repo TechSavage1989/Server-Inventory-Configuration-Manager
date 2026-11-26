@@ -162,8 +162,24 @@ func (a *application) handleVMwareReceiver(response http.ResponseWriter, request
 		// NewIdentity makes a new pairing code and certificate instead of
 		// the ones kept from the last start; senders then need the new ones.
 		NewIdentity bool `json:"newIdentity"`
+		// PID names the other copy of the application to close
+		// (close-other).
+		PID uint32 `json:"pid"`
 	}
 	if !decodeVMwareRequest(response, request, &input) {
+		return
+	}
+	if input.Action == "close-other" {
+		port, err := vmReceiverPort(input.Port)
+		if err == nil {
+			err = vmCloseOtherInstance(port, input.PID)
+		}
+		if err != nil {
+			writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "The other copy of the application was not closed: " + err.Error() + "."})
+			return
+		}
+		a.vmwareLog("Closed the other copy of this application (process %d) that held port %d.", input.PID, port)
+		writeJSON(response, http.StatusOK, map[string]any{"ok": true})
 		return
 	}
 	if input.Action == "stop" {
@@ -178,7 +194,16 @@ func (a *application) handleVMwareReceiver(response http.ResponseWriter, request
 	}
 	discoverable := input.Discoverable == nil || *input.Discoverable
 	if status, reason := a.startVMReceiverFromWindow(vmReceiverStart{Folder: input.Folder, Port: input.Port, Firewall: input.Firewall, Discoverable: discoverable, NewIdentity: input.NewIdentity}); status != 0 {
-		writeJSON(response, status, map[string]any{"ok": false, "error": reason})
+		answer := map[string]any{"ok": false, "error": reason}
+		if port, err := vmReceiverPort(input.Port); err == nil {
+			if other, found := vmOtherInstanceOn(port); found {
+				// Most often a copy whose window was closed while it was
+				// busy: say so and offer to close it.
+				answer["error"] = fmt.Sprintf("Port %d is held by another copy of this application (process %d, started %s) that is still running, perhaps without a window. Close it, then start the receiver.", port, other.PID, other.Started.Local().Format("15:04"))
+				answer["otherInstance"] = other
+			}
+		}
+		writeJSON(response, status, answer)
 		return
 	}
 	writeJSON(response, http.StatusOK, map[string]any{"ok": true})
@@ -193,6 +218,12 @@ type vmReceiverStart struct {
 	Firewall     bool   `json:"firewall"`
 	Discoverable bool   `json:"discoverable"`
 	NewIdentity  bool   `json:"-"`
+}
+
+// vmReceiverLogPath is the receiver's log file (no pairing code is ever
+// written to it).
+func (a *application) vmReceiverLogPath() string {
+	return filepath.Join(a.vmwareRoot(), "Receiver", "receiver.log")
 }
 
 func (a *application) vmReceiverStartPath() string {
@@ -245,7 +276,12 @@ func (a *application) startVMReceiverFromWindow(options vmReceiverStart) (int, s
 	default:
 		a.vmwareLog("A new pairing code and certificate were made and kept for later starts. Senders and replication jobs need the new ones.")
 	}
-	r, err := startVMReceiverWith(":"+strconv.Itoa(port), config, func(text string) { a.vmwareLog("%s", text) })
+	logPath := a.vmReceiverLogPath()
+	vmAppendLogLine(logPath, fmt.Sprintf("Receiver starting on port %d, folder %s.", port, folder))
+	r, err := startVMReceiverWith(":"+strconv.Itoa(port), config, func(text string) {
+		a.vmwareLog("%s", text)
+		vmAppendLogLine(logPath, text)
+	})
 	if err != nil {
 		return http.StatusBadRequest, "The receiver could not start: " + err.Error()
 	}

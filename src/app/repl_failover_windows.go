@@ -191,6 +191,19 @@ func (a *application) replStartFromCopiesLocked(r replFailoverRequest, list []re
 	if err != nil {
 		return replFailover{}, http.StatusBadRequest, errors.New(err.Error() + ".")
 	}
+	if r.Mode == "test" && strings.TrimSpace(r.Switch) != "" && !r.JoinNetwork {
+		switches, err := replHyperVSwitches()
+		if err != nil {
+			return replFailover{}, http.StatusInternalServerError, errors.New("The host's virtual switches could not be read to check the test network: " + err.Error())
+		}
+		for _, sw := range switches {
+			if strings.EqualFold(sw.Name, r.Switch) {
+				if err := replTestNetworkRisk(r, sw.Type); err != nil {
+					return replFailover{}, http.StatusBadRequest, errors.New(err.Error() + ".")
+				}
+			}
+		}
+	}
 	held := map[string]string{}
 	for _, f := range list {
 		for _, name := range f.Copies {

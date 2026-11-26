@@ -25,6 +25,7 @@ type replFakePlatform struct {
 	snapshot func() time.Time
 	gate     chan struct{} // when set, OpenDisks waits for it
 	panics   bool          // OpenDisks panics, like an internal error would
+	wrap     func(vmCopySource) vmCopySource
 }
 
 func (p *replFakePlatform) Name() string { return "test" }
@@ -54,7 +55,11 @@ func (p *replFakePlatform) OpenDisks(ctx context.Context, job string, sources []
 		if !ok {
 			return nil, errors.New("no disk " + id)
 		}
-		opened.Sources[id] = &vmBytesSource{data: append([]byte(nil), data...), name: "test disk " + id}
+		var source vmCopySource = &vmBytesSource{data: append([]byte(nil), data...), name: "test disk " + id}
+		if p.wrap != nil {
+			source = p.wrap(source)
+		}
+		opened.Sources[id] = source
 	}
 	return opened, nil
 }

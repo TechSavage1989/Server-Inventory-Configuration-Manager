@@ -220,6 +220,19 @@ func (s *replAgentServer) ServeHTTP(w http.ResponseWriter, request *http.Request
 			return
 		}
 		vmReceiverJSON(w, map[string]interface{}{"disks": disks})
+	case "receiver":
+		// Check receiver from this agent: which of the receiver's addresses
+		// this server reaches with the pinned thumbprint and code.
+		var link replReceiverLink
+		if !decode(&link) {
+			return
+		}
+		answer, err := s.agent.CheckReceiver(request.Context(), link)
+		if err != nil {
+			vmReceiverError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		vmReceiverJSON(w, answer)
 	case "jobs":
 		vmReceiverJSON(w, map[string]interface{}{"jobs": s.agent.Jobs(), "alerts": s.agent.Alerts(), "time": s.agent.now().UTC()})
 	case "job":
@@ -406,6 +419,18 @@ func (c *replAgentClient) Action(ctx context.Context, id, action string) error {
 
 func (c *replAgentClient) Schedule(ctx context.Context, id string, at *time.Time) error {
 	return c.call(ctx, http.MethodPost, "schedule", nil, map[string]interface{}{"id": id, "at": at}, nil)
+}
+
+// CheckReceiver asks the agent to reach a receiver at its address or one of
+// the alternates. An agent older than this check answers not found
+// (errReplAgentNoReceiverCheck).
+func (c *replAgentClient) CheckReceiver(ctx context.Context, link replReceiverLink) (replReceiverCheck, error) {
+	var answer replReceiverCheck
+	err := c.call(ctx, http.MethodPost, "receiver", nil, link, &answer)
+	if err != nil && strings.Contains(err.Error(), "not found") {
+		err = errReplAgentNoReceiverCheck
+	}
+	return answer, err
 }
 
 func (c *replAgentClient) Log(ctx context.Context, id string) ([]string, error) {

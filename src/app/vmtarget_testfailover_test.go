@@ -336,6 +336,9 @@ func (l replLocalAgent) Action(ctx context.Context, id, action string) error {
 }
 func (l replLocalAgent) Schedule(ctx context.Context, id string, at *time.Time) error { return nil }
 func (l replLocalAgent) Log(ctx context.Context, id string) ([]string, error)         { return nil, nil }
+func (l replLocalAgent) CheckReceiver(ctx context.Context, link replReceiverLink) (replReceiverCheck, error) {
+	return l.agent.CheckReceiver(ctx, link)
+}
 
 // vmMemoryTarget is a platform in memory that records every change.
 type vmMemoryTarget struct {
