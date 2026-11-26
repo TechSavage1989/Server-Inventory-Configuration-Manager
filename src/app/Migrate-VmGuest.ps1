@@ -14,7 +14,10 @@ Modes
   UndoNetwork      Restores the settings saved by the last ApplyNetwork.
   RemoveGhostNics  Removes chosen network adapters that are no longer present
                    (the old platform's adapters).
-  RemoveVmwareTools Uninstalls VMware Tools with its own uninstaller.
+  RemoveVmwareTools Uninstalls VMware Tools with its own uninstaller. When the
+                   uninstaller refuses (most versions do outside VMware), turns
+                   its services and drivers off instead, saving every value
+                   first, and removes hidden VMware devices.
   OnlineDisks      Brings chosen offline or read-only disks online.
   AutoFixup        After a cutover, on the new VM, with no choices to make:
                    removes the hidden old-platform adapters, puts the
@@ -125,9 +128,10 @@ public static class SicmNetDevices {
         if (!SetupDiGetDeviceRegistryProperty(set, ref data, property, out type, buffer, buffer.Length, out required)) { return ""; }
         return Encoding.Unicode.GetString(buffer, 0, Math.Max(0, required - 2)).TrimEnd('\0');
     }
-    static List<string[]> Read(bool presentOnly) {
+    static List<string[]> Read(bool presentOnly) { return Read(NetClass, presentOnly); }
+    static List<string[]> Read(Guid deviceClass, bool presentOnly) {
         List<string[]> result = new List<string[]>();
-        IntPtr set = SetupDiGetClassDevs(ref NetClass, IntPtr.Zero, IntPtr.Zero, presentOnly ? DIGCF_PRESENT : 0);
+        IntPtr set = SetupDiGetClassDevs(ref deviceClass, IntPtr.Zero, IntPtr.Zero, presentOnly ? DIGCF_PRESENT : 0);
         if (set == INVALID_HANDLE_VALUE) { throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error()); }
         try {
             SP_DEVINFO_DATA data = new SP_DEVINFO_DATA(); data.cbSize = Marshal.SizeOf(typeof(SP_DEVINFO_DATA));
@@ -149,12 +153,24 @@ public static class SicmNetDevices {
         foreach (string[] item in Read(false)) { if (!present.Contains(item[0])) { result.Add(item); } }
         return result;
     }
-    // Removes one non-present network adapter by instance ID.
-    public static void Remove(string instanceId) {
+    // Returns instance ID and description of devices of one class that are installed but not present.
+    public static List<string[]> NonPresentIn(string deviceClass) {
+        Guid cls = new Guid(deviceClass);
         HashSet<string> present = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (string[] item in Read(true)) { present.Add(item[0]); }
-        if (present.Contains(instanceId)) { throw new InvalidOperationException("The adapter is present and was not removed."); }
-        IntPtr set = SetupDiGetClassDevs(ref NetClass, IntPtr.Zero, IntPtr.Zero, 0);
+        foreach (string[] item in Read(cls, true)) { present.Add(item[0]); }
+        List<string[]> result = new List<string[]>();
+        foreach (string[] item in Read(cls, false)) { if (!present.Contains(item[0])) { result.Add(item); } }
+        return result;
+    }
+    // Removes one non-present network adapter by instance ID.
+    public static void Remove(string instanceId) { RemoveIn(NetClass.ToString(), instanceId); }
+    // Removes one non-present device of one class by instance ID; a present device is never removed.
+    public static void RemoveIn(string deviceClass, string instanceId) {
+        Guid cls = new Guid(deviceClass);
+        HashSet<string> present = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (string[] item in Read(cls, true)) { present.Add(item[0]); }
+        if (present.Contains(instanceId)) { throw new InvalidOperationException("The device is present and was not removed."); }
+        IntPtr set = SetupDiGetClassDevs(ref cls, IntPtr.Zero, IntPtr.Zero, 0);
         if (set == INVALID_HANDLE_VALUE) { throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error()); }
         try {
             SP_DEVINFO_DATA data = new SP_DEVINFO_DATA(); data.cbSize = Marshal.SizeOf(typeof(SP_DEVINFO_DATA));
@@ -166,7 +182,7 @@ public static class SicmNetDevices {
                 return;
             }
         } finally { SetupDiDestroyDeviceInfoList(set); }
-        throw new InvalidOperationException("The adapter was not found.");
+        throw new InvalidOperationException("The device was not found.");
     }
 }
 '@
@@ -249,6 +265,15 @@ function Get-VmwareToolsEntry {
         }
     }
     return [pscustomobject]@{ Installed = $false; Version = ''; ProductCode = '' }
+}
+
+# The uninstall entry plus whether its services and drivers are all turned
+# off (after an uninstaller that refused to run outside VMware).
+function Get-VmwareToolsState {
+    $entry = Get-VmwareToolsEntry
+    $components = @(Get-VmwareToolsComponents)
+    $on = @($components | Where-Object { $_.Start -ne 4 })
+    return [pscustomobject]@{ Installed = $entry.Installed; Version = $entry.Version; ProductCode = $entry.ProductCode; TurnedOff = ($components.Count -gt 0 -and $on.Count -eq 0); Running = @($on | ForEach-Object { $_.Name }) }
 }
 
 function Get-AdapterConfiguration {
@@ -498,7 +523,7 @@ function Get-GuestState {
         SanPolicy       = $sanPolicy
         Activation      = $activation
         License         = $license
-        VmwareTools     = Get-VmwareToolsEntry
+        VmwareTools     = Get-VmwareToolsState
         Drivers         = Get-DriverStoreStatus
         Adapters        = Get-PresentAdapters
         PersistentRoutes = $routes
@@ -713,21 +738,99 @@ function Invoke-RemoveGhostNics {
     return [pscustomobject]@{ Removed = $removed }
 }
 
+# VMware Tools' own services and drivers. Storage and network drivers
+# (pvscsi, vmxnet3) are not listed: they do nothing without VMware hardware
+# and are needed again if the VM ever goes back.
+$script:VmwareToolsServices = @('VMTools', 'VGAuthService', 'vm3dservice', 'VMwareCAFCommAmqpListener', 'VMwareCAFManagementAgentHost', 'vmvss')
+$script:VmwareToolsDrivers = @('vm3dmp', 'vm3dmp_loader', 'vm3dmp-debug', 'vm3dmp-stats', 'vmci', 'vsock', 'vmhgfs', 'vmmouse', 'vmusbmouse', 'vmmemctl', 'vmrawdsk')
+$script:VmwareToolsRecordName = 'VMware-Tools-Disabled.json'
+# Device classes whose hidden VMware devices are removed: display, mouse, system.
+$script:VmwareDeviceClasses = @('4d36e968-e325-11ce-bfc1-08002be10318', '4d36e96f-e325-11ce-bfc1-08002be10318', '4d36e97d-e325-11ce-bfc1-08002be10318')
+
+function Get-VmwareToolsComponents {
+    $items = @()
+    foreach ($name in @($script:VmwareToolsServices + $script:VmwareToolsDrivers)) {
+        $path = 'HKLM:\SYSTEM\CurrentControlSet\Services\' + $name
+        if (Test-Path -LiteralPath $path) {
+            $start = Get-RegistryValue $path 'Start'
+            $items += [pscustomobject]@{ Name = $name; Path = $path; Start = $(if ($null -eq $start) { $null } else { [int]$start }) }
+        }
+    }
+    return @($items)
+}
+
+# Used when the VMware Tools uninstaller refuses to run outside VMware: turns
+# its services and drivers off instead (Start 4), takes its drivers out of
+# device class filter lists (a disabled filter that is still listed stops the
+# device, for example the mouse), and removes hidden VMware display, mouse and
+# system devices. Nothing is deleted; every value is saved first.
+function Disable-VmwareToolsComponents {
+    $components = @(Get-VmwareToolsComponents)
+    $drivers = @{}
+    foreach ($name in $script:VmwareToolsDrivers) { $drivers[$name.ToLowerInvariant()] = $true }
+    $filters = @()
+    foreach ($class in @(Get-ChildItem -LiteralPath 'HKLM:\SYSTEM\CurrentControlSet\Control\Class' -ErrorAction SilentlyContinue)) {
+        foreach ($valueName in @('UpperFilters', 'LowerFilters')) {
+            $value = @(Get-RegistryValue $class.PSPath $valueName)
+            if ($value.Count -eq 0 -or $null -eq $value[0]) { continue }
+            $keep = @($value | Where-Object { -not $drivers.ContainsKey(([string]$_).ToLowerInvariant()) })
+            if ($keep.Count -ne $value.Count) { $filters += [pscustomobject]@{ Path = [string]$class.PSPath; Name = $valueName; Before = @($value | ForEach-Object { [string]$_ }); After = @($keep | ForEach-Object { [string]$_ }) } }
+        }
+    }
+    Write-JsonFile (Join-Path $WorkPath $script:VmwareToolsRecordName) ([pscustomobject]@{ Schema = 1; SavedAt = (Get-Date).ToString('o'); Services = @($components); Filters = @($filters) })
+    foreach ($filter in $filters) {
+        Set-ItemProperty -LiteralPath $filter.Path -Name $filter.Name -Value ([string[]]$filter.After) -Type MultiString
+        Write-GuestLog ('Took ' + ((@($filter.Before | Where-Object { $filter.After -notcontains $_ })) -join ', ') + ' out of ' + $filter.Name + ' of ' + (Split-Path -Leaf $filter.Path) + '.')
+    }
+    $changed = 0
+    foreach ($item in $components) {
+        if ($script:VmwareToolsServices -contains $item.Name) {
+            $service = Get-Service -Name $item.Name -ErrorAction SilentlyContinue
+            if ($service -and $service.Status -ne 'Stopped') { try { Stop-Service -Name $item.Name -Force -ErrorAction Stop } catch { Write-GuestLog ('Could not stop ' + $item.Name + ': ' + $_.Exception.Message) 'WARN' } }
+        }
+        if ($item.Start -ne 4) { Set-ItemProperty -LiteralPath $item.Path -Name 'Start' -Value 4 -Type DWord; $changed++ }
+    }
+    $devices = @()
+    Initialize-DeviceHelper
+    foreach ($class in $script:VmwareDeviceClasses) {
+        foreach ($device in @([SicmNetDevices]::NonPresentIn($class))) {
+            if ([string]$device[1] -match 'VMware|VMCI|vSockets') {
+                try { [SicmNetDevices]::RemoveIn($class, [string]$device[0]); $devices += [string]$device[1] } catch { Write-GuestLog ('Could not remove the hidden device ' + $device[1] + ': ' + $_.Exception.Message) 'WARN' }
+            }
+        }
+    }
+    Write-GuestLog ('Turned off ' + $components.Count + ' VMware Tools service(s) and driver(s) (' + $changed + ' changed) and removed ' + $devices.Count + ' hidden VMware device(s).')
+    return [pscustomobject]@{ Components = $components.Count; Changed = $changed; Filters = $filters.Count; Devices = @($devices) }
+}
+
 function Invoke-RemoveVmwareTools {
     $platform = Get-Platform
     if ($platform.Name -eq 'VMware') { throw 'This VM is still running on VMware. Remove VMware Tools only after cutover, on the migrated VM.' }
     $entry = Get-VmwareToolsEntry
-    if (-not $entry.Installed) { Write-GuestLog 'VMware Tools is not installed.'; return [pscustomobject]@{ ExitCode = 0; RestartRequired = $false; AlreadyRemoved = $true } }
-    if ($entry.ProductCode -notmatch '^\{[0-9A-Fa-f\-]{36}\}$') { throw 'The VMware Tools uninstall entry is not a Windows Installer product. Remove it from Programs and Features.' }
-    $log = Join-Path $WorkPath 'VMware-Tools-Uninstall.log'
-    Write-GuestLog ('Uninstalling VMware Tools ' + $entry.Version + '. The log is ' + $log + '.')
-    $process = Start-Process -FilePath (Join-Path $env:SystemRoot 'System32\msiexec.exe') -ArgumentList @('/x', $entry.ProductCode, '/qn', '/norestart', 'REBOOT=ReallySuppress', '/l*v', ('"' + $log + '"')) -Wait -PassThru -WindowStyle Hidden
-    $code = [int]$process.ExitCode
-    if ($code -ne 0 -and $code -ne 3010 -and $code -ne 1641) {
-        throw ('The VMware Tools uninstaller ended with code ' + $code + '. Some versions refuse to uninstall outside VMware; see ' + $log + ' and VMware''s guidance for removing Tools manually.')
+    $left = @(Get-VmwareToolsComponents | Where-Object { $_.Start -ne 4 })
+    if (-not $entry.Installed -and $left.Count -eq 0) { Write-GuestLog 'VMware Tools is not installed.'; return [pscustomobject]@{ ExitCode = 0; RestartRequired = $false; AlreadyRemoved = $true; Disabled = $false; Message = 'VMware Tools is not installed.' } }
+    if (-not $entry.Installed) {
+        # The program is gone but services or drivers were left behind.
+        $off = Disable-VmwareToolsComponents
+        return [pscustomobject]@{ ExitCode = 0; RestartRequired = $true; AlreadyRemoved = $false; Disabled = $true; Message = ('VMware Tools was already uninstalled; turned off ' + $off.Components + ' service(s) and driver(s) it left behind.') }
     }
-    Write-GuestLog ('VMware Tools was removed (exit code ' + $code + ').')
-    return [pscustomobject]@{ ExitCode = $code; RestartRequired = ($code -ne 0); AlreadyRemoved = $false }
+    $code = -1
+    $why = ''
+    if ($entry.ProductCode -notmatch '^\{[0-9A-Fa-f\-]{36}\}$') { $why = 'its uninstall entry is not a Windows Installer product' }
+    else {
+        $log = Join-Path $WorkPath 'VMware-Tools-Uninstall.log'
+        Write-GuestLog ('Uninstalling VMware Tools ' + $entry.Version + '. The log is ' + $log + '.')
+        $process = Start-Process -FilePath (Join-Path $env:SystemRoot 'System32\msiexec.exe') -ArgumentList @('/x', $entry.ProductCode, '/qn', '/norestart', 'REBOOT=ReallySuppress', '/l*v', ('"' + $log + '"')) -Wait -PassThru -WindowStyle Hidden
+        $code = [int]$process.ExitCode
+        if ($code -eq 0 -or $code -eq 3010 -or $code -eq 1641) {
+            Write-GuestLog ('VMware Tools was removed (exit code ' + $code + ').')
+            return [pscustomobject]@{ ExitCode = $code; RestartRequired = ($code -ne 0); AlreadyRemoved = $false; Disabled = $false; Message = ('Removed VMware Tools' + $(if ($code -ne 0) { '; a restart finishes it.' } else { '.' })) }
+        }
+        $why = 'its uninstaller ended with code ' + $code + ' (most versions refuse to run outside VMware; see ' + $log + ')'
+    }
+    Write-GuestLog ('VMware Tools could not be uninstalled: ' + $why + '. Turning its services and drivers off instead.') 'WARN'
+    $off = Disable-VmwareToolsComponents
+    return [pscustomobject]@{ ExitCode = $code; RestartRequired = $true; AlreadyRemoved = $false; Disabled = $true; Message = ('VMware Tools could not be uninstalled (' + $why + '), so its ' + $off.Components + ' service(s) and driver(s) are turned off and ' + $off.Devices.Count + ' hidden VMware device(s) removed; a restart finishes it. Programs and Features still lists VMware Tools, and the values changed are saved in ' + $script:VmwareToolsRecordName + '.') }
 }
 
 function Invoke-OnlineDisks {
@@ -916,12 +1019,12 @@ function Invoke-AutoFixup {
         } catch { & $step 'Disks' 'warning' ('The disks could not be brought online: ' + $_.Exception.Message) }
     }
 
-    # 4. VMware Tools, with its own uninstaller.
+    # 4. VMware Tools, with its own uninstaller, or turned off when that refuses.
     if ($want.tools) {
         try {
             $removed = Invoke-RemoveVmwareTools
-            if ($removed.AlreadyRemoved) { & $step 'VMware Tools' 'skipped' 'VMware Tools is not installed.' }
-            else { if ($removed.RestartRequired) { $restart = $true }; & $step 'VMware Tools' 'done' ('Removed VMware Tools' + $(if ($removed.RestartRequired) { '; a restart finishes it.' } else { '.' })) }
+            if ($removed.AlreadyRemoved) { & $step 'VMware Tools' 'skipped' $removed.Message }
+            else { if ($removed.RestartRequired) { $restart = $true }; & $step 'VMware Tools' 'done' $removed.Message }
         } catch { & $step 'VMware Tools' 'warning' $_.Exception.Message }
     }
 
