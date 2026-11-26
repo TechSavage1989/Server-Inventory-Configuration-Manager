@@ -1471,6 +1471,7 @@ func writeInstallRecord(healthPath string, record installRecord, status, version
 	record.Code = code
 	record.Time = time.Now().UTC().Format(time.RFC3339)
 	data, _ := json.Marshal(record)
+	_ = os.MkdirAll(filepath.Dir(healthPath), 0o755)
 	path := filepath.Join(filepath.Dir(healthPath), "last-update.json")
 	if os.WriteFile(path+".tmp", data, 0600) == nil {
 		_ = atomicReplaceFile(path+".tmp", path)
