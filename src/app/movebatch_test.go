@@ -414,3 +414,67 @@ func TestPlanCutoverScheduledBeforeTheFirstCopyRunsOnceSeeded(t *testing.T) {
 		t.Fatalf("cutovers %v created %v", target.cutovers, target.created)
 	}
 }
+
+func TestPlanAgainstARemoteHostChecksItsPathsAndKeepsItsHost(t *testing.T) {
+	bad := []mbSettings{
+		{RemoteHost: "hv clu"},
+		{RemoteHost: "hvclu01", Node: "HV 2"},
+		{RemoteHost: "hvclu01", CopyRoot: `\\hv01\d$\copies`},
+		{RemoteHost: "hvclu01", CopyRoot: `C:\Windows\Copies`},
+		{RemoteHost: "hvclu01", VMFolder: `C:\ClusterStorage\..\VMs`},
+		{RemoteHost: "hvclu01", CopyRoot: `D:\`},
+		{Node: "HV02"},
+	}
+	for _, s := range bad {
+		settings := s
+		if err := mbValidateSettings(&settings); err == nil {
+			t.Fatalf("%+v must be refused", s)
+		}
+	}
+	good := mbSettings{RemoteHost: " hvclu01.example.com ", Node: "HV02", CopyRoot: `C:\ClusterStorage\Volume1\Migrations`, VMFolder: `C:\ClusterStorage\Volume1\VMs`, Cluster: true}
+	if err := mbValidateSettings(&good); err != nil {
+		t.Fatal(err)
+	}
+	if good.RemoteHost != "hvclu01.example.com" {
+		t.Fatalf("the host name is trimmed: %q", good.RemoteHost)
+	}
+	if folder, err := mbRemoteCopyFolder(good.CopyRoot, `D:\Hyper-V`, "APP01"); err != nil || folder != `C:\ClusterStorage\Volume1\Migrations\APP01` {
+		t.Fatalf("copy folder %q, %v", folder, err)
+	}
+	if folder, err := mbRemoteCopyFolder("", `D:\Hyper-V\`, "APP01"); err != nil || folder != `D:\Hyper-V\APP01` {
+		t.Fatalf("default copy folder %q, %v", folder, err)
+	}
+	if _, err := mbRemoteCopyFolder("", "", "APP01"); err == nil {
+		t.Fatal("no folder at all must be refused")
+	}
+
+	runner, _ := mbTestRunner(t, &mbFakeTarget{})
+	plan, err := runner.Create("Remote", "vc", good, mbVMs("a"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !runner.IsRemote(plan.ID) || mbRemote(&mbPlan{}) {
+		t.Fatal("IsRemote must follow the plan's host")
+	}
+	moved := good
+	moved.RemoteHost = "hv09.example.com"
+	if err := runner.Update(plan.ID, moved); err == nil {
+		t.Fatal("the host a plan runs against must not change")
+	}
+	local := good
+	local.RemoteHost, local.Node = "", ""
+	if err := runner.Update(plan.ID, local); err == nil {
+		t.Fatal("a remote plan must not turn into a local one")
+	}
+	runner.plans[0].VMs[0].State = mbReady
+	other := good
+	other.Node = "HV01"
+	if err := runner.Update(plan.ID, other); err == nil {
+		t.Fatal("the node must not change once a VM is copied")
+	}
+	slower := good
+	slower.SyncMinutes = 120
+	if err := runner.Update(plan.ID, slower); err != nil {
+		t.Fatal(err)
+	}
+}
