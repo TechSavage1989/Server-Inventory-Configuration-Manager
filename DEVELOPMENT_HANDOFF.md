@@ -1,8 +1,21 @@
 ## Unreleased: All jobs and servers, and jobs to this Hyper-V host — 2026-11-26
 
-- New **All jobs and servers** tool (rule 49): one list of agent replication jobs, Migration plan VMs, Move VMs copies, unconfigured inventory VMs and running tasks, with one state set, live progress and bulk actions (install agents, create jobs, sync, pause/resume, test failover, waves, staggered cutover).
+- New **All jobs and servers** tool (rule 52): one list of agent replication jobs, Migration plan VMs, Move VMs copies, unconfigured inventory VMs and running tasks, with one state set, live progress and bulk actions (install agents, create jobs, sync, pause/resume, test failover, waves, staggered cutover).
 - Replicate servers and bulk job creation can target **This Hyper-V host**: the local receiver starts and pairs itself and only the destination folder is asked. Builds on the receiver identity fix from PR #138 (merged into this branch).
 - Tests: `go test ./...` (Linux), `GOOS=windows go vet`, and the workspace checks "All jobs and servers" and "Replication jobs can go to this Hyper-V host" plus the existing replication checks pass locally. Bulk actions against real agents, plans and Hyper-V hosts are not field-validated.
+
+## Unreleased: the workspace fills the window and gets denser on small screens — 2026-11-26
+
+- Removed the 1220 px and 1480 px maximum widths so every tab and tool fills the window (AGENTS.md rule 51); wide windows give the tool list, inventory tree, category grid and guide cards more room, and the two inventory readers sit side by side from 1600 px.
+- Windows narrower than 1440 px or shorter than 900 px use smaller body text (13, then 12.5 px) and tighter controls; the 10.5 px minimum still holds. `scripts/test_workspace.cjs` passes (68 checks). `docs/images/hero.png` refreshed; other README captures at 1440 px were already older than the current tabs and are unchanged by this work.
+- Not checked on real Edge 109 on Windows Server 2012 R2; Chromium only.
+- Replicate servers: a long job error (a URL or certificate thumbprint) no longer stretches the job table off screen; it wraps, the Open button stays visible and clicking a job row opens the job.
+
+## Unreleased: Install and restart never loops silently — 2026-11-26
+
+- Field report (owner's DESKTOP, 3.2.34 to 3.2.35): Install and restart restarted the old version and showed the same update again, with no reason; a later attempt worked. The helper had several exits (codes 4 to 11) that wrote no result, so the next start had nothing to show, and a 45-second health limit could roll back a healthy but slow first start (new executable scanned by endpoint protection, first WebView2 start).
+- Now: `Health\last-update.json` records started, then installed, failed or rollback with the target version, exit code and reason (`update_outcome.go`); the next start shows **Update not installed**, the reason, the manual fallback (copy the verified Ready file over the EXE, or download from the release page) and Try again. Copy and replace retry for 20 seconds on sharing, lock and access-denied errors; the installed file's SHA-256 is checked after the replace (a restored or quarantined file rolls back with code 14); the old copy is restarted on every failure after it exited; health limits are 3.5 and 4 minutes.
+- Tests: `update_outcome_test.go` (notice for every outcome, retry only on locks, a distinct reason per code), `Test-UpdateInstall.ps1` (locked target records its reason; a target held open with read sharing is retried, refused with code 11 and recorded, file unchanged), `test_published_upgrade.cjs` (rollback records target and reason), `test_workspace.cjs` (banner title, reason, Try again). The 3.2.34 and 3.2.35 helpers keep their old behaviour: this applies from installs of 3.2.36 onward (the downloaded version runs the helper). The rollback case in the published-upgrade test now waits the 4-minute health limit.
 
 ## Unreleased: migration scenarios and rolling conversion on the same hardware — 2026-11-26
 
@@ -67,6 +80,14 @@ Limits: the agent under SentinelOne on a real server, receiver discovery across 
 - Fix: the MFT scan that each round already runs finds shadow copy storage files (`replMFTScan.DiffArea`). The zero view treats their clusters as free space (`replClearRuns`), so they are never sent and never differ. Shadow copies (previous versions) on the source are not carried to the copy.
 - The same scan now gives every round the runs of all NTFS system files (`replMFTScan.Metadata`). On Windows Server 2025, `$Boot` and `$Bitmap` return Access is denied even on a shadow copy. `$Boot` was in the optional list and was skipped silently. `$UsnJrnl`, `$RmMetadata` logs and other files under `$Extend` have no fixed record number.
 - Tests: `TestMFTScanFindsSystemFilesAndShadowCopyStorage` and `TestClearRunsMarksClustersFree` (synthetic records), plus the Windows test with the new in-shadow diagnostic. A temporary stress workflow on #124 ran the Windows test on hosted Windows Server 2025 runners: 27 of 30 passed before the fix (3 failures, all the same 16 chunks), 102 of 102 passed with it. The advice to tick Read every used block in the last round because of this failure no longer applies; the option stays as an extra check.
+
+## Unreleased: New migration phase 2, step 1: plans from an admin computer — 2026-11-26
+
+- Migration plans can run from an admin computer against another Hyper-V host or failover cluster (`mbSettings.RemoteHost`, `Node`; `movebatch_remote_windows.go`). Every round is Move VMs' remote round over the node's administrative share (one shared IPC$ connection per node, `replConnectIPCShared`), each VM is created by the rule 39 creation script over PowerShell remoting, and test cutovers make and remove the NAME-TEST VM on differencing disks through the same remoting script. Names, node, folders and switches are checked when the plan is made and again before each guest is shut down. VMware sources only. AGENTS.md rule 41.
+- New migration: choosing Another Hyper-V host or cluster in Where connects to it inline, picks the node and fills the folders from its Cluster Shared Volumes; the plan then runs end to end like the local one. AGENTS.md rule 47.
+- Tests: `TestPlanAgainstARemoteHostChecksItsPathsAndKeepsItsHost` and a `scripts/test_workspace.cjs` check for the remote flow. Not field-validated: a real remote Hyper-V host or cluster, admin-share writes to a CSV, remote test cutovers.
+- Step 3: for HyperCore, Nutanix AHV and Proxmox VE, Where connects to the platform inline and How lists each chosen VM (created, receiver paired, last result) with an Open button for its Move panel. These stay one VM at a time because each receiver's pairing code is read from its console.
+- Still to do in phase 2: replication jobs inside the flow (needs the All servers console, PR #139).
 
 ## Unreleased: New migration, one guided flow — 2026-11-26
 

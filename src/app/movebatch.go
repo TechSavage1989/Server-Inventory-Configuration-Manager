@@ -77,6 +77,13 @@ type mbSettings struct {
 	// IP settings, hidden adapters, disks, VMware Tools and activation,
 	// with the guest account typed once in Move VMs or the plan.
 	FixUp bool `json:"fixUp"`
+	// RemoteHost runs the plan from an admin computer against the Hyper-V
+	// host or failover cluster connected in Move VMs (rule 39), instead of
+	// this computer. CopyRoot and VMFolder are then paths on that host.
+	RemoteHost string `json:"remoteHost,omitempty"`
+	// Node is the node of RemoteHost that runs the new VMs; empty is the
+	// connected host itself.
+	Node string `json:"node,omitempty"`
 }
 
 type mbTest struct {
@@ -143,16 +150,50 @@ func mbValidateSettings(s *mbSettings) error {
 		return err
 	}
 	s.CopyRoot, s.VMFolder, s.TestSwitch = strings.TrimSpace(s.CopyRoot), strings.TrimSpace(s.VMFolder), strings.TrimSpace(s.TestSwitch)
+	s.RemoteHost, s.Node = strings.TrimSpace(s.RemoteHost), strings.TrimSpace(s.Node)
+	if len(s.TestSwitch) > 100 {
+		return errors.New("the test switch name is too long")
+	}
+	if s.RemoteHost != "" {
+		if !hvRemoteNodePattern.MatchString(s.RemoteHost) || (s.Node != "" && !hvRemoteNodePattern.MatchString(s.Node)) {
+			return errors.New("the Hyper-V host or node name is not valid")
+		}
+		// Paths are checked as the remote host sees them.
+		for _, path := range []string{s.CopyRoot, s.VMFolder} {
+			if path == "" {
+				continue
+			}
+			if _, err := hvRemoteCheckLocalPath(path); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	if s.Node != "" {
+		return errors.New("a node is chosen only for a plan that runs against another Hyper-V host or cluster")
+	}
 	if s.CopyRoot != "" && !filepath.IsAbs(s.CopyRoot) && !strings.HasPrefix(s.CopyRoot, `\\`) {
 		return errors.New("choose a full path for the copied disks, or leave it empty for the host's default")
 	}
 	if s.VMFolder != "" && !filepath.IsAbs(s.VMFolder) && !strings.HasPrefix(s.VMFolder, `\\`) {
 		return errors.New("choose a full path for the new VMs, or leave it empty for the host's default")
 	}
-	if len(s.TestSwitch) > 100 {
-		return errors.New("the test switch name is too long")
-	}
 	return nil
+}
+
+// mbRemote reports whether the plan runs against another Hyper-V host.
+func mbRemote(plan *mbPlan) bool { return plan.Settings.RemoteHost != "" }
+
+// mbRemoteCopyFolder is a VM's copy folder on the remote host: under the
+// plan's copy root, else under the host's virtual hard disk folder.
+func mbRemoteCopyFolder(root, hostVHDPath, vmName string) (string, error) {
+	if strings.TrimSpace(root) == "" {
+		root = hostVHDPath
+	}
+	if strings.TrimSpace(root) == "" {
+		return "", errors.New("choose the folder on the Hyper-V host for the copied disks")
+	}
+	return hvRemoteCheckLocalPath(strings.TrimRight(hvCleanWinPath(root), `\`) + `\` + vmReplicaBaseName(vmName))
 }
 
 // mbNextSync is when the VM's next round is due; zero means not scheduled.
@@ -444,6 +485,14 @@ func mbFindVM(plan *mbPlan, id string) *mbVM {
 	return nil
 }
 
+// IsRemote reports whether the plan runs against another Hyper-V host.
+func (r *mbRunner) IsRemote(id string) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	plan, err := r.planLocked(id)
+	return err == nil && mbRemote(plan)
+}
+
 // Create adds a plan of the given VMs.
 func (r *mbRunner) Create(name, server string, settings mbSettings, vms []mbVM) (*mbPlan, error) {
 	name = strings.TrimSpace(name)
@@ -515,9 +564,15 @@ func (r *mbRunner) Update(id string, settings mbSettings) error {
 	if err != nil {
 		return err
 	}
+	if !strings.EqualFold(settings.RemoteHost, plan.Settings.RemoteHost) {
+		return errors.New("the Hyper-V host a plan runs against cannot change; make a new plan for another host")
+	}
 	for _, vm := range plan.VMs {
 		if vm.State != mbWaiting && vm.State != mbDone && !strings.EqualFold(settings.CopyRoot, plan.Settings.CopyRoot) {
 			return errors.New("the copied disks' folder cannot change once VMs have been copied; make a new plan for another folder")
+		}
+		if vm.State != mbWaiting && vm.State != mbDone && !strings.EqualFold(settings.Node, plan.Settings.Node) {
+			return errors.New("the node cannot change once VMs have been copied; make a new plan for another node")
 		}
 	}
 	plan.Settings = settings
