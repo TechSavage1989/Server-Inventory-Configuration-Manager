@@ -278,6 +278,7 @@ type application struct {
 	vmReceive   vmReceiverRuntime
 	transfers   *vmTransferBoard
 	repl        replRuntime
+	servers     asRuntime
 }
 
 func utf16Ptr(value string) *uint16 {
@@ -2336,6 +2337,7 @@ func (a *application) serve(listener net.Listener) error {
 	mux.HandleFunc("/api/vmware/prepare", a.handleVMwarePrepare)
 	mux.HandleFunc("/api/vmware/move", a.handleVMwareMove)
 	mux.HandleFunc("/api/plans", a.handlePlans)
+	mux.HandleFunc("/api/servers", a.handleServers)
 	go a.startPlans()
 	mux.HandleFunc("/api/hvremote/", a.handleHVRemote)
 	mux.HandleFunc("/api/hvbuild/", a.handleHVBuild)
@@ -2354,6 +2356,7 @@ func (a *application) serve(listener net.Listener) error {
 	mux.HandleFunc("/api/repl/failover", a.handleReplFailover)
 	mux.HandleFunc("/api/repl/targettest", a.handleReplTargetTest)
 	mux.HandleFunc("/api/repl/runbook", a.handleReplRunbook)
+	mux.HandleFunc("/api/repl/local", a.handleReplLocal)
 	mux.HandleFunc("/api/vmware/guest", a.handleVMwareGuest)
 	mux.HandleFunc("/api/vmware/guest/", a.handleVMwareGuest)
 	mux.HandleFunc("/api/vmware/guest-load", a.handleVMwareGuestLoad)

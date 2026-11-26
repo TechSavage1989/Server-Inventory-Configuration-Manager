@@ -520,6 +520,28 @@ func (r *mbRunner) SetPaused(id string, paused bool) error {
 	return r.saveLocked()
 }
 
+// SetWave puts VMs of a plan in a wave (0 for none). Cutovers run in wave
+// order; nothing else changes.
+func (r *mbRunner) SetWave(id string, ids []string, wave int) error {
+	if wave < 0 || wave > 99 {
+		return errors.New("choose a wave from 0 to 99")
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	plan, err := r.planLocked(id)
+	if err != nil {
+		return err
+	}
+	for _, vmID := range ids {
+		vm := mbFindVM(plan, vmID)
+		if vm == nil {
+			return errors.New("a chosen VM is no longer in the plan")
+		}
+		vm.Wave = wave
+	}
+	return r.saveLocked()
+}
+
 // SyncNow asks for a round of the given VMs (all when empty) at the next
 // sweep, ahead of their interval and the plan's start time.
 func (r *mbRunner) SyncNow(id string, ids []string) error {
