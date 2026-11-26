@@ -234,7 +234,7 @@ func TestCollectVSphereFullDiscoveryAgainstSimulator(t *testing.T) {
 	}
 	html, _ := os.ReadFile(discovery)
 	page := string(html)
-	if strings.Contains(page, "<script") || strings.Contains(page, "<b>esx</b>") || !strings.Contains(page, "&lt;b&gt;esx&lt;/b&gt;") || !strings.Contains(page, "vmnic0") || !strings.Contains(page, "Evaluation") {
+	if strings.Count(page, "<script") != 1 || !strings.Contains(page, "<script>"+vmReportScript+"</script>") || strings.Contains(page, "<b>esx</b>") || !strings.Contains(page, "&lt;b&gt;esx&lt;/b&gt;") || !strings.Contains(page, "vmnic0") || !strings.Contains(page, "Evaluation") {
 		t.Fatal("discovery report is unsafe or incomplete")
 	}
 	for _, name := range []string{"Host-Physical-NICs.csv", "Host-Virtual-Switches.csv", "Host-VMkernel-Ports.csv", "Host-Storage-Adapters.csv", "Host-Storage-Devices.csv", "Host-Services.csv", "Host-Software-Packages.csv", "Licenses.csv", "Resource-Pools.csv", "Distributed-Switches.csv"} {
