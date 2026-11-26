@@ -117,6 +117,26 @@ standard input and is kept in memory until **Forget** or exit. If your EDR
 watches remote PowerShell, allow `wsmprovhost.exe` running the Hyper-V and
 FailoverClusters cmdlets above for the admin computers you migrate from.
 
+### Build Hyper-V hosts
+
+**Build Hyper-V hosts** sets up new Hyper-V nodes and failover clusters from
+an admin computer. Like Move VMs from one console, it copies no program to
+the nodes, creates no service or scheduled task and starts no remote process
+by hand. Every change is previewed and approved first.
+
+| Behaviour | Where | Why |
+| --- | --- | --- |
+| `powershell.exe -ExecutionPolicy RemoteSigned -File Build-HyperVHost.ps1` (signed script, never Bypass, no hidden-window or encoded-command flags) | Admin computer | Reads the nodes and runs each approved step |
+| `Invoke-Command` over WinRM (TCP 5985, Kerberos), running in `wsmprovhost.exe` | Each new node | `Install-WindowsFeature` (Hyper-V, Failover Clustering, Multipath I/O), `New-VMSwitch`, `Set-VMSwitchTeam`, `New-NetLbfoTeam` (Windows Server 2012 R2), `Add-VMNetworkAdapter -ManagementOS`, `Set-VMNetworkAdapterVlan`, `New-NetIPAddress`, `Set-NetAdapterAdvancedProperty` (jumbo frames), the iSCSI initiator service, `New-IscsiTargetPortal`, `Connect-IscsiTarget`, MPIO claims, `Initialize-Disk`, `New-Partition` and `Format-Volume` on empty disks only, `Set-VMHost`, `Enable-VMMigration` |
+| `Restart-Computer` from the admin computer | Each new node | Only the approved Restart nodes step, for nodes waiting on a restart after installing roles |
+| FailoverClusters cmdlets (`Test-Cluster`, `New-Cluster`, `Add-ClusterNode`, `Add-ClusterDisk`, `Add-ClusterSharedVolume`, `Set-ClusterQuorum`, cluster network settings) over RPC with the signed-in account | Admin computer to nodes | The cluster steps run on the admin computer, never in a remote session, so no credential is passed on between computers (no CredSSP) |
+
+The nodes' account and a cloud witness key reach PowerShell only as one JSON
+line on standard input and are kept in memory until **Use my Windows
+account** or exit. If your EDR watches remote PowerShell, allow
+`wsmprovhost.exe` running the cmdlets above on new Hyper-V nodes while they
+are being built.
+
 ### Migration plans (on a Hyper-V host)
 
 A **Migration plan** runs inside the console on the Hyper-V host and does

@@ -270,6 +270,7 @@ type application struct {
 	convert                 convertRuntime
 	convertSend             convertSendRuntime
 	hvRemote                hvRemoteRuntime
+	hvBuild                 hvBuildRuntime
 	// guestRemote is where Prepare and fix up runs (guest_remote_windows.go);
 	// its password stays in memory until Forget or exit.
 	guestRemote guestTarget
@@ -2337,6 +2338,7 @@ func (a *application) serve(listener net.Listener) error {
 	mux.HandleFunc("/api/plans", a.handlePlans)
 	go a.startPlans()
 	mux.HandleFunc("/api/hvremote/", a.handleHVRemote)
+	mux.HandleFunc("/api/hvbuild/", a.handleHVBuild)
 	mux.HandleFunc("/api/vmware/target/", a.handleVMwareTarget)
 	mux.HandleFunc("/api/vmware/receiver", a.handleVMwareReceiver)
 	mux.HandleFunc("/api/vmware/receiver/pair", a.handleVMwareReceiverPair)
