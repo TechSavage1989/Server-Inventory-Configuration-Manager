@@ -28,41 +28,26 @@ func replMFTOwnRuns(record []byte) ([]replRun, uint16, error) {
 }
 
 func replMFTRecordRuns(record []byte, allowList bool) ([]replRun, uint16, error) {
-	runs, sequence, _, _, err := replMFTParse(record, allowList)
-	return runs, sequence, err
-}
-
-// replMFTExtend is the MFT record of the $Extend folder, which holds the
-// change journal ($UsnJrnl), $Quota, $ObjId, $Reparse and the transaction
-// metadata.
-const replMFTExtend = 11
-
-// replMFTParse is replMFTRecordRuns plus who the record belongs to: parent
-// is the folder a file name in the record lies in (replMFTExtend when any
-// name does), base the record this one extends (zero for a base record).
-func replMFTParse(record []byte, allowList bool) ([]replRun, uint16, int64, int64, error) {
-	parent, base := int64(0), int64(0)
 	if len(record) < 64 || string(record[:4]) != "FILE" {
-		return nil, 0, 0, 0, errors.New("not an MFT record")
+		return nil, 0, errors.New("not an MFT record")
 	}
 	fixed := append([]byte(nil), record...)
 	usaOffset, usaCount := int(binary.LittleEndian.Uint16(fixed[4:])), int(binary.LittleEndian.Uint16(fixed[6:]))
 	if usaCount < 2 || usaOffset+2*usaCount > len(fixed) || len(fixed)%(usaCount-1) != 0 {
-		return nil, 0, 0, 0, errors.New("the MFT record's update sequence is damaged")
+		return nil, 0, errors.New("the MFT record's update sequence is damaged")
 	}
 	stride := len(fixed) / (usaCount - 1)
 	for i := 1; i < usaCount; i++ {
 		end := i*stride - 2
 		if fixed[end] != fixed[usaOffset] || fixed[end+1] != fixed[usaOffset+1] {
-			return nil, 0, 0, 0, errors.New("the MFT record is torn (its update sequence does not match)")
+			return nil, 0, errors.New("the MFT record is torn (its update sequence does not match)")
 		}
 		fixed[end], fixed[end+1] = fixed[usaOffset+2*i], fixed[usaOffset+2*i+1]
 	}
 	sequence := binary.LittleEndian.Uint16(fixed[16:])
 	if binary.LittleEndian.Uint16(fixed[22:])&1 == 0 {
-		return nil, sequence, 0, 0, errReplMFTUnused
+		return nil, sequence, errReplMFTUnused
 	}
-	base = int64(binary.LittleEndian.Uint64(fixed[32:]) & 0xFFFFFFFFFFFF)
 	runs := []replRun{}
 	at := int(binary.LittleEndian.Uint16(fixed[20:]))
 	for at+16 <= len(fixed) {
@@ -72,22 +57,15 @@ func replMFTParse(record []byte, allowList bool) ([]replRun, uint16, int64, int6
 		}
 		length := int(binary.LittleEndian.Uint32(fixed[at+4:]))
 		if length < 16 || at+length > len(fixed) {
-			return nil, sequence, 0, 0, errors.New("an attribute runs past the end of the MFT record")
+			return nil, sequence, errors.New("an attribute runs past the end of the MFT record")
 		}
 		attribute := fixed[at : at+length]
 		if kind == 0x20 && !allowList {
-			return nil, sequence, 0, 0, errors.New("the file keeps its attributes in other MFT records")
-		}
-		if kind == 0x30 && attribute[8] == 0 && length >= 24 { // a resident file name
-			if content := int(binary.LittleEndian.Uint16(attribute[20:])); content+8 <= length {
-				if folder := int64(binary.LittleEndian.Uint64(attribute[content:]) & 0xFFFFFFFFFFFF); parent != replMFTExtend {
-					parent = folder
-				}
-			}
+			return nil, sequence, errors.New("the file keeps its attributes in other MFT records")
 		}
 		if attribute[8] != 0 { // non-resident
 			if length < 64 {
-				return nil, sequence, 0, 0, errors.New("a non-resident attribute is too short")
+				return nil, sequence, errors.New("a non-resident attribute is too short")
 			}
 			pairs := int(binary.LittleEndian.Uint16(attribute[32:]))
 			lcn := int64(0)
@@ -95,7 +73,7 @@ func replMFTParse(record []byte, allowList bool) ([]replRun, uint16, int64, int6
 				header := attribute[p]
 				lengthSize, offsetSize := int(header&0x0F), int(header>>4)
 				if lengthSize == 0 || lengthSize > 8 || offsetSize > 8 || p+1+lengthSize+offsetSize > length {
-					return nil, sequence, 0, 0, errors.New("a run list is damaged")
+					return nil, sequence, errors.New("a run list is damaged")
 				}
 				count := int64(0)
 				for i := lengthSize - 1; i >= 0; i-- {
@@ -108,7 +86,7 @@ func replMFTParse(record []byte, allowList bool) ([]replRun, uint16, int64, int6
 					}
 					lcn += delta
 					if lcn < 0 || count <= 0 {
-						return nil, sequence, 0, 0, errors.New("a run points outside the volume")
+						return nil, sequence, errors.New("a run points outside the volume")
 					}
 					runs = append(runs, replRun{Start: lcn, Count: count})
 				}
@@ -117,7 +95,7 @@ func replMFTParse(record []byte, allowList bool) ([]replRun, uint16, int64, int6
 		}
 		at += length
 	}
-	return runs, sequence, parent, base, nil
+	return runs, sequence, nil
 }
 
 var errReplMFTUnused = errors.New("the MFT record is not in use")
@@ -141,20 +119,15 @@ func replMFTOffset(mftRuns []replRun, clusterSize, offset int64) (int64, error) 
 // space another file freed) keeps its data, so neither the change journal
 // nor the volume bitmap shows the move; its record's runs do.
 func replMFTLocation(record []byte) (uint64, []replRun, error) {
-	location, runs, _, _, err := replMFTLocationOwner(record)
-	return location, runs, err
-}
-
-func replMFTLocationOwner(record []byte) (uint64, []replRun, int64, int64, error) {
 	if len(record) < 4 || string(record[:4]) != "FILE" {
-		return 0, nil, 0, 0, nil // never used
+		return 0, nil, nil // never used
 	}
-	runs, sequence, parent, base, err := replMFTParse(record, true)
+	runs, sequence, err := replMFTOwnRuns(record)
 	if errors.Is(err, errReplMFTUnused) {
-		return 0, nil, 0, 0, nil
+		return 0, nil, nil
 	}
 	if err != nil {
-		return 0, nil, 0, 0, err
+		return 0, nil, err
 	}
 	hash := uint64(14695981039346656037)
 	mix := func(v uint64) {
@@ -172,23 +145,17 @@ func replMFTLocationOwner(record []byte) (uint64, []replRun, int64, int64, error
 	if hash == 0 {
 		hash = 1
 	}
-	return hash, runs, parent, base, nil
+	return hash, runs, nil
 }
 
 // replMovedRuns compares every record's location with the last round's and
-// returns the runs of each record whose location changed, plus every run of
-// the files in $Extend (and of the records that extend them) whether they
-// moved or not: Windows writes the change journal and its other metadata
-// there in place, which neither the journal nor the volume bitmap shows,
-// and will not always open those files by path, even on a shadow copy.
-// records is the MFT read in order, recordSize bytes each.
+// returns the runs of each record whose location changed. records is the
+// MFT read in order, recordSize bytes each.
 func replMovedRuns(previous []uint64, read func(each func(index int64, record []byte) error) error) ([]uint64, []replRun, error) {
 	locations := []uint64{}
 	moved := []replRun{}
-	system := map[int64]bool{}     // base records of files in $Extend
-	later := map[int64][]replRun{} // runs of extension records met before their base
 	err := read(func(index int64, record []byte) error {
-		location, runs, parent, base, err := replMFTLocationOwner(record)
+		location, runs, err := replMFTLocation(record)
 		if err != nil {
 			return fmt.Errorf("MFT record %d: %w", index, err)
 		}
@@ -196,24 +163,8 @@ func replMovedRuns(previous []uint64, read func(each func(index int64, record []
 			locations = append(locations, 0)
 		}
 		locations = append(locations, location)
-		if previous == nil || location == 0 {
-			return nil
-		}
-		changed := index >= int64(len(previous)) || previous[index] != location
-		switch {
-		case base == 0 && parent == replMFTExtend:
-			system[index] = true
+		if previous != nil && location != 0 && (index >= int64(len(previous)) || previous[index] != location) {
 			moved = append(moved, runs...)
-			moved = append(moved, later[index]...)
-		case base != 0 && base < index && system[base]:
-			moved = append(moved, runs...)
-		case changed:
-			moved = append(moved, runs...)
-		case base > index:
-			later[base] = append(later[base], runs...)
-		}
-		if base == 0 {
-			delete(later, index)
 		}
 		return nil
 	})
