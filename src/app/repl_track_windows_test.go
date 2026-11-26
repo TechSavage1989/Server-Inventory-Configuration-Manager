@@ -98,6 +98,9 @@ func TestReplicationChangeTrackingMissesNothing(t *testing.T) {
 			if check, err = vmCopyDisk(context.Background(), opened.Sources[id], target, vmCopyOptions{}); err != nil {
 				t.Fatal(err)
 			}
+			if check.Progress.Changed != 0 {
+				replTestDiagnoseMiss(t, letter, opened.Sources[id], target, check)
+			}
 		}
 		if err := opened.Commit(map[string]*vmCopyResult{id: tracked}); err != nil {
 			t.Fatal(err)
@@ -162,7 +165,7 @@ func TestReplicationChangeTrackingMissesNothing(t *testing.T) {
 		for _, index := range check.ChangedChunks {
 			t.Logf("missed chunk %d at %s", index, vmFormatBytes(int64(index)*check.State.ChunkSize))
 		}
-		replTestNameOwners(t, letter, check.ChangedChunks, check.State.ChunkSize)
+		replTestNameOwners(t, `\\.\`+letter[:2], check.ChangedChunks, check.State.ChunkSize, replTestPartitionOffset(t, letter))
 		t.Fatalf("change tracking missed %d chunks", check.Progress.Changed)
 	}
 	if second.Progress.BytesRead*2 > check.Progress.BytesRead {
@@ -172,16 +175,14 @@ func TestReplicationChangeTrackingMissesNothing(t *testing.T) {
 
 // replTestNameOwners logs which files hold the clusters of missed chunks,
 // so a tracking miss names what changed unseen.
-func replTestNameOwners(t *testing.T, letter string, chunks []int, chunkSize int64) {
+func replTestNameOwners(t *testing.T, device string, chunks []int, chunkSize, offset int64) {
 	t.Helper()
-	offset, err := strconv.ParseInt(strings.TrimSpace(vmPowerShell(t, "[Console]::Out.Write((Get-Partition -DriveLetter "+letter[:1]+").Offset)")), 10, 64)
-	if err != nil {
-		t.Logf("partition offset: %v", err)
+	if offset < 0 {
 		return
 	}
-	reader, err := newReplMFTReader(`\\.\` + letter[:2])
+	reader, err := newReplMFTReader(device)
 	if err != nil {
-		t.Logf("reading the MFT: %v", err)
+		t.Logf("reading the MFT of %s: %v", device, err)
 		return
 	}
 	defer reader.Close()
@@ -201,7 +202,7 @@ func replTestNameOwners(t *testing.T, letter string, chunks []int, chunkSize int
 			for _, s := range spans {
 				if run.Start < s.to && run.Start+run.Count > s.from {
 					named[index] = true
-					t.Logf("MFT record %d (%s) holds clusters %d-%d in a missed chunk", index, replTestRecordName(record), run.Start, run.Start+run.Count-1)
+					t.Logf("%s: MFT record %d (%s) holds clusters %d-%d in a missed chunk", device, index, replTestRecordName(record), run.Start, run.Start+run.Count-1)
 					return nil
 				}
 			}
@@ -248,4 +249,89 @@ func replTestRecordName(record []byte) string {
 		at += length
 	}
 	return name
+}
+
+// replTestDiagnoseMiss runs while the round's shadow copy is still open: it
+// says whether the shadow copy itself reads differently a second time,
+// which metadata paths open on it and which of its files hold the missed
+// chunks.
+func replTestDiagnoseMiss(t *testing.T, letter string, source vmCopySource, target string, check *vmCopyResult) {
+	t.Helper()
+	again, err := vmCopyDisk(context.Background(), source, target, vmCopyOptions{})
+	if err != nil {
+		t.Logf("second full read: %v", err)
+	} else {
+		t.Logf("a second full read of the same shadow copy found %d changed chunks %v", again.Progress.Changed, again.ChangedChunks)
+	}
+	device := replTestNewestShadow(t, letter)
+	if device == "" {
+		t.Log("the shadow copy device was not found")
+		return
+	}
+	t.Logf("shadow copy device %s", device)
+	for _, name := range append(append([]string{}, replMetaRequired...), replMetaOptional...) {
+		if runs, err := replPathRuns(device + `\` + name); err != nil {
+			t.Logf("metadata %s: does not open on the shadow copy: %v", name, err)
+		} else {
+			t.Logf("metadata %s: %d runs", name, len(runs))
+		}
+	}
+	offset := replTestPartitionOffset(t, letter)
+	if shadow, err := replOpenVolume(device); err == nil {
+		clusterSize, clusters, err := replNTFSGeometry(shadow)
+		var bitmap []byte
+		if err == nil {
+			bitmap, err = replVolumeBitmap(shadow, clusters)
+		}
+		windows.CloseHandle(shadow)
+		if err == nil && offset >= 0 {
+			for _, index := range check.ChangedChunks {
+				from := (int64(index)*check.State.ChunkSize - offset) / clusterSize
+				used := 0
+				for c := from; c < from+check.State.ChunkSize/clusterSize && c < clusters; c++ {
+					if c >= 0 && bitmap[c/8]&(1<<(c%8)) != 0 {
+						used++
+					}
+				}
+				t.Logf("missed chunk %d: clusters %d-%d, %d in use on the shadow copy", index, from, from+check.State.ChunkSize/clusterSize-1, used)
+			}
+		}
+	}
+	replTestNameOwners(t, device, check.ChangedChunks, check.State.ChunkSize, offset)
+}
+
+// replTestNewestShadow finds the newest shadow copy device of a volume by
+// its NTFS serial number.
+func replTestNewestShadow(t *testing.T, letter string) string {
+	serial := func(path string) uint64 {
+		volume, err := replOpenVolume(path)
+		if err != nil {
+			return 0
+		}
+		defer windows.CloseHandle(volume)
+		out := make([]byte, 128)
+		var returned uint32
+		if windows.DeviceIoControl(volume, replFsctlGetNtfsVolumeData, nil, 0, &out[0], uint32(len(out)), &returned, nil) != nil {
+			return 0
+		}
+		return binary.LittleEndian.Uint64(out)
+	}
+	want := serial(`\\.\` + letter[:2])
+	found := ""
+	for n := 1; n <= 256; n++ {
+		path := fmt.Sprintf(`\\?\GLOBALROOT\Device\HarddiskVolumeShadowCopy%d`, n)
+		if want != 0 && serial(path) == want {
+			found = path
+		}
+	}
+	return found
+}
+
+func replTestPartitionOffset(t *testing.T, letter string) int64 {
+	offset, err := strconv.ParseInt(strings.TrimSpace(vmPowerShell(t, "[Console]::Out.Write((Get-Partition -DriveLetter "+letter[:1]+").Offset)")), 10, 64)
+	if err != nil {
+		t.Logf("partition offset: %v", err)
+		return -1
+	}
+	return offset
 }
