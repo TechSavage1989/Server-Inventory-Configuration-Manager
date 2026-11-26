@@ -338,7 +338,7 @@ func hvRemotePlanMove(info *hvRemoteInfo, vmName string, choice hvRemoteMoveChoi
 			return "", "", "", "", errors.New("the Failover Cluster Module for Windows PowerShell is missing on the host, so the VM cannot be made highly available from here")
 		}
 		if !hvRemoteOnCSV(info, copyLocal) || vmLocal == "" || !hvRemoteOnCSV(info, vmLocal) {
-			return "", "", "", "", errors.New("a highly available VM must keep its disks and its configuration on a Cluster Shared Volume (C:\\ClusterStorage\\...); choose one for both folders, or untick Make it highly available")
+			return "", "", "", "", errors.New("a highly available VM must keep its disks and its configuration on a Cluster Shared Volume (C:\\ClusterStorage\\...); choose one for both the copied disks folder and the VM configuration folder, or untick Make it highly available")
 		}
 	}
 	if !choice.Cutover && choice.NeedBytes > 0 && choice.NeedBytes > choice.HaveBytes {
