@@ -2365,6 +2365,7 @@ func (a *application) serve(listener net.Listener) error {
 	mux.HandleFunc("/api/migrate/cancel", a.handleMigrateCancel)
 	mux.HandleFunc("/api/migrate/reset", a.handleMigrateReset)
 	mux.HandleFunc("/api/vmware/connect", a.handleVMwareConnect)
+	mux.HandleFunc("/api/output-root", a.handleOutputRoot)
 	mux.HandleFunc("/api/vmware/cancel", a.handleVMwareCancel)
 	mux.HandleFunc("/api/vmware/open-inventory", a.handleVMwareOpenInventory)
 	mux.HandleFunc("/api/vmware/hyperv", a.handleVMwareHyperV)
