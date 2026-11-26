@@ -49,20 +49,21 @@ const url=name=>'file:///'+path.resolve(folder,name).replace(/\\/g,'/');
     await seg.click();
     assert.strictEqual(await page.locator('table.vt tbody tr:not(.hide)').count(),review,'bar segment filters the VM list');
 
-    // Links open object pages, with tabs, and the tree follows.
+    // Links open object pages, with tabs, and the tree follows. The hash changes before the
+    // hashchange handler shows the page, so each wait also waits for the page itself.
     await page.locator('table.vt tbody tr:not(.hide) td:first-child a').first().click();
-    await page.waitForFunction(()=>location.hash.indexOf('#vm-')===0);
+    await page.waitForFunction(()=>{const p=document.querySelector('.pg:not([hidden])');return location.hash.indexOf('#vm-')===0&&!!p&&p.id.indexOf('vm-')===0;});
     const vmPage=page.locator('.pg:not([hidden])');
     assert.match(await vmPage.getAttribute('id'),/^vm-/,'a VM name opens its page');
     assert.strictEqual(await page.locator('.tree.on a.sel').count(),1,'the tree shows the open VM');
     await vmPage.locator('.tabs button[data-tab="disks"]').click();
     assert.strictEqual(await vmPage.locator('.pane[data-pane="disks"]').isVisible(),true,'tabs switch');
     await vmPage.locator('.crumb a').last().click();
-    await page.waitForFunction(()=>location.hash.indexOf('#vm-')!==0);
+    await page.waitForFunction(()=>{const p=document.querySelector('.pg:not([hidden])');return location.hash.indexOf('#vm-')!==0&&!!p&&p.id.indexOf('vm-')!==0;});
     assert.match(await page.locator('.pg:not([hidden])').getAttribute('id'),/^host-|^vms$/,'breadcrumb opens the host');
     // Back returns to the VM.
     await page.goBack();
-    await page.waitForFunction(()=>location.hash.indexOf('#vm-')===0);
+    await page.waitForFunction(()=>{const p=document.querySelector('.pg:not([hidden])');return location.hash.indexOf('#vm-')===0&&!!p&&p.id.indexOf('vm-')===0;});
     assert.match(await page.locator('.pg:not([hidden])').getAttribute('id'),/^vm-/,'Back returns');
 
     // Issues: the fix is shown and every VM in it links to its page.
@@ -77,7 +78,7 @@ const url=name=>'file:///'+path.resolve(folder,name).replace(/\\/g,'/');
     const shown=await page.evaluate(()=>Array.from(document.querySelectorAll('.tree.on a[data-vm]')).filter(a=>a.offsetParent!==null).map(a=>a.textContent));
     assert.ok(shown.length===2&&shown.every(t=>t.includes('WEB0')),'search filters the tree: '+shown.join(','));
     await page.locator('#q').press('Enter');
-    await page.waitForFunction(()=>location.hash.indexOf('#vm-')===0);
+    await page.waitForFunction(()=>{const p=document.querySelector('.pg:not([hidden])');return location.hash.indexOf('#vm-')===0&&!!p&&p.id.indexOf('vm-')===0;});
     assert.match(await page.locator('.pg:not([hidden]) h2').textContent(),/WEB0/,'Enter opens the first match');
 
     // The discovery report opens at the hosts.
