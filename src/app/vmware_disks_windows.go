@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -158,11 +159,15 @@ func (a *application) handleVMwareReceiver(response http.ResponseWriter, request
 		// Discoverable answers find requests from senders on the network;
 		// nil (older pages) means on.
 		Discoverable *bool `json:"discoverable"`
+		// NewIdentity makes a new pairing code and certificate instead of
+		// the ones kept from the last start; senders then need the new ones.
+		NewIdentity bool `json:"newIdentity"`
 	}
 	if !decodeVMwareRequest(response, request, &input) {
 		return
 	}
 	if input.Action == "stop" {
+		_ = os.Remove(a.vmReceiverStartPath())
 		a.stopVMReceiver("Stopped. Start it again to receive more; senders resume where they stopped.")
 		writeJSON(response, http.StatusOK, map[string]any{"ok": true})
 		return
@@ -171,33 +176,54 @@ func (a *application) handleVMwareReceiver(response http.ResponseWriter, request
 		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "Choose start or stop."})
 		return
 	}
-	port, err := vmReceiverPort(input.Port)
-	if err != nil {
-		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "The port was not accepted: " + err.Error() + "."})
+	discoverable := input.Discoverable == nil || *input.Discoverable
+	if status, reason := a.startVMReceiverFromWindow(vmReceiverStart{Folder: input.Folder, Port: input.Port, Firewall: input.Firewall, Discoverable: discoverable, NewIdentity: input.NewIdentity}); status != 0 {
+		writeJSON(response, status, map[string]any{"ok": false, "error": reason})
 		return
+	}
+	writeJSON(response, http.StatusOK, map[string]any{"ok": true})
+}
+
+// vmReceiverStart is how the receiver was last started from the window. It
+// is saved (no code, no key) so the receiver starts again by itself when the
+// application opens, and removed when the operator stops it.
+type vmReceiverStart struct {
+	Folder       string `json:"folder"`
+	Port         int    `json:"port"`
+	Firewall     bool   `json:"firewall"`
+	Discoverable bool   `json:"discoverable"`
+	NewIdentity  bool   `json:"-"`
+}
+
+func (a *application) vmReceiverStartPath() string {
+	return filepath.Join(a.vmwareRoot(), "Receiver", "autostart.json")
+}
+
+// startVMReceiverFromWindow starts this computer's receiver. It returns 0
+// on success, or an HTTP status and the reason.
+func (a *application) startVMReceiverFromWindow(options vmReceiverStart) (int, string) {
+	port, err := vmReceiverPort(options.Port)
+	if err != nil {
+		return http.StatusBadRequest, "The port was not accepted: " + err.Error() + "."
 	}
 	a.mu.Lock()
 	running, closing := a.vmReceive.receiver != nil, a.closing
-	folder := strings.TrimSpace(input.Folder)
+	folder := strings.TrimSpace(options.Folder)
 	if folder == "" {
 		folder = filepath.Join(a.vmwareCopyRootLocked(), "Received")
 	}
 	a.mu.Unlock()
 	switch {
 	case closing:
-		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "The application is closing."})
-		return
+		return http.StatusConflict, "The application is closing."
 	case running:
-		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "The receiver is already running. Stop it first to change its folder or port."})
-		return
+		return http.StatusConflict, "The receiver is already running. Stop it first to change its folder or port."
 	case !filepath.IsAbs(folder) || (migrateProtectedFolder(folder) != "" && !vmHostDefaultAllowed(folder)):
-		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "Choose a full path for received disks outside Windows, Program Files and profile folders."})
-		return
-	case input.Firewall && !isAdministrator():
-		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "Opening the firewall port needs the application to run as administrator. Run it as administrator, or open the port yourself and untick that option."})
-		return
+		return http.StatusBadRequest, "Choose a full path for received disks outside Windows, Program Files and profile folders."
+	case options.Firewall && !isAdministrator():
+		return http.StatusBadRequest, "Opening the firewall port needs the application to run as administrator. Run it as administrator, or open the port yourself and untick that option."
 	}
-	discoverable := input.Discoverable == nil || *input.Discoverable
+	discoverable := options.Discoverable
 	config := vmReceiverConfig{Folder: folder, Pairing: true, Version: appVersion, FreeBytes: func() uint64 {
 		free, _, _ := vmFreeSpace(folder)
 		return free
@@ -205,19 +231,31 @@ func (a *application) handleVMwareReceiver(response http.ResponseWriter, request
 	if discoverable {
 		config.Discovery = ":" + strconv.Itoa(vmDiscoveryPort)
 	}
+	hostName, _ := os.Hostname()
+	identity, kept, saveErr, err := vmReceiverIdentityFor(filepath.Join(a.vmwareRoot(), "Receiver", "identity.json"), hostName, options.NewIdentity, replSeal, replUnseal)
+	if err != nil {
+		return http.StatusBadRequest, "The receiver could not start: " + err.Error()
+	}
+	config.Identity = identity
+	switch {
+	case kept:
+		a.vmwareLog("The receiver uses the same pairing code and certificate as before, so senders and replication jobs carry on.")
+	case saveErr != nil:
+		a.vmwareLog("A new pairing code and certificate were made but could not be saved (%v): they last until the receiver stops.", saveErr)
+	default:
+		a.vmwareLog("A new pairing code and certificate were made and kept for later starts. Senders and replication jobs need the new ones.")
+	}
 	r, err := startVMReceiverWith(":"+strconv.Itoa(port), config, func(text string) { a.vmwareLog("%s", text) })
 	if err != nil {
-		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "The receiver could not start: " + err.Error()})
-		return
+		return http.StatusBadRequest, "The receiver could not start: " + err.Error()
 	}
 	// Copies a VM was started from stay held, before the firewall opens.
 	a.replApplyFailoverHolds(r)
 	firewall := false
-	if input.Firewall {
+	if options.Firewall {
 		if err := vmAddReceiverFirewallRule(port, r.discovery != nil); err != nil {
 			r.Stop()
-			writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "The firewall port could not be opened, so the receiver was stopped: " + err.Error()})
-			return
+			return http.StatusBadRequest, "The firewall port could not be opened, so the receiver was stopped: " + err.Error()
 		}
 		firewall = true
 		a.vmwareLog("Allowed TCP port %d in Windows Firewall (rule %q, removed when the receiver stops).", port, vmReceiverFirewallRule)
@@ -232,12 +270,40 @@ func (a *application) handleVMwareReceiver(response http.ResponseWriter, request
 		if firewall {
 			vmRemoveReceiverFirewallRule()
 		}
-		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "The receiver is already running."})
-		return
+		return http.StatusConflict, "The receiver is already running."
 	}
 	a.vmReceive = vmReceiverRuntime{receiver: r, firewall: firewall, port: port, started: time.Now()}
 	a.mu.Unlock()
-	writeJSON(response, http.StatusOK, map[string]any{"ok": true})
+	if data, err := json.Marshal(vmReceiverStart{Folder: folder, Port: port, Firewall: firewall, Discoverable: discoverable}); err == nil {
+		path := a.vmReceiverStartPath()
+		if err := os.MkdirAll(filepath.Dir(path), 0700); err == nil {
+			_ = os.WriteFile(path, data, 0600)
+		}
+	}
+	return 0, ""
+}
+
+// resumeVMReceiver starts the receiver again when the application opens, if
+// it was receiving when the application (or the computer) last closed, with
+// the same code and certificate, so senders and replication jobs carry on.
+func (a *application) resumeVMReceiver() {
+	data, err := os.ReadFile(a.vmReceiverStartPath())
+	if err != nil {
+		return
+	}
+	var options vmReceiverStart
+	if json.Unmarshal(data, &options) != nil {
+		return
+	}
+	if options.Firewall && !isAdministrator() {
+		options.Firewall = false
+		a.vmwareLog("The receiver starts again without opening the firewall port: run the application as administrator for that.")
+	}
+	if status, reason := a.startVMReceiverFromWindow(options); status != 0 {
+		a.vmwareLog("The receiver that was running when the application closed could not start again: %s", reason)
+		return
+	}
+	a.vmwareLog("The receiver started again as it was when the application closed, with the same code and certificate.")
 }
 
 // vmAgentDiskInfo describes one disk of this computer for the Disk copy view.
@@ -332,7 +398,7 @@ func (a *application) handleVMwareAgentSend(response http.ResponseWriter, reques
 		fail("The receiver was not accepted: " + err.Error() + ".")
 		return
 	}
-	if len(vmNormalizeThumbprint(input.Thumbprint)) != 64 {
+	if vmNormalizeThumbprint(input.Thumbprint) == "" {
 		fail("Enter the receiver's certificate thumbprint exactly as the receiving computer shows it (64 characters).")
 		return
 	}
