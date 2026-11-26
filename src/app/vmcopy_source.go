@@ -280,6 +280,17 @@ func vmSplitDatastorePath(value string) (datastore, file string, err error) {
 	return datastore, file, nil
 }
 
+// vmDatastoreStatusError is a datastore file the host answered with an HTTP
+// error for, such as a disk a running VM holds open.
+type vmDatastoreStatusError struct {
+	Datastore, File, Status string
+	Code                    int
+}
+
+func (e *vmDatastoreStatusError) Error() string {
+	return fmt.Sprintf("[%s] %s: the server answered %s", e.Datastore, e.File, e.Status)
+}
+
 // vmDatastoreFile reads one datastore file with HTTP Range requests through
 // the logged-in vSphere session. Only GET and HEAD are ever sent.
 //
@@ -320,7 +331,7 @@ func openVMDatastoreFile(ctx context.Context, client *vim25.Client, datacenter, 
 	}
 	response.Body.Close()
 	if response.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("[%s] %s: the server answered %s", datastore, file, response.Status)
+		return nil, &vmDatastoreStatusError{Datastore: datastore, File: file, Status: response.Status, Code: response.StatusCode}
 	}
 	f.size = response.ContentLength
 	if f.size < 0 {
