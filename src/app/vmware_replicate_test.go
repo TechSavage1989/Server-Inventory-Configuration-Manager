@@ -207,3 +207,69 @@ func TestReplicaDisksRefuseRDMsEncryptionAndChains(t *testing.T) {
 		t.Fatalf("file name %q", got)
 	}
 }
+
+// A quiesced snapshot can describe its disk as a delta on top of the base
+// the VM ran on: the base is copied with its pre-snapshot change ID. Any
+// other chain is refused with the consolidation hint.
+func TestFrozenReplicaDisksCopyTheBaseUnderAQuiesceDelta(t *testing.T) {
+	device := func(file, change string, parents ...string) types.BaseVirtualDevice {
+		backing := &types.VirtualDiskFlatVer2BackingInfo{VirtualDeviceFileBackingInfo: types.VirtualDeviceFileBackingInfo{FileName: file}, ChangeId: change}
+		at := backing
+		for _, parent := range parents {
+			at.Parent = &types.VirtualDiskFlatVer2BackingInfo{VirtualDeviceFileBackingInfo: types.VirtualDeviceFileBackingInfo{FileName: parent}}
+			at = at.Parent
+		}
+		return &types.VirtualDisk{VirtualDevice: types.VirtualDevice{Key: 2000, Backing: backing, DeviceInfo: &types.Description{Label: "Hard disk 1"}}, CapacityInBytes: 1 << 30}
+	}
+	before, err := vmReplicaDisks([]types.BaseVirtualDevice{device("[ds3] vm/vm_3.vmdk", "52 aa/10")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	logged := ""
+	disks, err := vmFrozenReplicaDisks([]types.BaseVirtualDevice{device("[ds3] vm/vm_3-000001.vmdk", "52 aa/12", "[ds3] vm/vm_3.vmdk")}, before, func(s string) { logged += s })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if disks[0].file != "[ds3] vm/vm_3.vmdk" || disks[0].changeID != "52 aa/10" || len(disks[0].chain) != 0 || !strings.Contains(logged, "short-lived delta") {
+		t.Fatalf("frozen disk %+v, log %q", disks[0], logged)
+	}
+	// A plain snapshot disk is used as it is.
+	if disks, err = vmFrozenReplicaDisks([]types.BaseVirtualDevice{device("[ds3] vm/vm_3.vmdk", "52 aa/11")}, before, nil); err != nil || disks[0].changeID != "52 aa/11" {
+		t.Fatalf("plain disk %+v, %v", disks, err)
+	}
+	// A chain that does not end in the VM's base disk is refused.
+	if _, err := vmFrozenReplicaDisks([]types.BaseVirtualDevice{device("[ds3] vm/vm_3-000002.vmdk", "x", "[ds3] other/other.vmdk")}, before, nil); err == nil || !strings.Contains(err.Error(), vmConsolidateHint) {
+		t.Fatalf("a foreign chain was accepted: %v", err)
+	}
+	// The VM itself running on a delta is refused with the hint and the files.
+	if _, err := vmReplicaDisks([]types.BaseVirtualDevice{device("[ds3] vm/vm_3-000001.vmdk", "x", "[ds3] vm/vm_3.vmdk")}); err == nil || !strings.Contains(err.Error(), "vm_3-000001.vmdk on top of [ds3] vm/vm_3.vmdk") || !strings.Contains(err.Error(), "Consolidate") {
+		t.Fatalf("chain message: %v", err)
+	}
+}
+
+func TestConsolidationNeed(t *testing.T) {
+	chained := []types.BaseVirtualDevice{&types.VirtualDisk{VirtualDevice: types.VirtualDevice{Key: 2000, Backing: &types.VirtualDiskFlatVer2BackingInfo{VirtualDeviceFileBackingInfo: types.VirtualDeviceFileBackingInfo{FileName: "[d] v/v-000001.vmdk"}, Parent: &types.VirtualDiskFlatVer2BackingInfo{VirtualDeviceFileBackingInfo: types.VirtualDeviceFileBackingInfo{FileName: "[d] v/v.vmdk"}}}}}}
+	plain := []types.BaseVirtualDevice{&types.VirtualDisk{VirtualDevice: types.VirtualDevice{Key: 2000, Backing: &types.VirtualDiskFlatVer2BackingInfo{VirtualDeviceFileBackingInfo: types.VirtualDeviceFileBackingInfo{FileName: "[d] v/v.vmdk"}}}}}
+	machine := func(devices []types.BaseVirtualDevice, flagged bool, snapshots int) mo.VirtualMachine {
+		m := mo.VirtualMachine{Config: &types.VirtualMachineConfigInfo{Hardware: types.VirtualHardware{Device: devices}}}
+		m.Runtime.ConsolidationNeeded = types.NewBool(flagged)
+		if snapshots > 0 {
+			m.Snapshot = &types.VirtualMachineSnapshotInfo{RootSnapshotList: []types.VirtualMachineSnapshotTree{{Name: "x"}}}
+		}
+		return m
+	}
+	for _, c := range []struct {
+		m    mo.VirtualMachine
+		want string
+	}{
+		{machine(plain, false, 0), ""},
+		{machine(plain, true, 0), "consolidate"},
+		{machine(chained, false, 0), "orphan"},
+		{machine(chained, true, 0), "consolidate"},
+		{machine(chained, false, 1), ""},
+	} {
+		if got := vmConsolidationNeed(c.m); got != c.want {
+			t.Fatalf("got %q, want %q", got, c.want)
+		}
+	}
+}

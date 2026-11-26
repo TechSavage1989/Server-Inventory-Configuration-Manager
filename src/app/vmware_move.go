@@ -32,6 +32,8 @@ type vmMoveRequest struct {
 	Progress func(disk string, p vmCopyProgress)
 	// Throttle limits how fast the disks are read; nil is no limit.
 	Throttle *vmThrottle
+	// Stage reports the step the move is on for the live progress panel.
+	Stage func(stage, detail string)
 }
 
 type vmMoveResult struct {
@@ -57,7 +59,12 @@ func vmMoveRound(parent context.Context, options vmConnectOptions, request vmMov
 		log = func(string) {}
 	}
 	result := &vmMoveResult{VM: request.Name, Cutover: request.Cutover}
+	stage := request.Stage
+	if stage == nil {
+		stage = func(string, string) {}
+	}
 	if request.Cutover {
+		stage("shutdown", "")
 		prepared, err := prepareVSphereVM(parent, options, request.VMID, request.Name, vmPrepareSteps{Shutdown: true}, request.RecordFolder, log)
 		for _, line := range prepared.Done {
 			log(line)
@@ -72,6 +79,7 @@ func vmMoveRound(parent context.Context, options vmConnectOptions, request vmMov
 	}
 	ctx, cancel := context.WithCancel(parent)
 	defer cancel()
+	stage("connect", "")
 	vsphere, err := openVSphereSession(ctx, options, log)
 	if err != nil {
 		return result, err
@@ -101,6 +109,7 @@ func vmMoveRound(parent context.Context, options vmConnectOptions, request vmMov
 		RecordFolder: request.RecordFolder,
 		NewSink:      request.NewSink,
 		Throttle:     request.Throttle,
+		Stage:        request.Stage,
 		Log:          log,
 		Progress: func(disk string, p vmCopyProgress) {
 			if request.Progress != nil {
