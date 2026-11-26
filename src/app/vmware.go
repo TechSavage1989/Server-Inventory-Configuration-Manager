@@ -97,22 +97,25 @@ type vmwareStateResponse struct {
 	GuestTarget     *guestTargetState   `json:"guestTarget"`
 	// GuestAuto is the account for the automatic fix-up (user name only)
 	// and Fixups each VM's latest automatic fix-up.
-	GuestAuto     guestAutoState       `json:"guestAuto"`
-	Fixups        []guestFixStatus     `json:"fixups"`
-	CompareSerial uint64               `json:"compareSerial"`
-	CompareError  string               `json:"compareError"`
-	Prepare       *vmPrepareResult     `json:"prepare"`
-	PrepareSerial uint64               `json:"prepareSerial"`
-	PrepareError  string               `json:"prepareError"`
-	PrepareBatch  []vmPrepareBatchItem `json:"prepareBatch"`
-	CanPrepare    bool                 `json:"canPrepare"`
-	HyperVHere    bool                 `json:"hyperVHere"`
-	Move          *vmMoveResult        `json:"move"`
-	MoveSerial    uint64               `json:"moveSerial"`
-	MoveError     string               `json:"moveError"`
-	MoveStatus    *vmMoveStatus        `json:"moveStatus"`
-	MoveCopyRoot  string               `json:"moveCopyRoot"`
-	HostStorage   *vmHostStorage       `json:"hostStorage"`
+	GuestAuto guestAutoState   `json:"guestAuto"`
+	Fixups    []guestFixStatus `json:"fixups"`
+	// Preflight is the optional domain controller and SQL Server checks
+	// (user name only, never the password).
+	Preflight     *preflightStateResponse `json:"preflight"`
+	CompareSerial uint64                  `json:"compareSerial"`
+	CompareError  string                  `json:"compareError"`
+	Prepare       *vmPrepareResult        `json:"prepare"`
+	PrepareSerial uint64                  `json:"prepareSerial"`
+	PrepareError  string                  `json:"prepareError"`
+	PrepareBatch  []vmPrepareBatchItem    `json:"prepareBatch"`
+	CanPrepare    bool                    `json:"canPrepare"`
+	HyperVHere    bool                    `json:"hyperVHere"`
+	Move          *vmMoveResult           `json:"move"`
+	MoveSerial    uint64                  `json:"moveSerial"`
+	MoveError     string                  `json:"moveError"`
+	MoveStatus    *vmMoveStatus           `json:"moveStatus"`
+	MoveCopyRoot  string                  `json:"moveCopyRoot"`
+	HostStorage   *vmHostStorage          `json:"hostStorage"`
 	// HVRemote is the remote Hyper-V host or cluster Move VMs is connected
 	// to from this computer (never its password).
 	HVRemote *hvRemoteStateResponse `json:"hvRemote"`
@@ -163,7 +166,7 @@ func (a *application) vmwareSnapshotLocked() vmwareStateResponse {
 		Server: a.vmware.server, Account: a.vmware.account, Certificate: a.vmware.certificate,
 		InventorySerial: a.vmware.inventorySerial, OutputFolder: a.vmware.outputFolder, ReportPath: a.vmware.reportPath,
 		RunbookPath: a.vmware.runbookPath, RunbookDocxPath: vmRunbookDocxFor(a.vmware.runbookPath), DiscoveryPath: vmDiscoveryReportFor(a.vmware.reportPath), ReportDocxPath: vmReportBeside(a.vmware.reportPath, vmReportDocx), ReportPDFPath: vmReportBeside(a.vmware.reportPath, vmReportPDF), PlanCSVPath: a.vmware.planCSVPath,
-		GuestSerial: a.vmware.guestSerial, GuestMessage: a.vmware.guestMessage, GuestError: a.vmware.guestError, GuestWorkPath: a.guestWorkPath(), GuestTarget: a.guestTargetStateLocked(), GuestAuto: guestAutoState{User: a.guestAuto.user, HasPassword: a.guestAuto.password != ""}, Fixups: a.fixups.List(),
+		GuestSerial: a.vmware.guestSerial, GuestMessage: a.vmware.guestMessage, GuestError: a.vmware.guestError, GuestWorkPath: a.guestWorkPath(), GuestTarget: a.guestTargetStateLocked(), GuestAuto: guestAutoState{User: a.guestAuto.user, HasPassword: a.guestAuto.password != ""}, Fixups: a.fixups.List(), Preflight: a.preflightStateLocked(),
 		CompareSerial: a.vmware.compareSerial, CompareError: a.vmware.compareError,
 		Prepare: a.vmware.prepare, PrepareSerial: a.vmware.prepareSerial, PrepareError: a.vmware.prepareError, PrepareBatch: append([]vmPrepareBatchItem{}, a.vmware.prepareBatch...),
 		Move: a.vmware.move, MoveSerial: a.vmware.moveSerial, MoveError: a.vmware.moveError, MoveStatus: a.vmware.moveStatus, MoveCopyRoot: a.vmwareCopyRootLocked(),
@@ -461,6 +464,7 @@ func (a *application) handleVMwareConnect(response http.ResponseWriter, request 
 			a.finishVMwareAction("connectfailed", message)
 			return
 		}
+		a.applySavedPreflight(inventory)
 		folder := a.vmwareOutputFolder("VMware_" + safeName(inventory.Server))
 		report, writeErr := writeVMwareInventoryOutputs(folder, inventory)
 		plan := a.loadVMwarePlan(inventory)
@@ -531,6 +535,7 @@ func (a *application) handleVMwareOpenInventory(response http.ResponseWriter, re
 		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": err.Error()})
 		return
 	}
+	a.applySavedPreflight(inventory)
 	plan := a.loadVMwarePlan(inventory)
 	a.mu.Lock()
 	a.vmware.server, a.vmware.account, a.vmware.password, a.vmware.thumbprint, a.vmware.certificate = inventory.Server, "", "", "", nil
