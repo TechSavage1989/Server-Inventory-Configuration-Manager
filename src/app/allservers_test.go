@@ -286,7 +286,10 @@ func TestAllServersBulkActionsUseEachMethodAndSkipWhatDoesNotApply(t *testing.T)
 	// To this computer: the receiver here is started and paired for each
 	// server, with no receiver details typed and no receiver check.
 	agents["a4"].saved = nil
-	runner.checkReceiver = func(ctx context.Context, link replReceiverLink) (bool, error) { t.Fatal("a local job checked a remote receiver"); return false, nil }
+	runner.checkReceiver = func(ctx context.Context, link replReceiverLink) (bool, error) {
+		t.Fatal("a local job checked a remote receiver")
+		return false, nil
+	}
 	runner.localReceiver = func(row asRow, folder string) (replReceiverLink, error) {
 		return replReceiverLink{Address: "192.0.2.5:44380", Thumbprint: "LOCAL", Code: "C" + folder}, nil
 	}

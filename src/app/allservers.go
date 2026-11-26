@@ -643,8 +643,8 @@ type asRunner struct {
 	// it, started in folder when none runs.
 	localReceiver func(row asRow, folder string) (replReceiverLink, error)
 	testJob       func(ctx context.Context, row asRow, testSwitch string) error
-	endTestJob func(ctx context.Context, row asRow) error
-	now        func() time.Time
+	endTestJob    func(ctx context.Context, row asRow) error
+	now           func() time.Time
 }
 
 // asActionLabels name each bulk action in results and refusals.

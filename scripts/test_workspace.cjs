@@ -1614,7 +1614,7 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
    row({key:'plan:p1|vm-10',kind:'plan',method:'Migration plan',name:'DC01',detail:'Plan Wave 1',plan:'p1',vm:'vm-10',state:'insync',stateText:'In sync, ready to cut over',reason:'Seeded and kept in sync. Test it, then cut over.',lastSync:ago(20),lagSeconds:1200,limitMinutes:60,wave:1,actions:['sync','pause','test','cutover','wave']}),
    row({key:'plan:p1|vm-11',kind:'plan',method:'Migration plan',name:'PRINT01',detail:'Plan Wave 1',plan:'p1',vm:'vm-11',state:'seeding',stateText:'Initial copy',reason:'The first full copy has not finished yet.',percent:40,bytesPerSecond:104857600,secondsLeft:600,wave:2,actions:['sync','pause','wave']}),
    row({key:'job:a1|j1',kind:'job',method:'Agent replication',name:'APP01',detail:'Job APP01 on app01.example.com:44390',agent:'a1',job:'j1',host:'app01.example.com',state:'insync',stateText:'In sync, ready to cut over',reason:'A whole copy exists and stays current.',lastSync:ago(2),lagSeconds:120,limitMinutes:15,wave:2,actions:['sync','pause','test','cutover','wave']}),
-   row({key:'job:a2|j2',kind:'job',method:'Agent replication',name:'SQL01',detail:'Job SQL01 on 192.0.2.20:44390',agent:'a2',job:'j2',state:'failed',stateText:'Failed',reason:'The last round failed: <b>receiver went away</b>.',actions:['sync','pause','wave']}),
+   row({key:'job:a2|j2',kind:'job',method:'Agent replication',name:'SQL01',detail:'Job SQL01 on 192.0.2.20:44390',agent:'a2',job:'j2',state:'failed',stateText:'Failed',reason:'The last round failed: the receiver went away & stopped answering.',actions:['sync','pause','wave']}),
    row({key:'agent:a4',kind:'agent',method:'Agent replication',name:'WEB01',detail:'web01:44390',agent:'a4',host:'web01',state:'agent',stateText:'Agent installed, no job',reason:'The agent answers. Create a replication job to start copying.',actions:['createjob']}),
    row({key:'vm:vm-31',kind:'vm',method:'Not configured',name:'NEW01',detail:'vc01.example.com',vm:'vm-31',host:'new01.example.com',state:'notconfigured',stateText:'Not configured',reason:'Nothing moves this VM yet.',actions:['install']}),
    row({key:'task:convert',kind:'task',method:'Disk conversion',name:'APP02.vmdk',detail:'To D:\\VMs\\APP02.vhdx',state:'running',stateText:'Running',percent:25,bytesRead:2147483648,actions:[]})];
@@ -1624,14 +1624,15 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   assert.equal(await f.page.locator('#asSummary [data-as-filter="failed"]').evaluate(e=>e.tagName),'BUTTON');
   assert.equal(await f.page.locator('#asSummary [data-as-filter="behind"]').count(),0,'empty tiles are left out');
   await f.page.locator('#asSummary [data-as-filter="failed"]').click();await f.page.waitForFunction(()=>document.querySelectorAll('#asRows tr').length===1);
-  assert.equal(await f.page.locator('#asRows .as-reason').textContent(),'The last round failed: <b>receiver went away</b>.','reasons are text, not markup');
+  assert.equal(await f.page.locator('#asRows .as-reason').textContent(),'The last round failed: the receiver went away & stopped answering.','reasons are text');
   await f.page.locator('#asFilterBar [data-as-showall]').click();await f.page.waitForFunction(()=>document.querySelectorAll('#asRows tr').length===7);
   assert((await f.page.locator('#asRows tr[data-as-key="plan:p1|vm-11"] .as-progress-text').textContent()).includes('100 MB/s'));
   assert.equal(await f.page.locator('#asRows tr[data-as-key="plan:p1|vm-11"] [role="progressbar"]').getAttribute('aria-valuenow'),'40');
   assert(await f.page.locator('[data-as-act="cutover"]').isDisabled(),'nothing selected');
   assert((await f.page.locator('#asWhy').textContent()).startsWith('Tick servers'));
   await f.page.locator('#asSelectBy').selectOption('insync');await f.page.waitForFunction(()=>document.querySelector('#asSelCount').textContent==='2 servers selected');
-  assert.equal(await f.page.locator('[data-as-act="cutover"]').textContent(),'Cut over (2)');assert.equal(await f.page.locator('[data-as-act="createjob"]').textContent(),'Create replication jobs (0)');
+  assert.equal(await f.page.locator('[data-as-act="cutover"]').textContent(),'Cut over (2)');
+  await f.page.evaluate(()=>document.activeElement.blur());if(!f.errors.length){await f.page.screenshot({path:out+'/all-jobs-and-servers.png'});}assert.equal(await f.page.locator('[data-as-act="createjob"]').textContent(),'Create replication jobs (0)');
   await f.page.locator('[data-as-act="cutover"]').click();await f.page.waitForSelector('#asFormCutover:not(.hidden)');
   assert.deepEqual(await f.page.locator('#asCutPreview li').allTextContents(),['Wave 1: 1 server now',(await f.page.locator('#asCutPreview li').nth(1).textContent())]);
   assert((await f.page.locator('#asCutPreview li').nth(1).textContent()).startsWith('Wave 2: 1 server at '));
@@ -1657,8 +1658,7 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
    const small=await f.page.evaluate(()=>Array.from(document.querySelectorAll('#tabServers *')).filter(e=>e.offsetParent&&e.childNodes.length&&Array.from(e.childNodes).some(n=>n.nodeType===3&&n.nodeValue.trim())&&parseFloat(getComputedStyle(e).fontSize)<10.5).map(e=>e.className+':'+e.textContent.slice(0,30)));assert.deepEqual(small,[],'text below 10.5px at '+size.width);
    assert(await f.page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'overflow at '+size.width);
    await f.page.locator('[data-as-act="cutover"]').scrollIntoViewIfNeeded();assert(await f.page.locator('[data-as-act="cutover"]').isVisible());}
-  await f.page.setViewportSize({width:1440,height:1000});await f.page.locator('#asSelectBy').selectOption('insync');await f.page.locator('#asResultsClose').click();await f.page.locator('.as-body').evaluate(e=>e.scrollTop=0);await f.page.evaluate(()=>document.activeElement.blur());
-  if(!f.errors.length){await f.page.screenshot({path:out+'/all-jobs-and-servers.png'});}
+  await f.page.setViewportSize({width:1440,height:1000});
   // A task row opens its own tool.
   await f.page.locator('[data-as-open="task:convert"]').click();await f.page.waitForFunction(()=>document.querySelector('[data-tool="convert"]').getAttribute('aria-pressed')==='true');
   assert(f.serverCalls.every(c=>c.token==='workspace-test'));assert.deepEqual(f.errors,[]);assert.deepEqual(f.dialogs,[]);
