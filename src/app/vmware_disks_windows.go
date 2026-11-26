@@ -4,15 +4,19 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -33,6 +37,9 @@ type vmReceiverRuntime struct {
 	port     int
 	started  time.Time
 	message  string
+	// identity is the running receiver's certificate and code, handed to
+	// the receiver service when the application closes.
+	identity *vmReceiverIdentity
 	// last keeps the stopped receiver's transfers so the panel still shows
 	// what was received.
 	last []vmTransfer
@@ -58,6 +65,10 @@ type vmReceiverState struct {
 	Fingerprint  string          `json:"fingerprint,omitempty"`
 	Discoverable bool            `json:"discoverable"`
 	PairRequests []vmPairRequest `json:"pairRequests"`
+	// Service says whether the receiver service is installed (Keep
+	// receiving after a reboot) and running (this window is not receiving).
+	ServiceInstalled bool `json:"serviceInstalled"`
+	ServiceRunning   bool `json:"serviceRunning"`
 }
 
 // Caller holds a.mu.
@@ -71,6 +82,7 @@ func (a *application) vmReceiverStateLocked() vmReceiverState {
 	} else {
 		state.Transfers = a.vmReceive.last
 	}
+	state.ServiceInstalled, state.ServiceRunning = vmReceiverServiceStatusCached()
 	if state.Transfers == nil {
 		state.Transfers = []vmTransfer{}
 	}
@@ -182,8 +194,31 @@ func (a *application) handleVMwareReceiver(response http.ResponseWriter, request
 		writeJSON(response, http.StatusOK, map[string]any{"ok": true})
 		return
 	}
+	switch input.Action {
+	case "service-on":
+		if err := a.vmReceiverServiceOn(); err != nil {
+			writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "The receiver service was not set up: " + err.Error() + "."})
+			return
+		}
+		writeJSON(response, http.StatusOK, map[string]any{"ok": true})
+		return
+	case "service-off":
+		if err := vmRemoveReceiverService(); err != nil {
+			writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "The receiver service was not removed: " + err.Error() + "."})
+			return
+		}
+		vmReceiverServiceStatusReset()
+		a.vmwareLog("The receiver service, its firewall rules and its folders were removed. This computer receives only while the application is open.")
+		writeJSON(response, http.StatusOK, map[string]any{"ok": true})
+		return
+	}
 	if input.Action == "stop" {
 		_ = os.Remove(a.vmReceiverStartPath())
+		if installed, _ := vmReceiverServiceStatus(); installed {
+			if err := vmSetReceiverServiceAutomatic(false); err != nil {
+				a.vmwareLog("The receiver service could not be kept from starting with Windows: %v", err)
+			}
+		}
 		a.stopVMReceiver("Stopped. Start it again to receive more; senders resume where they stopped.")
 		writeJSON(response, http.StatusOK, map[string]any{"ok": true})
 		return
@@ -254,6 +289,17 @@ func (a *application) startVMReceiverFromWindow(options vmReceiverStart) (int, s
 	case options.Firewall && !isAdministrator():
 		return http.StatusBadRequest, "Opening the firewall port needs the application to run as administrator. Run it as administrator, or open the port yourself and untick that option."
 	}
+	if _, serviceRunning := vmReceiverServiceStatus(); serviceRunning {
+		// The service holds the port: it hands receiving back to this window.
+		if !isAdministrator() {
+			return http.StatusConflict, "This computer is already receiving through the receiver service. Run the application as administrator to take receiving over in this window."
+		}
+		if err := vmControlReceiverService(false); err != nil {
+			return http.StatusConflict, "The receiver service could not hand receiving over to this window: " + err.Error() + "."
+		}
+		vmReceiverServiceStatusReset()
+		a.vmwareLog("The receiver service handed receiving over to this window; it takes over again when the application closes.")
+	}
 	discoverable := options.Discoverable
 	config := vmReceiverConfig{Folder: folder, Pairing: true, Version: appVersion, FreeBytes: func() uint64 {
 		free, _, _ := vmFreeSpace(folder)
@@ -263,7 +309,17 @@ func (a *application) startVMReceiverFromWindow(options vmReceiverStart) (int, s
 		config.Discovery = ":" + strconv.Itoa(vmDiscoveryPort)
 	}
 	hostName, _ := os.Hostname()
-	identity, kept, saveErr, err := vmReceiverIdentityFor(filepath.Join(a.vmwareRoot(), "Receiver", "identity.json"), hostName, options.NewIdentity, replSeal, replUnseal)
+	identityPath := filepath.Join(a.vmwareRoot(), "Receiver", "identity.json")
+	if !options.NewIdentity {
+		// The receiver service's identity wins: another administrator
+		// opening the application keeps the certificate jobs have pinned.
+		if shared, err := vmLoadReceiverIdentity(filepath.Join(vmReceiverServiceDataDir(), "identity.json"), replUnseal); err == nil {
+			if saved, err := vmLoadReceiverIdentity(identityPath, replUnseal); err != nil || saved.Thumbprint != shared.Thumbprint || saved.Code != shared.Code {
+				_ = vmSaveReceiverIdentity(identityPath, shared, replSeal)
+			}
+		}
+	}
+	identity, kept, saveErr, err := vmReceiverIdentityFor(identityPath, hostName, options.NewIdentity, replSeal, replUnseal)
 	if err != nil {
 		return http.StatusBadRequest, "The receiver could not start: " + err.Error()
 	}
@@ -308,8 +364,13 @@ func (a *application) startVMReceiverFromWindow(options vmReceiverStart) (int, s
 		}
 		return http.StatusConflict, "The receiver is already running."
 	}
-	a.vmReceive = vmReceiverRuntime{receiver: r, firewall: firewall, port: port, started: time.Now()}
+	a.vmReceive = vmReceiverRuntime{receiver: r, firewall: firewall, port: port, started: time.Now(), identity: identity}
 	a.mu.Unlock()
+	if installed, _ := vmReceiverServiceStatus(); installed {
+		if err := vmSetReceiverServiceAutomatic(true); err != nil {
+			a.vmwareLog("The receiver service could not be set to start with Windows: %v", err)
+		}
+	}
 	if data, err := json.Marshal(vmReceiverStart{Folder: folder, Port: port, Firewall: firewall, Discoverable: discoverable}); err == nil {
 		path := a.vmReceiverStartPath()
 		if err := os.MkdirAll(filepath.Dir(path), 0700); err == nil {
@@ -323,9 +384,23 @@ func (a *application) startVMReceiverFromWindow(options vmReceiverStart) (int, s
 // it was receiving when the application (or the computer) last closed, with
 // the same code and certificate, so senders and replication jobs carry on.
 func (a *application) resumeVMReceiver() {
+	if _, running := vmReceiverServiceStatus(); running {
+		if !isAdministrator() {
+			a.vmwareLog("This computer is receiving through the receiver service. Run the application as administrator to see its transfers and pairing requests here.")
+			return
+		}
+		if err := vmControlReceiverService(false); err != nil {
+			a.vmwareLog("The receiver service keeps receiving: it could not hand over to this window (%v).", err)
+			return
+		}
+		vmReceiverServiceStatusReset()
+		a.vmwareLog("The receiver service handed receiving over to this window; it takes over again when the application closes.")
+	}
 	data, err := os.ReadFile(a.vmReceiverStartPath())
 	if err != nil {
-		return
+		if data, err = os.ReadFile(filepath.Join(vmReceiverServiceDataDir(), "service.json")); err != nil {
+			return
+		}
 	}
 	var options vmReceiverStart
 	if json.Unmarshal(data, &options) != nil {
@@ -614,4 +689,119 @@ func vmRunPowerShell(script string) (string, error) {
 		return "", fmt.Errorf("%v: %s", err, text)
 	}
 	return text, nil
+}
+
+var vmReceiverServiceCache struct {
+	sync.Mutex
+	at                 time.Time
+	installed, running bool
+}
+
+// vmReceiverServiceStatusCached limits the state poll to one service
+// manager query every few seconds.
+func vmReceiverServiceStatusCached() (bool, bool) {
+	c := &vmReceiverServiceCache
+	c.Lock()
+	defer c.Unlock()
+	if time.Since(c.at) > 5*time.Second {
+		c.installed, c.running = vmReceiverServiceStatus()
+		c.at = time.Now()
+	}
+	return c.installed, c.running
+}
+
+func vmReceiverServiceStatusReset() {
+	vmReceiverServiceCache.Lock()
+	vmReceiverServiceCache.at = time.Time{}
+	vmReceiverServiceCache.Unlock()
+}
+
+// vmReceiverServiceFilesLocked is what the service starts with: the window
+// receiver's settings, certificate and code, and the failover holds.
+// Caller holds a.mu.
+func (a *application) vmReceiverServiceFilesLocked() (vmReceiverServiceConfig, *vmReceiverIdentity, []vmReceiverServiceHold, error) {
+	r := a.vmReceive.receiver
+	if r == nil || a.vmReceive.identity == nil {
+		return vmReceiverServiceConfig{}, nil, nil, errors.New("start receiving first: the service uses the same folder, port, certificate and pairing code")
+	}
+	if r.Folder() == "" {
+		return vmReceiverServiceConfig{}, nil, nil, errors.New("the receiver writes no folder")
+	}
+	config := vmReceiverServiceConfig{Folder: r.Folder(), Port: a.vmReceive.port, Firewall: a.vmReceive.firewall, Discoverable: r.discovery != nil}
+	holds := []vmReceiverServiceHold{}
+	if list, err := a.replFailoverStore().Load(); err == nil {
+		for _, f := range list {
+			holds = append(holds, vmReceiverServiceHold{Names: f.Copies, Reason: replHoldReason(f)})
+		}
+	} else {
+		return config, nil, nil, fmt.Errorf("the list of VMs started from copies could not be read, so the service could not hold them: %w", err)
+	}
+	return config, a.vmReceive.identity, holds, nil
+}
+
+func (a *application) vmReceiverServiceOn() error {
+	a.mu.Lock()
+	config, identity, holds, err := a.vmReceiverServiceFilesLocked()
+	a.mu.Unlock()
+	if err != nil {
+		return err
+	}
+	if err := vmInstallReceiverService(config, identity, holds); err != nil {
+		return err
+	}
+	vmReceiverServiceStatusReset()
+	a.vmwareLog("The receiver service is set up. This window keeps receiving while it is open; when the application closes, or after a restart, the service receives with the same folder, port, certificate and pairing code.")
+	return nil
+}
+
+// handOffVMReceiverToService runs as the application closes: a receiving
+// window with the service turned on hands over to it, so senders and
+// replication jobs carry on while the application is closed.
+func (a *application) handOffVMReceiverToService() {
+	installed, _ := vmReceiverServiceStatus()
+	if !installed {
+		return
+	}
+	a.mu.Lock()
+	config, identity, holds, err := a.vmReceiverServiceFilesLocked()
+	running := a.vmReceive.receiver != nil
+	a.mu.Unlock()
+	if !running {
+		return
+	}
+	if err == nil {
+		err = vmWriteReceiverServiceFiles(config, identity, holds)
+	}
+	if err != nil {
+		a.vmwareLog("The receiver service did not take over: %v", err)
+		return
+	}
+	if self, err := os.Executable(); err == nil && !vmSameFileContent(self, vmReceiverServiceBinary()) {
+		// An updated application brings the service up to date; the service
+		// is stopped while the window receives.
+		if err := replCopyFile(self, vmReceiverServiceBinary()); err != nil {
+			a.vmwareLog("The receiver service keeps its older program: %v", err)
+		}
+	}
+	a.stopVMReceiver("")
+	if err := vmControlReceiverService(true); err != nil {
+		a.vmwareLog("The receiver service could not start: %v", err)
+	}
+}
+
+func vmSameFileContent(a, b string) bool {
+	sum := func(path string) string {
+		file, err := os.Open(path)
+		if err != nil {
+			return ""
+		}
+		defer file.Close()
+		hash := sha256.New()
+		if _, err := io.Copy(hash, file); err != nil {
+			return ""
+		}
+		return hex.EncodeToString(hash.Sum(nil))
+	}
+	first := sum(a)
+	return first != "" && first == sum(b)
 }

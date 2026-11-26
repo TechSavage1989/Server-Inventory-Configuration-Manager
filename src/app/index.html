@@ -1271,6 +1271,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
               <section class="migrate-card" aria-labelledby="vmReceiveTitle">
                 <h4 id="vmReceiveTitle">Receive: run on the computer receiving the disks</h4>
                 <div id="vmReceiveIdle">
+                  <div class="restore-alert hidden" id="vmReceiveServiceRunning">This computer is receiving through the receiver service, which keeps receiving while the application is closed and after a restart. Run the application as administrator to see its transfers and pairing requests here.</div>
                   <label class="vm-field">Save received disks in<input id="vmReceiveFolder" type="text" spellcheck="false" autocomplete="off" data-browse="folder" data-browse-title="Choose the folder on this computer for the received disks. It needs room for every disk."></label>
                   <label class="vm-field">Port<input id="vmReceivePort" type="text" inputmode="numeric" value="44380" maxlength="5"></label>
                   <label class="vm-check"><input id="vmReceiveFirewall" type="checkbox" checked> Allow this port through Windows Firewall while receiving</label>
@@ -1283,6 +1284,8 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
                   <dl class="vm-kv"><dt>Address</dt><dd><span id="vmReceiveAddress"></span> <button class="link-button" id="vmCopyAddress" type="button" data-copy="address">Copy</button></dd><dt>Certificate thumbprint</dt><dd><span id="vmReceiveThumbprint" class="vm-mono"></span> <button class="link-button" id="vmCopyThumbprint" type="button" data-copy="thumbprint">Copy</button></dd><dt>Fingerprint</dt><dd><span id="vmReceiveFingerprint" class="vm-mono"></span> <span class="vm-note" id="vmReceiveDiscoverNote"></span></dd><dt>Saving in</dt><dd id="vmReceiveSaving"></dd><dt>Connected senders</dt><dd id="vmReceiveSessions"></dd></dl>
                   <div class="vm-pairs" id="vmReceivePairs" aria-live="polite"></div>
                   <p class="vm-note">Copy all three at once and paste them into the receiver address box where the copy is started: Send, a replication job or a VM's Move section. The code and certificate stay the same when the receiver restarts, and a receiver left running starts again by itself when this application opens (after a restart or an update), so jobs carry on; tick Make a new pairing code and certificate before starting to change them.</p>
+                  <label class="vm-check"><input id="vmReceiveService" type="checkbox"> Keep receiving after a reboot and while this application is closed</label>
+                  <p class="vm-note" id="vmReceiveServiceNote">Installs a Windows service on this computer only (needs administrator rights). This window still receives while it is open; when the application closes, or Windows restarts, the service receives with the same folder, port, certificate and pairing code, so replication jobs carry on. Untick to remove the service, its firewall rules and its folders.</p>
                   <div class="migrate-row"><button class="secondary-button" id="vmCopyAll" type="button" data-copy="all">Copy all connection details</button><button class="secondary-button" id="vmReceiveStop" type="button">Stop receiving</button><button class="secondary-button" id="vmReceiveOpen" type="button">Open folder</button></div>
                 </div>
                 <div class="migrate-inline-status" id="vmReceiveStatus" role="status" aria-live="polite"></div>
@@ -4035,7 +4038,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   // result and comparison are fetched when their serial numbers change.
   var vmView='env',vmAttention=[],vmInventory=null,vmPlan=null,vmSizing=null,vmRolling=null,vmScenarioList=[],vmInvSerial=0,vmInvLoading=false,vmPlanDirty=false,vmSelectedVM='',vmFilter='all',vmBusy=false,vmTargetLocal='hyperv';
   var vmGuest=null,vmGuestSerial=0,vmGuestLoading=false,vmGuestChoices={},vmGhostChoices={},vmDiskChoices={};
-  var vmSendDiskList=null,vmSendReceiver=null,vmSendSerial=-1,vmReceiveWasRunning=null,vmSendComputerName='',vmCompare=null,vmCompareDatasets=[],vmCompareSerial=0,vmMoveSerial=0,vmCompareLoading=false,vmCompareBeforePath='',vmCompareAfterPath='',vmCompareOpen={},vmLogKey='';
+  var vmReceiveServiceBusy=false,vmSendDiskList=null,vmSendReceiver=null,vmSendSerial=-1,vmReceiveWasRunning=null,vmSendComputerName='',vmCompare=null,vmCompareDatasets=[],vmCompareSerial=0,vmMoveSerial=0,vmCompareLoading=false,vmCompareBeforePath='',vmCompareAfterPath='',vmCompareOpen={},vmLogKey='';
   var vmRowLimit=400,vmStatusLabels={ready:'Ready',review:'Review first',blocked:'Blocked',skip:'Not moved'};
   function vmwareState(){return (latestState&&latestState.vmware)||null;}
   function vmwareIsRunning(){var v=vmwareState();return !!(v&&v.running);}
@@ -4312,6 +4315,11 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     if(vmReceiveWasRunning!==null&&vmReceiveWasRunning!==running){vmSetStatus('vmReceiveStatus','',false);}vmReceiveWasRunning=running;
     byId('vmReceiveIdle').classList.toggle('hidden',running);byId('vmReceiveRunning').classList.toggle('hidden',!running);
     byId('vmReceiveFolder').placeholder=r.defaultFolder||'';
+    byId('vmReceiveServiceRunning').classList.toggle('hidden',running||!r.serviceRunning);
+    var svcBox=byId('vmReceiveService'),admin=!!(state&&state.isAdministrator);
+    if(!vmReceiveServiceBusy){svcBox.checked=!!r.serviceInstalled;}
+    svcBox.disabled=vmReceiveServiceBusy||!admin||!running;
+    byId('vmReceiveServiceNote').textContent=admin?'Installs a Windows service on this computer only. This window still receives while it is open; when the application closes, or Windows restarts, the service receives with the same folder, port, certificate and pairing code, so replication jobs carry on. Untick to remove the service, its firewall rules and its folders.':'Run the application as administrator to keep receiving after a reboot: it installs a Windows service on this computer.';
     if(running){
       byId('vmReceiveCode').textContent=r.code||'';byId('vmReceiveThumbprint').textContent=r.thumbprint||'';byId('vmReceiveSaving').textContent=(r.folder||'')+(r.freeBytes?' ('+formatBytesShort(r.freeBytes)+' free)':'');
       var addresses=vmArr(r.addresses).map(function(a){return (a.indexOf(':')>=0?'['+a+']':a)+(r.port===44380?'':':'+r.port);});
@@ -6270,6 +6278,11 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   byId('vmReceiveStart').addEventListener('click',startVmReceiver);
   byId('vmReceiveCloseOther').addEventListener('click',function(){if(!vmReceiveOther){return;}var other=vmReceiveOther;
     vmPost('/api/vmware/receiver',{action:'close-other',pid:other.pid,port:other.port},'vmReceiveStatus',function(err){if(err){return;}vmReceiveOther=null;byId('vmReceiveOtherRow').classList.add('hidden');startVmReceiver();});});
+  byId('vmReceiveService').addEventListener('change',function(){
+    var on=byId('vmReceiveService').checked;vmReceiveServiceBusy=true;byId('vmReceiveService').disabled=true;
+    vmSetStatus('vmReceiveStatus',on?'Setting up the receiver service…':'Removing the receiver service…',false);
+    vmPost('/api/vmware/receiver',{action:on?'service-on':'service-off'},'vmReceiveStatus',function(err){vmReceiveServiceBusy=false;if(err){byId('vmReceiveService').checked=!on;}else{vmSetStatus('vmReceiveStatus',on?'The receiver service is set up. It takes over when the application closes and starts with Windows.':'The receiver service was removed. This computer receives only while the application is open.',false);}});
+  });
   byId('vmReceiveStop').addEventListener('click',function(){vmPost('/api/vmware/receiver',{action:'stop'},'vmReceiveStatus',function(err){if(!err){vmSetStatus('vmReceiveStatus','Stopped. Senders resume where they stopped when it starts again.',false);}});});
   byId('vmReceiveOpen').addEventListener('click',function(){openKind('receivefolder');});
   byId('vmSendFind').addEventListener('click',findVmSendDisks);

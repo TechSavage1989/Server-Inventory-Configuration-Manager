@@ -2216,6 +2216,7 @@ func (a *application) stopServer() {
 		// closes during one, ask it to stop after the current item and wait.
 		a.stopRestoreAndWait()
 		a.stopMigrateAndWait()
+		a.handOffVMReceiverToService()
 		a.stopVMReceiver("")
 		a.stopWindowPersistence()
 		// Keep the local backend alive until its owned browser windows are gone.
@@ -2427,6 +2428,9 @@ func main() {
 	}
 	if len(os.Args) > 1 && strings.HasPrefix(os.Args[1], "--agent") {
 		os.Exit(runReplAgentCommand(os.Args[1:]))
+	}
+	if len(os.Args) > 1 && strings.HasPrefix(os.Args[1], "--receiver-service") {
+		os.Exit(runVMReceiverServiceCommand(os.Args[1:]))
 	}
 	if len(os.Args) > 1 && os.Args[1] == "--receiver" {
 		os.Exit(runVMReceiverCommand(os.Args[2:]))

@@ -73,6 +73,7 @@ The SHA-256 must equal the release's `Server-Inventory-Configuration-Manager.exe
 | `netsh advfirewall firewall add rule name="Server Inventory and Migration Manager replication agent"` | The agent's own inbound rule | Service start |
 | `shutdown.exe /s` | "Shut down after cutover" | Cutover only |
 | One TCP connection to each address of a pasted receiver block (at most 8, the receiver's own port, nothing sent) | Picking the receiver address that answers from this computer | When receiver connection details with several addresses are pasted |
+| The service `SIMMReceiver` (`%ProgramFiles%\Server Inventory and Migration Manager Receiver\SIMM-Receiver.exe --receiver-service`), created on this computer only | **Keep receiving after a reboot and while this application is closed**, ticked by an administrator on the receiving computer | Installed once; it listens on 44380 while the application is closed and after a restart. It starts no PowerShell and adds only the receiver's own firewall rules. Unticking removes it and its folders. Exclude that path like the agent's |
 | A receiver listening on 44380 when the application opens | A receiver left running starts again by itself after a restart or update | Only when it was running when the application closed; **Stop receiving** ends that |
 
 The console itself starts Windows PowerShell with `-ExecutionPolicy Bypass`
