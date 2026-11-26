@@ -510,6 +510,11 @@ func (a *application) handleVMTargetMove(response http.ResponseWriter, request *
 	a.vmware.message = message
 	a.vmware.moveError = ""
 	a.mu.Unlock()
+	last := ""
+	if haveCreated && platform != nil && created.Platform == a.vmTargetPlatformID() {
+		last = "switch"
+	}
+	a.moveStatusBegin(*vm, input.Action, last)
 	a.vmwareLog("%s", message)
 	go func() {
 		defer cancel()
@@ -520,13 +525,14 @@ func (a *application) handleVMTargetMove(response http.ResponseWriter, request *
 		a.mu.Unlock()
 		progress, prefix := a.moveProgress(*vm, "the receiver at "+receiver.Link.Address)
 		result, err := a.runMoveRound(ctx, inventory, *vm, vmConnectOptions{Server: server, User: user, Password: password, Thumbprint: thumbprint, UserAgent: displayName + " " + appVersion, AppVersion: appVersion},
-			vmMoveRequest{VMID: vm.ID, Name: vm.Name, Datacenter: vm.Datacenter, Quiesce: input.Quiesce, Cutover: input.Action == "cutover", RecordFolder: records, NewSink: receiver.Link.sinkFactory(ctx, receiver.Mapping), Progress: progress}, log)
+			vmMoveRequest{VMID: vm.ID, Name: vm.Name, Datacenter: vm.Datacenter, Quiesce: input.Quiesce, Cutover: input.Action == "cutover", RecordFolder: records, NewSink: receiver.Link.sinkFactory(ctx, receiver.Mapping), Progress: progress, Stage: a.moveStage}, log)
 		a.copyTransfers().EndRunning(prefix, err, errors.Is(err, context.Canceled), err == nil && input.Action == "cutover")
 		password = ""
 		finished := ""
 		if err == nil && input.Action == "cutover" {
 			switch {
 			case haveCreated && platform != nil && created.Platform == a.vmTargetPlatformID():
+				a.moveStage("switch", "")
 				err = vmTargetCutover(ctx, platform, created.VM.ID, log)
 				if err == nil {
 					created.CutOver = time.Now().UTC()
@@ -576,6 +582,7 @@ func (a *application) handleVMTargetMove(response http.ResponseWriter, request *
 		default:
 			a.finishVMwareAction("connected", "Copied "+vm.Name+"'s disks to the receiver. Copy again to bring them up to date, then cut over.")
 		}
+		a.moveStatusEnd(err)
 	}()
 	writeJSON(response, http.StatusAccepted, map[string]any{"ok": true})
 }

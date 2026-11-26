@@ -395,6 +395,18 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   f.state.update={...f.state.update,status:'error',title:'Update download failed',message:'Hash mismatch.'};await f.page.waitForTimeout(1100);assert(await f.page.locator('#updateBanner').isVisible());assert((await f.page.locator('#updateBanner').getAttribute('class')).includes('error'));
   f.state.update={status:'current',title:'Up to date',message:'Installed.',canCheck:true};await f.page.waitForTimeout(1100);assert(!await f.page.locator('#updateBanner').isVisible());assert.deepEqual(f.dialogs,[]);
  }finally{await f.close();}});
+ await check('Native feel: no browser right-click menu or selection on interface text; fields and values stay selectable',async()=>{const f=await fixture(browser);try{
+  await f.page.evaluate(()=>{window.menuLog=[];window.addEventListener('contextmenu',e=>{window.menuLog.push((e.target.id||e.target.className||e.target.nodeName)+':'+(e.defaultPrevented?'blocked':'shown'));});});
+  await f.page.locator('#tabButtonReport').click({button:'right'});await f.page.locator('.brand-title').click({button:'right'});
+  await f.page.keyboard.press('Alt+5');await goTool(f,'shares');await f.page.locator('#migrateSource').click({button:'right'});
+  assert.deepEqual(await f.page.evaluate(()=>window.menuLog),['tabButtonReport:blocked','brand-title:blocked','migrateSource:shown']);
+  await f.page.locator('.brand-title').click({clickCount:3});assert.equal(await f.page.evaluate(()=>String(window.getSelection()).trim()),'');
+  const looks=await f.page.evaluate(()=>['#tabButtonReport','.brand-title','.tool-name','#migrateSource','#logView','#vmReceiveThumbprint'].map(q=>{const el=document.querySelector(q);return q+'='+getComputedStyle(el).userSelect;}));
+  assert.deepEqual(looks,['#tabButtonReport=none','.brand-title=none','.tool-name=none','#migrateSource=text','#logView=text','#vmReceiveThumbprint=text']);
+  await f.page.evaluate(()=>{window.menuLog=[];const dd=document.createElement('dd');dd.id='menuValue';dd.textContent='192.0.2.10';document.body.appendChild(dd);const r=document.createRange();r.selectNodeContents(dd);const sel=window.getSelection();sel.removeAllRanges();sel.addRange(r);});
+  await f.page.locator('#menuValue').click({button:'right'});assert.deepEqual(await f.page.evaluate(()=>window.menuLog),['menuValue:shown']);
+  assert.deepEqual(f.dialogs,[]);
+ }finally{await f.close();}});
  await check('A loaded report offers Copy path for its file location',async()=>{const f=await fixture(browser);try{
   assert(!await f.page.locator('#copyReportPathButton').isVisible());await f.context.grantPermissions(['clipboard-read','clipboard-write']);
   f.state.loadedReportAvailable=true;f.state.loadedReportSerial=1;f.state.loadedReportName='SRV-DEMO-01_20261103';f.state.loadedReportPath='C:\\Reports\\SRV-DEMO-01_20261103\\OPEN-FIRST - Server Inventory Report.html';
@@ -790,11 +802,28 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   const copyText=await f.page.locator('#migrateDialogText').textContent();assert(copyText.includes('changed block tracking')&&copyText.includes('E:\\Copies\\APP01'),copyText);
   assert(await f.page.locator('#migrateConfirmButton').isDisabled());await f.page.locator('#migrateConfirmInput').fill('APP01');await f.page.locator('#migrateConfirmInput').press('Enter');
   await f.page.waitForFunction(()=>document.querySelector('#vmwareTabBadge').textContent==='Working');
+  // The live progress panel: steps in order, the copy's percent, speed and time left.
+  {const now=new Date().toISOString();
+   f.state.vmware.moveStatus={vmId:'vm-app01',vm:'APP01',action:'copy',stages:['connect','snapshot','copy','cleanup'],stage:'copy',detail:'Hard disk 1 (1 of 2)',state:'running',started:now,updated:now};
+   f.state.vmware.transfers=[{id:'move-vm-app01|Hard disk 1',kind:'move',label:'APP01: Hard disk 1',source:'APP01 (Hard disk 1)',target:'E:\\Copies\\APP01',size:107374182400,pass:1,chunks:25600,done:12800,bytesRead:53687091200,started:now,updated:now,state:'running',percent:50,bytesPerSecond:115343360,etaSeconds:465}];
+   await f.page.waitForFunction(()=>{const p=document.querySelector('#vmMoveProgress');return p&&!p.classList.contains('hidden')&&p.textContent.includes('25% of the copy');});
+   const progress=await f.page.locator('#vmMoveProgress').textContent();
+   for(const want of ['Copying APP01','Running','Take the replication snapshot','Copy the disks: Hard disk 1 (1 of 2)','50.0 GB read','110 MB/s','about 8 min left on this disk'])assert(progress.includes(want),want+' in '+progress);
+   assert.deepEqual(await f.page.locator('#vmMoveProgress .vm-move-steps li').evaluateAll(l=>l.map(x=>x.className)),['done','done','current','']);
+   assert.equal(await f.page.locator('#vmMoveConsolidate').count(),0);}
   assert(await f.page.locator('#vmStop').isVisible(),'a copy can be stopped');
   assert.deepEqual(vmwareCalls(f,'move').map(c=>c.body),[{vmId:'vm-app01',action:'copy',copyFolder:'E:\\Copies\\APP01',vmFolder:'',quiesce:true,keepMac:false,start:true,cluster:false,disconnectSource:true,fixUp:true,confirm:'APP01'}]);
   Object.assign(f.state.vmware,{running:false,action:'',status:'connected',move:{vm:'APP01',cutover:false,round:{disks:[{label:'Hard disk 1',mode:'seed',bytesWritten:21474836480,verified:false}]},disks:['E:\\Copies\\APP01\\APP01-disk0.vhdx']},moveSerial:1});
   await f.page.waitForFunction(()=>document.querySelector('#vmMove')&&document.querySelector('#vmMove').textContent.includes('first copy of the used areas'));
   assert.equal(await f.page.locator('#vmMoveCopy').textContent(),'Copy changes\u2026');
+  // A disk that runs on a delta vSphere lists no snapshot for: the result says so and offers Consolidate disks.
+  {const now=new Date().toISOString();f.state.vmware.canPrepare=true;f.state.vmware.transfers=[];
+   f.state.vmware.moveStatus={vmId:'vm-app01',vm:'APP01',action:'copy',stages:['connect','snapshot','copy','cleanup'],stage:'connect',state:'failed',result:'Hard disk 1 still has a snapshot chain: the VM runs on [ds1] APP01/APP01-000001.vmdk on top of [ds1] APP01/APP01.vmdk. Consolidate the disks with Prepare source (Delete snapshots and consolidate), or Snapshots > Consolidate in vSphere, then copy again.',started:now,updated:now,finished:now};
+   await f.page.locator('#vmMoveConsolidate').waitFor();assert((await f.page.locator('#vmMoveProgress').textContent()).includes('Failed'));
+   assert.equal(await f.page.locator('#vmMoveProgress .vm-move-steps li.failed').textContent(),'Connect to the source');
+   await f.page.locator('#vmMoveConsolidate').click();const text=await f.page.locator('#migrateDialogText').textContent();
+   assert(text.includes('consolidate disks vSphere flags as needing it')&&text.includes('Server Inventory and Migration Manager consolidation'),text);await f.page.locator('#migrateDialogCancel').click();
+   f.state.vmware.moveStatus=null;await f.page.waitForFunction(()=>document.querySelector('#vmMoveProgress').classList.contains('hidden'));}
   await f.page.locator('#vmMoveCutover').click();assert((await f.page.locator('#migrateDialogAlert').textContent()).includes('shut down through VMware Tools'));
   const cutList=await f.page.locator('#migrateDialogText').textContent();
   assert(cutList.includes('and start it')&&cutList.includes('set the old VM\'s network adapters to not connect')&&cutList.includes('put the IP settings back'),cutList);
@@ -1635,6 +1664,81 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   await f.page.locator('#rpCutover').click();await f.page.waitForFunction(()=>document.querySelector('#rpDetailsStatus').textContent.includes('Cutting over'));
   assert.deepEqual(f.replCalls.filter(c=>c.action==='job'&&c.body.action==='cutover').map(c=>c.body),[{agent:'ag1',id:'a1b2c3d4e5f60718',action:'cutover',typed:'app01'}]);
   assert(f.replCalls.every(c=>c.token==='workspace-test'));assert.deepEqual(f.errors,[]);assert.deepEqual(f.dialogs,[]);
+ }finally{await f.close();}});
+ await check('New migration: one sequence of screens picks VMs, fills the target, maps networks, recommends the way, sets waves and timed cutovers, checks, and starts a migration plan with one typed name',async()=>{const f=await fixture(browser);try{
+  f.vm.inventory=vmwareInventoryFixture();f.vm.plan=vmwarePlanFixture();f.vm.inventory.vms[1].snapshots=[{name:'before patch',created:'2026-10-06T00:00:00Z'}];
+  f.state.vmware=Object.assign(vmwareIdle(),{status:'connected',server:'vc01.example.com',account:'administrator@vsphere.local',summary:vmwareSummaryFixture(),inventorySerial:1,canPrepare:true,hyperVHere:true,hostStorage:{known:true,vhdPath:'D:\\Hyper-V\\Disks',vmPath:'D:\\Hyper-V',clustered:false,volumes:[{path:'D:\\',freeBytes:1099511627776,totalBytes:2199023255552,csv:false}]}});
+  await f.page.keyboard.press('Alt+5');assert.equal(await f.page.locator('[data-tool="wizard"]').getAttribute('aria-pressed'),'true','New migration is the first thing in Migration and replication');
+  assert(await f.page.locator('#toolsAdvancedTitle').isVisible(),'the separate tools are listed under Tools (advanced)');
+  assert.equal(await f.page.locator('#nwWhy').textContent(),'Choose what you are moving.');assert(await f.page.locator('#nwNext').isDisabled());
+  await f.page.locator('[data-nw-source="vms"]').click();await f.page.waitForSelector('#nwVmList [data-nw-pick]');
+  assert(await f.page.locator('[data-nw-pick="vm-legacy03"]').isDisabled(),'a blocked VM cannot be ticked');assert((await f.page.locator('#nwVmList').textContent()).includes('Windows Server 2003 is not supported'),'and the list says why');
+  assert.equal(await f.page.locator('#nwWhy').textContent(),'Tick the VMs to move.');
+  await f.page.locator('[data-nw-pick="vm-app01"]').check();await f.page.locator('[data-nw-pick="vm-sql01"]').check();
+  assert((await f.page.locator('[data-nw="count"]').textContent()).startsWith('2 VMs ticked'));await f.page.screenshot({path:out+'/new-migration-what-1440x1000.png'});
+  await f.page.locator('#nwFilter').fill('sql');assert.equal(await f.page.locator('#nwVmList [data-nw-pick]').count(),1,'search narrows the list');assert.equal(await f.page.evaluate(()=>document.activeElement.id),'nwFilter','typing keeps focus');await f.page.locator('#nwFilter').fill('');
+  await f.page.locator('#nwNext').click();
+  assert.equal(await f.page.locator('.nw-stepper-item.current').textContent(),'2Where');
+  await f.page.locator('[data-nw-target="here"]').click();
+  assert.equal(await f.page.locator('#nwCopyRoot').inputValue(),'D:\\Hyper-V\\Disks','the copy folder comes from the host');
+  assert.equal(await f.page.locator('[data-nw-switch]').count(),1,'only the networks the chosen VMs use');
+  assert.equal(await f.page.locator('[data-nw-vlan="VM-Servers"]').inputValue(),'20','the VLAN comes from the source');
+  assert.equal(await f.page.locator('#nwWhy').textContent(),'Choose a switch for VM-Servers.');
+  await f.page.locator('[data-nw-switch="VM-Servers"]').selectOption('Isolated');assert.equal(await f.page.locator('#nwWhy').textContent(),'');await f.page.screenshot({path:out+'/new-migration-where-1440x1000.png'});
+  await f.page.locator('#nwNext').click();
+  assert.equal(await f.page.locator('[data-nw-method="plans"]').getAttribute('aria-pressed'),'true','a migration plan is recommended for this host');
+  assert((await f.page.locator('[data-nw-method="plans"]').textContent()).includes('Recommended'));assert((await f.page.locator('[data-nw-method="plans"]').textContent()).includes('Pick this when'));
+  assert(await f.page.locator('#nwAdvanced').isVisible());assert(await f.page.locator('#nwSync').isHidden(),'advanced options stay folded');
+  await f.page.locator('[data-nw-method="movevms"]').click();assert.equal((await f.page.locator('#nwNext').textContent()),'Continue in Move VMs','another way hands off, and says so');assert(!(await f.page.locator('#nwStep').textContent()).includes('Options for a migration plan'),'only the chosen way\'s options are shown');
+  await f.page.locator('[data-nw-method="plans"]').click();await f.page.screenshot({path:out+'/new-migration-how-1440x1000.png'});await f.page.locator('#nwAdvanced summary').click();await f.page.locator('#nwSync').selectOption('30');
+  await f.page.locator('#nwNext').click();
+  const at=new Date(Date.now()+48*3600000),pad=n=>String(n).padStart(2,'0'),local=at.getFullYear()+'-'+pad(at.getMonth()+1)+'-'+pad(at.getDate())+'T22:00';
+  const waves=await f.page.locator('[data-nw-cutmode]').evaluateAll(n=>n.map(x=>x.getAttribute('data-nw-cutmode')));assert(waves.length>=1);
+  await f.page.locator('[data-nw-cutmode="'+waves[0]+'"]').selectOption('at');assert((await f.page.locator('#nwWhy').textContent()).startsWith('Choose the cutover time'));
+  await f.page.locator('[data-nw-cutat="'+waves[0]+'"]').fill(local);
+  await f.page.locator('[data-nw-wave="vm-sql01"]').selectOption(String(Math.max(...waves.map(Number))+1));await f.page.screenshot({path:out+'/new-migration-when-1440x1000.png'});
+  await f.page.locator('#nwNext').click();
+  assert((await f.page.locator('.nw-checks').textContent()).includes('VMware snapshots'),'snapshots are caught before Start');assert(await f.page.locator('#nwNext').isDisabled());
+  await f.page.locator('#nwSnapshots').click();assert(await f.page.locator('#migrateDialog').isVisible());assert((await f.page.locator('#migrateConfirmLabel').textContent()).endsWith('1 VM'));await f.page.locator('#migrateDialogCancel').click();
+  f.vm.inventory.vms[1].snapshots=[];f.state.vmware.inventorySerial=2;
+  await f.page.waitForFunction(()=>!document.querySelector('#nwSnapshots'),null,{timeout:15000});
+  {const t=await f.page.locator('.nw-summary').textContent();assert(t.includes('VM-Servers to Isolated VLAN 20'),t);}
+  const name=await f.page.locator('#nwName').inputValue();assert(name.startsWith('Migration '));
+  assert.equal(await f.page.locator('#nwWhy').textContent(),'Type the name again, '+name+', to start.');
+  await f.page.locator('#nwConfirm').fill(name);await f.page.screenshot({path:out+'/new-migration-review-1440x1000.png'});await f.page.locator('#nwNext').click();
+  await f.page.waitForFunction(()=>document.querySelector('.nw-stepper-item.current')&&document.querySelector('.nw-stepper-item.current').textContent==='6Status',null,{timeout:15000});
+  const saved=f.vmwareCalls.filter(c=>c.action==='plan'&&c.method==='POST').pop();const net=saved.body.plan.networks.find(n=>n.source==='VM-Servers');assert.equal(net.targetName,'Isolated');assert.equal(net.targetVlan,'20');
+  assert(saved.body.plan.vms.find(v=>v.id==='vm-sql01').manual,'a wave changed here is kept by later suggestions');
+  const created=f.planCalls.find(c=>c.body.action==='create');assert.deepEqual(created.body.vmIds.sort(),['vm-app01','vm-sql01']);assert.equal(created.body.settings.copyRoot,'D:\\Hyper-V\\Disks');assert.equal(created.body.settings.syncMinutes,30);assert.equal(created.body.settings.disconnectSource,true);
+  const cut=f.planCalls.find(c=>c.body.action==='cutover');assert(cut,'the timed cutover is scheduled at Start');assert.equal(cut.body.confirm,name);assert.equal(cut.body.vmIds.length,1);assert.equal(new Date(cut.body.at).getHours(),22);
+  await f.page.waitForSelector('[data-nw-filter="total"]');assert((await f.page.locator('#nwStatusHead').textContent()).includes(name));
+  assert(await f.page.locator('#nwCutNow').isDisabled());
+  f.plans.plans[0].vms[0]=Object.assign(f.plans.plans[0].vms[0],{state:'ready',seeded:true,wave:1});f.plans.plans[0].vms[1]=Object.assign(f.plans.plans[0].vms[1],{state:'copying',wave:2,live:{percent:40,bytesRead:42949672960,bytesPerSecond:104857600,secondsLeft:600,elapsed:400}});f.plans.plans[0].summary=Object.assign(f.plans.plans[0].summary,{waiting:0,copying:1,ready:1});
+  await f.page.waitForFunction(()=>document.querySelector('#nwStatusBody').textContent.includes('40%'),null,{timeout:15000});
+  await f.page.locator('[data-nw-filter="copying"]').click();assert.equal(await f.page.locator('#nwStatusBody [data-nw-row]').count(),1,'tiles filter the list');await f.page.locator('[data-nw-filter="copying"]').click();
+  await f.page.screenshot({path:out+'/new-migration-status-1440x1000.png'});
+  await f.page.locator('[data-nw-row="'+f.plans.plans[0].vms[0].id+'"]').check();assert((await f.page.locator('#nwStatusMsg').textContent()).startsWith('Type the name'));
+  await f.page.locator('#nwCutConfirm').fill(name);await f.page.locator('#nwCutNow').click();
+  for(let i=0;i<100&&f.planCalls.filter(c=>c.body.action==='cutover').length<2;i++){await new Promise(r=>setTimeout(r,50));}const now=f.planCalls.filter(c=>c.body.action==='cutover').pop();assert.equal(now.body.at,'now');assert.equal(now.body.confirm,name);
+  await f.page.setViewportSize({width:1008,height:690});await f.page.locator('[data-nw-step]').first().waitFor();
+  assert(await f.page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1),'no horizontal scroll at 1024x768');
+ }finally{await f.close();}});
+ await check('New migration: a target this host cannot run hands off to its tool with the VMs selected',async()=>{const f=await fixture(browser);try{
+  f.vm.inventory=vmwareInventoryFixture();f.vm.plan=vmwarePlanFixture();f.state.vmware=Object.assign(vmwareIdle(),{status:'connected',server:'vc01.example.com',summary:vmwareSummaryFixture(),inventorySerial:1,canPrepare:true,hyperVHere:false});
+  await goTool(f,'wizard');await f.page.locator('[data-nw-source="vms"]').click();await f.page.waitForSelector('#nwVmList [data-nw-pick]');await f.page.locator('[data-nw-pick="vm-app01"]').check();await f.page.locator('#nwNext').click();
+  assert(await f.page.locator('[data-nw-target="here"]').isDisabled(),'this host is not a Hyper-V host');assert((await f.page.locator('[data-nw-target="here"]').textContent()).includes('is not a Hyper-V host'));
+  await f.page.locator('[data-nw-target="proxmox"]').click();await f.page.locator('#nwNext').click();
+  assert.equal(await f.page.locator('.nw-stepper-item').count(),3,'a hand-off ends at How');
+  assert.equal(await f.page.locator('#nwNext').textContent(),'Continue in Move VMs');await f.page.locator('#nwNext').click();
+  assert.equal(await f.page.locator('[data-tool="movevms"]').getAttribute('aria-pressed'),'true');assert.equal(await f.page.locator('#vmTargetSelect').inputValue(),'proxmox','the target comes along');
+  assert(await f.page.locator('#vmDetail').isVisible(),'the VM opens in Move VMs');
+ }finally{await f.close();}});
+ await check('New migration: with no inventory the sign-in is on the first screen',async()=>{const f=await fixture(browser);try{
+  await goTool(f,'wizard');await f.page.locator('[data-nw-source="vms"]').click();
+  await f.page.locator('#nwServer').fill('vc01.example.com');await f.page.locator('#nwUser').fill('administrator@vsphere.local');await f.page.locator('#nwConnect').click();assert.equal(await f.page.locator('#nwConnectStatus').textContent(),'Type the password for administrator@vsphere.local.');
+  await f.page.locator('#nwPassword').fill('secret');await f.page.locator('#nwPassword').press('Enter');
+  for(let i=0;i<100&&!f.vmwareCalls.some(c=>c.action==='connect');i++){await new Promise(r=>setTimeout(r,50));}const call=f.vmwareCalls.find(c=>c.action==='connect');assert(call&&call.body.server==='vc01.example.com');
+  assert.equal(await f.page.evaluate(()=>{const p=document.querySelector('#nwPassword');return p?p.value:'';}),'','the password is cleared from the page');
  }finally{await f.close();}});
  await check('Migration plans: VMs are picked from the inventory, tiles filter the list, live progress shows speed and time left, and cutover needs selected in-sync VMs and the typed plan name',async()=>{const f=await fixture(browser);try{
   f.vm.inventory=vmwareInventoryFixture();f.vm.plan=vmwarePlanFixture();f.state.vmware=Object.assign(vmwareIdle(),{status:'connected',server:'vc01.example.com',summary:vmwareSummaryFixture(),inventorySerial:1});
