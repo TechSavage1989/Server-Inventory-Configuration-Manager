@@ -6131,7 +6131,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     vmDiskChoices=diskChoices;
     byId('vmGuestDiskText').textContent=disks.length?'These disks are offline or read-only, so their drive letters are missing.':'Every disk is online.';
     var tools=state.VmwareTools||{};
-    byId('vmGuestToolsText').textContent=!tools.Installed?'VMware Tools is not installed.':(platform.Name==='VMware'?'VMware Tools '+tools.Version+' is installed. Remove it after cutover, once the VM runs on the new platform.':'VMware Tools '+tools.Version+' is still installed. Remove it now that the VM no longer runs on VMware.');
+    byId('vmGuestToolsText').textContent=!tools.Installed?((tools.Running&&tools.Running.length)?'VMware Tools was uninstalled but left '+tools.Running.join(', ')+' turned on. Remove VMware Tools turns them off.':'VMware Tools is not installed.'):(tools.TurnedOff?'VMware Tools '+tools.Version+' could not be uninstalled outside VMware, so its services and drivers are turned off. Programs and Features still lists it.':platform.Name==='VMware'?'VMware Tools '+tools.Version+' is installed. Remove it after cutover, once the VM runs on the new platform.':'VMware Tools '+tools.Version+' is still installed. Remove it now that the VM no longer runs on VMware.');
     var act=g.Activation||null,actText=byId('vmGuestActivationText');actText.textContent='';
     if(act){actText.appendChild(el('div','vm-act '+(act.Severity||''),act.Message||''));if(act.Licensed===false&&act.Channel){actText.appendChild(el('div','vm-sub','Status: '+(act.Status||'not activated')+'. Channel: '+act.Channel+(act.Before&&act.Before!==act.Channel?' (was '+act.Before+')':'')+'.'));}}
     else{actText.textContent='Choose Check what needs fixing to read Windows activation.';}
@@ -6151,7 +6151,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     byId('vmGuestUndo').classList.toggle('hidden',!(g&&g.RollbackAvailable));byId('vmGuestUndo').disabled=locked;
     byId('vmGuestGhosts').disabled=locked||!vmChosenKeys(vmGhostChoices).length;
     byId('vmGuestDisks').disabled=locked||!vmChosenKeys(vmDiskChoices).length;byId('vmGuestBitLocker').disabled=locked;
-    byId('vmGuestTools').disabled=locked||!tools.Installed||platform.Name==='VMware';
+    byId('vmGuestTools').disabled=locked||!(tools.Installed&&!tools.TurnedOff||(tools.Running&&tools.Running.length))||platform.Name==='VMware';
     var act=g&&g.Activation,key=trimText(byId('vmGuestKey').value);
     byId('vmGuestActivate').disabled=locked||!act||(!act.CanActivate&&!key)||(key&&!/^[A-Za-z0-9]{5}(-[A-Za-z0-9]{5}){4}$/.test(key));
     byId('vmGuestAvma').disabled=locked;
@@ -6345,7 +6345,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   byId('vmGuestTools').addEventListener('click',function(){
     var tools=(vmGuest&&vmGuest.State&&vmGuest.State.VmwareTools)||{};
     vmGuestConfirm({action:'remove-tools',title:'Remove VMware Tools',button:'Remove VMware Tools',running:'Removing VMware Tools. This can take a few minutes.',alert:'The VM may need a restart afterwards. Do this only after the VM runs on the new platform.',
-      paragraphs:['VMware Tools '+(tools.Version||'')+' is removed with its own uninstaller.']});
+      paragraphs:['VMware Tools '+(tools.Version||'')+' is removed with its own uninstaller. Most versions refuse to uninstall outside VMware; then its services and drivers are turned off instead (every value is saved first), it is taken out of device filter lists, and hidden VMware display, mouse and system devices are removed. Storage and network drivers are left alone.']});
   });
   byId('vmCompareBefore').addEventListener('click',function(){chooseVmComparePackage('before');});
   byId('vmCompareAfter').addEventListener('click',function(){chooseVmComparePackage('after');});
