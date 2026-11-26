@@ -389,6 +389,10 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
 .restore-confirm-input{display:block;box-sizing:border-box;width:100%;height:34px;margin-top:6px;border:1px solid #bcc9d9;border-radius:7px;padding:0 10px;font:inherit}
 .restore-dialog-actions{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:8px;padding:10px 18px 14px;border-top:1px solid #e3e8ef}
 .restore-dialog-error{margin-top:8px;color:#a33b3b;font-size:12px;font-weight:600}
+.cfm-tick{display:flex;align-items:flex-start;gap:8px;margin-top:8px;font-size:12.5px;font-weight:600;color:#23334b;line-height:1.35;cursor:pointer}.cfm-tick input{margin:2px 0 0;flex:0 0 auto;width:15px;height:15px}
+.cfm-hint{color:#5b6b80;font-size:12px}
+.cfm-styles{border:0;margin:0;padding:0;display:grid;gap:8px}.cfm-styles legend{font-weight:650;color:#23334b;margin-bottom:6px;padding:0}
+.cfm-style{display:flex;gap:10px;align-items:flex-start;border:1px solid #d6dde8;border-radius:9px;padding:8px 10px;cursor:pointer}.cfm-style input{margin-top:3px}.cfm-style span{display:grid;gap:2px}.cfm-style small{color:#5b6b80;font-size:12px}.cfm-style:has(input:checked){border-color:#2f6fb5;background:#f2f7fd}
 .danger-primary{background:#c2412d;box-shadow:none}.danger-primary:hover:not(:disabled){background:#a63523}
 /* Migrate: a four-step file share move from an old server to this server. */
 #migrateBody{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden}
@@ -832,7 +836,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   <div class="topbar"><div class="topbar-inner">
     <div class="brand"><div class="brand-mark" aria-hidden="true"><img src="/app-icon.svg?v=327" alt="" width="42" height="42"></div><div><div class="brand-title">Server Inventory and Migration Manager</div><div class="brand-subtitle">Configuration capture, documentation, and recovery assistance</div></div></div>
     <div class="top-badges"><div class="badge"><span class="badge-dot"></span>Local interface</div><div class="badge" id="elevationBadge">Checking access</div><div class="badge" id="portableEditionBadge">Portable EXE</div></div>
-    <div class="help-menu" id="helpMenu"><button class="help-button" id="helpMenuButton" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="helpMenuList">Help</button><div class="help-list hidden" id="helpMenuList" role="menu" aria-labelledby="helpMenuButton"><button type="button" role="menuitem" id="helpCheckUpdates">Check for updates…</button><button type="button" role="menuitem" id="helpShortcuts">Keyboard shortcuts</button><button type="button" role="menuitem" id="helpAbout">About</button></div></div>
+    <div class="help-menu" id="helpMenu"><button class="help-button" id="helpMenuButton" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="helpMenuList">Help</button><div class="help-list hidden" id="helpMenuList" role="menu" aria-labelledby="helpMenuButton"><button type="button" role="menuitem" id="helpCheckUpdates">Check for updates…</button><button type="button" role="menuitem" id="helpShortcuts">Keyboard shortcuts</button><button type="button" role="menuitem" id="helpSettings">Settings…</button><button type="button" role="menuitem" id="helpAbout">About</button></div></div>
   </div></div>
 
   <div class="page">
@@ -1447,7 +1451,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
               <div class="cv-row"><input id="cvSendFolder" type="text" spellcheck="false" autocomplete="off" placeholder="E:\Converted"><button class="secondary-button" id="cvSendFolderBrowse" type="button">Choose folder&hellip;</button></div>
               <div class="cv-hint" id="cvSendFolderHint"></div>
               <label class="cv-check"><input id="cvSendStart" type="checkbox"> Start the new VM when it is created</label>
-              <label class="field-label" for="cvSendConfirm">Type the new VM's name again to confirm</label>
+              <label class="field-label" for="cvSendConfirm" id="cvSendConfirmLabel">Type the new VM's name again to confirm</label>
               <div class="cv-row"><input id="cvSendConfirm" type="text" spellcheck="false" autocomplete="off"><button class="primary-button" id="cvSendGo" type="button" disabled>Send and create the VM</button></div>
             </div>
             <div class="hidden" id="cvSendRun">
@@ -1788,6 +1792,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     <p>Before each item, the current configuration is saved to a rollback folder so you can undo it.</p>
     <label class="restore-confirm-label" for="restoreConfirmInput" id="restoreConfirmLabel">Type this server's name to confirm</label>
     <input class="restore-confirm-input" id="restoreConfirmInput" type="text" autocomplete="off" spellcheck="false">
+    <label class="cfm-tick hidden" id="restoreConfirmTickRow"><input type="checkbox" id="restoreConfirmTick"><span id="restoreConfirmTickLabel">I understand these items will be changed on this server</span></label>
     <div class="restore-dialog-error hidden" id="restoreDialogError" role="alert"></div>
   </div>
   <div class="restore-dialog-actions"><button class="secondary-button" id="restoreDialogCancel" type="button">Cancel</button><button class="primary-button danger-primary" id="restoreConfirmButton" type="button" disabled>Restore now</button></div>
@@ -1799,9 +1804,27 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     <div id="migrateDialogText"></div>
     <label class="restore-confirm-label" for="migrateConfirmInput" id="migrateConfirmLabel">Type the name to confirm</label>
     <input class="restore-confirm-input" id="migrateConfirmInput" type="text" autocomplete="off" spellcheck="false">
+    <label class="cfm-tick hidden" id="migrateConfirmTickRow"><input type="checkbox" id="migrateConfirmTick"><span id="migrateConfirmTickLabel">I understand what this changes</span></label>
     <div class="restore-dialog-error hidden" id="migrateDialogError" role="alert"></div>
   </div>
   <div class="restore-dialog-actions"><button class="secondary-button" id="migrateDialogCancel" type="button">Cancel</button><button class="primary-button danger-primary" id="migrateConfirmButton" type="button" disabled>Confirm</button></div>
+</dialog>
+<dialog class="shortcuts-dialog restore-dialog cfm-dialog" id="cfmDialog" aria-labelledby="cfmDialogTitle">
+  <div class="shortcuts-head"><h2 id="cfmDialogTitle">Are you sure?</h2></div>
+  <div class="restore-dialog-body"><div id="cfmDialogText"></div><p class="cfm-hint">You can change how actions are confirmed in Help, Settings.</p></div>
+  <div class="restore-dialog-actions"><button class="secondary-button" id="cfmDialogCancel" type="button">Cancel</button><button class="primary-button danger-primary" id="cfmDialogGo" type="button">Continue</button></div>
+</dialog>
+<dialog class="shortcuts-dialog" id="settingsDialog" aria-labelledby="settingsTitle">
+  <div class="shortcuts-head"><h2 id="settingsTitle">Settings</h2><button class="secondary-button" id="settingsClose" type="button">Close</button></div>
+  <div class="about-body">
+    <fieldset class="cfm-styles"><legend>Before an action changes a server, VM, plan or job</legend>
+      <label class="cfm-style"><input type="radio" name="cfmStyle" value="tick" id="cfmStyleTick"><span><strong>Tick a box (recommended)</strong><small>An "I understand" box beside the button says what will happen. Tick it, then press the button.</small></span></label>
+      <label class="cfm-style"><input type="radio" name="cfmStyle" value="prompt" id="cfmStylePrompt"><span><strong>Ask in a dialog</strong><small>Pressing the button opens a dialog that says what will happen, with Continue and Cancel.</small></span></label>
+      <label class="cfm-style"><input type="radio" name="cfmStyle" value="typed" id="cfmStyleTyped"><span><strong>Type the name</strong><small>Type the VM, server, plan or job name, or the number of servers, as before.</small></span></label>
+      <label class="cfm-style"><input type="radio" name="cfmStyle" value="none" id="cfmStyleNone"><span><strong>Don't ask</strong><small>Actions run as soon as you press their button. Only for a test lab.</small></span></label>
+    </fieldset>
+    <div class="helper" id="settingsStatus" role="status" aria-live="polite">Saved for your Windows account on this computer.</div>
+  </div>
 </dialog>
 <dialog class="shortcuts-dialog" id="aboutDialog" aria-labelledby="aboutTitle">
   <div class="shortcuts-head"><h2 id="aboutTitle">About and updates</h2><button class="secondary-button" id="aboutClose" type="button">Close</button></div>
@@ -2541,7 +2564,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   function hbApply(step,result,s){
     var items=[];vmArr(result.runs).forEach(function(r){var where=r.computer||'this computer';vmArr(r.output&&r.output.changes).forEach(function(c){items.push(where+': '+c);});});
     var alert='';if(step.id==='network'){alert='Creating a switch on a node\'s management adapter moves its address to the switch: the connection to the node pauses for a few seconds.';}else if(step.id==='restart'){alert='Each node restarts in turn and is waited for before the next one. Running VMs on a node stop with it.';}else if(step.id==='disks'){alert='Only empty disks are touched: each is checked again right before it is initialized.';}else if(step.id==='validate'&&s.plan&&s.plan.cluster&&s.plan.cluster.storageTests){alert='The Storage tests take the shared disks offline briefly. Run them only before VMs use these disks.';}
-    openMigrateDialog({title:'Apply: '+step.title,path:'/api/hvbuild/apply',field:'confirm',body:{step:step.id},expected:s.plan.name,label:'Type the plan\'s name to approve',button:'Apply',paragraphs:['These changes are made, in this order, and nothing else. A computer whose list no longer matches changes nothing.'],list:items,alert:alert,after:function(){hbOpenSteps[step.id]=true;vmMarkRunning('hvbuild','hvbuilding','Applying '+step.title+'.');}});}
+    openMigrateDialog({title:'Apply: '+step.title,understand:'I understand these changes are made on the listed computers now',path:'/api/hvbuild/apply',field:'confirm',body:{step:step.id},expected:s.plan.name,label:'Type the plan\'s name to approve',button:'Apply',paragraphs:['These changes are made, in this order, and nothing else. A computer whose list no longer matches changes nothing.'],list:items,alert:alert,after:function(){hbOpenSteps[step.id]=true;vmMarkRunning('hvbuild','hvbuilding','Applying '+step.title+'.');}});}
   function hbRenderSteps(s){
     var list=byId('hbSteps');list.textContent='';
     if(!s.plan){list.appendChild(el('li','hb-empty','Draft, open or start a plan above.'));return;}
@@ -2715,8 +2738,8 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       controller:p==='vsphere'?byId('cvSendBus').value:'',datacenter:p==='vsphere'?byId('cvSendDatacenter').value:'',compute:p==='vsphere'?byId('cvSendCompute').value:'',
       folder:byId('cvSendFolder').value.trim(),thick:p==='vsphere'&&byId('cvSendThick').checked,start:byId('cvSendStart').checked};
     cvPending=true;status.textContent='';status.className='restore-status';if(latestState){renderConvert(latestState);}
-    request('POST','/api/convert/send',{source:byId('cvSendPath').value.trim(),confirm:byId('cvSendConfirm').value.trim(),spec:spec},function(err){cvPending=false;
-      if(err){status.textContent=err;status.className='restore-status error';}else{byId('cvSendConfirm').value='';}
+    request('POST','/api/convert/send',{source:byId('cvSendPath').value.trim(),confirm:cfmVal(byId('cvSendConfirm'),name),spec:spec},function(err){cvPending=false;
+      if(err){status.textContent=err;status.className='restore-status error';}else{cfmClear(byId('cvSendConfirm'));}
       if(latestState){renderConvert(latestState);}});
   }
   function renderConvertSend(state,c,busy,elsewhere){
@@ -2750,7 +2773,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     ['cvSendPath','cvSendBrowse','cvSendPlatform','cvSendServer','cvSendUser','cvSendPassword','cvSendNode','cvSendConnect','cvSendForget','cvSendTrust','cvSendName','cvSendGuest','cvSendCPUs','cvSendMemory','cvSendFirmware','cvSendDatacenter','cvSendCompute','cvSendStorage','cvSendImport','cvSendNetwork','cvSendVLAN','cvSendBus','cvSendNIC','cvSendFolder','cvSendFolderBrowse','cvSendStart','cvSendThick','cvSendConfirm'].forEach(function(id){byId(id).disabled=busy;});
     var uefi=byId('cvSendFirmware').value==='uefi';byId('cvSendSecureBoot').disabled=busy||!uefi;byId('cvSendTPM').disabled=busy||!uefi;
     var name=byId('cvSendName').value.trim();
-    byId('cvSendGo').disabled=busy||elsewhere||!connected||!name||byId('cvSendConfirm').value.trim()!==name||!byId('cvSendPath').value.trim()||!byId('cvSendFolder').value.trim();
+    byId('cvSendGo').disabled=busy||elsewhere||!connected||!name||!cfmOk(byId('cvSendConfirm'),name)||!byId('cvSendPath').value.trim()||!byId('cvSendFolder').value.trim();
     byId('cvSendGo').textContent=sendRunning?'Sending…':'Send and create the VM';
     var show=c.task==='send'&&(sendRunning||c.status==='success'||c.status==='failed'||c.status==='canceled');cvSendShow('cvSendRun',show);
     if(show){var pct=c.status==='success'?100:(send.total>0?Math.floor(send.done*100/send.total):0);
@@ -3031,7 +3054,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       if(onHost){
         S('Choose where the VM\'s files go','hvhost','The copied disks become the new VM\'s disks, so they go on the storage the VM will run from. The default is the host\'s virtual hard disk folder. In a failover cluster, choose a Cluster Shared Volume (C:\\ClusterStorage\\...) for both the disks and the VM folder: the VM\'s Move section offers each volume with its free space and refuses a copy that does not fit.',function(c){return gdStorageCheck(c,src);},'movevms',{openLabel:'Open Move VMs'});
         S('Copy the disks while the VM runs','hvhost','In Move VMs, select the VM, then Copy disks (type its name). '+(src==='vmware'?'A snapshot of this application\'s own is taken and removed; changed block tracking makes later copies quick.':'A checkpoint of this application\'s own is taken on the source host and removed afterwards.')+' Each disk becomes a VHDX file on this host. Copy again as often as you like: only what changed is sent.',function(c){return gdMoveCheck(c,src,tgt);},'movevms');
-        S('Cut over: this builds the Hyper-V VM','hvhost','In Move VMs, choose Cut over (type the VM\'s name). In this order: the guest is shut down cleanly (never a forced power-off), the last changes are copied and verified, and the Hyper-V VM is created with the same CPUs, memory, firmware and disks, on the switches named in the plan. Tick Start to start it. The old VM stays off and unchanged, so going back is starting it again.',function(c){return gdMoveCheck(c,src,tgt);},'movevms',{manual:true});
+        S('Cut over: this builds the Hyper-V VM','hvhost','In Move VMs, choose Cut over and confirm. In this order: the guest is shut down cleanly (never a forced power-off), the last changes are copied and verified, and the Hyper-V VM is created with the same CPUs, memory, firmware and disks, on the switches named in the plan. Tick Start to start it. The old VM stays off and unchanged, so going back is starting it again.',function(c){return gdMoveCheck(c,src,tgt);},'movevms',{manual:true});
       } else {
         if(tgt==='physical'){
           S('Build receiver media','admin','Builds a Windows PE ISO with this program as the receiver. Add the server vendor\'s storage and network drivers so it sees the disks and network.',gdMediaCheck,'diskcopy',{focus:'media',openLabel:'Open receiver media'});
@@ -3040,8 +3063,8 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
           S('Connect to '+T,'admin','In Move VMs, select the VM; its Move section connects to '+T+(tgt==='proxmox'?' with an API token':'')+'. The password or token stays in memory only.',function(c){return gdTargetCheck(c,tgt);},'movevms');
           S('Build and upload the receiver media, then create the VM','admin','In the same Move section: build the receiver ISO (with the VirtIO drivers), upload it and create the new VM. It gets the same CPUs, memory, firmware and disks and starts from the ISO; a VM name that is already used is never changed.',gdMediaCheck,'movevms');
         }
-        S('Copy the disks while the VM runs','admin','In the VM\'s Move section, type the receiver\'s address, thumbprint and pairing code from the new machine\'s console and Copy (type the VM\'s name). Copy again as often as you like: only what changed is sent.',function(c){return gdMoveCheck(c,src,tgt);},'movevms');
-        S('Cut over','admin','Cut over (type the VM\'s name): the guest is shut down cleanly, the last changes are copied and verified'+(tgt==='physical'?'. Then on the new server stop the receiver, remove the media and start it from its own disk.':', and the new VM is switched to start from its disk and started.')+' The old VM stays off and unchanged.',function(c){return gdMoveCheck(c,src,tgt);},'movevms',{manual:true});
+        S('Copy the disks while the VM runs','admin','In the VM\'s Move section, type the receiver\'s address, thumbprint and pairing code from the new machine\'s console and Copy (confirm when asked). Copy again as often as you like: only what changed is sent.',function(c){return gdMoveCheck(c,src,tgt);},'movevms');
+        S('Cut over','admin','Cut over (confirm when asked): the guest is shut down cleanly, the last changes are copied and verified'+(tgt==='physical'?'. Then on the new server stop the receiver, remove the media and start it from its own disk.':', and the new VM is switched to start from its disk and started.')+' The old VM stays off and unchanged.',function(c){return gdMoveCheck(c,src,tgt);},'movevms',{manual:true});
       }
       if(onHost){S('Make it highly available (failover cluster only)','hvhost','Only when the host is in a failover cluster: tick Make it highly available before the cutover, and the VM is added as a clustered role once it is created. Skip this step on a standalone host.',gdClusterCheck,'movevms',{manual:true,optional:!(c0.hvr&&c0.hvr.cluster)&&!(c0.v.hostStorage&&c0.v.hostStorage.clustered)});}
       fixup(onHost);compare();
@@ -3059,7 +3082,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       S('Create the replication job','admin','Choose New job on the server, type the receiver\'s address, thumbprint and pairing code and Check receiver. Replicate every disk, including the one it starts from, set the schedule, the RPO alert and the services to stop at cutover.',gdJobCheck,'replicate');
       S('Wait for the initial copy to complete','admin','The first round copies every disk in full. Replicate servers shows its progress in the job row, then "Initial copy complete, ready to cut over" with the time, and a notice when it finishes. Changes keep replicating after that.',gdSeededCheck,'replicate');
       S('Test failover',tgt==='hyperv'?'hvhost':'admin',tgt==='hyperv'?'On the Hyper-V host: Start VMs from copies. The finished disks are ticked, the VM is named NAME-TEST and sized from the source; choose Create the VM. It runs on differencing disks with no network, so the copies stay untouched. Follow the checklist that appears (Windows shows not activated while isolated: expected, do not activate it), then End test; replication catches up by itself.':'In the job\'s details, Test failover on the target platform: the receiver VM is cloned, the clone is isolated from the network and started, and deleted when the test ends.'+(tgt==='physical'?' (Not available for a physical server: test after cutover.)':''),null,tgt==='hyperv'?'failover':'replicate',{manual:true});
-      S('Cut over','admin','In the job\'s details, Cut over now or schedule it (type the job name). The listed services stop, the last changes are sent and verified, and the server shuts down if you chose so. If any step fails, the services start again and replication carries on.',gdCutCheck,'replicate');
+      S('Cut over','admin','In the job\'s details, Cut over now or schedule it (confirm when asked). The listed services stop, the last changes are sent and verified, and the server shuts down if you chose so. If any step fails, the services start again and replication carries on.',gdCutCheck,'replicate');
       S(tgt==='hyperv'?'Start the production VM':'Start the new machine from its disk',tgt==='hyperv'?'hvhost':(tgt==='physical'?'console':'platform'),tgt==='hyperv'?'On the Hyper-V host: Start VMs from copies, Production (available once the job says Cut over). It is built with the source\'s processors, memory, firmware and network adapters, and runs from the copies themselves; in a failover cluster tick Make it highly available.':'Stop the receiver, remove the media, set the machine to start from its first disk and start it.',null,tgt==='hyperv'?'failover':null,{manual:true});
       fixup(tgt==='hyperv');compare();
     } else if(src==='image'){
@@ -3072,7 +3095,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       S('Run this on the new file server','fileserver','Copy this application to the new Windows file server and run it as administrator. The old server is only read until you choose an optional step at the end.',function(c){return c.admin?gdInfo('This computer is '+c.computer+'. It must be the new file server.'):gdBlock('Not running as administrator here ('+c.computer+').');},'shares');
       S('Connect to the old server and choose shares','fileserver','Type the old server\'s name and Connect. Every share is listed with its permissions; system shares start unticked. Choose where each one goes on this server.',gdSharesCheck,'shares');
       S('Check and copy','fileserver','Check finds problems before anything is copied. Copy copies files and permissions; copy again as often as you like before the cutover, and only changes are sent.',gdSharesCopy,'shares');
-      S('Cut over','fileserver','Cut over (type the confirmation): a last copy, then the shares are created here with their permissions. Then the optional steps: make the old shares read-only, and add the old name as an alias.',null,'shares',{manual:true});
+      S('Cut over','fileserver','Cut over (confirm when asked): a last copy, then the shares are created here with their permissions. Then the optional steps: make the old shares read-only, and add the old name as an alias.',null,'shares',{manual:true});
       S('Update drive mappings','admin','Update mapped drives, logon scripts, Group Policy drive maps and shortcuts that use the old server\'s name, unless this server took over that name.',null,null,{manual:true});
     }
     return steps;
@@ -3217,6 +3240,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     if(state.closing||(state.update&&state.update.status==='installing')){quiesceInterface('installing');return;}
     if(!latestState||latestState.runId!==state.runId){aclSkipPending=false;}
     latestState=state;
+    cfmApplyStyle();
     renderACLExport(state);
     renderUpdate(state.update,!!state.running);
     renderRestore(state);
@@ -3425,12 +3449,13 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   byId('helpMenu').addEventListener('focusout',function(e){if(helpMenuOpen()&&e.relatedTarget&&!this.contains(e.relatedTarget)){setHelpMenu(false);}});
   byId('helpCheckUpdates').addEventListener('click',function(){setHelpMenu(false);openAbout(true);});
   byId('helpShortcuts').addEventListener('click',function(){setHelpMenu(false);openShortcuts();});
+  byId('helpSettings').addEventListener('click',function(){setHelpMenu(false);openSettings();});
   byId('helpAbout').addEventListener('click',function(){setHelpMenu(false);openAbout(false);});
   function isTyping(target){var tag=(target&&target.nodeName||'').toLowerCase();return tag==='input'||tag==='textarea'||tag==='select'||!!(target&&target.isContentEditable);}
   function focusTabSearch(){var id={setup:'scopeSearch',collection:'logSearch',report:'viewerSearchInput'}[activeTab],input=byId(id);if(input&&!input.disabled){input.focus();if(input.select){input.select();}}}
   document.addEventListener('keydown',function(e){
     if(uiLifecycle!=='active'||e.defaultPrevented){return;}
-    if(byId('shortcutsDialog').open||byId('aboutDialog').open||byId('restoreDialog').open||byId('migrateDialog').open){return;}
+    if(byId('shortcutsDialog').open||byId('aboutDialog').open||byId('restoreDialog').open||byId('migrateDialog').open||byId('cfmDialog').open||byId('settingsDialog').open){return;}
     var key=e.key||'',ctrl=e.ctrlKey||e.metaKey,typing=isTyping(e.target);
     if(e.altKey&&!ctrl&&/^[1-5]$/.test(key)){e.preventDefault();var tab=topTabs[Number(key)-1];switchTab(tab);byId('tabButton'+tab.charAt(0).toUpperCase()+tab.slice(1)).focus();return;}
     if(ctrl&&!e.altKey&&(key==='s'||key==='S')){e.preventDefault();if(activeTab==='setup'){saveChoices();}return;}
@@ -3483,6 +3508,87 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     if(any){restoreSelection[component.id]=map;}else{delete restoreSelection[component.id];}
   }
   function el(tag,className,text){var node=document.createElement(tag);if(className){node.className=className;}if(text!==undefined&&text!==null){node.textContent=text;}return node;}
+  // Confirmations (rule 55, 2026-11-26, owner: "instead of having to type
+  // system names and plan names for confirmations, just have a check tick box
+  // or something or possibly a prompt to verify that can be configured").
+  // Help > Settings picks the style: tick (default), prompt, typed or none.
+  // Every changing request still carries the name or number it confirms and
+  // the server still checks it; the page fills it in once confirmed.
+  var cfmInputs=[];
+  function cfmStyle(){var s=latestState&&latestState.ui&&latestState.ui.confirmStyle;return s==='none'||s==='prompt'||s==='typed'?s:'tick';}
+  function cfmSame(a,b){return trimText(a).toLowerCase()===trimText(b).toLowerCase();}
+  // cfmBox turns a typed-confirmation text input into the chosen style: the
+  // input (and its label) shows only for typed, an "I understand" tick box for
+  // tick. o.what is the tick box's text, or a function of the expected value.
+  function cfmBox(input,o){
+    if(!input){return input;}if(input._cfm){return input;}
+    o=o||{};var field=o.field||input.closest('label')||input;
+    var tick=el('label','cfm-tick'),cb=document.createElement('input'),span=el('span','',typeof o.what==='string'?o.what:'I understand what this changes');
+    cb.type='checkbox';if(input.id){cb.id=input.id+'Tick';}cb.setAttribute('data-cfm-tick',input.id||'');
+    tick.appendChild(cb);tick.appendChild(span);field.parentNode.insertBefore(tick,field.nextSibling);
+    input._cfm={o:o,field:field,tick:tick,cb:cb,text:span,expected:''};
+    cb.addEventListener('change',function(){input.value=cb.checked?input._cfm.expected:'';input.dispatchEvent(new Event('input',{bubbles:true}));});
+    cfmInputs=cfmInputs.filter(function(x){return document.body.contains(x);});cfmInputs.push(input);
+    cfmShow(input);return input;
+  }
+  function cfmShow(input){var c=input&&input._cfm;if(!c){return;}var s=cfmStyle();c.field.classList.toggle('hidden',s!=='typed');(c.o.also||[]).forEach(function(x){if(x){x.classList.toggle('hidden',s!=='typed');}});c.tick.classList.toggle('hidden',s!=='tick');c.cb.disabled=!!input.disabled;}
+  // cfmOk says whether the action is confirmed for this expected value. A
+  // tick box given for another value (the name or count changed) is cleared.
+  // key, when given, is what the tick box was given for besides the name (the
+  // chosen VMs, say): a tick given for other VMs is cleared.
+  function cfmOk(input,expected,key){
+    expected=trimText(expected);var s=cfmStyle(),c=input&&input._cfm;
+    if(c&&key!==undefined&&c.key!==String(key)){c.key=String(key);if(s==='tick'){input.value='';}}
+    if(c){c.expected=expected;cfmShow(input);if(typeof c.o.what==='function'){c.text.textContent=c.o.what(expected);}}
+    if(!expected){if(c){c.cb.checked=false;}return false;}
+    if(s==='none'||s==='prompt'){if(input&&input.value!==expected){input.value=expected;}return true;}
+    var ok=!!input&&cfmSame(input.value,expected);
+    if(c){c.cb.checked=ok&&s==='tick';if(s==='tick'&&!ok&&input.value){input.value='';}}
+    return ok;
+  }
+  // cfmVal is the confirmation to send: what was typed, or the expected value.
+  function cfmVal(input,expected){if(cfmStyle()==='typed'){return trimText(input&&input.value);}return cfmOk(input,expected)?trimText(expected):'';}
+  // For pages that rebuild their fields (New migration): the saved value
+  // against the expected one, and what to send.
+  function cfmMatch(value,expected){var s=cfmStyle();if(!trimText(expected)){return false;}if(s==='none'||s==='prompt'){return true;}return cfmSame(value,expected);}
+  function cfmSend(value,expected){return cfmStyle()==='typed'?trimText(value):trimText(expected);}
+  function cfmHide(input){var c=input&&input._cfm;if(input){input.classList.add('hidden');}if(c){c.field.classList.add('hidden');c.tick.classList.add('hidden');}}
+  function cfmClear(input){if(!input){return;}input.value='';if(input._cfm){input._cfm.cb.checked=false;}}
+  // cfmAsk runs fn at once, or after a dialog in the prompt style. o.title,
+  // o.text (a string or paragraphs) and o.button say what will happen.
+  var cfmPending=null;
+  function cfmAsk(o,fn){
+    if(cfmStyle()!=='prompt'){fn();return;}
+    cfmPending=fn;byId('cfmDialogTitle').textContent=o.title||'Are you sure?';
+    var box=byId('cfmDialogText');box.textContent='';(typeof o.text==='string'?[o.text]:(o.text||[])).forEach(function(p){if(p){box.appendChild(el('p','',p));}});
+    if(o.alert){box.insertBefore(el('div','restore-alert danger',o.alert),box.firstChild);}
+    byId('cfmDialogGo').textContent=o.button||'Continue';
+    var d=byId('cfmDialog');if(d.showModal){d.showModal();}else{d.setAttribute('open','');}byId('cfmDialogCancel').focus();
+  }
+  function cfmClose(){var d=byId('cfmDialog');if(d.close){d.close();}else{d.removeAttribute('open');}cfmPending=null;}
+  byId('cfmDialogCancel').addEventListener('click',cfmClose);
+  byId('cfmDialogGo').addEventListener('click',function(){var fn=cfmPending;cfmClose();if(fn){fn();}});
+  byId('cfmDialog').addEventListener('cancel',function(){cfmPending=null;});
+  var cfmLastStyle='';
+  function cfmApplyStyle(){var s=cfmStyle();if(s!==cfmLastStyle){cfmLastStyle=s;cfmRefresh();}}
+  function cfmRefresh(){cfmInputs=cfmInputs.filter(function(x){return document.body.contains(x);});cfmInputs.forEach(function(x){cfmClear(x);cfmShow(x);});}
+  function openSettings(){
+    var d=byId('settingsDialog'),s=cfmStyle();Array.prototype.forEach.call(document.querySelectorAll('input[name="cfmStyle"]'),function(r){r.checked=r.value===s;});
+    byId('settingsStatus').textContent='Saved for your Windows account on this computer.';byId('settingsStatus').className='helper';
+    if(!d.open){if(d.showModal){d.showModal();}else{d.setAttribute('open','');}}byId('settingsClose').focus();
+  }
+  function closeSettings(){var d=byId('settingsDialog');if(d.close){d.close();}else{d.removeAttribute('open');}}
+  byId('settingsClose').addEventListener('click',closeSettings);
+  byId('settingsDialog').addEventListener('click',function(e){if(e.target===this){closeSettings();}});
+  byId('settingsDialog').addEventListener('change',function(e){
+    var r=e.target;if(r.name!=='cfmStyle'){return;}var before=cfmStyle(),status=byId('settingsStatus');
+    request('POST','/api/ui-settings',{confirmStyle:r.value},function(err){
+      if(err){status.textContent=err;status.className='helper error';Array.prototype.forEach.call(document.querySelectorAll('input[name="cfmStyle"]'),function(x){x.checked=x.value===before;});return;}
+      if(latestState){latestState.ui={schema:1,confirmStyle:r.value};}
+      status.textContent='Saved. Confirmations now: '+r.parentNode.querySelector('strong').textContent+'.';status.className='helper';
+      if(latestState){renderState(latestState);}if(typeof renderNw==='function'&&activeTab==='wizard'){renderNw();}
+    });
+  });
   function impactChip(impact){
     if(impact==='high'){return el('span','impact-chip impact-high','High impact');}
     if(impact==='domain'){return el('span','impact-chip impact-domain','Affects the whole domain');}
@@ -3616,7 +3722,9 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     restoreBusy=true;updateRestoreButtons();
     request('POST','/api/restore/browse',{},function(err,data){restoreBusy=false;updateRestoreButtons();if(err){restoreLocalStatus(err,true);return;}if(data&&data.selected&&data.path){scanRestorePackage(data.path);}});
   }
-  function restoreConfirmMatches(){var scan=restoreScan(),typed=trimText(byId('restoreConfirmInput').value);return !!(scan&&scan.currentComputer&&typed.toLowerCase()===String(scan.currentComputer).toLowerCase());}
+  // The restore review always opens (it lists what changes); its confirmation
+  // follows Help > Settings (rule 55).
+  function restoreConfirmMatches(){var scan=restoreScan(),s=cfmStyle();if(!(scan&&scan.currentComputer)){return false;}if(s==='typed'){return cfmSame(byId('restoreConfirmInput').value,scan.currentComputer);}if(s==='tick'){return byId('restoreConfirmTick').checked;}return true;}
   function openRestoreDialog(){
     var scan=restoreScan(),plan=restoreSelectedPlan(),list=byId('restoreDialogList'),warnings=byId('restoreDialogWarnings'),seen={};
     if(!scan||!plan.length||byId('restoreReviewButton').disabled){return;}
@@ -3631,18 +3739,22 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     byId('restoreDialogWarningsBlock').classList.toggle('hidden',!warnings.children.length);
     var mismatch=byId('restoreDialogMismatch');mismatch.textContent='This package came from '+(scan.sourceComputer||'another server')+'; you are restoring onto '+(scan.currentComputer||'this server')+'.';mismatch.classList.toggle('hidden',scan.sameComputer!==false);
     byId('restoreConfirmLabel').textContent="Type this server's name to confirm: "+(scan.currentComputer||'');
-    byId('restoreConfirmInput').value='';byId('restoreConfirmInput').disabled=false;byId('restoreConfirmButton').disabled=true;byId('restoreDialogError').classList.add('hidden');
+    var style=cfmStyle();byId('restoreConfirmLabel').classList.toggle('hidden',style!=='typed');byId('restoreConfirmInput').classList.toggle('hidden',style!=='typed');
+    byId('restoreConfirmTickRow').classList.toggle('hidden',style!=='tick');byId('restoreConfirmTick').checked=false;byId('restoreConfirmTick').disabled=false;
+    byId('restoreConfirmTickLabel').textContent='I understand these items will be changed on '+(scan.currentComputer||'this server')+' now';
+    byId('restoreConfirmInput').value='';byId('restoreConfirmInput').disabled=false;byId('restoreDialogError').classList.add('hidden');
     var d=byId('restoreDialog');if(d.showModal){d.showModal();}else{d.setAttribute('open','');}
-    byId('restoreConfirmInput').focus();
+    byId('restoreConfirmButton').disabled=!restoreConfirmMatches();
+    (style==='typed'?byId('restoreConfirmInput'):(style==='tick'?byId('restoreConfirmTick'):byId('restoreDialogCancel'))).focus();
   }
   function closeRestoreDialog(){var d=byId('restoreDialog');if(restoreBusy){return;}if(d.close){d.close();}else{d.removeAttribute('open');}}
   function startRestore(){
     var scan=restoreScan(),plan=restoreSelectedPlan(),r=restoreState()||{};
     if(!scan||!plan.length||!restoreConfirmMatches()||restoreBusy||restoreLocked()){return;}
-    var body={packagePath:r.packagePath||scan.packagePath||'',components:plan.map(function(entry){return {id:entry.component.id,items:entry.items};}),confirmComputerName:trimText(byId('restoreConfirmInput').value)};
-    restoreBusy=true;byId('restoreConfirmButton').disabled=true;byId('restoreDialogCancel').disabled=true;byId('restoreConfirmInput').disabled=true;byId('restoreDialogError').classList.add('hidden');
+    var body={packagePath:r.packagePath||scan.packagePath||'',components:plan.map(function(entry){return {id:entry.component.id,items:entry.items};}),confirmComputerName:cfmStyle()==='typed'?trimText(byId('restoreConfirmInput').value):String(scan.currentComputer)};
+    restoreBusy=true;byId('restoreConfirmButton').disabled=true;byId('restoreDialogCancel').disabled=true;byId('restoreConfirmInput').disabled=true;byId('restoreConfirmTick').disabled=true;byId('restoreDialogError').classList.add('hidden');
     request('POST','/api/restore/start',body,function(err){
-      restoreBusy=false;byId('restoreDialogCancel').disabled=false;byId('restoreConfirmInput').disabled=false;
+      restoreBusy=false;byId('restoreDialogCancel').disabled=false;byId('restoreConfirmInput').disabled=false;byId('restoreConfirmTick').disabled=false;
       if(err){var box=byId('restoreDialogError');box.textContent=err;box.classList.remove('hidden');byId('restoreConfirmButton').disabled=!restoreConfirmMatches();return;}
       closeRestoreDialog();restoreShowChooser=false;restoreRunKey='';restoreLogKey='';
       if(latestState&&latestState.restore){latestState.restore.status='running';latestState.restore.items=[];latestState.restore.logs=[];latestState.restore.message='Starting the restore…';renderRestore(latestState);setConfigDisabled(!!latestState.running);}
@@ -3653,6 +3765,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   byId('restoreBrowse').addEventListener('click',browseRestorePackage);
   byId('restoreReviewButton').addEventListener('click',openRestoreDialog);
   byId('restoreConfirmInput').addEventListener('input',function(){byId('restoreConfirmButton').disabled=!restoreConfirmMatches()||restoreBusy;});
+  byId('restoreConfirmTick').addEventListener('change',function(){byId('restoreConfirmButton').disabled=!restoreConfirmMatches()||restoreBusy;});
   byId('restoreConfirmInput').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();if(!byId('restoreConfirmButton').disabled){startRestore();}}});
   byId('restoreConfirmButton').addEventListener('click',startRestore);
   byId('restoreDialogCancel').addEventListener('click',closeRestoreDialog);
@@ -3927,21 +4040,28 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     (options.paragraphs||[]).forEach(function(p){text.appendChild(el('p','',p));});
     if(options.list&&options.list.length){var ul=el('ul','');options.list.forEach(function(item){ul.appendChild(el('li','',item));});text.appendChild(ul);}
     var alert=byId('migrateDialogAlert');alert.textContent=options.alert||'';alert.classList.toggle('hidden',!options.alert);
+    // Rule 55: the confirmation follows Help > Settings. Don't ask runs the
+    // action at once and shows a failure as a notice.
+    var style=cfmStyle();if(style==='none'){migrateDialogAction=options;confirmMigrateDialog();return;}
     byId('migrateConfirmLabel').textContent=options.label+': '+options.expected;
     byId('migrateConfirmButton').textContent=options.button;
-    byId('migrateConfirmInput').value='';byId('migrateConfirmInput').disabled=false;byId('migrateConfirmButton').disabled=true;byId('migrateDialogCancel').disabled=false;byId('migrateDialogError').classList.add('hidden');
+    byId('migrateConfirmLabel').classList.toggle('hidden',style!=='typed');byId('migrateConfirmInput').classList.toggle('hidden',style!=='typed');
+    byId('migrateConfirmTickRow').classList.toggle('hidden',style!=='tick');byId('migrateConfirmTick').checked=false;byId('migrateConfirmTick').disabled=false;
+    byId('migrateConfirmTickLabel').textContent=options.understand||'I understand what this changes';
+    byId('migrateConfirmInput').value='';byId('migrateConfirmInput').disabled=false;byId('migrateDialogCancel').disabled=false;byId('migrateDialogError').classList.add('hidden');
     var d=byId('migrateDialog');if(d.showModal){d.showModal();}else{d.setAttribute('open','');}
-    byId('migrateConfirmInput').focus();
+    byId('migrateConfirmButton').disabled=!migrateDialogMatches();
+    (style==='typed'?byId('migrateConfirmInput'):(style==='tick'?byId('migrateConfirmTick'):byId('migrateDialogCancel'))).focus();
   }
-  function migrateDialogMatches(){var a=migrateDialogAction;return !!(a&&trimText(byId('migrateConfirmInput').value).toLowerCase()===String(a.expected).toLowerCase());}
+  function migrateDialogMatches(){var a=migrateDialogAction,s=cfmStyle();if(!a||!trimText(a.expected)){return false;}if(s==='typed'){return cfmSame(byId('migrateConfirmInput').value,a.expected);}if(s==='tick'){return byId('migrateConfirmTick').checked;}return true;}
   function closeMigrateDialog(){if(migrateBusy){return;}var d=byId('migrateDialog');if(d.close){d.close();}else{d.removeAttribute('open');}migrateDialogAction=null;}
   function confirmMigrateDialog(){
     var a=migrateDialogAction;if(!a||!migrateDialogMatches()||migrateBusy){return;}
-    var body={};if(a.body){for(var k in a.body){if(a.body.hasOwnProperty(k)){body[k]=a.body[k];}}}body[a.field]=trimText(byId('migrateConfirmInput').value);
-    migrateBusy=true;byId('migrateConfirmButton').disabled=true;byId('migrateDialogCancel').disabled=true;byId('migrateConfirmInput').disabled=true;byId('migrateDialogError').classList.add('hidden');
+    var body={};if(a.body){for(var k in a.body){if(a.body.hasOwnProperty(k)){body[k]=a.body[k];}}}body[a.field]=cfmStyle()==='typed'?trimText(byId('migrateConfirmInput').value):String(a.expected);
+    migrateBusy=true;byId('migrateConfirmButton').disabled=true;byId('migrateDialogCancel').disabled=true;byId('migrateConfirmInput').disabled=true;byId('migrateConfirmTick').disabled=true;byId('migrateDialogError').classList.add('hidden');
     request('POST',a.path,body,function(err){
-      migrateBusy=false;byId('migrateDialogCancel').disabled=false;byId('migrateConfirmInput').disabled=false;
-      if(err){var box=byId('migrateDialogError');box.textContent=err;box.classList.remove('hidden');byId('migrateConfirmButton').disabled=!migrateDialogMatches();return;}
+      migrateBusy=false;byId('migrateDialogCancel').disabled=false;byId('migrateConfirmInput').disabled=false;byId('migrateConfirmTick').disabled=false;
+      if(err){if(!byId('migrateDialog').open){migrateDialogAction=null;notice(a.title+': '+err,true);return;}var box=byId('migrateDialogError');box.textContent=err;box.classList.remove('hidden');byId('migrateConfirmButton').disabled=!migrateDialogMatches();return;}
       var after=a.after;closeMigrateDialog();if(after){after();}
     });
   }
@@ -3959,7 +4079,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     if(this.disabled){return;}
     var m=migrateState()||{},overwrites=(m.plan||[]).filter(function(p){return !!p.allowOverwrite;}),computer=(latestState&&latestState.computerName)||'';
     if(!overwrites.length){migratePost('/api/migrate/sync',{},null,function(err){if(!err){migrateMarkRunning('sync','copying','Copying.');}});return;}
-    openMigrateDialog({title:'Confirm overwrite and copy',path:'/api/migrate/sync',field:'confirmComputerName',expected:computer,label:"Type this server's name to confirm",button:'Overwrite and copy',
+    openMigrateDialog({title:'Confirm overwrite and copy',understand:'I understand files that exist only at the destination will be deleted',path:'/api/migrate/sync',field:'confirmComputerName',expected:computer,label:"Type this server's name to confirm",button:'Overwrite and copy',
       alert:'This is an exact mirror: files that exist only at the destination will be permanently deleted. There is no automatic file rollback.',
       paragraphs:['You selected overwrite for the following shares. Existing destination files may be replaced. Repeat copies will mirror future changes and deletions. Existing share names can also be replaced when you cut over.'],
       list:overwrites.map(function(p){return p.destName+' - '+p.destPath;}),
@@ -3967,7 +4087,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   });
   byId('migrateCutover').addEventListener('click',function(){
     if(this.disabled){return;}var m=migrateState()||{},computer=(latestState&&latestState.computerName)||'';
-    openMigrateDialog({title:'Cut over to this server',path:'/api/migrate/cutover',field:'confirmComputerName',expected:computer,label:"Type this server's name to confirm",button:'Cut over now',
+    openMigrateDialog({title:'Cut over to this server',understand:'I understand the shares are created on this server now',path:'/api/migrate/cutover',field:'confirmComputerName',expected:computer,label:"Type this server's name to confirm",button:'Cut over now',
       alert:(m.plan||[]).some(function(p){return !!p.allowOverwrite;})?
         'Overwrite is enabled: the final mirror may delete destination-only files, and an existing share name may be replaced, disconnecting its users. System shares may affect Windows roles.':
         'Ask users to stop using the old shares now. Files they change during cutover may need another pass.',
@@ -3977,7 +4097,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   });
   byId('migrateReadOnly').addEventListener('click',function(){
     var m=migrateState()||{},old=migrateShortName(m.source);
-    openMigrateDialog({title:'Make the old shares read-only',path:'/api/migrate/source-readonly',field:'confirmSourceName',expected:old,label:"Type the old server's name to confirm",button:'Make read-only',
+    openMigrateDialog({title:'Make the old shares read-only',understand:'I understand people can no longer save changes on '+old,path:'/api/migrate/source-readonly',field:'confirmSourceName',expected:old,label:"Type the old server's name to confirm",button:'Make read-only',
       paragraphs:['People can still open files on '+old+' but cannot save changes there. The old share permissions are saved first, and Undo puts them back.'],list:(m.plan||[]).map(function(p){return p.name;}),
       after:function(){migrateMarkRunning('readonly','working','Making the old shares read-only.');}});
   });
@@ -3986,7 +4106,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   byId('migrateAliasCheck').addEventListener('click',function(){migratePost('/api/migrate/alias-check',{},null,function(err){if(!err){migrateMarkRunning('aliascheck','working','Checking whether this server can take over the old server\'s name.');}});});
   byId('migrateAlias').addEventListener('click',function(){
     var m=migrateState()||{},alias=m.alias||{},old=alias.oldName||migrateShortName(m.source);
-    openMigrateDialog({title:"Give this server the old server's name",path:'/api/migrate/alias',field:'confirmOldName',expected:old,label:"Type the old server's name to confirm",button:'Add name',
+    openMigrateDialog({title:"Give this server the old server's name",understand:'I understand this changes DNS and Active Directory',path:'/api/migrate/alias',field:'confirmOldName',expected:old,label:"Type the old server's name to confirm",button:'Add name',
       alert:'This changes DNS and Active Directory. It needs Domain Admin rights, and this server must be restarted afterwards.',
       paragraphs:['Only do this after '+old+' is shut down for good and removed from DNS. Old paths such as \\\\'+old+'\\Share will then open the shares on this server.'],
       after:function(){migrateMarkRunning('alias','working','Adding the old server\'s name to this server.');}});
@@ -3994,6 +4114,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   byId('migrateStop').addEventListener('click',function(){var button=this;button.disabled=true;request('POST','/api/migrate/cancel',{},function(err){if(err){button.disabled=false;notice(err,true);return;}var m=migrateState();if(m){m.cancelRequested=true;}syncMigrateButtons();});});
   byId('migrateOpenLogs').addEventListener('click',function(){openKind('migrationlogs');});
   byId('migrateConfirmInput').addEventListener('input',function(){byId('migrateConfirmButton').disabled=!migrateDialogMatches()||migrateBusy;});
+  byId('migrateConfirmTick').addEventListener('change',function(){byId('migrateConfirmButton').disabled=!migrateDialogMatches()||migrateBusy;});
   byId('migrateConfirmInput').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();if(!byId('migrateConfirmButton').disabled){confirmMigrateDialog();}}});
   byId('migrateConfirmButton').addEventListener('click',confirmMigrateDialog);
   byId('migrateDialogCancel').addEventListener('click',closeMigrateDialog);
@@ -4244,7 +4365,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   var vmMoveStageNames={shutdown:'Shut the guest down',connect:'Connect to the source',snapshot:'Take the replication snapshot',copy:'Copy the disks',cleanup:'Remove the snapshot',create:'Create the Hyper-V VM','switch':'Start the new VM from its disk'};
   function vmMoveProgressBox(vm){var b=el('div','vm-move-progress hidden');b.id='vmMoveProgress';b.setAttribute('data-vm',vm.id);b.setAttribute('aria-live','polite');b.vmRef=vm;return b;}
   function vmConsolidateDialog(vm){
-    openMigrateDialog({title:'Consolidate '+vm.name+'\'s disks',path:'/api/vmware/prepare',field:'confirm',body:{vmId:vm.id,steps:{snapshots:true}},expected:vm.name,label:"Type the VM's name to confirm",button:'Consolidate disks',
+    openMigrateDialog({title:'Consolidate '+vm.name+'\'s disks',understand:'I understand '+vm.name+'\'s snapshots are removed in vSphere',path:'/api/vmware/prepare',field:'confirm',body:{vmId:vm.id,steps:{snapshots:true}},expected:vm.name,label:"Type the VM's name to confirm",button:'Consolidate disks',
       paragraphs:['The VM keeps running. vSphere will, on '+vm.name+':'],list:['save the VM\'s current settings first','delete any snapshots, consolidating them into the disks','consolidate disks vSphere flags as needing it','merge any snapshot delta vSphere lists no snapshot for, by taking a snapshot named "Server Inventory and Migration Manager consolidation" and deleting all snapshots'],
       after:function(){vmMarkRunning('prepare','preparing','Consolidating '+vm.name+'\'s disks.');}});
   }
@@ -5359,12 +5480,12 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     var row=el('div','vm-move-actions'),copy=el('button','secondary-button',last&&!last.cutover?'Copy changes\u2026':'Copy disks\u2026'),cut=el('button','secondary-button','Cut over\u2026');
     copy.type='button';copy.id='vmMoveCopy';copy.disabled=vmLocked()||notHost;cut.type='button';cut.id='vmMoveCutover';cut.disabled=vmLocked()||notHost;syncSpace();
     copy.addEventListener('click',function(){
-      openMigrateDialog({title:'Copy '+vm.name,path:'/api/vmware/move',field:'confirm',body:body('copy'),expected:vm.name,label:"Type the VM's name to confirm",button:'Copy disks',
+      openMigrateDialog({title:'Copy '+vm.name,path:'/api/vmware/move',understand:'I understand '+vm.name+' gets a temporary snapshot in vSphere while it copies',field:'confirm',body:body('copy'),expected:vm.name,label:"Type the VM's name to confirm",button:'Copy disks',
         paragraphs:[hv?'The VM keeps running. On the source Hyper-V host this will:':'The VM keeps running. vSphere will:'],list:(hv?[vmHyperVCheckpointStep]:['turn on changed block tracking for this VM, if it is off','take a snapshot named "Server Inventory and Migration Manager replication" and remove it when the copy ends']).concat(['copy each disk to a VHDX file in '+(trimText(folder.value)||folder.placeholder)]),
         after:function(){vmMarkRunning('move','moving','Copying '+vm.name+'\'s disks.');}});
     });
     cut.addEventListener('click',function(){
-      openMigrateDialog({title:'Cut over '+vm.name,path:'/api/vmware/move',field:'confirm',body:body('cutover'),expected:vm.name,label:"Type the VM's name to confirm",button:'Shut down and cut over',
+      openMigrateDialog({title:'Cut over '+vm.name,path:'/api/vmware/move',understand:'I understand '+vm.name+' is shut down and moved now',field:'confirm',body:body('cutover'),expected:vm.name,label:"Type the VM's name to confirm",button:'Shut down and cut over',
         alert:hv?vmHyperVShutdownAlert('Hyper-V VM is started'):'The VMware VM is shut down through VMware Tools and stays off. Users lose access until the Hyper-V VM is started.',
         paragraphs:['In this order:'],list:['shut the guest down (never a hard power-off)','copy the last changes and verify every disk','create the Hyper-V VM '+vm.name+' on the copied disks'+(checks.cluster&&checks.cluster.checked?', make it highly available in the cluster':'')+(after.start()?' and start it':' (left off)')].concat(after.steps()),
         after:function(){vmMarkRunning('move','moving','Cutting '+vm.name+' over to Hyper-V.');}});
@@ -5454,11 +5575,11 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     var body=function(action){return {vmId:vm.id,action:action,node:vmHvrForm.node||info.computer,copyFolder:trimText(folder.value),vmFolder:trimText(vmFolder.value),path:vmHvrForm.path,address:trimText(vmHvrForm.address),thumbprint:vmThumbHex(vmHvrForm.thumbprint),code:trimText(vmHvrForm.code),quiesce:!!(checks.quiesce&&checks.quiesce.checked),keepMac:checks.keepMac.checked,start:after.start(),cluster:!!(checks.cluster&&checks.cluster.checked),disconnectSource:after.disconnect(),fixUp:after.fixUp()};};
     var sent=function(){vmHvrForm.code='';};
     copy.addEventListener('click',function(){
-      openMigrateDialog({title:'Copy '+vm.name,path:'/api/hvremote/move',field:'confirm',body:body('copy'),expected:vm.name,label:"Type the VM's name to confirm",button:'Copy disks',
+      openMigrateDialog({title:'Copy '+vm.name,path:'/api/hvremote/move',understand:'I understand '+vm.name+' gets a temporary snapshot in vSphere while it copies',field:'confirm',body:body('copy'),expected:vm.name,label:"Type the VM's name to confirm",button:'Copy disks',
         paragraphs:['The VM keeps running. vSphere will:'],list:['turn on changed block tracking for this VM, if it is off','take a snapshot named "Server Inventory and Migration Manager replication" and remove it when the copy ends','copy each disk to a VHDX file in '+(vmHvrForm.path==='receiver'?'the receiver\'s folder on '+(vmHvrForm.node||info.computer):target())],
         after:function(){sent();vmMarkRunning('hvmove','moving','Copying '+vm.name+'\'s disks.');}});});
     cut.addEventListener('click',function(){var ha=!!(checks.cluster&&checks.cluster.checked);
-      openMigrateDialog({title:'Cut over '+vm.name,path:'/api/hvremote/move',field:'confirm',body:body('cutover'),expected:vm.name,label:"Type the VM's name to confirm",button:'Shut down and cut over',
+      openMigrateDialog({title:'Cut over '+vm.name,path:'/api/hvremote/move',understand:'I understand '+vm.name+' is shut down and moved now',field:'confirm',body:body('cutover'),expected:vm.name,label:"Type the VM's name to confirm",button:'Shut down and cut over',
         alert:'The VMware VM is shut down through VMware Tools and stays off. Users lose access until the Hyper-V VM is started.',
         paragraphs:['In this order:'],list:['read the Hyper-V host again (a VM named '+vm.name+' there, or the node being down, stops here with nothing shut down)','shut the guest down (never a hard power-off)','copy the last changes and verify every disk','create the Hyper-V VM '+vm.name+' on '+(vmHvrForm.node||info.computer)+(ha?', make it highly available in '+info.cluster:'')+(after.start()?' and start it':' (left off)')].concat(after.steps()),
         after:function(){sent();vmMarkRunning('hvmove','moving','Cutting '+vm.name+' over to Hyper-V.');}});});
@@ -5542,7 +5663,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       var create=vmTargetButton('vmTargetCreate','Create VM\u2026',function(){
         var nets=vmArr(vm.nics).map(function(n,i){return {network:trimText(vmTargetForm['net'+i]),vlan:Number(vmTargetForm['vlan'+i]||0)||0};});
         var body={vmId:vm.id,name:trimText(vmTargetForm.name),storage:trimText(vmTargetForm.storage),bus:vmTargetForm.bus,nicModel:vmTargetForm.nicModel,keepMac:!!vmTargetForm.keepMac,networks:nets};
-        openMigrateDialog({title:'Create '+(body.name||vm.name)+' on '+label,path:'/api/vmware/target/create',field:'confirm',body:body,expected:vm.name,label:"Type the VMware VM's name to confirm",button:'Create VM',
+        openMigrateDialog({title:'Create '+(body.name||vm.name)+' on '+label,understand:'I understand a new VM is created on '+label,path:'/api/vmware/target/create',field:'confirm',body:body,expected:vm.name,label:"Type the VMware VM's name to confirm",button:'Create VM',
           paragraphs:[label+' will:'],list:['create the VM '+(body.name||vm.name)+' with '+vmPlural(vmArr(vm.disks).length,'blank disk'),'attach the receiver media '+(t.iso||'')+' and start the VM from it'],
           after:function(){vmMarkRunning('target-create','creating','Creating the VM.');}});
       });
@@ -5566,12 +5687,12 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     if(!hv){mv.appendChild(vmTargetCheck('quiesce','Quiesce the guest for each copy (VMware Tools, VSS in Windows)',!!vm.toolsRunning));}
     var row=el('div','vm-move-actions');
     var copy=vmTargetButton('vmTargetCopy',last&&!last.cutover?'Copy changes\u2026':'Copy disks\u2026',function(){
-      openMigrateDialog({title:'Copy '+vm.name,path:'/api/vmware/target/move',field:'confirm',body:{vmId:vm.id,action:'copy',quiesce:!!vmTargetForm.quiesce},expected:vm.name,label:"Type the VM's name to confirm",button:'Copy disks',
+      openMigrateDialog({title:'Copy '+vm.name,path:'/api/vmware/target/move',understand:'I understand '+vm.name+' gets a temporary snapshot in vSphere while it copies',field:'confirm',body:{vmId:vm.id,action:'copy',quiesce:!!vmTargetForm.quiesce},expected:vm.name,label:"Type the VM's name to confirm",button:'Copy disks',
         paragraphs:[hv?'The VM keeps running. On the source Hyper-V host this will:':'The VM keeps running. vSphere will:'],list:(hv?[vmHyperVCheckpointStep]:['turn on changed block tracking for this VM, if it is off','take a snapshot named "Server Inventory and Migration Manager replication" and remove it when the copy ends']).concat(['send each disk to the receiver at '+(receiver?receiver.link.address:'')]),
         after:function(){vmMarkRunning('move','moving','Copying '+vm.name+'\'s disks.');}});
     });
     var cut=vmTargetButton('vmTargetCutover','Cut over\u2026',function(){
-      openMigrateDialog({title:'Cut over '+vm.name,path:'/api/vmware/target/move',field:'confirm',body:{vmId:vm.id,action:'cutover'},expected:vm.name,label:"Type the VM's name to confirm",button:'Shut down and cut over',
+      openMigrateDialog({title:'Cut over '+vm.name,path:'/api/vmware/target/move',understand:'I understand '+vm.name+' is shut down and moved now',field:'confirm',body:{vmId:vm.id,action:'cutover'},expected:vm.name,label:"Type the VM's name to confirm",button:'Shut down and cut over',
         alert:hv?vmHyperVShutdownAlert('new '+(target==='physical'?'server':'VM')+' is running'):'The VMware VM is shut down through VMware Tools and stays off. Users lose access until the new '+(target==='physical'?'server':'VM')+' is running.',
         paragraphs:['In this order:'],list:['shut the guest down (never a hard power-off)','copy the last changes and verify every disk'].concat(created?['turn off the receiver VM on '+label+', switch it to boot from its first disk and start it']:['then restart the new '+(target==='physical'?'server':'VM')+' from its own disk yourself']),
         after:function(){vmMarkRunning('move','moving','Cutting '+vm.name+' over.');}});
@@ -5596,7 +5717,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     var last=v.prepare&&v.prepare.vm===vm.name?v.prepare:null;
     if(last){var ul=el('ul','vm-findings');vmArr(last.done).forEach(function(t){ul.appendChild(el('li','good',t));});vmArr(last.skipped).forEach(function(t){ul.appendChild(el('li','',t));});if(v.prepareError){ul.appendChild(el('li','warning',v.prepareError));}if(ul.childNodes.length){section.appendChild(ul);}}
     if(!v.canPrepare){section.appendChild(el('div','migrate-help','To delete snapshots, remove the virtual TPM or decrypt this VM, read the inventory from vCenter or ESXi in this session (a saved inventory cannot change anything).'));box.appendChild(section);return;}
-    section.appendChild(el('div','migrate-help','These steps change the VM in vSphere. Its current settings are saved first, and each step needs the VM\'s name typed to confirm.'));
+    section.appendChild(el('div','migrate-help','These steps change the VM in vSphere. Its current settings are saved first, and each step asks you to confirm first.'));
     // A VM whose own files are encrypted only for its virtual TPM has plain
     // disks that copy as they are, so nothing is ticked for it by default.
     var powered=vm.powerState==='poweredOn',diskLocked=vmDisksEncrypted(vm),steps=[
@@ -5614,7 +5735,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       var alert='';
       if(chosen.removeTpm&&windows){alert='Before removing the virtual TPM, save the BitLocker recovery keys and suspend BitLocker inside Windows (Prepare and fix up: Save keys and suspend). Otherwise Windows asks for the recovery key at the next start.';}
       if(chosen.decrypt){paragraphs.push('Decrypting rewrites every encrypted disk and needs the key provider online.');}
-      openMigrateDialog({title:'Prepare '+vm.name,path:'/api/vmware/prepare',field:'confirm',body:{vmId:vm.id,steps:chosen},expected:vm.name,label:"Type the VM's name to confirm",button:'Prepare VM',alert:alert,paragraphs:paragraphs,list:names,
+      openMigrateDialog({title:'Prepare '+vm.name,understand:'I understand '+vm.name+' is changed in vSphere now',path:'/api/vmware/prepare',field:'confirm',body:{vmId:vm.id,steps:chosen},expected:vm.name,label:"Type the VM's name to confirm",button:'Prepare VM',alert:alert,paragraphs:paragraphs,list:names,
         after:function(){vmMarkRunning('prepare','preparing','Preparing '+vm.name+'.');}});
     });
     section.appendChild(button);box.appendChild(section);
@@ -5959,7 +6080,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     go2.addEventListener('click',function(){
       var alerts=[];if(running){alerts.push(vmPlural(running,'running VM')+' will be shut down: users lose access until they are started again or cut over.');}
       if(windows){alerts.push('Before removing a virtual TPM, save the BitLocker recovery keys and suspend BitLocker inside Windows (Prepare and fix up). Otherwise Windows asks for the recovery key at the next start.');}
-      openMigrateDialog({title:'Prepare '+label+' on VMware',path:'/api/vmware/prepare',field:'confirm',body:{items:items},expected:label,label:'Type the number of VMs to confirm',button:'Prepare '+label,alert:alerts.join(' '),
+      openMigrateDialog({title:'Prepare '+label+' on VMware',understand:'I understand '+label+' are changed in vSphere now, one after another',path:'/api/vmware/prepare',field:'confirm',body:{items:items},expected:label,label:'Type the number of VMs to confirm',button:'Prepare '+label,alert:alerts.join(' '),
         paragraphs:['vSphere runs these steps on one VM after another. Each VM\'s current settings are saved first. If one VM fails, the others still run.'],list:lines,
         after:function(){vmMarkRunning('prepare','preparing','Preparing '+label+', one at a time.');}});
     });
@@ -6144,7 +6265,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   }
   function vmGuestConfirm(options){
     var t=vmGuestTargetState(),computer=t.mode&&t.mode!=='local'?t.label:vmComputer();
-    openMigrateDialog({title:options.title,path:'/api/vmware/guest/'+options.action,field:'confirm',body:{items:options.items||[]},expected:computer,label:t.mode&&t.mode!=='local'?"Type the machine's name, "+computer+", to confirm":"Type this computer's name to confirm",button:options.button,alert:options.alert,paragraphs:options.paragraphs,list:options.list,
+    openMigrateDialog({title:options.title,path:'/api/vmware/guest/'+options.action,understand:options.understand||('I understand '+(computer||'this machine')+' is changed now'),field:'confirm',body:{items:options.items||[]},expected:computer,label:t.mode&&t.mode!=='local'?"Type the machine's name, "+computer+", to confirm":"Type this computer's name to confirm",button:options.button,alert:options.alert,paragraphs:options.paragraphs,list:options.list,
       after:function(){vmMarkRunning('guest-'+options.action,'',options.running,true);if(options.after){options.after();}}});
   }
   function runVmGuest(action,message){vmPost('/api/vmware/guest/'+action,{},null,function(err){if(!err){vmMarkRunning('guest-'+action,'',message,true);}});}
@@ -6369,7 +6490,8 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   byId('cvSendTrust').addEventListener('click',function(){cvSendConnect(cvSendThumbprint);});
   byId('cvSendForget').addEventListener('click',cvSendForget);
   byId('cvSendDatacenter').addEventListener('change',function(){cvSendConnect('');});
-  byId('cvSendGo').addEventListener('click',cvSendGo);
+  cfmBox(byId('cvSendConfirm'),{field:byId('cvSendConfirm'),also:[byId('cvSendConfirmLabel')],what:function(n){return 'I understand '+(n||'the new VM')+' is created on the destination';}});
+  byId('cvSendGo').addEventListener('click',function(){var n=byId('cvSendName').value.trim();cfmAsk({title:'Send and create '+n,text:['The converted disk is uploaded under a new name and the VM '+n+' is created on the destination. Nothing that already exists there is changed.'],button:'Send and create the VM'},cvSendGo);});
   ['cvSendPlatform','cvSendFirmware','cvSendConfirm','cvSendFolder'].forEach(function(id){byId(id).addEventListener(id==='cvSendConfirm'||id==='cvSendFolder'?'input':'change',function(){byId('cvSendStatus').textContent=id==='cvSendPlatform'?'':byId('cvSendStatus').textContent;if(latestState){renderConvert(latestState);}});});
   byId('vmCompareBody').addEventListener('click',function(e){var tr=e.target.closest('tr[data-compare]');if(!tr){return;}var key=tr.getAttribute('data-compare');vmCompareOpen[key]=!vmCompareOpen[key];renderVmCompare();});
   byId('vmCompareBody').addEventListener('keydown',function(e){if((e.key==='Enter'||e.key===' ')&&e.target.getAttribute('data-compare')){e.preventDefault();var key=e.target.getAttribute('data-compare');vmCompareOpen[key]=!vmCompareOpen[key];renderVmCompare();var row=document.querySelector('[data-compare="'+key+'"]');if(row){row.focus();}}});
@@ -6516,7 +6638,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     if(byId('fvModeProd').checked&&fvJobBlocks(picked[0])){var j=fvJobOf(picked[0]||{});if(j){return 'Production is for after the job is cut over, and '+j.spec.name+' is not cut over yet. Choose Test failover, or cut the job over in Replicate servers (or choose Finish cutover by hand there if you already shut the source down).';}}
     if(!name){return 'Type a name for the VM.';}
     if(fvNetRisk()&&!byId('fvJoinNetwork').checked){return 'The test VM would join external switch '+byId('fvSwitch').value+' beside the running source. Choose Not connected, or tick the box under the warning if the source is shut down or the network cannot reach it.';}
-    if(typed.toLowerCase()!==name.toLowerCase()){return typed?'The confirmation does not match the VM name: type '+name+' exactly.':'Type '+name+' in "Type the VM name to confirm".';}
+    if(!cfmOk(byId('fvConfirm'),name)){if(cfmStyle()==='tick'){return 'Tick "I understand" above the button to create '+name+'.';}return typed?'The confirmation does not match the VM name: type '+name+' exactly.':'Type '+name+' in "Type the VM name to confirm".';}
     return '';
   }
   // A test VM is named NAME-TEST and confirmed for you (it never touches
@@ -6552,13 +6674,14 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       li.appendChild(el('strong','',f.name+': '));
       li.appendChild(document.createTextNode((f.mode==='test'?'test failover on differencing disks':'production VM')+' from '+vmArr(f.copies).join(', ')+(rpWhen(f.recoveryPoint)?', recovery point '+rpWhen(f.recoveryPoint):'')+'. Started '+rpWhen(f.started)+'. '));
       var name=document.createElement('input');name.type='text';name.placeholder='Type '+f.name;name.setAttribute('aria-label','Type '+f.name+' to confirm');name.setAttribute('data-fv-endname',f.id);name.className='fv-end-name';if(typed[f.id]){name.value=typed[f.id];}
+      var endWhat=f.mode==='test'?'I understand the test VM '+f.name+' and its test disks are removed':'I understand the copies of '+f.name+' are released for replication';
       var b=el('button','secondary-button',f.mode==='test'?'End test: remove the test VM':'Release the copies');b.type='button';b.setAttribute('data-fv-end',f.id);b.setAttribute('data-fv-vm',f.name);
       if(f.mode==='test'){
         var steps=el('ol','fv-checklist');
-        ['Open Hyper-V Manager (or Failover Cluster Manager) and connect to '+f.name+'. It has no network unless you chose a switch for it.','Sign in and check that the server started cleanly: its services and applications run and its data is there.','Windows shows "not activated" while it is isolated: that is expected. Do not activate the test VM.','When you have seen enough, type '+f.name+' below and choose End test. The test VM and its test disks are removed, and replication catches up by itself.'].forEach(function(t){steps.appendChild(el('li','',t));});
+        ['Open Hyper-V Manager (or Failover Cluster Manager) and connect to '+f.name+'. It has no network unless you chose a switch for it.','Sign in and check that the server started cleanly: its services and applications run and its data is there.','Windows shows "not activated" while it is isolated: that is expected. Do not activate the test VM.','When you have seen enough, '+(cfmStyle()==='typed'?'type '+f.name+' below and choose':(cfmStyle()==='tick'?'tick the box below and choose':'choose'))+' End test. The test VM and its test disks are removed, and replication catches up by itself.'].forEach(function(t){steps.appendChild(el('li','',t));});
         li.appendChild(steps);
       }
-      li.appendChild(name);li.appendChild(b);list.appendChild(li);
+      li.appendChild(name);li.appendChild(b);list.appendChild(li);cfmBox(name,{what:endWhat});cfmOk(name,f.name);
     });
     byId('fvRunning').classList.toggle('hidden',!vmArr(s.failovers).length);
     if(focused){var back=document.querySelector('[data-fv-endname="'+CSS.escape(focused)+'"]');if(back){back.focus();}}
@@ -6902,13 +7025,13 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   function ttPost(body,message){
     if(ttBusy){return;}
     ttBusy=true;syncTt();vmSetStatus('ttStatus',message||'',false);
-    request('POST','/api/repl/targettest',body,function(err){ttBusy=false;if(err){vmSetStatus('ttStatus',err,true);}else if(body.action!=='cancel'){byId('ttTyped').value='';}ttLoad();});
+    request('POST','/api/repl/targettest',body,function(err){ttBusy=false;if(err){vmSetStatus('ttStatus',err,true);}else if(body.action!=='cancel'){cfmClear(byId('ttTyped'));}ttLoad();});
   }
   function renderTt(){
     var j=ttJob(),section=byId('ttSection');section.classList.toggle('hidden',!j);
     if(!j){return;}
     var key=rpDetail.agent+'|'+rpDetail.id;
-    if(key!==ttJobKey){ttJobKey=key;byId('ttSource').value=j.spec.name;byId('ttName').value=j.spec.name+'-TEST';byId('ttTyped').value='';vmSetStatus('ttStatus','',false);}
+    if(key!==ttJobKey){ttJobKey=key;byId('ttSource').value=j.spec.name;byId('ttName').value=j.spec.name+'-TEST';cfmClear(byId('ttTyped'));vmSetStatus('ttStatus','',false);}
     if(!ttState||Date.now()-ttLoaded>(ttState.running?2500:10000)){if(Date.now()-ttLoaded>2000){ttLoad();}}
     var t=ttState||{},supported=t.connected&&/^(scale|nutanix|proxmox)$/.test(t.platform||''),names={scale:'Scale Computing HyperCore',nutanix:'Nutanix AHV',proxmox:'Proxmox VE'};
     byId('ttConnected').textContent=t.connected?(supported?'Connected to '+names[t.platform]+' at '+t.server+' as '+t.user+'.':'Connected to '+t.server+', which is not HyperCore, Nutanix or Proxmox. Connect to one of those below.'):'Connect to the platform that runs the receiver VM. The password or token secret stays in memory only.';
@@ -6923,7 +7046,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       var item=el('li','warning',x.name+' runs on '+x.server+' from the recovery point of '+rpWhen(x.recoveryPoint)+'. ');
       var typed=el('input','tt-end-name');typed.type='text';typed.placeholder='Type '+x.name;typed.setAttribute('aria-label','Type '+x.name+' to end the test');typed.setAttribute('data-tt-typed',x.id);
       var end=el('button','secondary-button','End test');end.type='button';end.setAttribute('data-tt-end',x.id);end.setAttribute('data-tt-name',x.name);
-      item.appendChild(typed);item.appendChild(end);list.appendChild(item);
+      item.appendChild(typed);item.appendChild(end);list.appendChild(item);cfmBox(typed,{what:'I understand '+x.name+' is turned off and deleted on '+x.server});
     });
     list.classList.toggle('hidden',!list.childNodes.length);
     syncTt();
@@ -6934,9 +7057,9 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     byId('ttUserLabel').firstChild.nodeValue=byId('ttPlatform').value==='proxmox'?'API token ID (user@realm!token)':'User name';
     byId('ttPasswordLabel').firstChild.nodeValue=byId('ttPlatform').value==='proxmox'?'Token secret':'Password';
     byId('ttConnectButton').disabled=busy||!trimText(byId('ttServer').value)||!trimText(byId('ttUser').value);byId('ttTrust').disabled=byId('ttConnectButton').disabled;
-    byId('ttStart').disabled=busy||!supported||!name||!trimText(byId('ttSource').value)||trimText(byId('ttTyped').value).toLowerCase()!==name.toLowerCase();
+    byId('ttStart').disabled=busy||!supported||!name||!trimText(byId('ttSource').value)||!cfmOk(byId('ttTyped'),name);
     byId('ttCancel').disabled=ttBusy;
-    Array.prototype.forEach.call(document.querySelectorAll('[data-tt-end]'),function(b){var typed=document.querySelector('[data-tt-typed="'+b.getAttribute('data-tt-end')+'"]');b.disabled=busy||!supported||!typed||trimText(typed.value).toLowerCase()!==b.getAttribute('data-tt-name').toLowerCase();});
+    Array.prototype.forEach.call(document.querySelectorAll('[data-tt-end]'),function(b){var typed=document.querySelector('[data-tt-typed="'+b.getAttribute('data-tt-end')+'"]');b.disabled=busy||!supported||!typed||!cfmOk(typed,b.getAttribute('data-tt-name'));});
   }
   function ttConnect(thumbprint){
     var body={platform:byId('ttPlatform').value,server:trimText(byId('ttServer').value),user:trimText(byId('ttUser').value),password:byId('ttPassword').value,node:trimText(byId('ttNode').value)};
@@ -6946,9 +7069,10 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   }
   byId('ttConnectButton').addEventListener('click',function(){ttConnect('');});
   byId('ttTrust').addEventListener('click',function(){if(ttState&&ttState.certificate){ttConnect(ttState.certificate.thumbprint);}});
-  byId('ttStart').addEventListener('click',function(){if(!rpDetail){return;}ttPost({action:'start',agent:rpDetail.agent,job:rpDetail.id,sourceVM:trimText(byId('ttSource').value),name:trimText(byId('ttName').value),confirm:trimText(byId('ttTyped').value)},'Starting. The job pauses when its current round ends, then the clone is made.');});
+  byId('ttStart').addEventListener('click',function(){if(!rpDetail){return;}var nm=trimText(byId('ttName').value);cfmAsk({title:'Start the test VM '+nm,text:['The job pauses when its current round ends, then the receiver VM is cloned as '+nm+' with its network disconnected. The receiver VM is not changed.'],button:'Start test'},function(){ttPost({action:'start',agent:rpDetail.agent,job:rpDetail.id,sourceVM:trimText(byId('ttSource').value),name:nm,confirm:cfmVal(byId('ttTyped'),nm)},'Starting. The job pauses when its current round ends, then the clone is made.');});});
   byId('ttCancel').addEventListener('click',function(){ttPost({action:'cancel'},'Stopping.');});
-  byId('ttTests').addEventListener('click',function(e){var b=e.target.closest('[data-tt-end]');if(!b||b.disabled){return;}var typed=document.querySelector('[data-tt-typed="'+b.getAttribute('data-tt-end')+'"]');ttPost({action:'end',id:b.getAttribute('data-tt-end'),confirm:trimText(typed.value)},'Turning the test VM off and deleting it.');});
+  byId('ttTests').addEventListener('click',function(e){var b=e.target.closest('[data-tt-end]');if(!b||b.disabled){return;}var typed=document.querySelector('[data-tt-typed="'+b.getAttribute('data-tt-end')+'"]'),nm=b.getAttribute('data-tt-name');cfmAsk({title:'End the test of '+nm,text:['The test VM '+nm+' is turned off and deleted. The receiver VM is not changed.'],button:'End test'},function(){ttPost({action:'end',id:b.getAttribute('data-tt-end'),confirm:cfmVal(typed,nm)},'Turning the test VM off and deleting it.');});});
+  cfmBox(byId('ttTyped'),{what:function(n){return 'I understand the receiver VM is cloned as '+(n||'the test VM');}});
   ['ttPlatform','ttServer','ttUser','ttPassword','ttNode','ttSource','ttName','ttTyped'].forEach(function(id){byId(id).addEventListener(id==='ttPlatform'?'change':'input',syncTt);});
   byId('ttTests').addEventListener('input',syncTt);
   function syncRpButtons(){
@@ -6959,7 +7083,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     byId('rpRunbook').disabled=rpBusy||!(s.summary&&s.summary.jobs);
     byId('rpAdd').disabled=rpBusy||!trimText(byId('rpAddAddress').value)||!trimText(byId('rpAddThumbprint').value)||!trimText(byId('rpAddKey').value);
     byId('rpJobSave').disabled=rpBusy||!rpDisks;byId('rpRecvCheck').disabled=rpBusy||!trimText(byId('rpRecvAddress').value)||!trimText(byId('rpRecvThumbprint').value)||!trimText(byId('rpRecvCode').value);
-    var j=rpDetail&&rpJob(rpDetail.agent,rpDetail.id),st=(j&&j.status)||{},done=st.state==='cut-over',busy=st.state==='cutting-over',typed=j&&trimText(byId('rpCutoverTyped').value).toLowerCase()===String(j.spec.name).toLowerCase();
+    var j=rpDetail&&rpJob(rpDetail.agent,rpDetail.id),st=(j&&j.status)||{},done=st.state==='cut-over',busy=st.state==='cutting-over',typed=j&&cfmOk(byId('rpCutoverTyped'),j.spec.name,j.spec.id);
     var paused=st.state==='paused',reasons=[];
     // Change works while a round runs (the agent stops the round, applies the change and starts again) and while paused.
     byId('rpEdit').disabled=rpBusy||!j||done||busy;
@@ -6969,13 +7093,13 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     else if(j&&busy){reasons.push('Change, Sync now, Rescan, Pause and Delete are off while the job cuts over. Cancel cutover stops the final round and starts the stopped services again; this server keeps running. They also come back if the cutover fails and is rolled back.');}
     else if(j&&paused){reasons.push('Sync now is off because the job is paused: choose Resume to replicate again. Change still works while paused.');}
     if(j&&!done&&!busy&&!st.rounds){reasons.push('Cutover is off until the first round has finished.');}
-    else if(j&&!done&&!busy&&!typed){reasons.push('Type the job name in the cutover box to turn on Cut over, Finish cutover by hand and Delete.');}
+    else if(j&&!done&&!busy&&!typed){reasons.push(cfmStyle()==='tick'?'Tick "I understand" in the cutover box to turn on Cut over and Finish cutover by hand.':'Type the job name in the cutover box to turn on Cut over and Finish cutover by hand.');}
     else if(j&&st.state==='syncing'){reasons.push('Finish cutover by hand is off while a round runs: pause the job first.');}
     byId('rpButtonsReason').textContent=reasons.join(' ');byId('rpButtonsReason').classList.toggle('hidden',!reasons.length);
     byId('rpPause').disabled=rpBusy||!j||done||busy;byId('rpClear').disabled=rpBusy||!j;byId('rpLogButton').disabled=rpBusy||!j;
     byId('rpCutover').disabled=rpBusy||!j||done||busy||!st.rounds||!typed;byId('rpSchedule').disabled=byId('rpCutover').disabled||!byId('rpCutoverAt').value;
     byId('rpUnschedule').disabled=rpBusy||!j||(!j.spec.cutoverAt&&!busy);byId('rpUnschedule').textContent=busy?'Cancel cutover':'Cancel scheduled cutover';
-    byId('rpDelete').disabled=rpBusy||!j||busy||!typed;byId('rpReceiverLog').disabled=rpBusy;
+    byId('rpDelete').disabled=rpBusy||!j||busy;byId('rpReceiverLog').disabled=rpBusy;
     byId('rpFinishByHand').disabled=rpBusy||!j||done||busy||!st.rounds||!typed||st.state==='syncing';
     Array.prototype.forEach.call(document.querySelectorAll('[data-rp-new],[data-rp-refresh],[data-rp-forget],[data-rp-uninstall],[data-rp-open],[data-rp-test],[data-rp-goto-cutover]'),function(b){b.disabled=rpBusy;});
   }
@@ -6987,17 +7111,17 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       if(action==='log'){var log=byId('rpLog');log.textContent=vmArr(data.lines).join('\n');log.classList.remove('hidden');rpLogShown=true;log.scrollTop=log.scrollHeight;return;}
       if(action==='delete'){rpDetail=null;byId('rpDetails').classList.add('hidden');notice('The job was deleted. The copies on the receiver were left as they are.',false);return;}
       vmSetStatus('rpDetailsStatus',{sync:'A round starts within a few seconds.',pause:'Paused.',resume:'Resumed.',rescan:'The next round rescans the receiver first.',clear:'Alerts cleared.',cutover:'Cutting over. Watch the state: start the new machine once it says Cut over.',schedule:'Cutover scheduled.','cancel-cutover':rpCancelRunning?'Cancelling: the final round stops and the stopped services start again. Replication carries on.':'The scheduled cutover was cancelled.'}[action]||'Done.',false);
-      if(action==='cutover'||action==='schedule'){byId('rpCutoverTyped').value='';}
+      if(action==='cutover'||action==='schedule'||action==='finish-by-hand'){cfmClear(byId('rpCutoverTyped'));}
     });
   }
-  function rpOpenJob(id){var parts=id.split('|');rpDetail={agent:parts[0],id:parts[1]};byId('rpDetails').classList.remove('hidden');byId('rpLog').classList.add('hidden');byId('rpCutoverTyped').value='';vmSetStatus('rpDetailsStatus','',false);renderRpDetails();syncRpButtons();}
+  function rpOpenJob(id){var parts=id.split('|');rpDetail={agent:parts[0],id:parts[1]};byId('rpDetails').classList.remove('hidden');byId('rpLog').classList.add('hidden');cfmClear(byId('rpCutoverTyped'));vmSetStatus('rpDetailsStatus','',false);renderRpDetails();syncRpButtons();}
   function onRpAgentClick(e){
     var b=e.target.closest('button,a,input,select,textarea,summary,label');
     if(!b){var row=e.target.closest('tr[data-rp-row]'),sel=window.getSelection&&window.getSelection();if(row&&!rpBusy&&!(sel&&String(sel).length)){rpOpenJob(row.getAttribute('data-rp-row'));byId('rpDetails').scrollIntoView({block:'nearest'});}return;}
     if(b.tagName!=='BUTTON'||b.disabled){return;}
     var id;
     if((id=b.getAttribute('data-rp-filter'))){setRpFilter(id);return;}
-    if((id=b.getAttribute('data-rp-test')||b.getAttribute('data-rp-goto-cutover'))){rpOpenJob(id);var cut=b.hasAttribute('data-rp-goto-cutover'),target=cut?byId('rpCutoverTyped'):byId('ttSection');
+    if((id=b.getAttribute('data-rp-test')||b.getAttribute('data-rp-goto-cutover'))){rpOpenJob(id);var cut=b.hasAttribute('data-rp-goto-cutover'),target=cut?byId({typed:'rpCutoverTyped',tick:'rpCutoverTypedTick'}[cfmStyle()]||'rpCutoverAt'):byId('ttSection');
       if(!cut&&target.classList.contains('hidden')){showTool('failover');return;}
       if(target.scrollIntoView){target.scrollIntoView({block:'center'});}if(cut){target.focus();}return;}
     if((id=b.getAttribute('data-rp-new'))){openRpEditor(id,null);return;}
@@ -7054,6 +7178,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     if((had||!rpReceiver)&&vmReceiverReady(byId('rpRecvAddress').value,byId('rpRecvThumbprint').value,byId('rpRecvCode').value)){byId('rpRecvNote').textContent='Checking the receiver…';rpRecvRecheck=setTimeout(function(){if(!byId('rpRecvCheck').disabled){checkRpReceiver();}},600);}
     else if(had){byId('rpRecvNote').textContent='The receiver\'s details changed. Fill in its address, thumbprint and pairing code to check it again.';}
   });});
+  cfmBox(byId('rpCutoverTyped'),{what:'I understand cutover stops the listed services on the server and, if the job is set to, shuts it down'});
   ['rpHosts','rpAddAddress','rpAddThumbprint','rpAddKey','rpCutoverTyped','rpCutoverAt'].forEach(function(id){byId(id).addEventListener('input',syncRpButtons);});
   byId('rpSync').addEventListener('click',function(){rpJobAction('sync');});
   byId('fvRefresh').addEventListener('click',function(){vmSetStatus('fvStatus','',false);fvLoad(true);});
@@ -7063,6 +7188,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   });
   // The copies list follows the receiver by itself while the tool is open.
   setInterval(function(){if(vmToolId==='failover'&&!byId('vmViewFailover').classList.contains('hidden')&&!fvBusy&&Date.now()-fvPoll>=4000){fvPoll=Date.now();fvLoad(!(fvState&&fvState.switches),!!fvState);}},1000);
+  cfmBox(byId('fvConfirm'),{what:function(n){return 'I understand '+(n||'the VM')+' is created on this Hyper-V host from the ticked copies';}});
   ['fvName','fvConfirm','fvGen'].forEach(function(id){byId(id).addEventListener('input',syncFv);byId(id).addEventListener('change',syncFv);});
   byId('fvModeProd').addEventListener('change',function(){var n=byId('fvName');if(/-TEST$/.test(n.value)){n.value=n.value.replace(/-TEST$/,'');}fvNetFilledFor='';fvFillNetwork();fvPrefillConfirm();syncFv();});
   byId('fvName').addEventListener('input',function(){if(byId('fvModeTest').checked){fvPrefillConfirm();syncFv();}});
@@ -7072,6 +7198,10 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   ['fvCpus','fvMemory','fvAdapters'].forEach(function(id){byId(id).addEventListener('input',syncFv);});
   byId('fvNext').addEventListener('click',function(e){var b=e.target.closest('[data-fv-next]');if(b){showTool(b.getAttribute('data-fv-next'));}});
   byId('fvStartButton').addEventListener('click',function(){
+    var nm=trimText(byId('fvName').value),prod=byId('fvModeProd').checked;
+    cfmAsk({title:'Create '+nm,text:[prod?'This creates the production VM '+nm+' on this Hyper-V host from the ticked copies. Replication into them waits until you release them.':'This creates the test VM '+nm+' on differencing disks; the copies are not changed. Replication into them waits until you end the test.'],button:'Create the VM'},fvStartNow);
+  });
+  function fvStartNow(){
     var cpus=Number(trimText(byId('fvCpus').value)),gb=Number(trimText(byId('fvMemory').value)),vlan=trimText(byId('fvVlan').value);
     if(!(cpus>=1&&cpus<=240)){vmSetStatus('fvStatus','Type 1 to 240 virtual processors.',true);return;}
     if(!(gb>=0.5&&gb<=12288)){vmSetStatus('fvStatus','Type the memory in GB, at least 0.5.',true);return;}
@@ -7081,12 +7211,15 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     if(fvNetRisk()&&byId('fvJoinNetwork').checked){req.joinNetwork=true;}
     var adapters=Number(trimText(byId('fvAdapters').value)||'1');if(!(adapters>=1&&adapters<=8)){vmSetStatus('fvStatus','Type 1 to 8 network adapters.',true);return;}if(adapters>1){req.adapters=adapters;}
     if(req.mode==='production'&&!byId('fvClusterRow').classList.contains('hidden')&&byId('fvCluster').checked){req.cluster=true;}
-    fvPost({action:'start',request:req,confirm:trimText(byId('fvConfirm').value)},function(data){byId('fvConfirm').value='';fvLastEnded=null;var f=data.failover||{},cr=f.clusterResult||'';vmSetStatus('fvStatus',name+' was created'+(req.start?' and started':'')+'. Replication into its copies waits until you '+(req.mode==='test'?'end the test':'release them')+'.'+(cr.indexOf('CLUSTER-ROLE-ADDED')===0?' It is highly available in the failover cluster.':(cr?' It was not made highly available: '+cr.replace(/^CLUSTER-ROLE-FAILED\s*/,'')+' Add it in Failover Cluster Manager (Configure Role, Virtual Machine).':'')),false);});
-  });
+    fvPost({action:'start',request:req,confirm:cfmVal(byId('fvConfirm'),name)},function(data){cfmClear(byId('fvConfirm'));fvLastEnded=null;var f=data.failover||{},cr=f.clusterResult||'';vmSetStatus('fvStatus',name+' was created'+(req.start?' and started':'')+'. Replication into its copies waits until you '+(req.mode==='test'?'end the test':'release them')+'.'+(cr.indexOf('CLUSTER-ROLE-ADDED')===0?' It is highly available in the failover cluster.':(cr?' It was not made highly available: '+cr.replace(/^CLUSTER-ROLE-FAILED\s*/,'')+' Add it in Failover Cluster Manager (Configure Role, Virtual Machine).':'')),false);});
+  }
   byId('fvList').addEventListener('click',function(e){
     var b=e.target.closest('[data-fv-end]');if(!b||b.disabled){return;}
-    var id=b.getAttribute('data-fv-end'),input=document.querySelector('[data-fv-endname="'+id+'"]');
-    fvPost({action:'end',id:id,confirm:trimText(input.value)},function(){fvLastEnded=b.textContent.indexOf('End test')===0?b.getAttribute('data-fv-vm'):null;vmSetStatus('fvStatus',b.getAttribute('data-fv-vm')+(b.textContent.indexOf('End test')===0?': the test VM and its test disks were removed. Replication catches up on its next round.':': the copies are released.'),false);});
+    var id=b.getAttribute('data-fv-end'),input=document.querySelector('[data-fv-endname="'+id+'"]'),vmName=b.getAttribute('data-fv-vm'),ending=b.textContent.indexOf('End test')===0;
+    if(!cfmOk(input,vmName)){vmSetStatus('fvStatus',cfmStyle()==='tick'?'Tick "I understand" beside '+vmName+' first.':'Type '+vmName+' beside the button first.',true);return;}
+    cfmAsk({title:ending?'End the test of '+vmName:'Release the copies of '+vmName,text:[ending?'The test VM '+vmName+' and its test disks are removed. Replication catches up on its next round.':'The copies are released and replication can write into them again. The production VM is not changed.'],button:ending?'End test':'Release the copies'},function(){
+    fvPost({action:'end',id:id,confirm:cfmVal(input,vmName)},function(){fvLastEnded=b.textContent.indexOf('End test')===0?b.getAttribute('data-fv-vm'):null;vmSetStatus('fvStatus',b.getAttribute('data-fv-vm')+(b.textContent.indexOf('End test')===0?': the test VM and its test disks were removed. Replication catches up on its next round.':': the copies are released.'),false);});
+    });
   });
   byId('rpRunbook').addEventListener('click',function(){rpPost('/api/repl/runbook',{},'rpRunbookStatus',function(err){if(!err){vmSetStatus('rpRunbookStatus','Wrote the runbook.',false);byId('rpRunbookOpen').classList.remove('hidden');byId('rpRunbookDocx').classList.remove('hidden');openKind('replrunbook');}});});
   byId('rpRunbookOpen').addEventListener('click',function(){openKind('replrunbook');});
@@ -7097,12 +7230,16 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   byId('rpLogButton').addEventListener('click',function(){rpJobAction('log');});
   byId('rpEdit').addEventListener('click',function(){var j=rpJob(rpDetail.agent,rpDetail.id);if(j){openRpEditor(rpDetail.agent,j);}});
   byId('rpDetailsClose').addEventListener('click',function(){rpDetail=null;byId('rpDetails').classList.add('hidden');});
-  byId('rpCutover').addEventListener('click',function(){rpJobAction('cutover',{typed:trimText(byId('rpCutoverTyped').value)});});
-  byId('rpSchedule').addEventListener('click',function(){var d=new Date(byId('rpCutoverAt').value);if(isNaN(d.getTime())){vmSetStatus('rpDetailsStatus','Choose the date and time to cut over.',true);return;}rpJobAction('schedule',{at:d.toISOString(),typed:trimText(byId('rpCutoverTyped').value)});});
+  function rpJobName(){var j=rpDetail&&rpJob(rpDetail.agent,rpDetail.id);return j?j.spec.name:'';}
+  function rpTyped(){return cfmVal(byId('rpCutoverTyped'),rpJobName());}
+  byId('rpCutover').addEventListener('click',function(){var n=rpJobName();cfmAsk({title:'Cut over '+n,text:['The listed services on the server are stopped, a last verified round is sent and, if the job is set to, the server shuts down. If anything fails the services start again and replication carries on.'],button:'Cut over now'},function(){rpJobAction('cutover',{typed:rpTyped()});});});
+  byId('rpSchedule').addEventListener('click',function(){var d=new Date(byId('rpCutoverAt').value);if(isNaN(d.getTime())){vmSetStatus('rpDetailsStatus','Choose the date and time to cut over.',true);return;}var n=rpJobName();cfmAsk({title:'Schedule the cutover of '+n,text:['At '+d.toLocaleString()+' the listed services are stopped, a last verified round is sent and, if the job is set to, the server shuts down.'],button:'Schedule cutover'},function(){rpJobAction('schedule',{at:d.toISOString(),typed:rpTyped()});});});
   byId('rpUnschedule').addEventListener('click',function(){var j=rpDetail&&rpJob(rpDetail.agent,rpDetail.id),running=!!(j&&j.status&&j.status.state==='cutting-over');rpCancelRunning=running;rpJobAction('cancel-cutover');});
   byId('rpReceiverLog').addEventListener('click',function(){request('POST','/api/open',{kind:'receiverlog'},function(err){vmSetStatus('rpDetailsStatus',err?('The receiver log could not be opened: '+err+' It is written only on the computer that receives the copies, once its receiver has started.'):'The receiver log opened.',!!err);});});
-  byId('rpDelete').addEventListener('click',function(){rpJobAction('delete',{typed:trimText(byId('rpCutoverTyped').value)});});
-  byId('rpFinishByHand').addEventListener('click',function(){rpJobAction('finish-by-hand',{typed:trimText(byId('rpCutoverTyped').value)});});
+  byId('rpDelete').addEventListener('click',function(){if(!rpDetail){return;}var d=rpDetail,n=rpJobName();
+    openMigrateDialog({title:'Delete the job '+n,understand:'I understand the job '+n+' stops replicating and is deleted',path:'/api/repl/job',field:'typed',body:{agent:d.agent,id:d.id,action:'delete'},expected:n,label:'Type the job name to confirm',button:'Delete job',
+      paragraphs:['Replication of this server stops and the job is removed from its agent. The copies on the receiver are left as they are.'],after:function(){rpDetail=null;byId('rpDetails').classList.add('hidden');notice('The job was deleted. The copies on the receiver were left as they are.',false);rpRefresh();}});});
+  byId('rpFinishByHand').addEventListener('click',function(){var n=rpJobName();cfmAsk({title:'Finish the cutover of '+n+' by hand',text:['The job is marked cut over and stops replicating. Nothing is changed on the server: do this only when you already shut it down.'],button:'Finish cutover by hand'},function(){rpJobAction('finish-by-hand',{typed:rpTyped()});});});
   // All servers (allservers.go): every server and VM this console moves or
   // replicates, with one state each, and the same action on many at once.
   var asState=null,asLastPoll=0,asFilter='',asText='',asMethodFilter='',asChosen={},asForm='',asBusy=false,asMeters={},asPushWatch=false;
@@ -7225,10 +7362,10 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     if(!action){syncAs();return;}
     var id=asForms[action],list=asApplies(action);byId(id).classList.remove('hidden');
     if(action==='install'){byId('asInstHosts').value=list.map(function(r){return r.host;}).filter(function(h){return !!h;}).join('\n');byId('asInstPassword').value='';}
-    if(action==='cutover'){byId('asCutConfirm').value='';}
+    if(action==='cutover'){cfmClear(byId('asCutConfirm'));}
     if(action==='createjob'){var l=asState&&asState.local;asJobSetTarget(l&&l.hyperV?'local':'remote');}
     if(action==='test'||action==='endtest'){
-      byId('asTestConfirm').value='';var test=action==='test';
+      cfmClear(byId('asTestConfirm'));var test=action==='test';
       byId('asTestTitle').textContent=test?'Test failover for the selected servers':'End the tests of the selected servers';
       byId('asTestRun').textContent=test?'Start test VMs':'End tests';
       byId('asTestHelp').textContent=test?'Each server gets a test VM named SERVER-TEST, one after another, and production is untouched. Migration plan VMs start on differencing disks of their copies (the plan\'s test network) and their syncs wait. Replication jobs start on differencing disks of the copies on this Hyper-V host, sized like the source server, and their rounds wait. Windows shows not activated while isolated; that is expected.':'Each test VM is turned off and removed with its test disks, found by the ID recorded when it was made, never by name alone. The copies are untouched and syncs carry on.';
@@ -7255,9 +7392,9 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       if(!at||!isNaN(t.start.getTime())){t.groups.forEach(function(g,i){pv.appendChild(el('li','',(g.wave?'Wave '+g.wave:'No wave')+': '+vmPlural(g.count,'server')+' '+(i===0&&!at?'now':'at '+mpTime(g.at.toISOString()))));});}
       byId('asCutConfirmLabel').textContent='Type '+n+' (the number of servers) to confirm';
       byId('asCutRun').textContent=at?'Schedule cutover':'Cut over now';
-      byId('asCutRun').disabled=busy||!n||trimText(byId('asCutConfirm').value)!==String(n)||(at&&isNaN(t.start.getTime()));
+      byId('asCutRun').disabled=busy||!n||!cfmOk(byId('asCutConfirm'),String(n),asKeys('cutover').join(','))||(at&&isNaN(t.start.getTime()));
     }
-    if(asForm==='test'||asForm==='endtest'){var m=asApplies(asForm).length;byId('asTestConfirmLabel').textContent='Type '+m+' (the number of servers) to confirm';byId('asTestRun').disabled=busy||!m||trimText(byId('asTestConfirm').value)!==String(m);}
+    if(asForm==='test'||asForm==='endtest'){var m=asApplies(asForm).length;byId('asTestConfirmLabel').textContent='Type '+m+' (the number of servers) to confirm';byId('asTestRun').disabled=busy||!m||!cfmOk(byId('asTestConfirm'),String(m),asForm+':'+asKeys(asForm).join(','));}
   }
   function asKeys(action){return asApplies(action).map(function(r){return r.key;});}
   function asRun(action,extra){var body={action:action,keys:asKeys(action)};Object.keys(extra||{}).forEach(function(k){body[k]=extra[k];});asPost(body,function(err){if(!err){asShowForm('');}});}
@@ -7332,6 +7469,8 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     asRun(act);
   });
   Array.prototype.forEach.call(document.querySelectorAll('[data-as-cancel]'),function(b){b.addEventListener('click',function(){asShowForm('');});});
+  cfmBox(byId('asCutConfirm'),{what:function(n){return 'I understand '+vmPlural(Number(n),'server')+' will be cut over';}});
+  cfmBox(byId('asTestConfirm'),{what:function(n){return asForm==='endtest'?'I understand the test VMs of '+vmPlural(Number(n),'server')+' are removed':'I understand '+vmPlural(Number(n),'test VM')+' will be started';}});
   ['asInstHosts','asInstUser','asJobAddress','asJobThumb','asJobCode','asWaveNumber','asCutAt','asCutConfirm','asTestConfirm'].forEach(function(id){byId(id).addEventListener('input',asFormSync);});
   ['asInstPlatform','asCutWhen','asCutStagger','asCutAt'].forEach(function(id){byId(id).addEventListener('change',asFormSync);});
   byId('asInstRun').addEventListener('click',function(){
@@ -7354,11 +7493,11 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   });
   byId('asWaveRun').addEventListener('click',function(){asRun('wave',{wave:Number(trimText(byId('asWaveNumber').value))});});
   byId('asCutRun').addEventListener('click',function(){
-    var t=asCutTimes(),body={staggerMinutes:Number(byId('asCutStagger').value)||0,confirm:trimText(byId('asCutConfirm').value)};
+    var t=asCutTimes(),n=String(t.list.length),body={staggerMinutes:Number(byId('asCutStagger').value)||0,confirm:cfmVal(byId('asCutConfirm'),n)};
     if(byId('asCutWhen').value==='at'){if(isNaN(t.start.getTime())){vmSetStatus('asStatus','Choose the date and time of the first wave.',true);return;}body.at=t.start.toISOString();}
-    asRun('cutover',body);
+    cfmAsk({title:'Cut over '+vmPlural(t.list.length,'server'),text:['Each server is cut over through its own job or plan, wave by wave'+(body.at?', starting at '+mpTime(body.at):', starting now')+'. Replication jobs stop the listed services and send a last verified round; plan VMs are shut down and created on Hyper-V.'],button:body.at?'Schedule cutover':'Cut over now'},function(){asRun('cutover',body);});
   });
-  byId('asTestRun').addEventListener('click',function(){var act=asForm;asRun(act,{testSwitch:act==='test'?byId('asTestSwitch').value:'',confirm:trimText(byId('asTestConfirm').value)});});
+  byId('asTestRun').addEventListener('click',function(){var act=asForm,n=asApplies(act).length;cfmAsk({title:(act==='test'?'Start test VMs for ':'End the tests of ')+vmPlural(n,'server'),text:[act==='test'?'Each server gets a test VM named SERVER-TEST, one after another. Production is not changed.':'Each test VM and its test disks are removed, and syncs carry on.'],button:act==='test'?'Start test VMs':'End tests'},function(){asRun(act,{testSwitch:act==='test'?byId('asTestSwitch').value:'',confirm:cfmVal(byId('asTestConfirm'),String(n))});});});
   byId('asBulkStop').addEventListener('click',function(){request('POST','/api/servers',{action:'stop'},function(err){if(err){vmSetStatus('asStatus',err,true);}else{vmSetStatus('asStatus','Stopping after the server in progress.',false);}});});
   byId('asResultsClose').addEventListener('click',function(){byId('asResults').classList.add('hidden');});
   setInterval(function(){if(activeTab==='servers'?Date.now()-asLastPoll>=4000:Date.now()-asLastPoll>=30000){asLoad();}},1500);
@@ -7561,7 +7700,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     if(step===4){
       var block=nwChecks().filter(function(c){return c.s==='block';})[0];if(block){return block.t;}
       if(!trimText(nw.name)){return 'Name the migration.';}
-      if(trimText(nw.confirm).toLowerCase()!==trimText(nw.name).toLowerCase()){return 'Type the name again, '+trimText(nw.name)+', to start.';}
+      if(!cfmMatch(nw.confirm,nw.name)){return cfmStyle()==='tick'?'Tick "I understand" to start '+trimText(nw.name)+'.':'Type the name again, '+trimText(nw.name)+', to start.';}
       return '';
     }
     return '';
@@ -7799,7 +7938,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   function renderNwQueue(box){
     var t=nwPfState(),v=vmwareState()||{},label=vmTargetName(nw.target);
     box.appendChild(nwHeading('For each VM'));
-    var ol=el('ol','nw-steps');['Build the receiver media once (Windows ADK and its Windows PE add-on, with the VirtIO drivers), then upload it to '+label+'.','Create the VM on '+label+' (its name typed to confirm). It starts from the receiver media.','Type the address, pairing code and thumbprint shown on the new VM\'s console. The code is never saved.','Copy while the VMware VM keeps running, as often as you like; each copy sends only what changed.','Cut over: the guest shuts down through VMware Tools, the last changes are copied and checked, and the new VM starts from its own disk.'].forEach(function(x){ol.appendChild(el('li','',x));});box.appendChild(ol);
+    var ol=el('ol','nw-steps');['Build the receiver media once (Windows ADK and its Windows PE add-on, with the VirtIO drivers), then upload it to '+label+'.','Create the VM on '+label+' (confirmed first). It starts from the receiver media.','Type the address, pairing code and thumbprint shown on the new VM\'s console. The code is never saved.','Copy while the VMware VM keeps running, as often as you like; each copy sends only what changed.','Cut over: the guest shuts down through VMware Tools, the last changes are copied and checked, and the new VM starts from its own disk.'].forEach(function(x){ol.appendChild(el('li','',x));});box.appendChild(ol);
     var table=el('table','vm-table nw-queue'),thead=document.createElement('thead'),hr=el('tr');['VM','On '+label,'Receiver','Last result',''].forEach(function(x){hr.appendChild(el('th','',x));});thead.appendChild(hr);table.appendChild(thead);
     var tbody=document.createElement('tbody');
     nwPickedVMs().forEach(function(vm){var tr=el('tr'),made=t.created&&t.created[vm.id],rx=t.receivers&&t.receivers[vm.id],last=v.move&&v.move.vm===vm.name?v.move:null;
@@ -7948,16 +8087,23 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     box.appendChild(ul);
     var batch=vmArr((vmwareState()||{}).prepareBatch);if(batch.length){var bs=el('div','vm-note','Snapshots: '+batch.map(function(i){return i.vm+' '+i.state;}).join(', ')+'.');box.appendChild(bs);}
     var name=nwInput('nwName',nw.name);name.maxLength=100;box.appendChild(nwField('Name of this migration',name,'Shown in the status and in Migration plans.'));
-    var conf=nwInput('nwConfirm',nw.confirm,'Type the name again');conf.setAttribute('aria-label','Type the name again to start');box.appendChild(nwField('Type the name again to start',conf,'Start saves the network map and waves, creates the migration and schedules the timed cutovers. Copies only read the VMs; nothing is shut down until a cutover.'));
+    var conf=nwInput('nwConfirm',nw.confirm,'Type the name again');conf.setAttribute('aria-label','Type the name again to start');box.appendChild(nwField('Type the name again to start',conf));
+    box.appendChild(el('p','vm-note','Start saves the network map and waves, creates the migration and schedules the timed cutovers. Copies only read the VMs; nothing is shut down until a cutover.'));
+    cfmBox(conf,{what:function(n){return 'I understand Start creates the migration '+(n||'')+' and schedules its timed cutovers';}});cfmOk(conf,nw.name);
   }
   function nwRemoveSnapshots(){
     var items=[],lines=[];nwPickedVMs().forEach(function(vm){if(vm.source!=='hyperv'&&vmArr(vm.snapshots).length){items.push({vmId:vm.id,steps:{snapshots:true,shutdown:false,removeTpm:false,decrypt:false}});lines.push(vm.name+': '+vmPlural(vmArr(vm.snapshots).length,'snapshot'));}});
     if(!items.length){return;}var label=items.length===1?'1 VM':items.length+' VMs';
-    openMigrateDialog({title:'Remove snapshots on '+label,path:'/api/vmware/prepare',field:'confirm',body:{items:items},expected:label,label:'Type the number of VMs to confirm',button:'Remove snapshots on '+label,
+    openMigrateDialog({title:'Remove snapshots on '+label,understand:'I understand every snapshot of '+label+' is removed in vSphere',path:'/api/vmware/prepare',field:'confirm',body:{items:items},expected:label,label:'Type the number of VMs to confirm',button:'Remove snapshots on '+label,
       alert:'Removing snapshots merges them into the disks; the VMs keep running. You cannot go back to a removed snapshot.',paragraphs:['vSphere does this on one VM after another and saves each VM\'s settings first. When it finishes, the inventory is read again.'],list:lines,
       after:function(){vmMarkRunning('prepare','preparing','Removing snapshots on '+label+', one at a time.');renderNw();}});
   }
   // Start: save the map and waves, create the plan, schedule timed cutovers.
+  function nwStartAsk(){
+    if(nw.busy||(nwSrvMode()?nwSrvReviewWhy():nwWhyNot(4))){return;}
+    if(nwSrvMode()){var n=nwSrvPicked().length;cfmAsk({title:'Start replicating '+vmPlural(n,'server'),text:['Start creates one replication job per server and starts its first copy. Copies only read the servers; nothing is shut down until a cutover.'],button:'Start'},nwStart);return;}
+    cfmAsk({title:'Start '+trimText(nw.name),text:['Start saves the network map and waves, creates the migration and schedules the timed cutovers. Copies only read the VMs; nothing is shut down until a cutover.'],button:'Start'},nwStart);
+  }
   function nwStart(){
     if(nwSrvMode()){nwSrvStart();return;}
     if(nw.busy||nwWhyNot(4)){return;}
@@ -7974,7 +8120,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       throttle:{businessMbps:Number(o.bizMbps)||0,limitMbps:Number(o.offMbps)||0,businessStart:o.bizStart,businessEnd:o.bizEnd}};
     if(nw.startMode==='at'){settings.startAt=new Date(nw.startAt).toISOString();}
     if(nwRemote()){var hvr=nwHvr();settings.remoteHost=hvr?hvr.host:'';settings.node=nw.node||'';}
-    var name=trimText(nw.name),confirm=trimText(nw.confirm);
+    var name=trimText(nw.name),confirm=cfmSend(nw.confirm,nw.name);
     var create=function(){
       request('POST','/api/plans',{action:'create',name:name,settings:settings,vmIds:ids},function(err,data){
         if(err){fail(err);return;}
@@ -8139,11 +8285,13 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     box.appendChild(nwHeading('Checks'));
     var ul=el('ul','nw-checks');nwSrvChecks().forEach(function(c){var li=el('li','nw-check '+c.s);li.appendChild(el('span','nw-check-icon',{ok:'OK',warn:'Note',block:'Fix'}[c.s]));li.appendChild(el('span','',c.t));ul.appendChild(li);});box.appendChild(ul);
     var conf=nwInput('nwSrvConfirm',s.confirm,'Type '+picked.length);conf.setAttribute('aria-label','Type the number of servers to start');conf.inputMode='numeric';conf.maxLength=4;
-    box.appendChild(nwField('Type the number of servers, '+picked.length+', to start',conf,'Start creates one replication job per server and starts its first copy. Copies only read the servers; nothing is shut down until a cutover.'));
+    box.appendChild(nwField('Type the number of servers, '+picked.length+', to start',conf));
+    box.appendChild(el('p','vm-note','Start creates one replication job per server and starts its first copy. Copies only read the servers; nothing is shut down until a cutover.'));
+    cfmBox(conf,{what:function(n){return 'I understand Start creates '+vmPlural(Number(n),'replication job')+' and starts copying';}});cfmOk(conf,String(picked.length));
   }
   function nwSrvReviewWhy(){
     var block=nwSrvChecks().filter(function(c){return c.s==='block';})[0];if(block){return block.t;}
-    var n=nwSrvPicked().length;if(trimText(nw.srv.confirm)!==String(n)){return 'Type '+n+', the number of servers, to start.';}
+    var n=nwSrvPicked().length;if(!cfmMatch(nw.srv.confirm,String(n))){return cfmStyle()==='tick'?'Tick "I understand" to start replicating '+vmPlural(n,'server')+'.':'Type '+n+', the number of servers, to start.';}
     return '';
   }
   function nwSrvStart(){
@@ -8164,10 +8312,10 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     var head=el('div','nw-status-head');head.id='nwStatusHead';box.appendChild(head);
     var body=el('div','nw-status-body');body.id='nwStatusBody';box.appendChild(body);
     var act=el('div','nw-status-actions');
-    act.appendChild(el('span','vm-note','Select servers, then act on them. Test failover, End test and Cut over ask for the number of servers they apply to.'));
+    act.appendChild(el('span','vm-note','Select servers, then act on them. Test failover, End test and Cut over ask you to confirm first.'));
     var sel=document.createElement('select');sel.id='nwSrvAction';sel.setAttribute('aria-label','Action');[['sync','Sync now'],['test','Test failover'],['endtest','End test'],['cutover','Cut over now'],['cutoverat','Cut over at a time'],['cancelcutover','Cancel scheduled cutover'],['pause','Pause'],['resume','Resume']].forEach(function(x){sel.appendChild(new Option(x[1],x[0]));});sel.value=nw.srv.action||'sync';act.appendChild(sel);
     var at=document.createElement('input');at.type='datetime-local';at.id='nwSrvCutAt';at.setAttribute('aria-label','Cutover time');at.value=nw.srv.cutAt||'';act.appendChild(at);
-    var conf=nwInput('nwSrvActConfirm','','Type the number');conf.setAttribute('aria-label','Type the number of servers to confirm');conf.inputMode='numeric';conf.maxLength=4;act.appendChild(conf);
+    var conf=nwInput('nwSrvActConfirm','','Type the number');conf.setAttribute('aria-label','Type the number of servers to confirm');conf.inputMode='numeric';conf.maxLength=4;act.appendChild(conf);cfmBox(conf,{what:function(n){return 'I understand this applies to '+vmPlural(Number(n),'server');}});
     var go=el('button','primary-button','Run');go.type='button';go.id='nwSrvRun';act.appendChild(go);
     var msg=el('div','migrate-inline-status');msg.id='nwStatusMsg';msg.setAttribute('role','status');act.appendChild(msg);
     box.appendChild(act);
@@ -8180,7 +8328,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     if(!picked.length){return 'Select the servers to act on.';}
     if(!rows.length){var first=picked[0];return 'None of the selected servers can take this now. '+first.name+': '+(first.reason||first.stateText||'')+'';}
     if(action==='cutoverat'){var at=byId('nwSrvCutAt'),t=new Date(at?at.value:'');if(!at||!at.value||isNaN(t.getTime())){return 'Choose the cutover time.';}if(t.getTime()<Date.now()+60000){return 'Choose a cutover time in the future.';}}
-    if(action==='test'||action==='endtest'||action==='cutover'||action==='cutoverat'){var c=byId('nwSrvActConfirm');if(!c||trimText(c.value)!==String(rows.length)){return 'Type '+rows.length+', the number of servers this applies to, to confirm.';}}
+    if(action==='test'||action==='endtest'||action==='cutover'||action==='cutoverat'){var c=byId('nwSrvActConfirm');if(!c||!cfmOk(c,String(rows.length),action+':'+rows.map(function(r){return r.key;}).join(','))){return cfmStyle()==='tick'?'Tick "I understand" to confirm.':'Type '+rows.length+', the number of servers this applies to, to confirm.';}}
     if(nwAs&&nwAs.bulk&&nwAs.bulk.running){return 'Another action on many servers is running; wait for it to finish.';}
     return '';
   }
@@ -8188,16 +8336,21 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     var b=byId('nwSrvRun'),action=(byId('nwSrvAction')||{}).value||'sync';if(!b){return;}
     var why=nwSrvRunWhy();b.disabled=nwSrvBusy||!!why;b.title=why;
     var at=byId('nwSrvCutAt');if(at){at.classList.toggle('hidden',action!=='cutoverat');}
-    var c=byId('nwSrvActConfirm');if(c){c.classList.toggle('hidden',!(action==='test'||action==='endtest'||action==='cutover'||action==='cutoverat'));}
+    var c=byId('nwSrvActConfirm');if(c){if(action==='test'||action==='endtest'||action==='cutover'||action==='cutoverat'){c.classList.remove('hidden');cfmOk(c,String(nwSrvActionRows(action).length),action+':'+nwSrvActionRows(action).map(function(r){return r.key;}).join(','));}else{cfmHide(c);}}
     var m=byId('nwStatusMsg');if(m&&!m.getAttribute('data-sticky')){m.textContent=why;m.className='migrate-inline-status';}
   }
   function nwSrvRun(){
     if(nwSrvRunWhy()){nwSrvSyncRun();return;}
-    var action=byId('nwSrvAction').value,rows=nwSrvActionRows(action),body={action:action==='cutoverat'?'cutover':action,keys:rows.map(function(r){return r.key;}),confirm:trimText(byId('nwSrvActConfirm').value)};
+    var action=byId('nwSrvAction').value,rows=nwSrvActionRows(action),body={action:action==='cutoverat'?'cutover':action,keys:rows.map(function(r){return r.key;}),confirm:cfmVal(byId('nwSrvActConfirm'),String(rows.length))};
     if(action==='cutoverat'){body.at=new Date(byId('nwSrvCutAt').value).toISOString();}
-    nwSrvBusy=true;nwSrvSyncRun();var m=byId('nwStatusMsg');
+    var needs=action==='test'||action==='endtest'||action==='cutover'||action==='cutoverat';
+    if(needs&&!body._asked){body._asked=true;var label=byId('nwSrvAction').options[byId('nwSrvAction').selectedIndex].text;cfmAsk({title:label+': '+vmPlural(rows.length,'server'),text:[{test:'Each server gets a test VM named SERVER-TEST. Production is not changed.',endtest:'Each test VM and its test disks are removed.',cutover:'Each server stops its listed services, sends a last verified round and, if set to, shuts down.',cutoverat:'At the chosen time each server stops its listed services, sends a last verified round and, if set to, shuts down.'}[action]],button:label},function(){nwSrvRunNow(body,rows);});return;}
+    nwSrvRunNow(body,rows);
+  }
+  function nwSrvRunNow(body,rows){
+    delete body._asked;nwSrvBusy=true;nwSrvSyncRun();var m=byId('nwStatusMsg');
     request('POST','/api/servers',body,function(err){nwSrvBusy=false;if(m){m.setAttribute('data-sticky','1');m.textContent=err||'Started on '+vmPlural(rows.length,'server')+'. Each row shows its result.';m.className='migrate-inline-status'+(err?' error':'');setTimeout(function(){if(m){m.removeAttribute('data-sticky');}},6000);}
-      if(!err){var c=byId('nwSrvActConfirm');if(c){c.value='';}}nwSrvStatusSig='';nwSrvLoad();});
+      if(!err){cfmClear(byId('nwSrvActConfirm'));}nwSrvStatusSig='';nwSrvLoad();});
   }
   function renderNwSrvStatusBody(){
     var body=byId('nwStatusBody'),head=byId('nwStatusHead');if(!body){return;}
@@ -8257,8 +8410,8 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     var head=el('div','nw-status-head');head.id='nwStatusHead';box.appendChild(head);
     var body=el('div','nw-status-body');body.id='nwStatusBody';box.appendChild(body);
     var act=el('div','nw-status-actions');
-    act.appendChild(el('span','vm-note','Select VMs in the list, or use a wave\'s buttons. Cut over now asks for the migration\'s name.'));
-    var conf=nwInput('nwCutConfirm','','Type the name to cut over');conf.setAttribute('aria-label','Type the migration name to cut over');act.appendChild(conf);
+    act.appendChild(el('span','vm-note','Select VMs in the list, or use a wave\'s buttons. Cut over now asks you to confirm first.'));
+    var conf=nwInput('nwCutConfirm','','Type the name to cut over');conf.setAttribute('aria-label','Type the migration name to cut over');act.appendChild(conf);cfmBox(conf,{what:'I understand the selected VMs are shut down and cut over now'});
     var cut=el('button','primary-button','Cut over selected VMs now');cut.type='button';cut.id='nwCutNow';act.appendChild(cut);
     var msg=el('div','migrate-inline-status');msg.id='nwStatusMsg';msg.setAttribute('role','status');act.appendChild(msg);
     box.appendChild(act);
@@ -8303,7 +8456,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   function nwCutWhy(){
     var p=nwPlan(),list=nwChosen();if(!p){return 'No migration open.';}if(!list.length){return 'Select the VMs to cut over.';}
     for(var i=0;i<list.length;i++){var why=mpCanCutOverView(list[i]);if(why){return list[i].name+': '+why+'.';}}
-    var c=byId('nwCutConfirm');if(!c||trimText(c.value).toLowerCase()!==p.name.toLowerCase()){return 'Type the name, '+p.name+', to confirm.';}
+    var c=byId('nwCutConfirm');if(!c||!cfmOk(c,p.name,list.map(function(v){return v.id;}).join(','))){return cfmStyle()==='tick'?'Tick "I understand" to cut over the selected VMs.':'Type the name, '+p.name+', to confirm.';}
     return '';
   }
   function nwSyncCut(){var b=byId('nwCutNow');if(!b){return;}var why=nwCutWhy();b.disabled=nw.busy||!!why;b.title=why;var m=byId('nwStatusMsg');if(m&&!m.getAttribute('data-sticky')){m.textContent=why;m.className='migrate-inline-status';}}
@@ -8317,7 +8470,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     if(nw.step===5){nwReset();nwGo(0);return;}
     if(nwWhyNot(nw.step)){renderNwNav();return;}
     if(nw.step===2&&!nwEndToEnd()){nwHandOff();return;}
-    if(nw.step===4){nwStart();return;}
+    if(nw.step===4){nwStartAsk();return;}
     nwGo(nw.step+1);
   });
   byId('nwBack').addEventListener('click',function(){if(nw.step>0){nwGo(nw.step-1);}});
@@ -8355,7 +8508,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     if(t.hasAttribute('data-nw-pickwave')){var w=Number(t.getAttribute('data-nw-pickwave')),p=nwPlan();vmArr(p&&p.vms).forEach(function(v){if((v.wave||0)===w&&v.state!=='done'){nwRowsChosen[v.id]=true;}});nwStatusSig='';renderNwStatusBody();return;}
     if(t.hasAttribute('data-mp-test')){nwPlanAction({action:'test',id:nw.planId,vmIds:[t.getAttribute('data-mp-test')]});return;}
     if(t.hasAttribute('data-mp-endtest')){nwPlanAction({action:'endTest',id:nw.planId,vmIds:[t.getAttribute('data-mp-endtest')]});return;}
-    if(t.id==='nwCutNow'){var ids=nwChosen().map(function(v){return v.id;}),c=byId('nwCutConfirm');if(nwCutWhy()){return;}nwPlanAction({action:'cutover',id:nw.planId,vmIds:ids,at:'now',confirm:trimText(c.value)},function(err){if(!err){nwRowsChosen={};c.value='';}});return;}
+    if(t.id==='nwCutNow'){var ids=nwChosen().map(function(v){return v.id;}),c=byId('nwCutConfirm'),pl=nwPlan();if(nwCutWhy()||!pl){return;}cfmAsk({title:'Cut over '+vmPlural(ids.length,'VM'),text:['Each chosen VM\'s guest is shut down now, its last changes are copied and the Hyper-V VM is created. The VMware VM is left off so you can roll back by starting it.'],button:'Cut over now'},function(){nwPlanAction({action:'cutover',id:nw.planId,vmIds:ids,at:'now',confirm:cfmVal(c,pl.name)},function(err){if(!err){nwRowsChosen={};cfmClear(c);}});});return;}
   });
   byId('tabWizard').addEventListener('change',function(e){
     var t=e.target;
@@ -8382,7 +8535,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     if(t.id==='nwCopyRoot'){nw.copyRoot=trimText(t.value);renderNwNav();return;}
     if(t.id==='nwVMFolder'){nw.vmFolder=trimText(t.value);renderNwNav();return;}
     if(t.hasAttribute('data-nw-vlan')){var name=t.getAttribute('data-nw-vlan'),cur=nw.net[name],clean=t.value.replace(/[^0-9]/g,'');if(clean!==t.value){t.value=clean;}if(cur){cur.vlan=clean;}return;}
-    if(t.id==='nwName'){nw.name=t.value;renderNwNav();return;}
+    if(t.id==='nwName'){nw.name=t.value;var nc=byId('nwConfirm');if(nc){cfmOk(nc,nw.name);if(cfmStyle()==='tick'){nw.confirm=nc.value;}}renderNwNav();return;}
     if(t.id==='nwConfirm'){nw.confirm=t.value;renderNwNav();return;}
     if(t.id==='nwCutConfirm'){nwSyncCut();return;}
     if(t.id==='nwSrvHosts'){nw.srv.hosts=t.value;var ib=byId('nwSrvInstall');if(ib){ib.disabled=!!(rpState&&rpState.pushing)||!trimText(t.value);}return;}
@@ -8527,7 +8680,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     var p=mpPlan();if(!p){return '';}var ids=mpChosenIds();if(!ids.length){return 'Select the VMs to cut over in the list.';}
     var by={};vmArr(p.vms).forEach(function(v){by[v.id]=v;});
     for(var i=0;i<ids.length;i++){var v=by[ids[i]];if(v.state==='done'){return v.name+' is already cut over.';}if(v.state==='testing'){return v.name+' has a test VM running: end the test first.';}if(!v.seeded){return v.name+' has not finished its first copy yet.';}if(v.state==='cutting'){return v.name+' is being cut over.';}}
-    if(trimText(byId('mpConfirm').value).toLowerCase()!==p.name.toLowerCase()){return 'Type the plan name, '+p.name+', to confirm.';}
+    if(!cfmOk(byId('mpConfirm'),p.name,ids.join(','))){return cfmStyle()==='tick'?'Tick "I understand" to cut over the selected VMs.':'Type the plan name, '+p.name+', to confirm.';}
     return '';
   }
   function syncMpButtons(){
@@ -8572,10 +8725,14 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   byId('mpRemoveSel').addEventListener('click',function(){var p=mpPlan();if(p){mpPost({action:'remove',id:p.id,vmIds:mpChosenIds()},'mpStatus',function(err){if(!err){mpRowsChosen={};}});}});
   byId('mpPause').addEventListener('click',function(){var p=mpPlan();if(p){mpPost({action:p.paused?'resume':'pause',id:p.id},'mpStatus');}});
   byId('mpEdit').addEventListener('click',function(){var p=mpPlan();if(p){mpEditing={id:p.id,name:p.name,remoteHost:(p.settings||{}).remoteHost||'',node:(p.settings||{}).node||''};mpFillForm(p);renderMp();}});
-  byId('mpDelete').addEventListener('click',function(){var p=mpPlan();if(!p){return;}if(trimText(byId('mpConfirm').value).toLowerCase()!==p.name.toLowerCase()){vmSetStatus('mpStatus','Type the plan name in the confirmation box below to delete it. Copied disks and created VMs are left in place.',true);byId('mpConfirm').focus();return;}mpPost({action:'delete',id:p.id,confirm:trimText(byId('mpConfirm').value)},'mpStatus',function(err){if(!err){mpSelected='';byId('mpConfirm').value='';}});});
-  byId('mpCutNow').addEventListener('click',function(){var p=mpPlan();if(p){mpPost({action:'cutover',id:p.id,vmIds:mpChosenIds(),at:'now',confirm:trimText(byId('mpConfirm').value)},'mpStatus',function(err){if(!err){byId('mpConfirm').value='';mpRowsChosen={};}});}});
-  byId('mpCutSchedule').addEventListener('click',function(){var p=mpPlan();if(p&&byId('mpCutAt').value){mpPost({action:'cutover',id:p.id,vmIds:mpChosenIds(),at:new Date(byId('mpCutAt').value).toISOString(),confirm:trimText(byId('mpConfirm').value)},'mpStatus',function(err){if(!err){byId('mpConfirm').value='';mpRowsChosen={};}});}});
+  byId('mpDelete').addEventListener('click',function(){var p=mpPlan();if(!p){return;}
+    openMigrateDialog({title:'Delete the plan '+p.name,understand:'I understand the plan '+p.name+' is deleted and its schedules stop',path:'/api/plans',field:'confirm',body:{action:'delete',id:p.id},expected:p.name,label:'Type the plan name to confirm',button:'Delete plan',
+      paragraphs:['The plan stops syncing and its scheduled cutovers are cancelled. Copied disks and created VMs are left in place.'],after:function(){mpSelected='';mpLoad();}});});
+  function mpCutAsk(at,fn){var p=mpPlan(),n=mpChosenIds().length;cfmAsk({title:'Cut over '+vmPlural(n,'VM'),text:['Each chosen VM\'s guest is shut down'+(at?' at '+at:' now')+', its last changes are copied and the Hyper-V VM is created. The VMware VM is left off so you can roll back by starting it.'],button:at?'Schedule cutover':'Cut over now'},fn);}
+  byId('mpCutNow').addEventListener('click',function(){var p=mpPlan();if(p){mpCutAsk('',function(){mpPost({action:'cutover',id:p.id,vmIds:mpChosenIds(),at:'now',confirm:cfmVal(byId('mpConfirm'),p.name)},'mpStatus',function(err){if(!err){cfmClear(byId('mpConfirm'));mpRowsChosen={};}});});}});
+  byId('mpCutSchedule').addEventListener('click',function(){var p=mpPlan();if(p&&byId('mpCutAt').value){mpCutAsk(new Date(byId('mpCutAt').value).toLocaleString(),function(){mpPost({action:'cutover',id:p.id,vmIds:mpChosenIds(),at:new Date(byId('mpCutAt').value).toISOString(),confirm:cfmVal(byId('mpConfirm'),p.name)},'mpStatus',function(err){if(!err){cfmClear(byId('mpConfirm'));mpRowsChosen={};}});});}});
   byId('mpCutCancel').addEventListener('click',function(){var p=mpPlan();if(p){mpPost({action:'cancelCutover',id:p.id,vmIds:mpChosenIds()},'mpStatus');}});
+  cfmBox(byId('mpConfirm'),{what:'I understand the selected VMs are shut down and cut over (now, or at the time chosen)'});
   ['mpConfirm','mpCutAt'].forEach(function(id){byId(id).addEventListener('input',syncMpButtons);});
   setInterval(function(){if(activeTab==='plans'?Date.now()-mpLastPoll>=3000:Date.now()-mpLastPoll>=30000){mpLoad();}},1500);
   setInterval(function(){if(activeTab==='replication'?Date.now()-rpLastPoll>=4500:Date.now()-rpLastPoll>=30000){rpRefresh();}},1500);
