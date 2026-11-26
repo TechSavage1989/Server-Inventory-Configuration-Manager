@@ -113,8 +113,34 @@ try{
         if($case.ExpectOrphan -and $orphans.Count -eq 0){throw 'Negative control did not reproduce the published v3.2.1 cleanup failure'}
         if(-not $case.ExpectOrphan -and $orphans.Count -ne 0){throw 'A failed installation left update clutter beside the executable'}
         if((Get-FileHash $lockedTarget -Algorithm SHA256).Hash -ne $originalTargetHash){throw 'Locked-target refusal modified the installed application'}
+        if(-not $case.ExpectOrphan){
+            $record=Get-Content -Raw -LiteralPath (Join-Path $caseDir 'Health\last-update.json')|ConvertFrom-Json
+            if($record.status -ne 'failed' -or $record.code -ne 10 -or $record.target -ne $case.Version -or $record.message -notmatch 'locked or unreadable'){throw "Locked-target refusal did not record its reason: $($record|ConvertTo-Json -Compress)"}
+        }
         Write-Host "Locked-target control passed: $($case.Name), temporary files: $($orphans.Count)"
     }
+
+    # Failure path: the installed executable stays readable but cannot be
+    # replaced (endpoint protection or another program holds it open). The
+    # helper must retry, then give up with a recorded reason and leave the
+    # installed file unchanged, never a silent loop.
+    $heldDir=Join-Path $temp 'held'
+    New-Item -ItemType Directory $heldDir -Force|Out-Null
+    $heldTarget=Join-Path $heldDir 'HeldTarget.exe'
+    Copy-Item $ExecutablePath $heldTarget
+    $heldHash=(Get-FileHash $heldTarget -Algorithm SHA256).Hash
+    $hold=[IO.File]::Open($heldTarget,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::Read)
+    try{
+        $heldCode=Invoke-NativeAndWait -FilePath $staged -Arguments @('--update-helper','--parent-pid','0','--target',$heldTarget,'--expected-version',$ExpectedVersion,'--expected-sha256',$hash,'--old-version','3.2.0','--health-marker',(Join-Path $heldDir 'Health\current.json'),'--health-token','held-target-test','--rollback',(Join-Path $heldDir 'Rollback\previous.exe'),'--rollback-meta',(Join-Path $heldDir 'Rollback\previous.json'),'--log',(Join-Path $heldDir 'Updates.log'))
+    }finally{$hold.Dispose()}
+    if($heldCode -ne 11){throw "Expected held-target refusal 11, got $heldCode"}
+    if((Get-FileHash $heldTarget -Algorithm SHA256).Hash -ne $heldHash){throw 'Held-target refusal modified the installed application'}
+    if(@(Get-ChildItem -LiteralPath $heldDir -Force|Where-Object{$_.Name -like '*.update-*.tmp.exe'}).Count -ne 0){throw 'Held-target refusal left update clutter beside the executable'}
+    $heldLog=Get-Content -Raw -LiteralPath (Join-Path $heldDir 'Updates.log')
+    if($heldLog -notmatch 'after (\d+) tries' -or [int]$Matches[1] -lt 3){throw "Held-target replace was not retried: $heldLog"}
+    $heldRecord=Get-Content -Raw -LiteralPath (Join-Path $heldDir 'Health\last-update.json')|ConvertFrom-Json
+    if($heldRecord.status -ne 'failed' -or $heldRecord.code -ne 11 -or $heldRecord.target -ne $ExpectedVersion -or $heldRecord.version -ne '3.2.0' -or $heldRecord.message -notmatch 'could not be replaced' -or $heldRecord.path -ne $heldTarget){throw "Held-target refusal did not record its reason: $($heldRecord|ConvertTo-Json -Compress)"}
+    Write-Host "Held-target control passed after $($Matches[1]) tries: $($heldRecord.message)"
     Write-Host 'Native GUI update helper test passed with rendered UI, owned visible window and tampered-update negative control.'
 }
 finally{

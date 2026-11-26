@@ -6,8 +6,9 @@ package main
 // hash changed travel, zero chunks travel as a hash alone, and every chunk is
 // checked against its SHA-256 before it is written.
 //
-// The receiver makes a new self-signed certificate and a random pairing code
-// each time it starts. The sender must be given both: it accepts only the
+// The receiver has a self-signed certificate and a random pairing code, kept
+// across restarts when started from the window (vmreceiver_identity.go) and
+// new each start on boot media. The sender must be given both: it accepts only the
 // certificate with that SHA-256 thumbprint and sends the code with every
 // request. Nothing else is trusted, so no certificate authority or Windows
 // trust store change is needed.
@@ -90,6 +91,9 @@ type vmReceiverConfig struct {
 	// find answer. Optional.
 	FreeBytes func() uint64
 	Version   string
+	// Identity is the certificate and code to use, kept across restarts
+	// (vmreceiver_identity.go); nil makes new ones for this run only.
+	Identity *vmReceiverIdentity
 }
 
 // vmReceiverRawTarget closes its device with the session.
@@ -253,7 +257,7 @@ func vmSelfSignedCertificate(host string) (tls.Certificate, string, error) {
 		SerialNumber: serial,
 		Subject:      pkix.Name{CommonName: "Server Inventory and Migration Manager receiver"},
 		NotBefore:    time.Now().Add(-time.Hour),
-		NotAfter:     time.Now().Add(30 * 24 * time.Hour),
+		NotAfter:     time.Now().AddDate(10, 0, 0), // pinned by thumbprint; kept across restarts
 		KeyUsage:     x509.KeyUsageDigitalSignature,
 		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 		DNSNames:     []string{host},
@@ -314,15 +318,16 @@ func startVMReceiverWith(address string, config vmReceiverConfig, log func(strin
 			disks[disk.Name] = disk
 		}
 	}
-	code, err := vmPairingCode()
-	if err != nil {
-		return nil, err
-	}
 	hostName, _ := os.Hostname()
-	certificate, thumbprint, err := vmSelfSignedCertificate(hostName)
-	if err != nil {
-		return nil, err
+	identity := config.Identity
+	if identity == nil {
+		made, err := vmNewReceiverIdentity(hostName)
+		if err != nil {
+			return nil, err
+		}
+		identity = made
 	}
+	code, certificate, thumbprint := identity.Code, identity.Certificate, identity.Thumbprint
 	listener, err := net.Listen("tcp", address)
 	if err != nil {
 		return nil, err

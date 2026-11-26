@@ -101,6 +101,7 @@ type updateStateResponse struct {
 	CanInstall       bool     `json:"canInstall"`
 	LastCheckUnixMs  int64    `json:"lastCheckUnixMs"`
 	Notice           string   `json:"notice,omitempty"`
+	InstallFailed    bool     `json:"installFailed,omitempty"`
 }
 
 type updateRuntime struct {
@@ -204,9 +205,15 @@ func (a *application) initializeUpdater() error {
 	}
 	a.cleanupStaleUpdateFiles()
 	if data, err := os.ReadFile(filepath.Join(a.update.healthDir, "last-update.json")); err == nil {
-		var result map[string]string
-		if json.Unmarshal(data, &result) == nil && (result["status"] == "rollback" || result["status"] == "failed") {
-			a.update.state.Notice = result["message"]
+		var record installRecord
+		if json.Unmarshal(data, &record) == nil {
+			executable, _ := os.Executable()
+			older := func(left, right string) bool { cmp, err := compareVersions(left, right); return err == nil && cmp < 0 }
+			if notice := installOutcomeNotice(record, appVersion, executable, time.Now(), older); notice != "" {
+				a.update.state.Notice = notice
+				a.update.state.InstallFailed = record.Target != ""
+				a.logUpdate("Last install did not take: status=%s target=%s code=%d", record.Status, record.Target, record.Code)
+			}
 		}
 	}
 	return nil
@@ -1103,6 +1110,21 @@ func runUpdateHelper(args []string) int {
 		return 3
 	}
 	helperLog(logPath, "Installer started. ParentPID=%d target=%s staged=%s version=%s", parentPID, target, stagedPath, expectedVersion)
+	record := installRecord{Target: expectedVersion, From: oldVersion, Path: target, Log: logPath, Ready: stagedPath}
+	writeInstallRecord(healthMarkerPath, record, "started", oldVersion, "Installing "+expectedVersion, 0)
+	// fail records why nothing (or the previous version) is installed, so the
+	// version that starts next shows the reason and a manual fallback instead
+	// of offering the same update again with no explanation.
+	fail := func(code int, kept string, detail string, format string, args ...any) int {
+		helperLog(logPath, format, args...)
+		status := "failed"
+		if code == 12 || code >= 13 {
+			status = "rollback"
+		}
+		writeInstallRecord(healthMarkerPath, record, status, kept, installFailureReason(code, detail), code)
+		helperLog(logPath, "Install result: %s (code %d)", status, code)
+		return code
+	}
 	priorProfile := previousBrowserProfile(parentPID, target)
 	if priorProfile != "" {
 		time.Sleep(150 * time.Millisecond) // allow the install POST response to finish
@@ -1117,21 +1139,10 @@ func runUpdateHelper(args []string) int {
 		time.Sleep(250 * time.Millisecond)
 	}
 	if parentPID > 0 && processStillRunning(parentPID) {
-		helperLog(logPath, "Parent process did not exit before timeout.")
-		return 4
+		return fail(4, oldVersion, "", "Parent process did not exit before timeout.")
 	}
-	if parentPID > 0 {
-		closeOrphanedApplicationBrowsers()
-	}
-	if err := validateDownloadedExecutable(stagedPath, expectedVersion); err != nil {
-		helperLog(logPath, "Staged update validation failed: %v", err)
-		return 5
-	}
-	actualHash, err := fileSHA256(stagedPath)
-	if err != nil || !strings.EqualFold(actualHash, expectedHash) {
-		helperLog(logPath, "Staged update hash validation failed. actual=%s err=%v", actualHash, err)
-		return 6
-	}
+	// From here the old copy has exited, so every early return starts it
+	// again: the person is never left with no application.
 	restartOriginal := true
 	defer func() {
 		if restartOriginal && parentPID > 0 && existingFile(target) != "" {
@@ -1140,59 +1151,61 @@ func runUpdateHelper(args []string) int {
 			_ = cmd.Start()
 		}
 	}()
+	if parentPID > 0 {
+		closeOrphanedApplicationBrowsers()
+	}
+	if err := validateDownloadedExecutable(stagedPath, expectedVersion); err != nil {
+		return fail(5, oldVersion, err.Error(), "Staged update validation failed: %v", err)
+	}
+	actualHash, err := fileSHA256(stagedPath)
+	if err != nil || !strings.EqualFold(actualHash, expectedHash) {
+		return fail(6, oldVersion, "", "Staged update hash validation failed. actual=%s err=%v", actualHash, err)
+	}
 	targetDir := filepath.Dir(target)
 	tempTarget := filepath.Join(targetDir, fmt.Sprintf(".%s.update-%d.tmp.exe", strings.TrimSuffix(filepath.Base(target), filepath.Ext(target)), os.Getpid()))
 	_ = os.Remove(tempTarget)
 	defer os.Remove(tempTarget)
-	if err := copyFile(stagedPath, tempTarget); err != nil {
-		helperLog(logPath, "Could not stage update on target filesystem: %v", err)
-		return 7
+	sleep := func(d time.Duration) { time.Sleep(d) }
+	if tries, err := retryFileOperation(func() error { return copyFile(stagedPath, tempTarget) }, fileLockBudget, sleep); err != nil {
+		_ = os.Remove(tempTarget)
+		return fail(7, oldVersion, err.Error(), "Could not stage update on target filesystem after %d tries: %v", tries, err)
 	}
 	if err := validateDownloadedExecutable(tempTarget, expectedVersion); err != nil {
-		helperLog(logPath, "Target-filesystem staging validation failed: %v", err)
 		_ = os.Remove(tempTarget)
-		return 8
+		return fail(8, oldVersion, err.Error(), "Target-filesystem staging validation failed: %v", err)
 	}
 	copiedHash, hashErr := fileSHA256(tempTarget)
 	if hashErr != nil || !strings.EqualFold(copiedHash, expectedHash) {
 		_ = os.Remove(tempTarget)
-		helperLog(logPath, "Target filesystem hash mismatch")
-		return 8
+		return fail(8, oldVersion, "", "Target filesystem hash mismatch")
 	}
 	if err := os.MkdirAll(filepath.Dir(rollbackPath), 0o755); err != nil {
-		helperLog(logPath, "Could not create rollback directory: %v", err)
 		_ = os.Remove(tempTarget)
-		return 9
+		return fail(9, oldVersion, err.Error(), "Could not create rollback directory: %v", err)
 	}
 	if existingFile(target) == "" {
 		_ = os.Remove(tempTarget)
-		helperLog(logPath, "Original target is missing")
-		return 10
+		return fail(10, oldVersion, "the installed executable is missing", "Original target is missing")
 	}
 	if existingFile(target) != "" {
 		oldHash, err := fileSHA256(target)
 		if err != nil {
-			helperLog(logPath, "Could not read the installed executable for rollback: %v", err)
-			writeInstallResult(healthMarkerPath, "failed", oldVersion, "The update could not prepare a rollback copy because the installed executable was locked or unreadable. The installed file was left unchanged.")
-			return 10
+			return fail(10, oldVersion, err.Error(), "Could not read the installed executable for rollback: %v", err)
 		}
 		rollbackTemp := rollbackPath + ".tmp"
 		defer os.Remove(rollbackTemp)
 		if err := copyFile(target, rollbackTemp); err != nil {
-			helperLog(logPath, "Could not create rollback copy: %v", err)
 			_ = os.Remove(tempTarget)
-			return 10
+			return fail(10, oldVersion, err.Error(), "Could not create rollback copy: %v", err)
 		}
 		copiedHash, err := fileSHA256(rollbackTemp)
 		if err != nil || !strings.EqualFold(copiedHash, oldHash) {
-			helperLog(logPath, "Rollback copy checksum mismatch")
 			_ = os.Remove(tempTarget)
-			return 10
+			return fail(10, oldVersion, "", "Rollback copy checksum mismatch")
 		}
 		if err := atomicReplaceFile(rollbackTemp, rollbackPath); err != nil {
 			_ = os.Remove(tempTarget)
-			helperLog(logPath, "Could not commit rollback copy: %v", err)
-			return 10
+			return fail(10, oldVersion, err.Error(), "Could not commit rollback copy: %v", err)
 		}
 		meta := rollbackMetadata{Version: oldVersion, OriginalPath: target, CreatedAtUTC: time.Now().UTC().Format(time.RFC3339), SHA256: oldHash}
 		if data, err := json.MarshalIndent(meta, "", "  "); err == nil {
@@ -1200,11 +1213,25 @@ func runUpdateHelper(args []string) int {
 		}
 	}
 	_ = os.Remove(healthMarkerPath)
-	if err := atomicReplaceFile(tempTarget, target); err != nil {
-		helperLog(logPath, "Could not atomically replace application: %v", err)
+	// Endpoint protection can hold the old executable (or the new file it is
+	// scanning) open for a few seconds after the old copy exits.
+	if tries, err := retryFileOperation(func() error { return atomicReplaceFile(tempTarget, target) }, fileLockBudget, sleep); err != nil {
 		_ = os.Remove(tempTarget)
-		return 11
+		return fail(11, oldVersion, err.Error(), "Could not atomically replace application after %d tries: %v", tries, err)
+	} else if tries > 1 {
+		helperLog(logPath, "Replaced the application after %d tries (the file was briefly held open)", tries)
 	}
+	// Check what is now on disk, not what was copied: security software can
+	// restore or quarantine the file right after the replace.
+	if installedHash, err := fileSHA256(target); err != nil || !strings.EqualFold(installedHash, expectedHash) {
+		helperLog(logPath, "Installed file does not match the update. actual=%s err=%v", installedHash, err)
+		if restoreErr := restoreRollbackExecutable(rollbackPath, target); restoreErr != nil {
+			helperLog(logPath, "Rollback restore after mismatch failed: %v", restoreErr)
+			return fail(13, oldVersion, restoreErr.Error(), "Installed file mismatch and rollback failed")
+		}
+		return fail(14, oldVersion, "", "Installed file mismatch; previous version restored")
+	}
+	helperLog(logPath, "Installed file verified as %s (SHA-256 %s)", expectedVersion, expectedHash)
 	notifyShellIcon(target)
 	launchArgs := []string{"--health-token", healthToken}
 
@@ -1216,12 +1243,12 @@ func runUpdateHelper(args []string) int {
 		if restoreErr := restoreRollbackExecutable(rollbackPath, target); restoreErr == nil {
 			_ = exec.Command(target).Start()
 		} else {
-			helperLog(logPath, "Rollback restore after launch failure also failed: %v", restoreErr)
+			return fail(13, oldVersion, restoreErr.Error(), "Rollback restore after launch failure also failed: %v", restoreErr)
 		}
-		return 12
+		return fail(12, oldVersion, err.Error(), "Updated application could not start")
 	}
 	helperLog(logPath, "Updated application launched. PID=%d", launch.Process.Pid)
-	healthDeadline := time.Now().Add(45 * time.Second)
+	healthDeadline := time.Now().Add(helperHealthTimeout)
 	healthy := false
 	var healthySince time.Time
 	for time.Now().Before(healthDeadline) {
@@ -1238,7 +1265,7 @@ func runUpdateHelper(args []string) int {
 						continue
 					}
 					healthy = true
-					helperLog(logPath, "Healthy startup confirmed. VisibleWindowConfirmed=%t", marker.VisibleWindowConfirmed)
+					helperLog(logPath, "Healthy startup confirmed: version %s, PID %d, VisibleWindowConfirmed=%t", marker.Version, marker.PID, marker.VisibleWindowConfirmed)
 					break
 				}
 			}
@@ -1250,26 +1277,23 @@ func runUpdateHelper(args []string) int {
 	}
 	if healthy {
 		helperLog(logPath, "Update installed successfully.")
-		writeInstallResult(healthMarkerPath, "installed", expectedVersion, "Update installed successfully")
+		writeInstallRecord(healthMarkerPath, record, "installed", expectedVersion, "Update installed successfully", 0)
 
 		return 0
 	}
-	helperLog(logPath, "Healthy startup was not confirmed; rolling back.")
-	writeInstallResult(healthMarkerPath, "rollback", oldVersion, "The update did not confirm a healthy visible startup. The previous version was restored.")
+	helperLog(logPath, "Healthy startup was not confirmed within %s; rolling back.", helperHealthTimeout)
 	terminateProcessTree(launch.Process.Pid)
 	time.Sleep(500 * time.Millisecond)
-	if err := restoreRollbackExecutable(rollbackPath, target); err != nil {
-		helperLog(logPath, "Rollback restore failed: %v", err)
-		return 13
+	if _, err := retryFileOperation(func() error { return restoreRollbackExecutable(rollbackPath, target) }, fileLockBudget, sleep); err != nil {
+		return fail(13, oldVersion, err.Error(), "Rollback restore failed: %v", err)
 	}
 	rollbackLaunch := exec.Command(target)
 	rollbackLaunch.Dir = targetDir
 	if err := rollbackLaunch.Start(); err != nil {
-		helperLog(logPath, "Rollback relaunch failed: %v", err)
-		return 16
+		return fail(16, oldVersion, err.Error(), "Rollback relaunch failed: %v", err)
 	}
 	helperLog(logPath, "Previous version restored and relaunched. PID=%d", rollbackLaunch.Process.Pid)
-	return 17
+	return fail(17, oldVersion, "", "Rollback complete")
 }
 
 func extractHealthToken(args []string) string {
@@ -1349,7 +1373,7 @@ func (a *application) closeOwnApplicationWindow() {
 }
 
 func (a *application) confirmHealthyWindowAndMark(token string) {
-	deadline := time.Now().Add(35 * time.Second)
+	deadline := time.Now().Add(appHealthTimeout)
 	for time.Now().Before(deadline) {
 		a.mu.Lock()
 		ready := a.uiReady
@@ -1426,8 +1450,28 @@ func (a *application) beginCriticalOperation() bool {
 }
 func (a *application) endCriticalOperation() { a.mu.Lock(); a.criticalOperations--; a.mu.Unlock() }
 
-func writeInstallResult(healthPath, status, version, message string) {
-	data, _ := json.Marshal(map[string]string{"status": status, "version": version, "message": message, "time": time.Now().UTC().Format(time.RFC3339)})
+// writeInstallRecord writes Health\last-update.json with the result of this
+// install attempt. version is the version left installed.
+// The helper waits helperHealthTimeout for the new version to confirm a
+// visible, rendered window; the new version looks for its window for
+// appHealthTimeout. Both allow the built-in window's first start
+// (webViewStartTimeout) plus time for security software to scan a new
+// executable: a 45-second limit rolled back healthy updates that were slow
+// to open their first window, and the person then saw the same update again.
+const (
+	appHealthTimeout    = webViewStartTimeout + 30*time.Second
+	helperHealthTimeout = appHealthTimeout + 30*time.Second
+	fileLockBudget      = 20 * time.Second
+)
+
+func writeInstallRecord(healthPath string, record installRecord, status, version, message string, code int) {
+	record.Status = status
+	record.Version = version
+	record.Message = message
+	record.Code = code
+	record.Time = time.Now().UTC().Format(time.RFC3339)
+	data, _ := json.Marshal(record)
+	_ = os.MkdirAll(filepath.Dir(healthPath), 0o755)
 	path := filepath.Join(filepath.Dir(healthPath), "last-update.json")
 	if os.WriteFile(path+".tmp", data, 0600) == nil {
 		_ = atomicReplaceFile(path+".tmp", path)

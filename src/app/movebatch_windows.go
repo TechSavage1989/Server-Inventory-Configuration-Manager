@@ -52,6 +52,11 @@ func (a *application) startPlans() {
 
 // mbReady says why a plan's work cannot run now, or "".
 func (a *application) mbReady(plan *mbPlan) string {
+	if mbRemote(plan) {
+		a.mu.Lock()
+		defer a.mu.Unlock()
+		return a.mbRemoteReadyLocked(plan)
+	}
 	if !vmHyperVHere() {
 		return "This computer is not a Hyper-V host. Migration plans run on the Hyper-V host that will run the VMs."
 	}
@@ -100,6 +105,11 @@ func (t *mbHostTarget) Check(plan *mbPlan, vm *mbVM) error {
 	if role := vmInfrastructureRole(m); role != "" || m.Template {
 		return errors.New("this VM is not moved")
 	}
+	if mbRemote(plan) {
+		if err := t.remoteCheck(plan, vm, m); err != nil {
+			return err
+		}
+	}
 	if m.Encrypted {
 		return errors.New("the VM is encrypted; decrypt it with Prepare source in Move VMs first")
 	}
@@ -134,6 +144,9 @@ func (t *mbHostTarget) Round(ctx context.Context, plan *mbPlan, vm *mbVM, cutove
 	inventory, m, err := t.machine(plan, vm)
 	if err != nil {
 		return nil, err
+	}
+	if mbRemote(plan) {
+		return t.remoteRound(ctx, plan, vm, inventory, m, cutover, throttle, progress, log)
 	}
 	folder := t.copyFolder(plan, vm)
 	if !filepath.IsAbs(folder) || (migrateProtectedFolder(folder) != "" && !vmHostDefaultAllowed(folder)) {
@@ -182,6 +195,9 @@ func (t *mbHostTarget) Create(ctx context.Context, plan *mbPlan, vm *mbVM, resul
 	if err != nil {
 		return "", nil, err
 	}
+	if mbRemote(plan) {
+		return t.remoteCreate(ctx, plan, vm, inventory, m, result, log)
+	}
 	a.mu.Lock()
 	switches, networks := vmMoveNetworkMap(inventory, a.vmware.plan)
 	server, user, password, thumbprint := a.vmware.server, a.vmware.account, a.vmware.password, a.vmware.thumbprint
@@ -223,6 +239,9 @@ func (t *mbHostTarget) StartTest(ctx context.Context, plan *mbPlan, vm *mbVM, lo
 	if vm.CopyFolder == "" || len(vm.Disks) == 0 {
 		return nil, errors.New("the VM has no finished copy yet")
 	}
+	if mbRemote(plan) {
+		return t.remoteStartTest(ctx, plan, vm, m, log)
+	}
 	name := mbTestName(vm)
 	testRoot := filepath.Join(vm.CopyFolder, "Test cutovers")
 	copies, children := []string{}, []string{}
@@ -262,6 +281,9 @@ func (t *mbHostTarget) StartTest(ctx context.Context, plan *mbPlan, vm *mbVM, lo
 }
 
 func (t *mbHostTarget) EndTest(ctx context.Context, plan *mbPlan, vm *mbVM, log func(string)) error {
+	if mbRemote(plan) {
+		return t.remoteEndTest(ctx, plan, vm, log)
+	}
 	test := vm.Test
 	script := ""
 	if test.VMID == "" {
@@ -355,7 +377,17 @@ func (a *application) handlePlans(response http.ResponseWriter, request *http.Re
 	var err error
 	switch input.Action {
 	case "create":
-		if !vmHyperVHere() {
+		remote := strings.TrimSpace(input.Settings.RemoteHost) != ""
+		if remote {
+			a.mu.Lock()
+			hvHost, connected := a.hvRemote.host, a.hvRemote.info != nil
+			a.mu.Unlock()
+			if !connected || !strings.EqualFold(hvHost, strings.TrimSpace(input.Settings.RemoteHost)) {
+				fail(http.StatusBadRequest, "Connect to the Hyper-V host or cluster "+input.Settings.RemoteHost+" first.")
+				return
+			}
+		}
+		if !remote && !vmHyperVHere() {
 			fail(http.StatusBadRequest, "This computer is not a Hyper-V host. Run the application on the Hyper-V host that will run the VMs: plans copy the disks and create the VMs on the computer running them.")
 			return
 		}
@@ -372,7 +404,7 @@ func (a *application) handlePlans(response http.ResponseWriter, request *http.Re
 			fail(http.StatusBadRequest, "Read the inventory from vCenter, ESXi or a Hyper-V host in Discovery first.")
 			return
 		}
-		if why := a.mbReady(&mbPlan{Server: inventory.Server}); why != "" {
+		if why := a.mbReady(&mbPlan{Server: inventory.Server, Settings: input.Settings}); why != "" {
 			fail(http.StatusBadRequest, why)
 			return
 		}
@@ -435,7 +467,7 @@ func (a *application) handlePlans(response http.ResponseWriter, request *http.Re
 			fail(http.StatusBadRequest, "Choose one VM.")
 			return
 		}
-		if !vmHyperVHere() {
+		if !vmHyperVHere() && !runner.IsRemote(input.ID) {
 			fail(http.StatusBadRequest, "Test cutovers run on the Hyper-V host that holds the copies.")
 			return
 		}

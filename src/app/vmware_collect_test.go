@@ -4,6 +4,8 @@ import (
 	"context"
 	"crypto/tls"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -141,6 +143,40 @@ func TestVMServerURLRejectsOtherSchemes(t *testing.T) {
 		parsed, err := vmServerURL(value)
 		if err != nil || parsed.Host != host || parsed.Path != "/sdk" {
 			t.Fatalf("%q -> %v %v", value, parsed, err)
+		}
+	}
+}
+
+// The 3.2.35 Send disks handler compared the length of the normalized
+// (colon-separated, 95-character) thumbprint with 64, so every send failed.
+// A thumbprint is accepted in any of the forms a receiver shows or a person
+// types, and validity is "normalizes to something", never a length.
+func TestThumbprintFormsNormalizeAlikeAndAreCheckedByEmptiness(t *testing.T) {
+	want := "9E:AB:8E:25:DF:2F:79:7C:BD:6A:7A:19:AD:34:DA:CC:7E:4D:19:48:6D:F6:F1:22:DE:ED:56:45:09:81:58:C0"
+	for _, in := range []string{
+		want,
+		"9eab8e25df2f797cbd6a7a19ad34dacc7e4d19486df6f122deed5645098158c0",
+		" 9E AB 8E 25 DF 2F 79 7C BD 6A 7A 19 AD 34 DA CC 7E 4D 19 48 6D F6 F1 22 DE ED 56 45 09 81 58 C0 ",
+		"‎9E:AB:8E:25:DF:2F:79:7C:BD:6A:7A:19:AD:34:DA:CC:7E:4D:19:48:6D:F6:F1:22:DE:ED:56:45:09:81:58:C0\r\n",
+	} {
+		if got := vmNormalizeThumbprint(in); got != want {
+			t.Fatalf("vmNormalizeThumbprint(%q) = %q, want %q", in, got, want)
+		}
+	}
+	if vmNormalizeThumbprint("9E:AB:8E") != "" {
+		t.Fatal("a short thumbprint must not normalize")
+	}
+	sources, err := filepath.Glob("*.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range sources {
+		data, err := os.ReadFile(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(string(data), "len(vmNormalize"+"Thumbprint(") {
+			t.Errorf("%s checks the length of a normalized thumbprint; it is 95 characters with colons. Compare it with \"\" instead.", name)
 		}
 	}
 }
