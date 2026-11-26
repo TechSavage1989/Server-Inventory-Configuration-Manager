@@ -1,3 +1,10 @@
+## Unreleased: optional SQL Server and domain controller checks in readiness — 2026-11-26
+
+- What: optional, read-only checks of Windows servers before they move (AGENTS.md rule 55). `Test-RolePreflight.ps1` (signed) reaches a server over WinRM or PowerShell Direct with nothing installed there; `preflight.go` turns the facts into readiness findings, report rows (HTML, Word, PDF) and wave roles; `preflight_windows.go` serves `/api/vmware/preflight/run|stop|forget` and keeps results per server in LocalAppData `VMware\<server>\preflight.json`.
+- Where in the page: a VM's Readiness tab, the readiness list's **SQL and DC checks…**, and New migration's Review.
+- Tests: `go test ./...` (`preflight_test.go`), `TestRolePreflightScriptReadsAServerThroughRemoting` on the Windows runner, the workspace check "SQL and DC checks".
+- Limits: not run against a real domain controller or SQL Server yet. Each check reads only the checked DC's own replication status (a remote session cannot pass the account on), so forest-wide `repadmin /replsummary` stays a manual step. dcdiag output is parsed in English; on other languages its last lines are kept and shown.
+
 ## Unreleased: decrypt VMs inside New migration — 2026-11-26
 
 - Owner field report on 3.2.36: Review for an encrypted VM said "decrypt it with Prepare source in Move VMs first" after Start, which looked enabled. Two fixes: migration plans now refuse only VMs whose **disks** are encrypted (`vmDisksEncrypted` in `vmware_model.go`); a VM encrypted only for its virtual TPM copies as it is. A VM with encrypted disks can be ticked in What (flagged there) and Review blocks Start with an inline **Decrypt N VMs** (batch Prepare: snapshots, guest shutdown, virtual TPM, decrypt), confirmed with a tick box, with live per-VM progress and vSphere's decrypt percentage.

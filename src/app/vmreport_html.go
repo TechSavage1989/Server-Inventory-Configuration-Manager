@@ -594,6 +594,7 @@ const vmReportTemplate = `<!DOCTYPE html>
 <div class="tabs" role="tablist"><button type="button" data-tab="readiness">Readiness</button><button type="button" data-tab="summary">Summary</button><button type="button" data-tab="disks">Disks ({{len $vm.Disks}})</button><button type="button" data-tab="nics">Network ({{len $vm.NICs}})</button>{{if $vm.Snapshots}}<button type="button" data-tab="snapshots">Snapshots ({{len $vm.Snapshots}})</button>{{end}}</div>
 <div class="pane" data-pane="readiness"><h3 class="ph">Readiness</h3>
 <div class="targets">{{range .Statuses}}<div class="tcard"><h4>{{.Label}} <span class="chip {{.Status}}">{{statusLabel .Status}}{{if .Generation}} · Gen {{.Generation}}{{end}}</span></h4><ul>{{range .Findings}}<li><span class="chip {{.Severity}}">{{sev .Severity}}</span> {{.Message}}{{if .Action}}<span class="act">Fix: {{.Action}}</span>{{end}}</li>{{else}}<li class="muted">Nothing to fix first.</li>{{end}}</ul></div>{{end}}</div>
+{{if .Checks}}<h3 class="ph">Domain controller and SQL Server checks</h3><div class="card"><div class="kv">{{range .Checks}}<div><b>{{index . 0}}</b>{{index . 1}}</div>{{end}}</div></div>{{end}}
 </div>
 <div class="pane" data-pane="summary"><h3 class="ph">Summary</h3><div class="card"><div class="kv">
 <div><b>Guest OS</b>{{guest $vm}}</div><div><b>Host</b>{{if .HostAnchor}}<a href="#{{.HostAnchor}}">{{$vm.Host}}</a>{{else}}{{$vm.Host}}{{end}}</div><div><b>Cluster</b>{{$vm.Cluster}}</div><div><b>Datacenter</b>{{$vm.Datacenter}}</div>{{if $vm.Folder}}<div><b>Folder</b>{{$vm.Folder}}</div>{{end}}

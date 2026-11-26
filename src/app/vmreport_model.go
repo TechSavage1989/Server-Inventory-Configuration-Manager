@@ -113,6 +113,21 @@ var vmReportIssueTitles = map[string]string{
 	"static-ip":        "Static IP configuration to carry over",
 	"hardware-old":     "Very old virtual hardware version",
 	"hardware-drivers": "Windows needs the new server's storage driver",
+	// Optional domain controller and SQL Server checks (preflight.go).
+	"preflight-failed":     "Domain controller and SQL Server checks could not reach the server",
+	"dc-usn-rollback":      "Domain controller quarantined after a USN rollback",
+	"dc-replication":       "Domain controller replication failing",
+	"dc-replication-stale": "Domain controller replication out of date",
+	"dc-sysvol":            "SYSVOL not healthy",
+	"dc-dcdiag":            "dcdiag tests failing",
+	"dc-time":              "Domain controller time source",
+	"sql-vss-writer":       "SQL Server VSS Writer not running",
+	"sql-fci":              "SQL Server failover cluster instance",
+	"sql-ag":               "SQL Server availability group replica",
+	"sql-query":            "SQL Server could not be queried",
+	"sql-tde":              "Transparent Data Encryption certificates to back up",
+	"sql-backup":           "Databases without a recent full backup",
+	"sql-log-backup":       "Full recovery databases without log backups",
 }
 
 // vmReportTargetIssues are the issues for one target, worst first.
@@ -138,6 +153,9 @@ type vmReportVM struct {
 	// Flags filter the VM list: on, off, snap, static, tools, encrypted,
 	// template.
 	Flags []string
+	// Checks are the optional domain controller and SQL Server checks as
+	// label and value rows (preflight.go); empty when never run.
+	Checks [][2]string
 }
 
 // Status returns the VM's status for target ("" when not assessed).
@@ -204,7 +222,7 @@ func vmReportBuild(inventory *vmInventory, now time.Time) *vmReportModel {
 	snapshots, static, off := 0, 0, 0
 	for _, rel := range model.Relations.VMs {
 		vm := rel.VM
-		item := vmReportVM{vmRelVM: rel}
+		item := vmReportVM{vmRelVM: rel, Checks: preflightFacts(vm.Preflight)}
 		if strings.EqualFold(vm.PowerState, "poweredOn") {
 			item.Flags = append(item.Flags, "on")
 		} else {

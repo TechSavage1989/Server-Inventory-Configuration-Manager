@@ -93,6 +93,10 @@ func vmWaveRoleOf(vm vmMachine) (string, string) {
 	switch {
 	case !strings.EqualFold(vm.PowerState, "poweredOn"):
 		return vmWaveRolePilot, "Powered off, so nobody is using it."
+	case vm.Preflight.domainController():
+		return vmWaveRoleDC, "Checked: it is a domain controller."
+	case vm.Preflight.sqlServer():
+		return vmWaveRoleDatabase, "Checked: it runs SQL Server."
 	case vmWaveTestPattern.MatchString(name) || vmWaveTestPattern.MatchString(folder):
 		return vmWaveRolePilot, "Named like a test or development VM."
 	case windows && vmWaveDCPattern.MatchString(name):

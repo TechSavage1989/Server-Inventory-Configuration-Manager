@@ -145,6 +145,25 @@ account** or exit. If your EDR watches remote PowerShell, allow
 `wsmprovhost.exe` running the cmdlets above on new Hyper-V nodes while they
 are being built.
 
+### Domain controller and SQL Server checks (optional, read only)
+
+The optional **SQL and DC checks** in readiness read a server from the
+computer running the application. Nothing is installed, copied or changed
+on the server, and no service, scheduled task or remote process is created.
+
+| Behaviour | Where | Why |
+| --- | --- | --- |
+| `powershell.exe -ExecutionPolicy RemoteSigned -File Test-RolePreflight.ps1` (signed script, never Bypass, no hidden-window or encoded-command flags) | The computer running the application | Reaches each chosen server and writes the result beside it |
+| `Invoke-Command -ComputerName` over WinRM (TCP 5985, Kerberos), running in `wsmprovhost.exe`, or `Invoke-Command -VMName` (PowerShell Direct) for a VM on this Hyper-V host | Each checked server | Reads the registry (Netlogon, NTDS, SQL Server instance names), WMI classes (`Win32_ComputerSystem`, `Win32_OperatingSystem`, `Win32_Service`, `DfsrReplicatedFolderInfo`) and the Directory Service event log; LDAP to itself for the FSMO role owners |
+| `dcdiag.exe /s:<itself>` with local tests only, `repadmin.exe /showrepl localhost /csv` and `w32tm.exe /query /source`, started inside that remote session | Domain controllers | Read-only health checks of that domain controller |
+| `SELECT` queries over a local SqlClient connection with the signed-in account (`SERVERPROPERTY`, `sys.databases`, `msdb.dbo.backupset`, `sys.availability_groups`) | SQL Servers | Version, edition, clustering, availability groups, recovery models, last backups and TDE |
+
+It never runs `vssadmin`, `wmic` or a shadow copy command (the SQL Server VSS
+Writer is read as a service state). The account reaches PowerShell only as
+one JSON line on standard input and is kept in memory until **Use my Windows
+account** or exit. If your EDR watches remote PowerShell, allow
+`wsmprovhost.exe` running these read-only tools on the servers you check.
+
 ### Migration plans (on a Hyper-V host)
 
 A **Migration plan** runs inside the console on the Hyper-V host and does

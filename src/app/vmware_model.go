@@ -268,6 +268,9 @@ type vmMachine struct {
 	IntegrationServices string `json:"integrationServices,omitempty"`
 	IntegrationVersion  string `json:"integrationVersion,omitempty"`
 	DynamicMemory       bool   `json:"dynamicMemory,omitempty"`
+	// Preflight is the last optional domain controller and SQL Server
+	// check (preflight.go); nil when it was never run.
+	Preflight *vmPreflight `json:"preflight,omitempty"`
 }
 
 type vmFinding struct {
@@ -814,6 +817,7 @@ func assessVM(vm vmMachine, target string, now time.Time) vmReadiness {
 	if !powered && !vm.Template {
 		add(vmSeverityInfo, "powered-off", "The VM is powered off: a good first test migration.", "")
 	}
+	result.Findings = append(result.Findings, preflightFindings(vm.Preflight)...)
 
 	sort.SliceStable(result.Findings, func(i, j int) bool {
 		return vmSeverityRank(result.Findings[i].Severity) > vmSeverityRank(result.Findings[j].Severity)
