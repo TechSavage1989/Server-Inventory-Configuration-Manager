@@ -106,6 +106,9 @@ type vmwareStateResponse struct {
 	// HVRemote is the remote Hyper-V host or cluster Move VMs is connected
 	// to from this computer (never its password).
 	HVRemote *hvRemoteStateResponse `json:"hvRemote"`
+	// HVBuild is Build Hyper-V hosts: its plan, steps, node facts and step
+	// results (never the nodes' password or a cloud witness key).
+	HVBuild *hvBuildStateResponse `json:"hvBuild"`
 	// Transfers are the disks this computer is sending or moving, running
 	// first, and those finished in the last hour.
 	Transfers       []vmTransfer           `json:"transfers"`
@@ -158,6 +161,7 @@ func (a *application) vmwareSnapshotLocked() vmwareStateResponse {
 		HyperVHere:      vmHyperVHere(),
 		HostStorage:     vmHostStorageNow(),
 		HVRemote:        a.hvRemoteStateLocked(),
+		HVBuild:         a.hvBuildStateLocked(),
 		Transfers:       []vmTransfer{},
 		CanPrepare:      a.vmware.inventory != nil && a.vmware.password != "" && strings.EqualFold(a.vmware.inventory.Server, a.vmware.server),
 		CancelRequested: a.vmware.cancelRequested && a.vmware.action != "",
@@ -1108,6 +1112,10 @@ func (a *application) vmwareOpenTarget(kind string) (target string, folder bool,
 		return a.vmware.outputFolder, true, true
 	case "vmwarerunbook":
 		return a.vmware.runbookPath, false, true
+	case "hvbuildreport":
+		return a.hvBuild.report, false, true
+	case "hvbuildfolder":
+		return a.hvBuild.folder, true, true
 	case "replrunbook":
 		return a.repl.runbook, false, true
 	case "replrunbookdocx":
