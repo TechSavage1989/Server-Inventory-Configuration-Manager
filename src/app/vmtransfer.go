@@ -240,3 +240,69 @@ func (b *vmTransferBoard) EndRunning(prefix string, err error, stopped, verified
 		b.End(id, err, stopped, verified)
 	}
 }
+
+// vmMoveStatus is the step a Move VMs copy or cutover is on, for the live
+// progress panel on the VM's Move tab. The per-disk percent, speed and time
+// left come from the transfer board; this adds the steps around the copy
+// (shut down, snapshot, removing it, creating the VM) and the result.
+type vmMoveStatus struct {
+	VMID     string    `json:"vmId"`
+	VM       string    `json:"vm"`
+	Action   string    `json:"action"` // copy, cutover
+	Stages   []string  `json:"stages"`
+	Stage    string    `json:"stage"`
+	Detail   string    `json:"detail,omitempty"`
+	State    string    `json:"state"` // running, done, failed, stopped
+	Result   string    `json:"result,omitempty"`
+	Started  time.Time `json:"started"`
+	Updated  time.Time `json:"updated"`
+	Finished time.Time `json:"finished,omitempty"`
+}
+
+// vmMoveStages lists a move's steps in order. last is the step after the
+// copy at a cutover: "create" (a Hyper-V VM), "switch" (a target VM booted
+// from its disk) or "" (nothing more is done here).
+func vmMoveStages(action string, hyperVSource bool, last string) []string {
+	stages := []string{"connect", "snapshot", "copy", "cleanup"}
+	if hyperVSource {
+		stages = []string{"connect", "copy"}
+	}
+	if action != "cutover" {
+		return stages
+	}
+	stages = append([]string{"shutdown"}, stages...)
+	if last != "" {
+		stages = append(stages, last)
+	}
+	return stages
+}
+
+// Set moves the status to a step; a step it does not list is ignored, so a
+// round's own steps never show for a source that has none.
+func (s *vmMoveStatus) Set(stage, detail string, now time.Time) {
+	if s == nil || s.State != "running" {
+		return
+	}
+	for _, known := range s.Stages {
+		if known == stage {
+			s.Stage, s.Detail, s.Updated = stage, detail, now
+			return
+		}
+	}
+}
+
+// End records how the move finished.
+func (s *vmMoveStatus) End(err error, stopped bool, result string, now time.Time) {
+	if s == nil || s.State != "running" {
+		return
+	}
+	s.Finished, s.Updated, s.Result = now, now, result
+	switch {
+	case stopped:
+		s.State = "stopped"
+	case err != nil:
+		s.State, s.Result = "failed", err.Error()
+	default:
+		s.State, s.Detail = "done", ""
+	}
+}
