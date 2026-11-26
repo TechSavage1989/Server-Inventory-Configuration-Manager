@@ -597,6 +597,10 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
 @media (max-width:900px){.rp-grid,.rp-two,.rp-disk-row{grid-template-columns:minmax(0,1fr)}}
 .vm-flow-arrow{color:#52647c;white-space:nowrap}
 .vm-guest-cards{grid-template-columns:repeat(2,minmax(0,1fr))}
+.vm-guest-modes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin:6px 0}.vm-guest-mode{display:flex;gap:8px;align-items:flex-start;border:1px solid var(--border);border-radius:8px;padding:8px;cursor:pointer}.vm-guest-mode small{display:block;font-size:11px;color:var(--muted)}.vm-guest-mode input{margin-top:3px}.vm-guest-mode:has(input:checked){border-color:var(--accent);background:var(--accent-soft)}.vm-guest-vcenter summary{cursor:pointer;font-weight:600;margin-top:6px}
+@media(max-width:900px){.vm-guest-modes{grid-template-columns:1fr}}
+.vm-reason-list{margin:0;padding-left:16px}.vm-reason-list li+li{margin-top:2px}
+.vm-ways{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
 .vm-pick{display:block;margin-top:8px;padding-top:8px;border-top:1px solid #edf1f6}.vm-pick:first-child{border-top:0;padding-top:0}
 .vm-pick-old{font-weight:650;color:#23334b;overflow-wrap:anywhere}
 .vm-pick select{display:block;width:100%;max-width:100%;box-sizing:border-box;height:30px;margin-top:4px;border:1px solid #bcc9d9;border-radius:7px;padding:0 6px;font:inherit;font-size:12px;background:#fff}
@@ -635,7 +639,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
 .tool-name{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:#1f2a3a}.tool-item.active .tool-name{color:#1f4f9d}
 .tool-desc{font-size:11.5px;line-height:1.35;color:#52647c}
 .tool-runs{font-size:11px;line-height:1.3;color:#3d5170}.tool-runs b{color:#1f4f9d;margin-right:2px}
-.tool-works{font-size:11px;line-height:1.3;color:#3d5170}.tool-works b{color:#1f4f9d;margin-right:2px}.tool-tags{display:flex;flex-wrap:wrap;gap:4px}.tool-tag{display:inline-block;padding:0 6px;border:1px solid #c9d6ea;border-radius:9px;background:#f5f8fd;color:#2b4a7a;font-size:10.5px;line-height:16px;font-weight:600}.tool-tag.agent{border-color:#e7c98b;background:#fff8e8;color:#7a5410}.tool-tag.offline{border-color:#d7c3e8;background:#faf5fe;color:#5b3a7a}.tool-pane-works{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;margin-top:5px}.gd-modes{margin-top:10px}.gd-mode{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px 12px;margin-top:6px;padding:7px 10px;border:1px solid #dbe3ed;border-radius:8px;background:#fff}.gd-mode.current{border-color:#2563eb;box-shadow:inset 3px 0 0 #2563eb;background:#f7faff}.gd-mode-main{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1 1 300px}.gd-mode-main .vm-note{overflow-wrap:anywhere}.tool-badge{margin-left:auto}.tool-badge.hidden,.tool-badge[data-idle]{display:none}
+.tool-when{display:block;font-size:11.5px;line-height:1.35;color:#24324a;margin:2px 0}.tool-when b{color:#14532d;margin-right:3px}.tool-works{font-size:11px;line-height:1.3;color:#3d5170}.tool-works b{color:#1f4f9d;margin-right:2px}.tool-tags{display:flex;flex-wrap:wrap;gap:4px}.tool-tag{display:inline-block;padding:0 6px;border:1px solid #c9d6ea;border-radius:9px;background:#f5f8fd;color:#2b4a7a;font-size:10.5px;line-height:16px;font-weight:600}.tool-tag.agent{border-color:#e7c98b;background:#fff8e8;color:#7a5410}.tool-tag.offline{border-color:#d7c3e8;background:#faf5fe;color:#5b3a7a}.tool-pane-works{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;margin-top:5px}.gd-modes{margin-top:10px}.gd-mode{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px 12px;margin-top:6px;padding:7px 10px;border:1px solid #dbe3ed;border-radius:8px;background:#fff}.gd-mode.current{border-color:#2563eb;box-shadow:inset 3px 0 0 #2563eb;background:#f7faff}.gd-mode-main{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1 1 300px}.gd-mode-main .vm-note{overflow-wrap:anywhere}.tool-badge{margin-left:auto}.tool-badge.hidden,.tool-badge[data-idle]{display:none}
 .tool-host{flex:1 1 auto;min-width:0;min-height:0;display:flex;flex-direction:column}
 .tool-pane{display:none;min-height:0;flex:1 1 auto}.tool-pane.active{display:flex;flex-direction:column}.tool-pane.active>*{flex:1 1 auto;min-height:0}
 .tool-current{display:none}
@@ -673,6 +677,13 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
 .gd-check{font-size:12px;line-height:1.4;padding:4px 8px;border-radius:6px;background:#f1f4f8;color:#334156}.gd-check.ok{background:#e9f6ee;color:#1d6b43}.gd-check.warn{background:#fff4e2;color:#8a5612}.gd-check.block{background:#fdeaea;color:#a33b3b}
 .gd-actions{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px}.gd-actions .secondary-button{min-height:30px}
 .gd-done{display:flex;align-items:center;gap:5px;font-size:12px;color:#334156}
+.gd-step>*:not(.gd-num){grid-column:2}.gd-num{grid-column:1}
+.gd-step:not(.current){cursor:pointer;padding-top:7px;padding-bottom:7px}.gd-step:not(.current) .gd-text,.gd-step:not(.current) .gd-actions,.gd-step:not(.current) .gd-fix,.gd-step:not(.current) .gd-nav{display:none}.gd-step:not(.current) .gd-check{background:none;padding:0}
+.gd-step.current{border-color:#2563eb;box-shadow:0 0 0 2px rgba(37,99,235,.15)}.gd-step.optional:not(.current){opacity:.86}.gd-step.optional:not(.current) .gd-check{display:none}
+.gd-opt{padding:1px 8px;border-radius:999px;background:#f1f4f8;color:#596b80;font-size:11px;font-weight:700}
+.gd-fix{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:8px;border:1px dashed #efc2c2;border-radius:8px;background:#fff}.gd-fix input{min-width:200px}
+.gd-nav{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;border-top:1px solid #eef2f7;padding-top:8px}
+.gd-optional-toggle{margin:2px 0 0}
 @media(max-width:900px){.gd-choices{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}.gd-choice span{display:none}}
 @media(max-height:720px){.vm-table-wrap{max-height:230px}.vm-bar{padding-top:6px}.vm-counts{margin-top:6px}.vm-count strong{font-size:15px}}
 @media(max-height:720px){.restore-log{max-height:160px;min-height:90px}.restore-facts{margin-top:10px;padding:8px 10px}.restore-components{margin-top:10px}.restore-dialog-body{max-height:calc(100vh - 120px)}}
@@ -898,7 +909,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     </section>
 
     <section class="tab-panel" id="tabMigration" role="tabpanel" aria-labelledby="tabButtonMigration">
-      <div class="tool-layout"><nav class="tool-nav" id="migrationNav" aria-label="Migration and replication tools"><div class="tool-group"><div class="tool-group-title">Start here</div><button class="tool-item tool-guide" type="button" data-tool="guide" aria-pressed="false"><span class="tool-name">Guided migration</span><span class="tool-desc">Pick what you are moving and where to; follow the steps in order.</span><span class="tool-runs"><b>Runs on</b> the computer each step names</span></button></div><div class="tool-group"><div class="tool-group-title">Plan</div><button class="tool-item" type="button" data-tool="plan" aria-pressed="false"><span class="tool-name">Plan and runbook</span><span class="tool-desc">Waves, network map and the runbook (HTML and Word).</span><span class="tool-runs"><b>Runs on</b> your admin computer</span></button></div><div class="tool-group"><div class="tool-group-title">Move servers</div><button class="tool-item" type="button" data-tool="movevms" aria-pressed="false"><span class="tool-name">Move VMs<span class="tab-badge tool-badge" id="movevmsBadge">Ready</span></span><span class="tool-desc">VMware or Hyper-V VMs, nothing installed in them. Copy, then cut over.</span><span class="tool-runs"><b>Runs on</b> the Hyper-V host or your admin computer</span></button><button class="tool-item" type="button" data-tool="replicate" aria-pressed="false"><span class="tool-name">Replicate servers<span class="tab-badge tool-badge" id="replicationTabBadge">Ready</span></span><span class="tool-desc">Any Windows or Linux server, physical or virtual, kept in sync by an agent until cutover.</span><span class="tool-runs"><b>Runs on</b> your admin computer; agent on each source server</span></button><button class="tool-item" type="button" data-tool="diskcopy" aria-pressed="false"><span class="tool-name">Receive and send disks<span class="tab-badge tool-badge" id="diskcopyBadge">Ready</span></span><span class="tool-desc">The receiver every copy goes to, and Send by hand without the agent.</span><span class="tool-runs"><b>Runs on</b> the receiving computer; Send inside the source</span></button><button class="tool-item" type="button" data-tool="failover" aria-pressed="false"><span class="tool-name">Start VMs from copies</span><span class="tool-desc">Test failover or the production VM on Hyper-V.</span><span class="tool-runs"><b>Runs on</b> the Hyper-V host receiving the copies</span></button><button class="tool-item" type="button" data-tool="shares" aria-pressed="false"><span class="tool-name">Move file shares<span class="tab-badge tool-badge" id="migrateTabBadge">Ready</span></span><span class="tool-desc">Shares, files and permissions from an old file server.</span><span class="tool-runs"><b>Runs on</b> the new file server</span></button></div><div class="tool-group"><div class="tool-group-title">Disks</div><button class="tool-item" type="button" data-tool="convert" aria-pressed="false"><span class="tool-name">Convert disk images<span class="tab-badge tool-badge" id="convertTabBadge">Ready</span></span><span class="tool-desc">VMDK, VHD(X), qcow2, raw: convert, fix up drivers, send to a host, P2V.</span><span class="tool-runs"><b>Runs on</b> any Windows computer that reaches the files</span></button></div><div class="tool-group"><div class="tool-group-title">Inside the machine</div><button class="tool-item" type="button" data-tool="guest" aria-pressed="false"><span class="tool-name">Prepare and fix up</span><span class="tool-desc">Record settings before the move; fix the machine up after it.</span><span class="tool-runs"><b>Runs on</b> inside the machine being moved</span></button><button class="tool-item" type="button" data-tool="compare" aria-pressed="false"><span class="tool-name">Compare before and after</span><span class="tool-desc">What changed between two inventories.</span><span class="tool-runs"><b>Runs on</b> any computer</span></button></div></nav>
+      <div class="tool-layout"><nav class="tool-nav" id="migrationNav" aria-label="Migration and replication tools"><div class="tool-group"><div class="tool-group-title">Start here</div><button class="tool-item tool-guide" type="button" data-tool="guide" aria-pressed="false"><span class="tool-name">Guided migration</span><span class="tool-desc">Pick what you are moving and where to; follow the steps in order.</span><span class="tool-runs"><b>Runs on</b> the computer each step names</span></button></div><div class="tool-group"><div class="tool-group-title">Plan</div><button class="tool-item" type="button" data-tool="plan" aria-pressed="false"><span class="tool-name">Plan and runbook</span><span class="tool-desc">Waves, network map and the runbook (HTML and Word).</span><span class="tool-runs"><b>Runs on</b> your admin computer</span></button></div><div class="tool-group"><div class="tool-group-title">Move servers</div><button class="tool-item" type="button" data-tool="movevms" aria-pressed="false"><span class="tool-name">Move VMs<span class="tab-badge tool-badge" id="movevmsBadge">Ready</span></span><span class="tool-desc">VMware or Hyper-V VMs, nothing installed in them. Copy, then cut over.</span><span class="tool-runs"><b>Runs on</b> the Hyper-V host or your admin computer</span></button><button class="tool-item" type="button" data-tool="replicate" aria-pressed="false"><span class="tool-name">Replicate servers<span class="tab-badge tool-badge" id="replicationTabBadge">Ready</span></span><span class="tool-desc">Any Windows or Linux server, physical or virtual, kept in sync by an agent until cutover.</span><span class="tool-runs"><b>Runs on</b> your admin computer; agent on each source server</span></button><button class="tool-item" type="button" data-tool="diskcopy" aria-pressed="false"><span class="tool-name">Receive and send disks<span class="tab-badge tool-badge" id="diskcopyBadge">Ready</span></span><span class="tool-desc">The receiver every copy goes to, and Send by hand without the agent.</span><span class="tool-runs"><b>Runs on</b> the receiving computer; Send inside the source</span></button><button class="tool-item" type="button" data-tool="failover" aria-pressed="false"><span class="tool-name">Start VMs from copies</span><span class="tool-desc">Test failover or the production VM on Hyper-V.</span><span class="tool-runs"><b>Runs on</b> the Hyper-V host receiving the copies</span></button><button class="tool-item" type="button" data-tool="shares" aria-pressed="false"><span class="tool-name">Move file shares<span class="tab-badge tool-badge" id="migrateTabBadge">Ready</span></span><span class="tool-desc">Shares, files and permissions from an old file server.</span><span class="tool-runs"><b>Runs on</b> the new file server</span></button></div><div class="tool-group"><div class="tool-group-title">Disks</div><button class="tool-item" type="button" data-tool="convert" aria-pressed="false"><span class="tool-name">Convert disk images<span class="tab-badge tool-badge" id="convertTabBadge">Ready</span></span><span class="tool-desc">VMDK, VHD(X), qcow2, raw: convert, fix up drivers, send to a host, P2V.</span><span class="tool-runs"><b>Runs on</b> any Windows computer that reaches the files</span></button></div><div class="tool-group"><div class="tool-group-title">Inside the machine</div><button class="tool-item" type="button" data-tool="guest" aria-pressed="false"><span class="tool-name">Prepare and fix up</span><span class="tool-desc">Record settings before the move; fix the machine up after it, from outside.</span><span class="tool-runs"><b>Runs on</b> the Hyper-V host or admin computer; nothing in the machine</span></button><button class="tool-item" type="button" data-tool="compare" aria-pressed="false"><span class="tool-name">Compare before and after</span><span class="tool-desc">What changed between two inventories.</span><span class="tool-runs"><b>Runs on</b> any computer</span></button></div></nav>
       <div class="tool-host" id="migrationHost"><div class="tool-current" id="migrationCurrent"></div>
     <section class="tool-pane" id="tabGuide" aria-labelledby="gdTitle">
       <div class="restore-wrap"><div class="card">
@@ -1060,19 +1071,41 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
             </div>
           </div>
           <div class="hidden" id="vmViewGuest">
-            <div class="vm-runs-on"><span class="vm-lead">Runs inside the machine being moved,</span> as administrator: once on VMware before the move, and again after it starts on the new platform. Copy this application into the VM to use it. <span id="vmGuestHere"></span></div>
-            <div class="restore-alert danger hidden" id="vmGuestAdmin"><strong>Run the application as administrator on this VM</strong> to record or fix it.</div>
+            <div class="vm-runs-on"><span class="vm-lead">Nothing has to be installed in the machine being moved.</span> Run these checks from here: from vCenter with no sign-in, from the Hyper-V host through PowerShell Direct (no network needed after the cutover), or over the network with PowerShell remoting. Running this application inside the machine still works as a fallback. <span id="vmGuestHere"></span></div>
+            <section class="migrate-section" aria-labelledby="vmGuestWhereTitle" id="vmGuestWhere">
+              <h3 class="migrate-section-title" id="vmGuestWhereTitle">Which machine?</h3>
+              <div class="vm-guest-modes" role="radiogroup" aria-label="Where the checks run" id="vmGuestModes">
+                <label class="vm-guest-mode"><input type="radio" name="vmGuestMode" value="direct"><span><strong>A VM on this Hyper-V host</strong><small>Pick this after the cutover on the Hyper-V host: PowerShell Direct reaches the new VM with no network. Windows 10 or Server 2016 and later.</small></span></label>
+                <label class="vm-guest-mode"><input type="radio" name="vmGuestMode" value="hostdirect"><span><strong>A VM on the connected Hyper-V host or cluster</strong><small>Pick this after the cutover when Move VMs runs from an admin computer: the host you connected to uses PowerShell Direct.</small></span></label>
+                <label class="vm-guest-mode"><input type="radio" name="vmGuestMode" value="winrm"><span><strong>A computer over the network</strong><small>Pick this before the cutover, while the VM still runs on VMware: PowerShell remoting (WinRM, on by default on Windows Server). Needed for BitLocker keys.</small></span></label>
+                <label class="vm-guest-mode"><input type="radio" name="vmGuestMode" value="local"><span><strong>This computer</strong><small>Fallback: copy this application into the machine and run it there as administrator.</small></span></label>
+              </div>
+              <div class="vm-two" id="vmGuestFields">
+                <label class="vm-field hidden" data-guest-field="vm">Hyper-V VM name<input id="vmGuestVmName" type="text" spellcheck="false" autocomplete="off" maxlength="80"></label>
+                <label class="vm-field hidden" data-guest-field="host">Hyper-V host<select id="vmGuestHost"></select></label>
+                <label class="vm-field hidden" data-guest-field="computer">Computer (DNS name or IP address)<input id="vmGuestComputerName" type="text" spellcheck="false" autocomplete="off" maxlength="253"></label>
+                <label class="vm-field hidden" data-guest-field="user">Administrator account of the machine<input id="vmGuestUser" type="text" spellcheck="false" autocomplete="off" maxlength="256" placeholder=".\Administrator or DOMAIN\admin"></label>
+                <label class="vm-field hidden" data-guest-field="password">Password (kept in memory only)<input id="vmGuestPassword" type="password" autocomplete="off" maxlength="1024"></label>
+              </div>
+              <div class="migrate-row"><button class="primary-button" id="vmGuestUse" type="button">Use this machine</button><button class="secondary-button hidden" id="vmGuestForget" type="button">Forget the account</button><span class="vm-note" id="vmGuestTargetNote"></span></div>
+              <div class="restore-alert danger hidden" id="vmGuestAdmin"><strong>Run the application as administrator</strong> to check this computer or a VM on this Hyper-V host.</div>
+              <details class="vm-guest-vcenter" id="vmGuestVcenterBox">
+                <summary>Record a VMware VM's IP settings from vCenter (no sign-in to the VM)</summary>
+                <p class="migrate-help">VMware Tools reports each adapter's addresses, gateway and DNS servers to vCenter. Move VMs records them by itself before every copy; this records them now. Nothing runs inside the VM. Services, disks, BitLocker and activation are read on the new VM instead.</p>
+                <div class="migrate-row"><label class="vm-field">VMware VM<select id="vmGuestVcVm"></select></label><button class="secondary-button" id="vmGuestVcenter" type="button">Record from vCenter</button></div>
+              </details>
+            </section>
             <section class="migrate-section" aria-labelledby="vmGuestBeforeTitle">
-              <h3 class="migrate-section-title" id="vmGuestBeforeTitle">Before cutover: record this VM's settings</h3>
-              <p class="migrate-help">Do this while the VM is still on VMware. <strong>Record settings</strong> saves its IP settings, disks, drivers and running services to a file and checks it is ready to move. After the move, the steps below compare the VM with this recording. Nothing is changed.</p>
+              <h3 class="migrate-section-title" id="vmGuestBeforeTitle">Before cutover: record its settings (optional)</h3>
+              <p class="migrate-help">Optional for a VMware VM moved with Move VMs, which records its IP settings from vCenter. <strong>Record settings</strong> reads more while it still runs on the old platform: IP settings, disks, drivers, running services and activation. It changes nothing.</p>
               <div class="migrate-row"><button class="primary-button" id="vmGuestCapture" type="button">Record settings</button><button class="secondary-button" id="vmGuestLoad" type="button">Load a recording&hellip;</button><button class="secondary-button" id="vmGuestOpen" type="button">Open work folder</button></div>
               <div class="migrate-inline-status" id="vmGuestMessage" role="status" aria-live="polite"></div>
               <div class="restore-facts hidden" id="vmGuestFacts"><div><span class="restore-fact-label">Computer</span><span class="restore-fact-value" id="vmGuestComputer"></span></div><div><span class="restore-fact-label">Running on</span><span class="restore-fact-value" id="vmGuestPlatform"></span></div><div><span class="restore-fact-label">Windows</span><span class="restore-fact-value" id="vmGuestOs"></span></div><div><span class="restore-fact-label">Recorded</span><span class="restore-fact-value" id="vmGuestRecorded"></span></div></div>
               <ul class="vm-findings hidden" id="vmGuestFindings"></ul>
             </section>
             <section class="migrate-section" aria-labelledby="vmGuestAfterTitle">
-              <h3 class="migrate-section-title" id="vmGuestAfterTitle">After cutover: fix up this VM</h3>
-              <p class="migrate-help">Do this once the machine starts on its new platform. <strong>Check what needs fixing</strong> reads the machine as it is now and compares it with the recording: missing IP addresses, hidden old adapters, offline disks, stopped services and VMware Tools. It changes nothing. Each fix below asks you to type this computer's name, and network changes save the current settings first so you can undo them.</p>
+              <h3 class="migrate-section-title" id="vmGuestAfterTitle">After cutover: fix up the new machine</h3>
+              <p class="migrate-help">Do this once the machine starts on its new platform. <strong>Check what needs fixing</strong> reads the machine as it is now and compares it with the recording: missing IP addresses, hidden old adapters, offline disks, stopped services and VMware Tools. It changes nothing. Each fix below asks you to type the machine's name, and network changes save the current settings first so you can undo them.</p>
               <div class="migrate-row"><button class="primary-button" id="vmGuestStatus" type="button">Check what needs fixing</button></div>
               <div class="vm-empty" id="vmGuestEmpty">Choose Check what needs fixing to see what to do on this machine.</div>
               <div class="migrate-cards vm-guest-cards hidden" id="vmGuestCards">
@@ -1585,7 +1618,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     failover:{tab:'migration',pane:'tabVmware',view:'failover',legacy:'vmware',title:'Start VMs from copies',subtitle:'Start a test VM on differencing disks, or the production VM after cutover, from copies this Hyper-V host received from Move VMs, Replicate servers or Send.',runs:'the Hyper-V host that receives the copies, as administrator.'},
     shares:{tab:'migration',pane:'tabMigrate',legacy:'migrate'},
     convert:{tab:'migration',pane:'tabConvert',legacy:'convert'},
-    guest:{tab:'migration',pane:'tabVmware',view:'guest',legacy:'vmware',title:'Prepare and fix up',subtitle:'Record the machine\'s settings before the move and fix it up after it starts on the new platform.',runs:'inside the machine being moved, as administrator: before the move, and again after it.'},
+    guest:{tab:'migration',pane:'tabVmware',view:'guest',legacy:'vmware',title:'Prepare and fix up',subtitle:'Record the machine\'s settings before the move and fix it up after it starts on the new platform, without installing anything in it.',runs:'the Hyper-V host or your admin computer, reaching the machine from outside (nothing installed in it); or inside the machine as a fallback.'},
     compare:{tab:'migration',pane:'tabVmware',view:'compare',legacy:'vmware',title:'Compare before and after',subtitle:'Compare the inventory collected before the move with the one collected after it.',runs:'any computer with both inventory packages.'}
   };
   // Which systems each tool and way of moving works with. One table drives
@@ -1595,18 +1628,18 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   // flow is the guide flow whose steps the mode follows; card puts the mode
   // on its tool's card; prefer marks it as the guide's recommendation.
   var migrationModes=[
-    {id:'movevms',tool:'movevms',card:true,name:'Move VMs',from:['vmware','hyperv'],to:['hyperv','scale','nutanix','proxmox','physical'],agent:'agentless',live:'live',fromText:'VMware (vCenter or ESXi) or Hyper-V VMs',note:'Nothing installed in the VM. Copies while it runs; the guest shuts down only at cutover.'},
-    {id:'onevmhv',tool:'movevms',name:'Move VMs from one console',from:['vmware'],to:['hyperv'],agent:'agentless',live:'live',fromText:'VMware VMs on vCenter Server or ESXi 6.5 to 8.0',toText:'a remote Hyper-V host or failover cluster (Windows Server 2012 R2 to 2025, Hyper-V Server 2012 R2 to 2019)',note:'Run from your admin computer: it connects to vCenter and to the Hyper-V host over PowerShell remoting, writes the disks onto the node (a Cluster Shared Volume on a cluster) and creates the VM there, highly available if you ask. Nothing is installed on the host.'},
-    {id:'replicate',tool:'replicate',card:true,name:'Replicate servers',flow:'server',from:['server','vmware','hyperv'],to:['hyperv','scale','nutanix','proxmox','physical'],agent:'agent',live:'live',fromText:'Any running Windows Server or Linux server, physical or a VM on any hypervisor',note:'An agent on the source keeps the copy minutes behind until a cutover you schedule.'},
-    {id:'sendbyhand',tool:'diskcopy',card:true,name:'Send disks by hand',from:['server','vmware','hyperv'],to:['hyperv','scale','nutanix','proxmox','physical'],agent:'inguest',live:'live',fromText:'A running Windows computer, physical or virtual',note:'Run this application inside the source and send; send again for the changes. No service installed.'},
-    {id:'convert',tool:'convert',card:true,name:'Convert disk images',flow:'image',from:['image','vmware','hyperv','server'],to:['hyperv','vsphere','scale','nutanix','proxmox'],agent:'agentless',live:'offline',fromText:'VMDK, VHD, VHDX, qcow2 or raw files from a VM that is shut down or exported, or this computer\'s own disks (P2V)',note:'Reads the files only. The source must not change while it is read.'},
-    {id:'shares',tool:'shares',card:true,name:'Move file shares',from:['shares'],to:['fileserver'],agent:'agentless',live:'live',fromText:'Windows file server shares, files and permissions',toText:'a new Windows file server',note:'Copies while users keep working; the shares move at cutover.'}
+    {id:'movevms',when:'you move VMware or Hyper-V VMs and want nothing installed in them: the hypervisor\'s own snapshot or checkpoint copies the disks while they run, and the IP settings come from vCenter.',tool:'movevms',card:true,name:'Move VMs',from:['vmware','hyperv'],to:['hyperv','scale','nutanix','proxmox','physical'],agent:'agentless',live:'live',fromText:'VMware (vCenter or ESXi) or Hyper-V VMs',note:'Nothing installed in the VM. Copies while it runs; the guest shuts down only at cutover.'},
+    {id:'onevmhv',when:'you work from an admin computer and the VM goes to a Hyper-V host or failover cluster you reach with PowerShell remoting.',tool:'movevms',name:'Move VMs from one console',from:['vmware'],to:['hyperv'],agent:'agentless',live:'live',fromText:'VMware VMs on vCenter Server or ESXi 6.5 to 8.0',toText:'a remote Hyper-V host or failover cluster (Windows Server 2012 R2 to 2025, Hyper-V Server 2012 R2 to 2019)',note:'Run from your admin computer: it connects to vCenter and to the Hyper-V host over PowerShell remoting, writes the disks onto the node (a Cluster Shared Volume on a cluster) and creates the VM there, highly available if you ask. Nothing is installed on the host.'},
+    {id:'replicate',when:'the source is a physical server, a VM on another hypervisor or a VM with encrypted disks, or the copy must stay minutes behind for days until a scheduled cutover.',tool:'replicate',card:true,name:'Replicate servers',flow:'server',from:['server','vmware','hyperv'],to:['hyperv','scale','nutanix','proxmox','physical'],agent:'agent',live:'live',fromText:'Any running Windows Server or Linux server, physical or a VM on any hypervisor',note:'An agent on the source keeps the copy minutes behind until a cutover you schedule.'},
+    {id:'sendbyhand',when:'you want a one-off copy of a running Windows computer without installing a service: run this application inside it and send.',tool:'diskcopy',card:true,name:'Send disks by hand',from:['server','vmware','hyperv'],to:['hyperv','scale','nutanix','proxmox','physical'],agent:'inguest',live:'live',fromText:'A running Windows computer, physical or virtual',note:'Run this application inside the source and send; send again for the changes. No service installed.'},
+    {id:'convert',when:'the VM is shut down or exported and you have its disk files, or to copy this computer\'s own disks (P2V).',tool:'convert',card:true,name:'Convert disk images',flow:'image',from:['image','vmware','hyperv','server'],to:['hyperv','vsphere','scale','nutanix','proxmox'],agent:'agentless',live:'offline',fromText:'VMDK, VHD, VHDX, qcow2 or raw files from a VM that is shut down or exported, or this computer\'s own disks (P2V)',note:'Reads the files only. The source must not change while it is read.'},
+    {id:'shares',when:'only the file shares, files and permissions move to a new file server, not the whole server.',tool:'shares',card:true,name:'Move file shares',from:['shares'],to:['fileserver'],agent:'agentless',live:'live',fromText:'Windows file server shares, files and permissions',toText:'a new Windows file server',note:'Copies while users keep working; the shares move at cutover.'}
   ];
   var toolSupport={
     environment:{works:'VMware vCenter or ESXi and Hyper-V hosts or clusters',tags:['readonly']},
     plan:{works:'Inventories read from VMware or Hyper-V, for every target',tags:['readonly']},
     failover:{works:'Copies received on a Hyper-V host from Move VMs, Replicate servers or Send',tags:['hyperv']},
-    guest:{works:'Windows Server 2008 R2 and later, and Windows clients, on any platform',tags:['inguest']},
+    guest:{works:'Windows Server 2008 R2 and later, and Windows clients, on any platform: from vCenter, PowerShell Direct, PowerShell remoting, or inside the machine as a fallback',tags:['agentless']},
     compare:{works:'Two inventories collected by this application',tags:['readonly']}
   };
   var modeTargetNames={hyperv:'Hyper-V',scale:'Scale HyperCore',nutanix:'Nutanix AHV',proxmox:'Proxmox VE',physical:'a physical server',vsphere:'VMware ESXi or vCenter',fileserver:'a new Windows file server'};
@@ -1616,10 +1649,11 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   function modeTags(tags){var box=el('span','tool-tags');tags.forEach(function(t){if(t){box.appendChild(el('span','tool-tag '+t,modeTagNames[t]||t));}});return box;}
   function toolWorksOf(id){
     var m=migrationModes.filter(function(x){return x.tool===id&&x.card;})[0];
-    if(m){return {works:modeWorksText(m),tags:[m.agent,m.live]};}
+    if(m){return {works:modeWorksText(m),tags:[m.agent,m.live],when:m.when};}
     return toolSupport[id]||null;
   }
   function toolWorksLine(info){var line=el('span','tool-works');line.appendChild(el('b','','Works with'));line.appendChild(document.createTextNode(' '+info.works));return line;}
+  function toolWhenLine(when){var line=el('span','tool-when');line.appendChild(el('b','','Pick this when'));line.appendChild(document.createTextNode(' '+when));return line;}
   (function(){
     var items=document.querySelectorAll('.tool-item[data-tool]');
     for(var i=0;i<items.length;i++){var info=toolWorksOf(items[i].getAttribute('data-tool'));if(!info){continue;}var runs=items[i].querySelector('.tool-runs');items[i].insertBefore(toolWorksLine(info),runs);items[i].insertBefore(modeTags(info.tags),runs);}
@@ -1628,7 +1662,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     var t=tools[id],pane=t&&byId(t.pane),head=pane&&pane.querySelector('.card-header>div');if(!head){return;}
     var box=head.querySelector('.tool-pane-works');if(!box){box=el('div','tool-pane-works');box.id='toolWorks-'+t.pane;head.appendChild(box);}
     box.textContent='';var info=toolWorksOf(id);box.classList.toggle('hidden',!info);if(!info){return;}
-    box.appendChild(toolWorksLine(info));box.appendChild(modeTags(info.tags));
+    box.appendChild(toolWorksLine(info));if(info.when){box.appendChild(toolWhenLine(info.when));}box.appendChild(modeTags(info.tags));
   }
   var activeTool={discovery:'server',migration:'guide'},activeTop='discovery';
   // Old tab names still work: they open the tool that holds that content.
@@ -2335,12 +2369,13 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     // host or cluster it is connected to (Move VMs, Another Hyper-V host).
     if(src==='vmware'&&c.hvr&&!c.hv){return gdOk('Connected from this computer ('+c.computer+') to Hyper-V host '+c.hvr.computer+(c.hvr.cluster?' in failover cluster '+c.hvr.cluster:'')+'.');}
     if(c.hv){return gdOk('This computer ('+c.computer+') is a Hyper-V host'+(c.admin?'':', but this application is not running as administrator')+'.');}
-    return gdBlock('This computer ('+c.computer+') is not a Hyper-V host. Run this application on the Hyper-V host that will run the VM'+(src==='vmware'?', or connect to the Hyper-V host or cluster from here: Move VMs, select the VM, Another Hyper-V host or cluster.':': the copy is written there and the VM is created there.'));
+    var hb=gdBlock('This computer ('+c.computer+') is not a Hyper-V host. Run this application on the Hyper-V host that will run the VM'+(src==='vmware'?', or connect to the Hyper-V host or cluster from here: Move VMs, select the VM, Another Hyper-V host or cluster.':': the copy is written there and the VM is created there.'));
+    if(src==='vmware'){hb.fix={kind:'tool',tool:'movevms',label:'Connect to a Hyper-V host from here',text:'Or stay on this computer:'};}return hb;
   }
   function gdMoveCheck(c,src,tgt){
     if(!c.inv||c.invType!==src){return gdBlock('Read the '+(src==='hyperv'?'Hyper-V host':'vCenter or ESXi server')+' in this session first (step 1).');}
     if(tgt==='hyperv'){var host=gdHostCheck(c,src);if(host.s!=='ok'){return host;}}
-    if(src==='vmware'&&!c.v.canPrepare){return gdBlock('Read vCenter or ESXi again in this session with its password: copying needs the live connection, and a saved inventory has none.');}
+    if(src==='vmware'&&!c.v.canPrepare){var b=gdBlock('This application does not hold the vCenter password in this session (it keeps it in memory only), and copying needs the live connection.');b.fix={kind:'vcpass'};return b;}
     var last=c.v.move;return last&&last.vm?gdOk('Last: '+last.vm+(last.hyperVId?', created on Hyper-V.':', disks copied.')):gdInfo('Select a VM in Move VMs and use its Move section.');
   }
   function gdTargetCheck(c,tgt){
@@ -2373,6 +2408,8 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     return gdInfo((store.vhdPath?'The default is the host\'s virtual hard disk folder, '+store.vhdPath+'. ':'')+(store.clustered?'This host is in a failover cluster: choose a folder on a Cluster Shared Volume. ':'')+(vols.length?'Free: '+vols.map(function(vol){return vol.path+' '+formatBytesShort(vol.freeBytes);}).join(', ')+'.':''));
   }
   function gdClusterCheck(c){var hv=c.v.move&&c.v.move.hyperV;var cr=hv&&hv.clusterResult;if(!cr){return gdInfo('Tick Make it highly available in the failover cluster before the cutover, or add the VM in Failover Cluster Manager afterwards.');}return cr.indexOf('CLUSTER-ROLE-ADDED')===0?gdOk('The last VM was made highly available.'):gdWarn('Not added: '+cr.replace(/^CLUSTER-ROLE-FAILED\s*/,'')+' Add it in Failover Cluster Manager (Roles, Configure Role, Virtual Machine).');}
+  function gdBitLockerCheck(c){var t=c.v.guestTarget||{};return t.mode==='winrm'?gdInfo('Prepare and fix up reaches '+t.label+' over the network.'):gdInfo('Optional. Tick Done or skip it with Next.');}
+  function gdFixupCheck(c){var t=c.v.guestTarget||{},m=c.v.move;if(t.mode&&t.mode!=='local'){return vmGuest&&vmGuest.State?gdOk('Reading '+t.label+' through '+(t.mode==='winrm'?'PowerShell remoting':'PowerShell Direct')+'. Open it for what needs fixing.'):gdInfo('Prepare and fix up is set to '+t.label+'. Choose Check what needs fixing there.');}return gdInfo(m&&m.hyperVId?'The new VM '+m.vm+' exists. Open Prepare and fix up, which is filled in for it.':'After the cutover.');}
   function gdCutCheck(c){return c.rp.cutOver?gdOk(vmPlural(c.rp.cutOver,'job')+' cut over.'):gdInfo('Not cut over yet.');}
   function gdAdminCheck(c,where){return c.admin?gdInfo('Run it '+where+', as administrator. This computer is '+c.computer+'.'):gdWarn('This application is not running as administrator here ('+c.computer+'). Run it '+where+' as administrator.');}
   function gdConvertCheck(c){var info=c.conv.info;return info?gdOk('Checked '+String(info.path||'').split('\\').pop()+': '+(info.formatName||info.format)+', '+formatBytesShort(info.virtualSize||0)+'.'):gdInfo('Choose the disk in Convert disk images and Check disk.');}
@@ -2380,17 +2417,20 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   function gdSharesCheck(c){var m=c.mig;if(!c.admin){return gdBlock('Run this application as administrator on the new file server. This computer is '+c.computer+'.');}return m.discovery?gdOk('Connected to '+(m.source||'the old server')+': '+vmArr(m.discovery.shares).length+' share(s).'):gdInfo('This computer ('+c.computer+') must be the new file server.');}
   function gdSharesCopy(c){var m=c.mig;return m.canCutover?gdOk('Copied; ready to cut over.'):(m.prechecked?gdInfo('Checked; copy next.'):gdInfo('Connect and choose shares first.'));}
   function gdSteps(src,tgt){
-    var T=gdTargetNames[tgt]||'',steps=[],kvm=tgt==='scale'||tgt==='nutanix'||tgt==='proxmox';
+    var T=gdTargetNames[tgt]||'',steps=[],kvm=tgt==='scale'||tgt==='nutanix'||tgt==='proxmox',c0=gdCtx();
     var S=function(title,where,text,check,tool,extra){var o={title:title,where:where,text:text,check:check,tool:tool};if(extra){for(var k in extra){o[k]=extra[k];}}steps.push(o);};
-    var record=function(){S('Record the VM\'s settings','inside','Copy this application into the VM and run it as administrator: Prepare and fix up, Record settings. It saves the IP settings, disks and running services so the new machine can be checked and fixed against them. For a virtual TPM or BitLocker, Save keys and suspend there too.'+(kvm?' Install the VirtIO drivers in Windows now (virtio-win), while it still runs on the old platform.':''),null,'guest',{manual:true,openLabel:'Open Prepare and fix up'});};
-    var fixup=function(){S('Fix up the new machine','newinside','Run this application as administrator inside the new machine: Prepare and fix up, Check what needs fixing. Put back the IP settings, remove VMware Tools and hidden old adapters, bring offline disks online, and activate Windows the way its license needs (KMS and AD activate on the network, MAK uses a count, OEM does not move, AVMA on a Datacenter Hyper-V host).',null,'guest',{manual:true});};
-    var compare=function(){S('Check nothing was lost','any','Collect an inventory inside the new machine (Discovery, This server) and compare it with one collected before the move.',null,'compare',{manual:true});};
+    // Nothing runs inside the VM being moved: Move VMs records its IP
+    // settings from vCenter before each copy, and the fix-up reaches the new
+    // VM from its Hyper-V host through PowerShell Direct.
+    var record=function(src){S('Save BitLocker keys (only with BitLocker or a virtual TPM)','admin','Skip this unless BitLocker is on inside the VM, which a virtual TPM usually means. Nothing is installed in the VM: open Prepare and fix up, choose A computer over the network, type the VM\'s name and an administrator account, then Save keys and suspend. The keys come back to this computer. Without this, have the recovery keys from Active Directory or Intune ready for the first start. The IP settings need no step here: '+(src==='vmware'?'Move VMs records them from vCenter before each copy.':'the fix-up reads them on the new VM.')+(kvm?' For '+T+', install the VirtIO drivers (virtio-win) in Windows before the cutover.':''),gdBitLockerCheck,'guest',{manual:true,optional:!kvm,openLabel:'Open Prepare and fix up',preset:'source'});};
+    var fixup=function(onHost){S('Fix up the new machine',onHost?'hvhost':'admin',(onHost?'Nothing to install in the new VM. Open Prepare and fix up, choose A VM on '+(src==='vmware'?'this Hyper-V host (or the connected Hyper-V host when you moved it from an admin computer)':'this Hyper-V host')+', type the new VM\'s name and an administrator account of Windows inside it, and Use this machine. PowerShell Direct reaches it with no network. ':'From your admin computer, open Prepare and fix up, choose A computer over the network and type the new machine\'s name or address and an administrator account; or, as a fallback, run this application inside it. ')+'Check what needs fixing, then put back the IP settings, remove VMware Tools and hidden old adapters, bring offline disks online, and activate Windows the way its licence needs (KMS and AD activate on the network, MAK uses a count, OEM does not move, AVMA on a Datacenter Hyper-V host).',gdFixupCheck,'guest',{manual:true,openLabel:'Open Prepare and fix up',preset:onHost?'newvm':'network'});};
+    var compare=function(){S('Compare before and after','any','Collect an inventory of the machine before and after the move (Discovery, This server) and compare the two. Most useful for servers with many roles.',null,'compare',{manual:true,optional:true});};
     if(src==='vmware'||src==='hyperv'){
       var from=src==='vmware'?'vCenter or ESXi':'the Hyper-V host that runs the VM',onHost=tgt==='hyperv',where=onHost?'hvhost':'admin';
       S('Read '+from,where,(onHost?'On the new Hyper-V host, run this application as administrator'+(src==='vmware'?' (or on your admin computer: Move VMs can connect to a remote Hyper-V host or failover cluster over PowerShell remoting and create the VM there)':'')+'. ':'On your admin computer or a jump box that reaches '+(src==='vmware'?'vCenter':'the Hyper-V host')+' and '+T+'. ')+'Open Discovery, VMware and Hyper-V, and read '+(src==='vmware'?'vCenter or ESXi with an account that may snapshot, and its password: the password stays in memory only and the move needs it':'the source Hyper-V host (leave the host empty if it is this computer)')+'.',function(c){var r=gdReadCheck(c,src);if(onHost&&r.s==='ok'&&!c.hv&&!(src==='vmware'&&c.hvr)){return gdWarn(r.t+' But this computer is not a Hyper-V host: do this on the Hyper-V host so the move can run here'+(src==='vmware'?', or connect to the Hyper-V host or cluster from Move VMs (Another Hyper-V host or cluster).':'.'));}return r;},'environment',{openLabel:'Open VMware and Hyper-V'});
       S('Check readiness','any','Each VM is checked for '+T+': operating system support, snapshots, disks, encryption, drivers. Fix anything Blocked before moving it; Review first lists what to check.',function(c){return gdReadinessCheck(c,src,tgt);},'environment',{openLabel:'Open readiness'});
-      S('Plan the waves and write the runbook',onHost?'any':'admin','Map each network to its new network and VLAN, put VMs in waves and write the runbook (HTML and Word), which lists every step per VM with tick boxes.',gdPlanCheck,'plan');
-      record();
+      S('Plan waves and write a runbook',onHost?'any':'admin','For many VMs: map each network to its new network and VLAN, put VMs in waves and write the runbook (HTML and Word), which lists every step per VM with tick boxes. For one VM, skip it: Move VMs uses the same network names.',gdPlanCheck,'plan',{optional:true});
+      record(src);
       if(onHost){
         S('Choose where the VM\'s files go','hvhost','The copied disks become the new VM\'s disks, so they go on the storage the VM will run from. The default is the host\'s virtual hard disk folder. In a failover cluster, choose a Cluster Shared Volume (C:\\ClusterStorage\\...) for both the disks and the VM folder: the VM\'s Move section offers each volume with its free space and refuses a copy that does not fit.',function(c){return gdStorageCheck(c,src);},'movevms',{openLabel:'Open Move VMs'});
         S('Copy the disks while the VM runs','hvhost','In Move VMs, select the VM, then Copy disks (type its name). '+(src==='vmware'?'A snapshot of this application\'s own is taken and removed; changed block tracking makes later copies quick.':'A checkpoint of this application\'s own is taken on the source host and removed afterwards.')+' Each disk becomes a VHDX file on this host. Copy again as often as you like: only what changed is sent.',function(c){return gdMoveCheck(c,src,tgt);},'movevms');
@@ -2406,10 +2446,10 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
         S('Copy the disks while the VM runs','admin','In the VM\'s Move section, type the receiver\'s address, thumbprint and pairing code from the new machine\'s console and Copy (type the VM\'s name). Copy again as often as you like: only what changed is sent.',function(c){return gdMoveCheck(c,src,tgt);},'movevms');
         S('Cut over','admin','Cut over (type the VM\'s name): the guest is shut down cleanly, the last changes are copied and verified'+(tgt==='physical'?'. Then on the new server stop the receiver, remove the media and start it from its own disk.':', and the new VM is switched to start from its disk and started.')+' The old VM stays off and unchanged.',function(c){return gdMoveCheck(c,src,tgt);},'movevms',{manual:true});
       }
-      if(onHost){S('Make it highly available (failover cluster only)','hvhost','Only when the host is in a failover cluster: tick Make it highly available before the cutover, and the VM is added as a clustered role once it is created. Skip this step on a standalone host.',gdClusterCheck,'movevms',{manual:true});}
-      fixup();compare();
+      if(onHost){S('Make it highly available (failover cluster only)','hvhost','Only when the host is in a failover cluster: tick Make it highly available before the cutover, and the VM is added as a clustered role once it is created. Skip this step on a standalone host.',gdClusterCheck,'movevms',{manual:true,optional:!(c0.hvr&&c0.hvr.cluster)&&!(c0.v.hostStorage&&c0.v.hostStorage.clustered)});}
+      fixup(onHost);compare();
     } else if(src==='server'){
-      S('Record the server\'s settings','source','On the server being moved, run this application as administrator: Discovery, This server (a full inventory), and for Windows, Prepare and fix up, Record settings.'+(kvm?' Install the VirtIO drivers now (virtio-win).':''),null,'guest',{manual:true});
+      S('Record the server\'s settings (optional)','admin','From your admin computer: Prepare and fix up, A computer over the network, type the server\'s name and an administrator account, then Record settings (IP settings, disks, services, activation) and, with BitLocker on, Save keys and suspend. Nothing is installed for this; the agent records the server\'s processors, memory and adapters by itself.'+(kvm?' Install the VirtIO drivers on the server now (virtio-win).':''),null,'guest',{manual:true,optional:!kvm,preset:'network'});
       if(tgt==='hyperv'){
         S('Choose where the copies go','hvhost','On the Hyper-V host, the receiver saves VHDX files in the host\'s virtual hard disk folder unless you choose another. They become the VM\'s disks, so choose the storage it will run from: a Cluster Shared Volume in a failover cluster. The folder needs room for every disk of the server.',gdReceiveSpace,'diskcopy',{focus:'receive',openLabel:'Open Receive'});
         S('Start a receiver on the Hyper-V host','hvhost','On the Hyper-V host, run this application as administrator: Receive and send disks, Start receiving. Use Copy all to copy its address, thumbprint and pairing code; paste them into the job on the console.',gdReceiveCheck,'diskcopy',{focus:'receive',openLabel:'Open Receive'});
@@ -2424,13 +2464,13 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       S('Test failover',tgt==='hyperv'?'hvhost':'admin',tgt==='hyperv'?'On the Hyper-V host: Start VMs from copies. The finished disks are ticked, the VM is named NAME-TEST and sized from the source; choose Create the VM. It runs on differencing disks with no network, so the copies stay untouched. Follow the checklist that appears (Windows shows not activated while isolated: expected, do not activate it), then End test; replication catches up by itself.':'In the job\'s details, Test failover on the target platform: the receiver VM is cloned, the clone is isolated from the network and started, and deleted when the test ends.'+(tgt==='physical'?' (Not available for a physical server: test after cutover.)':''),null,tgt==='hyperv'?'failover':'replicate',{manual:true});
       S('Cut over','admin','In the job\'s details, Cut over now or schedule it (type the job name). The listed services stop, the last changes are sent and verified, and the server shuts down if you chose so. If any step fails, the services start again and replication carries on.',gdCutCheck,'replicate');
       S(tgt==='hyperv'?'Start the production VM':'Start the new machine from its disk',tgt==='hyperv'?'hvhost':(tgt==='physical'?'console':'platform'),tgt==='hyperv'?'On the Hyper-V host: Start VMs from copies, Production (available once the job says Cut over). It is built with the source\'s processors, memory, firmware and network adapters, and runs from the copies themselves; in a failover cluster tick Make it highly available.':'Stop the receiver, remove the media, set the machine to start from its first disk and start it.',null,tgt==='hyperv'?'failover':null,{manual:true});
-      fixup();compare();
+      fixup(tgt==='hyperv');compare();
     } else if(src==='image'){
       S('Shut down the source and reach its disk files','any','A disk image must not change while it is read: shut the VM down, or export it. The files can be on this computer or a network share.',null,null,{manual:true});
       S('Check the disk','any','In Convert disk images, choose the disk (or This computer for a physical disk) and Check disk: format, size, data to copy, and whether it starts with UEFI or BIOS. Snapshot chains and differencing disks are merged.',gdConvertCheck,'convert');
       if(tgt!=='vsphere'&&tgt!=='hyperv'){S('Fix up Windows for '+T,'any','For a Windows disk, convert to VHDX first, then Prepare a Windows disk for its new platform: add the VirtIO drivers and make them start at boot. Undo puts every value back.',null,'convert',{manual:true,focus:'fix'});}
       S('Send it to '+T+' and create the VM',tgt==='hyperv'?'hvhost':'any','Send to a host and create the VM converts the disk to '+T+'\'s format, uploads it and creates a new VM (an image or VM name already used stops it first).'+(tgt==='hyperv'?' For Hyper-V this runs on the Hyper-V host itself.':'')+' Or Convert only, and import the file yourself.',function(c){if(tgt==='hyperv'&&!c.hv){return gdBlock('This computer ('+c.computer+') is not a Hyper-V host. Do this step on the Hyper-V host, or Convert only and copy the VHDX there.');}return gdConvertDone(c);},'convert',{focus:'send',manual:true});
-      fixup();
+      fixup(tgt==='hyperv');
     } else if(src==='shares'){
       S('Run this on the new file server','fileserver','Copy this application to the new Windows file server and run it as administrator. The old server is only read until you choose an optional step at the end.',function(c){return c.admin?gdInfo('This computer is '+c.computer+'. It must be the new file server.'):gdBlock('Not running as administrator here ('+c.computer+').');},'shares');
       S('Connect to the old server and choose shares','fileserver','Type the old server\'s name and Connect. Every share is listed with its permissions; system shares start unticked. Choose where each one goes on this server.',gdSharesCheck,'shares');
@@ -2470,29 +2510,75 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       var comps=byId('gdComputers');comps.textContent='';comps.appendChild(el('span','gd-pick-title','Computers involved: '));
       gdComputers(gdStepsNow).forEach(function(w){var chip=el('span','gd-computer');chip.appendChild(el('b','',gdWhereNames[w]));comps.appendChild(chip);});
       var list=byId('gdSteps');list.textContent='';
+      if(gdCurrentFlow!==gdFlowKey){gdCurrentFlow=gdFlowKey;gdCurrent=-1;}
       gdStepsNow.forEach(function(step,i){
-        var li=el('li','gd-step');li.setAttribute('data-gd-step',String(i));
+        var li=el('li','gd-step'+(step.optional?' optional':''));li.setAttribute('data-gd-step',String(i));
         li.appendChild(el('span','gd-num',String(i+1)));
-        var head=el('div','gd-head');head.appendChild(el('strong','',step.title));head.appendChild(el('span','gd-where',gdWhereNames[step.where]));li.appendChild(head);
-        li.appendChild(el('div','gd-text',step.text));
+        var head=el('div','gd-head');head.appendChild(el('strong','',step.title));head.appendChild(el('span','gd-where',gdWhereNames[step.where]));if(step.optional){head.appendChild(el('span','gd-opt','Optional'));}li.appendChild(head);
         var check=el('div','gd-check');check.setAttribute('data-gd-check','');li.appendChild(check);
+        li.appendChild(el('div','gd-text',step.text));
+        var fix=el('div','gd-fix hidden');fix.setAttribute('data-gd-fix','');li.appendChild(fix);
         var actions=el('div','gd-actions');
-        if(step.tool){var open=el('button','secondary-button',step.openLabel||('Open '+gdToolName(step.tool)));open.type='button';open.setAttribute('data-gd-open',String(i));open.addEventListener('click',function(){gdOpen(step);});actions.appendChild(open);}
-        if(step.manual||!step.check){var lab=el('label','gd-done'),box=document.createElement('input');box.type='checkbox';box.setAttribute('data-gd-tick',String(i));box.checked=!!gdTicks[i];box.addEventListener('change',function(){if(box.checked){gdTicks[i]=1;}else{delete gdTicks[i];}gdStore('simm.guide.ticks.'+gdFlowKey,JSON.stringify(gdTicks));renderGuide(false);});lab.appendChild(box);lab.appendChild(document.createTextNode('Done'));actions.appendChild(lab);}
-        li.appendChild(actions);list.appendChild(li);
+        if(step.tool){var open=el('button','secondary-button',step.openLabel||('Open '+gdToolName(step.tool)));open.type='button';open.setAttribute('data-gd-open',String(i));open.addEventListener('click',function(e){e.stopPropagation();gdOpen(step);});actions.appendChild(open);}
+        if(step.manual||!step.check){var lab=el('label','gd-done'),box=document.createElement('input');box.type='checkbox';box.setAttribute('data-gd-tick',String(i));box.checked=!!gdTicks[i];box.addEventListener('change',function(){gdSetTick(i,box.checked);renderGuide(false);});lab.appendChild(box);lab.appendChild(document.createTextNode('Done'));actions.appendChild(lab);}
+        li.appendChild(actions);
+        var nav=el('div','gd-nav');
+        var back=el('button','secondary-button','Back');back.type='button';back.setAttribute('data-gd-back','');back.disabled=i===0;back.addEventListener('click',function(e){e.stopPropagation();gdCurrent=Math.max(0,i-1);renderGuide(false);});nav.appendChild(back);
+        if(i<gdStepsNow.length-1){var next=el('button','primary-button','Next step');next.type='button';next.setAttribute('data-gd-next','');next.addEventListener('click',function(e){e.stopPropagation();gdNext(i);});nav.appendChild(next);}
+        li.appendChild(nav);
+        li.addEventListener('click',function(e){if(e.target.closest('input,button,select,a,label')||li.classList.contains('current')){return;}gdCurrent=i;renderGuide(false);var top=li.getBoundingClientRect().top;if((top<0||top>window.innerHeight-80)&&li.scrollIntoView){li.scrollIntoView({block:'nearest'});}});
+        list.appendChild(li);
       });
     }
-    var done=0;
+    var done=0,required=0,requiredDone=0,results=[];
+    gdStepsNow.forEach(function(step,i){
+      var r=step.check?step.check(c):gdInfo(step.optional?'Optional. Tick Done, or skip it with Next step.':(step.tool?'Tick Done when finished.':'Done outside this application. Tick Done when finished.'));
+      var isDone=!!gdTicks[i]||(r.s==='ok'&&!step.manual);results.push({r:r,done:isDone});
+      if(isDone){done++;}if(!step.optional){required++;if(isDone){requiredDone++;}}
+    });
+    if(gdCurrent<0||gdCurrent>=gdStepsNow.length){gdCurrent=0;for(var k=0;k<gdStepsNow.length;k++){if(!results[k].done&&!gdStepsNow[k].optional){gdCurrent=k;break;}if(k===gdStepsNow.length-1){gdCurrent=k;}}}
     gdStepsNow.forEach(function(step,i){
       var li=document.querySelector('[data-gd-step="'+i+'"]');if(!li){return;}
-      var r=step.check?step.check(c):gdInfo(step.tool?'Tick Done when finished.':'Done outside this application. Tick Done when finished.');
-      var ticked=!!gdTicks[i],isDone=ticked||(r.s==='ok'&&!step.manual);
-      if(isDone){done++;}
-      li.classList.toggle('done',isDone);li.classList.toggle('blocked',r.s==='block'&&!isDone);
+      var r=results[i].r,isDone=results[i].done;
+      li.classList.toggle('done',isDone);li.classList.toggle('blocked',r.s==='block'&&!isDone);li.classList.toggle('current',i===gdCurrent);
+      li.setAttribute('aria-current',i===gdCurrent?'step':'false');
       var check=li.querySelector('[data-gd-check]');check.className='gd-check '+r.s;check.textContent=r.t;
       var open=li.querySelector('[data-gd-open]');if(open){open.disabled=r.s==='block';open.title=r.s==='block'?r.t:'';}
+      var next=li.querySelector('[data-gd-next]');if(next){next.textContent=(step.manual||!step.check)&&!isDone&&!step.optional?'Done, next step':(step.optional&&!isDone?'Skip, next step':'Next step');}
+      gdRenderFix(li.querySelector('[data-gd-fix]'),i===gdCurrent&&r.s==='block'&&!isDone?r.fix:null,c);
     });
-    byId('gdProgress').textContent=gdStepsNow.length?done+' of '+gdStepsNow.length+' steps done':'';
+    var cur=gdStepsNow[gdCurrent];
+    byId('gdProgress').textContent=gdStepsNow.length?'Step '+(gdCurrent+1)+' of '+gdStepsNow.length+(cur?': '+cur.title:'')+'. '+requiredDone+' of '+required+' required steps done'+(done>requiredDone?', plus '+(done-requiredDone)+' optional':'')+'.':'';
+  }
+  var gdCurrent=-1,gdCurrentFlow='';
+  function gdSetTick(i,on){if(on){gdTicks[i]=1;}else{delete gdTicks[i];}gdStore('simm.guide.ticks.'+gdFlowKey,JSON.stringify(gdTicks));}
+  // Next: a manual step is ticked done (an optional one is just skipped),
+  // then the next step that still needs doing opens.
+  function gdNext(i){
+    var step=gdStepsNow[i];if(!step){return;}
+    if((step.manual||!step.check)&&!step.optional&&!gdTicks[i]){gdSetTick(i,true);}
+    gdCurrent=Math.min(gdStepsNow.length-1,i+1);renderGuide(false);
+    var li=document.querySelector('[data-gd-step="'+gdCurrent+'"]');if(li&&li.scrollIntoView){li.scrollIntoView({block:'nearest'});}
+  }
+  // A one-click way past a blocked step, inside the step itself.
+  function gdRenderFix(box,fix,c){
+    if(!box){return;}
+    var key=fix?fix.kind+'|'+(c.v.server||'')+'|'+(c.v.account||''):'';
+    if(box.getAttribute('data-key')===key){return;}
+    box.setAttribute('data-key',key);box.textContent='';box.classList.toggle('hidden',!fix);if(!fix){return;}
+    if(fix.kind==='vcpass'){
+      var server=c.v.server||(c.inv&&c.inv.server)||'',user=c.v.account||trimText(byId('vmUser').value);
+      if(!server||!user){box.appendChild(el('span','','Type the vCenter or ESXi server, account and password once in VMware and Hyper-V.'));var go=el('button','secondary-button','Open VMware and Hyper-V');go.type='button';go.addEventListener('click',function(){showTool('environment');});box.appendChild(go);return;}
+      box.appendChild(el('span','','Password for '+user+' on '+server+':'));
+      var pass=document.createElement('input');pass.type='password';pass.autocomplete='off';pass.setAttribute('data-gd-vcpass','');pass.setAttribute('aria-label','vCenter password');box.appendChild(pass);
+      var b=el('button','primary-button','Connect again');b.type='button';b.setAttribute('data-gd-vcconnect','');box.appendChild(b);
+      var st=el('span','migrate-inline-status');box.appendChild(st);
+      var go2=function(){if(!pass.value){st.textContent='Type the password.';st.className='migrate-inline-status error';pass.focus();return;}
+        vmPost('/api/vmware/connect',{server:server,user:user,password:pass.value},null,function(err){pass.value='';if(err){st.textContent=err;st.className='migrate-inline-status error';return;}st.textContent='Reading '+server+' again. This step clears when it finishes.';st.className='migrate-inline-status';vmMarkRunning('connect','connecting','Connecting to '+server+' as '+user+'.');});};
+      b.addEventListener('click',go2);pass.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();go2();}});
+      return;
+    }
+    if(fix.kind==='tool'){box.appendChild(el('span','',fix.text||''));var t=el('button','primary-button',fix.label);t.type='button';t.addEventListener('click',function(){showTool(fix.tool);});box.appendChild(t);}
   }
   // The ways of moving that fit the chosen source and target; the one whose
   // steps are shown is marked, and another opens its own steps or its tool.
@@ -2509,7 +2595,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     list.forEach(function(x){
       var m=x.mode,row=el('div','gd-mode'+(x.current?' current':''));row.setAttribute('data-gd-mode',m.id);
       var main=el('div','gd-mode-main');main.appendChild(el('strong','',m.name+(x.current&&list.length>1?' (the steps below)':'')));
-      main.appendChild(toolWorksLine({works:modeWorksText(m)}));main.appendChild(modeTags([m.agent,m.live]));if(m.note){main.appendChild(el('span','vm-note',m.note));}
+      if(m.when){main.appendChild(toolWhenLine(m.when));}main.appendChild(toolWorksLine({works:modeWorksText(m)}));main.appendChild(modeTags([m.agent,m.live]));if(m.note){main.appendChild(el('span','vm-note',m.note));}
       row.appendChild(main);
       if(!x.current){
         var flow=m.flow&&m.flow!==gdSource&&gdTargetsFor[m.flow]&&(m.flow==='shares'||gdTargetsFor[m.flow].indexOf(gdTarget)>=0)?m.flow:'';
@@ -2525,12 +2611,15 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   function gdOpen(step){
     if((gdSource==='vmware'||gdSource==='hyperv')&&tools[step.tool]&&tools[step.tool].pane==='tabVmware'&&gdTarget&&gdTarget!==vmTarget()&&!vmLocked()){changeVmTarget(gdTarget);byId('vmTargetSelect').value=gdTarget;}
     showTool(step.tool);
+    if(step.preset==='source'){var sel=vmInventory&&vmArr(vmInventory.vms).filter(function(m){return m.id===vmSelectedVM;})[0];if(sel){vmGuestTargetFor(sel);}else{vmGuestPreset({mode:'winrm',vm:'',computer:'',host:'',user:''});}}
+    else if(step.preset==='newvm'){var mv=latestState&&latestState.vmware&&latestState.vmware.move;vmGuestTargetNewVm(mv&&mv.vm||'');}
+    else if(step.preset==='network'){vmGuestPreset({mode:'winrm',vm:'',computer:'',host:'',user:''});}
     if(step.focus==='receive'){vmOpenReceiverSetup();}
     else if(step.focus==='media'){vmDiskRole='';setVmDiskRole('receive');if(gdTarget&&byId('vmMediaTarget').querySelector('option[value="'+gdTarget+'"]')){byId('vmMediaTarget').value=gdTarget;}var m=byId('vmMediaCard');if(m.scrollIntoView){m.scrollIntoView({block:'start'});}}
     else if(step.focus==='fix'){byId('cvFix').open=true;var ft=byId('cvFixTarget');if(ft.querySelector('option[value="'+gdTarget+'"]')){ft.value=gdTarget;ft.dispatchEvent(new Event('change'));}if(byId('cvFix').scrollIntoView){byId('cvFix').scrollIntoView({block:'start'});}}
     else if(step.focus==='send'){byId('cvSend').open=true;var sp=byId('cvSendPlatform');if(sp.querySelector('option[value="'+gdTarget+'"]')&&!sp.disabled){sp.value=gdTarget;sp.dispatchEvent(new Event('change'));}if(byId('cvSend').scrollIntoView){byId('cvSend').scrollIntoView({block:'start'});}}
   }
-  byId('gdReset').addEventListener('click',function(){gdTicks={};gdStore('simm.guide.ticks.'+gdFlowKey,'{}');renderGuide(true);});
+  byId('gdReset').addEventListener('click',function(){gdTicks={};gdCurrent=-1;gdStore('simm.guide.ticks.'+gdFlowKey,'{}');renderGuide(true);});
   byId('gdHere').addEventListener('click',function(e){var b=e.target.closest('[data-gd-fact]');if(!b){return;}var id=b.getAttribute('data-gd-fact');if(id==='admin'){notice(b.title,!(latestState&&latestState.isAdministrator));return;}showTool(id);if(id==='diskcopy'){setVmDiskRole('receive');}});
   // Badges on the tools that have no tab of their own, and on the two tool tabs.
   function renderToolBadges(state){
@@ -3313,8 +3402,8 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   function vmMachineWord(target){return target==='physical'?'server':(target==='aws'?'instance':'VM');}
   function vmRoleRows(target){
     var name=vmTargetName(target),word=vmMachineWord(target);
-    var source={key:'source',tag:'Being moved',where:'The VMware VM being moved',does:'Nothing has to be installed. Optional: run this application inside it as administrator to save BitLocker keys and record its IP settings (Prepare and fix up) before the move.',needs:'VMware Tools running, so the guest can be quiesced and shut down cleanly.'};
-    var after={key:'after',tag:'After the move',where:'The new '+word+', after it starts',does:'Run this application inside it as administrator (Prepare and fix up) to put back the IP settings, remove VMware Tools and hidden old adapters and bring disks online. Then collect again and compare (Compare before and after).',needs:'Its network and storage drivers, installed before the move.'};
+    var source={key:'source',tag:'Being moved',where:'The VMware VM being moved',does:'Nothing has to be installed or run in it. Its IP settings are recorded from vCenter before each copy. With BitLocker on, save its recovery keys from your admin computer over PowerShell remoting (Prepare and fix up) before the move.',needs:'VMware Tools running, so the guest can be quiesced and shut down cleanly.'};
+    var after={key:'after',tag:'After the move',where:'The new '+word+', after it starts',does:'Nothing has to be installed in it either: Prepare and fix up reaches it from the Hyper-V host through PowerShell Direct, or over the network with PowerShell remoting, to put back the IP settings, remove VMware Tools and hidden old adapters and bring disks online. Running this application inside it still works as a fallback. Then collect again and compare (Compare before and after).',needs:'Its network and storage drivers, installed before the move.'};
     if(target==='hyperv'){return [{key:'console',tag:'Runs the move',where:'The Hyper-V host that will run the VM',does:'Run this application here as administrator: read vCenter or ESXi (Discovery), plan, then Copy disks and Cut over in Move VMs. The disks are written here as VHDX files and the Hyper-V VM is created here. Or run it on your admin computer and connect to the Hyper-V host or failover cluster from Move VMs (PowerShell remoting): the disks are then written onto the chosen node and the VM is created there, highly available if asked.',needs:'The Hyper-V role and its PowerShell module, HTTPS access to vCenter and the ESXi hosts, and room for the disks. From an admin computer instead: PowerShell remoting (WinRM) to the host and an account that is an administrator on it.'},source,after];}
     if(vmReceiverTargets[target]){
       var physical=target==='physical';
@@ -3416,7 +3505,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     renderVmDiskCopy(state,v);renderVmRoles();renderVmMedia(v);renderVmMoveIntro();
     byId('vmGuestHere').textContent=vmComputer()?'This computer: '+vmComputer()+'.':'';
     var guestMessage=byId('vmGuestMessage');guestMessage.textContent=v.guestMessage||'';guestMessage.className='migrate-inline-status'+(v.guestError?' error':'');
-    byId('vmGuestAdmin').classList.toggle('hidden',!!state.isAdministrator);
+    renderVmGuestTarget();
     if(v.compareError&&!v.running){vmSetStatus('vmCompareStatus',v.compareError,true);}
     byId('vmOpenRunbook').classList.toggle('hidden',!v.runbookPath);byId('vmOpenRunbookDocx').classList.toggle('hidden',!v.runbookDocxPath);byId('vmOpenPlanCsv').classList.toggle('hidden',!v.planCsvPath);
     byId('vmOpenReport').classList.toggle('hidden',!v.reportPath);var disc=byId('vmOpenDiscovery');if(disc){disc.classList.toggle('hidden',!v.discoveryPath);}byId('vmOpenFolder').classList.toggle('hidden',!v.outputFolder);
@@ -3436,7 +3525,8 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     var hasPlan=!!(vmInventory&&vmPlan);
     byId('vmSavePlan').disabled=locked||!hasPlan;byId('vmSuggest').disabled=locked||!hasPlan;byId('vmWriteRunbook').disabled=locked||!hasPlan;
     byId('vmPlanDirtyNote').textContent=vmPlanDirty?'Unsaved changes.':'';
-    ['vmGuestCapture','vmGuestStatus'].forEach(function(id){byId(id).disabled=locked||!admin;});byId('vmGuestLoad').disabled=locked;
+    ['vmGuestCapture','vmGuestStatus'].forEach(function(id){byId(id).disabled=locked||(vmGuestNeedsAdmin()&&!admin);});byId('vmGuestLoad').disabled=locked;
+    byId('vmGuestUse').disabled=locked;byId('vmGuestForget').disabled=locked;byId('vmGuestVcenter').disabled=locked||!byId('vmGuestVcVm').value;
     syncVmGuestButtons();
     syncVmDiskButtons();
     byId('vmCompareBefore').disabled=locked;byId('vmCompareAfter').disabled=locked;byId('vmCompareUseLast').disabled=locked;
@@ -3822,7 +3912,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
         if(vmObjCurrentTab!=='readiness'){box.appendChild(vmActionButton('Check readiness','Everything to fix before moving '+vm.name+' to '+vmTargetName(vmTarget()),function(){vmShowTab('readiness');}));}
         if(movable){var go=vmActionButton('Move this VM','Prepare, copy and cut over '+vm.name+' in Migration and replication, Move VMs',function(){showTool('movevms');vmObjTab['vm-move']='move';renderVmDrawer(true,false);});go.id='vmMoveLinkButton';go.className='primary-button';box.appendChild(go);}
       }else if(vmToolId==='movevms'&&movable&&vm.source!=='hyperv'){
-        box.appendChild(vmActionButton('Prepare on VMware','Snapshots, virtual TPM and encryption for this VM',function(){vmObjTab['vm-move']='move';renderVmDrawer(true,false);var p=byId('vmDetail').querySelector('.vm-prepare');if(p){p.scrollIntoView({block:'start'});var first=p.querySelector('input,button');if(first){first.focus();}}}));
+        box.appendChild(vmActionButton('Prepare on VMware','Snapshots, virtual TPM and encryption for this VM',function(){vmGoPrepare(vm);}));
       }
       if(vmPlan&&vmArr(vmPlan.vms).some(function(p){return p.id===vm.id;})){box.appendChild(vmActionButton('Set its wave','Open this VM in Plan and runbook',function(){vmOpenPlanRow(vm);}));}
       if(v.reportPath){box.appendChild(vmActionButton('Readiness report','Open the readiness report for every VM',function(){openKind('vmwarereport');}));}
@@ -3916,6 +4006,22 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     var inputs=document.querySelectorAll('input[data-vm-wave]');
     for(var i=0;i<inputs.length;i++){if(inputs[i].getAttribute('data-vm-wave')===vm.id){if(inputs[i].scrollIntoView){inputs[i].scrollIntoView({block:'center'});}inputs[i].focus();return;}}
   }
+  // One-click ways out of a finding: open the tool that solves it.
+  function vmWaysOut(f,vm){
+    var list=[];
+    if(f.code==='encrypted'){
+      list.push(['Use Replicate servers instead','An agent inside Windows reads the disks already decrypted',function(){showTool('replicate');}]);
+      list.push(['Decrypt it: Prepare on VMware','Save BitLocker keys, shut down, remove the virtual TPM and decrypt, one VM at a time',function(){vmGoPrepare(vm);}]);
+    }
+    if(f.code==='vtpm'||f.code==='encrypted-home'||f.code==='encrypted'){list.push(['Save BitLocker keys','Prepare and fix up: save the recovery keys and suspend BitLocker, from this computer or inside the VM',function(){vmGuestTargetFor(vm);showTool('guest');}]);}
+    if(!list.length){return null;}
+    var row=el('div','vm-ways');list.forEach(function(w){var b=el('button','secondary-button',w[0]);b.type='button';b.title=w[1];b.addEventListener('click',w[2]);row.appendChild(b);});return row;
+  }
+  function vmGoPrepare(vm){
+    if(vmToolId!=='movevms'){showTool('movevms');}
+    vmObjTab['vm-move']='move';vmOpenDrawer({kind:'vm',id:vm.id},{focus:false});
+    setTimeout(function(){var d=byId('vmDetail'),p=d&&d.querySelector('.vm-prepare');if(p){if(p.scrollIntoView){p.scrollIntoView({block:'start'});}var first=p.querySelector('input,button');if(first){first.focus();}}},50);
+  }
   // ---- Pages: summary cards, then one tab each for the rest.
   function vmCard(parent,title,wide){var c=el('section','vm-card'+(wide?' vm-card-wide':'')),h=el('h4','');h.appendChild(el('span','',title));c.appendChild(h);parent.appendChild(c);return c;}
   function vmCards(parent){var g=el('div','vm-cards');parent.appendChild(g);return g;}
@@ -3939,7 +4045,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   }
   function vmFindingsList(vm,r,limit){
     var list=el('ul','vm-findings'),shown=0,findings=vmArr(r.findings).slice().sort(function(a,b){var o={blocker:0,warning:1,info:2};return (o[a.severity]||3)-(o[b.severity]||3);});
-    findings.forEach(function(f){if(limit&&shown>=limit){return;}shown++;var li=el('li',f.severity,f.message);if(f.action){li.appendChild(el('span','vm-finding-action',f.action));}if(typeof vmWaysOut==='function'){var ways=vmWaysOut(f,vm);if(ways){li.appendChild(ways);}}list.appendChild(li);});
+    findings.forEach(function(f){if(limit&&shown>=limit){return;}shown++;var li=el('li',f.severity,f.message);if(f.action){li.appendChild(el('span','vm-finding-action',f.action));}var ways=vmWaysOut(f,vm);if(ways){li.appendChild(ways);}list.appendChild(li);});
     if(!list.childNodes.length){list.appendChild(el('li','good',r.status==='skip'?'This VMware system VM is not moved.':'Nothing to fix before moving to '+vmTargetName(vmTarget())+'.'));}
     return {list:list,more:findings.length-shown};
   }
@@ -4372,13 +4478,21 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     else if(e.key===' '){e.preventDefault();vmInvSelect(li,true);}
   }
   function vmMatches(vm,query){if(!query){return true;}return [vm.name,vm.guestOs,vm.guestOsRunning,vm.host,vm.cluster,vm.folder,vm.ipAddress,vm.guestHostName].join(' ').toLowerCase().indexOf(query)>=0;}
+  // True when a VM's disks are (or may be) encrypted: older inventories do
+  // not say which disks are, so they count as encrypted.
+  function vmDisksEncrypted(vm){if(!vm||!vm.encrypted||vm.source==='hyperv'){return false;}if(!vm.encryptionRead){return true;}return vmArr(vm.disks).some(function(d){return d.encrypted;});}
+  // Every reason, worst first, so a Blocked row says why without opening it.
   function vmTopFinding(r){
-    if(r.status==='skip'){return 'VMware system VM, not moved.';}
-    var findings=vmArr(r.findings),order={blocker:0,warning:1,info:2},best=null;
-    findings.forEach(function(f){if(!best||order[f.severity]<order[best.severity]){best=f;}});
-    if(!best||best.severity==='info'){return 'Nothing to fix.';}
-    var more=findings.filter(function(f){return f.severity!=='info';}).length-1;
-    return best.message+(more>0?' (and '+more+' more)':'');
+    if(r.status==='skip'){return ['VMware system VM, not moved.'];}
+    var order={blocker:0,warning:1},list=vmArr(r.findings).filter(function(f){return f.severity!=='info';});
+    if(!list.length){return ['Nothing to fix.'];}
+    list.sort(function(a,b){return order[a.severity]-order[b.severity];});
+    return list.map(function(f){return f.message;});
+  }
+  function vmFindingCell(r){
+    var cell=el('td','vm-reasons'),lines=vmTopFinding(r);
+    if(lines.length===1){cell.textContent=lines[0];return cell;}
+    var ul=el('ul','vm-reason-list');lines.forEach(function(t){ul.appendChild(el('li','',t));});cell.appendChild(ul);return cell;
   }
   function renderVmTable(){
     var body=byId('vmTableBody');body.textContent='';
@@ -4392,7 +4506,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       tr.appendChild(name);tr.appendChild(el('td','',vmPower(vm)));tr.appendChild(el('td','',vm.guestOsRunning||vm.guestOs||'Unknown'));
       tr.appendChild(el('td','',vm.cpus+' vCPU, '+formatBytesShort((Number(vm.memoryMb)||0)*1048576)));
       tr.appendChild(el('td','',formatBytesShort(vm.provisionedBytes)+(vmArr(vm.disks).length>1?' ('+vmArr(vm.disks).length+')':'')));
-      var status=el('td','');status.appendChild(vmChip(r.status));tr.appendChild(status);tr.appendChild(el('td','',vmTopFinding(r)));
+      var status=el('td','');status.appendChild(vmChip(r.status));tr.appendChild(status);tr.appendChild(vmFindingCell(r));
       fragment.appendChild(tr);
     });
     body.appendChild(fragment);
@@ -4698,11 +4812,14 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     if(last){var ul=el('ul','vm-findings');vmArr(last.done).forEach(function(t){ul.appendChild(el('li','good',t));});vmArr(last.skipped).forEach(function(t){ul.appendChild(el('li','',t));});if(v.prepareError){ul.appendChild(el('li','warning',v.prepareError));}if(ul.childNodes.length){section.appendChild(ul);}}
     if(!v.canPrepare){section.appendChild(el('div','migrate-help','To delete snapshots, remove the virtual TPM or decrypt this VM, read the inventory from vCenter or ESXi in this session (a saved inventory cannot change anything).'));box.appendChild(section);return;}
     section.appendChild(el('div','migrate-help','These steps change the VM in vSphere. Its current settings are saved first, and each step needs the VM\'s name typed to confirm.'));
-    var powered=vm.powerState==='poweredOn',steps=[
+    // A VM whose own files are encrypted only for its virtual TPM has plain
+    // disks that copy as they are, so nothing is ticked for it by default.
+    var powered=vm.powerState==='poweredOn',diskLocked=vmDisksEncrypted(vm),steps=[
       {key:'snapshots',label:'Delete all snapshots (consolidates them into the disks)',on:vmArr(vm.snapshots).length>0},
-      {key:'shutdown',label:'Shut down the guest through VMware Tools',on:powered&&(vm.vtpm||vm.encrypted)},
-      {key:'removeTpm',label:'Remove the virtual TPM',on:!!vm.vtpm},
-      {key:'decrypt',label:'Decrypt the VM and its disks',on:!!vm.encrypted}],boxes={};
+      {key:'shutdown',label:'Shut down the guest through VMware Tools',on:powered&&diskLocked},
+      {key:'removeTpm',label:'Remove the virtual TPM',on:!!vm.vtpm&&diskLocked},
+      {key:'decrypt',label:'Decrypt the VM and its disks',on:diskLocked}],boxes={};
+    if(vm.encrypted&&!diskLocked){section.appendChild(el('div','migrate-help','Only this VM\'s own files are encrypted (for its virtual TPM); its disks are plain and copy as they are, so it does not need decrypting. Save the BitLocker keys and suspend BitLocker before the cutover instead (Prepare and fix up).'));}
     steps.forEach(function(step){var label=el('label','vm-check'),input=document.createElement('input');input.type='checkbox';input.checked=step.on;input.setAttribute('data-vm-prepare',step.key);boxes[step.key]=input;label.appendChild(input);label.appendChild(el('span','',step.label));section.appendChild(label);});
     var button=el('button','secondary-button','Prepare VM\u2026');button.type='button';button.id='vmPrepareButton';button.disabled=vmLocked();
     button.addEventListener('click',function(){
@@ -4841,6 +4958,50 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     var row=el('label','vm-check'),box=document.createElement('input');box.type='checkbox';box.checked=!!checked;box.setAttribute(attr,value);box.addEventListener('change',function(){onChange(box.checked);syncVmGuestButtons();});
     var text=el('span','',label);if(detail){text.appendChild(el('span','vm-sub',detail));}row.appendChild(box);row.appendChild(text);host.appendChild(row);
   }
+  // Which machine Prepare and fix up reads and changes. The form is the
+  // operator's choice until Use this machine sends it; the server holds the
+  // account in memory only.
+  var vmGuestForm=null,vmGuestFormTouched=false;
+  function vmGuestTargetState(){var v=vmwareState()||{};return v.guestTarget||{mode:'local',label:vmComputer()};}
+  function vmGuestNeedsAdmin(){var m=vmGuestTargetState().mode||'local';return m==='local'||m==='direct';}
+  function vmGuestHosts(){var v=vmwareState()||{},h=v.hvRemote,list=[];if(!(h&&h.connected&&h.info)){return list;}vmArr(h.info.nodes).forEach(function(n){if(n&&n.name){list.push(n.name);}});if(!list.length&&h.info.computer){list.push(h.info.computer);}return list;}
+  function vmGuestPreset(form){vmGuestForm=form;vmGuestFormTouched=true;renderVmGuestTarget(true);}
+  // From a VMware VM's details: before the move, over the network.
+  function vmGuestTargetFor(vm){if(!vm){return;}vmGuestPreset({mode:'winrm',vm:vm.name,computer:vm.guestHostName||vm.ipAddress||vm.name,host:'',user:''});}
+  // After a cutover: the new VM on its Hyper-V host, by PowerShell Direct.
+  function vmGuestTargetNewVm(name,host){var v=vmwareState()||{},hosts=vmGuestHosts();vmGuestPreset({mode:v.hyperVHere||!hosts.length?'direct':'hostdirect',vm:name||'',computer:'',host:host||hosts[0]||'',user:''});}
+  function renderVmGuestTarget(fill){
+    var t=vmGuestTargetState(),v=vmwareState()||{},admin=!!(latestState&&latestState.isAdministrator),hosts=vmGuestHosts();
+    if(!vmGuestForm||(!vmGuestFormTouched&&fill!==false)){vmGuestForm={mode:t.mode||'local',vm:t.vm||'',computer:t.computer||'',host:t.host||'',user:t.user||''};fill=true;}
+    var f=vmGuestForm,radios=document.querySelectorAll('input[name="vmGuestMode"]');
+    Array.prototype.forEach.call(radios,function(r){r.checked=r.value===f.mode;var off=(r.value==='hostdirect'&&!hosts.length),why=off?'Connect to the Hyper-V host or cluster first: Move VMs, select the VM, Another Hyper-V host or cluster.':(r.value==='direct'&&!v.hyperVHere?'This computer is not a Hyper-V host; this works only when this application runs on the host that runs the VM.':'');r.disabled=off;r.parentNode.title=why;});
+    Array.prototype.forEach.call(document.querySelectorAll('[data-guest-field]'),function(n){var k=n.getAttribute('data-guest-field'),show=(k==='vm'&&(f.mode==='direct'||f.mode==='hostdirect'))||(k==='host'&&f.mode==='hostdirect')||(k==='computer'&&f.mode==='winrm')||((k==='user'||k==='password')&&f.mode!=='local');n.classList.toggle('hidden',!show);});
+    var hostSel=byId('vmGuestHost'),hostNow=f.host||hostSel.value;hostSel.textContent='';hosts.forEach(function(h){var o=document.createElement('option');o.value=h;o.textContent=h;hostSel.appendChild(o);});if(hostNow&&hosts.indexOf(hostNow)>=0){hostSel.value=hostNow;}
+    if(fill){byId('vmGuestVmName').value=f.vm||'';byId('vmGuestComputerName').value=f.computer||'';byId('vmGuestUser').value=f.user||'';}
+    byId('vmGuestUser').placeholder=f.mode==='winrm'?'Leave empty to use your own account':'.\\Administrator or DOMAIN\\admin';
+    var note=t.mode&&t.mode!=='local'?'Checks run on '+t.label+' ('+(t.modeName||t.mode)+')'+(t.user?' as '+t.user:'')+'.':'Checks run on this computer'+(vmComputer()?' ('+vmComputer()+')':'')+'.';
+    if(t.kept){note+=' Recording kept here: from '+t.keptSource+(t.keptAt?', '+String(t.keptAt).replace('T',' ').slice(0,16):'')+'.';}
+    else if(t.mode&&t.mode!=='local'){note+=' No recording kept here for it yet.';}
+    byId('vmGuestTargetNote').textContent=note;
+    byId('vmGuestForget').classList.toggle('hidden',!t.mode||t.mode==='local');
+    byId('vmGuestAdmin').classList.toggle('hidden',admin||!(f.mode==='local'||f.mode==='direct'));
+    var vc=byId('vmGuestVcVm'),keep=vc.value,vms=vmInventory&&vmInventory.serverType!=='Hyper-V host'?vmArr(vmInventory.vms).filter(function(m){return !m.template&&m.source!=='hyperv';}):[];
+    if(vc.getAttribute('data-serial')!==String(v.inventorySerial||0)){vc.setAttribute('data-serial',String(v.inventorySerial||0));vc.textContent='';vms.slice(0,2000).forEach(function(m){var o=document.createElement('option');o.value=m.id;o.textContent=m.name+(vmArr(m.nics).some(function(n){return n.guestKnown;})?'':' (VMware Tools did not report its network)');vc.appendChild(o);});if(keep){vc.value=keep;}}
+    byId('vmGuestVcenterBox').classList.toggle('hidden',!vms.length);
+  }
+  function vmGuestUse(){
+    var f=vmGuestForm||{},body={mode:f.mode,vm:trimText(byId('vmGuestVmName').value),computer:trimText(byId('vmGuestComputerName').value),host:byId('vmGuestHost').value,user:trimText(byId('vmGuestUser').value),password:byId('vmGuestPassword').value,keepPassword:true};
+    if(f.mode==='winrm'&&!body.vm&&vmGuestForm.vm){body.vm=vmGuestForm.vm;}
+    vmPost('/api/vmware/guest-target',body,'vmGuestMessage',function(err){byId('vmGuestPassword').value='';if(err){return;}vmGuestFormTouched=false;
+      if(f.mode!=='local'){setTimeout(function(){runVmGuest('status','Reading '+(body.vm||body.computer)+' as it is now.');},300);}});
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('input[name="vmGuestMode"]'),function(r){r.addEventListener('change',function(){if(!vmGuestForm){vmGuestForm={};}vmGuestForm.mode=r.value;vmGuestFormTouched=true;renderVmGuestTarget(false);syncVmButtons();});});
+  ['vmGuestVmName','vmGuestComputerName','vmGuestUser','vmGuestPassword'].forEach(function(id){byId(id).addEventListener('input',function(){vmGuestFormTouched=true;});byId(id).addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();vmGuestUse();}});});
+  byId('vmGuestHost').addEventListener('change',function(){vmGuestFormTouched=true;if(vmGuestForm){vmGuestForm.host=byId('vmGuestHost').value;}});
+  byId('vmGuestUse').addEventListener('click',vmGuestUse);
+  byId('vmGuestForget').addEventListener('click',function(){vmPost('/api/vmware/guest-target/forget',{},'vmGuestMessage',function(err){if(!err){vmGuestFormTouched=false;vmGuest=null;renderVmGuest();}});});
+  byId('vmGuestVcVm').addEventListener('change',function(){syncVmButtons();});
+  byId('vmGuestVcenter').addEventListener('click',function(){var id=byId('vmGuestVcVm').value;if(!id){return;}vmPost('/api/vmware/guest-target/vcenter',{vmId:id},'vmGuestMessage',function(err,data){if(!err){vmSetStatus('vmGuestMessage',data.message||'Recorded.',false);}});});
   function renderVmGuest(){
     var g=vmGuest,state=g&&g.State,capture=g&&g.Capture;
     byId('vmGuestFacts').classList.toggle('hidden',!state);byId('vmGuestEmpty').classList.toggle('hidden',!!state);byId('vmGuestCards').classList.toggle('hidden',!state);
@@ -4872,7 +5033,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       rows.appendChild(pick);
     });
     vmGuestChoices=choices;
-    byId('vmGuestIpText').textContent=!capture?'Record this VM\'s settings before cutover to put them back here.':(old.length?'Choose the new adapter that takes each old adapter\'s settings.':'No static IP settings were recorded.');
+    byId('vmGuestIpText').textContent=!capture?'No recording yet. Move VMs records a VMware VM\'s IP settings from vCenter at each copy; or use Record settings before the cutover.':(old.length?'Choose the new adapter that takes each old adapter\'s settings.':'No static IP settings were recorded.');
     // Hidden adapters: VMware ones are ticked by default.
     var ghosts=vmArr(g.Ghosts),ghostRows=byId('vmGuestGhostRows'),ghostChoices={};ghostRows.textContent='';
     ghosts.forEach(function(x){var on=vmGhostChoices.hasOwnProperty(x.InstanceId)?vmGhostChoices[x.InstanceId]:!!x.Vmware;ghostChoices[x.InstanceId]=on;vmCheckRow(ghostRows,x.Description||'Network adapter',x.InstanceId,on,'data-vm-ghost',x.InstanceId,function(checked){vmGhostChoices[x.InstanceId]=checked;});});
@@ -4899,7 +5060,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   function vmGuestApplyItems(){var items=[];for(var mac in vmGuestChoices){if(vmGuestChoices.hasOwnProperty(mac)&&vmGuestChoices[mac].index>0){items.push({capture:mac,interfaceIndex:vmGuestChoices[mac].index,rename:!!vmGuestChoices[mac].rename});}}return items;}
   function vmChosenKeys(map){var out=[];for(var k in map){if(map.hasOwnProperty(k)&&map[k]){out.push(k);}}return out;}
   function syncVmGuestButtons(){
-    var g=vmGuest,state=g&&g.State,locked=vmLocked()||!(latestState&&latestState.isAdministrator),tools=(state&&state.VmwareTools)||{},platform=(state&&state.Platform)||{};
+    var g=vmGuest,state=g&&g.State,locked=vmLocked()||(vmGuestNeedsAdmin()&&!(latestState&&latestState.isAdministrator)),tools=(state&&state.VmwareTools)||{},platform=(state&&state.Platform)||{};
     byId('vmGuestApply').disabled=locked||!vmGuestApplyItems().length;
     byId('vmGuestUndo').classList.toggle('hidden',!(g&&g.RollbackAvailable));byId('vmGuestUndo').disabled=locked;
     byId('vmGuestGhosts').disabled=locked||!vmChosenKeys(vmGhostChoices).length;
@@ -4910,8 +5071,8 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     byId('vmGuestAvma').disabled=locked;
   }
   function vmGuestConfirm(options){
-    var computer=vmComputer();
-    openMigrateDialog({title:options.title,path:'/api/vmware/guest/'+options.action,field:'confirm',body:{items:options.items||[]},expected:computer,label:"Type this computer's name to confirm",button:options.button,alert:options.alert,paragraphs:options.paragraphs,list:options.list,
+    var t=vmGuestTargetState(),computer=t.mode&&t.mode!=='local'?t.label:vmComputer();
+    openMigrateDialog({title:options.title,path:'/api/vmware/guest/'+options.action,field:'confirm',body:{items:options.items||[]},expected:computer,label:t.mode&&t.mode!=='local'?"Type the machine's name, "+computer+", to confirm":"Type this computer's name to confirm",button:options.button,alert:options.alert,paragraphs:options.paragraphs,list:options.list,
       after:function(){vmMarkRunning('guest-'+options.action,'',options.running,true);if(options.after){options.after();}}});
   }
   function runVmGuest(action,message){vmPost('/api/vmware/guest/'+action,{},null,function(err){if(!err){vmMarkRunning('guest-'+action,'',message,true);}});}

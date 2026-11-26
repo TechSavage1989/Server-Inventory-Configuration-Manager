@@ -155,19 +155,23 @@ type vmNetwork struct {
 }
 
 type vmDisk struct {
-	Label          string `json:"label"`
-	Controller     string `json:"controller"`
-	Bus            int    `json:"bus"`
-	Unit           int    `json:"unit"`
-	CapacityBytes  int64  `json:"capacityBytes"`
-	Datastore      string `json:"datastore"`
-	File           string `json:"file"`
-	Provisioning   string `json:"provisioning"`
-	Mode           string `json:"mode"`
-	RDM            string `json:"rdm"`
-	Sharing        string `json:"sharing"`
-	BusSharing     string `json:"busSharing"`
-	BootCandidate  bool   `json:"bootCandidate"`
+	Label         string `json:"label"`
+	Controller    string `json:"controller"`
+	Bus           int    `json:"bus"`
+	Unit          int    `json:"unit"`
+	CapacityBytes int64  `json:"capacityBytes"`
+	Datastore     string `json:"datastore"`
+	File          string `json:"file"`
+	Provisioning  string `json:"provisioning"`
+	Mode          string `json:"mode"`
+	RDM           string `json:"rdm"`
+	Sharing       string `json:"sharing"`
+	BusSharing    string `json:"busSharing"`
+	BootCandidate bool   `json:"bootCandidate"`
+	// Encrypted is true when this disk itself is encrypted with vSphere VM
+	// Encryption. A VM with a virtual TPM has encrypted home files but can
+	// have plain disks, which copy as they are.
+	Encrypted      bool   `json:"encrypted,omitempty"`
 	ControllerType string `json:"-"`
 	// Hyper-V source: the path this computer opens the disk through (an
 	// administrative share for a remote host), its parent and extension.
@@ -188,6 +192,16 @@ type vmNIC struct {
 	// address on this adapter. Unknown (no Tools data) is false.
 	Static     bool `json:"static"`
 	GuestKnown bool `json:"guestKnown"`
+	// What VMware Tools reports about the adapter's settings inside the
+	// guest, so they can be put back after a move without running anything
+	// in the old VM (vmGuestCaptureFromInventory). Empty when Tools did not
+	// answer or the inventory was saved by an older version.
+	MACInGuest      string   `json:"macInGuest,omitempty"`
+	StaticAddresses []string `json:"staticAddresses,omitempty"`
+	DHCP            bool     `json:"dhcp,omitempty"`
+	Gateways        []string `json:"gateways,omitempty"`
+	DNSServers      []string `json:"dnsServers,omitempty"`
+	DNSSuffix       string   `json:"dnsSuffix,omitempty"`
 }
 
 type vmSnapshot struct {
@@ -204,28 +218,31 @@ type vmGuestDisk struct {
 }
 
 type vmMachine struct {
-	Name                string        `json:"name"`
-	ID                  string        `json:"id"`
-	InstanceUUID        string        `json:"instanceUuid"`
-	Datacenter          string        `json:"datacenter"`
-	Cluster             string        `json:"cluster"`
-	Host                string        `json:"host"`
-	Folder              string        `json:"folder"`
-	Template            bool          `json:"template"`
-	PowerState          string        `json:"powerState"`
-	GuestID             string        `json:"guestId"`
-	GuestOS             string        `json:"guestOs"`
-	GuestOSRunning      string        `json:"guestOsRunning"`
-	GuestHostName       string        `json:"guestHostName"`
-	IPAddress           string        `json:"ipAddress"`
-	CPUs                int           `json:"cpus"`
-	CoresPerSocket      int           `json:"coresPerSocket"`
-	MemoryMB            int64         `json:"memoryMb"`
-	HardwareVersion     string        `json:"hardwareVersion"`
-	Firmware            string        `json:"firmware"`
-	SecureBoot          bool          `json:"secureBoot"`
-	VTPM                bool          `json:"vtpm"`
-	Encrypted           bool          `json:"encrypted"`
+	Name            string `json:"name"`
+	ID              string `json:"id"`
+	InstanceUUID    string `json:"instanceUuid"`
+	Datacenter      string `json:"datacenter"`
+	Cluster         string `json:"cluster"`
+	Host            string `json:"host"`
+	Folder          string `json:"folder"`
+	Template        bool   `json:"template"`
+	PowerState      string `json:"powerState"`
+	GuestID         string `json:"guestId"`
+	GuestOS         string `json:"guestOs"`
+	GuestOSRunning  string `json:"guestOsRunning"`
+	GuestHostName   string `json:"guestHostName"`
+	IPAddress       string `json:"ipAddress"`
+	CPUs            int    `json:"cpus"`
+	CoresPerSocket  int    `json:"coresPerSocket"`
+	MemoryMB        int64  `json:"memoryMb"`
+	HardwareVersion string `json:"hardwareVersion"`
+	Firmware        string `json:"firmware"`
+	SecureBoot      bool   `json:"secureBoot"`
+	VTPM            bool   `json:"vtpm"`
+	Encrypted       bool   `json:"encrypted"`
+	// EncryptionRead is true when the inventory recorded which disks are
+	// encrypted (vmDisk.Encrypted); older saved inventories lack it.
+	EncryptionRead      bool          `json:"encryptionRead,omitempty"`
 	FaultTolerance      bool          `json:"faultTolerance"`
 	ChangeTracking      bool          `json:"changeTracking"`
 	ToolsStatus         string        `json:"toolsStatus"`
@@ -429,8 +446,27 @@ func assessVM(vm vmMachine, target string, now time.Time) vmReadiness {
 	}
 	if vm.Encrypted && hyperV {
 		add(vmSeverityBlocker, "shielded", "The VM is a shielded VM: its state and disks are protected by the Host Guardian Service.", "Unshield it (turn off the shielding policy and BitLocker in the guest) before copying its disks. Other platforms cannot read them.")
-	} else if vm.Encrypted {
-		add(vmSeverityBlocker, "encrypted", "The VM is encrypted with vSphere VM Encryption.", "Decrypt the VM in vSphere before exporting or converting it. Its disks cannot be read by other platforms.")
+	}
+	encryptedDisks := 0
+	for _, disk := range vm.Disks {
+		if disk.Encrypted {
+			encryptedDisks++
+		}
+	}
+	homeOnly := vm.Encrypted && !hyperV && vm.EncryptionRead && encryptedDisks == 0
+	if vm.Encrypted && !hyperV {
+		switch {
+		case homeOnly && vm.VTPM:
+			// Said once, with the virtual TPM finding below.
+		case homeOnly:
+			// A virtual TPM needs the VM's home files encrypted, but its disks
+			// can stay plain, and plain disks copy as they are.
+			add(vmSeverityWarning, "encrypted-home", "Only the VM's own files are encrypted with vSphere VM Encryption (a virtual TPM needs that); its disks are not encrypted, so they copy as they are.", "Nothing to decrypt. The virtual TPM itself does not move: save the BitLocker recovery keys and suspend BitLocker before the cutover (Prepare and fix up, from this computer or inside the VM). "+profile.VTPM)
+		case vm.EncryptionRead:
+			add(vmSeverityBlocker, "encrypted", fmt.Sprintf("%d of the VM's %d disks are encrypted with vSphere VM Encryption, so no other platform can read them.", encryptedDisks, len(vm.Disks)), "Ways out: (1) Replicate servers: an agent inside Windows reads the disks already decrypted, with nothing to change in vSphere; or (2) decrypt it with Move VMs, Prepare on VMware: save the BitLocker keys and suspend BitLocker, shut it down, remove the virtual TPM and decrypt (the VM storage policy must then be one without encryption). "+profile.VTPM)
+		default:
+			add(vmSeverityBlocker, "encrypted", "The VM is encrypted with vSphere VM Encryption.", "Read vCenter again: this inventory does not say whether its disks or only its own files (for a virtual TPM) are encrypted. Plain disks copy as they are; encrypted disks need Replicate servers (an agent inside Windows) or decrypting with Move VMs, Prepare on VMware.")
+		}
 	}
 	if hyperV && target == vmTargetHyperV {
 		add(vmSeverityInfo, "already-hyperv", "The VM already runs on Hyper-V.", "Move it with Hyper-V live migration, storage migration, or export and import, which keep its configuration. Copy its disks with Convert disk images only to rebuild it on a different host by hand.")
@@ -554,7 +590,11 @@ func assessVM(vm vmMachine, target string, now time.Time) vmReadiness {
 		}
 	}
 	if vm.VTPM {
-		add(vmSeverityWarning, "vtpm", "The VM has a virtual TPM. BitLocker keys, Windows Hello and credentials sealed to it do not move with the disks.", "Save BitLocker recovery keys and suspend BitLocker before cutover. "+profile.VTPM)
+		message := "The VM has a virtual TPM. BitLocker keys, Windows Hello and credentials sealed to it do not move with the disks."
+		if homeOnly {
+			message += " Its own files are encrypted for the virtual TPM (vSphere VM Encryption), but its disks are not, so they copy as they are with nothing to decrypt."
+		}
+		add(vmSeverityWarning, "vtpm", message, "Before the cutover, save the BitLocker recovery keys and suspend BitLocker (Prepare and fix up: from this computer over the network, or inside the VM), or have the recovery keys from Active Directory or Intune ready. "+profile.VTPM)
 	}
 
 	// Disks.

@@ -57,7 +57,7 @@ var vmTargetProfiles = []vmTargetProfile{
 		StorageLabel: "Cluster Shared Volume or share", NetworkLabel: "virtual switch",
 		LinuxDrivers: "hv_storvsc, hv_netvsc and hv_vmbus",
 		SecureBoot:   "On Hyper-V choose the Microsoft UEFI Certificate Authority Secure Boot template for Linux guests, or turn Secure Boot off for this VM.",
-		VTPM:         "Generation 2 VMs support a virtual TPM; add one on the new VM.",
+		VTPM:         "Move VMs adds a virtual TPM to the new Generation 2 VM by itself (a local key protector). In a failover cluster, give every node the same Shielded VM local certificates, or the VM starts only on the node that created it.",
 		SharedDisks:  "Guest clusters need shared storage on the target: use a Shared VHDX or VHD Set on Hyper-V, or redesign the cluster.",
 		Passthrough:  "Plan the equivalent on Hyper-V (Discrete Device Assignment or GPU partitioning), or keep the workload on VMware.",
 		USB:          "Hyper-V does not pass USB devices to VMs. Use a USB-over-network device (common for license dongles) or redesign.",

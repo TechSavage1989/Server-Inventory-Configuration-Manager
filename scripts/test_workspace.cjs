@@ -211,7 +211,7 @@ async function goTool(f,id){await f.page.keyboard.press(discoveryTools.includes(
 async function openVm(f,id){await f.page.locator('#vmInvTree li[data-inv-id="vm:'+id+'"] > .vm-inv-row').click();}
 async function openTree(f,label){await f.page.locator('#vmInvTree li.vm-inv-item > .vm-inv-row').filter({has:f.page.locator('.vm-inv-label',{hasText:new RegExp('^'+label.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'$')})}).first().click();}
 async function treeLines(f){return f.page.locator('#vmInvTree li.vm-inv-item').evaluateAll(list=>list.map(li=>li.getAttribute('aria-level')+' '+li.querySelector('.vm-inv-label').textContent));}
-async function check(name,fn){await fn();report.checks.push({name,result:'passed'});console.log('PASS: '+name);}
+async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.env.SIMM_CHECK)){return;}await fn();report.checks.push({name,result:'passed'});console.log('PASS: '+name);}
 (async()=>{const browser=await chromium.launch(executable?{executablePath:executable,headless:true,args:['--no-sandbox']}:{channel:'msedge',headless:true});try{
  await check('Published 3.2.9 reproduces unstyled cards and an inventory checkbox that cannot be deselected',async()=>{const f=await fixture(browser,true);try{
   assert.equal(await f.page.locator('.category-check').first().evaluate(e=>getComputedStyle(e).borderTopStyle),'none');
@@ -881,6 +881,50 @@ async function check(name,fn){await fn();report.checks.push({name,result:'passed
   await f.page.setViewportSize({width:1440,height:1000});await goTool(f,'guide');await f.page.locator('#gdModes').scrollIntoViewIfNeeded();await f.page.screenshot({path:shots+'/guide-modes-1440x1000.png'});
   assert.deepEqual(f.dialogs,[]);
  }finally{await f.close();}});
+ await check('Guided migration shows one step at a time with Next, folds optional steps, asks for the vCenter password inside a blocked step, and Prepare and fix up reaches the new VM with nothing installed in it',async()=>{const f=await fixture(browser);try{
+  await goTool(f,'guide');await f.page.locator('[data-gd-source="vmware"]').click();await f.page.locator('[data-gd-target="hyperv"]').click();
+  assert.equal(await f.page.locator('#gdSteps li.gd-step.current').count(),1,'exactly one step is open');
+  assert.equal(await f.page.locator('#gdSteps li.gd-step.current .gd-head strong').textContent(),'Read vCenter or ESXi');
+  assert(!await f.page.locator('#gdSteps li.gd-step').nth(1).locator('.gd-text').isVisible(),'other steps are folded');
+  const optional=await f.page.locator('#gdSteps li.gd-step.optional .gd-head strong').allTextContents();
+  for(const want of ['Plan waves and write a runbook','Save BitLocker keys (only with BitLocker or a virtual TPM)','Compare before and after'])assert(optional.includes(want),optional.join(' | '));
+  const all=(await f.page.locator('#tabGuide').textContent());assert(!/Copy this application into the VM/.test(all),'no step asks to copy the application into the VM');
+  assert((await f.page.locator('#gdModes').textContent()).includes('Pick this when'),'each way of moving says when to pick it');
+  await f.page.locator('#gdSteps li.gd-step.current [data-gd-next]').click();
+  assert.equal(await f.page.locator('#gdSteps li.gd-step.current .gd-head strong').textContent(),'Check readiness');
+  assert((await f.page.locator('#gdProgress').textContent()).startsWith('Step 2 of '));
+  await f.page.locator('#gdSteps li.gd-step').filter({hasText:'Fix up the new machine'}).locator('.gd-head').click();
+  const fixup=f.page.locator('#gdSteps li.gd-step.current');assert.equal(await fixup.locator('.gd-head strong').textContent(),'Fix up the new machine');
+  assert((await fixup.locator('.gd-text').textContent()).includes('PowerShell Direct'));
+  await vmwareConnected(f);Object.assign(f.state.vmware,{hyperVHere:true,canPrepare:false,inventorySerial:2,hostStorage:{known:true,vhdPath:'D:\\Hyper-V\\Disks',clustered:false,volumes:[{path:'D:\\',freeBytes:1099511627776,totalBytes:2199023255552,csv:false}]}});
+  await goTool(f,'guide');await f.page.locator('#gdSteps li.gd-step').filter({hasText:'Copy the disks while the VM runs'}).locator('.gd-head').click();
+  const copy=f.page.locator('#gdSteps li.gd-step.current');await f.page.waitForFunction(()=>!!document.querySelector('#gdSteps li.gd-step.current [data-gd-vcpass]'));
+  assert((await copy.locator('[data-gd-check]').textContent()).includes('does not hold the vCenter password'));
+  assert((await copy.locator('[data-gd-fix]').textContent()).includes('readonly@vsphere.local on vc01.example.com'));
+  await copy.locator('[data-gd-vcpass]').fill('Synthetic-Pa55');await copy.locator('[data-gd-vcconnect]').click();
+  await f.page.waitForFunction(()=>document.querySelector('#vmwareTabBadge').textContent==='Reading');
+  assert.deepEqual(vmwareCalls(f,'connect').at(-1).body,{server:'vc01.example.com',user:'readonly@vsphere.local',password:'Synthetic-Pa55'},'the inline fix reconnects with the held server and account');
+  Object.assign(f.state.vmware,{running:false,action:'',status:'connected',canPrepare:true,move:{vm:'APP01',cutover:true,hyperVId:'4f6c1d6e-2b1a-4c55-9d3e-0f1e2d3c4b5a'},moveSerial:3});
+  await goTool(f,'guide');await f.page.locator('#gdSteps li.gd-step').filter({hasText:'Fix up the new machine'}).locator('.gd-head').click();
+  await f.page.waitForFunction(()=>document.querySelector('#gdSteps li.gd-step.current [data-gd-check]').textContent.includes('The new VM APP01 exists'));
+  await f.page.locator('#gdSteps li.gd-step.current [data-gd-open]').click();
+  assert(await f.page.locator('#vmViewGuest').isVisible());
+  assert(await f.page.locator('input[name="vmGuestMode"][value="direct"]').isChecked(),'after a cutover on the host the guide picks PowerShell Direct');
+  assert.equal(await f.page.locator('#vmGuestVmName').inputValue(),'APP01','the new VM is filled in');
+  assert(await f.page.locator('input[name="vmGuestMode"][value="hostdirect"]').isDisabled(),'the connected-host option needs a connection');
+  await f.page.locator('#vmGuestUser').fill('.\\Administrator');await f.page.locator('#vmGuestPassword').fill('Synthetic-Guest-1');await f.page.locator('#vmGuestUse').click();
+  await f.page.waitForFunction(()=>document.querySelector('#vmGuestPassword').value==='');
+  assert.deepEqual(vmwareCalls(f,'guest-target').at(-1).body,{mode:'direct',vm:'APP01',computer:'',host:'',user:'.\\Administrator',password:'Synthetic-Guest-1',keepPassword:true});
+  f.state.vmware.guestTarget={mode:'direct',modeName:'A VM on this Hyper-V host (PowerShell Direct)',label:'APP01',vm:'APP01',computer:'',host:'',user:'.\\Administrator',hasPassword:true,kept:'C:\\x',keptSource:'vCenter',keptAt:'2026-11-26T03:00:00Z'};
+  await f.page.waitForFunction(()=>document.querySelector('#vmGuestTargetNote').textContent.includes('Checks run on APP01'));
+  assert((await f.page.locator('#vmGuestTargetNote').textContent()).includes('Recording kept here: from vCenter'));
+  await f.page.waitForFunction(()=>true);await f.page.waitForTimeout(400);
+  assert(vmwareCalls(f,'guest/status').length>=1,'Use this machine reads the VM straight away');
+  await f.page.locator('input[name="vmGuestMode"][value="winrm"]').check();assert(await f.page.locator('#vmGuestComputerName').isVisible()&&!await f.page.locator('#vmGuestVmName').isVisible());
+  await f.page.setViewportSize({width:1440,height:1000});await f.page.locator('#vmGuestWhere').scrollIntoViewIfNeeded();await f.page.screenshot({path:shots+'/guest-which-machine-1440x1000.png'});
+  await goTool(f,'guide');await f.page.screenshot({path:shots+'/guide-one-step-1440x1000.png'});
+  assert.deepEqual(f.dialogs,[]);
+ }finally{await f.close();}});
  await check('Receiver connection details: Copy buttons copy each detail and all of them, and pasting the block into any sending field fills all three',async()=>{const f=await fixture(browser);try{
   await f.context.grantPermissions(['clipboard-read','clipboard-write']);
   await goTool(f,'environment');await goTool(f,'diskcopy');
@@ -1108,7 +1152,8 @@ async function check(name,fn){await fn();report.checks.push({name,result:'passed
  }finally{await f.close();}});
  await check('VMware Inside the VM: recording and checks need no confirmation; fix-ups need the typed computer name and send only the chosen items',async()=>{const f=await fixture(browser);try{
   await goTool(f,'environment');await goTool(f,'guest');assert(await f.page.locator('#vmGuestEmpty').isVisible());
-  assert((await f.page.locator('#vmViewGuest .vm-runs-on').textContent()).includes('Runs inside the machine being moved'));assert.equal(await f.page.locator('[data-tool="guest"] .tool-name').textContent(),'Prepare and fix up');assert((await f.page.locator('#vmToolRuns').textContent()).includes('inside the machine being moved'));
+  assert((await f.page.locator('#vmViewGuest .vm-runs-on').textContent()).includes('Nothing has to be installed in the machine being moved'));assert.equal(await f.page.locator('[data-tool="guest"] .tool-name').textContent(),'Prepare and fix up');assert((await f.page.locator('#vmToolRuns').textContent()).includes('nothing installed in it'));
+  assert(await f.page.locator('input[name="vmGuestMode"][value="local"]').isChecked(),'with nothing chosen, checks run on this computer as before');
   await f.page.locator('#vmGuestCapture').click();await f.page.waitForFunction(()=>document.querySelector('#vmwareTabBadge').textContent==='Working');assert.deepEqual(vmwareCalls(f,'guest/capture').map(c=>c.body),[{}]);
   assert(await f.page.locator('#vmGuestStatus').isDisabled(),'one step at a time');assert.equal(await f.page.locator('#vmGuestMessage').textContent(),'Recording this VM\'s settings.');
   f.vm.guest=vmwareGuestFixture('Hyper-V');Object.assign(f.state.vmware,{running:false,action:'',guestSerial:1,guestMessage:'Recorded this VM\'s settings.'});
