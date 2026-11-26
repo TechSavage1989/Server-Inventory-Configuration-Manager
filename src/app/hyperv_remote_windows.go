@@ -486,6 +486,9 @@ func (a *application) hvRemoteMoveRun(ctx context.Context, hv hvRemoteRuntime, v
 		}
 		request.CopyFolder = copyAdmin
 	}
+	if !cutover {
+		a.saveVCenterCapture(vm, log)
+	}
 	result, err := vmMoveRound(ctx, options, request, log)
 	a.copyTransfers().EndRunning(prefix, err, errors.Is(err, context.Canceled), err == nil && cutover)
 	if err == nil && result != nil {

@@ -137,6 +137,11 @@ func (h *hypervScriptHost) Shutdown(ctx context.Context, vmID string) (string, e
 // vSphere replication for VMware VMs, checkpoints for Hyper-V VMs.
 func (a *application) runMoveRound(ctx context.Context, inventory *vmInventory, vm vmMachine, options vmConnectOptions, request vmMoveRequest, log func(string)) (*vmMoveResult, error) {
 	if vm.Source != vmSourceHyperV {
+		if !request.Cutover {
+			// While VMware Tools still answers, keep the guest's network
+			// settings to put back after the cutover (nothing runs in the VM).
+			a.saveVCenterCapture(vm, log)
+		}
 		return vmMoveRound(ctx, options, request, log)
 	}
 	order := []string{}
