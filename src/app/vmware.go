@@ -1161,6 +1161,8 @@ func (a *application) vmwareOpenTarget(kind string) (target string, folder bool,
 		return vmReportBeside(a.vmware.reportPath, vmReportPDF), false, true
 	case "vmwarefolder":
 		return a.vmware.outputFolder, true, true
+	case "receiverlog":
+		return a.vmReceiverLogPath(), false, true
 	case "vmwarerunbook":
 		return a.vmware.runbookPath, false, true
 	case "hvbuildreport":

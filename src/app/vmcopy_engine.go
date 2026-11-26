@@ -84,6 +84,10 @@ type vmCopyOptions struct {
 	Round string
 	// Machine is recorded with the round (see vmCopyState.Machine).
 	Machine *vmSourceMachine
+	// Activity, when set, is called after every chunk ("copying") and
+	// before the receiver finishes the copy ("finishing"), so a watchdog
+	// can tell a stalled pass from a slow one.
+	Activity func(phase string)
 	// retryDelay is shortened by tests.
 	retryDelay time.Duration
 }
@@ -389,6 +393,9 @@ func vmCopyTo(ctx context.Context, source vmCopySource, sink vmCopySink, options
 			state.Hashes[index] = hash
 		}
 		progress.Done++
+		if options.Activity != nil {
+			options.Activity("copying")
+		}
 		if time.Since(lastSave) > 5*time.Second {
 			if err := sink.Checkpoint(state); err != nil {
 				return nil, err
@@ -409,6 +416,9 @@ func vmCopyTo(ctx context.Context, source vmCopySource, sink vmCopySink, options
 		state.Machine = options.Machine
 	}
 	report()
+	if options.Activity != nil {
+		options.Activity("finishing")
+	}
 	final, err := sink.Finish(ctx, state, options.Verify)
 	if err != nil {
 		return nil, err

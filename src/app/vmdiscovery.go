@@ -50,6 +50,28 @@ type vmReceiverAnnouncement struct {
 	Seen []string `json:"seen,omitempty"`
 }
 
+// vmAnnouncedAddresses keeps the plain IP addresses a find answer lists, as
+// address:port on the receiver's own port, without the address it was heard
+// from, at most replMaxAlternates.
+func vmAnnouncedAddresses(list []string, port int, seen string) []string {
+	out := []string{}
+	for _, text := range list {
+		ip := net.ParseIP(strings.Trim(strings.TrimSpace(text), "[]"))
+		if ip == nil || ip.IsUnspecified() || ip.IsMulticast() || ip.IsLoopback() || ip.IsLinkLocalUnicast() {
+			continue
+		}
+		address := net.JoinHostPort(ip.String(), strconv.Itoa(port))
+		if strings.EqualFold(address, seen) || vmContains(out, address) {
+			continue
+		}
+		out = append(out, address)
+		if len(out) == replMaxAlternates {
+			break
+		}
+	}
+	return out
+}
+
 // vmFingerprint is the short form of a thumbprint people compare by eye:
 // the first 16 hexadecimal characters in groups of four.
 func vmFingerprint(thumbprint string) string {
@@ -229,9 +251,12 @@ func vmFindReceivers(ctx context.Context, targets []string, wait time.Duration) 
 		}
 		answer.Thumbprint, answer.Name, answer.Fingerprint = thumbprint, vmCleanLabel(answer.Name, 64), vmFingerprint(thumbprint)
 		answer.Version = vmCleanLabel(answer.Version, 32)
-		answer.Addresses = nil // only the address we heard it from is used
 		host, _, _ := net.SplitHostPort(from.String())
 		seen := net.JoinHostPort(host, strconv.Itoa(answer.Port))
+		// The address we heard it from is the one used; the addresses it
+		// lists are only kept as other addresses to try (plain IPs on its
+		// own port, nothing trusted: the job's pin still decides).
+		answer.Addresses = vmAnnouncedAddresses(answer.Addresses, answer.Port, seen)
 		key := thumbprint + "|" + strconv.Itoa(answer.Port)
 		if existing := found[key]; existing != nil {
 			if !vmContains(existing.Seen, seen) {

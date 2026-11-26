@@ -19,6 +19,9 @@ type vmSourceMachine struct {
 	Firmware string `json:"firmware,omitempty"`
 	Adapters int    `json:"adapters,omitempty"`
 	OS       string `json:"os,omitempty"`
+	// Addresses are the IP addresses of those adapters (at most 8), so the
+	// new VM's network and VLAN can be matched by subnet.
+	Addresses []string `json:"addresses,omitempty"`
 }
 
 var (
@@ -41,7 +44,7 @@ func replReadMachine() vmSourceMachine {
 	}
 	m.MemoryMB = replMemoryMB()
 	m.Firmware = replFirmware()
-	m.Adapters = replAdapterCount()
+	m.Adapters, m.Addresses = replAdapters()
 	return m
 }
 
@@ -56,14 +59,15 @@ func vmCleanMachineName(name string) string {
 	return name
 }
 
-// replAdapterCount counts the adapters that look like real network cards:
-// up, with a hardware address, not loopback, tunnels or virtual switches.
-func replAdapterCount() int {
+// replAdapters counts the adapters that look like real network cards (up,
+// with a hardware address, not loopback, tunnels or virtual switches) and
+// lists their global unicast addresses.
+func replAdapters() (int, []string) {
 	interfaces, err := net.Interfaces()
 	if err != nil {
-		return 0
+		return 0, nil
 	}
-	count := 0
+	count, addresses := 0, []string{}
 	for _, adapter := range interfaces {
 		name := strings.ToLower(adapter.Name)
 		if adapter.Flags&net.FlagLoopback != 0 || len(adapter.HardwareAddr) != 6 {
@@ -75,9 +79,20 @@ func replAdapterCount() int {
 				skip = true
 			}
 		}
-		if !skip {
-			count++
+		if skip {
+			continue
+		}
+		count++
+		if adapter.Flags&net.FlagUp == 0 {
+			continue
+		}
+		list, _ := adapter.Addrs()
+		for _, item := range list {
+			ipnet, ok := item.(*net.IPNet)
+			if ok && ipnet.IP.IsGlobalUnicast() && len(addresses) < 8 {
+				addresses = append(addresses, ipnet.IP.String())
+			}
 		}
 	}
-	return count
+	return count, addresses
 }

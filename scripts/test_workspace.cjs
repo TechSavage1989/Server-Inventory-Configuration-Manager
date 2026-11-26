@@ -170,6 +170,8 @@ async function fixture(browser,old=false){
    if(action==='target/receiver'){v.target.receivers={[data.vmId]:{link:{address:data.address,thumbprint:data.thumbprint},disks:[{name:'disk-0',label:'Disk 0, QEMU HARDDISK',size:107374182400}],mapping:['disk-0']}};v.target.serial++;send(200,{ok:true});return;}
    if(action==='target/move'){Object.assign(v,{running:true,action:'move',status:'moving'});send(202,{ok:true});return;}
    if(action==='receiver/pair'){(v.receiver.pairRequests||[]).splice(0);send(200,{ok:true});return;}
+   if(action==='receiver'&&data.action==='close-other'){if(data.pid!==4321){send(409,{ok:false,error:'wrong process'});return;}v.receiverHeld=false;send(200,{ok:true});return;}
+   if(action==='receiver'&&data.action==='start'&&v.receiverHeld){send(400,{ok:false,error:'Port 44390 is held by another copy of this application (process 4321, started 03:12) that is still running, perhaps without a window. Close it, then start the receiver.',otherInstance:{pid:4321,port:44390,started:'2026-11-26T08:12:00Z'}});return;}
    if(action==='receiver'){if(data.action==='start'){v.receiver={running:true,port:data.port||44380,code:'K7QMZ-2RT4X-9WBNP-H3VDA',thumbprint:'3f9a6c0e1b7d4a25c8e0f13b6a9d2c4e7f0a1b3c5d7e9f2a4c6e8b0d1f3a5c7e',folder:data.folder||'D:\\Migration\\VMware-Copies\\Received',addresses:['192.0.2.40'],sessions:0,firewall:!!data.firewall,fingerprint:'3F9A 6C0E 1B7D 4A25',discoverable:data.discoverable!==false,pairRequests:[],defaultFolder:'D:\\Migration\\VMware-Copies\\Received'};}else{v.receiver={running:false,port:44380,sessions:0,firewall:false,defaultFolder:'D:\\Migration\\VMware-Copies\\Received',message:'Stopped.'};}send(200,{ok:true});return;}
    if(action==='agent/disks'){send(200,{ok:true,computer:'APP01',disks:[{number:0,size:107374182400,system:true,volumes:[{name:'v1',mounts:[],fileSystem:'FAT32',length:104857600},{name:'v2',mounts:['C:\\'],fileSystem:'NTFS',length:106300000000}]},{number:1,size:536870912000,system:false,volumes:[{name:'v3',mounts:['D:\\'],fileSystem:'NTFS',length:536700000000}]}]});return;}
    if(action==='agent/receiverdisks'){send(200,{ok:true,folder:false,disks:[{name:'disk-0',label:'Disk 0, QEMU HARDDISK',size:107374182400,sectorSize:512},{name:'disk-1',label:'Disk 1, QEMU HARDDISK',size:214748364800,sectorSize:512}]});return;}
@@ -194,7 +196,7 @@ async function fixture(browser,old=false){
    if(action==='failover'&&data.action==='end'){failover.failovers=[];failover.copies.forEach(c=>{delete c.held;});send(200,{ok:true});return;}
    if(action==='push'){Object.assign(repl,{pushing:true,pushLog:['14:02:10  Installing the agent on 2 servers.','14:02:11  app01.example.com: copying the agent.']});send(202,{ok:true});return;}
    if(action==='agent'&&data.action==='disks'){send(200,{ok:true,disks:[{id:'0',size:107374182400,system:true,volumes:[{name:'v1',mounts:[],fileSystem:'FAT32',length:104857600},{name:'v2',mounts:['C:\\'],fileSystem:'NTFS',length:106300000000}]},{id:'1',size:536870912000,system:false,volumes:[{name:'v3',mounts:['D:\\','E:\\'],fileSystem:'NTFS',length:536700000000,kind:'spanned'}]}]});return;}
-   if(action==='agent'&&data.action==='receiverdisks'){send(200,{ok:true,folder:false,disks:[{name:'disk-0',label:'Disk 0, QEMU HARDDISK',size:107374182400},{name:'disk-1',label:'Disk 1, QEMU HARDDISK',size:536870912000}]});return;}
+   if(action==='agent'&&data.action==='receiverdisks'){const alt=(data.alternates||[]).find(a=>a.startsWith('198.51.100.'));send(200,{ok:true,from:data.id?'agent':'console',address:alt||data.address,folder:false,disks:[{name:'disk-0',label:'Disk 0, QEMU HARDDISK',size:107374182400},{name:'disk-1',label:'Disk 1, QEMU HARDDISK',size:536870912000}]});return;}
    if(action==='job'&&data.action==='save'){const now=new Date();const job={spec:Object.assign({},data.spec,{id:'a1b2c3d4e5f60718',receiver:{address:data.spec.receiver.address+':44380',thumbprint:data.spec.receiver.thumbprint}}),status:{state:'idle',message:'Up to date as of 14:20:05 UTC. Next round at 14:21 UTC.',rounds:2,recoveryPoint:new Date(now-95000).toISOString(),lastStart:now.toISOString(),nextRun:new Date(+now+60000).toISOString(),lastDurationSeconds:42,lastSent:268435456,totalSent:161061273600,disks:data.spec.disks.map((d,i)=>({source:d.source,target:d.target,size:i?536870912000:107374182400,passes:2,chunks:100,done:100,sent:134217728,verified:false}))},rpoSeconds:95,hasCode:true};repl.agents[0].live.jobs.push(job);repl.summary.jobs++;repl.summary.healthy++;send(200,{ok:true,job});return;}
    if(action==='job'&&data.action==='log'){send(200,{ok:true,lines:['2026-11-25 14:18:00  Round 1 finished in 41 minutes; recovery point 2026-11-25 13:37:00.','2026-11-25 14:20:05  Round 2 finished in 42 seconds; recovery point 2026-11-25 14:19:23.']});return;}
    send(200,{ok:true});return;
@@ -1333,6 +1335,12 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   await f.page.locator('#vmSendAddress').fill('hv01.example.com');await f.page.locator('#vmSendThumbprint').fill('3F:9A:6C:0E 1b7d4a25c8e0f13b6a9d2c4e7f0a1b3c5d7e9f2a4c6e8b0d1f3a5c7e');await f.page.locator('#vmSendCode').fill('K7QMZ-2RT4X');
   assert(await f.page.locator('#vmSendStart').isDisabled(),'this computer is receiving');
   await f.page.locator('#vmReceiveStop').click();await f.page.waitForFunction(()=>!document.querySelector('#vmReceiveIdle').classList.contains('hidden'));assert.deepEqual(vmwareCalls(f,'receiver').at(-1).body,{action:'stop'});
+  // A copy of the application left running holds the port: the start error names it and one button closes exactly that process and starts again.
+  f.state.vmware.receiverHeld=true;await f.page.locator('#vmReceiveStart').click();await f.page.waitForFunction(()=>!document.querySelector('#vmReceiveOtherRow').classList.contains('hidden'));
+  assert((await f.page.locator('#vmReceiveStatus').textContent()).includes('another copy of this application (process 4321'));
+  await f.page.locator('#vmReceiveCloseOther').click();await f.page.waitForFunction(()=>document.querySelector('#vmReceiveIdle').classList.contains('hidden'),null,{timeout:15000});
+  assert.deepEqual(vmwareCalls(f,'receiver').slice(-3).map(c=>c.body.action+(c.body.pid?':'+c.body.pid:'')),['start','close-other:4321','start']);assert(await f.page.locator('#vmReceiveOtherRow').isHidden());
+  await f.page.locator('#vmReceiveStop').click();await f.page.waitForFunction(()=>!document.querySelector('#vmReceiveIdle').classList.contains('hidden'));
   await f.page.locator('[data-send-disk="1"]').uncheck();
   await f.page.locator('#vmSendStart').click();assert((await f.page.locator('#vmSendStatus').textContent()).includes('20-character pairing code'));assert.equal(vmwareCalls(f,'agent/send').length,0);
   await f.page.locator('#vmSendCode').fill('K7QMZ-2RT4X-9WBNP-H3VDA');
@@ -1549,7 +1557,7 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
  }finally{await f.close();}});
 
  await check('Test failover: copies from one round start a disconnected test VM after the typed name; the copies show as held and End test needs the name again',async()=>{const f=await fixture(browser);try{
-  await goTool(f,'environment');await goTool(f,'diskcopy');
+  await vmwareConnected(f);await goTool(f,'diskcopy');
   assert(await f.page.locator('#vmFailover').isHidden(),'Start VMs from copies is its own tool');assert(await f.page.locator('#vmMediaCard').isVisible(),'receiver media is built in Receive and send disks');await goTool(f,'failover');
   await f.page.locator('#fvRefresh').click();await f.page.waitForFunction(()=>document.querySelectorAll('[data-fv-copy]').length===3);
   assert(await f.page.locator('[data-fv-copy="SQL01-disk0.vhdx"]').isDisabled(),'a copy being received cannot be chosen');
@@ -1558,6 +1566,20 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   assert(await f.page.locator('[data-fv-copy="APP01-disk0.vhdx"]').isChecked());assert(await f.page.locator('[data-fv-copy="APP01-disk1.vhdx"]').isChecked());
   // A test VM is named NAME-TEST and confirmed for you; the button says why when something is missing.
   assert.equal(await f.page.locator('#fvConfirm').inputValue(),'APP01-TEST');assert.equal(await f.page.locator('#fvWhy').textContent(),'');
+  // Production fills the source's network: the VMware port group's VLAN and the host's only external switch.
+  assert((await f.page.locator('#fvNetSource').textContent()).includes('test VM starts with its network not connected'));
+  await f.page.locator('#fvModeProd').check();
+  assert.equal(await f.page.locator('#fvSwitch').inputValue(),'LAN');assert.equal(await f.page.locator('#fvVlan').inputValue(),'20');
+  assert((await f.page.locator('#fvNetSource').textContent()).includes('VMware port group VM-Servers of APP01'));
+  await f.page.locator('#fvModeTest').check();
+  assert.equal(await f.page.locator('#fvSwitch').inputValue(),'','back to a test: not connected again');assert.equal(await f.page.locator('#fvVlan').inputValue(),'');
+  // A test VM on an external switch would meet the running source: warned, and it needs a tick.
+  await f.page.locator('#fvSwitch').selectOption('LAN');await f.page.locator('#fvVlan').fill('120');
+  assert(await f.page.locator('#fvNetWarn').isVisible());assert((await f.page.locator('#fvNetWarnText').textContent()).includes('LAN is an external switch (VLAN 120)'));
+  assert(await f.page.locator('#fvStartButton').isDisabled());assert((await f.page.locator('#fvWhy').textContent()).includes('would join external switch LAN'));
+  await f.page.locator('#fvJoinNetwork').check();assert(await f.page.locator('#fvStartButton').isEnabled());
+  await f.page.locator('#fvSwitch').selectOption('Isolated test');assert(await f.page.locator('#fvNetWarn').isHidden(),'a private switch is fine');assert(!(await f.page.locator('#fvJoinNetwork').isChecked()));
+  await f.page.locator('#fvSwitch').selectOption('');await f.page.locator('#fvVlan').fill('');
   await f.page.locator('#fvConfirm').fill('APP01');assert((await f.page.locator('#fvWhy').textContent()).includes('does not match the VM name: type APP01-TEST exactly'));assert(await f.page.locator('#fvStartButton').isDisabled());await f.page.locator('#fvConfirm').fill('');
   assert.equal(await f.page.locator('#fvWhy').textContent(),'Type APP01-TEST in "Type the VM name to confirm".');
   // Sized from the source the agent recorded, with a warning when lowered.
@@ -1630,15 +1652,25 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   await f.page.locator('#rpRecvAddress').fill('192.0.2.50');await f.page.locator('#rpRecvThumbprint').fill('3f9a6c0e1b7d4a25c8e0f13b6a9d2c4e7f0a1b3c5d7e9f2a4c6e8b0d1f3a5c7e');await f.page.locator('#rpRecvCode').fill('K7QMZ-2RT4X-9WBNP-H3VDA');
   await f.page.locator('#rpRecvCheck').click();await f.page.waitForFunction(()=>document.querySelector('[data-rp-target="1"]').tagName==='SELECT');
   assert.equal(await f.page.locator('[data-rp-target="1"]').inputValue(),'disk-1');
+  assert.deepEqual(f.replCalls.filter(c=>c.action==='agent'&&c.body.action==='receiverdisks').at(-1).body,{action:'receiverdisks',id:'ag1',address:'192.0.2.50',alternates:[],thumbprint:'3f9a6c0e1b7d4a25c8e0f13b6a9d2c4e7f0a1b3c5d7e9f2a4c6e8b0d1f3a5c7e',code:'K7QMZ-2RT4X-9WBNP-H3VDA'},'the server checks the receiver');
+  assert((await f.page.locator('#rpRecvNote').textContent()).includes('Checked from the server'));
+  // Copy all from a receiver with several networks: the console cannot
+  // reach any of them (it is not the sender), so the server checks each and
+  // the job keeps the one the server reached, with the rest as alternates.
+  await f.page.locator('#rpRecvAddress').evaluate((e,text)=>{const d=new DataTransfer();d.setData('text/plain',text);e.dispatchEvent(new ClipboardEvent('paste',{clipboardData:d,bubbles:true,cancelable:true}));},'Receiver: 10.10.100.11:44380\r\nOther addresses: 198.51.100.9:44380\r\nThumbprint: 3F:9A:6C:0E:1B:7D:4A:25:C8:E0:F1:3B:6A:9D:2C:4E:7F:0A:1B:3C:5D:7E:9F:2A:4C:6E:8B:0D:1F:3A:5C:7E\r\nPairing code: K7QMZ-2RT4X-9WBNP-H3VDA');
+  await f.page.waitForFunction(()=>document.querySelector('#rpRecvAddress').value==='198.51.100.9:44380',null,{timeout:8000});
+  await f.page.waitForFunction(()=>document.querySelector('#rpRecvNote').textContent.includes('could not reach 10.10.100.11:44380'));
+  await f.page.waitForFunction(()=>document.querySelector('[data-rp-target="1"]').tagName==='SELECT');
   await f.page.locator('#rpInterval').selectOption('5');await f.page.locator('#rpLimit').fill('100');await f.page.locator('#rpBusinessLimit').fill('20');await f.page.locator('#rpBusinessStart').fill('8');await f.page.locator('#rpBusinessEnd').fill('18');
   await f.page.locator('#rpServices').fill('MSSQLSERVER, W3SVC');await f.page.locator('#rpJobSave').click();
   await f.page.waitForFunction(()=>!document.querySelector('#rpDetails').classList.contains('hidden'));
-  assert.deepEqual(f.replCalls.filter(c=>c.action==='job'&&c.body.action==='save').map(c=>c.body),[{agent:'ag1',action:'save',spec:{id:'',name:'APP01',disks:[{source:'0',target:'disk-0'},{source:'1',target:'disk-1'}],receiver:{address:'192.0.2.50',thumbprint:'3f9a6c0e1b7d4a25c8e0f13b6a9d2c4e7f0a1b3c5d7e9f2a4c6e8b0d1f3a5c7e',code:'K7QMZ-2RT4X-9WBNP-H3VDA'},intervalMinutes:5,rpoMinutes:15,compress:true,throttle:{limitMbps:100,businessMbps:20,businessStart:8,businessEnd:18},stopServices:['MSSQLSERVER','W3SVC'],shutdownAfterCutover:true,fullReadAtCutover:false,rescanFirst:false,allowLive:false}}]);
+  assert.deepEqual(f.replCalls.filter(c=>c.action==='job'&&c.body.action==='save').map(c=>c.body),[{agent:'ag1',action:'save',spec:{id:'',name:'APP01',disks:[{source:'0',target:'disk-0'},{source:'1',target:'disk-1'}],receiver:{address:'198.51.100.9:44380',alternates:['10.10.100.11:44380'],thumbprint:'3F9A6C0E1B7D4A25C8E0F13B6A9D2C4E7F0A1B3C5D7E9F2A4C6E8B0D1F3A5C7E',code:'K7QMZ-2RT4X-9WBNP-H3VDA'},intervalMinutes:5,rpoMinutes:15,compress:true,throttle:{limitMbps:100,businessMbps:20,businessStart:8,businessEnd:18},stopServices:['MSSQLSERVER','W3SVC'],shutdownAfterCutover:true,fullReadAtCutover:false,rescanFirst:false,allowLive:false}}]);
   assert(await f.page.locator('#rpEditor').isHidden());assert.equal(await f.page.locator('#rpRecvCode').inputValue(),'','the pairing code is cleared');
   await f.page.waitForFunction(()=>document.querySelector('#rpDetailsFacts').textContent.includes('Every 5 minutes'));
   assert((await f.page.locator('#rpAgents').textContent()).includes('Up to date'));
   assert(await f.page.locator('#rpCutover').isDisabled(),'cutover needs the typed name');
-  await f.page.locator('#rpCutoverTyped').fill('app01');assert(await f.page.locator('#rpCutover').isEnabled());
+  assert(await f.page.locator('#rpFinishByHand').isDisabled(),'finishing by hand needs the typed name');
+  await f.page.locator('#rpCutoverTyped').fill('app01');assert(await f.page.locator('#rpCutover').isEnabled());assert(await f.page.locator('#rpFinishByHand').isEnabled());
   await f.page.locator('#rpLogButton').click();await f.page.waitForFunction(()=>document.querySelector('#rpLog').textContent.includes('Round 2 finished'));
   // Receiver-media jobs offer the platform test failover.
   await f.page.waitForFunction(()=>!document.querySelector('#ttSection').classList.contains('hidden'));
@@ -1814,6 +1846,23 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   await f.page.locator('.rp-filter-bar [data-rp-filter]').click();assert.equal(await f.page.locator('.rp-filter-bar').count(),0);assert.equal(await f.page.locator('#rpAgents .rp-agent').count(),2);
   await f.page.locator('#rpSummary [data-rp-filter="healthy"]').click();await f.page.locator('#rpSummary [data-rp-filter="healthy"]').click();assert.equal(await f.page.locator('.rp-filter-bar').count(),0,'the same tile clears the filter');
   await goTool(f,'guide');assert.equal(await f.page.locator('#gdHere [data-gd-fact]').count(),5);await f.page.locator('#gdHere [data-gd-fact="diskcopy"]').click();assert.equal(await f.page.locator('[data-tool="diskcopy"]').getAttribute('aria-pressed'),'true');
+  assert.deepEqual(f.dialogs,[]);
+ }finally{await f.close();}});
+ await check('A cutover that stops moving says so and can be cancelled: no progress, verifying on the receiver, Cancel cutover and both logs',async()=>{const f=await fixture(browser);try{
+  const status={state:'cutting-over',message:'Cutting over: sending the last changes and verifying every disk.',recoveryPoint:'2026-11-26T08:18:09Z',rounds:2,phase:'copying',lastProgress:'2026-11-26T08:30:00Z',stallAfterSeconds:300,cutoverAttempt:1,logFolder:'C:\\ProgramData\\Server Inventory and Migration Manager Agent\\Logs',disks:[{source:'0',target:'PRINT01-disk0.vhdx',size:96636764160,chunks:23040,done:11750,read:16535624704,sent:595591168}]};
+  Object.assign(f.repl,{agents:[{id:'ag1',name:'PRINT01',address:'print01.example.com:44390',live:{reachable:true,platform:'Windows',jobs:[{spec:{id:'j1',name:'PRINT01',rpoMinutes:15,receiver:{address:'hv01.example.com:44380'},stopServices:['Spooler'],disks:[{source:'0',target:'PRINT01-disk0.vhdx'}]},rpoSeconds:660,idleSeconds:400,status}],alerts:[]}}],summary:{agents:1,unreachable:0,jobs:1,healthy:0,behind:1,failing:0,paused:0,cutOver:0,alerts:0}});
+  await goTool(f,'replicate');await f.page.waitForFunction(()=>document.querySelector('#rpAgents .rp-stall'));
+  const stall=await f.page.locator('#rpAgents .rp-stall').textContent();assert(/^No progress for 7 minutes\. /.test(stall)&&stall.includes('stopping this round to try again'),stall);
+  await f.page.locator('[data-rp-open="ag1|j1"]').click();await f.page.waitForFunction(()=>!document.querySelector('#rpDetails').classList.contains('hidden'));
+  const facts=await f.page.locator('#rpDetailsFacts').textContent();assert(facts.includes('No progress for 7 minutes'),facts);assert(facts.includes('C:\\ProgramData\\Server Inventory and Migration Manager Agent\\Logs on PRINT01'),facts);
+  assert.equal(await f.page.locator('#rpUnschedule').textContent(),'Cancel cutover');assert(await f.page.locator('#rpUnschedule').isEnabled());assert(await f.page.locator('#rpDelete').isDisabled());
+  assert((await f.page.locator('#rpButtonsReason').textContent()).includes('Cancel cutover stops the final round'));
+  // The receiver verifying the copy is not a stall.
+  f.repl.agents[0].live.jobs[0].status=Object.assign({},status,{phase:'finishing',cutoverAttempt:2});
+  await f.page.waitForFunction(()=>(document.querySelector('#rpAgents .rp-stall')||{}).textContent&&document.querySelector('#rpAgents .rp-stall').textContent.startsWith('The receiver is verifying the copy (attempt 2)'),null,{timeout:15000});
+  await f.page.locator('#rpUnschedule').click();await f.page.waitForFunction(()=>document.querySelector('#rpDetailsStatus').textContent.includes('Cancelling'));
+  assert.deepEqual(f.replCalls.filter(c=>c.action==='job'&&c.body.action==='cancel-cutover').map(c=>c.body),[{agent:'ag1',id:'j1',action:'cancel-cutover'}]);
+  await f.page.locator('#rpReceiverLog').click();await f.page.waitForFunction(()=>document.querySelector('#rpDetailsStatus').textContent.includes('receiver log opened'));assert.deepEqual(f.opens.slice(-1),['receiverlog']);
   assert.deepEqual(f.dialogs,[]);
  }finally{await f.close();}});
  await check('Live transfers: the receiver lists connected senders with each copy\'s progress, speed and time left; the sender and a VM move show theirs',async()=>{const f=await fixture(browser);try{

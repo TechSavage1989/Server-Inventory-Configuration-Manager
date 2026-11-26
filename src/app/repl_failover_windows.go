@@ -155,6 +155,21 @@ func (a *application) handleReplFailover(response http.ResponseWriter, request *
 			fail(http.StatusBadRequest, err.Error()+".")
 			return
 		}
+		if r.Mode == "test" && strings.TrimSpace(r.Switch) != "" && !r.JoinNetwork {
+			switches, err := replHyperVSwitches()
+			if err != nil {
+				fail(http.StatusInternalServerError, "The host's virtual switches could not be read to check the test network: "+err.Error())
+				return
+			}
+			for _, sw := range switches {
+				if strings.EqualFold(sw.Name, r.Switch) {
+					if err := replTestNetworkRisk(r, sw.Type); err != nil {
+						fail(http.StatusBadRequest, err.Error()+".")
+						return
+					}
+				}
+			}
+		}
 		held := map[string]string{}
 		for _, f := range list {
 			for _, name := range f.Copies {

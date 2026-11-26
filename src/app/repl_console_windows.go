@@ -543,6 +543,8 @@ func (a *application) handleReplAgent(response http.ResponseWriter, request *htt
 		User       string `json:"user"`
 		Password   string `json:"password"`
 		HostKey    string `json:"hostKey"`
+		// Alternates are the receiver's other addresses (receiverdisks).
+		Alternates []string `json:"alternates"`
 	}
 	if !decodeVMwareRequest(response, request, &input) {
 		return
@@ -613,12 +615,27 @@ func (a *application) handleReplAgent(response http.ResponseWriter, request *htt
 			a.replFail(response, http.StatusBadRequest, "The receiver was not accepted: "+err.Error()+".")
 			return
 		}
+		// The agent sends the copies, so the agent checks: this console may
+		// reach an address (a storage or cluster network) the server cannot.
+		if input.ID != "" {
+			if client, err := console.Client(input.ID); err == nil {
+				check, err := client.CheckReceiver(ctx, replReceiverLink{Address: address, Alternates: input.Alternates, Thumbprint: input.Thumbprint, Code: input.Code})
+				if err == nil {
+					writeJSON(response, http.StatusOK, map[string]any{"ok": true, "folder": check.Folder, "disks": check.Disks, "address": check.Address, "from": "agent", "tried": check.Tried})
+					return
+				}
+				if !errors.Is(err, errReplAgentNoReceiverCheck) {
+					a.replFail(response, http.StatusBadRequest, "The server could not reach the receiver: "+err.Error())
+					return
+				}
+			}
+		}
 		folder, disks, err := vmReceiverDescribe(ctx, address, input.Thumbprint, input.Code)
 		if err != nil {
 			a.replFail(response, http.StatusBadRequest, "The receiver could not be reached from this computer: "+err.Error())
 			return
 		}
-		writeJSON(response, http.StatusOK, map[string]any{"ok": true, "folder": folder, "disks": disks})
+		writeJSON(response, http.StatusOK, map[string]any{"ok": true, "folder": folder, "disks": disks, "address": address, "from": "console"})
 	case "disks":
 		client, err := console.Client(input.ID)
 		if err == nil {
@@ -680,7 +697,7 @@ func (a *application) handleReplJob(response http.ResponseWriter, request *http.
 			return
 		}
 		writeJSON(response, http.StatusOK, map[string]any{"ok": true, "lines": lines})
-	case "schedule", "cutover", "delete":
+	case "schedule", "cutover", "delete", "finish-by-hand":
 		// Changing steps need the job's name typed, as elsewhere.
 		jobs, err := client.Jobs(ctx)
 		if err != nil {

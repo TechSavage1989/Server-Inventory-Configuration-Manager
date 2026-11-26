@@ -153,6 +153,21 @@ type replFailoverRequest struct {
 	// Adapters is how many network adapters the VM gets (the source's
 	// count), all on Switch and VLAN; 0 means one.
 	Adapters int `json:"adapters,omitempty"`
+	// JoinNetwork is the operator's confirmation that a test VM may join
+	// an external switch, where it can meet the running source server.
+	JoinNetwork bool `json:"joinNetwork,omitempty"`
+}
+
+// replTestNetworkRisk refuses a test VM on an external switch unless the
+// operator confirmed it: a test copy has the source's computer name and IP
+// addresses, so beside the running source it causes address conflicts and
+// can reset the computer account in the domain. Not connected, internal and
+// private switches are always allowed.
+func replTestNetworkRisk(r replFailoverRequest, switchType string) error {
+	if r.Mode != "test" || strings.TrimSpace(r.Switch) == "" || r.JoinNetwork || !strings.EqualFold(strings.TrimSpace(switchType), "External") {
+		return nil
+	}
+	return fmt.Errorf("%s is an external switch: a test VM there has the same name and IP addresses as the running source and can disrupt it. Choose Not connected or an internal or private switch, or confirm that the test VM may join that network", r.Switch)
 }
 
 // replFailover records a VM started from copies, so a test can be ended
