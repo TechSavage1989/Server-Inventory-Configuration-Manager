@@ -692,7 +692,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
  .tool-layout{flex-direction:column;gap:6px}
  .tool-nav{flex:0 0 auto;flex-direction:row;overflow-x:auto;overflow-y:hidden;gap:6px;padding-bottom:3px}
  .tool-group{flex:0 0 auto;flex-direction:row;gap:6px}.tool-group+.tool-group{padding-left:6px;border-left:1px solid #dbe3ed}
- .tool-group-title,.tool-desc,.tool-runs,.tool-item .tool-works,.tool-item .tool-tags{display:none}
+ .tool-group-title,.tool-section-title,.tool-desc,.tool-runs,.tool-item .tool-works,.tool-item .tool-tags{display:none}
  .tool-item{width:auto;padding:5px 10px;white-space:nowrap}.tool-name{font-size:12px}
  .tool-current{display:block;flex:0 0 auto;padding:0 2px 6px;font-size:11.5px;color:#3d5170}.vm-tool-runs{display:none}
 }
@@ -725,6 +725,48 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
 .gd-fix{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:8px;border:1px dashed #efc2c2;border-radius:8px;background:#fff}.gd-fix input{min-width:200px}
 .gd-nav{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;border-top:1px solid #eef2f7;padding-top:8px}
 .gd-optional-toggle{margin:2px 0 0}
+.tool-section-title{margin:10px 4px 2px;padding-top:8px;border-top:1px solid #dbe3ed;font-size:11px;font-weight:700;letter-spacing:.02em;text-transform:uppercase;color:#596b80}
+.tool-wizard .tool-name{color:#1f4f9d}
+.nw-body{display:flex;flex-direction:column;gap:12px}
+.nw-stepper{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
+.nw-stepper-button{display:flex;align-items:center;gap:6px;padding:5px 11px 5px 6px;border:1px solid #cfd8e4;border-radius:999px;background:#fff;color:#334156;font:inherit;font-size:12.5px;font-weight:650;cursor:pointer}
+.nw-stepper-button:disabled{cursor:default;color:#8494a8;background:#f6f8fb}
+.nw-stepper-num{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#e8edf4;font-size:11px}
+.nw-stepper-item.done .nw-stepper-num{background:#1d6b43;color:#fff}
+.nw-stepper-item.current .nw-stepper-button{border-color:#2563eb;background:#eef4ff;color:#1f4f9d}.nw-stepper-item.current .nw-stepper-num{background:#2563eb;color:#fff}
+.nw-step{display:flex;flex-direction:column;gap:10px;min-height:0}
+.nw-heading{margin:4px 0 0;font-size:14px;color:#1f2a3a}
+.nw-choice:disabled{cursor:default;opacity:.7;background:#f6f8fb}.nw-choice-why{color:#8a5610!important;font-weight:600}
+.nw-nav{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;border-top:1px solid #eef2f7;padding-top:10px;position:sticky;bottom:0;background:#fff}
+.nw-why{flex:1;min-width:180px;font-size:12.5px;color:#596b80}.nw-why.error{color:#a33b3b;font-weight:600}
+.nw-nav .primary-button{margin-left:auto}
+.nw-running{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:8px 10px;border:1px solid #c9d6ea;border-radius:9px;background:#f5f8fd;font-size:12.5px}
+.nw-signin{display:flex;flex-direction:column;gap:6px;padding:10px 12px;border:1px dashed #9db8e6;border-radius:9px;background:#fbfcfe}.nw-signin .migrate-help{margin:0}
+.nw-signin .migrate-row input{min-width:160px;flex:1}
+.nw-vm-head{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px}.nw-vm-head input[type=search]{flex:1;min-width:200px}
+.nw-vm-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:4px 10px;max-height:52vh;overflow:auto;padding:6px;border:1px solid #dbe3ed;border-radius:8px;background:#fff}
+.nw-vm{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:0 8px;align-items:center;padding:5px 7px;border-radius:6px;font-size:12.5px;cursor:pointer}
+.nw-vm:hover{background:#f3f6fb}.nw-vm.disabled{cursor:default;opacity:.75}.nw-vm .vm-note{grid-column:2 / span 2;font-size:11.5px}
+.nw-vm strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nw-net-table select{min-width:200px}.nw-net-table input.nw-vlan{width:80px;max-width:80px}
+.nw-methods{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:8px}
+.nw-method{display:flex;flex-direction:column;gap:5px;padding:10px 12px;border:1px solid #cfd8e4;border-radius:9px;background:#fff;color:#243249;font:inherit;font-size:12.5px;text-align:left;cursor:pointer}
+.nw-method:hover{border-color:#9db8e6}.nw-method[aria-pressed="true"]{border-color:#2563eb;background:#eef4ff;box-shadow:inset 0 0 0 1px #2563eb}
+.nw-method-top{display:flex;flex-wrap:wrap;align-items:center;gap:6px}.nw-method-top strong{font-size:13.5px;color:#1f2a3a;margin-right:auto}
+.nw-badge{padding:1px 8px;border-radius:999px;background:#e8f0fe;color:#1f4f9d;font-size:11px;font-weight:700}.nw-badge.good{background:#e9f6ee;color:#1d6b43}.nw-badge.handoff{background:#f1f4f8;color:#596b80}
+.nw-advanced{border:1px solid #dbe3ed;border-radius:8px;padding:6px 10px;background:#fbfcfe}.nw-advanced summary{cursor:pointer;font-size:12.5px;font-weight:650;color:#334156}.nw-advanced[open] summary{margin-bottom:8px}
+.nw-radios{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:12.5px}
+.nw-wave-vms{display:flex;flex-wrap:wrap;gap:4px 6px}.nw-wave-vm{display:inline-flex;align-items:center;gap:4px;padding:2px 4px 2px 8px;border:1px solid #dbe3ed;border-radius:999px;background:#f8fafc;font-size:12px}.nw-wave-vm select{font-size:11.5px;padding:1px 2px}
+.nw-summary{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:6px 14px;margin:0;padding:10px 12px;border:1px solid #dbe3ed;border-radius:9px;background:#fbfcfe;font-size:12.5px}.nw-summary dt{font-weight:700;color:#334156}.nw-summary dd{margin:0;color:#3d4c61}
+.nw-checks{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:5px}
+.nw-check{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:6px 9px;border-radius:7px;background:#f1f4f8;font-size:12.5px;color:#334156}.nw-check.ok{background:#e9f6ee;color:#1d6b43}.nw-check.warn{background:#fff4e2;color:#8a5610}.nw-check.block{background:#fdecec;color:#8f2f2f}
+.nw-check-icon{min-width:34px;font-weight:700;font-size:11px;text-transform:uppercase}
+.nw-status-title{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px}.nw-status-title strong{font-size:15px}.nw-status-tools{margin-left:auto;display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center}
+.nw-tiles{margin:8px 0 4px}
+.nw-status-table{table-layout:fixed;width:100%}.nw-status-table td:nth-child(1){width:34px}.nw-status-table td:nth-child(2){width:24%}.nw-status-table td:nth-child(4){width:22%}
+.nw-wave{margin-top:8px}.nw-wave-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px;margin-bottom:4px}
+.nw-status-actions{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding-top:8px;border-top:1px solid #eef2f7}.nw-status-actions input{min-width:220px}
+@media(max-width:900px){.nw-vm-list{grid-template-columns:1fr}.nw-methods{grid-template-columns:1fr}.nw-summary{grid-template-columns:1fr}}
 @media(max-width:900px){.gd-choices{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}.gd-choice span{display:none}}
 @media(max-height:720px){.vm-table-wrap{max-height:230px}.vm-bar{padding-top:6px}.vm-counts{margin-top:6px}.vm-count strong{font-size:15px}}
 @media(max-height:720px){.restore-log{max-height:160px;min-height:90px}.restore-facts{margin-top:10px;padding:8px 10px}.restore-components{margin-top:10px}.restore-dialog-body{max-height:calc(100vh - 120px)}}
@@ -952,8 +994,18 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     </section>
 
     <section class="tab-panel" id="tabMigration" role="tabpanel" aria-labelledby="tabButtonMigration">
-      <div class="tool-layout"><nav class="tool-nav" id="migrationNav" aria-label="Migration and replication tools"><div class="tool-group"><div class="tool-group-title">Start here</div><button class="tool-item tool-guide" type="button" data-tool="guide" aria-pressed="false"><span class="tool-name">Guided migration</span><span class="tool-desc">Pick what you are moving and where to; follow the steps in order.</span><span class="tool-runs"><b>Runs on</b> the computer each step names</span></button></div><div class="tool-group"><div class="tool-group-title">Plan</div><button class="tool-item" type="button" data-tool="plan" aria-pressed="false"><span class="tool-name">Plan and runbook</span><span class="tool-desc">Waves, network map and the runbook (HTML and Word).</span><span class="tool-runs"><b>Runs on</b> your admin computer</span></button><button class="tool-item" type="button" data-tool="hvbuild" aria-pressed="false"><span class="tool-name">Build Hyper-V hosts<span class="tab-badge tool-badge hidden" id="hvbuildBadge"></span></span><span class="tool-desc">Set up Hyper-V, switches, storage and a failover cluster from the VMware data.</span><span class="tool-runs"><b>Runs on</b> your admin computer, changing the new Hyper-V nodes</span></button></div><div class="tool-group"><div class="tool-group-title">Move servers</div><button class="tool-item" type="button" data-tool="movevms" aria-pressed="false"><span class="tool-name">Move VMs<span class="tab-badge tool-badge" id="movevmsBadge">Ready</span></span><span class="tool-desc">VMware or Hyper-V VMs, nothing installed in them. Copy, then cut over.</span><span class="tool-runs"><b>Runs on</b> the Hyper-V host or your admin computer</span></button><button class="tool-item" type="button" data-tool="plans" aria-pressed="false"><span class="tool-name">Migration plans<span class="tab-badge tool-badge hidden" id="plansBadge"></span></span><span class="tool-desc">Many VMs at once: scheduled seeding, automatic syncs, test and scheduled cutover.</span><span class="tool-runs"><b>Runs on</b> the Hyper-V host that will run the VMs</span></button><button class="tool-item" type="button" data-tool="replicate" aria-pressed="false"><span class="tool-name">Replicate servers<span class="tab-badge tool-badge" id="replicationTabBadge">Ready</span></span><span class="tool-desc">Any Windows or Linux server, physical or virtual, kept in sync by an agent until cutover.</span><span class="tool-runs"><b>Runs on</b> your admin computer; agent on each source server</span></button><button class="tool-item" type="button" data-tool="diskcopy" aria-pressed="false"><span class="tool-name">Receive and send disks<span class="tab-badge tool-badge" id="diskcopyBadge">Ready</span></span><span class="tool-desc">The receiver every copy goes to, and Send by hand without the agent.</span><span class="tool-runs"><b>Runs on</b> the receiving computer; Send inside the source</span></button><button class="tool-item" type="button" data-tool="failover" aria-pressed="false"><span class="tool-name">Start VMs from copies</span><span class="tool-desc">Test failover or the production VM on Hyper-V.</span><span class="tool-runs"><b>Runs on</b> the Hyper-V host receiving the copies</span></button><button class="tool-item" type="button" data-tool="shares" aria-pressed="false"><span class="tool-name">Move file shares<span class="tab-badge tool-badge" id="migrateTabBadge">Ready</span></span><span class="tool-desc">Shares, files and permissions from an old file server.</span><span class="tool-runs"><b>Runs on</b> the new file server</span></button></div><div class="tool-group"><div class="tool-group-title">Disks</div><button class="tool-item" type="button" data-tool="convert" aria-pressed="false"><span class="tool-name">Convert disk images<span class="tab-badge tool-badge" id="convertTabBadge">Ready</span></span><span class="tool-desc">VMDK, VHD(X), qcow2, raw: convert, fix up drivers, send to a host, P2V.</span><span class="tool-runs"><b>Runs on</b> any Windows computer that reaches the files</span></button></div><div class="tool-group"><div class="tool-group-title">Inside the machine</div><button class="tool-item" type="button" data-tool="guest" aria-pressed="false"><span class="tool-name">Prepare and fix up</span><span class="tool-desc">Record settings before the move; fix the machine up after it, from outside.</span><span class="tool-runs"><b>Runs on</b> the Hyper-V host or admin computer; nothing in the machine</span></button><button class="tool-item" type="button" data-tool="compare" aria-pressed="false"><span class="tool-name">Compare before and after</span><span class="tool-desc">What changed between two inventories.</span><span class="tool-runs"><b>Runs on</b> any computer</span></button></div></nav>
+      <div class="tool-layout"><nav class="tool-nav" id="migrationNav" aria-label="Migration and replication tools"><div class="tool-group"><div class="tool-group-title">Start here</div><button class="tool-item tool-guide tool-wizard" type="button" data-tool="wizard" aria-pressed="false"><span class="tool-name">New migration</span><span class="tool-desc">Pick the VMs, where they go and when, on one set of screens. Start it and watch it here.</span><span class="tool-runs"><b>Runs on</b> the Hyper-V host that will run the VMs</span></button><button class="tool-item" type="button" data-tool="guide" aria-pressed="false"><span class="tool-name">Guided migration</span><span class="tool-desc">Pick what you are moving and where to; follow the steps in order.</span><span class="tool-runs"><b>Runs on</b> the computer each step names</span></button></div><div class="tool-section-title" id="toolsAdvancedTitle">Tools (advanced): each part on its own</div><div class="tool-group"><div class="tool-group-title">Plan</div><button class="tool-item" type="button" data-tool="plan" aria-pressed="false"><span class="tool-name">Plan and runbook</span><span class="tool-desc">Waves, network map and the runbook (HTML and Word).</span><span class="tool-runs"><b>Runs on</b> your admin computer</span></button><button class="tool-item" type="button" data-tool="hvbuild" aria-pressed="false"><span class="tool-name">Build Hyper-V hosts<span class="tab-badge tool-badge hidden" id="hvbuildBadge"></span></span><span class="tool-desc">Set up Hyper-V, switches, storage and a failover cluster from the VMware data.</span><span class="tool-runs"><b>Runs on</b> your admin computer, changing the new Hyper-V nodes</span></button></div><div class="tool-group"><div class="tool-group-title">Move servers</div><button class="tool-item" type="button" data-tool="movevms" aria-pressed="false"><span class="tool-name">Move VMs<span class="tab-badge tool-badge" id="movevmsBadge">Ready</span></span><span class="tool-desc">VMware or Hyper-V VMs, nothing installed in them. Copy, then cut over.</span><span class="tool-runs"><b>Runs on</b> the Hyper-V host or your admin computer</span></button><button class="tool-item" type="button" data-tool="plans" aria-pressed="false"><span class="tool-name">Migration plans<span class="tab-badge tool-badge hidden" id="plansBadge"></span></span><span class="tool-desc">Many VMs at once: scheduled seeding, automatic syncs, test and scheduled cutover.</span><span class="tool-runs"><b>Runs on</b> the Hyper-V host that will run the VMs</span></button><button class="tool-item" type="button" data-tool="replicate" aria-pressed="false"><span class="tool-name">Replicate servers<span class="tab-badge tool-badge" id="replicationTabBadge">Ready</span></span><span class="tool-desc">Any Windows or Linux server, physical or virtual, kept in sync by an agent until cutover.</span><span class="tool-runs"><b>Runs on</b> your admin computer; agent on each source server</span></button><button class="tool-item" type="button" data-tool="diskcopy" aria-pressed="false"><span class="tool-name">Receive and send disks<span class="tab-badge tool-badge" id="diskcopyBadge">Ready</span></span><span class="tool-desc">The receiver every copy goes to, and Send by hand without the agent.</span><span class="tool-runs"><b>Runs on</b> the receiving computer; Send inside the source</span></button><button class="tool-item" type="button" data-tool="failover" aria-pressed="false"><span class="tool-name">Start VMs from copies</span><span class="tool-desc">Test failover or the production VM on Hyper-V.</span><span class="tool-runs"><b>Runs on</b> the Hyper-V host receiving the copies</span></button><button class="tool-item" type="button" data-tool="shares" aria-pressed="false"><span class="tool-name">Move file shares<span class="tab-badge tool-badge" id="migrateTabBadge">Ready</span></span><span class="tool-desc">Shares, files and permissions from an old file server.</span><span class="tool-runs"><b>Runs on</b> the new file server</span></button></div><div class="tool-group"><div class="tool-group-title">Disks</div><button class="tool-item" type="button" data-tool="convert" aria-pressed="false"><span class="tool-name">Convert disk images<span class="tab-badge tool-badge" id="convertTabBadge">Ready</span></span><span class="tool-desc">VMDK, VHD(X), qcow2, raw: convert, fix up drivers, send to a host, P2V.</span><span class="tool-runs"><b>Runs on</b> any Windows computer that reaches the files</span></button></div><div class="tool-group"><div class="tool-group-title">Inside the machine</div><button class="tool-item" type="button" data-tool="guest" aria-pressed="false"><span class="tool-name">Prepare and fix up</span><span class="tool-desc">Record settings before the move; fix the machine up after it, from outside.</span><span class="tool-runs"><b>Runs on</b> the Hyper-V host or admin computer; nothing in the machine</span></button><button class="tool-item" type="button" data-tool="compare" aria-pressed="false"><span class="tool-name">Compare before and after</span><span class="tool-desc">What changed between two inventories.</span><span class="tool-runs"><b>Runs on</b> any computer</span></button></div></nav>
       <div class="tool-host" id="migrationHost"><div class="tool-current" id="migrationCurrent"></div>
+    <section class="tool-pane" id="tabWizard" aria-labelledby="nwTitle">
+      <div class="restore-wrap"><div class="card">
+        <div class="card-header"><div><div class="card-title" id="nwTitle">New migration</div><div class="card-subtitle">Choose what you are moving, where it goes, how and when. Every value is filled in for you; change only what you need. The last screen starts the migration and shows it live through test and cutover.</div></div></div>
+        <div class="card-body nw-body">
+          <ol class="nw-stepper" id="nwStepper" aria-label="Steps"></ol>
+          <div class="nw-step" id="nwStep"></div>
+          <div class="nw-nav"><button class="secondary-button" id="nwBack" type="button">Back</button><span class="nw-why" id="nwWhy" role="status" aria-live="polite"></span><button class="primary-button" id="nwNext" type="button">Next</button></div>
+        </div>
+      </div></div>
+    </section>
     <section class="tool-pane" id="tabGuide" aria-labelledby="gdTitle">
       <div class="restore-wrap"><div class="card">
         <div class="card-header"><div><div class="card-title" id="gdTitle">Guided migration</div><div class="card-subtitle">Choose what you are moving and where it is going. The steps below come in order; each says which computer to use, checks what this application can see from here, and opens the tool for it.</div></div></div>
@@ -1763,6 +1815,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     hvbuild:{tab:'migration',pane:'tabHvBuild',legacy:'hvbuild'},
     plan:{tab:'migration',pane:'tabVmware',view:'plan',legacy:'vmware',title:'Plan and runbook',subtitle:'Choose new hardware or reusing the existing hosts one at a time, size the new cluster, map each network and datastore, put VMs in waves and write the runbook (HTML and Word) from the inventory read in Discovery.',runs:'your admin computer.'},
     movevms:{tab:'migration',pane:'tabVmware',view:'env',legacy:'vmware',title:'Move VMs',subtitle:'Copy a VMware or Hyper-V VM while it runs, as often as you like, then cut over: the guest is shut down, the last changes are copied and verified, and the new VM is created. Nothing is installed in the VM.',runs:'the Hyper-V host when moving to Hyper-V, or your admin computer connected to it; your admin computer for HyperCore, Nutanix, Proxmox and physical servers.'},
+    wizard:{tab:'migration',pane:'tabWizard',legacy:'wizard'},
     guide:{tab:'migration',pane:'tabGuide',legacy:'guide'},
     replicate:{tab:'migration',pane:'tabReplication',legacy:'replication'},
     plans:{tab:'migration',pane:'tabPlans',legacy:'plans'},
@@ -1789,6 +1842,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     {id:'shares',when:'only the file shares, files and permissions move to a new file server, not the whole server.',tool:'shares',card:true,name:'Move file shares',from:['shares'],to:['fileserver'],agent:'agentless',live:'live',fromText:'Windows file server shares, files and permissions',toText:'a new Windows file server',note:'Copies while users keep working; the shares move at cutover.'}
   ];
   var toolSupport={
+    wizard:{works:'VMware (vCenter or ESXi 6.5 to 8.0) or Hyper-V VMs to this Hyper-V host or its failover cluster, start to finish; every other source and target is matched to its tool',when:'you start any migration and want only the choices it needs, in order',tags:['agentless','live']},
     environment:{works:'VMware vCenter or ESXi and Hyper-V hosts or clusters',tags:['readonly']},
     plan:{works:'Inventories read from VMware or Hyper-V, for every target',tags:['readonly']},
     hvbuild:{works:'New Hyper-V hosts on Windows Server 2012 R2 to 2025, standalone or a failover cluster with iSCSI or Fibre Channel storage, planned from a vCenter or ESXi 6.5 to 8.0 inventory (or typed in)',when:'the new Hyper-V hosts are installed with Windows Server and joined to the domain, and you want them set up like the VMware hosts before moving VMs to them',tags:['hyperv']},
@@ -1818,7 +1872,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     box.textContent='';var info=toolWorksOf(id);box.classList.toggle('hidden',!info);if(!info){return;}
     box.appendChild(toolWorksLine(info));if(info.when){box.appendChild(toolWhenLine(info.when));}box.appendChild(modeTags(info.tags));
   }
-  var activeTool={discovery:'server',migration:'guide'},activeTop='discovery';
+  var activeTool={discovery:'server',migration:'wizard'},activeTop='discovery';
   // Old tab names still work: they open the tool that holds that content.
   var legacyTabs={setup:'server',vmware:null,migrate:'shares',convert:'convert',replication:'replicate'};
   function switchTab(name) {
@@ -1851,6 +1905,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     renderToolWorks(id);
     if(id==='guide'){renderGuide(true);}
     if(id==='plans'){mpOpen();}
+    if(id==='wizard'){nwOpen();}
   }
   function getCheckedValues(selector){ var nodes=document.querySelectorAll(selector+':checked'), out=[]; for(var i=0;i<nodes.length;i++){out.push(nodes[i].value);} return out; }
   function setCheckedValues(selector, values){ var lookup={}; for(var i=0;i<values.length;i++){lookup[values[i]]=true;} var nodes=document.querySelectorAll(selector); for(var j=0;j<nodes.length;j++){nodes[j].checked=!!lookup[nodes[j].value];} syncCategoryState(); }
@@ -3025,6 +3080,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     renderHvBuild(state);
     renderToolBadges(state);
     if(activeTab==='guide'){renderGuide(false);}
+    if(activeTab==='wizard'){nwTick();}
     markIdleBadges();
     if(!preferencesLoaded){
       preferencesLoaded=true;
@@ -6697,6 +6753,582 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   var mpStateNames={waiting:'Waiting for its first copy',copying:'Copying',ready:'In sync',testing:'Test VM running',cutting:'Cutting over',done:'Cut over',failed:'Failed'};
   var mpTiles=[['total','VMs',''],['waiting','Waiting',''],['copying','Copying','active'],['ready','In sync','good'],['testing','Testing','warning'],['scheduled','Cutover scheduled','warning'],['done','Cut over','good'],['failed','Failed','danger']];
   (function(){var a=byId('mpBizStart'),b=byId('mpBizEnd');for(var h=0;h<=24;h++){var label=(h<10?'0':'')+h+':00';a.appendChild(new Option(label,String(h)));b.appendChild(new Option(label,String(h)));}a.value='8';b.value='18';})();
+  // New migration (docs/NEW_MIGRATION_WIZARD.md): one sequence of screens
+  // from "what am I moving" to a running, monitored migration. Each step
+  // shows only the options of the chosen way of moving and fills every value
+  // it can. VMs going to this Hyper-V host or its cluster run end to end
+  // through Migration plans; every other way hands off to its tool with the
+  // selection carried over, and says so.
+  var nwStepNames=['What','Where','How','When','Review','Status'];
+  var nw={step:0,reached:0,source:'',picks:{},filter:'',target:'',copyRoot:'',vmFolder:'',cluster:false,net:{},method:'',
+    opts:{syncMinutes:60,concurrency:2,quiesce:false,keepMac:true,startVms:true,disconnectSource:true,testSwitch:'',bizMbps:'0',offMbps:'0',bizStart:8,bizEnd:18},
+    startMode:'now',startAt:'',waveMode:'',waves:{},cut:{},name:'',confirm:'',planId:'',busy:false,error:'',filled:'',statusFilter:''};
+  var nwSwitches=null,nwSwitchesAsked=false,nwLastPoll=0,nwSig='',nwStatusSig='',nwRowsChosen={};
+  var nwSources=[
+    {id:'vms',name:'VMs on VMware or Hyper-V',detail:'vCenter, ESXi or a Hyper-V host. Pick many at once; nothing is installed in them.'},
+    {id:'servers',name:'Windows or Linux servers',detail:'Physical servers, or VMs on any other hypervisor, copied by an agent.'},
+    {id:'shares',name:'File shares',detail:'Shares, files and permissions from an old file server.'},
+    {id:'images',name:'Disk image files',detail:'VMDK, VHD(X), qcow2 or raw files of a VM that is shut down or exported.'}
+  ];
+  var nwTargetInfo={
+    here:{name:'This Hyper-V host',detail:'This computer, or its failover cluster. Copies, syncs and cutover all run here.'},
+    hvremote:{name:'Another Hyper-V host or cluster',detail:'Reached from this computer with PowerShell remoting.'},
+    scale:{name:'Scale HyperCore',detail:'The new VM boots receiver media and gets the copy.'},
+    nutanix:{name:'Nutanix AHV',detail:'Prism Central creates the VM; the copy goes straight onto its disks.'},
+    proxmox:{name:'Proxmox VE',detail:'An API token creates the VM; the copy goes straight onto its disks.'},
+    physical:{name:'A physical server',detail:'The server boots receiver media and gets the copy (V2P).'},
+    vsphere:{name:'VMware ESXi or vCenter',detail:'The converted disk is imported as a new VM.'},
+    fileserver:{name:'This file server',detail:'The shares are recreated on the computer running this application.'}
+  };
+  function nwTargetsFor(src){return {vms:['here','hvremote','scale','nutanix','proxmox','physical'],servers:['here','scale','nutanix','proxmox','physical'],shares:['fileserver'],images:['here','vsphere','scale','nutanix','proxmox']}[src]||[];}
+  function nwMode(id){return migrationModes.filter(function(m){return m.id===id;})[0]||null;}
+  function nwInvType(){return vmInventory?(vmInventory.serverType==='Hyper-V host'?'hyperv':'vmware'):'';}
+  // The ways that fit, recommended first.
+  function nwMethodsFor(){
+    var s=nw.source,t=nw.target;
+    if(s==='vms'){if(t==='here'){return ['plans','movevms','replicate'];}if(t==='hvremote'){return nwInvType()==='hyperv'?['replicate']:['onevmhv','replicate'];}return ['movevms','replicate','convert'];}
+    if(s==='servers'){return ['replicate','sendbyhand'];}
+    if(s==='shares'){return ['shares'];}
+    if(s==='images'){return ['convert'];}
+    return [];
+  }
+  function nwEndToEnd(){return nw.source==='vms'&&nw.target==='here'&&nw.method==='plans';}
+  // Steps shown for the chosen way: a hand-off ends at How.
+  function nwStepCount(){return nw.method&&!nwEndToEnd()?3:6;}
+  function nwHyperVReadiness(vm){var list=vmArr(vm.readiness);for(var i=0;i<list.length;i++){if(list[i].target==='hyperv'){return list[i];}}return {status:'review',findings:[]};}
+  function nwInPlans(){var used={};vmArr(mpState&&mpState.plans).forEach(function(p){vmArr(p.vms).forEach(function(v){if(v.state!=='done'){used[v.id]=p.name;}});});return used;}
+  // Why a VM cannot be picked here, or ''.
+  function nwPickWhy(vm,used){
+    var r=nwHyperVReadiness(vm);
+    if(used&&used[vm.id]){return 'Already in the migration '+used[vm.id];}
+    if(vm.template){return 'A template: not moved';}
+    if(r.status==='skip'){return 'A system VM: not moved';}
+    if(r.status==='blocked'){var f=vmArr(r.findings).filter(function(x){return x.severity==='blocker';})[0];return 'Blocked: '+(f?f.message:'see its readiness in Discovery')+(vmDisksEncrypted(vm)?' Replicate servers can copy it with an agent.':'');}
+    return '';
+  }
+  function nwPickedVMs(){var out=[];vmArr(vmInventory&&vmInventory.vms).forEach(function(vm){if(nw.picks[vm.id]){out.push(vm);}});return out;}
+  function nwNetworks(){
+    var names={},list=[];nwPickedVMs().forEach(function(vm){vmArr(vm.nics).forEach(function(n){var k=n.network||'';if(k&&!names[k]){names[k]=0;list.push(k);}names[k]=(names[k]||0)+1;});});
+    return list.sort().map(function(name){var src=vmArr(vmInventory&&vmInventory.networks).filter(function(x){return x.name===name;})[0]||{};return {name:name,vlan:src.vlan||'',count:names[name]};});
+  }
+  function nwStorage(){return (vmwareState()||{}).hostStorage||{};}
+  function nwFillDefaults(){
+    // Fill the folders, cluster choice and network map once per target.
+    var key=nw.source+'|'+nw.target+'|'+(vmInvKeyOf(vmInventory));if(nw.filled===key){return;}nw.filled=key;
+    if(nw.target!=='here'){return;}
+    var hs=nwStorage(),csv=vmArr(hs.volumes).filter(function(v){return v.csv;}).sort(function(a,b){return (b.freeBytes||0)-(a.freeBytes||0);})[0];
+    if(hs.clustered&&csv){nw.cluster=true;nw.copyRoot=csv.path+'\\Migrations';nw.vmFolder=csv.path+'\\VMs';}
+    else{nw.cluster=false;nw.copyRoot=hs.vhdPath||'';nw.vmFolder='';}
+  }
+  function nwMapDefault(net){
+    var entry=vmArr(vmPlan&&vmPlan.networks).filter(function(x){return x.source===net.name;})[0];
+    var sw=vmArr(nwSwitches),same=sw.filter(function(s){return s.name.toLowerCase()===net.name.toLowerCase();})[0],ext=sw.filter(function(s){return /external/i.test(s.type||'');});
+    var target=entry&&trimText(entry.targetName)?entry.targetName:(same?same.name:(ext.length===1?ext[0].name:null));
+    return {sw:target,vlan:entry&&trimText(entry.targetVlan)?entry.targetVlan:(net.vlan&&net.vlan!=='0'?net.vlan:'')};
+  }
+  function nwMap(net){if(!nw.net[net.name]){var d=nwMapDefault(net);if(d.sw===null){return {sw:null,vlan:d.vlan};}nw.net[net.name]=d;}return nw.net[net.name];}
+  function nwWaveOf(id){if(nw.waves[id]){return nw.waves[id];}var p=vmPlanEntry(id);return nw.waveMode==='plan'&&p&&p.wave>0&&!p.hold&&!p.exclude?p.wave:1;}
+  function nwWaveList(){var w={};nwPickedVMs().forEach(function(vm){w[nwWaveOf(vm.id)]=1;});return Object.keys(w).map(Number).sort(function(a,b){return a-b;});}
+  function nwUsedBytes(){var n=0;nwPickedVMs().forEach(function(vm){n+=vm.usedBytes||0;});return n;}
+  function nwFreeFor(path){
+    var best=null;vmArr(nwStorage().volumes).forEach(function(v){var p=String(v.path||'').toLowerCase().replace(/\\+$/,'');if(p&&String(path||'').toLowerCase().indexOf(p)===0&&(!best||p.length>best.p.length)){best={p:p,v:v};}});
+    return best?best.v:null;
+  }
+  function nwFullPath(p){return /^[A-Za-z]:\\/.test(p)||/^\\\\/.test(p);}
+  // Checks that block or warn before Start. s: ok, warn or block.
+  function nwChecks(){
+    var v=vmwareState()||{},list=[],add=function(s,t,fix){list.push({s:s,t:t,fix:fix||''});};
+    var picked=nwPickedVMs(),used=nwInPlans();
+    add(v.hyperVHere?'ok':'block',v.hyperVHere?'This computer ('+vmComputer()+') is a Hyper-V host: the VMs are created here.':'This computer ('+vmComputer()+') is not a Hyper-V host. Run this application on the Hyper-V host that will run the VMs.');
+    if(latestState&&latestState.isAdmin===false){add('warn','This application is not running as administrator. Creating VMs needs administrator rights.');}
+    if(nwInvType()==='vmware'){add(v.canPrepare?'ok':'block',v.canPrepare?'Signed in to '+(v.server||'vCenter')+' in this session.':'Sign in to '+(v.server||'vCenter')+' again: the password is kept only while this application runs, and copying needs it.',v.canPrepare?'':'vcpass');}
+    var unmapped=nwNetworks().filter(function(n){return nwMap(n).sw===null;});
+    add(unmapped.length?'block':'ok',unmapped.length?'Choose a switch for '+unmapped.map(function(n){return n.name;}).join(', ')+' (in Where).':'Every network has a switch, or is left not connected on purpose.');
+    if(nw.cluster){var onCsv=function(p){return /^[A-Za-z]:\\ClusterStorage\\[^\\]+/i.test(p);};add(onCsv(nw.copyRoot)&&onCsv(nw.vmFolder)?'ok':'block',onCsv(nw.copyRoot)&&onCsv(nw.vmFolder)?'Both folders are on a Cluster Shared Volume, so the VMs can be highly available.':'High availability needs both folders on a Cluster Shared Volume (C:\\ClusterStorage\\...).');}
+    var need=Math.round(nwUsedBytes()*1.05),vol=nwFreeFor(nw.copyRoot||nwStorage().vhdPath);
+    if(!vol){add('warn','Free space in '+(nw.copyRoot||'the host\'s default folder')+' is checked when each copy starts. The chosen VMs hold about '+formatBytesShort(nwUsedBytes())+'.');}
+    else{add(vol.freeBytes<need?'block':'ok',(vol.freeBytes<need?'Not enough space: ':'Space: ')+'the chosen VMs hold about '+formatBytesShort(nwUsedBytes())+' and '+vol.path+' has '+formatBytesShort(vol.freeBytes)+' free.');}
+    var dup=picked.filter(function(vm){return used[vm.id];});if(dup.length){add('block',dup.map(function(vm){return vm.name;}).join(', ')+' '+(dup.length===1?'is':'are')+' already in another migration. Take '+(dup.length===1?'it':'them')+' out in What.');}
+    var snaps=picked.filter(function(vm){return vm.source!=='hyperv'&&vmArr(vm.snapshots).length>0;});
+    if(snaps.length){add('block',vmPlural(snaps.length,'VM')+' '+(snaps.length===1?'has':'have')+' VMware snapshots, and copies refuse a VM with snapshots: '+snaps.map(function(vm){return vm.name;}).join(', ')+'.','snapshots');}
+    var off=picked.filter(function(vm){return vm.powerState!=='poweredOn';}).length;if(off){add('ok',vmPlural(off,'VM')+' '+(off===1?'is':'are')+' turned off: '+(off===1?'it is':'they are')+' copied as they are.');}
+    return list;
+  }
+  // Why Next cannot go on from the current step, or ''.
+  function nwWhyNot(step){
+    var v=vmwareState()||{};
+    if(step===0){
+      if(!nw.source){return 'Choose what you are moving.';}
+      if(nw.source!=='vms'){return '';}
+      if(!vmInventory){return 'Read vCenter, ESXi or a Hyper-V host first (above).';}
+      if(!nwPickedVMs().length){return 'Tick the VMs to move.';}
+      return '';
+    }
+    if(step===1){
+      if(!nw.target){return 'Choose where '+(nw.source==='vms'?'the VMs are':'it is')+' going.';}
+      if(nw.target==='here'&&nw.source==='vms'){
+        if(!v.hyperVHere){return 'This computer is not a Hyper-V host. Pick another target, or run this application on the Hyper-V host.';}
+        if(nw.copyRoot&&!nwFullPath(nw.copyRoot)){return 'Type a full path for the copied disks, or leave it empty for the host\'s default.';}
+        if(nw.vmFolder&&!nwFullPath(nw.vmFolder)){return 'Type a full path for the VMs, or leave it empty for the host\'s default.';}
+        var unmapped=nwNetworks().filter(function(n){return nwMap(n).sw===null;});if(unmapped.length){return 'Choose a switch for '+unmapped[0].name+'.';}
+      }
+      return '';
+    }
+    if(step===2){return nw.method?'':'Choose how to move.';}
+    if(step===3){
+      if(nw.startMode==='at'){var t=new Date(nw.startAt);if(!nw.startAt||isNaN(t.getTime())){return 'Choose when the first copies start.';}}
+      var waves=nwWaveList();for(var i=0;i<waves.length;i++){var c=nw.cut[waves[i]];if(c&&c.mode==='at'){var at=new Date(c.at);if(!c.at||isNaN(at.getTime())){return 'Choose the cutover time of wave '+waves[i]+'.';}if(at.getTime()<Date.now()+5*60000){return 'The cutover time of wave '+waves[i]+' must be at least five minutes from now.';}}}
+      if(isNaN(Number(nw.opts.bizMbps))||isNaN(Number(nw.opts.offMbps))){return 'Type the bandwidth limits as numbers of Mbps (0 for none), under Advanced in How.';}
+      return '';
+    }
+    if(step===4){
+      var block=nwChecks().filter(function(c){return c.s==='block';})[0];if(block){return block.t;}
+      if(!trimText(nw.name)){return 'Name the migration.';}
+      if(trimText(nw.confirm).toLowerCase()!==trimText(nw.name).toLowerCase()){return 'Type the name again, '+trimText(nw.name)+', to start.';}
+      return '';
+    }
+    return '';
+  }
+  function nwSet(node,attr){node.setAttribute('data-nw',attr);return node;}
+  function nwField(label,input,help){var l=el('label','vm-field');l.appendChild(document.createTextNode(label));l.appendChild(input);if(help){l.appendChild(el('span','vm-note',help));}return l;}
+  function nwInput(id,value,placeholder){var i=document.createElement('input');i.type='text';i.id=id;i.value=value||'';i.spellcheck=false;i.autocomplete='off';if(placeholder){i.placeholder=placeholder;}return i;}
+  function nwCheck(id,label,checked,onChange){var l=el('label','vm-check'),cb=document.createElement('input');cb.type='checkbox';cb.id=id;cb.checked=!!checked;cb.addEventListener('change',function(){onChange(cb.checked);});l.appendChild(cb);l.appendChild(el('span','',label));return l;}
+  function nwChoice(attr,id,name,detail,pressed,disabled,why){
+    var b=el('button','gd-choice nw-choice');b.type='button';b.setAttribute(attr,id);b.setAttribute('aria-pressed',pressed?'true':'false');
+    b.appendChild(el('strong','',name));b.appendChild(el('span','',detail));if(why){b.appendChild(el('span','nw-choice-why',why));}
+    if(disabled){b.disabled=true;}return b;
+  }
+  function nwBrowse(input,mode){if(typeof pathBrowse==='function'){try{pathBrowse(input,{mode:mode||'folder'});}catch(e){}}}
+  function nwHeading(text){return el('h3','nw-heading',text);}
+  function renderNwStepper(){
+    var box=byId('nwStepper');box.textContent='';var count=nwStepCount();
+    nwStepNames.forEach(function(name,i){
+      if(i>=count){return;}
+      var li=el('li','nw-stepper-item'+(i===nw.step?' current':'')+(i<nw.reached||i<nw.step?' done':'')),b=el('button','nw-stepper-button');b.type='button';b.setAttribute('data-nw-step',String(i));
+      b.appendChild(el('span','nw-stepper-num',String(i+1)));b.appendChild(el('span','',name));b.disabled=i>nw.reached||(nw.planId&&i<5&&nw.step===5);
+      if(i===nw.step){b.setAttribute('aria-current','step');}li.appendChild(b);box.appendChild(li);
+    });
+  }
+  function renderNwNav(){
+    var why=nwWhyNot(nw.step),next=byId('nwNext'),back=byId('nwBack'),count=nwStepCount();
+    back.classList.toggle('hidden',nw.step===0||nw.step===5);back.disabled=nw.busy;
+    byId('nwWhy').textContent=nw.error||why;byId('nwWhy').className='nw-why'+(nw.error?' error':'');
+    var label='Next';
+    if(nw.step===2&&nw.method&&!nwEndToEnd()){var m=nwMode(nw.method);label='Continue in '+(m?gdToolName(m.tool):'the tool');}
+    if(nw.step===4){label=nw.busy?'Starting…':'Start';}
+    if(nw.step===5){label='New migration';}
+    next.textContent=label;next.disabled=nw.busy||(nw.step<5&&!!why);next.classList.toggle('hidden',nw.step>=count&&nw.step!==5);
+  }
+  function nwSignature(){
+    var v=vmwareState()||{};
+    var base=[nw.step,vmInvKeyOf(vmInventory),!!v.running,v.status,!!v.canPrepare,!!v.hyperVHere,nwSwitches?nwSwitches.length:-1,mpState?vmArr(mpState.plans).length:-1].join('|');
+    if(nw.step===1){base+='|'+JSON.stringify(v.hostStorage||null);}
+    if(nw.step===4){base+='|'+JSON.stringify(nwChecks())+'|'+JSON.stringify(v.prepareBatch||null);}
+    return base;
+  }
+  function renderNw(){
+    var box=byId('nwStep');box.textContent='';nw.error=nw.error||'';
+    if(nw.source==='vms'&&nw.step>=1){nwFillDefaults();}
+    [renderNwWhat,renderNwWhere,renderNwHow,renderNwWhen,renderNwReview,renderNwStatus][nw.step](box);
+    nwSig=nwSignature();renderNwStepper();renderNwNav();
+  }
+  function nwTick(){
+    if(activeTab!=='wizard'){return;}
+    if(!nwSwitchesAsked&&(vmwareState()||{}).hyperVHere){nwLoadPlans(true);}
+    if((nw.step===5||nw.step===0)&&Date.now()-nwLastPoll>3000){nwLoadPlans(false);}
+    if(nw.step===5){renderNwStatusBody();renderNwNav();return;}
+    if(nwSignature()!==nwSig&&!nwTyping()){renderNw();}else{renderNwNav();}
+  }
+  // Re-rendering while the operator types in a text field would lose it.
+  function nwTyping(){var a=document.activeElement;return !!(a&&byId('nwStep').contains(a)&&(a.type==='text'||a.type==='password'||a.type==='search'||a.tagName==='SELECT'));}
+  function nwLoadPlans(withSwitches){
+    if(withSwitches){nwSwitchesAsked=true;}nwLastPoll=Date.now();
+    request('GET','/api/plans'+(withSwitches?'?switches=1':''),null,function(err,data){if(err){return;}mpState=data||{};if(withSwitches&&mpState.switches){nwSwitches=vmArr(mpState.switches);}if(activeTab==='wizard'){if(nw.step===5){renderNwStatusBody();renderNwNav();}else if(!nwTyping()){renderNw();}}});
+  }
+  function nwOpen(){
+    if(!vmInventory&&!vmInvLoading&&(vmwareState()||{}).inventorySerial){loadVmInventory(0);}
+    nwLoadPlans(!nwSwitchesAsked);renderNw();
+  }
+  // Step 1: what.
+  function renderNwWhat(box){
+    var running=vmArr(mpState&&mpState.plans).filter(function(p){return p.summary&&p.summary.done<p.summary.total;});
+    if(running.length){
+      var cur=el('div','nw-running');cur.appendChild(el('strong','','Migrations running on this host'));
+      running.forEach(function(p){var b=el('button','secondary-button',p.name+' · '+p.summary.done+' of '+p.summary.total+' cut over'+(p.summary.failed?' · '+p.summary.failed+' failed':''));b.type='button';b.setAttribute('data-nw-open',p.id);b.title='Show its live status';cur.appendChild(b);});
+      if(typeof asOpenFor==='function'){var all=el('button','link-button','Open the All servers console');all.type='button';all.setAttribute('data-nw-console','');cur.appendChild(all);}
+      box.appendChild(cur);
+    }
+    box.appendChild(nwHeading('What are you moving?'));
+    var choices=el('div','gd-choices');nwSources.forEach(function(s){choices.appendChild(nwChoice('data-nw-source',s.id,s.name,s.detail,nw.source===s.id));});box.appendChild(choices);
+    if(nw.source!=='vms'){if(nw.source){box.appendChild(el('p','migrate-help','Next: choose where it is going.'));}return;}
+    var v=vmwareState()||{};
+    if(!vmInventory||(nwInvType()==='vmware'&&!v.canPrepare)){box.appendChild(renderNwSignIn(v));}
+    if(!vmInventory){return;}
+    var head=el('div','nw-vm-head');head.appendChild(el('strong','','VMs on '+(vmInventory.server||'the server read in Discovery')));
+    var search=document.createElement('input');search.type='search';search.id='nwFilter';search.placeholder='Search VMs by name, host or folder';search.setAttribute('aria-label','Search VMs');search.value=nw.filter;search.spellcheck=false;head.appendChild(search);
+    var by=document.createElement('select');by.id='nwPickBy';by.setAttribute('aria-label','Select by');vmPickByOptions(by);head.appendChild(by);
+    var allReady=el('button','secondary-button','Tick every ready VM shown');allReady.type='button';allReady.id='nwPickReady';head.appendChild(allReady);
+    var none=el('button','link-button','Clear');none.type='button';none.id='nwPickNone';head.appendChild(none);
+    box.appendChild(head);
+    var list=el('div','nw-vm-list');list.id='nwVmList';list.setAttribute('aria-label','VMs');box.appendChild(list);
+    box.appendChild(nwSet(el('div','vm-note nw-pick-count'),'count'));
+    renderNwVmList();
+  }
+  function renderNwSignIn(v){
+    var panel=el('div','nw-signin');
+    var server=v.server||(vmInventory&&vmInventory.server)||'',user=v.account||'';
+    if(v.running&&(v.action==='connect'||v.action==='hyperv')){panel.appendChild(el('div','migrate-inline-status',v.message||'Reading the inventory. This takes a minute.'));return panel;}
+    if(vmInventory&&server&&user){
+      panel.appendChild(el('strong','','Sign in to '+server+' again'));
+      panel.appendChild(el('p','migrate-help','The inventory is open, but the password is kept only while this application runs, and copying needs the live connection.'));
+    }else{
+      panel.appendChild(el('strong','','Read vCenter or ESXi'));
+      panel.appendChild(el('p','migrate-help','Reading changes nothing in vSphere. For a Hyper-V host, read it in Discovery (VMware and Hyper-V).'));
+    }
+    var row=el('div','migrate-row');
+    var s=nwInput('nwServer',server,'vcenter.example.com');s.setAttribute('aria-label','vCenter or ESXi server');var u=nwInput('nwUser',user,'administrator@vsphere.local');u.setAttribute('aria-label','User name');
+    var p=document.createElement('input');p.type='password';p.id='nwPassword';p.autocomplete='new-password';p.placeholder='Password';p.setAttribute('aria-label','Password');
+    row.appendChild(s);row.appendChild(u);row.appendChild(p);
+    var go=el('button','primary-button',vmInventory?'Sign in again':'Read');go.type='button';go.id='nwConnect';row.appendChild(go);
+    if(!vmInventory){var hv=el('button','secondary-button','Read a Hyper-V host instead');hv.type='button';hv.setAttribute('data-nw-tool','environment');row.appendChild(hv);}
+    panel.appendChild(row);
+    if(v.certificate){var c=el('div','restore-alert warning');c.appendChild(document.createTextNode('Windows does not trust this server\'s certificate. SHA-256 thumbprint: '+v.certificate.thumbprint+'. Trust it only if it matches the one shown on the server. '));var t=el('button','secondary-button','Trust this thumbprint and connect');t.type='button';t.id='nwTrust';c.appendChild(t);panel.appendChild(c);}
+    var st=el('div','migrate-inline-status'+(v.status==='connectfailed'?' error':''),v.status==='connectfailed'?(v.message||''):'');st.id='nwConnectStatus';st.setAttribute('role','status');panel.appendChild(st);
+    return panel;
+  }
+  function nwConnect(thumbprint){
+    var server=trimText((byId('nwServer')||{}).value),user=trimText((byId('nwUser')||{}).value),pass=byId('nwPassword'),v=vmwareState()||{};
+    if(!server){vmSetStatus('nwConnectStatus','Type the vCenter or ESXi host name.',true);return;}
+    if(!user){vmSetStatus('nwConnectStatus','Type a user name.',true);return;}
+    var held=String(v.account||'').toLowerCase()===user.toLowerCase()&&String(v.server||'').toLowerCase()===server.toLowerCase();
+    if(!pass.value&&!(held&&thumbprint)){vmSetStatus('nwConnectStatus','Type the password for '+user+'.',true);pass.focus();return;}
+    var body={server:server,user:user,password:pass.value};if(thumbprint){body.thumbprint=thumbprint;}pass.value='';
+    vmPost('/api/vmware/connect',body,'nwConnectStatus',function(err){if(!err){vmMarkRunning('connect','connecting','Connecting to '+server+' as '+user+'.');renderNw();}});
+  }
+  function renderNwVmList(){
+    var list=byId('nwVmList');if(!list||!vmInventory){return;}list.textContent='';
+    var used=nwInPlans(),f=nw.filter.toLowerCase(),shown=0;
+    vmArr(vmInventory.vms).forEach(function(vm){
+      var why=nwPickWhy(vm,used);if(why&&nw.picks[vm.id]){delete nw.picks[vm.id];}
+      if(f&&[vm.name,vm.host,vm.cluster,vm.folder].join(' ').toLowerCase().indexOf(f)<0){return;}
+      if(++shown>vmRowLimit){return;}
+      var row=el('label','nw-vm'+(why?' disabled':'')),cb=document.createElement('input');cb.type='checkbox';cb.setAttribute('data-nw-pick',vm.id);cb.checked=!!nw.picks[vm.id];cb.disabled=!!why;cb.setAttribute('aria-label','Move '+vm.name);
+      row.appendChild(cb);row.appendChild(el('strong','',vm.name));row.appendChild(vmChip(nwHyperVReadiness(vm).status));
+      row.appendChild(el('span','vm-note',why||[vm.host,vmPower(vm),vm.usedBytes?formatBytesShort(vm.usedBytes)+' used':''].filter(function(x){return x;}).join(' · ')));
+      list.appendChild(row);
+    });
+    if(shown>vmRowLimit){list.appendChild(el('div','vm-note','Showing the first '+vmRowLimit+' of '+shown+'. Search to narrow the list.'));}
+    if(!shown){list.appendChild(el('div','vm-note','No VM matches.'));}
+    var picked=nwPickedVMs(),count=document.querySelector('[data-nw="count"]');
+    if(count){count.textContent=picked.length?vmPlural(picked.length,'VM')+' ticked, about '+formatBytesShort(nwUsedBytes())+' to copy.':'No VMs ticked yet.';}
+    renderNwNav();
+  }
+  function nwPickBy(value){
+    var parts=value.split('\u0000'),kind=parts[0],key=parts[1],used=nwInPlans();
+    vmArr(vmInventory.vms).forEach(function(vm){var p=vmPlanEntry(vm.id),hit=false;
+      if(kind==='host'||kind==='cluster'||kind==='folder'){hit=vm[kind]===key;}
+      else if(kind==='wave'||kind==='lane'){hit=!!p&&vmLaneOf(p)===key;}
+      else if(kind==='ready'){hit=nwHyperVReadiness(vm).status===key;}else if(kind==='power'){hit=key==='poweredOn'?vm.powerState==='poweredOn':vm.powerState!=='poweredOn';}
+      if(hit&&!nwPickWhy(vm,used)){nw.picks[vm.id]=true;}});
+    renderNwVmList();
+  }
+  // Step 2: where.
+  function renderNwWhere(box){
+    var v=vmwareState()||{};
+    box.appendChild(nwHeading('Where '+(nw.source==='vms'?'are the VMs':'is it')+' going?'));
+    var choices=el('div','gd-choices');
+    nwTargetsFor(nw.source).forEach(function(id){var t=nwTargetInfo[id],why='',off=false;
+      if(id==='here'&&nw.source==='vms'&&!v.hyperVHere){why='This computer ('+vmComputer()+') is not a Hyper-V host.';off=true;}
+      if(id==='hvremote'&&nwInvType()==='hyperv'){why='From a Hyper-V host, use Replicate servers.';}
+      choices.appendChild(nwChoice('data-nw-target',id,t.name,t.detail,nw.target===id,off,why));});
+    box.appendChild(choices);
+    if(nw.source!=='vms'||nw.target!=='here'){if(nw.target){box.appendChild(el('p','migrate-help','Next: how to move. The tool for it is filled in from your choices.'));}return;}
+    var hs=nwStorage();
+    box.appendChild(nwHeading('Folders on this host'));
+    var two=el('div','rp-two');
+    var copy=nwInput('nwCopyRoot',nw.copyRoot,hs.vhdPath||'D:\\Hyper-V\\Migrations'),vmf=nwInput('nwVMFolder',nw.vmFolder,hs.vmPath||'');
+    two.appendChild(nwField('Copied disks (each VM gets its own folder)',copy,hs.vhdPath?'Empty uses the host\'s default: '+hs.vhdPath:'Empty uses the host\'s default.'));
+    two.appendChild(nwField('VM configuration',vmf,hs.vmPath?'Empty uses the host\'s default: '+hs.vmPath:'Empty uses the host\'s default.'));
+    box.appendChild(two);nwBrowse(copy);nwBrowse(vmf);
+    var vols=vmArr(hs.volumes);if(vols.length){box.appendChild(el('div','vm-note','Free space: '+vols.map(function(x){return x.path+' '+formatBytesShort(x.freeBytes)+(x.csv?' (Cluster Shared Volume)':'');}).join(', ')+'. The chosen VMs hold about '+formatBytesShort(nwUsedBytes())+'.'));}
+    if(hs.clustered){box.appendChild(nwCheck('nwCluster','Make the new VMs highly available in the failover cluster (both folders on a Cluster Shared Volume)',nw.cluster,function(on){nw.cluster=on;renderNwNav();}));}
+    box.appendChild(nwHeading('Networks'));
+    var nets=nwNetworks();
+    if(!nets.length){box.appendChild(el('p','migrate-help','The chosen VMs have no network adapters.'));return;}
+    box.appendChild(el('p','migrate-help','Only the networks the chosen VMs use. Each adapter of the new VMs is connected to the switch named here, with the VLAN shown. This map is saved in the plan, so Move VMs and the runbook use it too.'));
+    var table=el('table','vm-table nw-net-table'),thead=document.createElement('thead'),hr=el('tr');['Network now','VMs','Hyper-V switch','VLAN'].forEach(function(t){hr.appendChild(el('th','',t));});thead.appendChild(hr);table.appendChild(thead);
+    var tbody=document.createElement('tbody');
+    nets.forEach(function(n){var m=nwMap(n),tr=el('tr');tr.appendChild(el('td','',n.name+(n.vlan&&n.vlan!=='0'?' (VLAN '+n.vlan+')':'')));tr.appendChild(el('td','',String(n.count)));
+      var td=el('td'),sel=document.createElement('select');sel.setAttribute('data-nw-switch',n.name);sel.setAttribute('aria-label','Switch for '+n.name);
+      if(m.sw===null){sel.appendChild(new Option('Choose a switch…','\u0000'));}
+      vmArr(nwSwitches).forEach(function(s){sel.appendChild(new Option(s.name+(s.type?' ('+s.type+')':''),s.name));});
+      if(m.sw&&!vmArr(nwSwitches).some(function(s){return s.name===m.sw;})){sel.appendChild(new Option(m.sw+' (not on this host)',m.sw));}
+      sel.appendChild(new Option('Not connected','\u0001'));
+      sel.value=m.sw===null?'\u0000':(m.sw===''?'\u0001':m.sw);td.appendChild(sel);tr.appendChild(td);
+      var vt=el('td'),vi=nwInput('',m.vlan,'none');vi.setAttribute('data-nw-vlan',n.name);vi.setAttribute('aria-label','VLAN for '+n.name);vi.maxLength=4;vi.className='nw-vlan';vt.appendChild(vi);tr.appendChild(vt);
+      tbody.appendChild(tr);});
+    table.appendChild(tbody);var wrap=el('div','vm-table-wrap');wrap.appendChild(table);box.appendChild(wrap);
+    if(!vmArr(nwSwitches).length){box.appendChild(el('div','vm-note','No virtual switch was found on this host yet. Create one in Hyper-V Manager (or Build Hyper-V hosts), then come back to this step.'));}
+  }
+  // Step 3: how.
+  function renderNwHow(box){
+    var ids=nwMethodsFor();if(ids.indexOf(nw.method)<0){nw.method=ids[0]||'';}
+    box.appendChild(nwHeading('How should it move?'));
+    var list=el('div','nw-methods');
+    ids.forEach(function(id,i){var m=nwMode(id);if(!m){return;}
+      var b=el('button','nw-method');b.type='button';b.setAttribute('data-nw-method',id);b.setAttribute('aria-pressed',nw.method===id?'true':'false');
+      var top=el('div','nw-method-top');top.appendChild(el('strong','',m.name));if(i===0){top.appendChild(el('span','nw-badge','Recommended'));}
+      top.appendChild(el('span','nw-badge '+(id==='plans'&&nw.target==='here'&&nw.source==='vms'?'good':'handoff'),id==='plans'&&nw.target==='here'&&nw.source==='vms'?'Runs from here, start to finish':'Continues in '+gdToolName(m.tool)));
+      b.appendChild(top);b.appendChild(toolWhenLine(m.when));b.appendChild(el('span','vm-note',m.note));b.appendChild(modeTags([m.agent,m.live]));list.appendChild(b);});
+    box.appendChild(list);
+    if(!nwEndToEnd()){if(nw.method){var m=nwMode(nw.method);box.appendChild(el('p','migrate-help','Continue in '+gdToolName(m.tool)+' opens it with '+(nw.source==='vms'&&nwPickedVMs().length?'your '+vmPlural(nwPickedVMs().length,'VM')+' selected':'your choices')+'. Its own screen asks only for what that way needs.'));}return;}
+    var o=nw.opts,isVMware=nwInvType()==='vmware';
+    box.appendChild(nwHeading('Options for a migration plan'));
+    box.appendChild(nwCheck('nwKeepMac','Keep each adapter\'s MAC address',o.keepMac,function(on){o.keepMac=on;}));
+    box.appendChild(nwCheck('nwStartVms','Start each new VM after its cutover',o.startVms,function(on){o.startVms=on;}));
+    if(isVMware){box.appendChild(nwCheck('nwDisconnect','After cutover, set the old VMware VM\'s adapters to not connect (their settings are recorded first)',o.disconnectSource,function(on){o.disconnectSource=on;}));}
+    var adv=document.createElement('details');adv.className='nw-advanced';adv.id='nwAdvanced';adv.appendChild(el('summary','','Advanced: sync interval, VMs at once, bandwidth, test network'));
+    var three=el('div','mp-three');
+    var sync=document.createElement('select');sync.id='nwSync';[[15,'15 minutes'],[30,'30 minutes'],[60,'hour'],[120,'2 hours'],[240,'4 hours'],[720,'12 hours'],[1440,'day']].forEach(function(x){sync.appendChild(new Option(x[1],String(x[0])));});sync.value=String(o.syncMinutes);
+    sync.addEventListener('change',function(){o.syncMinutes=Number(sync.value);});three.appendChild(nwField('Sync each VM every',sync));
+    var conc=document.createElement('select');conc.id='nwConcurrency';[1,2,3,4].forEach(function(n){conc.appendChild(new Option(String(n),String(n)));});conc.value=String(o.concurrency);
+    conc.addEventListener('change',function(){o.concurrency=Number(conc.value);});three.appendChild(nwField('VMs copied at once',conc));
+    var test=document.createElement('select');test.id='nwTestSwitch';test.appendChild(new Option('Disconnected (recommended)',''));vmArr(nwSwitches).forEach(function(s){test.appendChild(new Option(s.name+(s.type?' ('+s.type+')':''),s.name));});test.value=o.testSwitch;
+    test.addEventListener('change',function(){o.testSwitch=test.value;});three.appendChild(nwField('Network for test VMs',test));
+    adv.appendChild(three);
+    var bw=el('div','mp-three');
+    var biz=nwInput('nwBizMbps',o.bizMbps);biz.inputMode='numeric';biz.maxLength=6;biz.addEventListener('input',function(){o.bizMbps=trimText(biz.value)||'0';renderNwNav();});bw.appendChild(nwField('Limit during business hours (Mbps, 0 for none)',biz));
+    var off=nwInput('nwOffMbps',o.offMbps);off.inputMode='numeric';off.maxLength=6;off.addEventListener('input',function(){o.offMbps=trimText(off.value)||'0';renderNwNav();});bw.appendChild(nwField('Limit at other times (Mbps, 0 for none)',off));
+    var hours=el('span','rp-two'),hs=document.createElement('select'),he=document.createElement('select');hs.setAttribute('aria-label','Business hours start');he.setAttribute('aria-label','Business hours end');
+    for(var h=0;h<24;h++){var lab=(h<10?'0':'')+h+':00';hs.appendChild(new Option(lab,String(h)));he.appendChild(new Option(lab,String(h)));}hs.value=String(o.bizStart);he.value=String(o.bizEnd);
+    hs.addEventListener('change',function(){o.bizStart=Number(hs.value);});he.addEventListener('change',function(){o.bizEnd=Number(he.value);});hours.appendChild(hs);hours.appendChild(he);
+    var hl=el('label','vm-field');hl.appendChild(document.createTextNode('Business hours, Monday to Friday'));hl.appendChild(hours);bw.appendChild(hl);
+    adv.appendChild(bw);
+    if(isVMware){adv.appendChild(nwCheck('nwQuiesce','Application-consistent copies (VMware Tools quiesces the guest)',o.quiesce,function(on){o.quiesce=on;}));}
+    box.appendChild(adv);
+  }
+  // Step 4: when.
+  function renderNwWhen(box){
+    var planWaves=nwPickedVMs().filter(function(vm){var p=vmPlanEntry(vm.id);return p&&p.wave>0&&!p.hold&&!p.exclude;}).length;
+    if(!nw.waveMode){nw.waveMode=planWaves?'plan':'one';}
+    box.appendChild(nwHeading('When do the first copies start?'));
+    var start=el('div','nw-radios');
+    [['now','Now'],['at','At a time I choose']].forEach(function(x){var l=el('label',''),r=document.createElement('input');r.type='radio';r.name='nwStartMode';r.value=x[0];r.checked=nw.startMode===x[0];r.setAttribute('data-nw-startmode',x[0]);l.appendChild(r);l.appendChild(document.createTextNode(' '+x[1]));start.appendChild(l);});
+    box.appendChild(start);
+    if(nw.startMode==='at'){var at=document.createElement('input');at.type='datetime-local';at.id='nwStartAt';at.value=nw.startAt;at.addEventListener('change',function(){nw.startAt=at.value;renderNwNav();});box.appendChild(nwField('Start at (this computer\'s time)',at));}
+    box.appendChild(el('p','vm-note','Copies run while the VMs keep running. Each VM is then kept in sync every '+mpDuration(nw.opts.syncMinutes*60)+' until it is cut over.'));
+    box.appendChild(nwHeading('Waves'));
+    var modes=el('div','nw-radios');
+    [['one','All in one wave'],['plan','The waves in the plan'+(planWaves?' ('+vmPlural(planWaves,'VM')+' placed)':' (none yet)')],['suggest','Suggest waves for me']].forEach(function(x){var l=el('label',''),r=document.createElement('input');r.type='radio';r.name='nwWaveMode';r.value=x[0];r.checked=nw.waveMode===x[0];r.setAttribute('data-nw-wavemode',x[0]);if(x[0]==='plan'&&!planWaves){r.disabled=true;}l.appendChild(r);l.appendChild(document.createTextNode(' '+x[1]));modes.appendChild(l);});
+    box.appendChild(modes);
+    box.appendChild(el('p','vm-note','A suggestion puts domain controllers, databases and application servers in sensible waves, with a reason for each. Change any VM\'s wave below.'));
+    var waves=nwWaveList(),max=Math.max.apply(null,waves.concat([1]));
+    var table=el('table','vm-table nw-wave-table'),thead=document.createElement('thead'),hr=el('tr');['Wave','VMs','Cut over'].forEach(function(t){hr.appendChild(el('th','',t));});thead.appendChild(hr);table.appendChild(thead);
+    var tbody=document.createElement('tbody');
+    waves.forEach(function(w){
+      var tr=el('tr');tr.appendChild(el('td','',vmPlan&&nw.waveMode==='plan'?vmWaveTitle(w):'Wave '+w));
+      var vmsTd=el('td','nw-wave-vms');nwPickedVMs().filter(function(vm){return nwWaveOf(vm.id)===w;}).forEach(function(vm){var chip=el('span','nw-wave-vm'),sel=document.createElement('select');sel.setAttribute('data-nw-wave',vm.id);sel.setAttribute('aria-label','Wave of '+vm.name);for(var i=1;i<=max+1;i++){sel.appendChild(new Option(i>max?'New wave '+i:'Wave '+i,String(i)));}sel.value=String(w);chip.appendChild(el('span','',vm.name));chip.appendChild(sel);vmsTd.appendChild(chip);});
+      tr.appendChild(vmsTd);
+      var c=nw.cut[w]||(nw.cut[w]={mode:'manual',at:''}),ct=el('td'),cs=document.createElement('select');cs.setAttribute('data-nw-cutmode',String(w));cs.setAttribute('aria-label','Cutover of wave '+w);cs.appendChild(new Option('When I press Cut over','manual'));cs.appendChild(new Option('At a time','at'));cs.value=c.mode;ct.appendChild(cs);
+      if(c.mode==='at'){var ci=document.createElement('input');ci.type='datetime-local';ci.setAttribute('data-nw-cutat',String(w));ci.setAttribute('aria-label','Cutover time of wave '+w);ci.value=c.at;ct.appendChild(ci);}
+      tr.appendChild(ct);tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);var wrap=el('div','vm-table-wrap');wrap.appendChild(table);box.appendChild(wrap);
+    box.appendChild(el('p','vm-note','A cutover shuts each guest down through its tools, copies the last changes, checks them and creates the new VM. A timed cutover whose VM has not finished its first copy by then does not run, and the status says so. Leave this application open on this host.'));
+  }
+  function nwSuggestWaves(){
+    if(!vmPlan){return;}nw.busy=true;renderNwNav();
+    request('POST','/api/vmware/plan',{plan:vmPlan,suggest:true,waveSize:0},function(err,data){nw.busy=false;if(err){nw.error=err;renderNw();return;}vmPlan=data.plan;vmSizing=data.sizing;nw.waves={};nw.waveMode='plan';nw.error='';renderNw();});
+  }
+  // Step 5: review.
+  function renderNwReview(box){
+    var picked=nwPickedVMs(),o=nw.opts,m=nwMode(nw.method);
+    if(!nw.name){var d=new Date(),p=function(n){return (n<10?'0':'')+n;};nw.name='Migration '+d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());}
+    box.appendChild(nwHeading('Check and start'));
+    var dl=el('dl','nw-summary'),row=function(k,val,step){var dt=el('dt','',k),dd=el('dd','');dd.appendChild(document.createTextNode(val+' '));var e=el('button','link-button','Change');e.type='button';e.setAttribute('data-nw-step',String(step));dd.appendChild(e);dl.appendChild(dt);dl.appendChild(dd);};
+    row('What',vmPlural(picked.length,'VM')+' from '+(vmInventory&&vmInventory.server||'')+': '+picked.slice(0,12).map(function(vm){return vm.name;}).join(', ')+(picked.length>12?' and '+(picked.length-12)+' more':'')+' (about '+formatBytesShort(nwUsedBytes())+')',0);
+    row('Where','This Hyper-V host ('+vmComputer()+')'+(nw.cluster?', highly available in its cluster':'')+'. Disks in '+(nw.copyRoot||'the host\'s default folder')+'; VMs in '+(nw.vmFolder||'the host\'s default folder')+'.',1);
+    row('Networks',nwNetworks().map(function(n){var mm=nwMap(n);return n.name+' to '+(mm.sw===null?'?':(mm.sw||'not connected'))+(mm.vlan?' VLAN '+mm.vlan:'');}).join('; ')||'None',1);
+    row('How',(m?m.name:'')+': sync every '+mpDuration(o.syncMinutes*60)+', '+o.concurrency+' at once'+(Number(o.bizMbps)||Number(o.offMbps)?', bandwidth limited':'')+(o.keepMac?', MAC addresses kept':'')+(o.startVms?', new VMs started':'')+(o.disconnectSource&&nwInvType()==='vmware'?', old adapters disconnected after cutover':'')+'.',2);
+    var waves=nwWaveList();
+    row('When','First copies '+(nw.startMode==='at'?'at '+nw.startAt.replace('T',' '):'now')+'. '+waves.map(function(w){var c=nw.cut[w]||{};return 'Wave '+w+' ('+nwPickedVMs().filter(function(vm){return nwWaveOf(vm.id)===w;}).length+'): '+(c.mode==='at'?'cut over at '+c.at.replace('T',' '):'cut over when you press Cut over');}).join('; ')+'.',3);
+    box.appendChild(dl);
+    box.appendChild(nwHeading('Checks'));
+    var ul=el('ul','nw-checks');
+    nwChecks().forEach(function(c){var li=el('li','nw-check '+c.s);li.appendChild(el('span','nw-check-icon',{ok:'OK',warn:'Note',block:'Fix'}[c.s]));li.appendChild(el('span','',c.t));
+      if(c.fix==='snapshots'){var b=el('button','secondary-button','Remove snapshots on these VMs…');b.type='button';b.id='nwSnapshots';li.appendChild(b);}
+      if(c.fix==='vcpass'){var g=el('button','secondary-button','Sign in again');g.type='button';g.setAttribute('data-nw-step','0');li.appendChild(g);}
+      ul.appendChild(li);});
+    box.appendChild(ul);
+    var batch=vmArr((vmwareState()||{}).prepareBatch);if(batch.length){var bs=el('div','vm-note','Snapshots: '+batch.map(function(i){return i.vm+' '+i.state;}).join(', ')+'.');box.appendChild(bs);}
+    var name=nwInput('nwName',nw.name);name.maxLength=100;box.appendChild(nwField('Name of this migration',name,'Shown in the status and in Migration plans.'));
+    var conf=nwInput('nwConfirm',nw.confirm,'Type the name again');conf.setAttribute('aria-label','Type the name again to start');box.appendChild(nwField('Type the name again to start',conf,'Start saves the network map and waves, creates the migration and schedules the timed cutovers. Copies only read the VMs; nothing is shut down until a cutover.'));
+  }
+  function nwRemoveSnapshots(){
+    var items=[],lines=[];nwPickedVMs().forEach(function(vm){if(vm.source!=='hyperv'&&vmArr(vm.snapshots).length){items.push({vmId:vm.id,steps:{snapshots:true,shutdown:false,removeTpm:false,decrypt:false}});lines.push(vm.name+': '+vmPlural(vmArr(vm.snapshots).length,'snapshot'));}});
+    if(!items.length){return;}var label=items.length===1?'1 VM':items.length+' VMs';
+    openMigrateDialog({title:'Remove snapshots on '+label,path:'/api/vmware/prepare',field:'confirm',body:{items:items},expected:label,label:'Type the number of VMs to confirm',button:'Remove snapshots on '+label,
+      alert:'Removing snapshots merges them into the disks; the VMs keep running. You cannot go back to a removed snapshot.',paragraphs:['vSphere does this on one VM after another and saves each VM\'s settings first. When it finishes, the inventory is read again.'],list:lines,
+      after:function(){vmMarkRunning('prepare','preparing','Removing snapshots on '+label+', one at a time.');renderNw();}});
+  }
+  // Start: save the map and waves, create the plan, schedule timed cutovers.
+  function nwStart(){
+    if(nw.busy||nwWhyNot(4)){return;}
+    nw.busy=true;nw.error='';renderNwNav();
+    var fail=function(err){nw.busy=false;nw.error=err;renderNw();};
+    var picked=nwPickedVMs(),ids=picked.map(function(vm){return vm.id;});
+    if(vmPlan){
+      vmPlan.networks=vmArr(vmPlan.networks);
+      nwNetworks().forEach(function(n){var m=nwMap(n),e=vmPlan.networks.filter(function(x){return x.source===n.name;})[0];if(!e){e={source:n.name,sourceVlan:n.vlan,targetName:'',targetVlan:''};vmPlan.networks.push(e);}e.targetName=m.sw||'';e.targetVlan=trimText(m.vlan);});
+      vmPlan.vms=vmArr(vmPlan.vms);
+      picked.forEach(function(vm){var w=nwWaveOf(vm.id),e=vmPlanEntry(vm.id);if(!e){e={id:vm.id,name:vm.name,wave:0,hold:false,exclude:false,notes:''};vmPlan.vms.push(e);}if(e.wave!==w||e.hold||e.exclude){e.wave=w;e.hold=false;e.exclude=false;e.manual=true;}});
+    }
+    var o=nw.opts,settings={syncMinutes:o.syncMinutes,concurrency:o.concurrency,copyRoot:trimText(nw.copyRoot),vmFolder:trimText(nw.vmFolder),testSwitch:o.testSwitch,keepMac:o.keepMac,startVms:o.startVms,cluster:!!nw.cluster,quiesce:nwInvType()==='vmware'&&o.quiesce,disconnectSource:nwInvType()==='vmware'&&o.disconnectSource,
+      throttle:{businessMbps:Number(o.bizMbps)||0,limitMbps:Number(o.offMbps)||0,businessStart:o.bizStart,businessEnd:o.bizEnd}};
+    if(nw.startMode==='at'){settings.startAt=new Date(nw.startAt).toISOString();}
+    var name=trimText(nw.name),confirm=trimText(nw.confirm);
+    var create=function(){
+      request('POST','/api/plans',{action:'create',name:name,settings:settings,vmIds:ids},function(err,data){
+        if(err){fail(err);return;}
+        nw.planId=data.id||'';nwStorePlan(nw.planId);
+        var timed=nwWaveList().filter(function(w){var c=nw.cut[w];return c&&c.mode==='at';}),errors=[];
+        var next=function(i){
+          if(i>=timed.length){nw.busy=false;nw.error=errors.length?'Created, but '+errors.join(' '):'';nw.step=5;nw.reached=5;mpSelected=nw.planId;nwLoadPlans(false);renderNw();return;}
+          var w=timed[i],wids=picked.filter(function(vm){return nwWaveOf(vm.id)===w;}).map(function(vm){return vm.id;});
+          request('POST','/api/plans',{action:'cutover',id:nw.planId,vmIds:wids,at:new Date(nw.cut[w].at).toISOString(),confirm:confirm},function(err2){if(err2){errors.push('the cutover of wave '+w+' was not scheduled: '+err2);}next(i+1);});
+        };
+        next(0);
+      });
+    };
+    if(vmPlan){request('POST','/api/vmware/plan',{plan:vmPlan},function(err,data){if(err){fail('The network map and waves were not saved: '+err);return;}vmPlan=data.plan;vmSizing=data.sizing;vmPlanDirty=false;create();});}else{create();}
+  }
+  function nwStorePlan(id){try{window.localStorage.setItem('simm.wizard.plan',id||'');}catch(e){}}
+  function nwStoredPlan(){try{return window.localStorage.getItem('simm.wizard.plan')||'';}catch(e){return '';}}
+  // Hand-off: open the chosen tool with the selection carried over.
+  function nwHandOff(){
+    var m=nwMode(nw.method);if(!m){return;}
+    var ids=nwPickedVMs().map(function(vm){return vm.id;});
+    if(nw.source==='vms'&&ids.length){vmPicked={};ids.forEach(function(id){vmPicked[id]=true;});}
+    if(nw.source==='vms'&&(m.tool==='movevms')){var tgt={here:'hyperv',hvremote:'hyperv'}[nw.target]||nw.target;if(vmTargetList.some(function(x){return x.id===tgt;})&&vmTargetLocal!==tgt){changeVmTarget(tgt);}}
+    showTool(m.tool);
+    if(nw.source==='vms'&&m.tool==='movevms'&&ids.length){vmObjTab['vm-move']='move';vmOpenDrawer({kind:'vm',id:ids[0]},{focus:true,reveal:true});}
+  }
+  // Step 6: status.
+  function nwPlan(){var list=vmArr(mpState&&mpState.plans);for(var i=0;i<list.length;i++){if(list[i].id===nw.planId){return list[i];}}return null;}
+  function renderNwStatus(box){
+    var head=el('div','nw-status-head');head.id='nwStatusHead';box.appendChild(head);
+    var body=el('div','nw-status-body');body.id='nwStatusBody';box.appendChild(body);
+    var act=el('div','nw-status-actions');
+    act.appendChild(el('span','vm-note','Select VMs in the list, or use a wave\'s buttons. Cut over now asks for the migration\'s name.'));
+    var conf=nwInput('nwCutConfirm','','Type the name to cut over');conf.setAttribute('aria-label','Type the migration name to cut over');act.appendChild(conf);
+    var cut=el('button','primary-button','Cut over selected VMs now');cut.type='button';cut.id='nwCutNow';act.appendChild(cut);
+    var msg=el('div','migrate-inline-status');msg.id='nwStatusMsg';msg.setAttribute('role','status');act.appendChild(msg);
+    box.appendChild(act);
+    nwStatusSig='';renderNwStatusBody();
+  }
+  function renderNwStatusBody(){
+    var body=byId('nwStatusBody'),head=byId('nwStatusHead');if(!body){return;}
+    var p=nwPlan(),sig=JSON.stringify(p)+'|'+nw.statusFilter+'|'+JSON.stringify(nwRowsChosen)+'|'+(mpState&&mpState.blocked);
+    if(sig===nwStatusSig){return;}nwStatusSig=sig;
+    head.textContent='';body.textContent='';
+    if(!p){body.appendChild(el('div','vm-note',mpState?'This migration is no longer listed. It may have been deleted in Migration plans.':'Loading…'));return;}
+    var title=el('div','nw-status-title');title.appendChild(el('strong','',p.name+(p.paused?' (paused)':'')));title.appendChild(el('span','vm-note',p.server+' to this Hyper-V host'));
+    var tools=el('span','nw-status-tools');
+    if(typeof asOpenFor==='function'){var c=el('button','secondary-button','Open in All servers');c.type='button';c.setAttribute('data-nw-console','');c.title='Monitor this migration with every other job';tools.appendChild(c);}
+    var mp=el('button','link-button','Settings, pause and more in Migration plans');mp.type='button';mp.setAttribute('data-nw-tool','plans');tools.appendChild(mp);title.appendChild(tools);head.appendChild(title);
+    if(p.blocked||mpState.blocked){head.appendChild(el('div','restore-alert warning',p.blocked||('Waiting: '+mpState.blocked)));}
+    var tiles=el('div','mp-summary nw-tiles');
+    mpTiles.forEach(function(t){var n=p.summary[t[0]]||0,b=el('button','mp-stat'+(n&&t[2]?' '+t[2]:''));b.type='button';b.setAttribute('data-nw-filter',t[0]);b.setAttribute('aria-pressed',nw.statusFilter===t[0]&&t[0]!=='total'?'true':'false');b.appendChild(el('strong','',formatCount(n)));b.appendChild(el('span','',t[1]));b.title='Show '+(t[0]==='total'?'every VM':t[1].toLowerCase()+' VMs');tiles.appendChild(b);});
+    head.appendChild(tiles);head.appendChild(el('p','migrate-help',mpAdvice(p)));
+    var byWave={};vmArr(p.vms).forEach(function(v){(byWave[v.wave||0]=byWave[v.wave||0]||[]).push(v);});
+    Object.keys(byWave).map(Number).sort(function(a,b){return a-b;}).forEach(function(w){
+      var vms=byWave[w].filter(function(v){return mpMatches(v,nw.statusFilter);});if(!vms.length){return;}
+      var sec=el('section','nw-wave'),wh=el('div','nw-wave-head');wh.appendChild(el('strong','',w?'Wave '+w:'VMs'));
+      var all=byWave[w],ready=all.filter(function(v){return !mpCanCutOverView(v);}).length,done=all.filter(function(v){return v.state==='done';}).length;
+      wh.appendChild(el('span','vm-note',done+' of '+all.length+' cut over'+(ready&&done<all.length?' · '+ready+' ready to cut over':'')));
+      var pick=el('button','link-button','Select the wave');pick.type='button';pick.setAttribute('data-nw-pickwave',String(w));wh.appendChild(pick);
+      sec.appendChild(wh);
+      var table=el('table','vm-table nw-status-table'),tb=document.createElement('tbody');
+      vms.sort(function(a,b){return a.name.localeCompare(b.name);}).forEach(function(v){
+        var tr=el('tr'),c=el('td'),cb=document.createElement('input');cb.type='checkbox';cb.setAttribute('data-nw-row',v.id);cb.checked=!!nwRowsChosen[v.id];cb.setAttribute('aria-label','Select '+v.name);c.appendChild(cb);tr.appendChild(c);
+        var n=el('td');n.appendChild(el('strong','',v.name));if(v.copyFolder){n.appendChild(el('span','vm-note',v.copyFolder));}tr.appendChild(n);
+        tr.appendChild(mpStateCell(v));
+        var cut=el('td');if(v.state==='done'){cut.appendChild(el('span','',(mpTime(v.cutOver)?'Cut over '+mpTime(v.cutOver):'Cut over')));}else if(mpTime(v.cutoverAt)){cut.appendChild(el('span','mp-chip warning','Cutover at '+mpTime(v.cutoverAt)));}else{cut.appendChild(el('span','vm-note',v.seeded?'Ready when you are':'After its first copy'));}tr.appendChild(cut);
+        tb.appendChild(tr);});
+      table.appendChild(tb);var wrap=el('div','vm-table-wrap');wrap.appendChild(table);sec.appendChild(wrap);body.appendChild(sec);
+    });
+    if(!body.childNodes.length){var none=el('div','vm-note','No VMs in this view. ');var clr=el('button','link-button','Show all');clr.type='button';clr.setAttribute('data-nw-filter','total');none.appendChild(clr);body.appendChild(none);}
+    nwSyncCut();
+  }
+  function mpCanCutOverView(v){if(v.state==='done'){return 'already cut over';}if(v.state==='testing'){return 'a test VM is running';}if(v.state==='cutting'){return 'being cut over';}if(!v.seeded){return 'its first copy has not finished';}return '';}
+  function nwChosen(){var p=nwPlan();return p?vmArr(p.vms).filter(function(v){return nwRowsChosen[v.id];}):[];}
+  function nwCutWhy(){
+    var p=nwPlan(),list=nwChosen();if(!p){return 'No migration open.';}if(!list.length){return 'Select the VMs to cut over.';}
+    for(var i=0;i<list.length;i++){var why=mpCanCutOverView(list[i]);if(why){return list[i].name+': '+why+'.';}}
+    var c=byId('nwCutConfirm');if(!c||trimText(c.value).toLowerCase()!==p.name.toLowerCase()){return 'Type the name, '+p.name+', to confirm.';}
+    return '';
+  }
+  function nwSyncCut(){var b=byId('nwCutNow');if(!b){return;}var why=nwCutWhy();b.disabled=nw.busy||!!why;b.title=why;var m=byId('nwStatusMsg');if(m&&!m.getAttribute('data-sticky')){m.textContent=why;m.className='migrate-inline-status';}}
+  function nwPlanAction(body,done){
+    nw.busy=true;nwSyncCut();var m=byId('nwStatusMsg');
+    request('POST','/api/plans',body,function(err){nw.busy=false;if(m){m.setAttribute('data-sticky','1');m.textContent=err||'';m.className='migrate-inline-status'+(err?' error':'');setTimeout(function(){if(m){m.removeAttribute('data-sticky');}},6000);}if(done){done(err);}nwStatusSig='';nwLoadPlans(false);});
+  }
+  function nwReset(){var keep={reached:0};nw.step=0;nw.reached=0;nw.picks={};nw.filter='';nw.target='';nw.method='';nw.net={};nw.waves={};nw.cut={};nw.waveMode='';nw.name='';nw.confirm='';nw.planId='';nw.error='';nw.filled='';nw.startMode='now';nw.startAt='';nwRowsChosen={};nw.statusFilter='';return keep;}
+  function nwGo(step){nw.error='';nw.step=step;if(step>nw.reached){nw.reached=step;}renderNw();var top=byId('nwStepper');if(top&&top.scrollIntoView&&top.getBoundingClientRect().top<0){top.scrollIntoView({block:'start'});}}
+  byId('nwNext').addEventListener('click',function(){
+    if(nw.step===5){nwReset();nwGo(0);return;}
+    if(nwWhyNot(nw.step)){renderNwNav();return;}
+    if(nw.step===2&&!nwEndToEnd()){nwHandOff();return;}
+    if(nw.step===4){nwStart();return;}
+    nwGo(nw.step+1);
+  });
+  byId('nwBack').addEventListener('click',function(){if(nw.step>0){nwGo(nw.step-1);}});
+  byId('nwStepper').addEventListener('click',function(e){var b=e.target.closest('[data-nw-step]');if(b&&!b.disabled){nwGo(Number(b.getAttribute('data-nw-step')));}});
+  byId('tabWizard').addEventListener('click',function(e){
+    var t=e.target.closest('button');if(!t||!byId('nwStep').contains(t)){return;}
+    if(t.hasAttribute('data-nw-source')){var s=t.getAttribute('data-nw-source');if(s!==nw.source){nw.source=s;nw.target=s==='shares'?'fileserver':'';nw.method='';nw.filled='';nw.reached=0;}renderNw();return;}
+    if(t.hasAttribute('data-nw-target')){var tg=t.getAttribute('data-nw-target');if(tg!==nw.target){nw.target=tg;nw.method='';nw.filled='';nw.reached=1;}renderNw();return;}
+    if(t.hasAttribute('data-nw-method')){nw.method=t.getAttribute('data-nw-method');nw.reached=2;renderNw();return;}
+    if(t.hasAttribute('data-nw-step')){nwGo(Number(t.getAttribute('data-nw-step')));return;}
+    if(t.hasAttribute('data-nw-open')){nw.planId=t.getAttribute('data-nw-open');nwStorePlan(nw.planId);nw.step=5;nw.reached=5;nwRowsChosen={};nwLoadPlans(false);renderNw();return;}
+    if(t.hasAttribute('data-nw-console')){if(typeof asOpenFor==='function'){asOpenFor(nw.planId&&nw.step===5?{plan:nw.planId}:{});}return;}
+    if(t.hasAttribute('data-nw-tool')){if(t.getAttribute('data-nw-tool')==='plans'){mpSelected=nw.planId||mpSelected;}showTool(t.getAttribute('data-nw-tool'));return;}
+    if(t.id==='nwConnect'){nwConnect('');return;}
+    if(t.id==='nwTrust'){var v=vmwareState()||{};if(v.certificate){nwConnect(v.certificate.thumbprint);}return;}
+    if(t.id==='nwPickReady'){var used=nwInPlans(),f=nw.filter.toLowerCase();vmArr(vmInventory&&vmInventory.vms).forEach(function(vm){if(f&&[vm.name,vm.host,vm.cluster,vm.folder].join(' ').toLowerCase().indexOf(f)<0){return;}if(!nwPickWhy(vm,used)&&nwHyperVReadiness(vm).status==='ready'){nw.picks[vm.id]=true;}});renderNwVmList();return;}
+    if(t.id==='nwPickNone'){nw.picks={};renderNwVmList();return;}
+    if(t.id==='nwSnapshots'){nwRemoveSnapshots();return;}
+    if(t.hasAttribute('data-nw-filter')){var fl=t.getAttribute('data-nw-filter');nw.statusFilter=(fl===nw.statusFilter||fl==='total')?'':fl;renderNwStatusBody();return;}
+    if(t.hasAttribute('data-nw-pickwave')){var w=Number(t.getAttribute('data-nw-pickwave')),p=nwPlan();vmArr(p&&p.vms).forEach(function(v){if((v.wave||0)===w&&v.state!=='done'){nwRowsChosen[v.id]=true;}});nwStatusSig='';renderNwStatusBody();return;}
+    if(t.hasAttribute('data-mp-test')){nwPlanAction({action:'test',id:nw.planId,vmIds:[t.getAttribute('data-mp-test')]});return;}
+    if(t.hasAttribute('data-mp-endtest')){nwPlanAction({action:'endTest',id:nw.planId,vmIds:[t.getAttribute('data-mp-endtest')]});return;}
+    if(t.id==='nwCutNow'){var ids=nwChosen().map(function(v){return v.id;}),c=byId('nwCutConfirm');if(nwCutWhy()){return;}nwPlanAction({action:'cutover',id:nw.planId,vmIds:ids,at:'now',confirm:trimText(c.value)},function(err){if(!err){nwRowsChosen={};c.value='';}});return;}
+  });
+  byId('tabWizard').addEventListener('change',function(e){
+    var t=e.target;
+    if(t.hasAttribute('data-nw-pick')){if(t.checked){nw.picks[t.getAttribute('data-nw-pick')]=true;}else{delete nw.picks[t.getAttribute('data-nw-pick')];}renderNwVmList();return;}
+    if(t.id==='nwPickBy'){if(t.value){nwPickBy(t.value);}t.value='';return;}
+    if(t.hasAttribute('data-nw-switch')){var name=t.getAttribute('data-nw-switch'),vl=t.closest('tr').querySelector('[data-nw-vlan]'),cur=nw.net[name]||{vlan:vl?vl.value:''},val=t.value;cur.sw=val==='\u0000'?null:(val==='\u0001'?'':val);if(cur.sw===null){delete nw.net[name];}else{nw.net[name]=cur;}renderNwNav();return;}
+    if(t.hasAttribute('data-nw-startmode')){nw.startMode=t.value;renderNw();return;}
+    if(t.hasAttribute('data-nw-wavemode')){nw.waveMode=t.value;nw.waves={};if(t.value==='suggest'){nwSuggestWaves();return;}renderNw();return;}
+    if(t.hasAttribute('data-nw-wave')){nw.waves[t.getAttribute('data-nw-wave')]=Number(t.value);renderNw();return;}
+    if(t.hasAttribute('data-nw-cutmode')){var w=t.getAttribute('data-nw-cutmode');nw.cut[w]=nw.cut[w]||{at:''};nw.cut[w].mode=t.value;renderNw();return;}
+    if(t.hasAttribute('data-nw-cutat')){nw.cut[t.getAttribute('data-nw-cutat')].at=t.value;renderNwNav();return;}
+    if(t.hasAttribute('data-nw-row')){nwRowsChosen[t.getAttribute('data-nw-row')]=t.checked;nwSyncCut();return;}
+    if(t.id==='nwCopyRoot'||t.id==='nwVMFolder'){nw[t.id==='nwCopyRoot'?'copyRoot':'vmFolder']=trimText(t.value);renderNwNav();return;}
+  });
+  byId('tabWizard').addEventListener('input',function(e){
+    var t=e.target;
+    if(t.id==='nwFilter'){nw.filter=t.value;renderNwVmList();return;}
+    if(t.id==='nwCopyRoot'){nw.copyRoot=trimText(t.value);renderNwNav();return;}
+    if(t.id==='nwVMFolder'){nw.vmFolder=trimText(t.value);renderNwNav();return;}
+    if(t.hasAttribute('data-nw-vlan')){var name=t.getAttribute('data-nw-vlan'),cur=nw.net[name],clean=t.value.replace(/[^0-9]/g,'');if(clean!==t.value){t.value=clean;}if(cur){cur.vlan=clean;}return;}
+    if(t.id==='nwName'){nw.name=t.value;renderNwNav();return;}
+    if(t.id==='nwConfirm'){nw.confirm=t.value;renderNwNav();return;}
+    if(t.id==='nwCutConfirm'){nwSyncCut();return;}
+  });
+  byId('tabWizard').addEventListener('keydown',function(e){if(e.key==='Enter'&&e.target&&(e.target.id==='nwPassword'||e.target.id==='nwUser'||e.target.id==='nwServer')){e.preventDefault();nwConnect('');}});
+  (function(){var id=nwStoredPlan();if(id){nw.planId=id;}})();
   function mpPlan(){var list=mpState?vmArr(mpState.plans):[];for(var i=0;i<list.length;i++){if(list[i].id===mpSelected){return list[i];}}return null;}
   function mpTime(t){if(!t||/^0001-/.test(t)){return '';}var d=new Date(t);if(isNaN(d.getTime())){return '';}var p=function(n){return (n<10?'0':'')+n;};return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes());}
   function mpLocalInput(t){var s=mpTime(t);return s?s.replace(' ','T'):'';}
