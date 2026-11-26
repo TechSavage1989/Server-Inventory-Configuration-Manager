@@ -30,6 +30,8 @@ type vmMoveRequest struct {
 	NewSink func(index int, capacity int64) (vmCopySink, string, error)
 	// Progress reports each disk's copy progress (for the live view).
 	Progress func(disk string, p vmCopyProgress)
+	// Throttle limits how fast the disks are read; nil is no limit.
+	Throttle *vmThrottle
 }
 
 type vmMoveResult struct {
@@ -93,6 +95,7 @@ func vmMoveRound(parent context.Context, options vmConnectOptions, request vmMov
 		Verify:       request.Cutover,
 		RecordFolder: request.RecordFolder,
 		NewSink:      request.NewSink,
+		Throttle:     request.Throttle,
 		Log:          log,
 		Progress: func(disk string, p vmCopyProgress) {
 			if request.Progress != nil {
