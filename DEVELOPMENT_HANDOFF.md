@@ -1,3 +1,9 @@
+## Unreleased: decrypt VMs inside New migration — 2026-11-26
+
+- Owner field report on 3.2.36: Review for an encrypted VM said "decrypt it with Prepare source in Move VMs first" after Start, which looked enabled. Two fixes: migration plans now refuse only VMs whose **disks** are encrypted (`vmDisksEncrypted` in `vmware_model.go`); a VM encrypted only for its virtual TPM copies as it is. A VM with encrypted disks can be ticked in What (flagged there) and Review blocks Start with an inline **Decrypt N VMs** (batch Prepare: snapshots, guest shutdown, virtual TPM, decrypt), confirmed with a tick box, with live per-VM progress and vSphere's decrypt percentage.
+- Decrypting may now run 24 hours per VM (`vmPrepareTimeout`; it was 45 minutes for every prepare). A decrypted VM is unblocked in the open inventory at once (`vmApplyPrepareResult`).
+- Tests: `vmware_decrypt_test.go` (vcsim for task progress) and the workspace check "a VM with encrypted disks is flagged in What". Not field-validated: decrypting a real encrypted VM with a key provider, and vSphere's progress reports during it.
+
 ## Unreleased: Guided migration folded into New migration; nothing clips — 2026-11-26
 
 - The separate Guided migration tool is gone (owner: one tool instead of two). New migration's How screen shows the same step list for every way that continues in its own tool (Move VMs one at a time, Replicate servers, Convert disk images, Move file shares, HyperCore/Nutanix/Proxmox/physical targets), with the computer each step runs on, live checks that block the wrong computer or too little space, the inline vCenter sign-in and Open buttons. The first screen shows this computer's facts. Old `guide` links open New migration. How only offers ways that can reach the chosen target (a disk image is no longer offered for a physical server).

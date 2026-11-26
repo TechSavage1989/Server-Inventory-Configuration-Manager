@@ -110,8 +110,8 @@ func (t *mbHostTarget) Check(plan *mbPlan, vm *mbVM) error {
 			return err
 		}
 	}
-	if m.Encrypted {
-		return errors.New("the VM is encrypted; decrypt it with Prepare source in Move VMs first")
+	if vmDisksEncrypted(m) {
+		return errors.New("the VM's disks are encrypted; decrypt it first (Decrypt in New migration's Review, or Prepare on VMware in Move VMs)")
 	}
 	if r := assessVM(m, vmTargetHyperV, time.Now()); r.Status == vmStatusBlocked {
 		reason := "it has a blocking readiness finding"

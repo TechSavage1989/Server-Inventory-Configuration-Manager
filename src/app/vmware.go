@@ -1299,27 +1299,9 @@ func (a *application) handleVMwarePrepare(response http.ResponseWriter, request 
 // applyPrepareResultLocked reflects what a prepare changed in the inventory
 // so readiness is checked again. Caller holds a.mu.
 func (a *application) applyPrepareResultLocked(id string, result vmPrepareResult) {
-	if a.vmware.inventory == nil {
-		return
+	if vmApplyPrepareResult(a.vmware.inventory, id, result, time.Now()) {
+		a.vmware.inventorySerial++
 	}
-	for index := range a.vmware.inventory.VMs {
-		vm := &a.vmware.inventory.VMs[index]
-		if vm.ID != id || result.PowerState == "" {
-			continue
-		}
-		vm.PowerState, vm.VTPM, vm.Encrypted = result.PowerState, result.VTPM, result.Encrypted
-		if result.Snapshots == 0 {
-			vm.Snapshots, vm.ConsolidationNeeded = nil, false
-		}
-		if result.PowerState == "poweredOff" {
-			vm.ToolsRunning = false
-		}
-		vm.Readiness = nil
-		for _, target := range vmTargets {
-			vm.Readiness = append(vm.Readiness, assessVM(*vm, target, time.Now()))
-		}
-	}
-	a.vmware.inventorySerial++
 }
 
 // prepareVMwareBatch runs Prepare on VMware for many VMs, one after another,
@@ -1358,7 +1340,26 @@ func (a *application) prepareVMwareBatch(response http.ResponseWriter, requests 
 		done, failed, stopped := vmPrepareBatchRun(ctx, items, func(item vmPrepareBatchItem) (vmPrepareResult, error) {
 			a.vmwareLog("Preparing %s: %s.", item.VM, strings.Join(vmPrepareStepNames(item.Steps), ", "))
 			// Each VM runs to the end even if Stop is pressed meanwhile.
-			result, err := prepareVSphereVM(context.Background(), options, item.ID, item.VM, item.Steps, folder, func(text string) { a.vmwareLog("%s", text) })
+			live := func(change func(*vmPrepareBatchItem)) {
+				a.mu.Lock()
+				for index := range a.vmware.prepareBatch {
+					if a.vmware.prepareBatch[index].ID == item.ID && a.vmware.prepareBatch[index].State == "running" {
+						change(&a.vmware.prepareBatch[index])
+					}
+				}
+				a.mu.Unlock()
+			}
+			lastLogged := -1
+			result, err := prepareVSphereVMWith(context.Background(), options, item.ID, item.VM, item.Steps, folder, func(text string) {
+				a.vmwareLog("%s", text)
+				live(func(entry *vmPrepareBatchItem) { entry.Step = text })
+			}, func(percent int) {
+				live(func(entry *vmPrepareBatchItem) { entry.Percent = percent })
+				if percent/10 != lastLogged/10 {
+					lastLogged = percent
+					a.vmwareLog("%s: decrypting, %d%% done.", item.VM, percent)
+				}
+			})
 			for _, line := range append(append([]string{}, result.Done...), result.Skipped...) {
 				a.vmwareLog("%s: %s", item.VM, line)
 			}
