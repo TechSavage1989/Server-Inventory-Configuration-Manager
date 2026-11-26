@@ -73,7 +73,7 @@ const hvBuildFixture={"plan":{"schema":1,"name":"Prod","source":"vcenter.example
 const hvBuildStepCount=hvBuildFixture.steps.length;
 async function fixture(browser,old=false){
  let saved=null,started=[],saveCalls=0,rejectStart=false,skipRequests=[],opens=[],restoreReject=null,migrateReject={},vmwareReject={};const receiverPair={allowed:false};
- const logs=[],dialogs=[],errors=[],restoreCalls={browse:0,scan:[],start:[],cancel:0,tokens:[]},migrateCalls=[],vmwareCalls=[],convertCalls=[],replCalls=[],planCalls=[];const plans={plans:[],inventory:{open:true,server:'vc01.example.com',serverType:'vCenter Server',live:true}};let convertReject={},convertSize=0;
+ const logs=[],dialogs=[],errors=[],restoreCalls={browse:0,scan:[],start:[],cancel:0,tokens:[]},migrateCalls=[],vmwareCalls=[],convertCalls=[],replCalls=[],planCalls=[];const plans={plans:[],inventory:{open:true,server:'vc01.example.com',serverType:'vCenter Server',live:true}};let convertReject={},convertSize=0;const pickCalls=[];let pickReject='';
  const state={status:'idle',phase:'Ready',running:false,computerName:'SRV-DEMO-01',isAdministrator:true,powerShellVersion:'5.1',defaultOutputRoot:'C:\\Reports',update:{status:'current',title:'Up to date',message:'Installed v3.2.10. Latest v3.2.10.',canCheck:true},
   restore:{status:'idle',packages:{lastCollection:'',loadedReport:''},items:[],logs:[]},migrate:migrateIdle(),vmware:vmwareIdle(),convert:convertIdle()};
  const vm={inventory:null,plan:null,sizing:null,guest:null,compare:null};
@@ -154,6 +154,9 @@ async function fixture(browser,old=false){
    const v=state.vmware;
    if(action==='inventory'){send(200,vm.inventory?{ok:true,serial:v.inventorySerial,inventory:vm.inventory,plan:vm.plan,sizing:vm.sizing,attention:vm.attention||[]}:{ok:true,inventory:null});return;}
    if(action==='hyperv'){Object.assign(v,{running:true,action:'hyperv',status:'connecting'});send(202,{ok:true});return;}
+   if(action==='guest-auto'){v.guestAuto={user:data.user,hasPassword:true};send(200,{ok:true,user:data.user});return;}
+   if(action==='guest-auto/forget'){v.guestAuto={user:'',hasPassword:false};send(200,{ok:true});return;}
+   if(action==='guest-auto/run'){(v.fixups||[]).forEach(x=>{if(x.vm===data.vm){x.state='waiting';x.message='Waiting for Windows in '+x.vm+' to start.';x.steps=[];}});send(202,{ok:true});return;}
    if(action==='connect'){Object.assign(v,{running:true,action:'connect',status:'connecting',server:data.server,account:data.user,certificate:null});send(202,{ok:true});return;}
    if(action==='plan'){vm.plan=JSON.parse(JSON.stringify(data.plan));if(data.suggest){vm.plan.vms.forEach((p,i)=>{if(p.manual&&!data.resetManual){return;}p.manual=false;p.hold=i===2;p.wave=i===2?0:(i===3?1:2);p.why=i===2?'Blocked for Hyper-V.':(i===3?'Powered off, so nobody is using it.':'A running server with no special role in its name.');});vm.plan.waves=[{wave:1,title:'Pilot',reason:'Powered-off, test and development VMs go first.'},{wave:2,title:'General servers',reason:'Running servers with no special role in their names.'}];vm.plan.waveSize=data.waveSize||2;}if(vm.plan.scenario==='rolling'){vm.plan.rolling=vm.plan.rolling||{autoCapacity:true,stages:[],sourceCluster:''};if(!vm.plan.rolling.sourceCluster){vm.plan.rolling.sourceCluster='Prod-Cluster';}if(data.suggestStages){vm.plan.rolling.stages=['esx03.example.com','esx01.example.com','esx02.example.com'].map((h,i)=>({host:h,wave:i+1,moveFirst:i===2,notes:''}));}if(vm.plan.rolling.autoCapacity){Object.assign(vm.plan.capacity,{nodes:3,coresPerNode:32,memoryGbPerNode:512,usableStorageTb:4,reserveNodes:1});}}vm.sizing=['azure','aws'].includes(vm.plan.target)?Object.assign(vmwareSizingFixture(false),{status:'quota',notes:['Check the subscription quota covers 14 vCPUs.']}):vmwareSizingFixture(!!vm.plan.capacity.coresPerNode);send(200,{ok:true,plan:vm.plan,sizing:vm.sizing,rolling:vm.plan.scenario==='rolling'?vmRollingFixture(vm.plan):null,saved:true});return;}
    if(action==='export-plan'){v.runbookPath='C:\\Reports\\VMware_vc01\\Migration-Runbook.html';v.planCsvPath='C:\\Reports\\VMware_vc01\\Migration-Plan.csv';v.runbookDocxPath='C:\\Reports\\VMware_vc01\\Migration-Runbook.docx';send(200,{ok:true});return;}
@@ -222,6 +225,7 @@ async function fixture(browser,old=false){
    if(data.action==='create'){plans.plans.push({id:'p1',name:data.name,server:'vc01.example.com',paused:false,settings:data.settings,throttle:'no limit',summary:{total:data.vmIds.length,waiting:data.vmIds.length,copying:0,ready:0,testing:0,scheduled:0,done:0,failed:0},vms:data.vmIds.map(id=>({id,name:id.replace('vm-','').toUpperCase(),wave:0,state:'waiting',seeded:false,failures:0}))});send(200,{ok:true,id:'p1'});return;}
    send(200,{ok:true});return;
   }
+  if(url.pathname==='/api/pick'){let body='';for await(const chunk of req)body+=chunk;const data=JSON.parse(body);pickCalls.push(data);if(pickReject){send(400,{ok:false,error:pickReject});return;}send(200,{ok:true,selected:true,path:data.kind==='remote'?'C:\\ClusterStorage\\Volume1\\Picked':data.kind==='file'?'E:\\Media\\receiver.iso':'E:\\Picked'});return;}
   if(url.pathname==='/api/open'){let body='';for await(const chunk of req)body+=chunk;opens.push(JSON.parse(body).kind);send(200,{ok:true});return;}
   if(url.pathname==='/report/current'){res.writeHead(200,{'Content-Type':'text/html'});res.end('<!DOCTYPE html><html><head><title>Synthetic</title></head><body><div class="report-content"><section class="report-section active" id="s1"><p>alpha one</p><p>beta</p><p>alpha two</p><p>alpha three</p></section></div></body></html>');return;}
   if(url.pathname==='/api/skip-acl-export'){let body='';for await(const chunk of req)body+=chunk;skipRequests.push(JSON.parse(body));state.aclExport.skipRequested=true;send(202,{ok:true});return;}
@@ -232,7 +236,7 @@ async function fixture(browser,old=false){
  await new Promise(r=>server.listen(0,'127.0.0.1',r));const context=await browser.newContext({viewport:{width:1440,height:1000}}),page=await context.newPage();
  page.on('dialog',async d=>{dialogs.push(d.message());await d.dismiss();});page.on('pageerror',e=>errors.push(e.message));
  const url='http://127.0.0.1:'+server.address().port+'/';await page.goto(url);await page.waitForFunction(()=>document.querySelector('#serverName').textContent==='SRV-DEMO-01');
- return {page,context,state,vm,repl,plans,planCalls,failover,receiverPair,targetTest,replCalls,vmwareCalls,convertCalls,rejectConvert(action,message){convertReject[action]=message},setConvertSize(size){convertSize=size},rejectVmware(action,message){vmwareReject[action]=message},logs,dialogs,errors,started,skipRequests,opens,restoreCalls,migrateCalls,rejectMigrate(action,message){migrateReject[action]=message},rejectRestore(message){restoreReject=message},get saved(){return saved},get saveCalls(){return saveCalls},reject(){rejectStart=true},async close(){assert.deepEqual(errors,[]);await context.close();await new Promise(r=>server.close(r));}};
+ return {page,context,state,pickCalls,rejectPick(message){pickReject=message},vm,repl,plans,planCalls,failover,receiverPair,targetTest,replCalls,vmwareCalls,convertCalls,rejectConvert(action,message){convertReject[action]=message},setConvertSize(size){convertSize=size},rejectVmware(action,message){vmwareReject[action]=message},logs,dialogs,errors,started,skipRequests,opens,restoreCalls,migrateCalls,rejectMigrate(action,message){migrateReject[action]=message},rejectRestore(message){restoreReject=message},get saved(){return saved},get saveCalls(){return saveCalls},reject(){rejectStart=true},async close(){assert.deepEqual(errors,[]);await context.close();await new Promise(r=>server.close(r));}};
 }
 // Tools live in two tabs: Discovery (Alt+1) and Migration and replication (Alt+5).
 const discoveryTools=['server','environment'];
@@ -676,7 +680,7 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   await f.page.locator('#vmMoveCopy').click();const hvCopy=await f.page.locator('#migrateDialogText').textContent();
   assert(hvCopy.includes('checkpoint named "Server Inventory and Migration Manager copy"')&&!hvCopy.includes('changed block tracking'),hvCopy);
   await f.page.locator('#migrateConfirmInput').fill('APP01');await f.page.locator('#migrateConfirmButton').click();await f.page.waitForFunction(()=>document.querySelector('#vmwareTabBadge').textContent==='Working');
-  assert.deepEqual(vmwareCalls(f,'move').at(-1).body,{vmId:'vm-app01',action:'copy',copyFolder:'',vmFolder:'',quiesce:false,keepMac:false,start:false,cluster:false,confirm:'APP01'});
+  assert.equal(await f.page.locator('input[data-vm-after="fixUp"]').count(),0,'a Hyper-V source keeps its adapters: no fix-up offered');assert.deepEqual(vmwareCalls(f,'move').at(-1).body,{vmId:'vm-app01',action:'copy',copyFolder:'',vmFolder:'',quiesce:false,keepMac:false,start:true,cluster:false,disconnectSource:false,fixUp:false,confirm:'APP01'});
   Object.assign(f.state.vmware,{running:false,action:'',status:'connected',move:{vm:'APP01',cutover:false,round:{disks:[{label:'Disk 1 (APP01.vhdx)',mode:'delta',bytesWritten:8388608,verified:false}]}},moveSerial:1});
   await f.page.waitForFunction(()=>document.querySelector('#vmMove').textContent.includes('changed chunks only, 8.0 MB written'));
   await f.page.locator('#vmMoveCutover').click();assert((await f.page.locator('#migrateDialogAlert').textContent()).includes('Hyper-V shutdown integration service'));await f.page.locator('#migrateDialogCancel').click();
@@ -727,6 +731,16 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   await f.page.locator('#vmTargetSelect').selectOption('scale');await f.page.waitForFunction(()=>document.querySelector('#vmCountsTitle').textContent==='Readiness for Scale HyperCore');
   assert.equal(await f.page.locator('tr[data-vm-id="vm-app01"] .run-chip').textContent(),'Review first');assert.equal(vmwareCalls(f,'plan').at(-1).body.plan.target,'scale','the target is saved with the plan');
   await f.page.locator('#vmTargetSelect').selectOption('nutanix');await f.page.waitForFunction(()=>document.querySelector('#vmCountsTitle').textContent==='Readiness for Nutanix AHV');assert.equal(await f.page.locator('#vmCountReview').textContent(),'4');assert.equal(await f.page.locator('#vmCountBlocked').textContent(),'0','the cards follow the VM list');assert.equal(vmwareCalls(f,'plan').at(-1).body.plan.target,'nutanix');
+  // Acknowledge: a reviewed VM counts as ready, saved with the plan, per target; Open again undoes it.
+  await f.page.locator('[data-vmfilter="all"]').click();
+  await f.page.locator('tr[data-vm-id="vm-app01"] [data-vm-ack]').click();
+  await f.page.waitForFunction(()=>document.querySelector('#vmCountReview').textContent==='3');
+  const acked=vmwareCalls(f,'plan').at(-1).body.plan.vms.find(p=>p.id==='vm-app01').acknowledged;assert(acked.length>0&&acked.every(a=>a.startsWith('nutanix:')),JSON.stringify(acked));
+  assert.equal(await f.page.locator('tr[data-vm-id="vm-app01"] .run-chip').textContent(),'Ready');assert((await f.page.locator('tr[data-vm-id="vm-app01"]').textContent()).includes('Acknowledged'));
+  assert.equal(await f.page.locator('#vmAckAll').textContent(),'Acknowledge all 3 to review');await f.page.locator('#vmAckAll').click();
+  await f.page.waitForFunction(()=>document.querySelector('#vmCountReview').textContent==='0');assert(await f.page.locator('#vmAckAll').isHidden(),'nothing left to acknowledge');assert.equal(await f.page.locator('#vmCountBlocked').textContent(),'0');
+  await f.page.locator('tr[data-vm-id="vm-app01"] [data-vm-ack]').click();await f.page.waitForFunction(()=>document.querySelector('#vmCountReview').textContent==='1');
+  await f.page.locator('#vmTargetSelect').selectOption('scale');await f.page.waitForFunction(()=>document.querySelector('#vmCountsTitle').textContent==='Readiness for Scale HyperCore');assert.equal(await f.page.locator('tr[data-vm-id="vm-app01"] .run-chip').textContent(),'Review first','acknowledgements are per target');
   await f.page.locator('[data-vmfilter="all"]').click();await f.page.locator('#vmOpenReport').click();await f.page.waitForTimeout(200);assert.deepEqual(f.opens,['vmwarereport']);
   await f.page.locator('#vmReset').click();await f.page.waitForFunction(()=>document.querySelector('#vmEnvResult').classList.contains('hidden'));assert.equal(await f.page.locator('#vmServer').inputValue(),'');
   assert(f.vmwareCalls.every(c=>c.token==='workspace-test'));assert.deepEqual(f.dialogs,[]);
@@ -763,26 +777,46 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   await goTool(f,'movevms');await f.page.locator('#vmRoles > summary').click();await openVm(f,'vm-app01');await f.page.locator('#vmMoveCopy').waitFor();
   assert.equal(await f.page.locator('#vmMoveFolder').getAttribute('placeholder'),'D:\\Migration\\VMware-Copies\\APP01');
   assert((await f.page.locator('#vmMove').textContent()).includes('No Hyper-V switch is named for VM-Servers'));
-  assert(await f.page.locator('input[data-vm-move="quiesce"]').isChecked());assert(!await f.page.locator('input[data-vm-move="start"]').isChecked());
+  assert(await f.page.locator('input[data-vm-move="quiesce"]').isChecked());
+  // No-touch cutover: start, disconnect the old VM and fix up are on by default.
+  for(const k of ['start','disconnect','fixUp']){assert(await f.page.locator('input[data-vm-after="'+k+'"]').isChecked(),k+' is ticked by default');}
+  assert((await f.page.locator('#vmAfterNote').textContent()).includes('Enter the guest account'),'the fix-up asks for the guest account');
+  await f.page.locator('#vmGaUser').fill('EXAMPLE\\admin');await f.page.locator('#vmGaPassword').fill('Synthetic-Guest-1');await f.page.locator('#vmGaUse').click();
+  await f.page.waitForFunction(()=>document.querySelector('#vmGaPanel')&&document.querySelector('#vmGaPanel').textContent.includes('sign in to the new VMs as EXAMPLE\\admin'));
+  assert.deepEqual(vmwareCalls(f,'guest-auto').map(c=>c.body),[{user:'EXAMPLE\\admin',password:'Synthetic-Guest-1'}]);
+  assert.equal(await f.page.locator('#vmGaPassword').count(),0,'the password field is gone once the account is held');
   await f.page.locator('#vmMoveFolder').fill('E:\\Copies\\APP01');
   await f.page.locator('#vmMoveCopy').click();assert(await f.page.locator('#migrateDialog').isVisible());
   const copyText=await f.page.locator('#migrateDialogText').textContent();assert(copyText.includes('changed block tracking')&&copyText.includes('E:\\Copies\\APP01'),copyText);
   assert(await f.page.locator('#migrateConfirmButton').isDisabled());await f.page.locator('#migrateConfirmInput').fill('APP01');await f.page.locator('#migrateConfirmInput').press('Enter');
   await f.page.waitForFunction(()=>document.querySelector('#vmwareTabBadge').textContent==='Working');
   assert(await f.page.locator('#vmStop').isVisible(),'a copy can be stopped');
-  assert.deepEqual(vmwareCalls(f,'move').map(c=>c.body),[{vmId:'vm-app01',action:'copy',copyFolder:'E:\\Copies\\APP01',vmFolder:'',quiesce:true,keepMac:false,start:false,cluster:false,confirm:'APP01'}]);
+  assert.deepEqual(vmwareCalls(f,'move').map(c=>c.body),[{vmId:'vm-app01',action:'copy',copyFolder:'E:\\Copies\\APP01',vmFolder:'',quiesce:true,keepMac:false,start:true,cluster:false,disconnectSource:true,fixUp:true,confirm:'APP01'}]);
   Object.assign(f.state.vmware,{running:false,action:'',status:'connected',move:{vm:'APP01',cutover:false,round:{disks:[{label:'Hard disk 1',mode:'seed',bytesWritten:21474836480,verified:false}]},disks:['E:\\Copies\\APP01\\APP01-disk0.vhdx']},moveSerial:1});
   await f.page.waitForFunction(()=>document.querySelector('#vmMove')&&document.querySelector('#vmMove').textContent.includes('first copy of the used areas'));
   assert.equal(await f.page.locator('#vmMoveCopy').textContent(),'Copy changes\u2026');
-  await f.page.locator('input[data-vm-move="start"]').check();
   await f.page.locator('#vmMoveCutover').click();assert((await f.page.locator('#migrateDialogAlert').textContent()).includes('shut down through VMware Tools'));
-  assert((await f.page.locator('#migrateDialogText').textContent()).includes('and start it'));
+  const cutList=await f.page.locator('#migrateDialogText').textContent();
+  assert(cutList.includes('and start it')&&cutList.includes('set the old VM\'s network adapters to not connect')&&cutList.includes('put the IP settings back'),cutList);
   await f.page.locator('#migrateConfirmInput').fill('app01');await f.page.locator('#migrateConfirmButton').click();
   await f.page.waitForFunction(()=>document.querySelector('#vmwareTabBadge').textContent==='Working');
   assert.equal(vmwareCalls(f,'move').at(-1).body.action,'cutover');assert.equal(vmwareCalls(f,'move').at(-1).body.start,true);
   Object.assign(f.state.vmware,{running:false,action:'',status:'connected',message:'APP01 was created on Hyper-V and started.',move:{vm:'APP01',cutover:true,shutDown:true,round:{disks:[{label:'Hard disk 1',mode:'changed',bytesWritten:83886080,verified:true}]},hyperV:{generation:2},hyperVId:'4f6c1d6e-2b1a-4c55-9d3e-0f1e2d3c4b5a'},moveSerial:2});
   await f.page.waitForFunction(()=>document.querySelector('#vmMove').textContent.includes('Created on Hyper-V as APP01 (generation 2)'));
   assert((await f.page.locator('#vmMove').textContent()).includes('changed blocks only, 80.0 MB written, verified'));
+  assert.equal(vmwareCalls(f,'move').at(-1).body.fixUp,true);
+  // The fix-up's live status and result, with the manual fallback.
+  f.state.vmware.fixups=[{vm:'APP01',hyperVId:'4f6c1d6e-2b1a-4c55-9d3e-0f1e2d3c4b5a',host:'',via:'PowerShell Direct on this host',state:'waiting',message:'Waiting for Windows in APP01 to start.',started:'2026-11-26T06:00:00Z'}];
+  await f.page.waitForFunction(()=>{const x=document.querySelector('[data-vm-fixup="APP01"]');return x&&x.textContent.includes('Waiting for Windows to start');});
+  f.state.vmware.fixups=[{vm:'APP01',hyperVId:'4f6c1d6e-2b1a-4c55-9d3e-0f1e2d3c4b5a',host:'',via:'PowerShell Direct on this host',state:'failed',message:'APP01 was not fully fixed up: No new adapter could be matched to Network adapter 1 (00-50-56-AA-BB-01). Choose it in Prepare and fix up. Use Prepare and fix up for this VM.',started:'2026-11-26T06:00:00Z',finished:'2026-11-26T06:04:00Z',
+    steps:[{step:'Hidden adapters',status:'done',message:'Removed 1 hidden VMware adapter(s): vmxnet3 Ethernet Adapter.'},{step:'IP settings',status:'failed',message:'No new adapter could be matched to Network adapter 1 (00-50-56-AA-BB-01). Choose it in Prepare and fix up.'},{step:'VMware Tools',status:'done',message:'Removed VMware Tools.'}]}];
+  await f.page.waitForFunction(()=>{const x=document.querySelector('[data-vm-fixup="APP01"]');return x&&x.textContent.includes('Not fixed up');});
+  const fix=await f.page.locator('[data-vm-fixup="APP01"]').textContent();assert(fix.includes('IP settings: No new adapter could be matched')&&fix.includes('Open Prepare and fix up'),fix);
+  await f.page.locator('[data-vm-fixup-run="APP01"]').click();
+  assert.deepEqual(vmwareCalls(f,'guest-auto/run').map(c=>c.body),[{vm:'APP01',hyperVId:'4f6c1d6e-2b1a-4c55-9d3e-0f1e2d3c4b5a',host:''}]);
+  f.state.vmware.fixups=[{vm:'APP01',hyperVId:'4f6c1d6e-2b1a-4c55-9d3e-0f1e2d3c4b5a',host:'',via:'PowerShell Direct on this host',state:'done',message:'APP01 is fixed up: IP settings, adapters, disks, VMware Tools and activation are done.',started:'2026-11-26T06:00:00Z',finished:'2026-11-26T06:09:00Z',
+    steps:[{step:'IP settings',status:'done',message:'Put back 192.0.2.10/24 with the recorded gateway and DNS servers. The gateway 192.0.2.1 answers.'},{step:'Activation',status:'skipped',message:'Windows is activated (KMS).'}]}];
+  await f.page.waitForFunction(()=>{const x=document.querySelector('[data-vm-fixup="APP01"]');return x&&x.textContent.includes('Fixed up')&&x.textContent.includes('192.0.2.10/24');});
   await f.page.setViewportSize({width:1440,height:1000});await f.page.evaluate(()=>document.activeElement.blur());await f.page.locator('#vmMove').evaluate(e=>e.scrollIntoView({block:'center'}));await f.page.screenshot({path:shots+'/vmware-move-1440x1000.png'});
   await f.page.locator('#vmTargetSelect').selectOption('scale');await f.page.waitForFunction(()=>!document.querySelector('#vmMove'));
   assert.deepEqual(f.dialogs,[]);
@@ -813,11 +847,15 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   await f.page.locator('[data-hvr-storage]').nth(1).click();
   assert.equal(await f.page.locator('[data-hvr="folder"]').inputValue(),'C:\\ClusterStorage\\Volume1\\VMs\\APP01');assert.equal(await f.page.locator('[data-hvr="vmFolder"]').inputValue(),'C:\\ClusterStorage\\Volume1\\VMs');
   assert(await f.page.locator('input[data-hvr-opt="cluster"]').isChecked(),'a CSV ticks high availability');assert(!await f.page.locator('#vmHvrCopy').isDisabled());
+  assert((await f.page.locator('#vmHvrBrowseNote').textContent()).includes('cannot browse the node'));
+  await f.page.locator('[data-hvr="folder"] + .path-pick-button').click();await f.page.waitForFunction(()=>document.querySelector('[data-hvr="folder"]').value==='C:\\ClusterStorage\\Volume1\\Picked');
+  const hvrPick=f.pickCalls[f.pickCalls.length-1];assert.deepEqual({kind:hvrPick.kind,host:hvrPick.host,current:hvrPick.current},{kind:'remote',host:'HV02',current:'C:\\ClusterStorage\\Volume1\\VMs\\APP01'},'Browse host opens the chosen node');
+  await f.page.locator('[data-hvr-storage]').nth(1).click();
   await f.page.locator('#vmHvrCopy').click();const copyText=await f.page.locator('#migrateDialogText').textContent();assert(copyText.includes('C:\\ClusterStorage\\Volume1\\VMs\\APP01 on HV02'),copyText);
   await f.page.locator('#migrateConfirmInput').fill('APP01');await f.page.locator('#migrateConfirmInput').press('Enter');
   await f.page.waitForFunction(()=>document.querySelector('#vmwareTabBadge').textContent==='Working');assert(await f.page.locator('#vmStop').isVisible(),'a remote copy can be stopped');
   const sent=vmwareCalls(f,'hvremote/move').at(-1).body;
-  assert.deepEqual(sent,{vmId:'vm-app01',action:'copy',node:'HV02',copyFolder:'C:\\ClusterStorage\\Volume1\\VMs\\APP01',vmFolder:'C:\\ClusterStorage\\Volume1\\VMs',path:'share',address:'',thumbprint:'',code:'',quiesce:true,keepMac:false,start:false,cluster:true,confirm:'APP01'});
+  assert.deepEqual(sent,{vmId:'vm-app01',action:'copy',node:'HV02',copyFolder:'C:\\ClusterStorage\\Volume1\\VMs\\APP01',vmFolder:'C:\\ClusterStorage\\Volume1\\VMs',path:'share',address:'',thumbprint:'',code:'',quiesce:true,keepMac:false,start:true,cluster:true,disconnectSource:true,fixUp:true,confirm:'APP01'});
   Object.assign(f.state.vmware,{running:false,action:'',status:'connected',move:{vm:'APP01',cutover:false,round:{disks:[{label:'Hard disk 1',mode:'seed',bytesWritten:21474836480,verified:false}]},disks:['C:\\ClusterStorage\\Volume1\\VMs\\APP01\\APP01-disk0.vhdx']},moveSerial:1});
   await f.page.waitForFunction(()=>document.querySelector('#vmHvrCopy')&&document.querySelector('#vmHvrCopy').textContent==='Copy changes\u2026');
   // A receiver on the node: its pairing code is sent once and cleared.
@@ -1249,6 +1287,12 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   await f.page.locator('[data-diskrole="receive"]').click();assert(await f.page.locator('#vmSendTitle').isHidden());assert(await f.page.locator('#vmReceiveTitle').isVisible());assert.equal(await f.page.locator('[data-diskrole="receive"]').getAttribute('aria-pressed'),'true');
   await f.page.locator('[data-diskrole="receive"]').click();assert(await f.page.locator('#vmSendTitle').isVisible(),'choosing the role again shows both sides');
   assert.equal(await f.page.locator('#vmReceiveFolder').getAttribute('placeholder'),'D:\\Migration\\VMware-Copies\\Received');
+  await f.page.locator('#vmReceiveFolder + .path-pick-button').click();await f.page.waitForFunction(()=>document.querySelector('#vmReceiveFolder').value==='E:\\Picked');
+  assert.deepEqual({kind:f.pickCalls[0].kind,current:f.pickCalls[0].current},{kind:'folder',current:'D:\\Migration\\VMware-Copies\\Received'},'Browse opens the picker at the default folder');
+  await f.page.locator('#vmMediaDrivers + .path-pick-button').click();await f.page.waitForFunction(()=>document.querySelector('#vmMediaDrivers').value==='E:\\Picked');
+  await f.page.locator('#vmMediaDrivers').fill('D:\\virtio-win\\amd64\\2k22');await f.page.locator('#vmMediaDrivers + .path-pick-button').click();await f.page.waitForFunction(()=>document.querySelector('#vmMediaDrivers').value==='D:\\virtio-win\\amd64\\2k22;E:\\Picked');
+  f.rejectPick('Synthetic picker failure.');await f.page.locator('#vmReceiveFolder + .path-pick-button').click();await f.page.waitForFunction(()=>(document.querySelector('#vmReceiveFolder').parentNode.nextSibling||{}).textContent==='Synthetic picker failure.');assert.equal(f.dialogs.length,0,'a picker failure stays inline');f.rejectPick('');
+  await f.page.locator('#vmReceiveFolder').fill('');
   await f.page.locator('#vmReceivePort').fill('44a');await f.page.locator('#vmReceiveStart').click();assert((await f.page.locator('#vmReceiveStatus').textContent()).includes('as a number'));assert.equal(vmwareCalls(f,'receiver').length,0);
   await f.page.locator('#vmReceivePort').fill('44390');await f.page.locator('#vmReceiveStart').click();
   await f.page.waitForFunction(()=>document.querySelector('#vmReceiveCode').textContent==='K7QMZ-2RT4X-9WBNP-H3VDA');

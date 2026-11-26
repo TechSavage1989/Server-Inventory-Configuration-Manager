@@ -9,6 +9,13 @@ param(
     [string]$PlanPath = '',
     [string]$CapturePath = '',
     [string]$ExportPath = '',
+    # The new VM's ID on the Hyper-V host (direct, hostdirect): used instead
+    # of the name, so a test VM or another VM with the same name is never
+    # reached by mistake.
+    [string]$VMId = '',
+    # After a cutover the VM is still starting: keep trying to reach it for
+    # this many seconds (0 tries once). A refused account stops at once.
+    [int]$WaitSeconds = 0,
     [switch]$CredentialFromInput
 )
 
@@ -129,31 +136,80 @@ try {
     if ($PlanPath -and (Test-Path -LiteralPath $PlanPath)) { $planText = [IO.File]::ReadAllText($PlanPath) }
     $captureText = ''
     if ($CapturePath -and (Test-Path -LiteralPath $CapturePath)) { $captureText = [IO.File]::ReadAllText($CapturePath) }
-    $arguments = @($engineText, $Mode, $planText, $captureText)
-    $output = $null
-    switch ($Transport) {
-        'direct' {
-            if (-not (Get-Command Invoke-Command).Parameters.ContainsKey('VMName')) { throw 'PowerShell Direct needs Windows 10 or Windows Server 2016 or later on this Hyper-V host.' }
-            Write-Log ('Connecting to VM ' + $VMName + ' through PowerShell Direct.')
-            $output = Invoke-Command -VMName $VMName -Credential $guestCredential -ScriptBlock $insideGuest -ArgumentList $arguments -ErrorAction Stop
-        }
-        'hostdirect' {
-            Write-Log ('Connecting to Hyper-V host ' + $HostName + ', then to VM ' + $VMName + ' through PowerShell Direct.')
-            $relay = {
-                param([string]$Name, [System.Management.Automation.PSCredential]$Credential, [string]$Inner, [object[]]$InnerArguments)
-                if (-not (Get-Command Invoke-Command).Parameters.ContainsKey('VMName')) { throw ('PowerShell Direct needs Windows Server 2016 or later on ' + $env:COMPUTERNAME + '.') }
-                Invoke-Command -VMName $Name -Credential $Credential -ScriptBlock ([scriptblock]::Create($Inner)) -ArgumentList $InnerArguments -ErrorAction Stop
+    # Runs a script block inside the target through the chosen transport.
+    $runInside = {
+        param([scriptblock]$Block, [object[]]$BlockArguments)
+        switch ($Transport) {
+            'direct' {
+                if (-not (Get-Command Invoke-Command).Parameters.ContainsKey('VMName')) { throw 'PowerShell Direct needs Windows 10 or Windows Server 2016 or later on this Hyper-V host.' }
+                if ($VMId) { return Invoke-Command -VMId $VMId -Credential $guestCredential -ScriptBlock $Block -ArgumentList $BlockArguments -ErrorAction Stop }
+                return Invoke-Command -VMName $VMName -Credential $guestCredential -ScriptBlock $Block -ArgumentList $BlockArguments -ErrorAction Stop
             }
-            $hostArguments = @($VMName, $guestCredential, $insideGuest.ToString(), $arguments)
-            if ($hostCredential) { $output = Invoke-Command -ComputerName $HostName -Credential $hostCredential -ScriptBlock $relay -ArgumentList $hostArguments -ErrorAction Stop }
-            else { $output = Invoke-Command -ComputerName $HostName -ScriptBlock $relay -ArgumentList $hostArguments -ErrorAction Stop }
-        }
-        'winrm' {
-            Write-Log ('Connecting to ' + $ComputerName + ' through PowerShell remoting.')
-            if ($guestCredential) { $output = Invoke-Command -ComputerName $ComputerName -Credential $guestCredential -ScriptBlock $insideGuest -ArgumentList $arguments -ErrorAction Stop }
-            else { $output = Invoke-Command -ComputerName $ComputerName -ScriptBlock $insideGuest -ArgumentList $arguments -ErrorAction Stop }
+            'hostdirect' {
+                $relay = {
+                    param([string]$Name, [string]$Id, [System.Management.Automation.PSCredential]$Credential, [string]$Inner, [object[]]$InnerArguments)
+                    if (-not (Get-Command Invoke-Command).Parameters.ContainsKey('VMName')) { throw ('PowerShell Direct needs Windows Server 2016 or later on ' + $env:COMPUTERNAME + '.') }
+                    if ($Id) { return Invoke-Command -VMId $Id -Credential $Credential -ScriptBlock ([scriptblock]::Create($Inner)) -ArgumentList $InnerArguments -ErrorAction Stop }
+                    Invoke-Command -VMName $Name -Credential $Credential -ScriptBlock ([scriptblock]::Create($Inner)) -ArgumentList $InnerArguments -ErrorAction Stop
+                }
+                $hostArguments = @($VMName, $VMId, $guestCredential, $Block.ToString(), $BlockArguments)
+                if ($hostCredential) { return Invoke-Command -ComputerName $HostName -Credential $hostCredential -ScriptBlock $relay -ArgumentList $hostArguments -ErrorAction Stop }
+                return Invoke-Command -ComputerName $HostName -ScriptBlock $relay -ArgumentList $hostArguments -ErrorAction Stop
+            }
+            'winrm' {
+                if ($guestCredential) { return Invoke-Command -ComputerName $ComputerName -Credential $guestCredential -ScriptBlock $Block -ArgumentList $BlockArguments -ErrorAction Stop }
+                return Invoke-Command -ComputerName $ComputerName -ScriptBlock $Block -ArgumentList $BlockArguments -ErrorAction Stop
+            }
         }
     }
+    switch ($Transport) {
+        'direct' { Write-Log ('Connecting to VM ' + $VMName + ' through PowerShell Direct.') }
+        'hostdirect' { Write-Log ('Connecting to Hyper-V host ' + $HostName + ', then to VM ' + $VMName + ' through PowerShell Direct.') }
+        'winrm' { Write-Log ('Connecting to ' + $ComputerName + ' through PowerShell remoting.') }
+    }
+    # A VM that has just been started answers PowerShell Direct only once
+    # Windows has started: try a harmless call until it answers.
+    if ($WaitSeconds -gt 0) {
+        $deadline = (Get-Date).AddSeconds($WaitSeconds)
+        $tries = 0
+        while ($true) {
+            $tries++
+            try { $null = & $runInside { $env:COMPUTERNAME } @(); break }
+            catch {
+                $text = $_.Exception.Message
+                if ($text -match 'credential is invalid|user name or password|logon failure|access is denied') { throw }
+                if ((Get-Date) -gt $deadline) { throw ('The VM did not answer within ' + [int]($WaitSeconds / 60) + ' minutes: ' + $text) }
+                if ($tries -eq 1 -or $tries % 8 -eq 0) { Write-Log ('Waiting for Windows in the VM to start (' + $text + ').') }
+                Start-Sleep -Seconds 15
+            }
+        }
+        Write-Log 'The VM answers.'
+    }
+    # For the automatic fix-up the host says which MAC address each new
+    # adapter received, so the engine can match the recorded adapters.
+    if ($Mode -eq 'AutoFixup' -and $planText -and $Transport -ne 'winrm') {
+        $plan = $planText | ConvertFrom-Json
+        if (@($plan.adapters).Count -gt 0) {
+            $readAdapters = {
+                param([string]$Name, [string]$Id)
+                Import-Module Hyper-V -ErrorAction Stop
+                $vm = $null
+                if ($Id) { $vm = Get-VM -Id $Id -ErrorAction Stop } else { $vm = Get-VM -Name $Name -ErrorAction Stop }
+                @(Get-VMNetworkAdapter -VM $vm | ForEach-Object { New-Object PSObject -Property @{ Name = [string]$_.Name; MacAddress = [string]$_.MacAddress } })
+            }
+            $hostAdapters = @()
+            if ($Transport -eq 'direct') { $hostAdapters = @(& $readAdapters $VMName $VMId) }
+            elseif ($hostCredential) { $hostAdapters = @(Invoke-Command -ComputerName $HostName -Credential $hostCredential -ScriptBlock $readAdapters -ArgumentList @($VMName, $VMId) -ErrorAction Stop) }
+            else { $hostAdapters = @(Invoke-Command -ComputerName $HostName -ScriptBlock $readAdapters -ArgumentList @($VMName, $VMId) -ErrorAction Stop) }
+            foreach ($entry in @($plan.adapters)) {
+                $match = @($hostAdapters | Where-Object { [string]$_.Name -eq [string]$entry.hostAdapter }) | Select-Object -First 1
+                if ($match -and ([string]$match.MacAddress -replace '0', '')) { $entry | Add-Member -NotePropertyName mac -NotePropertyValue ([string]$match.MacAddress) -Force }
+            }
+            $planText = $plan | ConvertTo-Json -Depth 6 -Compress
+        }
+    }
+    $arguments = @($engineText, $Mode, $planText, $captureText)
+    $output = & $runInside $insideGuest $arguments
     $guestCredential = $null
     $hostCredential = $null
     $reply = @($output | Where-Object { $_ -and $_.result -ne $null } | Select-Object -Last 1)
