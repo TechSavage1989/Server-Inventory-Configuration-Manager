@@ -465,6 +465,24 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
 .vm-meter{display:inline-block;vertical-align:middle;width:60px;height:6px;border-radius:3px;background:#e3e8f0;margin-left:6px;overflow:hidden}.vm-meter span{display:block;height:100%;background:#2563eb}.vm-meter.full span{background:#c2410c}
 .vm-note{font-size:12px;color:#596b80}
 .vm-table-wrap{margin-top:8px;border:1px solid #e0e6ee;border-radius:9px;max-height:360px;overflow:auto}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.vm-pick-col{width:26px;text-align:center}.vm-pick-col input{width:15px;height:15px;margin:0;accent-color:#2563eb;cursor:pointer}.vm-table tr.picked{background:#f1f6ff}
+.vm-bulk{display:flex;flex-direction:column;gap:6px;margin-top:8px}.vm-bulk:empty{display:none}.vm-bulk-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px}.vm-bulk-row select{height:30px;max-width:260px;border:1px solid #bcc9d9;border-radius:7px;padding:0 6px;font:inherit;font-size:12px;background:#fff}.vm-bulk-row .secondary-button{padding:5px 10px;font-size:12px}.vm-bulk-count{font-size:12.5px;color:#1b2942;margin-right:4px}
+.vm-bulk-panel{border:1px solid #d5dfec;border-radius:9px;padding:10px 12px;background:#f8fbff}.vm-bulk-panel>strong{display:block;font-size:12.5px}.vm-bulk-panel .primary-button,.vm-bulk-panel .secondary-button{margin-top:8px}.vm-bulk-skip td{color:#6a7a8f}.vm-bulk-batch:empty{display:none}.vm-bulk-batch{margin-top:8px}.vm-bulk-bar{height:6px;border-radius:3px;background:#e3e9f2;margin-top:6px;overflow:hidden}.vm-bulk-bar span{display:block;height:100%;background:#2563eb}
+.vm-inline-check{margin-top:0;font-size:12px}.vm-why{font-size:11.5px;color:#52647c;min-width:160px}
+.vm-wave-board{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px;margin-top:10px}
+.vm-wave-card{border:1px solid #d5dfec;border-radius:10px;background:#fff;padding:10px;display:flex;flex-direction:column;gap:6px;min-width:0}.vm-wave-card.drop{border-color:#2563eb;box-shadow:0 0 0 2px #bcd3fb;background:#f5f9ff}
+.vm-wave-lane-none,.vm-wave-lane-hold,.vm-wave-lane-exclude{background:#f7f9fc}
+.vm-wave-head{display:flex;flex-wrap:wrap;align-items:center;gap:6px}.vm-wave-num{font-weight:700;font-size:13px;color:#1b2942;white-space:nowrap}
+.vm-wave-title{flex:1 1 120px;min-width:0;height:28px;border:1px solid #bcc9d9;border-radius:6px;padding:0 8px;font:inherit;font-size:12.5px;font-weight:600}
+.vm-wave-when{display:flex;align-items:center;gap:4px;font-size:11.5px;color:#52647c}.vm-wave-when input{height:28px;border:1px solid #bcc9d9;border-radius:6px;padding:0 4px;font:inherit;font-size:11.5px;max-width:190px}
+.vm-wave-stats{font-size:11.5px;color:#52647c}.vm-wave-reason{font-size:11.5px;color:#334156;background:#f2f6fb;border-radius:6px;padding:5px 7px}
+.vm-wave-vms{display:flex;flex-direction:column;gap:4px;max-height:260px;overflow:auto}
+.vm-wave-vm{display:flex;align-items:center;gap:7px;border:1px solid #e0e6ee;border-radius:7px;padding:4px 6px;background:#fff;cursor:grab}.vm-wave-vm.picked{border-color:#8fb0ec;background:#eef4ff}.vm-wave-vm input{width:15px;height:15px;margin:0;flex:none;accent-color:#2563eb}
+.vm-wave-vm-text{flex:1;min-width:0;display:flex;flex-direction:column}.vm-wave-vm-text strong{font-size:12px;overflow-wrap:anywhere}.vm-wave-vm-text .vm-sub{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.vm-wave-vm .run-chip{min-width:0}
+.vm-wave-notes{height:28px;border:1px solid #d5dfec;border-radius:6px;padding:0 8px;font:inherit;font-size:11.5px}
+.vm-wave-actions{display:flex;flex-wrap:wrap;gap:4px}.vm-wave-actions .secondary-button{padding:3px 8px;font-size:11.5px}
+.vm-wave-table{margin-top:10px}.vm-wave-table>summary{cursor:pointer;font-weight:700;font-size:12.5px;padding:4px 0}
 .vm-table{width:100%;border-collapse:collapse;font-size:12px}
 .vm-table th{position:sticky;top:0;z-index:1;background:#f5f7fa;text-align:left;padding:6px 8px;color:#334156;font-weight:650;white-space:nowrap}
 .vm-table td{padding:5px 8px;border-top:1px solid #edf1f6;vertical-align:top;overflow-wrap:anywhere;color:#23334b}
@@ -1052,8 +1070,9 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
                 </section>
               </div>
               <div class="hidden" id="vmListHome"><div class="vm-list-panel" id="vmListPanel">
-                <div class="vm-toolbar"><input type="search" id="vmSearch" aria-label="Search VMs" placeholder="Search VMs, guest OS, host or IP" autocomplete="off" spellcheck="false"><span class="vm-note" id="vmTableNote"></span><span class="vm-note vm-hint">Select a VM to open it.</span><button class="secondary-button" id="vmOpenReport" type="button">Open readiness report</button><button class="secondary-button" id="vmOpenFolder" type="button">Open folder</button></div>
-                <div class="vm-table-wrap"><table class="vm-table"><thead><tr><th>VM</th><th>Power</th><th>Guest OS</th><th>Size</th><th>Disks</th><th>Readiness</th><th>First thing to fix</th></tr></thead><tbody id="vmTableBody"></tbody></table></div>
+                <div class="vm-toolbar"><input type="search" id="vmSearch" aria-label="Search VMs" placeholder="Search VMs, guest OS, host or IP" autocomplete="off" spellcheck="false"><span class="vm-note" id="vmTableNote"></span><span class="vm-note vm-hint">Select a VM to open it, or tick VMs to change many at once.</span><button class="secondary-button" id="vmOpenReport" type="button">Open readiness report</button><button class="secondary-button" id="vmOpenFolder" type="button">Open folder</button></div>
+                <div class="vm-bulk" id="vmListBulk" role="group" aria-label="Selected VMs"></div><div class="vm-bulk-batch" id="vmListBatch" aria-live="polite"></div>
+                <div class="vm-table-wrap"><table class="vm-table"><thead><tr><th class="vm-pick-col"><input type="checkbox" id="vmPickShown" aria-label="Select every VM shown"></th><th>VM</th><th>Power</th><th>Guest OS</th><th>Size</th><th>Disks</th><th>Readiness</th><th>First thing to fix</th></tr></thead><tbody id="vmTableBody"></tbody></table></div>
               </div></div>
             </div>
           </div>
@@ -1076,9 +1095,14 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
               </section>
               <section class="migrate-section" aria-labelledby="vmWaveTitle">
                 <h3 class="migrate-section-title" id="vmWaveTitle">Waves</h3>
-                <p class="migrate-help">Put each VM in a wave, hold blocked VMs until they are fixed, and exclude anything that is not moving. Suggest waves puts blocked VMs on hold, powered-off VMs first and the rest in waves of the size you choose.</p>
-                <div class="vm-toolbar"><label for="vmWaveSize">VMs per wave</label><input type="number" id="vmWaveSize" min="1" max="200" step="1" value="10"><button class="secondary-button" id="vmSuggest" type="button">Suggest waves</button><input type="search" id="vmWaveSearch" aria-label="Search VMs in the plan" placeholder="Search VMs" autocomplete="off" spellcheck="false"><span class="vm-note" id="vmWaveSummary"></span></div>
-                <div class="vm-table-wrap"><table class="vm-table"><thead><tr><th>VM</th><th>Readiness</th><th>Wave</th><th>Hold</th><th>Exclude</th><th>Notes</th></tr></thead><tbody id="vmWaveBody"></tbody></table></div>
+                <p class="migrate-help" id="vmWaveWhat"><strong>What is a wave?</strong> A group of VMs you move together in one maintenance window, for example wave 1 on Friday night and wave 2 the week after. Small waves keep each cutover short and let you test before moving the next group.</p>
+                <p class="migrate-help"><strong>Suggest waves</strong> is a starting point: powered-off, test and development VMs first, one domain controller early and the others last (never two together), each database server alone, servers of one application together, and VMware system and backup appliances left out. Each VM says why it was put where it is. Then change anything: drag VMs between waves, rename a wave, give it a planned date, move waves up or down, split or merge them. VMs you place by hand are kept when you suggest again.</p>
+                <div class="vm-toolbar"><label for="vmWaveSize">VMs per wave</label><input type="number" id="vmWaveSize" min="1" max="200" step="1" value="" placeholder="Auto" title="Leave empty for Auto: about four waves of running servers, 2 to 10 VMs each"><label class="vm-check vm-inline-check"><input type="checkbox" id="vmWaveReset"><span>Also replace VMs I placed by hand</span></label><button class="secondary-button" id="vmSuggest" type="button">Suggest waves</button><button class="secondary-button" id="vmWaveAdd" type="button">New wave</button><input type="search" id="vmWaveSearch" aria-label="Search VMs in the plan" placeholder="Search VMs" autocomplete="off" spellcheck="false"><span class="vm-note" id="vmWaveSummary"></span></div>
+                <div class="vm-bulk" id="vmWaveBulk" role="group" aria-label="Selected VMs in the plan"></div>
+                <div class="vm-wave-board" id="vmWaveBoard" aria-label="Waves"></div>
+                <details class="vm-wave-table"><summary>All VMs in a table (notes, hold and exclude)</summary>
+                <div class="vm-table-wrap"><table class="vm-table"><thead><tr><th class="vm-pick-col"><span class="sr-only">Select</span></th><th>VM</th><th>Readiness</th><th>Wave</th><th>Hold</th><th>Exclude</th><th>Why</th><th>Notes</th></tr></thead><tbody id="vmWaveBody"></tbody></table></div>
+                </details>
               </section>
               <div class="migrate-row"><button class="primary-button" id="vmSavePlan" type="button">Save plan</button><button class="secondary-button" id="vmWriteRunbook" type="button">Write runbook</button><button class="secondary-button hidden" id="vmOpenRunbook" type="button">Open runbook</button><button class="secondary-button hidden" id="vmOpenRunbookDocx" type="button">Open in Word</button><button class="secondary-button hidden" id="vmOpenPlanCsv" type="button">Open plan CSV</button><span class="vm-note" id="vmPlanDirtyNote"></span></div>
               <div class="migrate-inline-status" id="vmPlanStatus" role="status" aria-live="polite"></div>
@@ -3813,6 +3837,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     if(v.target&&v.target.serial!==vmTargetSerial){vmTargetSerial=v.target.serial;renderVmDetail();}
     if(v.hvRemote&&v.hvRemote.serial!==vmHvrSerial){vmHvrSerial=v.hvRemote.serial;renderVmDetail();}
     renderVmDiskCopy(state,v);renderVmRoles();renderVmMedia(v);renderVmMoveIntro();
+    var batchKey=JSON.stringify(v.prepareBatch||null),lockKey=vmLocked()+'|'+(v.canPrepare?1:0);if(batchKey!==vmBulkPollKey){vmBulkPollKey=batchKey;renderVmBulkBatch(v);}if(lockKey!==vmBulkLockKey){vmBulkLockKey=lockKey;renderVmBulk();}
     byId('vmGuestHere').textContent=vmComputer()?'This computer: '+vmComputer()+'.':'';
     var guestMessage=byId('vmGuestMessage');guestMessage.textContent=v.guestMessage||'';guestMessage.className='migrate-inline-status'+(v.guestError?' error':'');
     renderVmGuestTarget();
@@ -4810,10 +4835,12 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     var body=byId('vmTableBody');body.textContent='';
     if(!vmInventory){return;}
     var query=trimText(byId('vmSearch').value).toLowerCase(),shown=0,total=0,fragment=document.createDocumentFragment();
+    vmPickReset();vmTableMatches=[];var picked=0;
     vmArr(vmInventory.vms).forEach(function(vm){
       var r=vmReadiness(vm);if(vmFilter!=='all'&&r.status!==vmFilter){return;}if(!vmMatches(vm,query)){return;}
-      total++;if(shown>=vmRowLimit){return;}shown++;
-      var tr=el('tr','vm-row'+(vm.id===vmSelectedVM?' selected':''));tr.setAttribute('data-vm-id',vm.id);tr.tabIndex=0;tr.title='Show '+vm.name+': readiness, disks, networks and actions';
+      total++;vmTableMatches.push(vm.id);if(vmPicked[vm.id]){picked++;}if(shown>=vmRowLimit){return;}shown++;
+      var tr=el('tr','vm-row'+(vm.id===vmSelectedVM?' selected':'')+(vmPicked[vm.id]?' picked':''));tr.setAttribute('data-vm-id',vm.id);tr.tabIndex=0;tr.title='Show '+vm.name+': readiness, disks, networks and actions';
+      var pick=el('td','vm-pick-col');pick.appendChild(vmPickBox(vm.id,vm.name));tr.appendChild(pick);
       var name=el('td','');name.appendChild(el('strong','',vm.name));if(vm.template){name.appendChild(el('span','vm-sub','Template'));}else if(vm.cluster||vm.host){name.appendChild(el('span','vm-sub',vm.cluster||vm.host));}
       tr.appendChild(name);tr.appendChild(el('td','',vmPower(vm)));tr.appendChild(el('td','',vm.guestOsRunning||vm.guestOs||'Unknown'));
       tr.appendChild(el('td','',vm.cpus+' vCPU, '+formatBytesShort((Number(vm.memoryMb)||0)*1048576)));
@@ -4822,7 +4849,9 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       fragment.appendChild(tr);
     });
     body.appendChild(fragment);
-    if(!total){var empty=el('tr','');var cell=el('td','',query||vmFilter!=='all'?'No VMs match.':'No VMs were found.');cell.colSpan=7;empty.appendChild(cell);body.appendChild(empty);}
+    if(!total){var empty=el('tr','');var cell=el('td','',query||vmFilter!=='all'?'No VMs match.':'No VMs were found.');cell.colSpan=8;empty.appendChild(cell);body.appendChild(empty);}
+    var all=byId('vmPickShown');all.checked=total>0&&picked===total;all.indeterminate=picked>0&&picked<total;all.disabled=!total;
+    renderVmBulk();
     byId('vmTableNote').textContent=total>shown?'Showing '+shown+' of '+formatCount(total)+'. Search to narrow the list.':vmPlural(total,'VM')+(vmFilter==='all'&&!query?'':' shown');
   }
   function renderVmDetail(){renderVmDrawer(false,false);}
@@ -5215,19 +5244,23 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     if(!store.childNodes.length){var b=el('tr',''),bc=el('td','','No datastores.');bc.colSpan=2;b.appendChild(bc);store.appendChild(b);}
   }
   function renderVmWaves(){
+    if(!vmPlan){return;}
+    vmPickReset();renderVmWaveBoard();
     var body=byId('vmWaveBody'),query=trimText(byId('vmWaveSearch').value).toLowerCase(),shown=0,fragment=document.createDocumentFragment();body.textContent='';
     vmArr(vmPlan.vms).forEach(function(p){
       var vm=vmFind(p.id);if(query&&String(p.name).toLowerCase().indexOf(query)<0){return;}
       if(shown>=vmRowLimit){return;}shown++;
-      var tr=el('tr',''),name=el('td','');name.appendChild(el('strong','',p.name));if(vm){name.appendChild(el('span','vm-sub',vmPower(vm)+', '+formatBytesShort(vm.provisionedBytes)));}tr.appendChild(name);
+      var tr=el('tr',''),pick=el('td','vm-pick-col');pick.appendChild(vmPickBox(p.id,p.name));tr.appendChild(pick);
+      var name=el('td','');name.appendChild(el('strong','',p.name));if(vm){name.appendChild(el('span','vm-sub',vmPower(vm)+', '+formatBytesShort(vm.provisionedBytes)));}tr.appendChild(name);
       var status=el('td','');if(vm){status.appendChild(vmChip(vmReadiness(vm).status));}tr.appendChild(status);
-      tr.appendChild(vmCellInput('number',p.wave||'','Wave for '+p.name,function(value){var n=parseInt(value,10);p.wave=isNaN(n)?0:Math.max(0,Math.min(99,n));renderVmWaveSummary();},{min:'0',max:'99',step:'1','data-vm-wave':p.id}));
-      tr.appendChild(vmCellCheck(p.hold,'Hold '+p.name,function(on){p.hold=on;}));
-      tr.appendChild(vmCellCheck(p.exclude,'Exclude '+p.name,function(on){p.exclude=on;}));
+      tr.appendChild(vmCellInput('number',p.wave||'','Wave for '+p.name,function(value){var n=parseInt(value,10);p.wave=isNaN(n)?0:Math.max(0,Math.min(99,n));vmHand(p);if(p.wave){vmWaveEnsure(p.wave);}renderVmWaveSummary();},{min:'0',max:'99',step:'1','data-vm-wave':p.id}));
+      tr.appendChild(vmCellCheck(p.hold,'Hold '+p.name,function(on){p.hold=on;vmHand(p);}));
+      tr.appendChild(vmCellCheck(p.exclude,'Exclude '+p.name,function(on){p.exclude=on;vmHand(p);}));
+      tr.appendChild(el('td','vm-why',vmWhyText(p)));
       tr.appendChild(vmCellInput('text',p.notes,'Notes for '+p.name,function(value){p.notes=value;},{maxlength:'500'}));
       fragment.appendChild(tr);
     });
-    body.appendChild(fragment);renderVmWaveSummary();
+    body.appendChild(fragment);renderVmWaveSummary();renderVmBulk();
   }
   function renderVmWaveSummary(){
     var waves={},hold=0,excluded=0,none=0;
@@ -5235,6 +5268,223 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     var parts=Object.keys(waves).sort(function(a,b){return a-b;}).map(function(w){return 'wave '+w+': '+waves[w];});
     if(none){parts.push(none+' not in a wave');}if(hold){parts.push(hold+' on hold');}if(excluded){parts.push(excluded+' excluded');}
     byId('vmWaveSummary').textContent=parts.join(', ');
+  }
+  // ---- Waves you can change, and actions on many VMs at once ----
+  // Suggest waves is only a starting point: every VM placed by hand is marked
+  // manual (kept by the next suggestion), and a wave's name, planned window
+  // and notes are marked edited. The board and the table share vmPlan, so
+  // nothing is saved until Save plan (in the VM list, plan actions save at
+  // once because there is no Save button there).
+  var vmBulkPollKey='',vmBulkLockKey='',vmPicked={},vmPickKey='',vmBulkOpen='',vmBulkMsg={list:'',plan:''},vmTableMatches=[];
+  var vmBulkSteps={snapshots:true,shutdown:false,removeTpm:false,decrypt:false};
+  var vmBulkStepList=[{key:'snapshots',label:'Delete all snapshots',need:'has snapshots'},{key:'shutdown',label:'Shut down the guest through VMware Tools',need:'is running'},{key:'removeTpm',label:'Remove the virtual TPM',need:'has a virtual TPM'},{key:'decrypt',label:'Decrypt the VM and its disks',need:'has encrypted disks'}];
+  function vmPickReset(){var key=vmInvKeyOf(vmInventory);if(key!==vmPickKey){vmPickKey=key;vmPicked={};vmBulkOpen='';vmBulkMsg={list:'',plan:''};}}
+  function vmPickedIds(){var out=[];vmArr(vmInventory&&vmInventory.vms).forEach(function(vm){if(vmPicked[vm.id]){out.push(vm.id);}});return out;}
+  function vmPlanEntry(id){var list=vmArr(vmPlan&&vmPlan.vms);for(var i=0;i<list.length;i++){if(list[i].id===id){return list[i];}}return null;}
+  function vmPickBox(id,name){var cb=document.createElement('input');cb.type='checkbox';cb.checked=!!vmPicked[id];cb.setAttribute('data-vm-pick',id);cb.setAttribute('aria-label','Select '+name);return cb;}
+  function vmSetPicked(ids,on){ids.forEach(function(id){if(on){vmPicked[id]=true;}else{delete vmPicked[id];}});vmPickChanged();}
+  function vmPickChanged(){renderVmTable();if(vmPlan){renderVmWaves();}else{renderVmBulk();}}
+  function vmHand(p){p.manual=true;p.why='';}
+  function vmWhyText(p){if(p.manual){return 'Placed by you.';}return p.why||'';}
+  function vmWaveList(){if(!vmPlan.waves){vmPlan.waves=[];}return vmPlan.waves;}
+  function vmWaveInfo(n){var l=vmWaveList();for(var i=0;i<l.length;i++){if(l[i].wave===n){return l[i];}}return null;}
+  function vmWaveEnsure(n){var w=vmWaveInfo(n);if(!w){w={wave:n,title:'Wave '+n,reason:'',edited:true};vmWaveList().push(w);vmWaveList().sort(function(a,b){return a.wave-b.wave;});}return w;}
+  function vmWaveTitle(n){var w=vmWaveInfo(n);return 'Wave '+n+(w&&w.title&&w.title.toLowerCase()!==('wave '+n)?': '+w.title:'');}
+  function vmWaveNumbers(){var set={};vmWaveList().forEach(function(w){set[w.wave]=1;});vmArr(vmPlan.vms).forEach(function(p){if(!p.exclude&&!p.hold&&p.wave>0){set[p.wave]=1;}});return Object.keys(set).map(Number).sort(function(a,b){return a-b;});}
+  function vmLaneOf(p){return p.exclude?'exclude':(p.hold?'hold':(p.wave>0?String(p.wave):'none'));}
+  // where: a wave number, 'new', 'none', 'hold', 'exclude' or 'include'.
+  function vmPlaceVms(ids,where){
+    if(where==='new'){var nums=vmWaveNumbers();where=(nums.length?nums[nums.length-1]:0)+1;if(where>99){return 'There are already 99 waves.';}}
+    ids.forEach(function(id){var p=vmPlanEntry(id);if(!p){return;}
+      if(where==='hold'){p.hold=true;p.exclude=false;}else if(where==='exclude'){p.exclude=true;p.hold=false;}else if(where==='include'){p.exclude=false;p.hold=false;}else if(where==='none'){p.wave=0;p.hold=false;p.exclude=false;}
+      else{p.wave=where;p.hold=false;p.exclude=false;vmWaveEnsure(where);}
+      vmHand(p);});
+    return '';
+  }
+  // Renumbers waves through map (old number to new) for VMs and descriptions.
+  function vmWaveRenumber(map){
+    vmArr(vmPlan.vms).forEach(function(p){if(p.wave>0&&map.hasOwnProperty(p.wave)&&map[p.wave]!==p.wave){p.wave=map[p.wave];vmHand(p);}});
+    vmWaveList().forEach(function(w){if(map.hasOwnProperty(w.wave)&&map[w.wave]!==w.wave){if(!w.title||w.title.toLowerCase()===('wave '+w.wave)){w.title='Wave '+map[w.wave];}w.wave=map[w.wave];w.edited=true;}});
+    vmWaveList().sort(function(a,b){return a.wave-b.wave;});
+  }
+  function vmWaveCompact(){var map={};vmWaveNumbers().forEach(function(n,i){map[n]=i+1;});vmArr(vmPlan.vms).forEach(function(p){if(p.wave>0&&!map.hasOwnProperty(p.wave)){map[p.wave]=p.wave;}});vmWaveRenumber(map);}
+  function vmWaveMove(n,step){var nums=vmWaveNumbers(),i=nums.indexOf(n),j=i+step;if(i<0||j<0||j>=nums.length){return;}var map={};map[n]=nums[j];map[nums[j]]=n;vmWaveRenumber(map);vmWaveChanged();}
+  function vmWaveMerge(n){var nums=vmWaveNumbers(),i=nums.indexOf(n);if(i<1){return;}var into=nums[i-1],from=vmWaveInfo(n),to=vmWaveEnsure(into);
+    vmArr(vmPlan.vms).forEach(function(p){if(p.wave===n){p.wave=into;vmHand(p);}});
+    if(from&&from.notes){to.notes=((to.notes?to.notes+' ':'')+from.notes).slice(0,500);}to.edited=true;
+    vmPlan.waves=vmWaveList().filter(function(w){return w.wave!==n;});vmWaveCompact();vmWaveChanged('Merged wave '+n+' into wave '+into+'.');}
+  function vmWaveSplit(n){
+    var ids=vmPickedIds().filter(function(id){var p=vmPlanEntry(id);return p&&vmLaneOf(p)===String(n);});
+    if(!ids.length){vmWaveChanged('Tick the VMs of wave '+n+' that should move in a wave of their own, then choose Split.',true);return;}
+    if(vmWaveNumbers().length>=99){vmWaveChanged('There are already 99 waves.',true);return;}
+    var map={};vmWaveNumbers().forEach(function(k){if(k>n){map[k]=k+1;}});vmWaveRenumber(map);
+    var w=vmWaveEnsure(n+1),old=vmWaveInfo(n);w.title=(old&&old.title&&old.title.toLowerCase()!==('wave '+n)?old.title+' (part 2)':'Wave '+(n+1));w.reason=old?old.reason:'';w.edited=true;
+    vmPlaceVms(ids,n+1);vmWaveChanged('Split '+vmPlural(ids.length,'VM')+' into wave '+(n+1)+'.');}
+  function vmWaveDelete(n){vmPlan.waves=vmWaveList().filter(function(w){return w.wave!==n;});vmWaveCompact();vmWaveChanged('Removed the empty wave.');}
+  function vmWaveChanged(message,error){vmBulkMsg.plan=message||'';vmBulkMsg.planError=!!error;vmMarkPlanDirty();renderVmWaves();}
+  function vmWaveStats(list){var cpu=0,mem=0,used=0;list.forEach(function(p){var vm=vmFind(p.id);if(vm){cpu+=Number(vm.cpus)||0;mem+=Number(vm.memoryMb)||0;used+=Number(vm.usedBytes)||0;}});return vmPlural(list.length,'VM')+(list.length?' · '+cpu+' vCPU · '+formatBytesShort(mem*1048576)+' memory · '+formatBytesShort(used)+' used':'');}
+  function vmWaveField(type,value,label,set,attrs){var input=document.createElement(type==='textarea'?'textarea':'input');if(type!=='textarea'){input.type=type;}input.value=value||'';input.setAttribute('aria-label',label);for(var k in attrs){if(attrs.hasOwnProperty(k)){input.setAttribute(k,attrs[k]);}}input.addEventListener('input',function(){set(input.value);vmMarkPlanDirty();});return input;}
+  function renderVmWaveBoard(){
+    var box=byId('vmWaveBoard');box.textContent='';
+    var query=trimText(byId('vmWaveSearch').value).toLowerCase(),lanes={},nums=vmWaveNumbers();
+    vmArr(vmPlan.vms).forEach(function(p){var key=vmLaneOf(p);(lanes[key]=lanes[key]||[]).push(p);});
+    var order=nums.map(String).concat(['none','hold','exclude']);
+    order.forEach(function(key,index){
+      var list=lanes[key]||[],isWave=/^\d+$/.test(key),n=isWave?Number(key):0;
+      if(!isWave&&!list.length){return;}
+      var card=el('section','vm-wave-card'+(isWave?'':' vm-wave-lane-'+key));card.setAttribute('data-wave-lane',key);
+      var head=el('div','vm-wave-head');
+      if(isWave){
+        var w=vmWaveEnsure(n);
+        head.appendChild(el('span','vm-wave-num','Wave '+n));
+        head.appendChild(vmWaveField('text',w.title&&w.title.toLowerCase()!==('wave '+n)?w.title:'','Name of wave '+n,function(v){w.title=v;w.edited=true;},{maxlength:'100',placeholder:'Name this wave','class':'vm-wave-title'}));
+        var when=el('label','vm-wave-when');when.appendChild(el('span','','Planned'));when.appendChild(vmWaveField('datetime-local',w.window,'Planned window for wave '+n,function(v){w.window=v;w.edited=true;},{}));head.appendChild(when);
+      }else{head.appendChild(el('span','vm-wave-num',{none:'Not in a wave',hold:'On hold',exclude:'Not moving'}[key]));}
+      card.appendChild(head);
+      card.appendChild(el('div','vm-wave-stats',vmWaveStats(list)));
+      if(isWave&&w.reason){card.appendChild(el('div','vm-wave-reason',w.reason));}
+      if(key==='hold'){card.appendChild(el('div','vm-wave-reason','Held until what their readiness lists is fixed. Drag one into a wave once it is.'));}
+      if(key==='exclude'){card.appendChild(el('div','vm-wave-reason','Templates, VMware system VMs and anything you excluded. Drag one into a wave to move it after all.'));}
+      var chips=el('div','vm-wave-vms');
+      list.forEach(function(p){if(query&&String(p.name).toLowerCase().indexOf(query)<0){return;}
+        var vm=vmFind(p.id),chip=el('div','vm-wave-vm'+(vmPicked[p.id]?' picked':''));chip.draggable=true;chip.setAttribute('data-vm-id',p.id);chip.title=vmWhyText(p);
+        chip.appendChild(vmPickBox(p.id,p.name));var text=el('span','vm-wave-vm-text');text.appendChild(el('strong','',p.name));text.appendChild(el('span','vm-sub',vmWhyText(p)||(vm?vmPower(vm):'')));chip.appendChild(text);
+        if(vm){chip.appendChild(vmChip(vmReadiness(vm).status));}
+        chips.appendChild(chip);});
+      if(!chips.childNodes.length){chips.appendChild(el('div','vm-note',list.length?'No VMs match the search.':'Empty. Drag VMs here, or tick VMs and choose Put in wave.'));}
+      card.appendChild(chips);
+      if(isWave){
+        card.appendChild(vmWaveField('text',w.notes,'Notes for wave '+n,function(v){w.notes=v;w.edited=true;},{maxlength:'500',placeholder:'Notes for this wave (change ticket, contacts)','class':'vm-wave-notes'}));
+        var acts=el('div','vm-wave-actions'),pos=nums.indexOf(n);
+        var mk=function(label,attr,disabled,fn,title){var b=el('button','secondary-button',label);b.type='button';b.setAttribute('data-wave-act',attr);b.setAttribute('data-wave',String(n));b.disabled=!!disabled;if(title){b.title=title;}b.addEventListener('click',fn);acts.appendChild(b);};
+        mk('Move earlier','up',pos<1,function(){vmWaveMove(n,-1);},'Swap with the wave before it');
+        mk('Move later','down',pos>=nums.length-1,function(){vmWaveMove(n,1);},'Swap with the wave after it');
+        mk('Merge into wave '+(pos>0?nums[pos-1]:''),'merge',pos<1,function(){vmWaveMerge(n);},'Move every VM of this wave into the wave before it');
+        mk('Split ticked VMs out','split',false,function(){vmWaveSplit(n);},'Move the ticked VMs of this wave into a new wave right after it');
+        mk('Select all','select',!list.length,function(){vmSetPicked(list.map(function(p){return p.id;}),true);});
+        if(!list.length){mk('Remove wave','delete',false,function(){vmWaveDelete(n);});}
+        card.appendChild(acts);
+      }
+      box.appendChild(card);
+    });
+  }
+  function vmDropIds(e){var id=e.dataTransfer.getData('text/plain');if(!id){return [];}if(vmPicked[id]){return vmPickedIds();}return [id];}
+  function vmBulkPrepareFor(vm){
+    if(!vm){return {why:'Not in the inventory.'};}
+    if(vm.template){return {why:'A template: not prepared.'};}
+    if(vm.source==='hyperv'){return {why:'A Hyper-V VM: Prepare on VMware is for VMware VMs.'};}
+    if(vmReadiness(vm).status==='skip'){return {why:'A VMware system VM: never changed.'};}
+    var steps={snapshots:vmBulkSteps.snapshots&&vmArr(vm.snapshots).length>0,shutdown:vmBulkSteps.shutdown&&vm.powerState==='poweredOn',removeTpm:vmBulkSteps.removeTpm&&!!vm.vtpm,decrypt:vmBulkSteps.decrypt&&vmDisksEncrypted(vm)},names=[];
+    vmBulkStepList.forEach(function(s){if(steps[s.key]){names.push(s.label.toLowerCase());}});
+    if(!names.length){return {why:'Nothing to do with the steps ticked.'};}
+    return {steps:steps,names:names};
+  }
+  function vmBulkSave(message){if(vmLocked()){vmBulkMsg.list='Wait for the current step to finish.';renderVmBulk();return;}saveVmPlan(null,message,function(err){vmBulkMsg.list=err||message;vmBulkMsg.listError=!!err;renderVmBulk();});}
+  function vmPickByOptions(select){
+    var add=function(group,label,value){var o=new Option(label,value);group.appendChild(o);};
+    select.appendChild(new Option('Select by…',''));
+    var vms=vmArr(vmInventory.vms),count=function(f){return vms.filter(f).length;};
+    var groups=[['Host','host'],['Cluster','cluster'],['Folder','folder']];
+    groups.forEach(function(g){var names={};vms.forEach(function(vm){if(vm[g[1]]){names[vm[g[1]]]=1;}});var keys=Object.keys(names).sort();if(!keys.length){return;}var og=document.createElement('optgroup');og.label=g[0];keys.slice(0,200).forEach(function(k){add(og,k+' ('+count(function(vm){return vm[g[1]]===k;})+')',g[1]+'\u0000'+k);});select.appendChild(og);});
+    if(vmPlan){var og=document.createElement('optgroup');og.label='Wave';vmWaveNumbers().forEach(function(n){add(og,vmWaveTitle(n),'wave\u0000'+n);});['hold','exclude','none'].forEach(function(k){add(og,{hold:'On hold',exclude:'Not moving',none:'Not in a wave'}[k],'lane\u0000'+k);});select.appendChild(og);}
+    var rg=document.createElement('optgroup');rg.label='Readiness';[['ready','Ready'],['review','Review first'],['blocked','Blocked']].forEach(function(r){add(rg,r[1]+' ('+count(function(vm){return vmReadiness(vm).status===r[0];})+')','ready\u0000'+r[0]);});select.appendChild(rg);
+    var pg=document.createElement('optgroup');pg.label='Power';add(pg,'Running','power\u0000poweredOn');add(pg,'Powered off','power\u0000poweredOff');select.appendChild(pg);
+  }
+  function vmPickBy(value){
+    var parts=value.split('\u0000'),kind=parts[0],key=parts[1],ids=[];
+    vmArr(vmInventory.vms).forEach(function(vm){var p=vmPlanEntry(vm.id),hit=false;
+      if(kind==='host'||kind==='cluster'||kind==='folder'){hit=vm[kind]===key;}
+      else if(kind==='wave'){hit=!!p&&vmLaneOf(p)===key;}else if(kind==='lane'){hit=!!p&&vmLaneOf(p)===key;}
+      else if(kind==='ready'){hit=vmReadiness(vm).status===key;}else if(kind==='power'){hit=key==='poweredOn'?vm.powerState==='poweredOn':vm.powerState!=='poweredOn';}
+      if(hit){ids.push(vm.id);}});
+    vmSetPicked(ids,true);
+  }
+  function renderVmBulk(){renderVmBulkInto(byId('vmListBulk'),'list');if(vmPlan){renderVmBulkInto(byId('vmWaveBulk'),'plan');}}
+  function renderVmBulkInto(box,where){
+    box.textContent='';if(!vmInventory){return;}
+    vmPickReset();
+    var v=vmwareState()||{},ids=vmPickedIds(),n=ids.length,locked=vmLocked(),row=el('div','vm-bulk-row');
+    row.appendChild(el('strong','vm-bulk-count',n?vmPlural(n,'VM')+' selected':'Tick VMs to change many at once'));
+    var by=document.createElement('select');by.setAttribute('aria-label','Select VMs by host, cluster, folder, wave, readiness or power');by.setAttribute('data-vm-pickby',where);vmPickByOptions(by);
+    by.addEventListener('change',function(){if(by.value){vmPickBy(by.value);}});row.appendChild(by);
+    if(where==='list'){var all=el('button','secondary-button','Select every VM that matches');all.type='button';all.setAttribute('data-bulk','all');all.disabled=!vmTableMatches.length;all.addEventListener('click',function(){vmSetPicked(vmTableMatches,true);});row.appendChild(all);}
+    if(n){var clear=el('button','secondary-button','Clear selection');clear.type='button';clear.setAttribute('data-bulk','clear');clear.addEventListener('click',function(){vmPicked={};vmBulkOpen='';vmPickChanged();});row.appendChild(clear);}
+    box.appendChild(row);
+    if(n&&vmPlan){
+      var act=el('div','vm-bulk-row'),sel=document.createElement('select');sel.setAttribute('aria-label','Wave for the selected VMs');sel.setAttribute('data-bulk','wave');
+      vmWaveNumbers().forEach(function(k){sel.appendChild(new Option(vmWaveTitle(k),String(k)));});sel.appendChild(new Option('A new wave','new'));sel.appendChild(new Option('No wave','none'));
+      act.appendChild(sel);
+      var btn=function(label,attr,fn,title){var b=el('button','secondary-button',label);b.type='button';b.setAttribute('data-bulk',attr);if(title){b.title=title;}b.disabled=where==='list'&&locked;b.addEventListener('click',fn);act.appendChild(b);return b;};
+      var apply=function(whereTo,label){var err=vmPlaceVms(ids,whereTo);if(err){vmBulkMsg[where]=err;renderVmBulk();return;}if(where==='plan'){vmWaveChanged(label);}else{vmBulkSave(label);}};
+      btn('Put in wave','put',function(){var t=sel.value==='new'||sel.value==='none'?sel.value:Number(sel.value);apply(t,vmPlural(n,'VM')+' put in '+(t==='new'?'a new wave':(t==='none'?'no wave':'wave '+t))+'.');});
+      btn('Hold','hold',function(){apply('hold',vmPlural(n,'VM')+' on hold.');},'Keep them out of every wave until they are ready');
+      btn('Exclude','exclude',function(){apply('exclude',vmPlural(n,'VM')+' will not move.');},'They will not move');
+      btn('Include','include',function(){apply('include',vmPlural(n,'VM')+' included again.');},'Take them off hold or out of the excluded list');
+      if(where==='list'){
+        btn('Prepare on VMware…','prepare',function(){vmBulkOpen=vmBulkOpen==='prepare'?'':'prepare';renderVmBulk();},'Delete snapshots, shut down, remove the virtual TPM or decrypt the selected VMs, one after another');
+        btn('Networks of these VMs','networks',function(){vmBulkOpen=vmBulkOpen==='networks'?'':'networks';renderVmBulk();},'Map the networks these VMs use to the new switches and VLANs');
+        btn('Add to a migration plan','plans',function(){vmBulkToPlans(ids);},'Copy, sync and cut over these VMs together on a Hyper-V host');
+      }else{
+        btn('Prepare or move these VMs','movevms',function(){vmBulkOpen='prepare';showTool('movevms');},'Open Move VMs with these VMs selected');
+        btn('Add to a migration plan','plans',function(){vmBulkToPlans(ids);},'Copy, sync and cut over these VMs together on a Hyper-V host');
+      }
+      box.appendChild(act);
+    }
+    if(vmBulkMsg[where]){var msg=el('div','migrate-inline-status'+((where==='plan'?vmBulkMsg.planError:vmBulkMsg.listError)?' error':''),vmBulkMsg[where]);msg.setAttribute('role','status');box.appendChild(msg);}
+    if(where==='list'&&n&&vmBulkOpen==='prepare'){renderVmBulkPrepare(box,ids,v);}
+    if(where==='list'&&n&&vmBulkOpen==='networks'){renderVmBulkNetworks(box,ids);}
+  }
+  function renderVmBulkPrepare(box,ids,v){
+    var panel=el('div','vm-bulk-panel');panel.id='vmBulkPrepare';panel.appendChild(el('strong','','Prepare the selected VMs on VMware'));
+    if(vmToolId!=='movevms'){panel.appendChild(el('div','migrate-help','These steps change vSphere, so they run from Move VMs. Your selection comes with you.'));var go=el('button','secondary-button','Open Move VMs');go.type='button';go.id='vmBulkGoMove';go.addEventListener('click',function(){showTool('movevms');});panel.appendChild(go);box.appendChild(panel);return;}
+    if(!v.canPrepare){panel.appendChild(el('div','migrate-help','Read the inventory from vCenter or ESXi in this session first (a saved inventory cannot change anything).'));box.appendChild(panel);return;}
+    panel.appendChild(el('div','migrate-help','Each step runs only on the VMs that need it. vSphere prepares one VM after another, saving each VM\'s settings first; if one fails the others still run, and Stop takes effect between VMs.'));
+    vmBulkStepList.forEach(function(s){var label=el('label','vm-check'),cb=document.createElement('input');cb.type='checkbox';cb.checked=!!vmBulkSteps[s.key];cb.setAttribute('data-bulk-step',s.key);cb.addEventListener('change',function(){vmBulkSteps[s.key]=cb.checked;renderVmBulk();});label.appendChild(cb);label.appendChild(el('span','',s.label+' (on VMs that '+s.need+')'));panel.appendChild(label);});
+    var table=el('table','vm-table vm-bulk-preview'),head=el('tr','');['VM','What will happen'].forEach(function(t){head.appendChild(el('th','',t));});var thead=document.createElement('thead');thead.appendChild(head);table.appendChild(thead);
+    var tbody=document.createElement('tbody'),items=[],lines=[],windows=false,running=0;
+    ids.forEach(function(id){var vm=vmFind(id),plan=vmBulkPrepareFor(vm),tr=el('tr',plan.steps?'':'vm-bulk-skip');tr.appendChild(el('td','',vm?vm.name:id));tr.appendChild(el('td','',plan.steps?plan.names.join(', '):plan.why));tbody.appendChild(tr);
+      if(plan.steps){items.push({vmId:id,steps:plan.steps});lines.push(vm.name+': '+plan.names.join(', '));if(plan.steps.removeTpm&&/windows/i.test((vm.guestOsRunning||'')+' '+(vm.guestOs||'')+' '+(vm.guestId||''))){windows=true;}if(plan.steps.shutdown){running++;}}});
+    table.appendChild(tbody);var wrap=el('div','vm-table-wrap');wrap.appendChild(table);panel.appendChild(wrap);
+    var count=items.length,label=count===1?'1 VM':count+' VMs',go2=el('button','primary-button',count?'Prepare '+label+'…':'Nothing to prepare');go2.type='button';go2.id='vmBulkPrepareButton';go2.disabled=!count||vmLocked();
+    go2.addEventListener('click',function(){
+      var alerts=[];if(running){alerts.push(vmPlural(running,'running VM')+' will be shut down: users lose access until they are started again or cut over.');}
+      if(windows){alerts.push('Before removing a virtual TPM, save the BitLocker recovery keys and suspend BitLocker inside Windows (Prepare and fix up). Otherwise Windows asks for the recovery key at the next start.');}
+      openMigrateDialog({title:'Prepare '+label+' on VMware',path:'/api/vmware/prepare',field:'confirm',body:{items:items},expected:label,label:'Type the number of VMs to confirm',button:'Prepare '+label,alert:alerts.join(' '),
+        paragraphs:['vSphere runs these steps on one VM after another. Each VM\'s current settings are saved first. If one VM fails, the others still run.'],list:lines,
+        after:function(){vmMarkRunning('prepare','preparing','Preparing '+label+', one at a time.');}});
+    });
+    panel.appendChild(go2);box.appendChild(panel);
+  }
+  function renderVmBulkNetworks(box,ids){
+    var panel=el('div','vm-bulk-panel');panel.id='vmBulkNetworks';panel.appendChild(el('strong','','Networks the selected VMs use'));
+    panel.appendChild(el('div','migrate-help','A network\'s new name and VLAN apply to every VM on it, not only the selected ones. Move VMs and Migration plans connect each adapter to the switch named here.'));
+    var used={};ids.forEach(function(id){var vm=vmFind(id);vmArr(vm&&vm.nics).forEach(function(nic){if(nic.network){used[nic.network]=(used[nic.network]||0)+1;}});});
+    var table=el('table','vm-table'),thead=document.createElement('thead'),head=el('tr','');['VMware network','Selected VMs on it','New network','New VLAN'].forEach(function(t){head.appendChild(el('th','',t));});thead.appendChild(head);table.appendChild(thead);var tbody=document.createElement('tbody');
+    vmArr(vmPlan&&vmPlan.networks).forEach(function(nm){if(!used[nm.source]){return;}var tr=el('tr','');tr.appendChild(el('td','',nm.source+(nm.sourceVlan?' (VLAN '+nm.sourceVlan+')':'')));tr.appendChild(el('td','',String(used[nm.source])));
+      tr.appendChild(vmCellInput('text',nm.targetName,'New network for '+nm.source+' (selected VMs)',function(value){nm.targetName=value;},{maxlength:'128'}));
+      tr.appendChild(vmCellInput('text',nm.targetVlan,'New VLAN for '+nm.source+' (selected VMs)',function(value){nm.targetVlan=value;},{maxlength:'4',inputmode:'numeric'}));tbody.appendChild(tr);});
+    if(!tbody.childNodes.length){var r=el('tr',''),c=el('td','','The selected VMs have no network adapters on a known network.');c.colSpan=4;r.appendChild(c);tbody.appendChild(r);}
+    table.appendChild(tbody);var wrap=el('div','vm-table-wrap');wrap.appendChild(table);panel.appendChild(wrap);
+    var save=el('button','primary-button','Save the network map');save.type='button';save.id='vmBulkNetSave';save.disabled=vmLocked();save.addEventListener('click',function(){vmBulkSave('Network map saved.');});panel.appendChild(save);
+    box.appendChild(panel);
+  }
+  var vmBatchStateLabels={waiting:'Waiting',running:'Running',done:'Done',failed:'Failed',stopped:'Not started'};
+  function renderVmBulkBatch(v){
+    var box=byId('vmListBatch');box.textContent='';var list=vmArr(v&&v.prepareBatch);if(!list.length||!vmInventory){return;}
+    var done=list.filter(function(i){return i.state==='done';}).length,failed=list.filter(function(i){return i.state==='failed';}).length;
+    var panel=el('div','vm-bulk-panel');panel.id='vmBulkBatch';panel.appendChild(el('strong','','Prepare on VMware: '+done+' of '+list.length+' done'+(failed?', '+failed+' failed':'')));
+    var bar=el('div','vm-bulk-bar');var fill=el('span','');fill.style.width=Math.round((done+failed)*100/list.length)+'%';bar.appendChild(fill);panel.appendChild(bar);
+    var ul=el('ul','vm-findings');
+    list.forEach(function(item){var cls={done:'good',failed:'warning'}[item.state]||'';var text=item.vm+': '+(vmBatchStateLabels[item.state]||item.state);
+      if(item.state==='done'||item.state==='failed'){var bits=vmArr(item.done).concat(vmArr(item.skipped));if(bits.length){text+='. '+bits.join(' ');}}
+      if(item.error){text+='. '+item.error;}var li=el('li',cls,text);li.setAttribute('data-batch-vm',item.id);ul.appendChild(li);});
+    panel.appendChild(ul);box.appendChild(panel);
+  }
+  function vmBulkToPlans(ids){
+    showTool('plans');mpEditing={};mpPicks={};ids.forEach(function(id){mpPicks[id]=true;});mpFillForm(null);
+    var waves={};ids.forEach(function(id){var p=vmPlanEntry(id);if(p&&p.wave>0&&!p.hold&&!p.exclude){waves[p.wave]=1;}});var keys=Object.keys(waves);
+    if(keys.length===1&&vmPlan){byId('mpName').value=vmWaveTitle(Number(keys[0])).slice(0,100);}
+    if(!vmInventory&&!vmInvLoading){loadVmInventory(0);}renderMp();byId('mpName').focus();
   }
   function vmCollectCapacity(){
     var capacity=vmPlan.capacity||(vmPlan.capacity={});
@@ -5465,7 +5715,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   byId('vmReset').addEventListener('click',function(){vmPost('/api/vmware/reset',{},'vmConnectStatus',function(err){if(err){return;}byId('vmServer').value='';byId('vmUser').value='';byId('vmPassword').value='';vmInventory=null;vmAttention=[];vmPlan=null;vmSizing=null;vmSelectedVM='';var v=vmwareState();if(v){v.server='';v.account='';v.summary=null;v.certificate=null;v.message='';v.status='idle';}vmInvRefresh(true);renderVmPlan();if(latestState){renderVMware(latestState);}byId('vmServer').focus();});});
   byId('vmStop').addEventListener('click',function(){var button=this;button.disabled=true;request('POST','/api/vmware/cancel',{},function(err){if(err){button.disabled=false;notice(err,true);return;}var v=vmwareState();if(v){v.cancelRequested=true;}syncVmButtons();});});
   byId('vmSearch').addEventListener('input',renderVmTable);
-  byId('vmTableBody').addEventListener('click',function(e){if(e.target.closest('button')){return;}selectVmRow(e.target.closest('tr'),true);});
+  byId('vmTableBody').addEventListener('click',function(e){if(e.target.closest('button,input,.vm-pick-col')){return;}selectVmRow(e.target.closest('tr'),true);});
   byId('vmTableBody').addEventListener('keydown',function(e){
     var row=e.target.closest('tr.vm-row');if(!row||e.target!==row){return;}
     if(e.key==='Enter'||e.key===' '){e.preventDefault();selectVmRow(row,true);}
@@ -5503,7 +5753,20 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   vmCapacityFields.forEach(function(f){byId(f.id).addEventListener('input',vmMarkPlanDirty);});
   byId('vmWaveSearch').addEventListener('input',renderVmWaves);
   byId('vmSavePlan').addEventListener('click',function(){saveVmPlan(null,'Plan saved.');});
-  byId('vmSuggest').addEventListener('click',function(){var size=parseInt(byId('vmWaveSize').value,10);saveVmPlan({suggest:true,waveSize:isNaN(size)?10:size},'Suggested waves and saved the plan. Change any wave before writing the runbook.');});
+  byId('vmSuggest').addEventListener('click',function(){var size=parseInt(byId('vmWaveSize').value,10);size=isNaN(size)||size<1?0:Math.min(200,size);var reset=byId('vmWaveReset').checked;
+    saveVmPlan({suggest:true,waveSize:size,resetManual:reset},'',function(err){if(err){return;}var waves=vmArr(vmPlan.waves).length;
+      vmSetStatus('vmPlanStatus','Suggested '+vmPlural(waves,'wave')+(size?'':' of up to '+(vmPlan.waveSize||0)+' VMs (Auto)')+' and saved the plan.'+(reset?'':' VMs you placed by hand were kept.')+' Change anything before writing the runbook.');byId('vmWaveReset').checked=false;});});
+  byId('vmWaveAdd').addEventListener('click',function(){if(!vmPlan){return;}var nums=vmWaveNumbers(),n=(nums.length?nums[nums.length-1]:0)+1;if(n>99){vmWaveChanged('There are already 99 waves.',true);return;}vmWaveEnsure(n);vmWaveChanged('Added wave '+n+'. Drag VMs into it, or tick VMs and choose Put in wave.');});
+  byId('vmWaveBody').addEventListener('change',function(){renderVmWaveBoard();renderVmBulk();});
+  // Ticking a VM anywhere selects it everywhere (VM list, wave board, table).
+  document.addEventListener('change',function(e){var t=e.target;if(!t||!t.getAttribute||!t.hasAttribute('data-vm-pick')){return;}vmSetPicked([t.getAttribute('data-vm-pick')],t.checked);});
+  byId('vmPickShown').addEventListener('change',function(){vmSetPicked(vmTableMatches,byId('vmPickShown').checked);});
+  var board=byId('vmWaveBoard');
+  board.addEventListener('dragstart',function(e){var chip=e.target.closest&&e.target.closest('.vm-wave-vm');if(!chip){return;}e.dataTransfer.setData('text/plain',chip.getAttribute('data-vm-id'));e.dataTransfer.effectAllowed='move';});
+  board.addEventListener('dragover',function(e){var card=e.target.closest&&e.target.closest('[data-wave-lane]');if(!card){return;}e.preventDefault();e.dataTransfer.dropEffect='move';Array.prototype.forEach.call(board.querySelectorAll('.drop'),function(c){if(c!==card){c.classList.remove('drop');}});card.classList.add('drop');});
+  board.addEventListener('dragleave',function(e){var card=e.target.closest&&e.target.closest('[data-wave-lane]');if(card&&!card.contains(e.relatedTarget)){card.classList.remove('drop');}});
+  board.addEventListener('drop',function(e){var card=e.target.closest&&e.target.closest('[data-wave-lane]');if(!card){return;}e.preventDefault();var ids=vmDropIds(e),lane=card.getAttribute('data-wave-lane');if(!ids.length){return;}
+    vmPlaceVms(ids,/^\d+$/.test(lane)?Number(lane):lane);vmWaveChanged(vmPlural(ids.length,'VM')+' moved to '+(/^\d+$/.test(lane)?'wave '+lane:{none:'no wave',hold:'on hold',exclude:'not moving'}[lane])+'.');});
   byId('vmWriteRunbook').addEventListener('click',function(){saveVmPlan(null,'',function(err){if(err){return;}vmPost('/api/vmware/export-plan',{},'vmPlanStatus',function(err2){if(!err2){vmSetStatus('vmPlanStatus','Wrote the runbook and plan CSV.',false);}});});});
   byId('vmOpenRunbook').addEventListener('click',function(){openKind('vmwarerunbook');});
   byId('vmOpenRunbookDocx').addEventListener('click',function(){openKind('vmwarerunbookdocx');});
