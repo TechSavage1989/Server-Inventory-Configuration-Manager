@@ -759,11 +759,28 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   const copyText=await f.page.locator('#migrateDialogText').textContent();assert(copyText.includes('changed block tracking')&&copyText.includes('E:\\Copies\\APP01'),copyText);
   assert(await f.page.locator('#migrateConfirmButton').isDisabled());await f.page.locator('#migrateConfirmInput').fill('APP01');await f.page.locator('#migrateConfirmInput').press('Enter');
   await f.page.waitForFunction(()=>document.querySelector('#vmwareTabBadge').textContent==='Working');
+  // The live progress panel: steps in order, the copy's percent, speed and time left.
+  {const now=new Date().toISOString();
+   f.state.vmware.moveStatus={vmId:'vm-app01',vm:'APP01',action:'copy',stages:['connect','snapshot','copy','cleanup'],stage:'copy',detail:'Hard disk 1 (1 of 2)',state:'running',started:now,updated:now};
+   f.state.vmware.transfers=[{id:'move-vm-app01|Hard disk 1',kind:'move',label:'APP01: Hard disk 1',source:'APP01 (Hard disk 1)',target:'E:\\Copies\\APP01',size:107374182400,pass:1,chunks:25600,done:12800,bytesRead:53687091200,started:now,updated:now,state:'running',percent:50,bytesPerSecond:115343360,etaSeconds:465}];
+   await f.page.waitForFunction(()=>{const p=document.querySelector('#vmMoveProgress');return p&&!p.classList.contains('hidden')&&p.textContent.includes('25% of the copy');});
+   const progress=await f.page.locator('#vmMoveProgress').textContent();
+   for(const want of ['Copying APP01','Running','Take the replication snapshot','Copy the disks: Hard disk 1 (1 of 2)','50.0 GB read','110 MB/s','about 8 min left on this disk'])assert(progress.includes(want),want+' in '+progress);
+   assert.deepEqual(await f.page.locator('#vmMoveProgress .vm-move-steps li').evaluateAll(l=>l.map(x=>x.className)),['done','done','current','']);
+   assert.equal(await f.page.locator('#vmMoveConsolidate').count(),0);}
   assert(await f.page.locator('#vmStop').isVisible(),'a copy can be stopped');
   assert.deepEqual(vmwareCalls(f,'move').map(c=>c.body),[{vmId:'vm-app01',action:'copy',copyFolder:'E:\\Copies\\APP01',vmFolder:'',quiesce:true,keepMac:false,start:false,cluster:false,confirm:'APP01'}]);
   Object.assign(f.state.vmware,{running:false,action:'',status:'connected',move:{vm:'APP01',cutover:false,round:{disks:[{label:'Hard disk 1',mode:'seed',bytesWritten:21474836480,verified:false}]},disks:['E:\\Copies\\APP01\\APP01-disk0.vhdx']},moveSerial:1});
   await f.page.waitForFunction(()=>document.querySelector('#vmMove')&&document.querySelector('#vmMove').textContent.includes('first copy of the used areas'));
   assert.equal(await f.page.locator('#vmMoveCopy').textContent(),'Copy changes\u2026');
+  // A disk that runs on a delta vSphere lists no snapshot for: the result says so and offers Consolidate disks.
+  {const now=new Date().toISOString();f.state.vmware.canPrepare=true;f.state.vmware.transfers=[];
+   f.state.vmware.moveStatus={vmId:'vm-app01',vm:'APP01',action:'copy',stages:['connect','snapshot','copy','cleanup'],stage:'connect',state:'failed',result:'Hard disk 1 still has a snapshot chain: the VM runs on [ds1] APP01/APP01-000001.vmdk on top of [ds1] APP01/APP01.vmdk. Consolidate the disks with Prepare source (Delete snapshots and consolidate), or Snapshots > Consolidate in vSphere, then copy again.',started:now,updated:now,finished:now};
+   await f.page.locator('#vmMoveConsolidate').waitFor();assert((await f.page.locator('#vmMoveProgress').textContent()).includes('Failed'));
+   assert.equal(await f.page.locator('#vmMoveProgress .vm-move-steps li.failed').textContent(),'Connect to the source');
+   await f.page.locator('#vmMoveConsolidate').click();const text=await f.page.locator('#migrateDialogText').textContent();
+   assert(text.includes('consolidate disks vSphere flags as needing it')&&text.includes('Server Inventory and Migration Manager consolidation'),text);await f.page.locator('#migrateDialogCancel').click();
+   f.state.vmware.moveStatus=null;await f.page.waitForFunction(()=>document.querySelector('#vmMoveProgress').classList.contains('hidden'));}
   await f.page.locator('input[data-vm-move="start"]').check();
   await f.page.locator('#vmMoveCutover').click();assert((await f.page.locator('#migrateDialogAlert').textContent()).includes('shut down through VMware Tools'));
   assert((await f.page.locator('#migrateDialogText').textContent()).includes('and start it'));

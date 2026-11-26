@@ -180,6 +180,7 @@ func (a *application) handleVMwareMove(response http.ResponseWriter, request *ht
 	a.vmware.message = message
 	a.vmware.moveError = ""
 	a.mu.Unlock()
+	a.moveStatusBegin(vm, input.Action, "create")
 	a.vmwareLog("%s", message)
 	go func() {
 		defer cancel()
@@ -187,7 +188,7 @@ func (a *application) handleVMwareMove(response http.ResponseWriter, request *ht
 		records := filepath.Join(a.vmwareRoot(), safeName(strings.ToLower(server)), "Move")
 		progress, prefix := a.moveProgress(vm, copyFolder)
 		result, err := a.runMoveRound(ctx, inventory, vm, vmConnectOptions{Server: server, User: user, Password: password, Thumbprint: thumbprint, UserAgent: displayName + " " + appVersion, AppVersion: appVersion},
-			vmMoveRequest{VMID: vm.ID, Name: vm.Name, Datacenter: vm.Datacenter, CopyFolder: copyFolder, Quiesce: input.Quiesce, Cutover: input.Action == "cutover", RecordFolder: records, Progress: progress}, log)
+			vmMoveRequest{VMID: vm.ID, Name: vm.Name, Datacenter: vm.Datacenter, CopyFolder: copyFolder, Quiesce: input.Quiesce, Cutover: input.Action == "cutover", RecordFolder: records, Progress: progress, Stage: a.moveStage}, log)
 		a.copyTransfers().EndRunning(prefix, err, errors.Is(err, context.Canceled), err == nil && input.Action == "cutover")
 		password = ""
 		if err == nil && input.Action == "cutover" {
@@ -198,6 +199,7 @@ func (a *application) handleVMwareMove(response http.ResponseWriter, request *ht
 				for _, warning := range hyperV.Warnings {
 					log(warning)
 				}
+				a.moveStage("create", "")
 				log("Creating the Hyper-V VM " + vm.Name + ".")
 				result.HyperVID, err = vmCreateHyperVVM(hyperV)
 			}
@@ -239,6 +241,7 @@ func (a *application) handleVMwareMove(response http.ResponseWriter, request *ht
 		default:
 			a.finishVMwareAction("connected", "Copied "+vm.Name+"'s disks. Copy again to bring them up to date, then cut over.")
 		}
+		a.moveStatusEnd(err)
 	}()
 	writeJSON(response, http.StatusAccepted, map[string]any{"ok": true, "copyFolder": copyFolder})
 }

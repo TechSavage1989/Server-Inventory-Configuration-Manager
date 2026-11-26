@@ -391,6 +391,7 @@ func (a *application) handleHVRemoteMove(response http.ResponseWriter, request *
 	a.vmware.message = message
 	a.vmware.moveError = ""
 	a.mu.Unlock()
+	a.moveStatusBegin(vm, input.Action, "create")
 	a.vmwareLog("%s", message)
 	go func() {
 		defer cancel()
@@ -399,6 +400,7 @@ func (a *application) handleHVRemoteMove(response http.ResponseWriter, request *
 			vmConnectOptions{Server: server, User: user, Password: password, Thumbprint: thumbprint, UserAgent: displayName + " " + appVersion, AppVersion: appVersion}, log)
 		password = ""
 		if err == nil && input.Action == "cutover" {
+			a.moveStage("create", "")
 			err = a.hvRemoteCreate(ctx, hv, vm, node, networks, options, result, log)
 		}
 		if result != nil {
@@ -435,6 +437,7 @@ func (a *application) handleHVRemoteMove(response http.ResponseWriter, request *
 		default:
 			a.finishVMwareAction("connected", "Copied "+vm.Name+"'s disks to "+shown+". Copy again to bring them up to date, then cut over.")
 		}
+		a.moveStatusEnd(err)
 	}()
 	writeJSON(response, http.StatusAccepted, map[string]any{"ok": true, "copyFolder": copyLocal, "node": node})
 }
@@ -464,7 +467,7 @@ func (a *application) hvRemoteMoveRun(ctx context.Context, hv hvRemoteRuntime, v
 		}
 		a.mu.Unlock()
 	}
-	request := vmMoveRequest{VMID: vm.ID, Name: vm.Name, Datacenter: vm.Datacenter, Quiesce: quiesce, Cutover: cutover, RecordFolder: filepath.Join(a.vmwareRoot(), safeName(strings.ToLower(options.Server)), "Move")}
+	request := vmMoveRequest{VMID: vm.ID, Name: vm.Name, Datacenter: vm.Datacenter, Quiesce: quiesce, Cutover: cutover, RecordFolder: filepath.Join(a.vmwareRoot(), safeName(strings.ToLower(options.Server)), "Move"), Stage: a.moveStage}
 	progress, prefix := a.moveProgress(vm, shown)
 	request.Progress = progress
 	if useReceiver {

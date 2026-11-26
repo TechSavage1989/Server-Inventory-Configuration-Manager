@@ -4,7 +4,9 @@ package main
 // per VM with its typed name and run in a fixed order so a VM can be copied
 // off VMware:
 //
-//  1. delete all snapshots (consolidating them into the disks),
+//  1. delete all snapshots (consolidating them into the disks), and
+//     consolidate disks that still run on a delta vSphere lists no snapshot
+//     for (consolidationNeeded, or an orphaned delta),
 //  2. shut the guest down through VMware Tools (never a hard power-off),
 //  3. remove the virtual TPM,
 //  4. decrypt the VM and its disks (vSphere VM Encryption).
@@ -26,6 +28,7 @@ import (
 
 	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/property"
+	"github.com/vmware/govmomi/vim25/methods"
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/types"
 )
@@ -66,7 +69,48 @@ type vmPrepareResult struct {
 // vmPrepareShutdownTimeout is how long the guest gets to shut down.
 var vmPrepareShutdownTimeout = 10 * time.Minute
 
-var vmPrepareProperties = []string{"name", "config", "runtime.powerState", "guest.toolsRunningStatus", "snapshot"}
+var vmPrepareProperties = []string{"name", "config", "runtime.powerState", "runtime.consolidationNeeded", "guest.toolsRunningStatus", "snapshot"}
+
+// vmPrepareConsolidateSnapshot names the snapshot taken only so that
+// deleting all snapshots merges an orphaned delta back into its base disk.
+const vmPrepareConsolidateSnapshot = "Server Inventory and Migration Manager consolidation"
+
+// vmChainedDisks lists the disks that run on a snapshot delta, each as
+// "label (file on top of parent)".
+func vmChainedDisks(machine mo.VirtualMachine) []string {
+	if machine.Config == nil {
+		return nil
+	}
+	disks, err := vmReplicaDiskList(machine.Config.Hardware.Device)
+	if err != nil {
+		return nil
+	}
+	chained := []string{}
+	for _, disk := range disks {
+		if len(disk.chain) > 0 {
+			chained = append(chained, disk.label+" ("+disk.file+" on top of "+strings.Join(disk.chain, " on top of ")+")")
+		}
+	}
+	return chained
+}
+
+// vmConsolidationNeed says how the disks of a VM with no snapshots left are
+// merged: "consolidate" when vSphere flags the VM (ConsolidateVMDisks),
+// "orphan" when a disk runs on a delta vSphere does not flag (a snapshot is
+// taken and all snapshots deleted, which merges the whole chain, VMware's
+// documented way out), or "" when nothing needs merging.
+func vmConsolidationNeed(machine mo.VirtualMachine) string {
+	if machine.Snapshot != nil && vmSnapshotCount(machine.Snapshot.RootSnapshotList) > 0 {
+		return ""
+	}
+	if machine.Runtime.ConsolidationNeeded != nil && *machine.Runtime.ConsolidationNeeded {
+		return "consolidate"
+	}
+	if len(vmChainedDisks(machine)) > 0 {
+		return "orphan"
+	}
+	return ""
+}
 
 func vmPrepareLoad(ctx context.Context, collector *property.Collector, ref types.ManagedObjectReference) (mo.VirtualMachine, error) {
 	var machine mo.VirtualMachine
@@ -245,9 +289,10 @@ func prepareVSphereVM(parent context.Context, options vmConnectOptions, vmID, vm
 	}
 
 	if steps.Snapshots {
-		if machine.Snapshot == nil || vmSnapshotCount(machine.Snapshot.RootSnapshotList) == 0 {
-			result.Skipped = append(result.Skipped, "There were no snapshots to delete.")
-		} else {
+		hadSnapshots := machine.Snapshot != nil && vmSnapshotCount(machine.Snapshot.RootSnapshotList) > 0
+		if !hadSnapshots && vmConsolidationNeed(machine) == "" {
+			result.Skipped = append(result.Skipped, "There were no snapshots to delete, and the disks need no consolidation.")
+		} else if hadSnapshots {
 			progress(fmt.Sprintf("Deleting %d snapshot(s) of %s and consolidating the disks. This can take a while.", vmSnapshotCount(machine.Snapshot.RootSnapshotList), vmName))
 			consolidate := true
 			task, taskErr := vm.RemoveAllSnapshot(ctx, &consolidate)
@@ -258,6 +303,15 @@ func prepareVSphereVM(parent context.Context, options vmConnectOptions, vmID, vm
 		}
 		if err := reload(); err != nil {
 			return result, err
+		}
+		if err := vmPrepareConsolidate(ctx, vm, vmName, machine, &result, progress); err != nil {
+			return result, err
+		}
+		if err := reload(); err != nil {
+			return result, err
+		}
+		if chained := vmChainedDisks(machine); len(chained) > 0 {
+			return result, fmt.Errorf("The disks still run on snapshot deltas after consolidating: %s. Check the VM's files in the datastore browser, and any backup appliance that may hold these disks (hot-add), then try again.", strings.Join(chained, "; "))
 		}
 	}
 	if steps.Shutdown {
@@ -332,4 +386,39 @@ func prepareVSphereVM(parent context.Context, options vmConnectOptions, vmID, vm
 	result.VTPM = vmMachineTPM(machine) != nil
 	result.Encrypted = vmMachineEncrypted(machine)
 	return result, nil
+}
+
+// vmPrepareConsolidate merges disks that still run on a delta although the
+// VM has no snapshots left.
+func vmPrepareConsolidate(ctx context.Context, vm *object.VirtualMachine, vmName string, machine mo.VirtualMachine, result *vmPrepareResult, progress func(string)) error {
+	chained := vmChainedDisks(machine)
+	detail := ""
+	if len(chained) > 0 {
+		detail = " (" + strings.Join(chained, "; ") + ")"
+	}
+	switch vmConsolidationNeed(machine) {
+	case "consolidate":
+		progress("vSphere reports that " + vmName + "'s disks need consolidation" + detail + ". Consolidating them. This can take a while.")
+		response, err := methods.ConsolidateVMDisks_Task(ctx, vm.Client(), &types.ConsolidateVMDisks_Task{This: vm.Reference()})
+		if err != nil {
+			return fmt.Errorf("Consolidating the disks failed: %v. A backup appliance that still holds the disks (hot-add) can block it; release them there and try again.", err)
+		}
+		if err := object.NewTask(vm.Client(), response.Returnval).Wait(ctx); err != nil {
+			return fmt.Errorf("Consolidating the disks failed: %v. A backup appliance that still holds the disks (hot-add) can block it; release them there and try again.", err)
+		}
+		result.Done = append(result.Done, "Consolidated the disks"+detail+".")
+	case "orphan":
+		progress(vmName + " runs on snapshot deltas that vSphere lists no snapshot for" + detail + ". Taking a snapshot named \"" + vmPrepareConsolidateSnapshot + "\" and deleting all snapshots, which merges every delta into the base disks. This can take a while.")
+		task, err := vm.CreateSnapshot(ctx, vmPrepareConsolidateSnapshot, "Taken only so deleting all snapshots merges the disks' deltas; deleted straight away.", false, false)
+		if err := vmRunTask(ctx, task, err); err != nil {
+			return fmt.Errorf("Taking the consolidation snapshot failed, so nothing was merged: %v", err)
+		}
+		consolidate := true
+		task, err = vm.RemoveAllSnapshot(ctx, &consolidate)
+		if err := vmRunTask(ctx, task, err); err != nil {
+			return fmt.Errorf("Deleting the snapshots to merge the deltas failed: %v. Remove \"%s\" in vSphere.", err, vmPrepareConsolidateSnapshot)
+		}
+		result.Done = append(result.Done, "Merged the disks' orphaned snapshot deltas"+detail+".")
+	}
+	return nil
 }
