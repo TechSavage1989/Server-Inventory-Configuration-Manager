@@ -44,7 +44,7 @@ button { cursor: pointer; }
 .card-title { font-size: 15px; font-weight: 650; color: #1b2942; }
 .card-subtitle { color: #718096; font-size: 12px; margin-top: 3px; }
 .card-body { padding: 19px; }
-.setup-layout { display: flex; align-items: flex-start; max-width: 1220px; margin: 0 auto; }
+.setup-layout { display: flex; align-items: flex-start; width: 100%; }
 .sidebar { flex: 0 0 245px; width: 245px; margin-right: 15px; }
 .main { flex: 1 1 auto; min-width: 0; }
 .server-panel { padding: 17px; }
@@ -92,7 +92,7 @@ button { cursor: pointer; }
 .secondary-button:hover:not(:disabled) { background: #f4f7fa; }
 .secondary-button:disabled { opacity: .5; cursor: default; }
 .danger-button { color: #a33b3b; border-color: #e3b7b7; background: #fffafa; }
-.collection-wrap { max-width: 1220px; margin: 0 auto; }
+.collection-wrap { width: 100%; }
 .status-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
 .status-left { display: flex; align-items: center; min-width: 0; }
 .status-indicator { width: 11px; height: 11px; border-radius: 50%; background: #98a5b7; margin-right: 9px; box-shadow: 0 0 0 4px rgba(152,165,183,.15); }
@@ -161,7 +161,7 @@ button { cursor: pointer; }
   .report-frame, .report-empty { min-height: 620px; height: 720px; }
 }
 
-.scope-heading,.scope-panel-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;flex-wrap:wrap}.scope-buttons{display:flex;gap:8px;flex-wrap:wrap}.preset-button{min-height:38px}.scope-panel{margin-top:18px;border:1px solid var(--border);border-radius:14px;padding:16px;background:rgba(255,255,255,.025)}.scope-title{font-weight:700;font-size:15px;margin-bottom:4px}.scope-count{font-size:12px;color:var(--muted);font-weight:700;white-space:nowrap}.category-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin-top:14px}.category-grid.compact{grid-template-columns:repeat(3,minmax(0,1fr))}.category-check{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--border);border-radius:10px;padding:10px 11px;background:var(--panel);cursor:pointer;min-width:0}.category-check:has(input:checked){border-color:var(--accent);background:var(--accent-soft)}.category-check input{margin-top:3px;flex:0 0 auto}.category-check span{min-width:0}.category-check strong{display:block;font-size:13px;line-height:1.25}.category-check small{display:block;color:var(--muted);font-size:11px;line-height:1.35;margin-top:3px}.category-setting{margin-top:13px}.export-panel{border-style:dashed}.sensitive-inline{margin-top:14px}.sensitive-choice{border-color:rgba(235,180,70,.35)}@media(max-width:1100px){.category-grid,.category-grid.compact{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:720px){.category-grid,.category-grid.compact{grid-template-columns:1fr}}
+.scope-heading,.scope-panel-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;flex-wrap:wrap}.scope-buttons{display:flex;gap:8px;flex-wrap:wrap}.preset-button{min-height:38px}.scope-panel{margin-top:18px;border:1px solid var(--border);border-radius:14px;padding:16px;background:rgba(255,255,255,.025)}.scope-title{font-weight:700;font-size:15px;margin-bottom:4px}.scope-count{font-size:12px;color:var(--muted);font-weight:700;white-space:nowrap}.category-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin-top:14px}.category-grid.compact{grid-template-columns:repeat(3,minmax(0,1fr))}.category-check{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--border);border-radius:10px;padding:10px 11px;background:var(--panel);cursor:pointer;min-width:0}.category-check:has(input:checked){border-color:var(--accent);background:var(--accent-soft)}.category-check input{margin-top:3px;flex:0 0 auto}.category-check span{min-width:0}.category-check strong{display:block;font-size:13px;line-height:1.25}.category-check small{display:block;color:var(--muted);font-size:11px;line-height:1.35;margin-top:3px}.category-setting{margin-top:13px}.export-panel{border-style:dashed}.sensitive-inline{margin-top:14px}.sensitive-choice{border-color:rgba(235,180,70,.35)}@media(min-width:1800px){.category-grid,.category-grid.compact{grid-template-columns:repeat(4,minmax(0,1fr))}}@media(min-width:2300px){.category-grid,.category-grid.compact{grid-template-columns:repeat(5,minmax(0,1fr))}}@media(max-width:1100px){.category-grid,.category-grid.compact{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:720px){.category-grid,.category-grid.compact{grid-template-columns:1fr}}
 
 
 /* Executable updater banner. */
@@ -194,7 +194,7 @@ body { height: 100vh; }
 .footer { flex: 0 0 auto; margin-top: 9px; }
 
 /* Setup: fixed left information rail, independently scrolling configuration, fixed Start button. */
-.setup-layout { width: 100%; max-width: 1220px; height: 100%; min-height: 0; display: flex; align-items: stretch; overflow: hidden; }
+.setup-layout { width: 100%; height: 100%; min-height: 0; display: flex; align-items: stretch; overflow: hidden; }
 .sidebar { height: 100%; min-height: 0; overflow-y: auto; overflow-x: hidden; scrollbar-gutter: stable; }
 .main { height: 100%; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
 .main > .card { height: 100%; min-height: 0; margin-bottom: 0; display: flex; flex-direction: column; overflow: hidden; }
@@ -204,7 +204,7 @@ body { height: 100vh; }
 .setup-action-bar .primary-button { flex: 0 0 auto; }
 
 /* Collection: status and controls remain visible; only the execution log scrolls. */
-.collection-wrap { width: 100%; max-width: 1220px; height: 100%; min-height: 0; overflow: hidden; }
+.collection-wrap { width: 100%; height: 100%; min-height: 0; overflow: hidden; }
 .collection-wrap > .card { height: 100%; min-height: 0; margin-bottom: 0; display: flex; flex-direction: column; overflow: hidden; }
 .collection-wrap > .card > .card-header { flex: 0 0 auto; }
 .collection-wrap > .card > .card-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
@@ -336,7 +336,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
 .about-body .helper{margin-top:12px;font-size:12px}
 
 /* Restore: choose a package, pick components, confirm by typing the server name. */
-.restore-wrap{width:100%;max-width:1220px;height:100%;min-height:0;margin:0 auto;overflow:hidden}
+.restore-wrap{width:100%;height:100%;min-height:0;overflow:hidden}
 .restore-wrap>.card{height:100%;min-height:0;margin-bottom:0;display:flex;flex-direction:column;overflow:hidden}
 .restore-wrap>.card>.card-header{flex:0 0 auto}
 #restoreBody{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden}
@@ -498,7 +498,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
 .vm-target-chip.ready{color:#1d6b43}.vm-target-chip.review{color:#8a5612}.vm-target-chip.blocked{color:#a33b3b}.vm-target-chip:disabled{cursor:default;opacity:.7}
 .vm-tree details.vm-section-node>summary strong{color:#334156}.vm-tree details.vm-host-node>summary strong{color:#1b2942}
 .vm-detail-line.warning{color:#74551f}
-.vm-inv{display:grid;grid-template-columns:minmax(200px,264px) minmax(0,1fr);margin-top:12px;border:1px solid #d5dde8;border-radius:10px;background:#fff;min-height:520px}
+.vm-inv{display:grid;grid-template-columns:minmax(200px,clamp(264px,16vw,400px)) minmax(0,1fr);margin-top:12px;border:1px solid #d5dde8;border-radius:10px;background:#fff;min-height:520px}
 .vm-inv-nav{display:flex;flex-direction:column;min-width:0;border-right:1px solid #e0e6ee;background:#f7f9fc;border-radius:10px 0 0 10px;position:sticky;top:0;align-self:start;max-height:calc(100vh - 120px);min-height:520px}
 .vm-inv-views{display:flex;gap:2px;padding:6px 6px 0;border-bottom:1px solid #e0e6ee}
 .vm-inv-view{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 2px 6px;border:0;border-bottom:2px solid transparent;border-radius:6px 6px 0 0;background:none;color:#52647c;font:inherit;font-size:11px;cursor:pointer}
@@ -641,8 +641,8 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
 @media(max-height:720px){.cv-section{margin-bottom:10px}.cv-formats{grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:6px}.cv-format{padding:5px 8px}.cv-format small{display:none}}
 /* Discovery and Migration and replication: a list of tools, grouped by what
    you are trying to do, each saying what it is for and which computer runs it. */
-.tool-layout{flex:1 1 auto;min-height:0;display:flex;gap:14px;width:100%;max-width:1480px;margin:0 auto}
-.tool-nav{flex:0 0 232px;min-height:0;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;gap:12px;padding:0 2px 4px 0}
+.tool-layout{flex:1 1 auto;min-height:0;display:flex;gap:14px;width:100%}
+.tool-nav{flex:0 0 clamp(232px,13vw,300px);min-height:0;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;gap:12px;padding:0 2px 4px 0}
 .tool-group{display:flex;flex-direction:column;gap:5px}
 .tool-group-title{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#66758a;padding:0 4px 1px}
 .tool-item{display:flex;flex-direction:column;align-items:stretch;gap:3px;width:100%;padding:8px 10px;border:1px solid #dbe3ed;border-radius:9px;background:#fff;color:#243249;cursor:pointer;font:inherit;text-align:left}
@@ -656,7 +656,9 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
 .tool-pane{display:none;min-height:0;flex:1 1 auto}.tool-pane.active{display:flex;flex-direction:column}.tool-pane.active>*{flex:1 1 auto;min-height:0}
 .tool-current{display:none}
 .vm-move-intro{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin-bottom:10px;padding:9px 12px;border:1px solid #c9d6ea;border-radius:8px;background:#f5f8fd;color:#243249;font-size:12.5px}.vm-move-intro.hidden{display:none}
-.vm-ctx-move .vm-read-section{display:none}.vm-ctx-plain #vmRoles,.vm-ctx-notarget .vm-target{display:none}
+.vm-ctx-move .vm-read-section{display:none}
+/* Wide windows: the two ways to read an inventory sit side by side, so the inventory starts higher. */
+@media(min-width:1600px){.vm-read-pair{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0 12px;align-items:start}}.vm-ctx-plain #vmRoles,.vm-ctx-notarget .vm-target{display:none}
 .vm-tool-runs{margin:0;flex:1 1 320px}
 .rp-where{margin-top:2px}
 @media(max-width:1100px){
@@ -671,7 +673,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
 .gd-body{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden}
 .gd-here{display:flex;flex-wrap:wrap;gap:6px 14px;margin-bottom:12px;padding:8px 12px;border:1px solid #dbe3ed;border-radius:8px;background:#f8fafc;font-size:12.5px;color:#334156}.gd-here b{color:#1f2a3a}.gd-fact{font:inherit;color:inherit;background:none;border:1px solid transparent;border-radius:6px;padding:2px 6px;cursor:pointer}.gd-fact:hover{border-color:#9db8e6;background:#fff}.gd-fact:focus-visible{outline:2px solid #2d6fd6}
 .gd-pick{margin-bottom:12px}.gd-pick-title{font-size:13px;font-weight:700;color:#1f2a3a;margin-bottom:6px}
-.gd-choices{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px}
+.gd-choices{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:8px}
 .gd-choice{display:flex;flex-direction:column;gap:3px;padding:9px 11px;border:1px solid #cfd8e4;border-radius:9px;background:#fff;color:#243249;font:inherit;text-align:left;cursor:pointer}
 .gd-choice strong{font-size:13px;color:#1f2a3a}.gd-choice span{font-size:11.5px;line-height:1.35;color:#52647c}
 .gd-choice:hover{border-color:#9db8e6}.gd-choice[aria-pressed="true"]{border-color:#2563eb;background:#eef4ff;box-shadow:inset 0 0 0 1px #2563eb}.gd-choice[aria-pressed="true"] strong{color:#1f4f9d}
@@ -696,7 +698,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
 .gd-fix{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:8px;border:1px dashed #efc2c2;border-radius:8px;background:#fff}.gd-fix input{min-width:200px}
 .gd-nav{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;border-top:1px solid #eef2f7;padding-top:8px}
 .gd-optional-toggle{margin:2px 0 0}
-@media(max-width:900px){.gd-choices{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}.gd-choice span{display:none}}
+@media(max-width:900px){.gd-choices{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}.gd-choice span{display:none}}
 @media(max-height:720px){.vm-table-wrap{max-height:230px}.vm-bar{padding-top:6px}.vm-counts{margin-top:6px}.vm-count strong{font-size:15px}}
 @media(max-height:720px){.restore-log{max-height:160px;min-height:90px}.restore-facts{margin-top:10px;padding:8px 10px}.restore-components{margin-top:10px}.restore-dialog-body{max-height:calc(100vh - 120px)}}
 
@@ -708,6 +710,24 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
 .tool-layout{min-height:320px}.tool-pane.active{min-height:260px}
 .log-view{min-height:96px}.metric-label{font-size:11px}.tab-badge{font-size:11px}.category-check.has-export strong::after{font-size:11px}
 @media(max-width:800px){.metric-label{font-size:11px;letter-spacing:0}.brand-subtitle{font-size:11px}}
+/* Denser layout on smaller windows (laptops, 1280 and 1366 wide, 1024x768 consoles): body
+   text, controls and padding step down so more fits on screen, but no text goes below 10.5 px. */
+@media(max-width:1439px),(max-height:900px){
+ body{font-size:13px}.card-title{font-size:14px}.hero h1{font-size:19px}.hero{margin-bottom:6px}
+ .tab-button{height:36px;min-width:0;padding:0 14px}.app-tabs{margin-bottom:10px}
+ .card-header{padding:10px 16px}.card-body{padding:14px 16px}.setup-action-bar{padding:10px 16px}
+ .secondary-button{min-height:32px;padding:0 11px}.primary-button{height:38px;box-shadow:none}
+ .scope-panel{padding:12px}.scope-search{margin-top:10px}.scope-search input,.log-tools input,.log-tools select{height:32px}
+ .category-check{padding:9px 10px;gap:8px}.category-check strong{font-size:12.5px}.preset-button{min-height:32px}
+ .migrate-section{padding:10px 12px;margin-top:10px}.server-panel{padding:13px}.info-row{padding:6px 0}.vm-cards{gap:10px}
+}
+@media(min-width:1101px) and (max-width:1439px){.tool-nav{flex-basis:216px;gap:10px}.tool-item{padding:7px 9px}.tool-layout{gap:10px}.sidebar{flex-basis:220px;width:220px;margin-right:12px}}
+@media(max-width:1100px),(max-height:768px){
+ body{font-size:12.5px}.card-title{font-size:13.5px}.hero h1{font-size:18px}
+ .tab-button{height:34px;padding:0 11px}.card-header{padding:8px 14px}.card-body{padding:12px 14px}
+ .secondary-button{min-height:30px;padding:0 10px}.primary-button{height:36px}
+ .migrate-section{padding:9px 11px;margin-top:8px}
+}
 @media(max-height:720px){
  .topbar,.topbar-inner{height:46px}.topbar{flex-basis:46px}.brand-subtitle{display:none}.brand-title{font-size:15px}
  .brand-mark,.brand-mark img{width:28px;height:28px}.brand-mark{flex-basis:28px;margin-right:9px}.help-button{height:28px}.help-list{top:33px}
@@ -1009,6 +1029,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
           <div class="restore-status" id="vmwareMessage" role="status" aria-live="polite"></div>
           <div id="vmViewEnv">
             <div class="vm-move-intro hidden" id="vmMoveIntro"><span id="vmMoveIntroText"></span> <button class="secondary-button" id="vmMoveIntroDiscover" type="button">Go to Discovery: VMware and Hyper-V</button></div>
+            <div class="vm-read-pair">
             <section class="migrate-section vm-read-section" aria-labelledby="vmConnectTitle">
               <h3 class="migrate-section-title" id="vmConnectTitle">Read a vCenter or ESXi host</h3>
               <p class="migrate-help">Use a read-only account. The password is kept in memory until you close the application or choose Forget, and is never saved.</p>
@@ -1025,6 +1046,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
               <div class="migrate-row"><input type="text" id="vmHvUser" aria-label="Hyper-V host account (optional)" placeholder="Account (optional), for example EXAMPLE\admin" autocomplete="off" spellcheck="false" maxlength="256"><input type="password" id="vmHvPassword" aria-label="Hyper-V host password" placeholder="Password" autocomplete="new-password" maxlength="256"><button class="primary-button" id="vmHvRead" type="button">Read Hyper-V host</button></div>
               <div class="migrate-inline-status" id="vmHvStatus" role="status" aria-live="polite"></div>
             </section>
+            </div>
             <div class="hidden" id="vmEnvResult">
               <div class="vm-counts-head"><span class="vm-counts-title" id="vmCountsTitle">Readiness</span><span class="vm-note" id="vmCountsNote"></span></div>
               <div class="vm-counts" role="group" aria-label="Hosts, and VMs by readiness"><button class="vm-count hosts" id="vmHostsCard" type="button" title="Open every host with its hardware, licensing, network, storage and VMs"><strong id="vmCountHosts">0</strong>Hosts<span class="vm-count-sub" id="vmCountHostsSub"></span></button><button class="vm-count" type="button" data-vmfilter="all" aria-pressed="true"><strong id="vmCountAll">0</strong>All VMs</button><button class="vm-count blocked" type="button" data-vmfilter="blocked" aria-pressed="false"><strong id="vmCountBlocked">0</strong>Blocked</button><button class="vm-count review" type="button" data-vmfilter="review" aria-pressed="false"><strong id="vmCountReview">0</strong>Review first</button><button class="vm-count ready" type="button" data-vmfilter="ready" aria-pressed="false"><strong id="vmCountReady">0</strong>Ready</button><button class="vm-count skip hidden" id="vmCountSkipCard" type="button" data-vmfilter="skip" aria-pressed="false" title="vCenter, vCLS and other VMware system VMs stay behind"><strong id="vmCountSkip">0</strong>Not moved</button></div>

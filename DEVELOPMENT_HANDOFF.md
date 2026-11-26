@@ -1,3 +1,9 @@
+## Unreleased: the workspace fills the window and gets denser on small screens — 2026-11-26
+
+- Removed the 1220 px and 1480 px maximum widths so every tab and tool fills the window (AGENTS.md rule 44); wide windows give the tool list, inventory tree, category grid and guide cards more room, and the two inventory readers sit side by side from 1600 px.
+- Windows narrower than 1440 px or shorter than 900 px use smaller body text (13, then 12.5 px) and tighter controls; the 10.5 px minimum still holds. `scripts/test_workspace.cjs` passes (68 checks). `docs/images/hero.png` refreshed; other README captures at 1440 px were already older than the current tabs and are unchanged by this work.
+- Not checked on real Edge 109 on Windows Server 2012 R2; Chromium only.
+
 ## 3.2.35 release preparation — 2026-11-26
 
 Combined release of #119 (Move VMs from one console to a remote Hyper-V host or cluster), #123 (nothing installed in the machine being moved, one-step guide, vTPM VMs not blocked), #124 (change tracking no longer misses shadow copy storage), #125 (Build Hyper-V hosts), #126 (vSphere-style inventory) and #127 (Migration plans). The owner approved publication on 2026-11-26 ("publish when ready"). This branch bumps `appVersion`, `collectorVersion` and the collector `$scriptVersion` to 3.2.35, adds `docs/release-notes/3.2.35.md` (first three bullets free of Markdown) and points `scripts/test_published_upgrade.cjs` and AGENTS.md at the published v3.2.34 executable (SHA-256 `dfbba653d26cc37e969eb5f0666eb94f50bfc9d989cfa858cf483c21a578cbfa`).
