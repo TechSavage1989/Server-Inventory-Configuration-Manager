@@ -580,6 +580,9 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
 .vm-grid label{display:block;font-size:12px;font-weight:650;color:#334156;min-width:0}
 .vm-grid input{display:block;width:100%;box-sizing:border-box;height:30px;margin-top:4px;border:1px solid #bcc9d9;border-radius:7px;padding:0 8px;font:inherit;font-size:12px;font-weight:400}
 .vm-sizing{margin-top:10px;font-size:12px;color:#334156}.vm-sizing ul{margin:4px 0 0;padding-left:18px}
+.vm-scenarios{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin:6px 0}.vm-scenario{display:flex;gap:8px;align-items:flex-start;border:1px solid var(--border);border-radius:8px;padding:8px;cursor:pointer}.vm-scenario small{display:block;font-size:11px;color:var(--muted)}.vm-scenario input{margin-top:3px}.vm-scenario.on{border-color:var(--accent);background:var(--accent-soft)}.vm-scenario.off{opacity:.6;cursor:not-allowed}
+.vm-stages{display:flex;flex-direction:column;gap:8px;margin:8px 0}.vm-stage{border:1px solid var(--border);border-radius:8px;padding:8px 10px}.vm-stage-head{display:flex;flex-wrap:wrap;align-items:flex-end;gap:6px 10px}.vm-stage-head strong{min-width:64px}.vm-stage-head label{display:flex;flex-direction:column;font-size:11px;color:var(--muted)}.vm-stage-head label.vm-check{flex-direction:row;align-items:center;gap:4px}.vm-stage-head input[type=number]{width:70px}.vm-stage-head .vm-stage-notes{flex:1 1 160px}.vm-stage-head .vm-stage-notes input{width:100%}.vm-stage-sides{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:6px;font-size:12px}.vm-stage-side{background:var(--surface-2,#f6f8fb);border-radius:6px;padding:6px 8px}.vm-stage-side ul{margin:2px 0 0;padding-left:16px}.vm-stage details{margin-top:4px;font-size:12px}.vm-stage details ol{margin:4px 0 0;padding-left:20px}.vm-rolling-facts{margin-top:6px}
+@media(max-width:900px){.vm-scenarios,.vm-stage-sides{grid-template-columns:1fr}}
 .vm-sizing-head{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin-bottom:4px}
 .vm-empty{margin-top:10px;padding:12px;border:1px dashed #cfd8e4;border-radius:9px;background:#fbfcfe;font-size:12px;color:#596b80}
 .vm-two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:10px}.vm-two.vm-one{grid-template-columns:minmax(0,1fr)}
@@ -1079,11 +1082,30 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
           <div class="hidden" id="vmViewPlan">
             <div class="vm-empty" id="vmPlanEmpty">Read a vCenter or ESXi inventory, or open a saved one, to plan the move.</div>
             <div class="hidden" id="vmPlanContent">
+              <section class="migrate-section" aria-labelledby="vmScenarioTitle" id="vmScenarioSection">
+                <h3 class="migrate-section-title" id="vmScenarioTitle">Migration scenario</h3>
+                <p class="migrate-help">How the move uses hardware. The rest of Migration and replication follows this choice: the new cluster's size, Build Hyper-V hosts, the waves, Migration plans and the runbook.</p>
+                <div class="vm-scenarios" role="radiogroup" aria-label="Migration scenario" id="vmScenarios"></div>
+                <div class="migrate-row hidden" id="vmRollingScope"><label class="vm-field">Hosts being reused<select id="vmRollingCluster"></select></label><span class="vm-note" id="vmRollingScopeNote"></span></div>
+              </section>
               <section class="migrate-section" aria-labelledby="vmCapacityTitle">
                 <h3 class="migrate-section-title" id="vmCapacityTitle">New cluster size</h3>
                 <p class="migrate-help" id="vmCapacityHelp">Describe the new cluster to check that the VMs you are moving fit, with room for a node to fail.</p>
                 <div class="vm-grid" id="vmCapacityGrid"><label>Nodes<input type="number" id="vmCapNodes" min="0" max="64" step="1"></label><label>Cores per node<input type="number" id="vmCapCores" min="0" max="512" step="1"></label><label>Memory per node (GB)<input type="number" id="vmCapMemory" min="0" max="65536" step="1"></label><label>Usable storage (TB)<input type="number" id="vmCapStorage" min="0" max="100000" step="0.1"></label><label>Nodes kept free<input type="number" id="vmCapReserve" min="0" max="8" step="1"></label><label>Most vCPU per core<input type="number" id="vmCapRatio" min="0" max="32" step="0.5"></label><label>Memory kept for the host (GB)<input type="number" id="vmCapReservedMem" min="0" max="4096" step="1"></label></div>
+                <label class="vm-check hidden" id="vmCapAutoRow"><input type="checkbox" id="vmCapAuto"><span>Fill from the hosts being reused <span class="vm-sub">One node per host with the smallest host's cores and memory, and the reused LUNs as storage. Typing a value turns this off.</span></span></label>
                 <div class="vm-sizing" id="vmSizing" aria-live="polite"></div>
+              </section>
+              <section class="migrate-section hidden" aria-labelledby="vmStagesTitle" id="vmStagesSection">
+                <h3 class="migrate-section-title" id="vmStagesTitle">Stages: one host at a time</h3>
+                <p class="migrate-help">Each stage empties one host onto the hosts still running the old platform, takes it out, rebuilds it as a node of the new cluster and moves a wave of VMs onto the nodes rebuilt so far. Both sides are checked at every stage, with a host kept free for a failure (N+1) where there are enough. Everything here can be changed: the order, the host each stage rebuilds, the wave it moves, whether the wave moves before the host is emptied, and stages that only move VMs. Change which VMs are in each wave in Waves below.</p>
+                <div class="vm-toolbar"><button class="secondary-button" id="vmSuggestStages" type="button">Suggest stages</button><label class="vm-check"><input type="checkbox" id="vmKeepWaves" checked><span>Keep the waves I set</span></label><button class="secondary-button" id="vmAddStage" type="button">Add stage</button><span class="vm-note" id="vmStagesSummary"></span></div>
+                <div class="vm-stages" id="vmStages"></div>
+                <div class="vm-two vm-rolling-facts">
+                  <div><h4 class="vm-subhead">Hosts being reused</h4><div class="vm-table-wrap"><table class="vm-table"><thead><tr><th>Host</th><th>Cores</th><th>Memory</th><th>Adapters</th><th>VMs (running memory)</th></tr></thead><tbody id="vmRollingHosts"></tbody></table></div></div>
+                  <div><h4 class="vm-subhead">Storage when the hosts are rebuilt</h4><div class="vm-table-wrap"><table class="vm-table"><thead><tr><th>Datastore</th><th>Reuse</th><th>What happens</th></tr></thead><tbody id="vmRollingStorage"></tbody></table></div></div>
+                </div>
+                <ul class="vm-findings" id="vmRollingNotes"></ul>
+                <div class="migrate-row" id="vmRollingNext"></div>
               </section>
               <section class="migrate-section" aria-labelledby="vmMapTitle">
                 <h3 class="migrate-section-title" id="vmMapTitle">Networks and storage</h3>
@@ -1391,7 +1413,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
             <h4 id="mpNewTitle">New migration plan</h4>
             <p class="migrate-help" id="mpNewHelp">Choose the VMs from the inventory read in Discovery. Waves come from Plan and runbook; the network map there names the Hyper-V switch for each network.</p>
             <label class="vm-field">Plan name<input id="mpName" type="text" maxlength="100" spellcheck="false" autocomplete="off" placeholder="Wave 1 - application servers"></label>
-            <div id="mpPickBox"><div class="migrate-row"><input id="mpPickFilter" type="search" placeholder="Filter VMs" aria-label="Filter VMs" spellcheck="false" autocomplete="off"><button class="secondary-button" id="mpPickAll" type="button">Select the ready VMs shown</button><span class="vm-note" id="mpPickCount"></span></div>
+            <div id="mpPickBox"><div class="migrate-row"><input id="mpPickFilter" type="search" placeholder="Filter VMs" aria-label="Filter VMs" spellcheck="false" autocomplete="off"><button class="secondary-button" id="mpPickAll" type="button">Select the ready VMs shown</button><select id="mpPickWave" aria-label="Wave or stage from Plan and runbook"></select><button class="secondary-button" id="mpPickWaveGo" type="button">Select this wave</button><span class="vm-note" id="mpPickCount"></span></div>
               <div class="mp-picker" id="mpPicker" aria-label="VMs"></div></div>
             <h5 class="mp-heading">Copying</h5>
             <div class="mp-three">
@@ -1730,7 +1752,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     server:{tab:'discovery',pane:'tabSetup',legacy:'setup'},
     environment:{tab:'discovery',pane:'tabVmware',view:'env',legacy:'vmware',title:'VMware and Hyper-V',subtitle:'Read vCenter, ESXi or a Hyper-V host and check every VM before moving it to Hyper-V, Scale Computing HyperCore, Nutanix AHV, Proxmox VE, Azure, Amazon EC2 or a physical server. Reading changes nothing there. Browse hosts, VMs, storage and networks, and open any of them.',runs:'your admin computer. Reading changes nothing on vCenter, ESXi or the Hyper-V host.'},
     hvbuild:{tab:'migration',pane:'tabHvBuild',legacy:'hvbuild'},
-    plan:{tab:'migration',pane:'tabVmware',view:'plan',legacy:'vmware',title:'Plan and runbook',subtitle:'Size the new cluster, map each network and datastore, put VMs in waves and write the runbook (HTML and Word) from the inventory read in Discovery.',runs:'your admin computer.'},
+    plan:{tab:'migration',pane:'tabVmware',view:'plan',legacy:'vmware',title:'Plan and runbook',subtitle:'Choose new hardware or reusing the existing hosts one at a time, size the new cluster, map each network and datastore, put VMs in waves and write the runbook (HTML and Word) from the inventory read in Discovery.',runs:'your admin computer.'},
     movevms:{tab:'migration',pane:'tabVmware',view:'env',legacy:'vmware',title:'Move VMs',subtitle:'Copy a VMware or Hyper-V VM while it runs, as often as you like, then cut over: the guest is shut down, the last changes are copied and verified, and the new VM is created. Nothing is installed in the VM.',runs:'the Hyper-V host when moving to Hyper-V, or your admin computer connected to it; your admin computer for HyperCore, Nutanix, Proxmox and physical servers.'},
     guide:{tab:'migration',pane:'tabGuide',legacy:'guide'},
     replicate:{tab:'migration',pane:'tabReplication',legacy:'replication'},
@@ -2189,10 +2211,17 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     hbPlan.nodes.forEach(function(n){n.switches=n.switches||{};if(n.switches.hasOwnProperty(oldName)){n.switches[newName]=n.switches[oldName];delete n.switches[oldName];}});
     vmArr(hbPlan.hostNics).forEach(function(h){if(h.switch===oldName){h.switch=newName;}});vmArr(hbPlan.networks).forEach(function(n){if(n.switch===oldName){n.switch=newName;}});}
   function hbRenameNIC(oldName,newName){if(!hbPlan||!oldName||oldName===newName){return;}hbPlan.nodes.forEach(function(n){n.hostIps=n.hostIps||{};if(n.hostIps.hasOwnProperty(oldName)){n.hostIps[newName]=n.hostIps[oldName];delete n.hostIps[oldName];}});}
-  function hbAdapterLabel(a){var bits=[];if(a.speedBits){bits.push(a.speedBits>=1e9?Math.round(a.speedBits/1e9)+' Gbps':Math.round(a.speedBits/1e6)+' Mbps');}if(a.status){bits.push(a.status);}vmArr(a.ips).forEach(function(ip){bits.push(ip);});if(a.switchBound){bits.push('in a virtual switch');}return a.name+(bits.length?' ('+bits.join(', ')+')':'');}
-  function hbAdapterPicker(parent,node,selected,onChange,label){
-    var read=hbFacts(node.name),facts=read&&read.ok?read.facts:null,adapters=facts?vmArr(facts.adapters):[];
+  function hbAdapterLabel(a){var bits=[];if(a.mac){bits.push(hbMac(a.mac));}if(a.speedBits){bits.push(a.speedBits>=1e9?Math.round(a.speedBits/1e9)+' Gbps':Math.round(a.speedBits/1e6)+' Mbps');}if(a.status){bits.push(a.status);}vmArr(a.ips).forEach(function(ip){bits.push(ip);});if(a.switchBound){bits.push('in a virtual switch');}return a.name+(bits.length?' ('+bits.join(', ')+')':'');}
+  // hints are the adapters the same server used for this switch under ESXi
+  // (a rolling conversion): once Read nodes lists the Windows adapters, the
+  // ones with the same MAC addresses are ticked for the operator to check.
+  function hbMac(m){return String(m||'').toUpperCase().replace(/:/g,'-');}
+  function hbAdapterPicker(parent,node,selected,onChange,label,hints){
+    var read=hbFacts(node.name),facts=read&&read.ok?read.facts:null,adapters=facts?vmArr(facts.adapters):[];hints=vmArr(hints);
     var box=el('div','hb-adapters');box.appendChild(el('span','hb-adapters-label',label+' on '+(node.name||'this node')));
+    if(hints.length){var macs=hints.map(function(h){return hbMac(h.mac);});
+      if(!selected.length&&adapters.length){var match=adapters.filter(function(a){return macs.indexOf(hbMac(a.mac))>=0;}).map(function(a){return a.name;});if(match.length){selected=match;onChange(match);hbDirty=true;}}
+      box.appendChild(el('span','vm-sub hb-hints','Under ESXi: '+hints.map(function(h){return h.device+' '+hbMac(h.mac)+(h.speedMb?' ('+(h.speedMb>=1000?Math.round(h.speedMb/1000)+' Gbps':h.speedMb+' Mbps')+')':'');}).join(', ')+(adapters.length?'. Adapters with these MAC addresses are ticked; check them.':'. Read nodes to tick the Windows adapters with these MAC addresses.')));}
     if(!adapters.length){var input=document.createElement('input');input.type='text';input.placeholder='Read nodes to choose, or type names: SLOT 1 Port 1, SLOT 1 Port 2';input.value=selected.join(', ');input.spellcheck=false;input.maxLength=600;input.addEventListener('input',function(){onChange(input.value.split(',').map(function(x){return trimText(x);}).filter(function(x){return x;}));hbTouch();});box.appendChild(input);parent.appendChild(box);return;}
     adapters.forEach(function(a){var wrap=el('label','vm-check'),input=document.createElement('input');input.type='checkbox';input.checked=selected.indexOf(a.name)>=0;
       input.addEventListener('change',function(){var list=selected.filter(function(x){return x!==a.name;});if(input.checked){list.push(a.name);}selected=list;onChange(list);hbTouch();});wrap.appendChild(input);wrap.appendChild(el('span','',hbAdapterLabel(a)));box.appendChild(wrap);});
@@ -2206,7 +2235,8 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     if(vmInventory){var pick=document.createElement('select');pick.id='hbSourceCluster';var all=document.createElement('option');all.value='';all.textContent='All ESXi hosts in '+(vmInventory.server||'the inventory');pick.appendChild(all);
       clusters.forEach(function(c){var o=document.createElement('option');o.value=c.name;o.textContent='VMware cluster '+c.name+' ('+(c.hosts||0)+' hosts)';pick.appendChild(o);});if(!hbCluster&&clusters.length){hbCluster=clusters[0].name;}pick.value=hbCluster;pick.addEventListener('change',function(){hbCluster=pick.value;});
       var wrap=el('label','vm-field hb-field');wrap.appendChild(el('span','','Replace'));wrap.appendChild(pick);start.appendChild(wrap);
-      row.appendChild(hbButton('Draft plan from VMware','hbSuggest',function(){hbSuggest();},'primary-button'));}
+      row.appendChild(hbButton(vmPlanRolling()?'Draft plan from VMware (reuse the hosts)':'Draft plan from VMware','hbSuggest',function(){hbSuggest();},'primary-button'));
+      if(vmPlanRolling()){start.appendChild(el('div','migrate-help hb-reuse-note','Plan and runbook says the ESXi hosts are being rebuilt one at a time, so each node is drafted from the host it replaces: its name, its vMotion address and the adapters it used, matched by MAC address. Every value stays editable. Build each node after its stage has emptied it.'));}}
     else{start.appendChild(el('div','migrate-detail','No VMware inventory is open. Read vCenter or ESXi, or open a saved inventory, in Discovery to draft the plan from it.'));row.appendChild(hbButton('Go to Discovery: VMware and Hyper-V','hbDiscover',function(){showTool('environment');}));}
     row.appendChild(hbButton('Start an empty plan','hbBlank',function(){hbPlan=hbBlankPlan();hbDirty=true;hbRenderEditor();hbSync();hbStatus('Empty plan started. Name it, type the nodes, then Save plan.',false);}));
     var saved=vmArr(s.saved);if(saved.length){var open=document.createElement('select');open.id='hbSaved';saved.forEach(function(n){var o=document.createElement('option');o.value=n;o.textContent=n;open.appendChild(o);});row.appendChild(open);row.appendChild(hbButton('Open saved plan','hbOpen',function(){vmPost('/api/hvbuild/open',{name:open.value},'hbSaveStatus',function(err){if(!err){hbDirty=false;hbSerial=-1;}});}));}
@@ -2219,6 +2249,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     nodes.appendChild(hbInput(plan,'name','Plan name',{id:'hbName',max:64,placeholder:'HVCLU01 build'}));
     var list=el('div','hb-nodes');plan.nodes.forEach(function(node,index){node.switches=node.switches||{};node.hostIps=node.hostIps||{};node.storage=vmArr(node.storage);
       var line=el('div','hb-node');line.appendChild(hbInput(node,'name','Node '+(index+1)+(node.esxi?' (replaces '+node.esxi+')':''),{max:253,placeholder:'hv0'+(index+1)+'.example.com',change:function(){hbRenderEditor();}}));
+      if(node.managementIp){line.appendChild(el('span','vm-sub hb-mgmt','Management address under ESXi: '+node.managementIp));}
       if(plan.nodes.length>1){line.appendChild(hbButton('Remove','',function(){plan.nodes.splice(index,1);hbTouch();hbRenderEditor();}));}
       list.appendChild(line);
       var read=hbFacts(node.name);if(read){var f=read.facts,facts=el('ul','vm-findings hb-facts');
@@ -2247,7 +2278,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       grid.appendChild(hbSelect(sw,'mtu','Frames',[['1500','Standard (1500)'],['9000','Jumbo (9014)']],{number:true}));grid.appendChild(hbSelect(sw,'loadBalancing','Load balancing',[['HyperVPort','Hyper-V port'],['Dynamic','Dynamic']]));
       if(sw.managementOs){grid.appendChild(hbInput(sw,'managementVlan','Management VLAN (only if the ports are trunks)',{max:4,placeholder:'untagged'}));}
       card.appendChild(grid);card.appendChild(hbCheck(sw,'managementOs','The node keeps its management address on this switch',function(){hbRenderEditor();}));
-      plan.nodes.forEach(function(node){var current=vmArr(node.switches[sw.name]);hbAdapterPicker(card,node,current,function(list){node.switches[sw.name]=list;},'Adapters');});
+      plan.nodes.forEach(function(node){var current=vmArr(node.switches[sw.name]);hbAdapterPicker(card,node,current,function(list){node.switches[sw.name]=list;},'Adapters',vmArr(node.sourceNics&&node.sourceNics[sw.name]));});
       if(plan.switches.length>1){var rm=el('div','hb-actions');rm.appendChild(hbButton('Remove switch','',function(){plan.switches.splice(index,1);plan.nodes.forEach(function(n){delete n.switches[sw.name];});hbTouch();hbRenderEditor();}));card.appendChild(rm);}
       net.appendChild(card);});
     var srow=el('div','hb-actions');srow.appendChild(hbButton('Add switch','hbAddSwitch',function(){var name='SET-'+(plan.switches.length+1);plan.switches.push({name:name,from:[],managementOs:false,managementVlan:'',loadBalancing:'HyperVPort',mtu:1500});plan.nodes.forEach(function(n){n.switches[name]=[];});hbTouch();hbRenderEditor();}));net.appendChild(srow);
@@ -2303,7 +2334,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     mg.appendChild(hbSelect(se,'maxMigrations','Simultaneous live migrations',[1,2,3,4,6,8].map(function(n){return [String(n),String(n)];}),{number:true}));mg.appendChild(hbSelect(se,'maxStorageMigrations','Simultaneous storage migrations',[1,2,3,4].map(function(n){return [String(n),String(n)];}),{number:true}));cs.appendChild(mg);
     var pg2=el('div','hb-grid');pg2.appendChild(hbInput(se,'vhdPath','Default virtual hard disk folder (optional)',{max:260,placeholder:plan.nodes.length>1?'C:\\ClusterStorage\\Volume1\\Hyper-V':'D:\\Hyper-V\\Virtual Hard Disks'}));pg2.appendChild(hbInput(se,'vmPath','Default VM folder (optional)',{max:260,placeholder:plan.nodes.length>1?'C:\\ClusterStorage\\Volume1\\Hyper-V':'D:\\Hyper-V'}));cs.appendChild(pg2);
   }
-  function hbSuggest(){vmPost('/api/hvbuild/suggest',{cluster:hbCluster},'hbSaveStatus',function(err,data){if(err){return;}hbPlan=data.plan;hbDirty=true;hbRenderEditor();hbSave(function(e){if(!e){hbStatus('Drafted from '+(hbCluster?'VMware cluster '+hbCluster:'the ESXi hosts')+'. Type the node names and choose their adapters, then Save plan and Read nodes.',false);}});});}
+  function hbSuggest(reuse){if(reuse===undefined){reuse=vmPlanRolling();}if(reuse&&vmPlan&&vmPlan.rolling){hbCluster=vmPlan.rolling.sourceCluster||'';}vmPost('/api/hvbuild/suggest',{cluster:hbCluster,reuse:!!reuse},'hbSaveStatus',function(err,data){if(err){return;}hbPlan=data.plan;hbDirty=true;hbRenderEditor();hbSave(function(e){if(!e){hbStatus(reuse?'Drafted from '+(hbCluster?'VMware cluster '+hbCluster:'the ESXi hosts')+' for a rolling conversion: one node per host in stage order, named after it, with its vMotion address. Check the names, Save plan, then Read nodes to tick each switch\'s adapters by MAC address.':'Drafted from '+(hbCluster?'VMware cluster '+hbCluster:'the ESXi hosts')+'. Type the node names and choose their adapters, then Save plan and Read nodes.',false);}});});}
   function hbSave(done){if(!hbPlan){return;}vmPost('/api/hvbuild/save',{plan:hbPlan},'hbSaveStatus',function(err,data){if(!err){hbDirty=false;hbPlan=data.plan;hbStatus(data.warning||'Saved.',!!data.warning);hbRenderEditor();}hbSync();if(done){done(err,data);}});}
   function hbStepChip(step,result,s){
     if(!result){return ['Not checked','run-skipped'];}
@@ -2722,7 +2753,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     if(blocked){return gdWarn(vmPlural(blocked,'VM')+' blocked and '+review+' to review for '+gdTargetNames[tgt]+'. Fix or hold them before moving.');}
     return review?gdWarn(vmPlural(review,'VM')+' to review for '+gdTargetNames[tgt]+'; none blocked.'):gdOk('No VM is blocked for '+gdTargetNames[tgt]+'.');
   }
-  function gdPlanCheck(c){if(!c.inv){return gdInfo('Read the environment first.');}return c.v.runbookPath?gdOk('Runbook written: '+c.v.runbookPath):(vmPlan?gdInfo('Plan open; write the runbook when the waves are set.'):gdInfo('No plan yet.'));}
+  function gdPlanCheck(c){if(!c.inv){return gdInfo('Read the environment first.');}if(vmPlanRolling()&&vmRolling&&!c.v.runbookPath){return vmRolling.status==='ok'?gdOk('Rolling plan: '+vmPlural(vmArr(vmRolling.stages).length,'stage')+', every stage fits.'):gdInfo('Rolling plan: '+vmPlural(vmArr(vmRolling.stages).length,'stage')+'; '+(vmRolling.status==='over'?'some stages do not fit':'some stages are tight')+'. Open Plan and runbook to change them.');}return c.v.runbookPath?gdOk('Runbook written: '+c.v.runbookPath):(vmPlan?gdInfo('Plan open; write the runbook when the waves are set.'):gdInfo('No plan yet.'));}
   function gdHostCheck(c,src){
     // A VMware VM can also be moved from this computer to a remote Hyper-V
     // host or cluster it is connected to (Move VMs, Another Hyper-V host).
@@ -2788,7 +2819,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       var from=src==='vmware'?'vCenter or ESXi':'the Hyper-V host that runs the VM',onHost=tgt==='hyperv',where=onHost?'hvhost':'admin';
       S('Read '+from,where,(onHost?'On the new Hyper-V host, run this application as administrator'+(src==='vmware'?' (or on your admin computer: Move VMs can connect to a remote Hyper-V host or failover cluster over PowerShell remoting and create the VM there)':'')+'. ':'On your admin computer or a jump box that reaches '+(src==='vmware'?'vCenter':'the Hyper-V host')+' and '+T+'. ')+'Open Discovery, VMware and Hyper-V, and read '+(src==='vmware'?'vCenter or ESXi with an account that may snapshot, and its password: the password stays in memory only and the move needs it':'the source Hyper-V host (leave the host empty if it is this computer)')+'.',function(c){var r=gdReadCheck(c,src);if(onHost&&r.s==='ok'&&!c.hv&&!(src==='vmware'&&c.hvr)){return gdWarn(r.t+' But this computer is not a Hyper-V host: do this on the Hyper-V host so the move can run here'+(src==='vmware'?', or connect to the Hyper-V host or cluster from Move VMs (Another Hyper-V host or cluster).':'.'));}return r;},'environment',{openLabel:'Open VMware and Hyper-V'});
       S('Check readiness','any','Each VM is checked for '+T+': operating system support, snapshots, disks, encryption, drivers. Fix anything Blocked before moving it; Review first lists what to check.',function(c){return gdReadinessCheck(c,src,tgt);},'environment',{openLabel:'Open readiness'});
-      S('Plan waves and write a runbook',onHost?'any':'admin','For many VMs: map each network to its new network and VLAN, put VMs in waves and write the runbook (HTML and Word), which lists every step per VM with tick boxes. For one VM, skip it: Move VMs uses the same network names.',gdPlanCheck,'plan',{optional:true});
+      S('Plan waves and write a runbook',onHost?'any':'admin','For many VMs: choose the scenario first (New hardware, or Reuse the existing hosts to rebuild them one at a time with staged waves and capacity checks), map each network to its new network and VLAN, put VMs in waves and write the runbook (HTML and Word), which lists every step per VM with tick boxes. For one VM, skip it: Move VMs uses the same network names.',gdPlanCheck,'plan',{optional:true});
       record(src);
       if(onHost){
         S('Choose where the VM\'s files go','hvhost','The copied disks become the new VM\'s disks, so they go on the storage the VM will run from. The default is the host\'s virtual hard disk folder. In a failover cluster, choose a Cluster Shared Volume (C:\\ClusterStorage\\...) for both the disks and the VM folder: the VM\'s Move section offers each volume with its free space and refuses a copy that does not fit.',function(c){return gdStorageCheck(c,src);},'movevms',{openLabel:'Open Move VMs'});
@@ -3742,7 +3773,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   // ---- VMware tab ----------------------------------------------------------
   // The server owns VMware state (state.vmware). The inventory, plan, guest
   // result and comparison are fetched when their serial numbers change.
-  var vmView='env',vmAttention=[],vmInventory=null,vmPlan=null,vmSizing=null,vmInvSerial=0,vmInvLoading=false,vmPlanDirty=false,vmSelectedVM='',vmFilter='all',vmBusy=false,vmTargetLocal='hyperv';
+  var vmView='env',vmAttention=[],vmInventory=null,vmPlan=null,vmSizing=null,vmRolling=null,vmScenarioList=[],vmInvSerial=0,vmInvLoading=false,vmPlanDirty=false,vmSelectedVM='',vmFilter='all',vmBusy=false,vmTargetLocal='hyperv';
   var vmGuest=null,vmGuestSerial=0,vmGuestLoading=false,vmGuestChoices={},vmGhostChoices={},vmDiskChoices={};
   var vmSendDiskList=null,vmSendReceiver=null,vmSendSerial=-1,vmReceiveWasRunning=null,vmSendComputerName='',vmCompare=null,vmCompareDatasets=[],vmCompareSerial=0,vmMoveSerial=0,vmCompareLoading=false,vmCompareBeforePath='',vmCompareAfterPath='',vmCompareOpen={},vmLogKey='';
   var vmRowLimit=400,vmStatusLabels={ready:'Ready',review:'Review first',blocked:'Blocked',skip:'Not moved'};
@@ -4086,7 +4117,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       vmInvLoading=false;vmInvSerial=serial;
       if(err){notice(err,true);return;}
       if(data.serial!==undefined){vmInvSerial=data.serial;}
-      vmInventory=data.inventory||null;vmPlan=data.plan||null;vmSizing=data.sizing||null;vmPlanDirty=false;vmAttention=vmArr(data.attention);
+      vmInventory=data.inventory||null;vmPlan=data.plan||null;vmSizing=data.sizing||null;vmRolling=data.rolling||null;if(data.scenarios){vmScenarioList=vmArr(data.scenarios);}vmPlanDirty=false;vmAttention=vmArr(data.attention);
       if(vmPlan&&vmPlan.target){vmTargetLocal=vmPlan.target;}
       if(!vmFind(vmSelectedVM)){vmSelectedVM='';}
       vmInvRefresh(vmInvKeyOf(vmInventory)!==vmInvLoadedKey);renderVmPlan();if(latestState){renderVMware(latestState);renderHvBuild(latestState);}
@@ -5242,7 +5273,72 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     if(!has){return;}
     var capacity=vmPlan.capacity||(vmPlan.capacity={});
     vmCapacityFields.forEach(function(f){var input=byId(f.id);if(document.activeElement!==input){input.value=capacity[f.key]?String(capacity[f.key]):'';}});
-    renderVmSizing();renderVmMaps();renderVmWaves();syncVmButtons();
+    var auto=vmPlanRolling()&&vmPlan.rolling&&vmPlan.rolling.autoCapacity;byId('vmCapAutoRow').classList.toggle('hidden',!(vmPlanRolling()&&kind==='cluster'));if(document.activeElement!==byId('vmCapAuto')){byId('vmCapAuto').checked=!!auto;}
+    renderVmScenario();renderVmSizing();renderVmMaps();renderVmStages();renderVmWaves();syncVmButtons();
+  }
+  // ---- Scenario and rolling stages (vmscenario.go) ----
+  var vmScenarioFallback=[{id:'new',name:'New hardware',when:'The new platform runs on servers that are not running the source today. Describe them in New cluster size.',kinds:['cluster','cloud','physical']},{id:'rolling',name:'Reuse the existing hosts (rolling, one host at a time)',when:'The source hosts themselves become the new platform. Each stage empties one host onto the others, rebuilds it and moves a wave of VMs onto the hosts rebuilt so far.',kinds:['cluster']}];
+  function vmPlanRolling(){return !!(vmPlan&&vmPlan.scenario==='rolling');}
+  function vmSetScenario(id){
+    if(!vmPlan||vmLocked()||(vmPlan.scenario||'new')===id){return;}
+    vmCollectStages();vmPlan.scenario=id;
+    if(id==='rolling'&&!vmPlan.rolling){vmPlan.rolling={autoCapacity:true,stages:[],sourceCluster:''};}
+    saveVmPlan(id==='rolling'&&!vmArr(vmPlan.rolling.stages).length?{suggestStages:true,keepWaves:true}:null,id==='rolling'?'Reusing the existing hosts: the new cluster is filled from them and one stage per host is suggested. Change anything you like.':'New hardware: describe the new servers in New cluster size.');
+  }
+  function renderVmScenario(){
+    var box=byId('vmScenarios'),list=vmScenarioList.length?vmScenarioList:vmScenarioFallback,kind=vmTargetInfo(vmTarget()).kind,current=vmPlan&&vmPlan.scenario==='rolling'?'rolling':'new';
+    box.textContent='';
+    list.forEach(function(sc){var ok=vmArr(sc.kinds).indexOf(kind)>=0,on=sc.id===current,lab=el('label','vm-scenario'+(on?' on':'')+(ok?'':' off')),r=document.createElement('input');r.type='radio';r.name='vmScenario';r.value=sc.id;r.checked=on;r.disabled=!ok&&!on;
+      r.setAttribute('data-scenario',sc.id);r.addEventListener('change',function(){if(r.checked){vmSetScenario(sc.id);}});
+      var t=el('span','');t.appendChild(el('strong','',sc.name));t.appendChild(el('small','',ok?sc.when:'Not for '+vmTargetName(vmTarget())+': it does not run on your own servers.'));lab.appendChild(r);lab.appendChild(t);box.appendChild(lab);});
+    var scope=byId('vmRollingScope');scope.classList.toggle('hidden',current!=='rolling');
+    if(current==='rolling'&&vmInventory){var sel=byId('vmRollingCluster'),want=(vmPlan.rolling&&vmPlan.rolling.sourceCluster)||'',names=[];vmArr(vmInventory.hosts).forEach(function(h){if(h.cluster&&names.indexOf(h.cluster)<0){names.push(h.cluster);}});
+      if(document.activeElement!==sel){sel.textContent='';var all=document.createElement('option');all.value='';all.textContent='Every host in '+(vmInventory.server||'the inventory')+' ('+vmArr(vmInventory.hosts).length+')';sel.appendChild(all);names.sort().forEach(function(n){var o=document.createElement('option');o.value=n;o.textContent='Cluster '+n+' ('+vmArr(vmInventory.hosts).filter(function(h){return h.cluster===n;}).length+' hosts)';sel.appendChild(o);});sel.value=want;}
+      byId('vmRollingScopeNote').textContent=vmRolling?vmPlural(vmArr(vmRolling.hosts).length,(vmRolling.source==='Hyper-V'?'Hyper-V':'ESXi')+' host')+' become '+vmTargetName(vmTarget())+' nodes, one at a time.':'';}
+  }
+  function vmRollingHostNames(){return vmRolling?vmArr(vmRolling.hosts).map(function(h){return h.name;}):[];}
+  function vmCollectStages(){/* stage edits write straight into vmPlan.rolling.stages */}
+  function vmStageReport(i){return vmRolling&&!vmPlanDirty?vmArr(vmRolling.stages)[i]:null;}
+  function vmStatusChip(status){return el('span','run-chip '+({ok:'run-ready',tight:'run-attention',over:'run-failed'}[status]||''),{ok:'Fits',tight:'Tight',over:'Does not fit'}[status]||'Not checked');}
+  function vmSideBox(title,check){var box=el('div','vm-stage-side'),head=el('div','');head.appendChild(el('strong','',title+' '));if(check){head.appendChild(vmStatusChip(check.status));}box.appendChild(head);
+    if(check){box.appendChild(el('div','vm-sub',(vmArr(check.hosts).join(', ')||'no hosts')+' · '+vmPlural(check.vms,'VM')+(check.memoryBytes?', '+formatBytesShort(check.memoryBytes)+' running memory':'')));var ul=el('ul','');vmArr(check.notes).forEach(function(n){ul.appendChild(el('li','',n));});box.appendChild(ul);}
+    else{box.appendChild(el('div','vm-sub','Save the plan to check this stage.'));}return box;}
+  function renderVmStages(){
+    var section=byId('vmStagesSection'),on=vmPlanRolling();section.classList.toggle('hidden',!on);if(!on){return;}
+    var rolling=vmPlan.rolling||(vmPlan.rolling={autoCapacity:true,stages:[]}),stages=rolling.stages=vmArr(rolling.stages),box=byId('vmStages'),hosts=vmRollingHostNames();box.textContent='';
+    var src=vmRolling&&vmRolling.source==='Hyper-V'?'Hyper-V':'VMware';
+    stages.forEach(function(st,i){
+      var rep=vmStageReport(i),card=el('div','vm-stage'),head=el('div','vm-stage-head');card.setAttribute('data-stage',String(i));
+      head.appendChild(el('strong','','Stage '+(i+1)));if(rep){head.appendChild(vmStatusChip(rep.status));}
+      var hl=el('label','','Host to rebuild'),hs=document.createElement('select');hs.setAttribute('data-stage-host',String(i));var none=document.createElement('option');none.value='';none.textContent='None (only move VMs)';hs.appendChild(none);
+      hosts.concat(st.host&&hosts.indexOf(st.host)<0?[st.host]:[]).forEach(function(h){var o=document.createElement('option');o.value=h;o.textContent=h;hs.appendChild(o);});hs.value=st.host||'';
+      hs.addEventListener('change',function(){st.host=hs.value;if(!st.host){st.moveFirst=true;}vmMarkPlanDirty();renderVmStages();});hl.appendChild(hs);head.appendChild(hl);
+      var wl=el('label','','Wave moved'),wi=document.createElement('input');wi.type='number';wi.min='0';wi.max='99';wi.step='1';wi.value=st.wave?String(st.wave):'';wi.setAttribute('data-stage-wave',String(i));wi.addEventListener('input',function(){var n=parseInt(wi.value,10);st.wave=isNaN(n)?0:Math.max(0,Math.min(99,n));vmMarkPlanDirty();});wl.appendChild(wi);head.appendChild(wl);
+      var ml=el('label','vm-check'),mi=document.createElement('input');mi.type='checkbox';mi.checked=!!st.moveFirst||!st.host;mi.disabled=!st.host;mi.setAttribute('data-stage-first',String(i));mi.addEventListener('change',function(){st.moveFirst=mi.checked;vmMarkPlanDirty();});ml.appendChild(mi);ml.appendChild(el('span','','Move the wave before the host is emptied'));ml.title='Needed for the last host: no '+src+' host is left to take its VMs.';head.appendChild(ml);
+      var nl=el('label','vm-stage-notes','Notes'),ni=document.createElement('input');ni.type='text';ni.maxLength=500;ni.value=st.notes||'';ni.addEventListener('input',function(){st.notes=ni.value;vmMarkPlanDirty();});nl.appendChild(ni);head.appendChild(nl);
+      var move=function(d){var j=i+d;if(j<0||j>=stages.length){return;}var t=stages[i];stages[i]=stages[j];stages[j]=t;vmMarkPlanDirty();renderVmStages();};
+      var up=el('button','secondary-button','Up');up.type='button';up.disabled=i===0;up.setAttribute('aria-label','Move stage '+(i+1)+' up');up.addEventListener('click',function(){move(-1);});head.appendChild(up);
+      var dn=el('button','secondary-button','Down');dn.type='button';dn.disabled=i===stages.length-1;dn.setAttribute('aria-label','Move stage '+(i+1)+' down');dn.addEventListener('click',function(){move(1);});head.appendChild(dn);
+      var rm=el('button','secondary-button','Remove');rm.type='button';rm.setAttribute('aria-label','Remove stage '+(i+1));rm.addEventListener('click',function(){stages.splice(i,1);vmMarkPlanDirty();renderVmStages();});head.appendChild(rm);
+      card.appendChild(head);
+      if(rep){
+        card.appendChild(el('div','vm-sub',rep.wave?('Wave '+rep.wave+': '+(vmArr(rep.waveVms).join(', ')||'no VMs left on these hosts')):'Moves no wave.'));
+        var sides=el('div','vm-stage-sides');sides.appendChild(vmSideBox(src+' hosts left'+(st.host?' once '+st.host+' is empty':''),st.host||rep.source?rep.source:null));sides.appendChild(vmSideBox(vmTargetName(vmTarget())+' nodes after the wave',rep.target));card.appendChild(sides);
+        vmArr(rep.notes).forEach(function(n){card.appendChild(el('div','migrate-detail',n));});
+        var det=document.createElement('details'),sum=document.createElement('summary');sum.textContent='Steps ('+vmArr(rep.steps).length+')';det.appendChild(sum);var ol=el('ol','');vmArr(rep.steps).forEach(function(x){ol.appendChild(el('li','',x));});det.appendChild(ol);card.appendChild(det);
+      }else{card.appendChild(el('div','vm-sub','Save the plan to check this stage on both sides.'));}
+      box.appendChild(card);
+    });
+    if(!stages.length){box.appendChild(el('div','vm-note','No stages yet. Suggest stages drafts one per host, or Add stage to build them yourself.'));}
+    byId('vmStagesSummary').textContent=vmRolling&&!vmPlanDirty?({ok:'Every stage fits.',tight:'Some stages are tight: read their notes.',over:'Some stages do not fit: change the order, the waves or the stages.'}[vmRolling.status]||''):(vmPlanDirty?'Save the plan to check the stages again.':'');
+    var hb=byId('vmRollingHosts');hb.textContent='';vmArr(vmRolling&&vmRolling.hosts).forEach(function(h){var tr=el('tr','');tr.appendChild(el('td','',h.name+(h.managementIp?' ('+h.managementIp+')':'')));tr.appendChild(el('td','',String(h.cores||'?')));tr.appendChild(el('td','',h.memoryBytes?formatBytesShort(h.memoryBytes):'?'));tr.appendChild(el('td','',h.nics?String(h.nics):'?'));tr.appendChild(el('td','',h.vms+' ('+formatBytesShort(h.vmMemoryBytes||0)+')'));hb.appendChild(tr);});
+    var sb=byId('vmRollingStorage');sb.textContent='';vmArr(vmRolling&&vmRolling.storage).forEach(function(d){var tr=el('tr','');tr.appendChild(el('td','',d.datastore+' ('+(d.type||'?')+', '+formatBytesShort(d.capacityBytes||0)+')'));var td=el('td','');
+      if(d.reusable){var cb=document.createElement('input');cb.type='checkbox';cb.checked=!!d.reuse;cb.setAttribute('aria-label','Reuse '+d.datastore);cb.setAttribute('data-reuse',d.datastore);cb.addEventListener('change',function(){vmArr(vmPlan.storage).forEach(function(m){if(m.source===d.datastore){m.reuse=cb.checked;}});d.reuse=cb.checked;vmMarkPlanDirty();});td.appendChild(cb);}else{td.textContent='No';}
+      tr.appendChild(td);tr.appendChild(el('td','',d.advice));sb.appendChild(tr);});
+    var notes=byId('vmRollingNotes');notes.textContent='';vmArr(vmRolling&&vmRolling.notes).forEach(function(n){notes.appendChild(el('li','',n));});
+    var next=byId('vmRollingNext');next.textContent='';
+    if(vmTarget()==='hyperv'){var b=el('button','secondary-button','Build Hyper-V hosts from these stages');b.type='button';b.id='vmRollingBuild';b.title='Drafts Build Hyper-V hosts with one node per host in stage order, named after the host, with its vMotion address and its adapters matched by MAC';b.addEventListener('click',function(){showTool('hvbuild');hbSuggest(true);});next.appendChild(b);}
+    var p=el('button','secondary-button','Migration plan for a stage');p.type='button';p.id='vmRollingPlans';p.title='Opens Migration plans with a stage\'s wave selected';p.addEventListener('click',function(){showTool('plans');});next.appendChild(p);
   }
   function renderVmSizing(){
     var box=byId('vmSizing'),s=vmSizing;box.textContent='';
@@ -5266,7 +5362,8 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     vmArr(vmPlan.networks).forEach(function(n){var tr=el('tr','');tr.appendChild(el('td','',n.source+(n.sourceVlan?' (VLAN '+n.sourceVlan+')':'')));
       tr.appendChild(vmCellInput('text',n.targetName,'New network for '+n.source,function(value){n.targetName=value;},{maxlength:'128'}));
       tr.appendChild(vmCellInput('text',n.targetVlan,'New VLAN for '+n.source,function(value){n.targetVlan=value;},{maxlength:'4',inputmode:'numeric'}));net.appendChild(tr);});
-    vmArr(vmPlan.storage).forEach(function(s){var tr=el('tr','');tr.appendChild(el('td','',s.source));tr.appendChild(vmCellInput('text',s.target,'New storage for '+s.source,function(value){s.target=value;},{maxlength:'128'}));store.appendChild(tr);});
+    var reuseOf={};vmArr(vmPlanRolling()&&vmRolling&&vmRolling.storage).forEach(function(d){reuseOf[d.datastore]=d;});
+    vmArr(vmPlan.storage).forEach(function(s){var tr=el('tr',''),src=el('td','',s.source),ru=reuseOf[s.source];if(ru){src.appendChild(el('span','vm-sub',ru.reuse?'Reused for the new cluster once empty':(ru.kind==='local'?'Erased when '+(ru.localTo||'its host')+' is rebuilt':'Not reused')));}tr.appendChild(src);tr.appendChild(vmCellInput('text',s.target,'New storage for '+s.source,function(value){s.target=value;},{maxlength:'128'}));store.appendChild(tr);});
     if(!net.childNodes.length){var a=el('tr',''),ac=el('td','','No networks.');ac.colSpan=3;a.appendChild(ac);net.appendChild(a);}
     if(!store.childNodes.length){var b=el('tr',''),bc=el('td','','No datastores.');bc.colSpan=2;b.appendChild(bc);store.appendChild(b);}
   }
@@ -5522,7 +5619,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     vmCollectCapacity();var body={plan:vmPlan};if(extra){for(var k in extra){if(extra.hasOwnProperty(k)){body[k]=extra[k];}}}
     vmPost('/api/vmware/plan',body,'vmPlanStatus',function(err,data){
       if(err){if(done){done(err);}return;}
-      vmPlan=data.plan;vmSizing=data.sizing;vmPlanDirty=false;renderVmPlan();renderVmSummary(vmwareState()||{});vmInvRefresh(false);
+      vmPlan=data.plan;vmSizing=data.sizing;vmRolling=data.rolling||null;if(data.scenarios){vmScenarioList=vmArr(data.scenarios);}vmPlanDirty=false;renderVmPlan();renderVmSummary(vmwareState()||{});vmInvRefresh(false);
       vmSetStatus('vmPlanStatus',data.warning||status||'Plan saved.',!!data.warning);if(done){done(null);}
     });
   }
@@ -5782,7 +5879,11 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     else if(had){byId('vmSendReceiverNote').textContent='The receiver\'s details changed. Fill in its address, thumbprint and pairing code to check it again.';}
   });});
   ['vmSendAddress','vmSendThumbprint','vmSendCode'].forEach(function(id){byId(id).addEventListener('input',syncVmButtons);});
-  vmCapacityFields.forEach(function(f){byId(f.id).addEventListener('input',vmMarkPlanDirty);});
+  vmCapacityFields.forEach(function(f){byId(f.id).addEventListener('input',function(){if(vmPlanRolling()&&vmPlan.rolling&&vmPlan.rolling.autoCapacity){vmPlan.rolling.autoCapacity=false;byId('vmCapAuto').checked=false;}vmMarkPlanDirty();});});
+  byId('vmCapAuto').addEventListener('change',function(){if(!vmPlanRolling()){return;}vmPlan.rolling=vmPlan.rolling||{stages:[]};vmPlan.rolling.autoCapacity=this.checked;if(this.checked){saveVmPlan(null,'New cluster size filled from the hosts being reused.');}else{vmMarkPlanDirty();}});
+  byId('vmRollingCluster').addEventListener('change',function(){if(!vmPlanRolling()){return;}vmPlan.rolling=vmPlan.rolling||{stages:[],autoCapacity:true};if(vmPlan.rolling.sourceCluster===this.value){return;}vmPlan.rolling.sourceCluster=this.value;vmPlan.rolling.stages=[];saveVmPlan(null,'Hosts being reused: '+(this.value?'cluster '+this.value:'every host')+'. Suggest stages to draft the stages for them.');});
+  byId('vmSuggestStages').addEventListener('click',function(){vmCollectStages();saveVmPlan({suggestStages:true,keepWaves:byId('vmKeepWaves').checked},'Suggested one stage per host and the waves that fit. Change anything, then Save plan.');});
+  byId('vmAddStage').addEventListener('click',function(){if(!vmPlan||!vmPlan.rolling){return;}var st=vmArr(vmPlan.rolling.stages),wave=0;st.forEach(function(x){if(x.wave>wave){wave=x.wave;}});vmPlan.rolling.stages=st.concat([{host:'',wave:wave+1,moveFirst:true,notes:''}]);vmMarkPlanDirty();renderVmStages();});
   byId('vmWaveSearch').addEventListener('input',renderVmWaves);
   byId('vmSavePlan').addEventListener('click',function(){saveVmPlan(null,'Plan saved.');});
   byId('vmSuggest').addEventListener('click',function(){var size=parseInt(byId('vmWaveSize').value,10);size=isNaN(size)||size<1?0:Math.min(200,size);var reset=byId('vmWaveReset').checked;
@@ -6529,7 +6630,17 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       box.appendChild(row);
     });
     byId('mpPickCount').textContent=chosen+' chosen of '+vmArr(inv.vms).length+(f?' ('+shown+' shown)':'');
+    mpRenderWaveChoice(waves);
   }
+  // Waves (and a rolling plan's stages) from Plan and runbook, so a stage's
+  // VMs are chosen in one click and the plan is named after the stage.
+  function mpWaveLabel(w){var st=vmPlanRolling()?vmArr(vmPlan.rolling&&vmPlan.rolling.stages):[];for(var i=0;i<st.length;i++){if(st[i].wave===w){return 'Stage '+(i+1)+(st[i].host?' ('+st[i].host+')':'')+': wave '+w;}}return 'Wave '+w;}
+  function mpRenderWaveChoice(waves){var sel=byId('mpPickWave'),keep=sel.value,seen={};vmArr(vmInventory&&vmInventory.vms).forEach(function(vm){if(waves[vm.id]>0){seen[waves[vm.id]]=(seen[waves[vm.id]]||0)+1;}});
+    var keys=Object.keys(seen).map(Number).sort(function(a,b){return a-b;});sel.textContent='';keys.forEach(function(w){var o=document.createElement('option');o.value=String(w);o.textContent=mpWaveLabel(w)+' ('+seen[w]+' VMs)';sel.appendChild(o);});if(keep&&seen[keep]){sel.value=keep;}
+    sel.classList.toggle('hidden',!keys.length);byId('mpPickWaveGo').classList.toggle('hidden',!keys.length);}
+  function mpPickWave(){var w=Number(byId('mpPickWave').value),waves=(mpState&&mpState.waves)||{};if(!w){return;}var used=mpInPlans();
+    vmArr(vmInventory&&vmInventory.vms).forEach(function(vm){if(waves[vm.id]===w&&!used[vm.id]&&!vm.template&&mpReadiness(vm).status!=='blocked'&&mpReadiness(vm).status!=='skip'){mpPicks[vm.id]=true;}});
+    if(!trimText(byId('mpName').value)){byId('mpName').value=mpWaveLabel(w).replace(':',' -');}renderMpPicker();}
   function mpSettingsFromForm(){
     var s={syncMinutes:Number(byId('mpSync').value),concurrency:Number(byId('mpConcurrency').value),copyRoot:trimText(byId('mpCopyRoot').value),vmFolder:trimText(byId('mpVMFolder').value),testSwitch:byId('mpTestSwitch').value,keepMac:byId('mpKeepMac').checked,startVms:byId('mpStartVMs').checked,cluster:byId('mpCluster').checked,quiesce:byId('mpQuiesce').checked,disconnectSource:byId('mpDisconnect').checked,
       throttle:{businessMbps:Number(trimText(byId('mpBizMbps').value)||0),limitMbps:Number(trimText(byId('mpOffMbps').value)||0),businessStart:Number(byId('mpBizStart').value),businessEnd:Number(byId('mpBizEnd').value)}};
@@ -6619,6 +6730,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   byId('mpStartMode').addEventListener('change',function(){byId('mpStartAtField').classList.toggle('hidden',byId('mpStartMode').value!=='at');});
   byId('mpPickFilter').addEventListener('input',function(){mpPickText=byId('mpPickFilter').value;renderMpPicker();});
   byId('mpPicker').addEventListener('change',function(e){var cb=e.target.closest('[data-mp-pick]');if(cb){mpPicks[cb.getAttribute('data-mp-pick')]=cb.checked;renderMpPicker();}});
+  byId('mpPickWaveGo').addEventListener('click',mpPickWave);
   byId('mpPickAll').addEventListener('click',function(){Array.prototype.forEach.call(document.querySelectorAll('#mpPicker input[data-mp-pick]'),function(cb){if(!cb.disabled&&cb.parentNode.querySelector('.run-ready')){mpPicks[cb.getAttribute('data-mp-pick')]=true;}});renderMpPicker();});
   byId('mpCancelNew').addEventListener('click',function(){mpEditing=null;mpPickText='';byId('mpPickFilter').value='';renderMp();});
   byId('mpCreate').addEventListener('click',function(){
