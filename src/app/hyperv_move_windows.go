@@ -152,6 +152,6 @@ func (a *application) runMoveRound(ctx context.Context, inventory *vmInventory, 
 		order = append(order, disk.File)
 	}
 	return hypervMoveRound(ctx, a.hypervHostFor(inventory.Server, log), hypervMoveRequest{
-		VMID: vm.ID, Name: vm.Name, CopyFolder: request.CopyFolder, Cutover: request.Cutover, DiskOrder: order, NewSink: request.NewSink, Progress: request.Progress,
+		VMID: vm.ID, Name: vm.Name, CopyFolder: request.CopyFolder, Cutover: request.Cutover, DiskOrder: order, NewSink: request.NewSink, Progress: request.Progress, Throttle: request.Throttle,
 	}, log)
 }

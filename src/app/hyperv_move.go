@@ -72,6 +72,8 @@ type hypervMoveRequest struct {
 	NewSink func(index int, capacity int64) (vmCopySink, string, error)
 	// Progress reports each disk's copy progress (for the live view).
 	Progress func(disk string, p vmCopyProgress)
+	// Throttle limits how fast the disks are read; nil is no limit.
+	Throttle *vmThrottle
 	// open opens a disk image; tests may replace it.
 	open      func(path string) (vmDiskImage, error)
 	chunkSize int64
@@ -289,7 +291,7 @@ func hypervCopyDisk(ctx context.Context, request hypervMoveRequest, index int, d
 			log(fmt.Sprintf("%s: %d%% (%s read, %s written).", label, p.Done*100/p.Chunks, vmFormatBytes(p.BytesRead), vmFormatBytes(p.BytesWritten)))
 		}
 	}
-	copied, err := vmCopyTo(ctx, source, &vmOpenedSink{vmCopySink: sink, state: state, resumed: resumed}, options)
+	copied, err := vmCopyTo(ctx, vmThrottleSource(ctx, source, request.Throttle), &vmOpenedSink{vmCopySink: sink, state: state, resumed: resumed}, options)
 	if err != nil {
 		return result, err
 	}
