@@ -439,6 +439,16 @@ func vmDisksEncrypted(vm vmMachine) bool {
 
 // assessVM checks one VM against one target. Each finding names what was
 // found and what to do about it; the status is the worst severity.
+// vmAlreadyMovedPattern matches names operators give a source VM they have
+// already moved or retired ("APP01 - MIGRATED! Do not power on").
+var vmAlreadyMovedPattern = regexp.MustCompile(`(^|[^a-z])(migrated|decommissioned|decom|retired)([^a-z]|$)|do[ _-]*not[ _-]*(power|turn|start)[ _-]*(it[ _-]*)?on`)
+
+// vmAlreadyMoved is true when the VM's name says it was already migrated or
+// retired, so a bulk action never moves it a second time by accident.
+func vmAlreadyMoved(vm vmMachine) bool {
+	return vmAlreadyMovedPattern.MatchString(strings.ToLower(vm.Name))
+}
+
 func assessVM(vm vmMachine, target string, now time.Time) vmReadiness {
 	result := vmReadiness{Target: target, Status: vmStatusReady, Findings: []vmFinding{}}
 	add := func(severity, code, message, action string) {
@@ -455,6 +465,9 @@ func assessVM(vm vmMachine, target string, now time.Time) vmReadiness {
 		add(vmSeverityInfo, "vmware-infrastructure", "This is "+role+", part of the VMware environment itself.", "It is not migrated: it is retired with VMware. Leave it out of the plan and set up the new platform's own management instead.")
 		result.Status = vmStatusSkip
 		return result
+	}
+	if vmAlreadyMoved(vm) {
+		add(vmSeverityWarning, "already-moved", "The VM's name says it was already migrated or retired.", "Check it is not still needed. Moving it again would make a second copy beside the one already running. Exclude it from the plan, or acknowledge this if it really must move.")
 	}
 	os := classifyGuestOS(vm)
 	efi := strings.EqualFold(vm.Firmware, "efi")

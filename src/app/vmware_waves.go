@@ -118,6 +118,9 @@ func vmWaveExcludeReason(vm vmMachine) string {
 	if role := vmInfrastructureRole(vm); role != "" {
 		return "This is " + role + ", which stays with VMware."
 	}
+	if vmAlreadyMoved(vm) {
+		return "Its name says it was already migrated or retired. Include it if it really moves."
+	}
 	if vmWaveBackupPattern.MatchString(strings.ToLower(vm.Name)) {
 		return "Named like a backup or VMware management appliance, which usually stays with VMware or is redeployed. Include it if it moves."
 	}

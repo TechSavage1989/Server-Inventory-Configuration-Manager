@@ -524,3 +524,32 @@ func TestMoveRolesNameEveryComputer(t *testing.T) {
 		}
 	}
 }
+
+func TestAssessFlagsVMsWhoseNameSaysAlreadyMigrated(t *testing.T) {
+	for name, want := range map[string]bool{
+		"MATCHC-Print - MIGRATED! Do not power on": true,
+		"APP01_old_do_not_turn_on":                 true,
+		"FS01 (decommissioned)":                    true,
+		"MIGRATION-SRV01":                          false,
+		"PRINT01":                                  false,
+		"retiredb01":                               false,
+	} {
+		vm := vmMachine{Name: name, PowerState: "poweredOff", GuestOS: "Microsoft Windows Server 2019 (64-bit)", Firmware: "efi"}
+		r := assessVM(vm, vmTargetHyperV, time.Now())
+		got := false
+		for _, f := range r.Findings {
+			if f.Code == "already-moved" {
+				got = f.Severity == vmSeverityWarning
+			}
+		}
+		if got != want {
+			t.Errorf("%q: already-moved finding %v, want %v (%+v)", name, got, want, r.Findings)
+		}
+		if want && r.Status == vmStatusReady {
+			t.Errorf("%q: still Ready", name)
+		}
+		if want && vmWaveExcludeReason(vm) == "" {
+			t.Errorf("%q: not left out of suggested waves", name)
+		}
+	}
+}

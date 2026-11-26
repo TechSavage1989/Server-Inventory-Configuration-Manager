@@ -503,7 +503,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
 .vm-table tr.vm-row:focus{outline:2px solid #2563eb;outline-offset:-2px}
 .vm-table input[type=text],.vm-table input[type=number]{width:100%;min-width:60px;box-sizing:border-box;height:28px;border:1px solid #bcc9d9;border-radius:6px;padding:0 6px;font:inherit;font-size:12px}
 .vm-table input[type=number]{max-width:72px}.vm-table input[type=checkbox]{width:15px;height:15px;margin:0;accent-color:#2563eb}
-.vm-table .vm-sub{display:block;color:#596b80;font-size:11px}
+.vm-table .vm-sub{display:block;color:#596b80;font-size:11px}.vm-table .vm-sub.vm-moved,.vm-moved{color:#9b2c22;font-weight:600}
 .vm-table td.vm-changes{background:#fbfcfe}.vm-changes ul{margin:0;padding-left:18px}.vm-changes li{margin:2px 0}
 .vm-detail{margin-top:10px;border:1px solid #dbe3ed;border-radius:10px;padding:10px 12px;background:#fbfcfe;font-size:12px;color:#334156}
 .vm-detail-head{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;font-size:13px;color:#1b2942}
@@ -1501,7 +1501,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
             <p class="migrate-help" id="mpNewHelp">Choose the VMs from the inventory read in Discovery. Waves come from Plan and runbook; the network map there names the Hyper-V switch for each network.</p>
             <label class="vm-field">Plan name<input id="mpName" type="text" maxlength="100" spellcheck="false" autocomplete="off" placeholder="Wave 1 - application servers"></label>
             <div id="mpPickBox"><div class="migrate-row"><input id="mpPickFilter" type="search" placeholder="Filter VMs" aria-label="Filter VMs" spellcheck="false" autocomplete="off"><button class="secondary-button" id="mpPickAll" type="button">Select the ready VMs shown</button><select id="mpPickWave" aria-label="Wave or stage from Plan and runbook"></select><button class="secondary-button" id="mpPickWaveGo" type="button">Select this wave</button><span class="vm-note" id="mpPickCount"></span></div>
-              <div class="mp-picker" id="mpPicker" aria-label="VMs"></div></div>
+              <div class="mp-picker" id="mpPicker" aria-label="VMs"></div><div class="vm-note selectable" id="mpPickNames"></div></div>
             <h5 class="mp-heading">Copying</h5>
             <div class="mp-three">
               <label class="vm-field">Start the first copies<select id="mpStartMode"><option value="now">Now</option><option value="at">At a time I choose</option></select></label>
@@ -3568,6 +3568,9 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     if(cfmStyle()!=='prompt'){fn();return;}
     cfmPending=fn;byId('cfmDialogTitle').textContent=o.title||'Are you sure?';
     var box=byId('cfmDialogText');box.textContent='';(typeof o.text==='string'?[o.text]:(o.text||[])).forEach(function(p){if(p){box.appendChild(el('p','',p));}});
+    // names: every server or VM the action changes, so nothing hidden by a
+    // filter is changed without being named.
+    var names=vmArr(o.names).filter(function(x){return x;});if(names.length){box.appendChild(el('p','',(names.length===1?'This changes: ':'This changes all '+names.length+': ')+names.join(', ')+'.'));}
     if(o.alert){box.insertBefore(el('div','restore-alert danger',o.alert),box.firstChild);}
     byId('cfmDialogGo').textContent=o.button||'Continue';
     var d=byId('cfmDialog');if(d.showModal){d.showModal();}else{d.setAttribute('open','');}byId('cfmDialogCancel').focus();
@@ -4205,6 +4208,28 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     saveVmPlan(null,on?(changed===1?'Acknowledged '+vms[0].name+'\'s review items.':'Acknowledged the review items of '+vmPlural(changed,'VM')+'.'):'The review items are open again.');
   }
   function vmChip(status){return el('span','run-chip '+({ready:'run-ready',review:'run-attention',blocked:'run-failed'}[status]||''),vmStatusLabels[status]||status);}
+  // Why a VM must not be moved again: a migration plan or a platform move
+  // already cut it over, or its name says it was migrated or retired (the
+  // already-moved finding of assessVM). Such VMs are never ticked by a
+  // select-all, Select by or Select every VM that matches.
+  var vmPlansAsked='';
+  function vmCutOverBy(vm){
+    if(!vm){return '';}var found='';
+    vmArr(mpState&&mpState.plans).forEach(function(p){vmArr(p.vms).forEach(function(v){if(v.id===vm.id&&v.state==='done'&&!found){found='Already cut over by the migration plan '+p.name+'.';}});});
+    if(found){return found;}
+    var t=(vmwareState()||{}).target||{},made=t.created&&t.created[vm.id];if(made&&made.cutOver){return 'Already cut over to '+vmTargetName(made.platform)+'.';}
+    return '';
+  }
+  function vmMovedReason(vm){
+    var by=vmCutOverBy(vm);if(by){return by;}
+    var named=vmArr(vm&&vm.readiness).some(function(r){return vmArr(r.findings).some(function(f){return f.code==='already-moved';});});
+    return named?'Its name says it was already migrated or retired.':'';
+  }
+  // Move VMs and Discovery need the plans to know what was cut over; ask once
+  // per inventory when Migration plans has not been opened yet.
+  function vmEnsurePlans(){var key=vmInvKeyOf(vmInventory);if(mpState||!key||vmPlansAsked===key){return;}vmPlansAsked=key;request('GET','/api/plans',null,function(err,data){if(err||mpState){return;}mpState=data||{};if(vmInventory){renderVmTable();}});}
+  // VMs a select-all ticks: not already moved and not a VMware system VM.
+  function vmGroupPick(ids){return ids.filter(function(id){var vm=vmFind(id);return vm&&!vmMovedReason(vm)&&vmReadiness(vm).status!=='skip';});}
   function vmFind(id){var list=vmInventory?vmArr(vmInventory.vms):[];for(var i=0;i<list.length;i++){if(list[i].id===id){return list[i];}}return null;}
   function vmPower(vm){return {poweredOn:'On',poweredOff:'Off',suspended:'Suspended'}[vm.powerState]||vm.powerState||'';}
   function vmSetStatus(id,text,error){var node=byId(id);node.textContent=text||'';node.className='migrate-inline-status'+(error?' error':'');}
@@ -5342,13 +5367,13 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     var body=byId('vmTableBody');body.textContent='';
     if(!vmInventory){return;}
     var query=trimText(byId('vmSearch').value).toLowerCase(),shown=0,total=0,fragment=document.createDocumentFragment();
-    vmPickReset();vmTableMatches=[];var picked=0;
+    vmPickReset();vmEnsurePlans();vmTableMatches=[];vmTableShown=[];var picked=0;
     vmArr(vmInventory.vms).forEach(function(vm){
       var r=vmReadiness(vm);if(vmFilter!=='all'&&r.status!==vmFilter){return;}if(!vmMatches(vm,query)){return;}
-      total++;vmTableMatches.push(vm.id);if(vmPicked[vm.id]){picked++;}if(shown>=vmRowLimit){return;}shown++;
+      total++;vmTableMatches.push(vm.id);if(shown>=vmRowLimit){return;}shown++;vmTableShown.push(vm.id);var moved=vmMovedReason(vm);if(vmPicked[vm.id]){picked++;}
       var tr=el('tr','vm-row'+(vm.id===vmSelectedVM?' selected':'')+(vmPicked[vm.id]?' picked':''));tr.setAttribute('data-vm-id',vm.id);tr.tabIndex=0;tr.title='Show '+vm.name+': readiness, disks, networks and actions';
       var pick=el('td','vm-pick-col');pick.appendChild(vmPickBox(vm.id,vm.name));tr.appendChild(pick);
-      var name=el('td','');name.appendChild(el('strong','',vm.name));if(vm.template){name.appendChild(el('span','vm-sub','Template'));}else if(vm.cluster||vm.host){name.appendChild(el('span','vm-sub',vm.cluster||vm.host));}
+      var name=el('td','');name.appendChild(el('strong','',vm.name));if(moved){name.appendChild(el('span','vm-sub vm-moved',moved));}if(vm.template){name.appendChild(el('span','vm-sub','Template'));}else if(vm.cluster||vm.host){name.appendChild(el('span','vm-sub',vm.cluster||vm.host));}
       tr.appendChild(name);tr.appendChild(el('td','',vmPower(vm)));tr.appendChild(el('td','',vm.guestOsRunning||vm.guestOs||'Unknown'));
       tr.appendChild(el('td','',vm.cpus+' vCPU, '+formatBytesShort((Number(vm.memoryMb)||0)*1048576)));
       tr.appendChild(el('td','',formatBytesShort(vm.provisionedBytes)+(vmArr(vm.disks).length>1?' ('+vmArr(vm.disks).length+')':'')));
@@ -5357,7 +5382,9 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     });
     body.appendChild(fragment);
     if(!total){var empty=el('tr','');var cell=el('td','',query||vmFilter!=='all'?'No VMs match.':'No VMs were found.');cell.colSpan=8;empty.appendChild(cell);body.appendChild(empty);}
-    var all=byId('vmPickShown');all.checked=total>0&&picked===total;all.indeterminate=picked>0&&picked<total;all.disabled=!total;
+    var pickable=vmGroupPick(vmTableShown),onPage=pickable.filter(function(id){return vmPicked[id];}).length,all=byId('vmPickShown');
+    all.checked=pickable.length>0&&onPage===pickable.length;all.indeterminate=picked>0&&!all.checked;all.disabled=!pickable.length;
+    all.title=pickable.length<vmTableShown.length?'Select the '+vmPlural(pickable.length,'VM')+' shown (VMs already moved and VMware system VMs are left out)':'Select the '+vmPlural(pickable.length,'VM')+' shown';
     renderVmBulk();
     var toReview=vmArr(vmInventory.vms).filter(function(vm){return vmReadiness(vm).status==='review';}),ackAll=byId('vmAckAll');
     ackAll.classList.toggle('hidden',!toReview.length||!vmPlan);ackAll.disabled=vmLocked();ackAll.textContent='Acknowledge all '+formatCount(toReview.length)+' to review';
@@ -6040,7 +6067,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   // and notes are marked edited. The board and the table share vmPlan, so
   // nothing is saved until Save plan (in the VM list, plan actions save at
   // once because there is no Save button there).
-  var vmBulkPollKey='',vmBulkLockKey='',vmPicked={},vmPickKey='',vmBulkOpen='',vmBulkMsg={list:'',plan:''},vmTableMatches=[];
+  var vmBulkPollKey='',vmBulkLockKey='',vmPicked={},vmPickKey='',vmBulkOpen='',vmBulkMsg={list:'',plan:''},vmTableMatches=[],vmTableShown=[];
   var vmBulkSteps={snapshots:true,shutdown:false,removeTpm:false,decrypt:false};
   var vmBulkStepList=[{key:'snapshots',label:'Delete all snapshots',need:'has snapshots'},{key:'shutdown',label:'Shut down the guest through VMware Tools',need:'is running'},{key:'removeTpm',label:'Remove the virtual TPM',need:'has a virtual TPM'},{key:'decrypt',label:'Decrypt the VM and its disks',need:'has encrypted disks'}];
   function vmPickReset(){var key=vmInvKeyOf(vmInventory);if(key!==vmPickKey){vmPickKey=key;vmPicked={};vmBulkOpen='';vmBulkMsg={list:'',plan:''};}}
@@ -6162,21 +6189,34 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       else if(kind==='wave'){hit=!!p&&vmLaneOf(p)===key;}else if(kind==='lane'){hit=!!p&&vmLaneOf(p)===key;}
       else if(kind==='ready'){hit=vmReadiness(vm).status===key;}else if(kind==='power'){hit=key==='poweredOn'?vm.powerState==='poweredOn':vm.powerState!=='poweredOn';}
       if(hit){ids.push(vm.id);}});
-    vmSetPicked(ids,true);
+    vmSetPicked(vmGroupPick(ids),true);
   }
   function renderVmBulk(){renderVmBulkInto(byId('vmListBulk'),'list');if(vmPlan){renderVmBulkInto(byId('vmWaveBulk'),'plan');}}
   function renderVmBulkInto(box,where){
     box.textContent='';if(!vmInventory){return;}
     vmPickReset();
     var v=vmwareState()||{},ids=vmPickedIds(),n=ids.length,locked=vmLocked(),row=el('div','vm-bulk-row');
-    row.appendChild(el('strong','vm-bulk-count',n?vmPlural(n,'VM')+' selected':'Tick VMs to change many at once'));
+    var hidden=where==='list'?ids.filter(function(id){return vmTableShown.indexOf(id)<0;}):[],moved=ids.filter(function(id){return !!vmMovedReason(vmFind(id));});
+    row.appendChild(el('strong','vm-bulk-count',n?vmPlural(n,'VM')+' selected'+(hidden.length?' ('+formatCount(hidden.length)+' hidden by the filter)':''):'Tick VMs to change many at once'));
     var by=document.createElement('select');by.setAttribute('aria-label','Select VMs by host, cluster, folder, wave, readiness or power');by.setAttribute('data-vm-pickby',where);vmPickByOptions(by);
     by.addEventListener('change',function(){if(by.value){vmPickBy(by.value);}});row.appendChild(by);
-    if(where==='list'){var all=el('button','secondary-button','Select every VM that matches');all.type='button';all.setAttribute('data-bulk','all');all.disabled=!vmTableMatches.length;all.addEventListener('click',function(){vmSetPicked(vmTableMatches,true);});row.appendChild(all);}
+    if(where==='list'){var all=el('button','secondary-button','Select every VM that matches');all.type='button';all.setAttribute('data-bulk','all');all.disabled=!vmTableMatches.length;all.addEventListener('click',function(){vmSetPicked(vmGroupPick(vmTableMatches),true);});row.appendChild(all);}
     if(where==='list'){var pfb=el('button','secondary-button','SQL and DC checks…');pfb.type='button';pfb.setAttribute('data-bulk','preflight');pfb.title=n?'Check the selected VMs for domain controller and SQL Server health, read only':'Select the VMs named like domain controllers or SQL Servers and check them, read only';
       pfb.addEventListener('click',function(){if(!n){var likely=vmArr(vmInventory.vms).filter(function(vm){return pfLikely(vm);}).map(function(vm){return vm.id;});if(!likely.length){vmBulkMsg.list='No VM is named like a domain controller or SQL Server. Tick the VMs to check, then press SQL and DC checks again.';vmBulkMsg.listError=false;renderVmBulk();return;}vmBulkOpen='preflight';vmSetPicked(likely,true);return;}vmBulkOpen=vmBulkOpen==='preflight'?'':'preflight';renderVmBulk();});row.appendChild(pfb);}
     if(n){var clear=el('button','secondary-button','Clear selection');clear.type='button';clear.setAttribute('data-bulk','clear');clear.addEventListener('click',function(){vmPicked={};vmBulkOpen='';vmPickChanged();});row.appendChild(clear);}
     box.appendChild(row);
+    if(hidden.length){
+      var hb=el('div','restore-alert warning vm-bulk-hidden');hb.id='vmBulkHidden';
+      hb.appendChild(el('div','','Also selected but not in the list below, so every action here changes them too: '+hidden.map(function(id){var vm=vmFind(id);return vm?vm.name:id;}).join(', ')+'.'));
+      var hr=el('div','vm-bulk-row'),show=el('button','secondary-button','Show every selected VM');show.type='button';show.setAttribute('data-bulk','showhidden');
+      show.addEventListener('click',function(){byId('vmSearch').value='';setVmFilter('all');});
+      var drop=el('button','secondary-button','Unselect the '+vmPlural(hidden.length,'hidden VM'));drop.type='button';drop.setAttribute('data-bulk','drophidden');
+      drop.addEventListener('click',function(){vmSetPicked(hidden,false);});
+      hr.appendChild(show);hr.appendChild(drop);hb.appendChild(hr);box.appendChild(hb);
+    }
+    if(moved.length){var mb=el('div','restore-alert warning vm-bulk-moved');mb.id=where==='list'?'vmBulkMoved':'vmWaveBulkMoved';
+      mb.appendChild(el('div','',vmPlural(moved.length,'selected VM')+' may already be moved: '+moved.map(function(id){var vm=vmFind(id);return (vm?vm.name:id)+' ('+vmMovedReason(vm).replace(/\.$/,'')+')';}).join('; ')+'.'));
+      var mr=el('div','vm-bulk-row'),md=el('button','secondary-button','Unselect them');md.type='button';md.setAttribute('data-bulk','dropmoved');md.addEventListener('click',function(){vmSetPicked(moved,false);});mr.appendChild(md);mb.appendChild(mr);box.appendChild(mb);}
     if(n&&vmPlan){
       var act=el('div','vm-bulk-row'),sel=document.createElement('select');sel.setAttribute('aria-label','Wave for the selected VMs');sel.setAttribute('data-bulk','wave');
       vmWaveNumbers().forEach(function(k){sel.appendChild(new Option(vmWaveTitle(k),String(k)));});sel.appendChild(new Option('A new wave','new'));sel.appendChild(new Option('No wave','none'));
@@ -6547,7 +6587,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   byId('vmWaveBody').addEventListener('change',function(){renderVmWaveBoard();renderVmBulk();});
   // Ticking a VM anywhere selects it everywhere (VM list, wave board, table).
   document.addEventListener('change',function(e){var t=e.target;if(!t||!t.getAttribute||!t.hasAttribute('data-vm-pick')){return;}vmSetPicked([t.getAttribute('data-vm-pick')],t.checked);});
-  byId('vmPickShown').addEventListener('change',function(){vmSetPicked(vmTableMatches,byId('vmPickShown').checked);});
+  byId('vmPickShown').addEventListener('change',function(){var box=byId('vmPickShown');vmSetPicked(box.checked?vmGroupPick(vmTableShown):vmTableShown,box.checked);});
   var board=byId('vmWaveBoard');
   board.addEventListener('dragstart',function(e){var chip=e.target.closest&&e.target.closest('.vm-wave-vm');if(!chip){return;}e.dataTransfer.setData('text/plain',chip.getAttribute('data-vm-id'));e.dataTransfer.effectAllowed='move';});
   board.addEventListener('dragover',function(e){var card=e.target.closest&&e.target.closest('[data-wave-lane]');if(!card){return;}e.preventDefault();e.dataTransfer.dropEffect='move';Array.prototype.forEach.call(board.querySelectorAll('.drop'),function(c){if(c!==card){c.classList.remove('drop');}});card.classList.add('drop');});
@@ -7479,7 +7519,9 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   }
   function syncAs(){
     var sel=asSelected(),running=asBulkRunning(),box=byId('asActions');
-    byId('asSelCount').textContent=sel.length?vmPlural(sel.length,'server')+' selected':'No servers selected.';
+    var cnt=byId('asSelCount'),hid=sel.filter(function(r){return !asMatches(r);});
+    cnt.textContent=sel.length?vmPlural(sel.length,'server')+' selected'+(hid.length?' ('+formatCount(hid.length)+' hidden by the filter: '+hid.map(function(r){return r.name;}).join(', ')+')':''):'No servers selected.';
+    if(hid.length){var ub=el('button','link-button','Unselect the hidden ones');ub.type='button';ub.setAttribute('data-as-drophidden','');cnt.appendChild(document.createTextNode(' '));cnt.appendChild(ub);}
     box.textContent='';var why=[];
     asActs.forEach(function(a){
       var n=asApplies(a[0],sel).length,b=el('button',a[0]==='cutover'&&n?'primary-button':'secondary-button',a[1]+(sel.length?' ('+n+')':''));b.type='button';b.setAttribute('data-as-act',a[0]);b.title=a[2];
@@ -7581,6 +7623,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   byId('asJobBrowse').addEventListener('click',function(){rpBrowseLocal(byId('asJobFolder'),'asStatus');});
   byId('asJobFolder').addEventListener('input',asFormSync);
   byId('asSummary').addEventListener('click',function(e){var b=e.target.closest('[data-as-filter]');if(b){asSetFilter(b.getAttribute('data-as-filter'));}});
+  byId('asSelCount').addEventListener('click',function(e){if(e.target.closest('[data-as-drophidden]')){asSelected().forEach(function(r){if(!asMatches(r)){delete asChosen[r.key];}});renderAs();}});
   byId('asFilterBar').addEventListener('click',function(e){if(e.target.closest('[data-as-showall]')){asFilter='';asMethodFilter='';asText='';byId('asSearch').value='';byId('asMethod').value='';renderAs();}});
   byId('asSearch').addEventListener('input',function(){asText=trimText(this.value);renderAs();});
   byId('asMethod').addEventListener('change',function(){asMethodFilter=this.value;renderAs();});
@@ -7634,9 +7677,9 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   byId('asCutRun').addEventListener('click',function(){
     var t=asCutTimes(),n=String(t.list.length),body={staggerMinutes:Number(byId('asCutStagger').value)||0,confirm:cfmVal(byId('asCutConfirm'),n)};
     if(byId('asCutWhen').value==='at'){if(isNaN(t.start.getTime())){vmSetStatus('asStatus','Choose the date and time of the first wave.',true);return;}body.at=t.start.toISOString();}
-    cfmAsk({title:'Cut over '+vmPlural(t.list.length,'server'),text:['Each server is cut over through its own job or plan, wave by wave'+(body.at?', starting at '+mpTime(body.at):', starting now')+'. Replication jobs stop the listed services and send a last verified round; plan VMs are shut down and created on Hyper-V.'],button:body.at?'Schedule cutover':'Cut over now'},function(){asRun('cutover',body);});
+    cfmAsk({names:t.list.map(function(r){return r.name;}),title:'Cut over '+vmPlural(t.list.length,'server'),text:['Each server is cut over through its own job or plan, wave by wave'+(body.at?', starting at '+mpTime(body.at):', starting now')+'. Replication jobs stop the listed services and send a last verified round; plan VMs are shut down and created on Hyper-V.'],button:body.at?'Schedule cutover':'Cut over now'},function(){asRun('cutover',body);});
   });
-  byId('asTestRun').addEventListener('click',function(){var act=asForm,n=asApplies(act).length;cfmAsk({title:(act==='test'?'Start test VMs for ':'End the tests of ')+vmPlural(n,'server'),text:[act==='test'?'Each server gets a test VM named SERVER-TEST, one after another. Production is not changed.':'Each test VM and its test disks are removed, and syncs carry on.'],button:act==='test'?'Start test VMs':'End tests'},function(){asRun(act,{testSwitch:act==='test'?byId('asTestSwitch').value:'',confirm:cfmVal(byId('asTestConfirm'),String(n))});});});
+  byId('asTestRun').addEventListener('click',function(){var act=asForm,n=asApplies(act).length;cfmAsk({names:asApplies(act).map(function(r){return r.name;}),title:(act==='test'?'Start test VMs for ':'End the tests of ')+vmPlural(n,'server'),text:[act==='test'?'Each server gets a test VM named SERVER-TEST, one after another. Production is not changed.':'Each test VM and its test disks are removed, and syncs carry on.'],button:act==='test'?'Start test VMs':'End tests'},function(){asRun(act,{testSwitch:act==='test'?byId('asTestSwitch').value:'',confirm:cfmVal(byId('asTestConfirm'),String(n))});});});
   byId('asBulkStop').addEventListener('click',function(){request('POST','/api/servers',{action:'stop'},function(err){if(err){vmSetStatus('asStatus',err,true);}else{vmSetStatus('asStatus','Stopping after the server in progress.',false);}});});
   byId('asResultsClose').addEventListener('click',function(){byId('asResults').classList.add('hidden');});
   setInterval(function(){if(activeTab==='servers'?Date.now()-asLastPoll>=4000:Date.now()-asLastPoll>=30000){asLoad();}},1500);
@@ -7720,6 +7763,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   function nwPickWhy(vm,used){
     var r=nwHyperVReadiness(vm);
     if(used&&used[vm.id]){return 'Already in the migration '+used[vm.id];}
+    var cut=vmCutOverBy(vm);if(cut){return cut.replace(/\.$/,'');}
     if(vm.template){return 'A template: not moved';}
     if(r.status==='skip'){return 'A system VM: not moved';}
     if(r.status==='blocked'&&nwDecryptable(vm)){return '';}
@@ -8005,7 +8049,10 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     if(!shown){list.appendChild(el('div','vm-note','No VM matches.'));}
     var picked=nwPickedVMs(),count=document.querySelector('[data-nw="count"]');
     var encN=picked.filter(nwDecryptable).length;
-    if(count){count.textContent=picked.length?vmPlural(picked.length,'VM')+' ticked, about '+formatBytesShort(nwUsedBytes())+' to copy.'+(encN?' '+vmPlural(encN,'VM')+' '+(encN===1?'has':'have')+' encrypted disks: Review decrypts '+(encN===1?'it':'them')+' before the copies start.':''):'No VMs ticked yet.';}
+    if(count){var hid=picked.filter(function(vm){return f&&[vm.name,vm.host,vm.cluster,vm.folder].join(' ').toLowerCase().indexOf(f)<0;});
+      count.textContent=picked.length?vmPlural(picked.length,'VM')+' ticked'+(hid.length?' ('+formatCount(hid.length)+' hidden by the search: '+hid.map(function(vm){return vm.name;}).join(', ')+')':'')+', about '+formatBytesShort(nwUsedBytes())+' to copy.'+(encN?' '+vmPlural(encN,'VM')+' '+(encN===1?'has':'have')+' encrypted disks: Review decrypts '+(encN===1?'it':'them')+' before the copies start.':''):'No VMs ticked yet.';
+      if(hid.length){var ub=el('button','link-button','Untick the hidden VMs');ub.type='button';ub.setAttribute('data-nw-drophidden','1');count.appendChild(document.createTextNode(' '));count.appendChild(ub);}
+      if(picked.some(function(vm){return vmMovedReason(vm);})){count.appendChild(el('div','vm-moved','Ticked VMs whose name says they were already migrated: '+picked.filter(function(vm){return vmMovedReason(vm);}).map(function(vm){return vm.name;}).join(', ')+'. Untick them unless they really move again.'));}}
     renderNwNav();
   }
   function nwPickBy(value){
@@ -8316,8 +8363,8 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   // Start: save the map and waves, create the plan, schedule timed cutovers.
   function nwStartAsk(){
     if(nw.busy||(nwSrvMode()?nwSrvReviewWhy():nwWhyNot(4))){return;}
-    if(nwSrvMode()){var n=nwSrvPicked().length;cfmAsk({title:'Start replicating '+vmPlural(n,'server'),text:['Start creates one replication job per server and starts its first copy. Copies only read the servers; nothing is shut down until a cutover.'],button:'Start'},nwStart);return;}
-    cfmAsk({title:'Start '+trimText(nw.name),text:['Start saves the network map and waves, creates the migration and schedules the timed cutovers. Copies only read the VMs; nothing is shut down until a cutover.'],button:'Start'},nwStart);
+    if(nwSrvMode()){var n=nwSrvPicked().length;cfmAsk({names:nwSrvPicked().map(function(r){return r.name;}),title:'Start replicating '+vmPlural(n,'server'),text:['Start creates one replication job per server and starts its first copy. Copies only read the servers; nothing is shut down until a cutover.'],button:'Start'},nwStart);return;}
+    cfmAsk({names:nwPickedVMs().map(function(vm){return vm.name;}),title:'Start '+trimText(nw.name),text:['Start saves the network map and waves, creates the migration and schedules the timed cutovers. Copies only read the VMs; nothing is shut down until a cutover.'],button:'Start'},nwStart);
   }
   function nwStart(){
     if(nwSrvMode()){nwSrvStart();return;}
@@ -8559,7 +8606,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     var action=byId('nwSrvAction').value,rows=nwSrvActionRows(action),body={action:action==='cutoverat'?'cutover':action,keys:rows.map(function(r){return r.key;}),confirm:cfmVal(byId('nwSrvActConfirm'),String(rows.length))};
     if(action==='cutoverat'){body.at=new Date(byId('nwSrvCutAt').value).toISOString();}
     var needs=action==='test'||action==='endtest'||action==='cutover'||action==='cutoverat';
-    if(needs&&!body._asked){body._asked=true;var label=byId('nwSrvAction').options[byId('nwSrvAction').selectedIndex].text;cfmAsk({title:label+': '+vmPlural(rows.length,'server'),text:[{test:'Each server gets a test VM named SERVER-TEST. Production is not changed.',endtest:'Each test VM and its test disks are removed.',cutover:'Each server stops its listed services, sends a last verified round and, if set to, shuts down.',cutoverat:'At the chosen time each server stops its listed services, sends a last verified round and, if set to, shuts down.'}[action]],button:label},function(){nwSrvRunNow(body,rows);});return;}
+    if(needs&&!body._asked){body._asked=true;var label=byId('nwSrvAction').options[byId('nwSrvAction').selectedIndex].text;cfmAsk({names:rows.map(function(r){return r.name;}),title:label+': '+vmPlural(rows.length,'server'),text:[{test:'Each server gets a test VM named SERVER-TEST. Production is not changed.',endtest:'Each test VM and its test disks are removed.',cutover:'Each server stops its listed services, sends a last verified round and, if set to, shuts down.',cutoverat:'At the chosen time each server stops its listed services, sends a last verified round and, if set to, shuts down.'}[action]],button:label},function(){nwSrvRunNow(body,rows);});return;}
     nwSrvRunNow(body,rows);
   }
   function nwSrvRunNow(body,rows){
@@ -8692,6 +8739,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   byId('nwStepper').addEventListener('click',function(e){var b=e.target.closest('[data-nw-step]');if(b&&!b.disabled){nwGo(Number(b.getAttribute('data-nw-step')));}});
   byId('tabWizard').addEventListener('click',function(e){
     var t=e.target.closest('button');if(!t||!byId('nwStep').contains(t)){return;}
+    if(t.hasAttribute('data-nw-drophidden')){var f=nw.filter.toLowerCase();nwPickedVMs().forEach(function(vm){if(f&&[vm.name,vm.host,vm.cluster,vm.folder].join(' ').toLowerCase().indexOf(f)<0){delete nw.picks[vm.id];}});renderNwVmList();return;}
     if(t.hasAttribute('data-nw-source')){var s=t.getAttribute('data-nw-source');if(s!==nw.source){nw.source=s;nw.target=s==='shares'?'fileserver':'';nw.method='';nw.filled='';nw.reached=0;}if(s==='servers'){nwSrvLoad();}renderNw();return;}
     if(t.id==='nwSrvOpenStatus'){nw.statusKind='servers';nw.source='servers';nw.step=5;nw.reached=5;nwSrvChosen={};nwSrvLoad();renderNw();return;}
     if(t.id==='nwSrvInstall'){nwSrvInstall();return;}
@@ -8725,7 +8773,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     if(t.hasAttribute('data-nw-pickwave')){var w=Number(t.getAttribute('data-nw-pickwave')),p=nwPlan();vmArr(p&&p.vms).forEach(function(v){if((v.wave||0)===w&&v.state!=='done'){nwRowsChosen[v.id]=true;}});nwStatusSig='';renderNwStatusBody();return;}
     if(t.hasAttribute('data-mp-test')){nwPlanAction({action:'test',id:nw.planId,vmIds:[t.getAttribute('data-mp-test')]});return;}
     if(t.hasAttribute('data-mp-endtest')){nwPlanAction({action:'endTest',id:nw.planId,vmIds:[t.getAttribute('data-mp-endtest')]});return;}
-    if(t.id==='nwCutNow'){var ids=nwChosen().map(function(v){return v.id;}),c=byId('nwCutConfirm'),pl=nwPlan();if(nwCutWhy()||!pl){return;}cfmAsk({title:'Cut over '+vmPlural(ids.length,'VM'),text:['Each chosen VM\'s guest is shut down now, its last changes are copied and the Hyper-V VM is created. The VMware VM is left off so you can roll back by starting it.'],button:'Cut over now'},function(){nwPlanAction({action:'cutover',id:nw.planId,vmIds:ids,at:'now',confirm:cfmVal(c,pl.name)},function(err){if(!err){nwRowsChosen={};cfmClear(c);}});});return;}
+    if(t.id==='nwCutNow'){var ids=nwChosen().map(function(v){return v.id;}),c=byId('nwCutConfirm'),pl=nwPlan();if(nwCutWhy()||!pl){return;}cfmAsk({names:nwChosen().map(function(v){return v.name;}),title:'Cut over '+vmPlural(ids.length,'VM'),text:['Each chosen VM\'s guest is shut down now, its last changes are copied and the Hyper-V VM is created. The VMware VM is left off so you can roll back by starting it.'],button:'Cut over now'},function(){nwPlanAction({action:'cutover',id:nw.planId,vmIds:ids,at:'now',confirm:cfmVal(c,pl.name)},function(err){if(!err){nwRowsChosen={};cfmClear(c);}});});return;}
   });
   byId('tabWizard').addEventListener('change',function(e){
     var t=e.target;
@@ -8800,18 +8848,22 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     byId('mpNewTitle').textContent=edit?'Change the settings of '+mpEditing.name:'New migration plan';byId('mpCreate').textContent=edit?'Save settings':'Create plan';
     if(edit){return;}
     var inv=vmInventory,info=mpState&&mpState.inventory||{};
-    if(!inv){box.appendChild(el('div','vm-note',info.open?'Loading the inventory...':'Read vCenter, ESXi or a Hyper-V host in Discovery (VMware and Hyper-V) first.'));byId('mpPickCount').textContent='';return;}
+    if(!inv){box.appendChild(el('div','vm-note',info.open?'Loading the inventory...':'Read vCenter, ESXi or a Hyper-V host in Discovery (VMware and Hyper-V) first.'));byId('mpPickCount').textContent='';byId('mpPickNames').textContent='';return;}
     var used=mpInPlans(),f=mpPickText.toLowerCase(),shown=0,chosen=0,waves=mpState.waves||{};
+    var names=[],hidden=0;
     vmArr(inv.vms).forEach(function(vm){
-      if(mpPicks[vm.id]){chosen++;}
-      if(f&&vm.name.toLowerCase().indexOf(f)<0){return;}shown++;
-      var r=mpReadiness(vm),why=used[vm.id]?'In the plan '+used[vm.id]:(vm.template?'Template':(r.status==='skip'?'Not moved':(r.status==='blocked'?'Blocked: see Discovery':(vm.encrypted?'Encrypted':''))));
+      var r=mpReadiness(vm),cut=vmCutOverBy(vm),why=used[vm.id]?'In the plan '+used[vm.id]:(cut?cut:(vm.template?'Template':(r.status==='skip'?'Not moved':(r.status==='blocked'?'Blocked: see Discovery':(vm.encrypted?'Encrypted':'')))));
+      if(why&&mpPicks[vm.id]){delete mpPicks[vm.id];}
+      var match=!f||vm.name.toLowerCase().indexOf(f)>=0;
+      if(mpPicks[vm.id]){chosen++;names.push(vm.name);if(!match){hidden++;}}
+      if(!match){return;}shown++;
       var row=el('label','mp-pick'+(why?' disabled':'')),cb=document.createElement('input');cb.type='checkbox';cb.setAttribute('data-mp-pick',vm.id);cb.checked=!!mpPicks[vm.id]&&!why;cb.disabled=!!why;
       row.appendChild(cb);row.appendChild(el('span','',vm.name));row.appendChild(vmChip(r.status));
       row.appendChild(el('span','vm-note',(why||((waves[vm.id]?'Wave '+waves[vm.id]+' · ':'')+(vm.usedBytes?formatBytesShort(vm.usedBytes)+' used · ':'')+(vmPower(vm)||'')))));
       box.appendChild(row);
     });
-    byId('mpPickCount').textContent=chosen+' chosen of '+vmArr(inv.vms).length+(f?' ('+shown+' shown)':'');
+    byId('mpPickCount').textContent=chosen+' chosen of '+vmArr(inv.vms).length+(f?' ('+shown+' shown'+(hidden?', '+hidden+' chosen hidden by the search':'')+')':'');
+    byId('mpPickNames').textContent=chosen?'The plan moves '+vmPlural(chosen,'VM')+': '+names.join(', ')+'.':'';
     mpRenderWaveChoice(waves);
   }
   // Waves (and a rolling plan's stages) from Plan and runbook, so a stage's
@@ -8821,7 +8873,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     var keys=Object.keys(seen).map(Number).sort(function(a,b){return a-b;});sel.textContent='';keys.forEach(function(w){var o=document.createElement('option');o.value=String(w);o.textContent=mpWaveLabel(w)+' ('+seen[w]+' VMs)';sel.appendChild(o);});if(keep&&seen[keep]){sel.value=keep;}
     sel.classList.toggle('hidden',!keys.length);byId('mpPickWaveGo').classList.toggle('hidden',!keys.length);}
   function mpPickWave(){var w=Number(byId('mpPickWave').value),waves=(mpState&&mpState.waves)||{};if(!w){return;}var used=mpInPlans();
-    vmArr(vmInventory&&vmInventory.vms).forEach(function(vm){if(waves[vm.id]===w&&!used[vm.id]&&!vm.template&&mpReadiness(vm).status!=='blocked'&&mpReadiness(vm).status!=='skip'){mpPicks[vm.id]=true;}});
+    vmArr(vmInventory&&vmInventory.vms).forEach(function(vm){if(waves[vm.id]===w&&!used[vm.id]&&!vm.template&&!vmCutOverBy(vm)&&mpReadiness(vm).status!=='blocked'&&mpReadiness(vm).status!=='skip'){mpPicks[vm.id]=true;}});
     if(!trimText(byId('mpName').value)){byId('mpName').value=mpWaveLabel(w).replace(':',' -');}renderMpPicker();}
   function mpSettingsFromForm(){
     var s={syncMinutes:Number(byId('mpSync').value),concurrency:Number(byId('mpConcurrency').value),copyRoot:trimText(byId('mpCopyRoot').value),vmFolder:trimText(byId('mpVMFolder').value),testSwitch:byId('mpTestSwitch').value,keepMac:byId('mpKeepMac').checked,startVms:byId('mpStartVMs').checked,cluster:byId('mpCluster').checked,quiesce:byId('mpQuiesce').checked,disconnectSource:byId('mpDisconnect').checked,fixUp:byId('mpFixUp').checked,
@@ -8945,7 +8997,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   byId('mpDelete').addEventListener('click',function(){var p=mpPlan();if(!p){return;}
     openMigrateDialog({title:'Delete the plan '+p.name,understand:'I understand the plan '+p.name+' is deleted and its schedules stop',path:'/api/plans',field:'confirm',body:{action:'delete',id:p.id},expected:p.name,label:'Type the plan name to confirm',button:'Delete plan',
       paragraphs:['The plan stops syncing and its scheduled cutovers are cancelled. Copied disks and created VMs are left in place.'],after:function(){mpSelected='';mpLoad();}});});
-  function mpCutAsk(at,fn){var p=mpPlan(),n=mpChosenIds().length;cfmAsk({title:'Cut over '+vmPlural(n,'VM'),text:['Each chosen VM\'s guest is shut down'+(at?' at '+at:' now')+', its last changes are copied and the Hyper-V VM is created. The VMware VM is left off so you can roll back by starting it.'],button:at?'Schedule cutover':'Cut over now'},fn);}
+  function mpCutAsk(at,fn){var p=mpPlan(),n=mpChosenIds().length;cfmAsk({names:vmArr(p&&p.vms).filter(function(v){return mpRowsChosen[v.id];}).map(function(v){return v.name;}),title:'Cut over '+vmPlural(n,'VM'),text:['Each chosen VM\'s guest is shut down'+(at?' at '+at:' now')+', its last changes are copied and the Hyper-V VM is created. The VMware VM is left off so you can roll back by starting it.'],button:at?'Schedule cutover':'Cut over now'},fn);}
   byId('mpCutNow').addEventListener('click',function(){var p=mpPlan();if(p){mpCutAsk('',function(){mpPost({action:'cutover',id:p.id,vmIds:mpChosenIds(),at:'now',confirm:cfmVal(byId('mpConfirm'),p.name)},'mpStatus',function(err){if(!err){cfmClear(byId('mpConfirm'));mpRowsChosen={};}});});}});
   byId('mpCutSchedule').addEventListener('click',function(){var p=mpPlan();if(p&&byId('mpCutAt').value){mpCutAsk(new Date(byId('mpCutAt').value).toLocaleString(),function(){mpPost({action:'cutover',id:p.id,vmIds:mpChosenIds(),at:new Date(byId('mpCutAt').value).toISOString(),confirm:cfmVal(byId('mpConfirm'),p.name)},'mpStatus',function(err){if(!err){cfmClear(byId('mpConfirm'));mpRowsChosen={};}});});}});
   byId('mpCutCancel').addEventListener('click',function(){var p=mpPlan();if(p){mpPost({action:'cancelCutover',id:p.id,vmIds:mpChosenIds()},'mpStatus');}});
