@@ -465,6 +465,12 @@ func (a *application) handleHVRemoteMove(response http.ResponseWriter, request *
 // over its administrative share with the connected account, or through the
 // receiver on the node.
 func (a *application) hvRemoteMoveRun(ctx context.Context, hv hvRemoteRuntime, vm vmMachine, node, copyLocal, copyAdmin string, cutover, quiesce bool, need uint64, useReceiver bool, link vmReceiverLink, receiverNames []string, shown string, options vmConnectOptions, log func(string)) (*vmMoveResult, error) {
+	return a.hvRemoteRound(ctx, hv, vm, node, copyLocal, copyAdmin, cutover, quiesce, need, useReceiver, link, receiverNames, shown, options, nil, nil, log)
+}
+
+// hvRemoteRound is hvRemoteMoveRun with a bandwidth limit and a second
+// progress callback, for migration plans run from an admin computer.
+func (a *application) hvRemoteRound(ctx context.Context, hv hvRemoteRuntime, vm vmMachine, node, copyLocal, copyAdmin string, cutover, quiesce bool, need uint64, useReceiver bool, link vmReceiverLink, receiverNames []string, shown string, options vmConnectOptions, throttle *vmThrottle, extra func(string, vmCopyProgress), log func(string)) (*vmMoveResult, error) {
 	if cutover {
 		// Read the host again before the guest is shut down: a VM made
 		// there since connecting, or a node gone down, stops the cutover
@@ -489,10 +495,16 @@ func (a *application) hvRemoteMoveRun(ctx context.Context, hv hvRemoteRuntime, v
 	request := vmMoveRequest{VMID: vm.ID, Name: vm.Name, Datacenter: vm.Datacenter, Quiesce: quiesce, Cutover: cutover, RecordFolder: filepath.Join(a.vmwareRoot(), safeName(strings.ToLower(options.Server)), "Move"), Stage: a.moveStage}
 	progress, prefix := a.moveProgress(vm, shown)
 	request.Progress = progress
+	if extra != nil {
+		request.Progress = func(disk string, p vmCopyProgress) { progress(disk, p); extra(disk, p) }
+	}
+	if !cutover {
+		request.Throttle = throttle
+	}
 	if useReceiver {
 		request.NewSink = link.sinkFactory(ctx, receiverNames)
 	} else {
-		closeIPC, err := replConnectIPC(node, hv.user, hv.password)
+		closeIPC, err := replConnectIPCShared(node, hv.user, hv.password)
 		if err != nil {
 			return nil, err
 		}
@@ -537,6 +549,14 @@ func (a *application) hvRemoteMoveRun(ctx context.Context, hv hvRemoteRuntime, v
 
 // hvRemoteCreate creates the VM on the node with the copied disks.
 func (a *application) hvRemoteCreate(ctx context.Context, hv hvRemoteRuntime, vm vmMachine, node string, networks []vmNetwork, options vmHyperVOptions, result *vmMoveResult, log func(string)) error {
+	if err := a.hvRemoteCreateVM(ctx, hv, vm, node, networks, options, result, log); err != nil {
+		return errors.New("the disks are copied and the source VM is shut down, but the Hyper-V VM was not created: " + err.Error() + ". Start the source VM again to go back, or fix the cause and cut over again")
+	}
+	return nil
+}
+
+// hvRemoteCreateVM creates the VM and returns the plain error.
+func (a *application) hvRemoteCreateVM(ctx context.Context, hv hvRemoteRuntime, vm vmMachine, node string, networks []vmNetwork, options vmHyperVOptions, result *vmMoveResult, log func(string)) error {
 	options.Disks = result.Disks
 	plan, err := vmHyperVPlanFor(vm, networks, options)
 	if err == nil {
@@ -557,8 +577,5 @@ func (a *application) hvRemoteCreate(ctx context.Context, hv hvRemoteRuntime, vm
 			result.HyperVID, err = hvRemoteCreatedID(created.Lines, plan)
 		}
 	}
-	if err != nil {
-		return errors.New("the disks are copied and the source VM is shut down, but the Hyper-V VM was not created: " + err.Error() + ". Start the source VM again to go back, or fix the cause and cut over again")
-	}
-	return nil
+	return err
 }
