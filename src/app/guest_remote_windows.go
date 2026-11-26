@@ -21,6 +21,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -287,6 +288,10 @@ func (a *application) guestCheckHostLocked(host string) error {
 // RemoteSigned execution policy for this process only (the released script is
 // signed), never Bypass, and the accounts reach it only on standard input.
 func (a *application) runGuestRemote(target guestTarget, mode string, plan []byte) (json.RawMessage, error) {
+	return a.runGuestRemoteOptions(target, mode, plan, guestRemoteExtra{})
+}
+
+func (a *application) runGuestRemoteOptions(target guestTarget, mode string, plan []byte, extra guestRemoteExtra) (json.RawMessage, error) {
 	runtimeRoot := filepath.Join(a.update.appDataRoot, "Runtime")
 	if err := os.MkdirAll(runtimeRoot, 0700); err != nil {
 		return nil, err
@@ -312,6 +317,9 @@ func (a *application) runGuestRemote(target guestTarget, mode string, plan []byt
 		arguments = append(arguments, "-VMName", target.VM)
 		if target.Mode == "hostdirect" {
 			arguments = append(arguments, "-HostName", target.Host)
+		}
+		if vmHyperVIDPattern.MatchString(extra.VMID) {
+			arguments = append(arguments, "-VMId", extra.VMID)
 		}
 	case "winrm":
 		arguments = append(arguments, "-ComputerName", target.Computer)
@@ -340,6 +348,9 @@ func (a *application) runGuestRemote(target guestTarget, mode string, plan []byt
 		hostUser, hostPassword = a.hvRemote.user, a.hvRemote.password
 		a.mu.Unlock()
 	}
+	if extra.WaitSeconds > 0 {
+		arguments = append(arguments, "-WaitSeconds", strconv.Itoa(extra.WaitSeconds))
+	}
 	arguments = append(arguments, "-CredentialFromInput")
 	command := exec.Command(a.powerShellPath, arguments...)
 	line, _ := json.Marshal(map[string]string{"user": target.User, "password": target.password, "hostUser": hostUser, "hostPassword": hostPassword})
@@ -348,6 +359,9 @@ func (a *application) runGuestRemote(target guestTarget, mode string, plan []byt
 		a.mu.Lock()
 		a.appendVMwareLogLocked(text)
 		a.mu.Unlock()
+		if extra.Started != nil && strings.Contains(text, "[INFO] The VM answers.") {
+			extra.Started()
+		}
 	}, func(*exec.Cmd) {})
 	data, readErr := os.ReadFile(resultPath)
 	if readErr != nil {

@@ -72,41 +72,45 @@ type vmwareRuntime struct {
 }
 
 type vmwareStateResponse struct {
-	Running         bool                 `json:"running"`
-	Action          string               `json:"action"`
-	Status          string               `json:"status"`
-	Message         string               `json:"message"`
-	Server          string               `json:"server"`
-	Account         string               `json:"account"`
-	Certificate     *vmCertificateError  `json:"certificate"`
-	Summary         *vmInventorySummary  `json:"summary"`
-	InventorySerial uint64               `json:"inventorySerial"`
-	OutputFolder    string               `json:"outputFolder"`
-	ReportPath      string               `json:"reportPath"`
-	RunbookPath     string               `json:"runbookPath"`
-	RunbookDocxPath string               `json:"runbookDocxPath"`
-	DiscoveryPath   string               `json:"discoveryPath"`
-	ReportDocxPath  string               `json:"reportDocxPath"`
-	ReportPDFPath   string               `json:"reportPdfPath"`
-	PlanCSVPath     string               `json:"planCsvPath"`
-	GuestSerial     uint64               `json:"guestSerial"`
-	GuestMessage    string               `json:"guestMessage"`
-	GuestError      bool                 `json:"guestError"`
-	GuestWorkPath   string               `json:"guestWorkPath"`
-	GuestTarget     *guestTargetState    `json:"guestTarget"`
-	CompareSerial   uint64               `json:"compareSerial"`
-	CompareError    string               `json:"compareError"`
-	Prepare         *vmPrepareResult     `json:"prepare"`
-	PrepareSerial   uint64               `json:"prepareSerial"`
-	PrepareError    string               `json:"prepareError"`
-	PrepareBatch    []vmPrepareBatchItem `json:"prepareBatch"`
-	CanPrepare      bool                 `json:"canPrepare"`
-	HyperVHere      bool                 `json:"hyperVHere"`
-	Move            *vmMoveResult        `json:"move"`
-	MoveSerial      uint64               `json:"moveSerial"`
-	MoveError       string               `json:"moveError"`
-	MoveCopyRoot    string               `json:"moveCopyRoot"`
-	HostStorage     *vmHostStorage       `json:"hostStorage"`
+	Running         bool                `json:"running"`
+	Action          string              `json:"action"`
+	Status          string              `json:"status"`
+	Message         string              `json:"message"`
+	Server          string              `json:"server"`
+	Account         string              `json:"account"`
+	Certificate     *vmCertificateError `json:"certificate"`
+	Summary         *vmInventorySummary `json:"summary"`
+	InventorySerial uint64              `json:"inventorySerial"`
+	OutputFolder    string              `json:"outputFolder"`
+	ReportPath      string              `json:"reportPath"`
+	RunbookPath     string              `json:"runbookPath"`
+	RunbookDocxPath string              `json:"runbookDocxPath"`
+	DiscoveryPath   string              `json:"discoveryPath"`
+	ReportDocxPath  string              `json:"reportDocxPath"`
+	ReportPDFPath   string              `json:"reportPdfPath"`
+	PlanCSVPath     string              `json:"planCsvPath"`
+	GuestSerial     uint64              `json:"guestSerial"`
+	GuestMessage    string              `json:"guestMessage"`
+	GuestError      bool                `json:"guestError"`
+	GuestWorkPath   string              `json:"guestWorkPath"`
+	GuestTarget     *guestTargetState   `json:"guestTarget"`
+	// GuestAuto is the account for the automatic fix-up (user name only)
+	// and Fixups each VM's latest automatic fix-up.
+	GuestAuto     guestAutoState       `json:"guestAuto"`
+	Fixups        []guestFixStatus     `json:"fixups"`
+	CompareSerial uint64               `json:"compareSerial"`
+	CompareError  string               `json:"compareError"`
+	Prepare       *vmPrepareResult     `json:"prepare"`
+	PrepareSerial uint64               `json:"prepareSerial"`
+	PrepareError  string               `json:"prepareError"`
+	PrepareBatch  []vmPrepareBatchItem `json:"prepareBatch"`
+	CanPrepare    bool                 `json:"canPrepare"`
+	HyperVHere    bool                 `json:"hyperVHere"`
+	Move          *vmMoveResult        `json:"move"`
+	MoveSerial    uint64               `json:"moveSerial"`
+	MoveError     string               `json:"moveError"`
+	MoveCopyRoot  string               `json:"moveCopyRoot"`
+	HostStorage   *vmHostStorage       `json:"hostStorage"`
 	// HVRemote is the remote Hyper-V host or cluster Move VMs is connected
 	// to from this computer (never its password).
 	HVRemote *hvRemoteStateResponse `json:"hvRemote"`
@@ -157,7 +161,7 @@ func (a *application) vmwareSnapshotLocked() vmwareStateResponse {
 		Server: a.vmware.server, Account: a.vmware.account, Certificate: a.vmware.certificate,
 		InventorySerial: a.vmware.inventorySerial, OutputFolder: a.vmware.outputFolder, ReportPath: a.vmware.reportPath,
 		RunbookPath: a.vmware.runbookPath, RunbookDocxPath: vmRunbookDocxFor(a.vmware.runbookPath), DiscoveryPath: vmDiscoveryReportFor(a.vmware.reportPath), ReportDocxPath: vmReportBeside(a.vmware.reportPath, vmReportDocx), ReportPDFPath: vmReportBeside(a.vmware.reportPath, vmReportPDF), PlanCSVPath: a.vmware.planCSVPath,
-		GuestSerial: a.vmware.guestSerial, GuestMessage: a.vmware.guestMessage, GuestError: a.vmware.guestError, GuestWorkPath: a.guestWorkPath(), GuestTarget: a.guestTargetStateLocked(),
+		GuestSerial: a.vmware.guestSerial, GuestMessage: a.vmware.guestMessage, GuestError: a.vmware.guestError, GuestWorkPath: a.guestWorkPath(), GuestTarget: a.guestTargetStateLocked(), GuestAuto: guestAutoState{User: a.guestAuto.user, HasPassword: a.guestAuto.password != ""}, Fixups: a.fixups.List(),
 		CompareSerial: a.vmware.compareSerial, CompareError: a.vmware.compareError,
 		Prepare: a.vmware.prepare, PrepareSerial: a.vmware.prepareSerial, PrepareError: a.vmware.prepareError, PrepareBatch: append([]vmPrepareBatchItem{}, a.vmware.prepareBatch...),
 		Move: a.vmware.move, MoveSerial: a.vmware.moveSerial, MoveError: a.vmware.moveError, MoveCopyRoot: a.vmwareCopyRootLocked(),

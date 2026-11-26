@@ -208,7 +208,9 @@ func TestReportModelCountsAndGroupsIssues(t *testing.T) {
 			static = len(issue.VMs)
 		}
 	}
-	if static < 5 {
+	// Windows VMs' static IPs are put back by the Hyper-V cutover (rule 47)
+	// and are information; the Linux web servers still need it by hand.
+	if static < 2 {
 		t.Fatalf("static IP issue groups %d VMs", static)
 	}
 	for _, tile := range model.Tiles {

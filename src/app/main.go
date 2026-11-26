@@ -274,10 +274,15 @@ type application struct {
 	// guestRemote is where Prepare and fix up runs (guest_remote_windows.go);
 	// its password stays in memory until Forget or exit.
 	guestRemote guestTarget
-	plans       mbRuntime
-	vmReceive   vmReceiverRuntime
-	transfers   *vmTransferBoard
-	repl        replRuntime
+	// guestAuto is the guest administrator account for the automatic
+	// fix-up after a cutover (guest_autofix_windows.go), typed once and kept
+	// in memory only, until Forget or exit; fixups is each VM's result.
+	guestAuto guestAutoAccount
+	fixups    guestFixBoard
+	plans     mbRuntime
+	vmReceive vmReceiverRuntime
+	transfers *vmTransferBoard
+	repl      replRuntime
 }
 
 func utf16Ptr(value string) *uint16 {
@@ -2357,6 +2362,8 @@ func (a *application) serve(listener net.Listener) error {
 	mux.HandleFunc("/api/vmware/guest", a.handleVMwareGuest)
 	mux.HandleFunc("/api/vmware/guest/", a.handleVMwareGuest)
 	mux.HandleFunc("/api/vmware/guest-load", a.handleVMwareGuestLoad)
+	mux.HandleFunc("/api/vmware/guest-auto", a.handleGuestAuto)
+	mux.HandleFunc("/api/vmware/guest-auto/", a.handleGuestAuto)
 	mux.HandleFunc("/api/vmware/guest-target", a.handleGuestTarget)
 	mux.HandleFunc("/api/vmware/guest-target/", a.handleGuestTarget)
 	mux.HandleFunc("/api/vmware/compare/browse", a.handleVMwareCompareBrowse)
