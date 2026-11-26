@@ -55,6 +55,7 @@ type vmwareRuntime struct {
 	move            *vmMoveResult
 	moveSerial      uint64
 	moveError       string
+	moveStatus      *vmMoveStatus
 	send            []vmAgentSendResult
 	sendSerial      uint64
 	sendError       string
@@ -109,6 +110,7 @@ type vmwareStateResponse struct {
 	Move          *vmMoveResult        `json:"move"`
 	MoveSerial    uint64               `json:"moveSerial"`
 	MoveError     string               `json:"moveError"`
+	MoveStatus    *vmMoveStatus        `json:"moveStatus"`
 	MoveCopyRoot  string               `json:"moveCopyRoot"`
 	HostStorage   *vmHostStorage       `json:"hostStorage"`
 	// HVRemote is the remote Hyper-V host or cluster Move VMs is connected
@@ -164,7 +166,7 @@ func (a *application) vmwareSnapshotLocked() vmwareStateResponse {
 		GuestSerial: a.vmware.guestSerial, GuestMessage: a.vmware.guestMessage, GuestError: a.vmware.guestError, GuestWorkPath: a.guestWorkPath(), GuestTarget: a.guestTargetStateLocked(), GuestAuto: guestAutoState{User: a.guestAuto.user, HasPassword: a.guestAuto.password != ""}, Fixups: a.fixups.List(),
 		CompareSerial: a.vmware.compareSerial, CompareError: a.vmware.compareError,
 		Prepare: a.vmware.prepare, PrepareSerial: a.vmware.prepareSerial, PrepareError: a.vmware.prepareError, PrepareBatch: append([]vmPrepareBatchItem{}, a.vmware.prepareBatch...),
-		Move: a.vmware.move, MoveSerial: a.vmware.moveSerial, MoveError: a.vmware.moveError, MoveCopyRoot: a.vmwareCopyRootLocked(),
+		Move: a.vmware.move, MoveSerial: a.vmware.moveSerial, MoveError: a.vmware.moveError, MoveStatus: a.vmware.moveStatus, MoveCopyRoot: a.vmwareCopyRootLocked(),
 		Send: a.vmware.send, SendSerial: a.vmware.sendSerial, SendError: a.vmware.sendError, Receiver: a.vmReceiverStateLocked(),
 		HyperVHere:      vmHyperVHere(),
 		HostStorage:     vmHostStorageNow(),
@@ -239,6 +241,30 @@ func (a *application) startVMwareAction(action string) (int, string) {
 		return http.StatusConflict, refusal
 	}
 	return 0, ""
+}
+
+// moveStatusBegin starts the live status of a Move VMs copy or cutover.
+func (a *application) moveStatusBegin(vm vmMachine, action, last string) {
+	now := time.Now().UTC()
+	stages := vmMoveStages(action, vm.Source == vmSourceHyperV, last)
+	a.mu.Lock()
+	a.vmware.moveStatus = &vmMoveStatus{VMID: vm.ID, VM: vm.Name, Action: action, Stages: stages, Stage: stages[0], State: "running", Started: now, Updated: now}
+	a.mu.Unlock()
+}
+
+// moveStage records the step the running move is on (vmMoveRequest.Stage).
+func (a *application) moveStage(stage, detail string) {
+	a.mu.Lock()
+	a.vmware.moveStatus.Set(stage, detail, time.Now().UTC())
+	a.mu.Unlock()
+}
+
+// moveStatusEnd records the result, after finishVMwareAction set the
+// message that says it.
+func (a *application) moveStatusEnd(err error) {
+	a.mu.Lock()
+	a.vmware.moveStatus.End(err, errors.Is(err, context.Canceled), a.vmware.message, time.Now().UTC())
+	a.mu.Unlock()
 }
 
 func (a *application) finishVMwareAction(status, message string) {

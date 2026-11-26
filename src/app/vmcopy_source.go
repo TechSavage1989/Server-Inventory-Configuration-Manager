@@ -14,6 +14,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/vmware/govmomi/vim25"
 	"github.com/vmware/govmomi/vim25/soap"
@@ -281,11 +282,24 @@ func vmSplitDatastorePath(value string) (datastore, file string, err error) {
 
 // vmDatastoreFile reads one datastore file with HTTP Range requests through
 // the logged-in vSphere session. Only GET and HEAD are ever sent.
+//
+// A server may answer a ranged GET with 200 and the whole file (HTTP allows
+// it, and vCenter's /folder proxy does it, at least for a range that covers
+// the whole file). A 200 is never taken as the requested range: at offset 0
+// the body starts where the read starts; anywhere else the file is read as
+// one stream from the start, skipping forward to each read, and reopened
+// only when a read goes backwards. The copy engine reads in increasing
+// order, so a server that ignores Range still gives a correct copy.
 type vmDatastoreFile struct {
 	ctx    context.Context
 	client *vim25.Client
 	url    *url.URL
 	size   int64
+
+	mu      sync.Mutex
+	noRange bool
+	stream  io.ReadCloser
+	pos     int64
 }
 
 func vmDatastoreURL(client *vim25.Client, datacenter, datastore, file string) *url.URL {
@@ -315,6 +329,22 @@ func openVMDatastoreFile(ctx context.Context, client *vim25.Client, datacenter, 
 	return f, nil
 }
 
+// vmContentRangeStart reads the first byte position of a Content-Range
+// header ("bytes 100-199/1000").
+func vmContentRangeStart(value string) (int64, bool) {
+	value = strings.TrimSpace(value)
+	if !strings.HasPrefix(value, "bytes ") {
+		return 0, false
+	}
+	value = strings.TrimSpace(value[len("bytes "):])
+	dash := strings.Index(value, "-")
+	if dash < 1 {
+		return 0, false
+	}
+	start, err := strconv.ParseInt(value[:dash], 10, 64)
+	return start, err == nil
+}
+
 func (f *vmDatastoreFile) ReadAt(p []byte, off int64) (int, error) {
 	if off >= f.size {
 		return 0, io.EOF
@@ -326,22 +356,103 @@ func (f *vmDatastoreFile) ReadAt(p []byte, off int64) (int, error) {
 	if want == 0 {
 		return 0, nil
 	}
-	response, err := f.client.DownloadRequest(f.ctx, f.url, &soap.Download{
-		Method:  http.MethodGet,
-		Headers: map[string]string{"Range": fmt.Sprintf("bytes=%d-%d", off, off+want-1)},
-	})
-	if err != nil {
-		return 0, err
+	var n int
+	var err error
+	f.mu.Lock()
+	if f.noRange {
+		n, err = f.readStreamLocked(p[:want], off)
+		f.mu.Unlock()
+	} else {
+		f.mu.Unlock()
+		n, err = f.readRange(p[:want], off)
 	}
-	defer response.Body.Close()
-	if response.StatusCode != http.StatusPartialContent {
-		return 0, fmt.Errorf("the datastore answered %s to a ranged read", response.Status)
-	}
-	n, err := io.ReadFull(response.Body, p[:want])
 	if err == nil && want < int64(len(p)) {
 		err = io.EOF
 	}
 	return n, err
+}
+
+func (f *vmDatastoreFile) readRange(p []byte, off int64) (int, error) {
+	response, err := f.client.DownloadRequest(f.ctx, f.url, &soap.Download{
+		Method:  http.MethodGet,
+		Headers: map[string]string{"Range": fmt.Sprintf("bytes=%d-%d", off, off+int64(len(p))-1)},
+	})
+	if err != nil {
+		return 0, err
+	}
+	switch response.StatusCode {
+	case http.StatusPartialContent:
+		defer response.Body.Close()
+		if start, ok := vmContentRangeStart(response.Header.Get("Content-Range")); ok && start != off {
+			return 0, fmt.Errorf("the datastore answered a ranged read at %d with data from %d", off, start)
+		}
+		return io.ReadFull(response.Body, p)
+	case http.StatusOK:
+		// The whole file, from its first byte.
+		f.mu.Lock()
+		defer f.mu.Unlock()
+		if off > 0 {
+			f.noRange = true
+		}
+		f.closeStreamLocked()
+		f.stream, f.pos = response.Body, 0
+		n, err := f.readStreamLocked(p, off)
+		if off == 0 {
+			// The server may still honour ranges further on; do not hold a
+			// stream of the whole file open for it.
+			f.closeStreamLocked()
+		}
+		return n, err
+	default:
+		response.Body.Close()
+		return 0, fmt.Errorf("the datastore answered %s to a ranged read", response.Status)
+	}
+}
+
+// readStreamLocked reads p at off from the whole-file stream, opening it
+// (again) when there is none or the read is behind it. Caller holds f.mu.
+func (f *vmDatastoreFile) readStreamLocked(p []byte, off int64) (int, error) {
+	if f.stream == nil || off < f.pos {
+		f.closeStreamLocked()
+		response, err := f.client.DownloadRequest(f.ctx, f.url, &soap.Download{Method: http.MethodGet})
+		if err != nil {
+			return 0, err
+		}
+		if response.StatusCode != http.StatusOK {
+			response.Body.Close()
+			return 0, fmt.Errorf("the datastore answered %s to a read of the whole file", response.Status)
+		}
+		f.stream, f.pos = response.Body, 0
+	}
+	if skip := off - f.pos; skip > 0 {
+		skipped, err := io.CopyN(io.Discard, f.stream, skip)
+		f.pos += skipped
+		if err != nil {
+			f.closeStreamLocked()
+			return 0, fmt.Errorf("the datastore file ended early while skipping to %d: %w", off, err)
+		}
+	}
+	n, err := io.ReadFull(f.stream, p)
+	f.pos += int64(n)
+	if err != nil {
+		f.closeStreamLocked()
+	}
+	return n, err
+}
+
+func (f *vmDatastoreFile) closeStreamLocked() {
+	if f.stream != nil {
+		f.stream.Close()
+		f.stream, f.pos = nil, 0
+	}
+}
+
+// Close ends a whole-file stream, if one is open.
+func (f *vmDatastoreFile) Close() error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.closeStreamLocked()
+	return nil
 }
 
 func (f *vmDatastoreFile) readAll(limit int64) ([]byte, error) {
@@ -386,6 +497,6 @@ func openDatastoreVMDK(ctx context.Context, client *vim25.Client, datacenter, di
 		if err != nil {
 			return nil, 0, nil, err
 		}
-		return data, data.size, nil, nil
+		return data, data.size, data, nil
 	})
 }
