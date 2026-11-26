@@ -1299,6 +1299,33 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   assert.equal(vmwareCalls(f,'plan').at(-1).body.plan.scenario,'new');assert(!await f.page.locator('#vmStagesSection').isVisible());
   assert.deepEqual(f.dialogs,[]);
  }finally{await f.close();}});
+ await check('Move VMs selection: select-all takes only the VMs shown, hidden selected VMs are counted and named, and VMs already moved are flagged and left out',async()=>{const f=await fixture(browser);try{
+  f.plans.plans=[{id:'p0',name:'Wave 1',server:'vc01.example.com',paused:false,settings:{},throttle:'no limit',summary:{total:1,waiting:0,copying:0,ready:0,testing:0,scheduled:0,done:1,failed:0},vms:[{id:'vm-web02',name:'WEB02',wave:1,state:'done',seeded:true,failures:0}]}];
+  await vmwareConnected(f);
+  f.vm.inventory.vms[0].name='APP01 - MIGRATED! Do not power on';f.vm.inventory.vms[0].readiness[0]=Object.assign({},f.vm.inventory.vms[0].readiness[0],{status:'review',findings:[{severity:'warning',code:'already-moved',message:"The VM's name says it was already migrated or retired.",action:'Exclude it.'}]});f.state.vmware.inventorySerial=2;
+  await goTool(f,'movevms');await f.page.locator('#vmObjTab-vms').click();await f.page.waitForFunction(()=>/MIGRATED/.test(document.querySelector('#vmTableBody').textContent));
+  await f.page.waitForFunction(()=>document.querySelectorAll('#vmTableBody input[data-vm-pick]').length===4);
+  await f.page.waitForFunction(()=>/Already cut over by the migration plan Wave 1/.test(document.querySelector('#vmTableBody').textContent));
+  assert((await f.page.locator('#vmTableBody tr[data-vm-id="vm-app01"] .vm-moved').textContent()).includes('already migrated'),'a name that says migrated is flagged');
+  await f.page.locator('#vmPickShown').check();
+  assert.equal(await f.page.locator('#vmListBulk .vm-bulk-count').textContent(),'2 VMs selected','select-all leaves out VMs already moved');
+  assert(!(await f.page.locator('#vmTableBody input[data-vm-pick="vm-web02"]').isChecked())&&!(await f.page.locator('#vmTableBody input[data-vm-pick="vm-app01"]').isChecked()));
+  await f.page.locator('#vmTableBody input[data-vm-pick="vm-web02"]').check();
+  assert((await f.page.locator('#vmBulkMoved').textContent()).includes('WEB02 (Already cut over by the migration plan Wave 1)'),'a VM ticked by hand that was moved is named');
+  await f.page.locator('#vmSearch').fill('sql');await f.page.waitForFunction(()=>document.querySelectorAll('#vmTableBody input[data-vm-pick]').length===1);
+  assert.equal(await f.page.locator('#vmListBulk .vm-bulk-count').textContent(),'3 VMs selected (2 hidden by the filter)','hidden selected VMs are counted');
+  assert((await f.page.locator('#vmBulkHidden').textContent()).includes('LEGACY03, WEB02'),'and named');
+  await f.page.locator('#vmPickShown').uncheck();assert.equal(await f.page.locator('#vmListBulk .vm-bulk-count').textContent(),'2 VMs selected (2 hidden by the filter)','unticking the header changes only the VMs shown');
+  await f.page.locator('#vmListBulk [data-bulk="showhidden"]').click();await f.page.waitForFunction(()=>document.querySelectorAll('#vmTableBody input[data-vm-pick]').length===4);
+  assert.equal(await f.page.locator('#vmSearch').inputValue(),'');assert.equal(await f.page.locator('#vmListBulk .vm-bulk-count').textContent(),'2 VMs selected');
+  await f.page.locator('#vmSearch').fill('legacy');await f.page.waitForFunction(()=>document.querySelectorAll('#vmTableBody input[data-vm-pick]').length===1);
+  await f.page.locator('#vmListBulk [data-bulk="drophidden"]').click();assert.equal(await f.page.locator('#vmListBulk .vm-bulk-count').textContent(),'1 VM selected');
+  assert(await f.page.locator('#vmTableBody input[data-vm-pick="vm-legacy03"]').isChecked());
+  await f.page.setViewportSize({width:1008,height:690});await f.page.locator('#vmSearch').fill('');await f.page.locator('#vmTableBody input[data-vm-pick="vm-sql01"]').check();await f.page.locator('#vmSearch').fill('legacy');
+  await f.page.locator('#vmBulkHidden').scrollIntoViewIfNeeded();assert(await f.page.locator('#vmListBulk [data-bulk="drophidden"]').isVisible(),'reachable at 1024x768');
+  await f.page.screenshot({path:shots+'/vmware-selection-hidden-1008x690.png'});
+  assert.deepEqual(f.dialogs,[]);
+ }finally{await f.close();}});
  await check('VMware waves: explained, editable by name, planned window, drag, move, split and merge; bulk wave, prepare and plan actions on ticked VMs',async()=>{const f=await fixture(browser);try{
   await vmwareConnected(f);await goTool(f,'plan');
   assert((await f.page.locator('#vmWaveWhat').textContent()).includes('A group of VMs you move together'),'waves are explained');
