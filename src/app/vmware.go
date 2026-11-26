@@ -309,6 +309,49 @@ func (a *application) vmwareOutputFolder(prefix string) string {
 	return filepath.Join(root, prefix+"_"+time.Now().Format("20060102_150405"))
 }
 
+// handleOutputRoot changes the output folder from Discovery's VMware and
+// Hyper-V tool. It is the same folder the Collection tab uses, saved the same
+// way (settings.json and the saved collection choices), so both places always
+// show and write to one folder.
+func (a *application) handleOutputRoot(response http.ResponseWriter, request *http.Request) {
+	if !a.requireAuthorization(response, request) {
+		return
+	}
+	var input struct {
+		OutputRoot string `json:"outputRoot"`
+	}
+	if !decodeVMwareRequest(response, request, &input) {
+		return
+	}
+	folder, err := cleanOutputRootChoice(input.OutputRoot)
+	if err != nil {
+		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	a.mu.Lock()
+	running := a.state.Running
+	a.mu.Unlock()
+	if running {
+		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "The output folder cannot be changed while a collection is running."})
+		return
+	}
+	if err := testOutputWritable(folder); err != nil {
+		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "Reports cannot be saved there: " + err.Error()})
+		return
+	}
+	a.mu.Lock()
+	a.defaultOutputRoot = folder
+	saved := true
+	if a.collectionPreferences != nil {
+		options := a.collectionPreferences.Options
+		options.OutputRoot = folder
+		saved = a.saveCollectionPreferences(options) == nil
+	}
+	a.mu.Unlock()
+	a.saveApplicationSettings(folder)
+	writeJSON(response, http.StatusOK, map[string]any{"ok": true, "outputRoot": folder, "saved": saved})
+}
+
 func (a *application) loadVMwarePlan(inventory *vmInventory) vmPlan {
 	data, err := os.ReadFile(a.vmwarePlanPath(inventory.Server))
 	if err == nil {

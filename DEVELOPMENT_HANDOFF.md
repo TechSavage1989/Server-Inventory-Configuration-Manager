@@ -5,6 +5,11 @@
 - Tests: `go test ./...` (`preflight_test.go`), `TestRolePreflightScriptReadsAServerThroughRemoting` on the Windows runner, the workspace check "SQL and DC checks".
 - Limits: not run against a real domain controller or SQL Server yet. Each check reads only the checked DC's own replication status (a remote session cannot pass the account on), so forest-wide `repadmin /replsummary` stays a manual step. dcdiag output is parsed in English; on other languages its last lines are kept and shown.
 
+## Unreleased: choose where VMware and Hyper-V discovery saves its reports — 2026-11-26
+
+- Discovery's VMware and Hyper-V tool shows **Save discovery reports in** with Browse (rule 54). It is the application's one output folder, shared with This server, saved through `/api/output-root` the same way a collection saves it. Before this, VMware reads used that folder only after a collection had run or saved choices, so a fresh install always wrote to the Desktop.
+- Tests: `go test` (`TestCleanOutputRootChoice`), `GOOS=windows go vet` and the full `scripts/test_workspace.cjs` pass locally with Chromium, including the new check at 1008x690 and 784x522. Choosing a UNC folder from a real Windows session is not field-validated.
+
 ## Unreleased: copies of running VMware VMs read through the snapshot export when the datastore refuses the disk — 2026-11-26
 
 - Field report on 3.2.36: the migration plan for MATCHC-DC01 (vCenter at 192.168.120.35, from admin computer MATCHC-DC02 to HV-HOST01 in MCHC-HVCL01) failed every round with "Hard disk 1: could not open MATCHC-DC01-flat.vmdk: [Datastore001] MATCHC-DC01/MATCHC-DC01-flat.vmdk: the server answered 500 Internal Server Error". The descriptor read through `/folder`; the HEAD of the flat extent the running VM holds open did not.

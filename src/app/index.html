@@ -686,7 +686,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
 .tool-pane{display:none;min-height:0;flex:1 1 auto}.tool-pane.active{display:flex;flex-direction:column}.tool-pane.active>*{flex:1 1 auto;min-height:0}
 .tool-current{display:none}
 .vm-move-intro{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin-bottom:10px;padding:9px 12px;border:1px solid #c9d6ea;border-radius:8px;background:#f5f8fd;color:#243249;font-size:12.5px}.vm-move-intro.hidden{display:none}
-.vm-ctx-move .vm-read-section{display:none}
+.vm-ctx-move .vm-read-section{display:none}.vm-save-to .vm-field{margin-top:2px}.vm-save-to .path-pick{max-width:720px;margin-top:4px}.vm-save-to .vm-field input{max-width:none;height:34px;box-sizing:border-box;border:1px solid #bcc9d9;border-radius:7px;padding:0 10px;font:inherit;font-size:13px}.vm-save-to .path-pick-button{min-height:34px}.vm-save-to .vm-field input[aria-invalid=true]{border-color:#c0392b}
 /* Wide windows: the two ways to read an inventory sit side by side, so the inventory starts higher. */
 @media(min-width:1600px){.vm-read-pair{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0 12px;align-items:start}}.vm-ctx-plain #vmRoles,.vm-ctx-notarget .vm-target{display:none}
 .vm-tool-runs{margin:0;flex:1 1 320px}
@@ -1116,6 +1116,11 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
               <div class="migrate-inline-status" id="vmHvStatus" role="status" aria-live="polite"></div>
             </section>
             </div>
+            <section class="migrate-section vm-read-section vm-save-to" aria-labelledby="vmSaveToTitle">
+              <h3 class="migrate-section-title" id="vmSaveToTitle">Save discovery reports in</h3>
+              <label class="vm-field vm-save-field"><span class="migrate-help" id="vmOutputHelp">Each read makes a new folder here, such as VMware_vc01_20261126_093000, with the readiness and discovery reports (HTML, Word and PDF). It is the same output folder This server uses for its packages, and it is remembered.</span><input id="vmOutputRoot" type="text" spellcheck="false" autocomplete="off" maxlength="260" aria-label="Folder for discovery reports" aria-describedby="vmOutputHelp" placeholder="C:\Reports"></label>
+              <div class="migrate-inline-status" id="vmOutputStatus" role="status" aria-live="polite"></div>
+            </section>
             <div class="hidden" id="vmEnvResult">
               <div class="vm-counts-head"><span class="vm-counts-title" id="vmCountsTitle">Readiness</span><span class="vm-note" id="vmCountsNote"></span></div>
               <div class="vm-counts" role="group" aria-label="Hosts, and VMs by readiness"><button class="vm-count hosts" id="vmHostsCard" type="button" title="Open every host with its hardware, licensing, network, storage and VMs"><strong id="vmCountHosts">0</strong>Hosts<span class="vm-count-sub" id="vmCountHostsSub"></span></button><button class="vm-count" type="button" data-vmfilter="all" aria-pressed="true"><strong id="vmCountAll">0</strong>All VMs</button><button class="vm-count blocked" type="button" data-vmfilter="blocked" aria-pressed="false"><strong id="vmCountBlocked">0</strong>Blocked</button><button class="vm-count review" type="button" data-vmfilter="review" aria-pressed="false"><strong id="vmCountReview">0</strong>Review first</button><button class="vm-count ready" type="button" data-vmfilter="ready" aria-pressed="false"><strong id="vmCountReady">0</strong>Ready</button><button class="vm-count skip hidden" id="vmCountSkipCard" type="button" data-vmfilter="skip" aria-pressed="false" title="vCenter, vCLS and other VMware system VMs stay behind"><strong id="vmCountSkip">0</strong>Not moved</button></div>
@@ -4127,6 +4132,23 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     byId('vmMoveIntroText').textContent=has?'Select a VM in the tree, then open its Move tab: Copy disks while it runs, then Cut over. The VMs below were read from '+(vmInventory.server||'the last inventory')+'.':'First read vCenter, ESXi or a Hyper-V host, or open a saved inventory, in Discovery. Its VMs then appear here to move.';
     byId('vmMoveIntroDiscover').textContent=has?'Read another environment in Discovery':'Go to Discovery: VMware and Hyper-V';
   }
+  var vmOutputSaving=false,vmOutputShown='';
+  function renderVmOutputRoot(state){
+    var input=byId('vmOutputRoot'),root=state.defaultOutputRoot||'';
+    if(root!==vmOutputShown&&document.activeElement!==input&&!vmOutputSaving){vmOutputShown=root;input.value=root;}
+    input.disabled=vmOutputSaving||!!(state.vmware&&state.vmware.running)||!!state.running;
+  }
+  function saveVmOutputRoot(){
+    var input=byId('vmOutputRoot'),value=trimText(input.value);
+    if(!value||value===vmOutputShown||vmOutputSaving){if(!value){input.value=vmOutputShown;}return;}
+    vmOutputSaving=true;input.disabled=true;vmSetStatus('vmOutputStatus','Checking the folder...',false);
+    request('POST','/api/output-root',{outputRoot:value},function(err,data){vmOutputSaving=false;input.disabled=false;
+      if(err){input.setAttribute('aria-invalid','true');vmSetStatus('vmOutputStatus',err,true);return;}
+      input.removeAttribute('aria-invalid');vmOutputShown=data.outputRoot;input.value=data.outputRoot;
+      if(latestState){latestState.defaultOutputRoot=data.outputRoot;if(latestState.collectionPreferences&&latestState.collectionPreferences.options){latestState.collectionPreferences.options.outputRoot=data.outputRoot;}}
+      byId('outputPath').value=data.outputRoot;
+      vmSetStatus('vmOutputStatus',data.saved===false?'Reports will be saved in '+data.outputRoot+', but the choice could not be saved for next time.':'Saved. New reports go to '+data.outputRoot+'.',data.saved===false);});
+  }
   function renderVMware(state){
     var v=state.vmware||{status:'idle',logs:[]};
     var badge=v.running?(v.action==='connect'||v.action==='hyperv'?'Reading':'Working'):({connected:'Read',connectfailed:'Failed'}[v.status]||'Ready');
@@ -4136,7 +4158,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     var hyperV=!!(v.summary&&v.summary.serverType==='Hyper-V host');
     if(v.server&&!hyperV&&!server.value&&document.activeElement!==server){server.value=v.server;}
     if(v.account&&!hyperV&&!user.value&&document.activeElement!==user){user.value=v.account;}
-    renderVmCertificate(v);renderVmSummary(v);
+    renderVmCertificate(v);renderVmSummary(v);renderVmOutputRoot(state);
     if((v.inventorySerial||0)!==vmInvSerial&&!vmInvLoading){loadVmInventory(v.inventorySerial||0);}
     if((v.guestSerial||0)!==vmGuestSerial&&!vmGuestLoading){loadVmGuest(v.guestSerial||0);}
     if((v.compareSerial||0)!==vmCompareSerial&&!vmCompareLoading){loadVmCompare(v.compareSerial||0);}
@@ -6333,6 +6355,8 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   ['vmServer','vmUser','vmPassword'].forEach(function(id){byId(id).addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();connectVmware();}});});
   byId('vmConnect').addEventListener('click',function(){connectVmware();});
   byId('vmHvRead').addEventListener('click',function(){readHyperV();});
+  pathBrowse(byId('vmOutputRoot'),{title:'Choose the folder for VMware and Hyper-V discovery reports. Each read makes a new folder inside it.',start:function(){return vmOutputShown;}});
+  byId('vmOutputRoot').addEventListener('change',saveVmOutputRoot);byId('vmOutputRoot').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();saveVmOutputRoot();}else if(e.key==='Escape'){byId('vmOutputRoot').value=vmOutputShown;}});
   ['vmHvHost','vmHvUser','vmHvPassword'].forEach(function(id){byId(id).addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();readHyperV();}});});
   byId('vmCertTrust').addEventListener('click',function(){var v=vmwareState()||{};if(v.certificate){connectVmware(v.certificate.thumbprint);}});
   byId('vmOpenInventory').addEventListener('click',function(){vmPost('/api/vmware/open-inventory',{},'vmConnectStatus');});
