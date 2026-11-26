@@ -73,7 +73,7 @@ const hvBuildFixture={"plan":{"schema":1,"name":"Prod","source":"vcenter.example
 const hvBuildStepCount=hvBuildFixture.steps.length;
 async function fixture(browser,old=false){
  let saved=null,started=[],saveCalls=0,rejectStart=false,skipRequests=[],opens=[],restoreReject=null,migrateReject={},vmwareReject={};const receiverPair={allowed:false};
- const logs=[],dialogs=[],errors=[],restoreCalls={browse:0,scan:[],start:[],cancel:0,tokens:[]},migrateCalls=[],vmwareCalls=[],convertCalls=[],replCalls=[],planCalls=[];const plans={plans:[],inventory:{open:true,server:'vc01.example.com',serverType:'vCenter Server',live:true}};let convertReject={},convertSize=0;const pickCalls=[];let pickReject='';
+ const logs=[],dialogs=[],errors=[],restoreCalls={browse:0,scan:[],start:[],cancel:0,tokens:[]},migrateCalls=[],vmwareCalls=[],convertCalls=[],replCalls=[],planCalls=[],serverCalls=[];const servers={rows:[],summary:{total:0,states:{},scheduled:0,methods:{}},bulk:{running:false,action:'',total:0,results:[]},hyperVHere:true,isAdministrator:true,local:{hyperV:true,computer:'HV01',running:false,folder:'',defaultFolder:'C:\\ClusterStorage\\Volume1\\Hyper-V\\Received',port:44380,addresses:['192.0.2.40']}};const plans={plans:[],inventory:{open:true,server:'vc01.example.com',serverType:'vCenter Server',live:true}};let convertReject={},convertSize=0;const pickCalls=[];let pickReject='';
  const state={status:'idle',phase:'Ready',running:false,computerName:'SRV-DEMO-01',isAdministrator:true,powerShellVersion:'5.1',defaultOutputRoot:'C:\\Reports',update:{status:'current',title:'Up to date',message:'Installed v3.2.10. Latest v3.2.10.',canCheck:true},
   restore:{status:'idle',packages:{lastCollection:'',loadedReport:''},items:[],logs:[]},migrate:migrateIdle(),vmware:vmwareIdle(),convert:convertIdle()};
  const vm={inventory:null,plan:null,sizing:null,guest:null,compare:null};
@@ -188,6 +188,7 @@ async function fixture(browser,old=false){
    let body='';for await(const chunk of req)body+=chunk;const data=body?JSON.parse(body):{},action=url.pathname.slice(10);replCalls.push({action,method:req.method,body:data,token:req.headers['x-app-token']});
    if(req.headers['x-app-token']!=='workspace-test'){send(403,{});return;}
    if(action==='state'){send(200,repl);return;}
+   if(action==='local'){send(200,{ok:true,selected:true,path:'C:\\ClusterStorage\\Volume2\\Replicas'});return;}
    if(action==='failover'&&req.method==='GET'){send(200,Object.assign({ok:true,hyperV:true,folder:'D:\\Migration\\VMware-Copies\\Received',receiving:true},failover,url.searchParams.get('switches')==='1'?{switches:[{name:'Isolated test',type:'Private'},{name:'LAN',type:'External'}]}:{}));return;}
    if(action==='failover'&&data.action==='start'){failover.failovers=[{id:'f1',mode:data.request.mode,name:data.request.name,vmId:'6f1d4c3a-0000-4000-8000-000000000001',copies:data.request.copies,recoveryPoint:'2026-11-25T14:19:23Z',started:'2026-11-25T14:30:00Z'}];failover.copies.forEach(c=>{if(data.request.copies.includes(c.name))c.held='test failover '+data.request.name;});send(200,{ok:true});return;}
    if(action==='targettest'&&req.method==='GET'){const t=(state.vmware&&state.vmware.target)||{};send(200,Object.assign({ok:true,connected:!!t.connected,platform:t.platform||'',server:t.server||'',user:t.user||'',node:t.node||''},targetTest));return;}
@@ -221,6 +222,13 @@ async function fixture(browser,old=false){
    if(action==='repair'){Object.assign(c,{running:true,status:'running',task:'repair',repairTarget:data.target,message:'Fixing up '+data.path.split('\\').pop()+'.',serial:c.serial+1,log:['Opening '+data.path+' for changes.']});send(200,{ok:true});return;}
    send(200,{ok:true});return;
   }
+  if(url.pathname==='/api/servers'){
+   let body='';for await(const chunk of req)body+=chunk;const data=body?JSON.parse(body):{};serverCalls.push({method:req.method,body:data,token:req.headers['x-app-token']});
+   if(req.headers['x-app-token']!=='workspace-test'){send(403,{});return;}
+   if(req.method==='GET'){send(200,Object.assign({ok:true},servers));return;}
+   if(data.action==='cutover'&&data.confirm!==String(data.keys.length)){send(400,{ok:false,error:'Type '+data.keys.length+' to confirm.'});return;}
+   servers.bulk={running:false,action:data.action,total:data.keys.length,results:data.keys.map(k=>({key:k,name:(servers.rows.find(r=>r.key===k)||{}).name,ok:true,text:'Done.'}))};send(202,{ok:true,count:data.keys.length});return;
+  }
   if(url.pathname==='/api/plans'){
    let body='';for await(const chunk of req)body+=chunk;const data=body?JSON.parse(body):{};planCalls.push({method:req.method,body:data,token:req.headers['x-app-token']});
    if(req.method==='GET'){send(200,Object.assign({ok:true,sweeping:false,blocked:'',hyperVHere:true,testing:false,waves:{},switches:[{name:'Isolated',type:'Private'}]},plans));return;}
@@ -238,7 +246,7 @@ async function fixture(browser,old=false){
  await new Promise(r=>server.listen(0,'127.0.0.1',r));const context=await browser.newContext({viewport:{width:1440,height:1000}}),page=await context.newPage();
  page.on('dialog',async d=>{dialogs.push(d.message());await d.dismiss();});page.on('pageerror',e=>errors.push(e.message));
  const url='http://127.0.0.1:'+server.address().port+'/';await page.goto(url);await page.waitForFunction(()=>document.querySelector('#serverName').textContent==='SRV-DEMO-01');
- return {page,context,state,pickCalls,rejectPick(message){pickReject=message},vm,repl,plans,planCalls,failover,receiverPair,targetTest,replCalls,vmwareCalls,convertCalls,rejectConvert(action,message){convertReject[action]=message},setConvertSize(size){convertSize=size},rejectVmware(action,message){vmwareReject[action]=message},logs,dialogs,errors,started,skipRequests,opens,restoreCalls,migrateCalls,rejectMigrate(action,message){migrateReject[action]=message},rejectRestore(message){restoreReject=message},get saved(){return saved},get saveCalls(){return saveCalls},reject(){rejectStart=true},async close(){assert.deepEqual(errors,[]);await context.close();await new Promise(r=>server.close(r));}};
+ return {page,context,state,pickCalls,rejectPick(message){pickReject=message},vm,repl,plans,planCalls,servers,serverCalls,failover,receiverPair,targetTest,replCalls,vmwareCalls,convertCalls,rejectConvert(action,message){convertReject[action]=message},setConvertSize(size){convertSize=size},rejectVmware(action,message){vmwareReject[action]=message},logs,dialogs,errors,started,skipRequests,opens,restoreCalls,migrateCalls,rejectMigrate(action,message){migrateReject[action]=message},rejectRestore(message){restoreReject=message},get saved(){return saved},get saveCalls(){return saveCalls},reject(){rejectStart=true},async close(){assert.deepEqual(errors,[]);await context.close();await new Promise(r=>server.close(r));}};
 }
 // Tools live in two tabs: Discovery (Alt+1) and Migration and replication (Alt+5).
 const discoveryTools=['server','environment'];
@@ -1863,6 +1871,75 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
    await f.page.locator('#mpCutNow').scrollIntoViewIfNeeded();assert(await f.page.locator('#mpCutNow').isVisible());}
   f.plans.plans[0].vms[2].error='Datastore DS-NL-02 could not be reached; the next round retries in 10 minutes.';await f.page.waitForFunction(()=>document.querySelector('#mpRows .mp-err').textContent.startsWith('Datastore'),null,{timeout:15000});
   if(!f.errors.length&&!f.dialogs.length){await f.page.setViewportSize({width:1440,height:1000});await f.page.locator('.mp-body').evaluate(e=>e.scrollTop=0);await f.page.screenshot({path:out+'/migration-plans.png'});}
+  assert.deepEqual(f.errors,[]);assert.deepEqual(f.dialogs,[]);
+ }finally{await f.close();}});
+ await check('All jobs and servers: one list of every method with clickable tiles, live progress, Select by, bulk cutover in waves with the typed count, jobs to this Hyper-V host without a receiver to set up, agent installs, and task rows that open their tool',async()=>{const f=await fixture(browser);try{
+  const now=new Date(),iso=d=>new Date(d).toISOString(),ago=m=>iso(now.getTime()-m*60000);
+  const row=(o)=>Object.assign({percent:-1,lagSeconds:-1,wave:0,actions:[],detail:'',reason:''},o);
+  f.servers.rows=[
+   row({key:'plan:p1|vm-10',kind:'plan',method:'Migration plan',name:'DC01',detail:'Plan Wave 1',plan:'p1',vm:'vm-10',state:'insync',stateText:'In sync, ready to cut over',reason:'Seeded and kept in sync. Test it, then cut over.',lastSync:ago(20),lagSeconds:1200,limitMinutes:60,wave:1,actions:['sync','pause','test','cutover','wave']}),
+   row({key:'plan:p1|vm-11',kind:'plan',method:'Migration plan',name:'PRINT01',detail:'Plan Wave 1',plan:'p1',vm:'vm-11',state:'seeding',stateText:'Initial copy',reason:'The first full copy has not finished yet.',percent:40,bytesPerSecond:104857600,secondsLeft:600,wave:2,actions:['sync','pause','wave']}),
+   row({key:'job:a1|j1',kind:'job',method:'Agent replication',name:'APP01',detail:'Job APP01 on app01.example.com:44390',agent:'a1',job:'j1',host:'app01.example.com',state:'insync',stateText:'In sync, ready to cut over',reason:'A whole copy exists and stays current.',lastSync:ago(2),lagSeconds:120,limitMinutes:15,wave:2,actions:['sync','pause','test','cutover','wave']}),
+   row({key:'job:a2|j2',kind:'job',method:'Agent replication',name:'SQL01',detail:'Job SQL01 on 192.0.2.20:44390',agent:'a2',job:'j2',state:'failed',stateText:'Failed',reason:'The last round failed: the receiver went away & stopped answering.',actions:['sync','pause','wave']}),
+   row({key:'agent:a4',kind:'agent',method:'Agent replication',name:'WEB01',detail:'web01:44390',agent:'a4',host:'web01',state:'agent',stateText:'Agent installed, no job',reason:'The agent answers. Create a replication job to start copying.',actions:['createjob']}),
+   row({key:'vm:vm-31',kind:'vm',method:'Not configured',name:'NEW01',detail:'vc01.example.com',vm:'vm-31',host:'new01.example.com',state:'notconfigured',stateText:'Not configured',reason:'Nothing moves this VM yet.',actions:['install']}),
+   row({key:'task:convert',kind:'task',method:'Disk conversion',name:'APP02.vmdk',detail:'To D:\\VMs\\APP02.vhdx',state:'running',stateText:'Running',percent:25,bytesRead:2147483648,actions:[]})];
+  f.servers.summary={total:7,states:{insync:2,seeding:1,failed:1,agent:1,notconfigured:1,running:1},scheduled:0,methods:{}};
+  await goTool(f,'servers');await f.page.waitForFunction(()=>document.querySelectorAll('#asRows tr').length===7,null,{timeout:15000});
+  assert((await f.page.locator('[data-tool="servers"] .tool-works').textContent()).includes('Migration plans'));
+  assert.equal(await f.page.locator('#asSummary [data-as-filter="failed"]').evaluate(e=>e.tagName),'BUTTON');
+  assert.equal(await f.page.locator('#asSummary [data-as-filter="behind"]').count(),0,'empty tiles are left out');
+  await f.page.locator('#asSummary [data-as-filter="failed"]').click();await f.page.waitForFunction(()=>document.querySelectorAll('#asRows tr').length===1);
+  assert.equal(await f.page.locator('#asRows .as-reason').textContent(),'The last round failed: the receiver went away & stopped answering.','reasons are text');
+  await f.page.locator('#asFilterBar [data-as-showall]').click();await f.page.waitForFunction(()=>document.querySelectorAll('#asRows tr').length===7);
+  assert((await f.page.locator('#asRows tr[data-as-key="plan:p1|vm-11"] .as-progress-text').textContent()).includes('100 MB/s'));
+  assert.equal(await f.page.locator('#asRows tr[data-as-key="plan:p1|vm-11"] [role="progressbar"]').getAttribute('aria-valuenow'),'40');
+  assert(await f.page.locator('[data-as-act="cutover"]').isDisabled(),'nothing selected');
+  assert((await f.page.locator('#asWhy').textContent()).startsWith('Tick servers'));
+  await f.page.locator('#asSelectBy').selectOption('insync');await f.page.waitForFunction(()=>document.querySelector('#asSelCount').textContent==='2 servers selected');
+  assert.equal(await f.page.locator('[data-as-act="cutover"]').textContent(),'Cut over (2)');
+  await f.page.evaluate(()=>document.activeElement.blur());if(!f.errors.length){await f.page.screenshot({path:out+'/all-jobs-and-servers.png'});}assert.equal(await f.page.locator('[data-as-act="createjob"]').textContent(),'Create replication jobs (0)');
+  await f.page.locator('[data-as-act="cutover"]').click();await f.page.waitForSelector('#asFormCutover:not(.hidden)');
+  assert.deepEqual(await f.page.locator('#asCutPreview li').allTextContents(),['Wave 1: 1 server now',(await f.page.locator('#asCutPreview li').nth(1).textContent())]);
+  assert((await f.page.locator('#asCutPreview li').nth(1).textContent()).startsWith('Wave 2: 1 server at '));
+  assert(await f.page.locator('#asCutRun').isDisabled(),'the count must be typed');await f.page.locator('#asCutConfirm').fill('2');assert(!await f.page.locator('#asCutRun').isDisabled());
+  await f.page.locator('#asCutRun').click();await f.page.waitForFunction(()=>document.querySelector('#asResultsTitle').textContent.includes('2 of 2 done'),null,{timeout:15000});
+  const cut=f.serverCalls.find(c=>c.body.action==='cutover');assert.deepEqual(cut.body.keys.sort(),['job:a1|j1','plan:p1|vm-10']);assert.equal(cut.body.staggerMinutes,60);assert.equal(cut.body.confirm,'2');assert(!cut.body.at,'now has no time');
+  // Create jobs: this Hyper-V host is the default target; no receiver details to type.
+  await f.page.locator('#asSelectBy').selectOption('none');await f.page.locator('[data-as-row="agent:a4"]').check();
+  await f.page.locator('[data-as-act="createjob"]').click();await f.page.waitForSelector('#asFormJobs:not(.hidden)');
+  assert(await f.page.locator('#asJobTargetLocal').isChecked());assert(await f.page.locator('#asJobRemoteBox').isHidden());
+  assert((await f.page.locator('#asJobLocalText').textContent()).startsWith('This Hyper-V host (HV01)'));
+  assert.equal(await f.page.locator('#asJobFolder').inputValue(),'C:\\ClusterStorage\\Volume1\\Hyper-V\\Received');
+  await f.page.locator('#asJobBrowse').click();await f.page.waitForFunction(()=>document.querySelector('#asJobFolder').value.includes('Volume2'));
+  await f.page.locator('#asJobRun').click();await f.page.waitForFunction(()=>document.querySelector('#asFormJobs').classList.contains('hidden'),null,{timeout:15000});
+  const made=f.serverCalls.find(c=>c.body.action==='createjob');assert.deepEqual(made.body.keys,['agent:a4']);assert.equal(made.body.template.local,true);assert.equal(made.body.template.folder,'C:\\ClusterStorage\\Volume2\\Replicas');assert.equal(made.body.template.receiver.code,'');
+  // Install agents on a VM nothing moves yet: the guest name is filled in.
+  await f.page.locator('[data-as-row="agent:a4"]').uncheck();await f.page.locator('[data-as-row="vm:vm-31"]').check();
+  await f.page.locator('[data-as-act="install"]').click();await f.page.waitForSelector('#asFormInstall:not(.hidden)');
+  assert.equal(await f.page.locator('#asInstHosts').inputValue(),'new01.example.com');await f.page.locator('#asInstPassword').fill('synthetic-password');
+  await f.page.locator('#asInstRun').click();await f.page.waitForFunction(()=>document.querySelector('#asInstPassword').value==='',null,{timeout:15000});
+  const push=f.replCalls.find(c=>c.action==='push');assert.equal(push.body.hosts,'new01.example.com');assert.equal(push.body.platform,'windows');
+  for(const size of [{width:784,height:522},{width:1008,height:690}]){await f.page.setViewportSize(size);
+   const small=await f.page.evaluate(()=>Array.from(document.querySelectorAll('#tabServers *')).filter(e=>e.offsetParent&&e.childNodes.length&&Array.from(e.childNodes).some(n=>n.nodeType===3&&n.nodeValue.trim())&&parseFloat(getComputedStyle(e).fontSize)<10.5).map(e=>e.className+':'+e.textContent.slice(0,30)));assert.deepEqual(small,[],'text below 10.5px at '+size.width);
+   assert(await f.page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'overflow at '+size.width);
+   await f.page.locator('[data-as-act="cutover"]').scrollIntoViewIfNeeded();assert(await f.page.locator('[data-as-act="cutover"]').isVisible());}
+  await f.page.setViewportSize({width:1440,height:1000});
+  // A task row opens its own tool.
+  await f.page.locator('[data-as-open="task:convert"]').click();await f.page.waitForFunction(()=>document.querySelector('[data-tool="convert"]').getAttribute('aria-pressed')==='true');
+  assert(f.serverCalls.every(c=>c.token==='workspace-test'));assert.deepEqual(f.errors,[]);assert.deepEqual(f.dialogs,[]);
+ }finally{await f.close();}});
+ await check('Replication jobs can go to this Hyper-V host: the receiver here is set up for you and only the destination folder is asked',async()=>{const f=await fixture(browser);try{
+  f.repl.local={hyperV:true,computer:'HV01',running:true,folder:'C:\\ClusterStorage\\Volume1\\Replicas',defaultFolder:'C:\\Hyper-V\\Received',port:44380,addresses:['192.0.2.40']};
+  f.repl.agents=[{id:'ag1',name:'APP01',address:'app01.example.com:44390',live:{reachable:true,platform:'Windows',jobs:[],alerts:[]}}];f.repl.summary={agents:1,unreachable:0,jobs:0,healthy:0,behind:0,failing:0,paused:0,cutOver:0,alerts:0};
+  await goTool(f,'replicate');await f.page.waitForSelector('[data-rp-new="ag1"]',{timeout:15000});await f.page.locator('[data-rp-new="ag1"]').click();
+  await f.page.waitForFunction(()=>document.querySelectorAll('[data-rp-disk]').length===2);
+  assert(await f.page.locator('#rpTargetLocal').isChecked(),'this Hyper-V host is the default');assert(await f.page.locator('#rpRemoteBox').isHidden());
+  assert.equal(await f.page.locator('#rpLocalFolder').inputValue(),'C:\\ClusterStorage\\Volume1\\Replicas');assert(await f.page.locator('#rpLocalBrowse').isDisabled(),'a running receiver keeps its folder');
+  assert.equal(await f.page.locator('[data-rp-target="0"]').inputValue(),'APP01-disk0.vhdx');
+  await f.page.locator('#rpJobSave').click();await f.page.waitForFunction(()=>document.querySelector('#rpEditor').classList.contains('hidden'),null,{timeout:15000});
+  const saved=f.replCalls.find(c=>c.action==='job'&&c.body.action==='save');assert.equal(saved.body.local,true);assert.equal(saved.body.folder,'C:\\ClusterStorage\\Volume1\\Replicas');assert.equal(saved.body.spec.receiver.code,'');assert.equal(saved.body.spec.disks[0].target,'APP01-disk0.vhdx');
+  await f.page.locator('[data-rp-new="ag1"]').click();await f.page.locator('#rpTargetRemote').check();assert(await f.page.locator('#rpRecvAddress').isVisible());assert(await f.page.locator('#rpLocalBox').isHidden());
   assert.deepEqual(f.errors,[]);assert.deepEqual(f.dialogs,[]);
  }finally{await f.close();}});
  await check('Replication summary tiles are buttons: each filters the servers and jobs it counts, shows the reason and next step, and the same tile or Show all clears it',async()=>{const f=await fixture(browser);try{

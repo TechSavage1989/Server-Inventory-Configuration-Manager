@@ -10,6 +10,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"path/filepath"
 	"strings"
@@ -144,104 +145,11 @@ func (a *application) handleReplFailover(response http.ResponseWriter, request *
 			fail(http.StatusBadRequest, "Type the new VM's name to confirm.")
 			return
 		}
-		for _, f := range list {
-			if strings.EqualFold(f.Name, strings.TrimSpace(r.Name)) {
-				fail(http.StatusConflict, "A VM named "+f.Name+" was already started from copies here; end it first.")
-				return
-			}
-		}
-		plan, children, err := replFailoverPlan(r, folder, filepath.Join(folder, "Test failovers"))
+		record, status, err := a.replStartFromCopiesLocked(r, list, store, folder, receiver)
 		if err != nil {
-			fail(http.StatusBadRequest, err.Error()+".")
+			fail(status, err.Error())
 			return
 		}
-		if r.Mode == "test" && strings.TrimSpace(r.Switch) != "" && !r.JoinNetwork {
-			switches, err := replHyperVSwitches()
-			if err != nil {
-				fail(http.StatusInternalServerError, "The host's virtual switches could not be read to check the test network: "+err.Error())
-				return
-			}
-			for _, sw := range switches {
-				if strings.EqualFold(sw.Name, r.Switch) {
-					if err := replTestNetworkRisk(r, sw.Type); err != nil {
-						fail(http.StatusBadRequest, err.Error()+".")
-						return
-					}
-				}
-			}
-		}
-		held := map[string]string{}
-		for _, f := range list {
-			for _, name := range f.Copies {
-				held[strings.ToLower(name)] = replHoldReason(f)
-			}
-		}
-		all, err := replListCopies(folder, busy, func(name string) string { return held[strings.ToLower(name)] })
-		if err != nil {
-			fail(http.StatusInternalServerError, err.Error())
-			return
-		}
-		byName := map[string]replCopyInfo{}
-		for _, info := range all {
-			byName[strings.ToLower(info.Name)] = info
-		}
-		chosen := []replCopyInfo{}
-		for _, name := range r.Copies {
-			info, ok := byName[strings.ToLower(name)]
-			if !ok {
-				fail(http.StatusBadRequest, name+" is not a finished copy in "+folder+".")
-				return
-			}
-			chosen = append(chosen, info)
-		}
-		if err := replCheckCopies(chosen); err != nil {
-			fail(http.StatusConflict, err.Error()+".")
-			return
-		}
-		idBytes := make([]byte, 8)
-		rand.Read(idBytes)
-		record := replFailover{ID: hex.EncodeToString(idBytes), Mode: r.Mode, Name: plan.Name, Copies: r.Copies, Children: children, Folder: folder, Switch: r.Switch, RecoveryPoint: chosen[0].RecoveryPoint, Started: time.Now().UTC()}
-		// Hold first, so no round writes into a copy while the VM is made.
-		if receiver != nil {
-			if err := receiver.Hold(r.Copies, replHoldReason(record)); err != nil {
-				fail(http.StatusConflict, err.Error()+".")
-				return
-			}
-		}
-		release := func() {
-			if receiver != nil {
-				receiver.Release(r.Copies)
-			}
-		}
-		a.vmwareLog("Starting %s from %s (%s).", plan.Name, strings.Join(r.Copies, ", "), map[bool]string{true: "test failover on differencing disks", false: "production"}[r.Mode == "test"])
-		out, err := vmRunPowerShell(replFailoverScript(plan, folder, r.Copies, children))
-		if err != nil {
-			if r.Mode == "test" {
-				// Undo what was made; the copies are never touched.
-				vmRunPowerShell(replFailoverEndScript(replFailover{Name: plan.Name, VMID: "00000000-0000-0000-0000-000000000000", Copies: r.Copies, Children: children}, folder))
-			}
-			release()
-			a.vmwareLog("%s could not be started: %v", plan.Name, err)
-			fail(http.StatusBadRequest, "The VM could not be created: "+err.Error())
-			return
-		}
-		id := strings.TrimSpace(out[strings.LastIndexAny(out, "\r\n")+1:])
-		if !vmHyperVIDPattern.MatchString(id) {
-			release()
-			fail(http.StatusInternalServerError, "Hyper-V did not return the new VM's ID: "+out)
-			return
-		}
-		record.VMID = id
-		for _, line := range strings.Split(out, "\n") {
-			if line = strings.TrimSpace(line); strings.HasPrefix(line, vmClusterRoleAdded) || strings.HasPrefix(line, vmClusterRoleFailed) {
-				record.ClusterResult = line
-				a.vmwareLog("%s: %s", plan.Name, line)
-			}
-		}
-		if err := store.Save(append(list, record)); err != nil {
-			a.vmwareLog("%s was created but could not be recorded: %v. End it in Hyper-V Manager.", plan.Name, err)
-		}
-		a.vmwareLog("%s was created (ID %s).", plan.Name, id)
 		writeJSON(response, http.StatusOK, map[string]any{"ok": true, "failover": record})
 	case "end":
 		index := -1
@@ -254,41 +162,146 @@ func (a *application) handleReplFailover(response http.ResponseWriter, request *
 			fail(http.StatusNotFound, "That VM is not in the list.")
 			return
 		}
-		f := list[index]
-		if !strings.EqualFold(strings.TrimSpace(input.Confirm), f.Name) {
+		if !strings.EqualFold(strings.TrimSpace(input.Confirm), list[index].Name) {
 			fail(http.StatusBadRequest, "Type the VM's name to confirm.")
 			return
 		}
-		if f.Mode == "test" {
-			if _, err := vmRunPowerShell(replFailoverEndScript(f, f.Folder)); err != nil {
-				fail(http.StatusBadRequest, "The test could not be ended: "+err.Error())
-				return
-			}
-			a.vmwareLog("The test failover %s ended: its VM and test disks were removed.", f.Name)
-		} else {
-			// A production VM is never removed here; it is only forgotten
-			// once it no longer uses the copies.
-			out, err := vmRunPowerShell("Import-Module Hyper-V; if (Get-VM -Id " + vmPSQuote(f.VMID) + " -ErrorAction SilentlyContinue) { [Console]::Out.Write('present') }")
-			if err != nil {
-				fail(http.StatusBadRequest, err.Error())
-				return
-			}
-			if strings.Contains(out, "present") {
-				fail(http.StatusConflict, f.Name+" still exists in Hyper-V. It runs from the copies, so replication into them stays held; remove the VM yourself first if you really want to replicate into them again.")
-				return
-			}
-			a.vmwareLog("%s no longer exists in Hyper-V; its copies are released.", f.Name)
-		}
-		if receiver != nil {
-			receiver.Release(f.Copies)
-		}
-		list = append(list[:index], list[index+1:]...)
-		if err := store.Save(list); err != nil {
-			fail(http.StatusInternalServerError, err.Error())
+		if status, err := a.replEndFailoverLocked(list, index, store, receiver); err != nil {
+			fail(status, err.Error())
 			return
 		}
 		writeJSON(response, http.StatusOK, map[string]any{"ok": true})
 	default:
 		fail(http.StatusBadRequest, "Choose start or end.")
 	}
+}
+
+// replStartFromCopiesLocked creates a VM from finished copies on this host
+// (a test on differencing disks, or production). The caller holds
+// a.repl.failing (not a.mu) and has checked the typed confirmation; list
+// is the store's current content.
+func (a *application) replStartFromCopiesLocked(r replFailoverRequest, list []replFailover, store replFailoverStore, folder string, receiver *vmReceiver) (replFailover, int, error) {
+	busy := func(name string) bool { return receiver != nil && receiver.Busy(name) }
+	for _, f := range list {
+		if strings.EqualFold(f.Name, strings.TrimSpace(r.Name)) {
+			return replFailover{}, http.StatusConflict, errors.New("A VM named " + f.Name + " was already started from copies here; end it first.")
+		}
+	}
+	plan, children, err := replFailoverPlan(r, folder, filepath.Join(folder, "Test failovers"))
+	if err != nil {
+		return replFailover{}, http.StatusBadRequest, errors.New(err.Error() + ".")
+	}
+	if r.Mode == "test" && strings.TrimSpace(r.Switch) != "" && !r.JoinNetwork {
+		switches, err := replHyperVSwitches()
+		if err != nil {
+			return replFailover{}, http.StatusInternalServerError, errors.New("The host's virtual switches could not be read to check the test network: " + err.Error())
+		}
+		for _, sw := range switches {
+			if strings.EqualFold(sw.Name, r.Switch) {
+				if err := replTestNetworkRisk(r, sw.Type); err != nil {
+					return replFailover{}, http.StatusBadRequest, errors.New(err.Error() + ".")
+				}
+			}
+		}
+	}
+	held := map[string]string{}
+	for _, f := range list {
+		for _, name := range f.Copies {
+			held[strings.ToLower(name)] = replHoldReason(f)
+		}
+	}
+	all, err := replListCopies(folder, busy, func(name string) string { return held[strings.ToLower(name)] })
+	if err != nil {
+		return replFailover{}, http.StatusInternalServerError, err
+	}
+	byName := map[string]replCopyInfo{}
+	for _, info := range all {
+		byName[strings.ToLower(info.Name)] = info
+	}
+	chosen := []replCopyInfo{}
+	for _, name := range r.Copies {
+		info, ok := byName[strings.ToLower(name)]
+		if !ok {
+			return replFailover{}, http.StatusBadRequest, errors.New(name + " is not a finished copy in " + folder + ".")
+		}
+		chosen = append(chosen, info)
+	}
+	if err := replCheckCopies(chosen); err != nil {
+		return replFailover{}, http.StatusConflict, errors.New(err.Error() + ".")
+	}
+	idBytes := make([]byte, 8)
+	rand.Read(idBytes)
+	record := replFailover{ID: hex.EncodeToString(idBytes), Mode: r.Mode, Name: plan.Name, Copies: r.Copies, Children: children, Folder: folder, Switch: r.Switch, RecoveryPoint: chosen[0].RecoveryPoint, Started: time.Now().UTC()}
+	// Hold first, so no round writes into a copy while the VM is made.
+	if receiver != nil {
+		if err := receiver.Hold(r.Copies, replHoldReason(record)); err != nil {
+			return replFailover{}, http.StatusConflict, errors.New(err.Error() + ".")
+		}
+	}
+	release := func() {
+		if receiver != nil {
+			receiver.Release(r.Copies)
+		}
+	}
+	a.vmwareLog("Starting %s from %s (%s).", plan.Name, strings.Join(r.Copies, ", "), map[bool]string{true: "test failover on differencing disks", false: "production"}[r.Mode == "test"])
+	out, err := vmRunPowerShell(replFailoverScript(plan, folder, r.Copies, children))
+	if err != nil {
+		if r.Mode == "test" {
+			// Undo what was made; the copies are never touched.
+			vmRunPowerShell(replFailoverEndScript(replFailover{Name: plan.Name, VMID: "00000000-0000-0000-0000-000000000000", Copies: r.Copies, Children: children}, folder))
+		}
+		release()
+		a.vmwareLog("%s could not be started: %v", plan.Name, err)
+		return replFailover{}, http.StatusBadRequest, errors.New("The VM could not be created: " + err.Error())
+	}
+	id := strings.TrimSpace(out[strings.LastIndexAny(out, "\r\n")+1:])
+	if !vmHyperVIDPattern.MatchString(id) {
+		release()
+		return replFailover{}, http.StatusInternalServerError, errors.New("Hyper-V did not return the new VM's ID: " + out)
+	}
+	record.VMID = id
+	for _, line := range strings.Split(out, "\n") {
+		if line = strings.TrimSpace(line); strings.HasPrefix(line, vmClusterRoleAdded) || strings.HasPrefix(line, vmClusterRoleFailed) {
+			record.ClusterResult = line
+			a.vmwareLog("%s: %s", plan.Name, line)
+		}
+	}
+	if err := store.Save(append(list, record)); err != nil {
+		a.vmwareLog("%s was created but could not be recorded: %v. End it in Hyper-V Manager.", plan.Name, err)
+	}
+	a.vmwareLog("%s was created (ID %s).", plan.Name, id)
+	return record, http.StatusOK, nil
+}
+
+// replEndFailoverLocked ends list[index]: a test VM and its test disks are
+// removed (by recorded ID and name); a production VM is only forgotten once
+// it no longer exists. The caller holds a.repl.failing and has checked the
+// typed confirmation.
+func (a *application) replEndFailoverLocked(list []replFailover, index int, store replFailoverStore, receiver *vmReceiver) (int, error) {
+	f := list[index]
+	if f.Mode == "test" {
+		if _, err := vmRunPowerShell(replFailoverEndScript(f, f.Folder)); err != nil {
+			return http.StatusBadRequest, errors.New("The test could not be ended: " + err.Error())
+		}
+		a.vmwareLog("The test failover %s ended: its VM and test disks were removed.", f.Name)
+	} else {
+		// A production VM is never removed here; it is only forgotten
+		// once it no longer uses the copies.
+		out, err := vmRunPowerShell("Import-Module Hyper-V; if (Get-VM -Id " + vmPSQuote(f.VMID) + " -ErrorAction SilentlyContinue) { [Console]::Out.Write('present') }")
+		if err != nil {
+			return http.StatusBadRequest, err
+		}
+		if strings.Contains(out, "present") {
+			return http.StatusConflict, errors.New(f.Name + " still exists in Hyper-V. It runs from the copies, so replication into them stays held; remove the VM yourself first if you really want to replicate into them again.")
+		}
+		a.vmwareLog("%s no longer exists in Hyper-V; its copies are released.", f.Name)
+	}
+	if receiver != nil {
+		receiver.Release(f.Copies)
+	}
+	list = append(list[:index:index], list[index+1:]...)
+	if err := store.Save(list); err != nil {
+		return http.StatusInternalServerError, err
+	}
+	return http.StatusOK, nil
 }

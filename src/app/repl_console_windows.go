@@ -124,6 +124,7 @@ func (a *application) replPoll() {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 		console.Refresh(ctx)
 		cancel()
+		a.replKeepLocalReceiver(console)
 		a.mu.Lock()
 		a.repl.refreshed = time.Now()
 		a.mu.Unlock()
@@ -420,7 +421,7 @@ func (a *application) handleReplState(response http.ResponseWriter, request *htt
 	}
 	a.mu.Lock()
 	console := a.replConsoleLocked()
-	state := map[string]any{"ok": true, "pushing": a.repl.pushing, "pushLog": append([]string(nil), a.repl.pushLog...), "pushResults": a.repl.pushDone, "serial": a.repl.serial, "isAdministrator": isAdministrator(), "error": a.repl.loadErr, "defaultPort": replAgentPort}
+	state := map[string]any{"ok": true, "pushing": a.repl.pushing, "pushLog": append([]string(nil), a.repl.pushLog...), "pushResults": a.repl.pushDone, "serial": a.repl.serial, "isAdministrator": isAdministrator(), "error": a.repl.loadErr, "defaultPort": replAgentPort, "local": a.replLocalStateLocked()}
 	if !a.repl.refreshed.IsZero() {
 		state["refreshed"] = a.repl.refreshed.UTC()
 	}
@@ -714,6 +715,10 @@ func (a *application) handleReplJob(response http.ResponseWriter, request *http.
 		Spec   *replJobSpec `json:"spec"`
 		At     *time.Time   `json:"at"`
 		Typed  string       `json:"typed"`
+		// Local sends the job to this computer's receiver (started when
+		// needed) in Folder; the pairing code never reaches the page.
+		Local  bool   `json:"local"`
+		Folder string `json:"folder"`
 	}
 	if !decodeVMwareRequest(response, request, &input) {
 		return
@@ -735,6 +740,15 @@ func (a *application) handleReplJob(response http.ResponseWriter, request *http.
 		if input.Spec == nil {
 			a.replFail(response, http.StatusBadRequest, "The job is missing.")
 			return
+		}
+		if input.Local {
+			record, _ := console.Record(input.Agent)
+			link, err := a.replLocalReceiver(record.Address, input.Folder)
+			if err != nil {
+				a.replFail(response, http.StatusBadRequest, "The job was not saved: "+err.Error()+".")
+				return
+			}
+			input.Spec.Receiver = link
 		}
 		view, err := client.SaveJob(ctx, *input.Spec)
 		if err != nil {
