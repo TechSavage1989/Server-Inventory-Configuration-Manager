@@ -223,7 +223,12 @@ func (h *webViewHost) run(address, dataDir, iconPath string) {
 	}
 	if settings, err := chromium.GetSettings(); err == nil {
 		_ = settings.PutAreDevToolsEnabled(false)
-		_ = settings.PutAreDefaultContextMenusEnabled(true) // keeps right-click Copy
+		// The page blocks the right-click menu except in text fields and on
+		// selected text, so Copy and Paste still work there.
+		_ = settings.PutAreDefaultContextMenusEnabled(true)
+		// No browser shortcuts (Find, Print, Reload, Save page); the keys
+		// still reach the page, so the app's own shortcuts keep working.
+		_ = settings.PutAreBrowserAcceleratorKeysEnabled(false)
 		_ = settings.PutIsStatusBarEnabled(false)
 		_ = settings.PutAreDefaultScriptDialogsEnabled(true)
 		_ = settings.PutIsZoomControlEnabled(true)

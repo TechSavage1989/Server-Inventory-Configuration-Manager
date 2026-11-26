@@ -15,6 +15,11 @@ body { margin: 0; background: #eef2f7; color: #172033; font-family: "Segoe UI", 
 button, input { font: inherit; }
 button { cursor: pointer; }
 .hidden { display: none !important; }
+/* Native feel: interface text (labels, buttons, headings, cards, navigation) is not selectable; values a person copies stay selectable. */
+body { -webkit-user-select: none; user-select: none; }
+input, textarea, select, [contenteditable], pre, code, td, dd, .log-view, .vm-mono, .selectable, .restore-fact-value, .report-path, .restore-path, .migrate-dest-path, .migrate-share-path, .vm-receive-code strong { -webkit-user-select: text; user-select: text; }
+button, label, summary, th, [role="button"], [role="tab"] { -webkit-user-select: none; user-select: none; }
+img, svg { -webkit-user-drag: none; }
 .shell { min-height: 100vh; }
 .topbar { height: 72px; background: #111a2e; color: #fff; border-bottom: 1px solid #273552; box-shadow: 0 2px 10px rgba(15,23,42,.18); }
 .topbar-inner { max-width: 1580px; height: 72px; margin: 0 auto; padding: 0 24px; display: flex; align-items: center; justify-content: space-between; }
@@ -3124,7 +3129,23 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   window.addEventListener('pagehide',function(){quiesceInterface('closed');});
   window.addEventListener('beforeunload',function(){quiesceInterface('closed');});
   window.requestAnimationFrame(function(){window.requestAnimationFrame(function(){request('POST','/api/ui/ready',{},function(){});});});
+  // Native feel: no browser right-click menu, except in text fields and on text the person has selected (so Copy and Paste still work).
+  function allowBrowserMenu(e){
+    var t=e.target; if(t&&t.nodeType!==1){t=t.parentNode;}
+    if(!t||!t.closest){return false;}
+    var field=t.closest('input,textarea,[contenteditable]');
+    if(field&&!(field.nodeName==='INPUT'&&/^(button|submit|reset|checkbox|radio|range|color|file|image|hidden)$/i.test(field.type||''))){return true;}
+    var doc=t.ownerDocument||document,sel=doc.getSelection?doc.getSelection():null;
+    return !!(sel&&!sel.isCollapsed&&String(sel).trim()!==''&&sel.containsNode(t,true));
+  }
+  function blockBrowserMenu(doc){
+    if(!doc||doc.simmMenuBlocked){return;}
+    doc.simmMenuBlocked=true;
+    doc.addEventListener('contextmenu',function(e){if(!allowBrowserMenu(e)){e.preventDefault();}});
+  }
+  blockBrowserMenu(document);
   byId('reportFrame').addEventListener('load',function(){
+    try{blockBrowserMenu(byId('reportFrame').contentDocument);}catch(menuError){}
     enforceReportViewerScrollLayout();
     window.setTimeout(enforceReportViewerScrollLayout,80);
     window.setTimeout(enforceReportViewerScrollLayout,350);
