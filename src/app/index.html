@@ -6393,9 +6393,13 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   function fvChecked(){return Array.prototype.filter.call(document.querySelectorAll('[data-fv-copy]'),function(b){return b.checked;}).map(function(b){return b.getAttribute('data-fv-copy');});}
   function fvLoad(switches,quiet){
     if(!quiet){fvBusy=true;syncFv();}
-    request('GET','/api/repl/failover'+(switches?'?switches=1':''),null,function(err,data){if(!quiet){fvBusy=false;}if(err){if(!quiet){vmSetStatus('fvStatus',err,true);}syncFv();return;}var keep=fvState&&fvState.switches;fvState=data||{};if(!fvState.switches&&keep){fvState.switches=keep;}renderFv();});
+    request('GET','/api/repl/failover'+(switches?'?switches=1':''),null,function(err,data){if(!quiet){fvBusy=false;}if(err){if(!quiet){vmSetStatus('fvStatus',err,true);}syncFv();return;}
+      // A background refresh that brings nothing new leaves the page alone, so the
+      // panel does not jump while it is scrolled or being typed in.
+      var seen=JSON.stringify(data||{});if(quiet&&seen===fvLastSeen){syncFv();return;}fvLastSeen=seen;
+      var keep=fvState&&fvState.switches;fvState=data||{};if(!fvState.switches&&keep){fvState.switches=keep;}renderFv();});
   }
-  var fvTouched=false,fvPoll=0;
+  var fvTouched=false,fvPoll=0,fvLastSeen='';
   function fvCopyWhy(c){
     if(c.busy){return 'being received now. It unlocks by itself when this round finishes';}
     if(c.held){return 'in use: '+c.held;}
@@ -6528,7 +6532,8 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   // the copies); a production start is typed by hand.
   function fvPrefillConfirm(){var test=byId('fvModeTest').checked,name=trimText(byId('fvName').value);if(test&&name){byId('fvConfirm').value=name;}else if(!test&&byId('fvConfirm').getAttribute('data-auto')==='1'){byId('fvConfirm').value='';}byId('fvConfirm').setAttribute('data-auto',test?'1':'0');}
   function renderFv(){
-    var s=fvState||{},box=byId('fvCopies'),chosen=fvChecked();
+    var s=fvState||{},box=byId('fvCopies'),chosen=fvChecked(),typed={},focused=document.activeElement&&document.activeElement.getAttribute('data-fv-endname');
+    Array.prototype.forEach.call(document.querySelectorAll('[data-fv-endname]'),function(x){typed[x.getAttribute('data-fv-endname')]=x.value;});
     byId('fvFolder').textContent=s.folder?'Copies in '+s.folder:'';
     box.textContent='';
     if(s.hyperV===false){box.appendChild(el('p','restore-alert danger','This computer has no Hyper-V role or module. Run this on the Hyper-V host that receives the copies.'));}
@@ -6555,7 +6560,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       var li=el('li',f.mode==='test'?'warning':'good');
       li.appendChild(el('strong','',f.name+': '));
       li.appendChild(document.createTextNode((f.mode==='test'?'test failover on differencing disks':'production VM')+' from '+vmArr(f.copies).join(', ')+(rpWhen(f.recoveryPoint)?', recovery point '+rpWhen(f.recoveryPoint):'')+'. Started '+rpWhen(f.started)+'. '));
-      var name=document.createElement('input');name.type='text';name.placeholder='Type '+f.name;name.setAttribute('aria-label','Type '+f.name+' to confirm');name.setAttribute('data-fv-endname',f.id);name.className='fv-end-name';
+      var name=document.createElement('input');name.type='text';name.placeholder='Type '+f.name;name.setAttribute('aria-label','Type '+f.name+' to confirm');name.setAttribute('data-fv-endname',f.id);name.className='fv-end-name';if(typed[f.id]){name.value=typed[f.id];}
       var b=el('button','secondary-button',f.mode==='test'?'End test: remove the test VM':'Release the copies');b.type='button';b.setAttribute('data-fv-end',f.id);b.setAttribute('data-fv-vm',f.name);
       if(f.mode==='test'){
         var steps=el('ol','fv-checklist');
@@ -6565,6 +6570,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       li.appendChild(name);li.appendChild(b);list.appendChild(li);
     });
     byId('fvRunning').classList.toggle('hidden',!vmArr(s.failovers).length);
+    if(focused){var back=document.querySelector('[data-fv-endname="'+CSS.escape(focused)+'"]');if(back){back.focus();}}
     renderFvNext(vmArr(s.failovers));
     syncFv();
   }
