@@ -6801,7 +6801,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   // selection carried over, and says so.
   var nwStepNames=['What','Where','How','When','Review','Status'];
   var nw={step:0,reached:0,source:'',picks:{},filter:'',target:'',copyRoot:'',vmFolder:'',cluster:false,node:'',hvHost:'',hvUser:'',net:{},method:'',
-    opts:{syncMinutes:60,concurrency:2,quiesce:false,keepMac:true,startVms:true,disconnectSource:true,testSwitch:'',bizMbps:'0',offMbps:'0',bizStart:8,bizEnd:18},
+    opts:{syncMinutes:60,concurrency:2,quiesce:false,keepMac:true,startVms:true,disconnectSource:true,fixUp:true,testSwitch:'',bizMbps:'0',offMbps:'0',bizStart:8,bizEnd:18},
     startMode:'now',startAt:'',waveMode:'',waves:{},cut:{},name:'',confirm:'',planId:'',busy:false,error:'',filled:'',statusFilter:''};
   var nwSwitches=null,nwSwitchesAsked=false,nwLastPoll=0,nwSig='',nwStatusSig='',nwRowsChosen={};
   var nwSources=[
@@ -7252,7 +7252,10 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     box.appendChild(nwHeading('Options for a migration plan'));
     box.appendChild(nwCheck('nwKeepMac','Keep each adapter\'s MAC address',o.keepMac,function(on){o.keepMac=on;}));
     box.appendChild(nwCheck('nwStartVms','Start each new VM after its cutover',o.startVms,function(on){o.startVms=on;}));
-    if(isVMware){box.appendChild(nwCheck('nwDisconnect','After cutover, set the old VMware VM\'s adapters to not connect (their settings are recorded first)',o.disconnectSource,function(on){o.disconnectSource=on;}));}
+    if(isVMware){box.appendChild(nwCheck('nwDisconnect','After cutover, set the old VMware VM\'s adapters to not connect (their settings are recorded first)',o.disconnectSource,function(on){o.disconnectSource=on;}));
+      box.appendChild(nwCheck('nwFixUp','Fix each new VM up once Windows starts: put back the IP settings, gateway and DNS recorded from vCenter, remove VMware Tools and the hidden VMware adapters, bring data disks online and activate Windows (needs Start)',o.fixUp,function(on){o.fixUp=on;nwGaShow();}));
+      var gaHost=el('div','');gaHost.id='nwGaHost';box.appendChild(gaHost);
+      var nwGaShow=function(){gaHost.textContent='';if(o.fixUp){vmGuestAutoPanel(gaHost,'nwGa');}};nwGaShow();}
     var adv=document.createElement('details');adv.className='nw-advanced';adv.id='nwAdvanced';adv.appendChild(el('summary','','Advanced: sync interval, VMs at once, bandwidth, test network'));
     var three=el('div','mp-three');
     var sync=document.createElement('select');sync.id='nwSync';[[15,'15 minutes'],[30,'30 minutes'],[60,'hour'],[120,'2 hours'],[240,'4 hours'],[720,'12 hours'],[1440,'day']].forEach(function(x){sync.appendChild(new Option(x[1],String(x[0])));});sync.value=String(o.syncMinutes);
@@ -7315,7 +7318,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     row('What',vmPlural(picked.length,'VM')+' from '+(vmInventory&&vmInventory.server||'')+': '+picked.slice(0,12).map(function(vm){return vm.name;}).join(', ')+(picked.length>12?' and '+(picked.length-12)+' more':'')+' (about '+formatBytesShort(nwUsedBytes())+')',0);
     row('Where',(nwRemote()?'Hyper-V host '+(nw.node||'')+(nwHvr()&&nwHvr().info.cluster?' in cluster '+nwHvr().info.cluster:'')+', run from this computer ('+vmComputer()+')':'This Hyper-V host ('+vmComputer()+')')+(nw.cluster?', highly available in its cluster':'')+'. Disks in '+(nw.copyRoot||'the host\'s default folder')+'; VMs in '+(nw.vmFolder||'the host\'s default folder')+'.',1);
     row('Networks',nwNetworks().map(function(n){var mm=nwMap(n);return n.name+' to '+(mm.sw===null?'?':(mm.sw||'not connected'))+(mm.vlan?' VLAN '+mm.vlan:'');}).join('; ')||'None',1);
-    row('How',(m?m.name:'')+': sync every '+mpDuration(o.syncMinutes*60)+', '+o.concurrency+' at once'+(Number(o.bizMbps)||Number(o.offMbps)?', bandwidth limited':'')+(o.keepMac?', MAC addresses kept':'')+(o.startVms?', new VMs started':'')+(o.disconnectSource&&nwInvType()==='vmware'?', old adapters disconnected after cutover':'')+'.',2);
+    row('How',(m?m.name:'')+': sync every '+mpDuration(o.syncMinutes*60)+', '+o.concurrency+' at once'+(Number(o.bizMbps)||Number(o.offMbps)?', bandwidth limited':'')+(o.keepMac?', MAC addresses kept':'')+(o.startVms?', new VMs started':'')+(o.disconnectSource&&nwInvType()==='vmware'?', old adapters disconnected after cutover':'')+(o.fixUp&&o.startVms&&nwInvType()==='vmware'?', IP settings put back automatically':'')+'.',2);
     var waves=nwWaveList();
     row('When','First copies '+(nw.startMode==='at'?'at '+nw.startAt.replace('T',' '):'now')+'. '+waves.map(function(w){var c=nw.cut[w]||{};return 'Wave '+w+' ('+nwPickedVMs().filter(function(vm){return nwWaveOf(vm.id)===w;}).length+'): '+(c.mode==='at'?'cut over at '+c.at.replace('T',' '):'cut over when you press Cut over');}).join('; ')+'.',3);
     box.appendChild(dl);
@@ -7350,7 +7353,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       vmPlan.vms=vmArr(vmPlan.vms);
       picked.forEach(function(vm){var w=nwWaveOf(vm.id),e=vmPlanEntry(vm.id);if(!e){e={id:vm.id,name:vm.name,wave:0,hold:false,exclude:false,notes:''};vmPlan.vms.push(e);}if(e.wave!==w||e.hold||e.exclude){e.wave=w;e.hold=false;e.exclude=false;e.manual=true;}});
     }
-    var o=nw.opts,settings={syncMinutes:o.syncMinutes,concurrency:o.concurrency,copyRoot:trimText(nw.copyRoot),vmFolder:trimText(nw.vmFolder),testSwitch:o.testSwitch,keepMac:o.keepMac,startVms:o.startVms,cluster:!!nw.cluster,quiesce:nwInvType()==='vmware'&&o.quiesce,disconnectSource:nwInvType()==='vmware'&&o.disconnectSource,
+    var o=nw.opts,settings={syncMinutes:o.syncMinutes,concurrency:o.concurrency,copyRoot:trimText(nw.copyRoot),vmFolder:trimText(nw.vmFolder),testSwitch:o.testSwitch,keepMac:o.keepMac,startVms:o.startVms,cluster:!!nw.cluster,quiesce:nwInvType()==='vmware'&&o.quiesce,disconnectSource:nwInvType()==='vmware'&&o.disconnectSource,fixUp:nwInvType()==='vmware'&&o.startVms&&o.fixUp,
       throttle:{businessMbps:Number(o.bizMbps)||0,limitMbps:Number(o.offMbps)||0,businessStart:o.bizStart,businessEnd:o.bizEnd}};
     if(nw.startMode==='at'){settings.startAt=new Date(nw.startAt).toISOString();}
     if(nwRemote()){var hvr=nwHvr();settings.remoteHost=hvr?hvr.host:'';settings.node=nw.node||'';}
