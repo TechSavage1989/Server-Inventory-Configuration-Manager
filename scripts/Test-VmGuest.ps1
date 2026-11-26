@@ -25,6 +25,7 @@ $export = Join-Path $OutputDirectory 'export'
 $checks = New-Object Collections.ArrayList
 function Assert([bool]$Condition, [string]$Description) { if (-not $Condition) { throw ('FAIL ' + $Description) }; [void]$checks.Add($Description); Write-Host ('PASS ' + $Description) }
 $script:run = 0
+$fakeClass = 'HKLM:\SYSTEM\CurrentControlSet\Control\Class\{5349434d-0000-4000-8000-000000000001}'
 function Invoke-Engine([string]$Mode, [object]$Plan, [string]$Name) {
     $script:run++
     $log = Join-Path $OutputDirectory ('{0:00}-{1}.log' -f $script:run, $Name)
@@ -192,6 +193,19 @@ try {
         Assert ($tools.code -ne 0 -and $tools.json.error -match 'still running on VMware') 'VMware Tools removal is refused on VMware'
     } else {
         Assert ($tools.code -eq 0 -and $tools.json.result.AlreadyRemoved) 'VMware Tools removal reports nothing to remove'
+        # A driver VMware Tools left behind (a synthetic service with one of
+        # its names) and a synthetic device class listing it as a filter.
+        & sc.exe create vmrawdsk type= kernel start= demand binPath= 'System32\drivers\sicm-test-none.sys' | Out-Host
+        New-Item -Path $fakeClass -Force | Out-Null
+        New-ItemProperty -Path $fakeClass -Name 'UpperFilters' -PropertyType MultiString -Value @('sicmkeep', 'vmrawdsk') -Force | Out-Null
+        $left = Invoke-Engine 'RemoveVmwareTools' $null 'remove-tools-left'
+        Assert ($left.code -eq 0 -and $left.json.result.Disabled -and $left.json.result.RestartRequired) 'Services and drivers VMware Tools left behind are turned off'
+        Assert ([int](Get-ItemProperty -LiteralPath 'HKLM:\SYSTEM\CurrentControlSet\Services\vmrawdsk').Start -eq 4) 'A left-behind VMware driver is set not to start'
+        Assert ((@((Get-ItemProperty -LiteralPath $fakeClass).UpperFilters) -join ',') -eq 'sicmkeep') 'The VMware driver is taken out of device filter lists and other filters are kept'
+        $record = Get-Content -LiteralPath (Join-Path $work 'VMware-Tools-Disabled.json') -Raw | ConvertFrom-Json
+        Assert ((@($record.Services | Where-Object { $_.Name -eq 'vmrawdsk' -and $_.Start -eq 3 }).Count -eq 1) -and (@($record.Filters | Where-Object { @($_.Before) -contains 'vmrawdsk' }).Count -eq 1)) 'The previous start type and filter list are saved first'
+        $toolsState = Invoke-Engine 'Status' $null 'status-tools-off'
+        Assert ($toolsState.code -eq 0 -and -not $toolsState.json.result.State.VmwareTools.Installed -and @($toolsState.json.result.State.VmwareTools.Running).Count -eq 0) 'Status no longer reports VMware Tools components turned on'
     }
     $bitlocker = Invoke-Engine 'SaveBitLocker' $null 'save-bitlocker'
     Assert ($bitlocker.code -eq 0 -and ($bitlocker.json.result.NoBitLocker -or (Test-Path -LiteralPath ([string]$bitlocker.json.result.KeyFile)))) 'Saving BitLocker keys succeeds, or reports that BitLocker is off'
@@ -200,6 +214,8 @@ try {
     Assert ($plan.code -ne 0 -and $plan.json.error -match 'plan file is missing') 'Changing modes need a plan file'
 }
 finally {
+    & sc.exe delete vmrawdsk | Out-Null
+    if (Test-Path -LiteralPath $fakeClass) { Remove-Item -LiteralPath $fakeClass -Recurse -Force }
     $device = Get-CimInstance -ClassName Win32_NetworkAdapter -Filter ('InterfaceIndex=' + $index) -ErrorAction SilentlyContinue
     if ($device -and $device.PNPDeviceID) { & pnputil.exe /remove-device $device.PNPDeviceID | Out-Host }
     $checks | Set-Content -LiteralPath (Join-Path $OutputDirectory 'checks.txt')

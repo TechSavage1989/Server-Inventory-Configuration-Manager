@@ -1,3 +1,9 @@
+## Unreleased: All jobs and servers, and jobs to this Hyper-V host — 2026-11-26
+
+- New **All jobs and servers** tool (rule 52): one list of agent replication jobs, Migration plan VMs, Move VMs copies, unconfigured inventory VMs and running tasks, with one state set, live progress and bulk actions (install agents, create jobs, sync, pause/resume, test failover, waves, staggered cutover).
+- Replicate servers and bulk job creation can target **This Hyper-V host**: the local receiver starts and pairs itself and only the destination folder is asked. Builds on the receiver identity fix from PR #138 (merged into this branch).
+- Tests: `go test ./...` (Linux), `GOOS=windows go vet`, and the workspace checks "All jobs and servers" and "Replication jobs can go to this Hyper-V host" plus the existing replication checks pass locally. Bulk actions against real agents, plans and Hyper-V hosts are not field-validated.
+
 ## Unreleased: the workspace fills the window and gets denser on small screens — 2026-11-26
 
 - Removed the 1220 px and 1480 px maximum widths so every tab and tool fills the window (AGENTS.md rule 51); wide windows give the tool list, inventory tree, category grid and guide cards more room, and the two inventory readers sit side by side from 1600 px.
