@@ -7,6 +7,13 @@
 
 Limits: the agent under SentinelOne on a real server, receiver discovery across real switches and VLANs, adding a VM to a real failover cluster and Activate Windows with AVMA on a real Datacenter host have not been field-tested; the earlier limits under 3.2.33 still apply. `TestReplicationChangeTrackingMissesNothing` failed once on a hosted runner and passed on re-run; its diagnostic now names the files behind any miss, and the cause is still open. CI artifacts were not downloaded. No client data was used.
 
+## Unreleased: change tracking no longer reports shadow copy storage as missed — 2026-11-26
+
+- `TestReplicationChangeTrackingMissesNothing` still failed now and then on the Windows runner, always with the same 16 chunks (64 MB). The live-volume owner check blamed `$UsnJrnl`, but that check ran after the shadow copy was released. A diagnostic that runs while the shadow copy is open (`replTestDiagnoseMiss`) showed that the 64 MB is the shadow copy's own storage file (`System Volume Information\{id}{3808876b-c176-4e48-b7ae-04046e6cc752}`). `$Extend\$UsnJrnl:$J` opened normally. A shadow copy does not copy its own storage on write, so that content changes under the shadow copy and is meaningless on a replica.
+- Fix: the MFT scan that each round already runs finds shadow copy storage files (`replMFTScan.DiffArea`). The zero view treats their clusters as free space (`replClearRuns`), so they are never sent and never differ. Shadow copies (previous versions) on the source are not carried to the copy.
+- The same scan now gives every round the runs of all NTFS system files (`replMFTScan.Metadata`). On Windows Server 2025, `$Boot` and `$Bitmap` return Access is denied even on a shadow copy. `$Boot` was in the optional list and was skipped silently. `$UsnJrnl`, `$RmMetadata` logs and other files under `$Extend` have no fixed record number.
+- Tests: `TestMFTScanFindsSystemFilesAndShadowCopyStorage` and `TestClearRunsMarksClustersFree` (synthetic records), plus the Windows test with the new in-shadow diagnostic.
+
 ## Unreleased: Move VMs from one console to a remote Hyper-V host or cluster — 2026-11-25
 
 - Move VMs can now run on an admin computer: it connects to vCenter/ESXi and, over PowerShell remoting (WinRM), to a remote Hyper-V host or failover cluster. Copy rounds (VMware CBT, the VM keeps running) write VHDX files straight onto the chosen node's storage through its administrative share, or through a receiver started on the node; cutover re-reads the host, shuts the guest down through VMware Tools, copies and verifies the last changes, creates the VM on the node and optionally adds it as a clustered role. AGENTS.md rule 39.

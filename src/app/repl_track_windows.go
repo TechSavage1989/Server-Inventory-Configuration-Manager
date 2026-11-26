@@ -417,10 +417,10 @@ func (r *replMFTReader) Scan(ctx context.Context, each func(index int64, record 
 
 // replScanLocations reads a shadow copy's MFT and compares where each file
 // lies with previous (see replMovedRuns).
-func replScanLocations(ctx context.Context, device string, previous []uint64) ([]uint64, []replRun, error) {
+func replScanLocations(ctx context.Context, device string, previous []uint64) ([]uint64, replMFTScan, error) {
 	reader, err := newReplMFTReader(device)
 	if err != nil {
-		return nil, nil, err
+		return nil, replMFTScan{}, err
 	}
 	defer reader.Close()
 	return replMovedRuns(previous, func(each func(int64, []byte) error) error { return reader.Scan(ctx, each) })
@@ -433,8 +433,12 @@ var replMetaOptional = []string{`$MFT::$BITMAP`, `$Volume`, `$AttrDef`, `$Boot`,
 // replTrackedRuns lists what changed on a shadowed volume since the last
 // round: clusters allocated or freed, metadata files and the files the
 // journal names.
-func replTrackedRuns(ctx context.Context, shadowRoot string, shadow windows.Handle, live windows.Handle, previous replVolumeTrack, prevBitmap, bitmap []byte, clusters int64) ([]replRun, int, error) {
+func replTrackedRuns(ctx context.Context, shadowRoot string, shadow windows.Handle, live windows.Handle, previous replVolumeTrack, prevBitmap, bitmap []byte, clusters int64, metadata []replRun) ([]replRun, int, error) {
 	runs := replToggled(prevBitmap, bitmap, clusters)
+	// Every system file, from the MFT scan: the paths below miss those
+	// Windows will not open (Access is denied for $Boot and $Bitmap on
+	// Windows Server 2025).
+	runs = append(runs, metadata...)
 	var mft *replMFTReader
 	defer func() {
 		if mft != nil {
@@ -627,19 +631,11 @@ func replPlanTrackedRound(ctx context.Context, trackDir, job string, numbers []i
 			if err == nil && clusterSize*clusters > info.Length {
 				err = errors.New("the file system is larger than its partition")
 			}
-			if err == nil && !source.WrapOverlay(info.Start, func(r io.ReaderAt) io.ReaderAt {
-				return &vmFreeZeroReader{Reader: r, Bitmap: bitmap, ClusterSize: clusterSize, Clusters: clusters}
-			}) {
-				err = errors.New("its shadow copy is not laid over the disk")
-			}
 			if err != nil {
 				log(fmt.Sprintf("%s: reading it in full (%v).", volume.label, err))
 				full = true
 				continue
 			}
-			inUse := replRangeBytes(replVolumeToDisk(info.Start, clusterSize, replAllocatedRuns(bitmap, clusters)))
-			volume.bitmap = bitmap
-			handled = append(handled, vmCopyRange{Start: info.Start, Length: info.Length})
 			volume.track = replVolumeTrack{ClusterSize: clusterSize, Clusters: clusters}
 			mark, haveMark := marks[info.Name]
 			volume.mark = mark
@@ -667,10 +663,10 @@ func replPlanTrackedRound(ctx context.Context, trackDir, job string, numbers []i
 				}
 			}
 			var locations []uint64
-			var moved []replRun
+			var scan replMFTScan
 			err = nil
 			if store != nil && volume.disabled == "" {
-				locations, moved, err = replScanLocations(ctx, device, prevLocations)
+				locations, scan, err = replScanLocations(ctx, device, prevLocations)
 			}
 			if err != nil {
 				if ctx.Err() != nil {
@@ -681,7 +677,20 @@ func replPlanTrackedRound(ctx context.Context, trackDir, job string, numbers []i
 				}
 			} else {
 				volume.locations = locations
+				// Shadow copy storage reads as free space: it changes under
+				// a shadow copy and means nothing on the copy.
+				bitmap = replClearRuns(bitmap, clusters, scan.DiffArea)
 			}
+			if !source.WrapOverlay(info.Start, func(r io.ReaderAt) io.ReaderAt {
+				return &vmFreeZeroReader{Reader: r, Bitmap: bitmap, ClusterSize: clusterSize, Clusters: clusters}
+			}) {
+				log(fmt.Sprintf("%s: reading it in full (its shadow copy is not laid over the disk).", volume.label))
+				full = true
+				continue
+			}
+			inUse := replRangeBytes(replVolumeToDisk(info.Start, clusterSize, replAllocatedRuns(bitmap, clusters)))
+			volume.bitmap = bitmap
+			handled = append(handled, vmCopyRange{Start: info.Start, Length: info.Length})
 			var tracked []vmCopyRange
 			if reason == "" {
 				prevBitmap, err := store.LoadBitmap(key, len(bitmap))
@@ -690,12 +699,12 @@ func replPlanTrackedRound(ctx context.Context, trackDir, job string, numbers []i
 				} else if live, err := replOpenVolume(strings.TrimSuffix(info.Name, `\`)); err != nil {
 					reason = err.Error()
 				} else {
-					runs, files, err := replTrackedRuns(ctx, device+`\`, 0, live, previous, prevBitmap, bitmap, clusters)
+					runs, files, err := replTrackedRuns(ctx, device+`\`, 0, live, previous, prevBitmap, bitmap, clusters, scan.Metadata)
 					windows.CloseHandle(live)
 					if err != nil {
 						reason = err.Error()
 					} else {
-						runs = append(runs, moved...)
+						runs = append(runs, scan.Moved...)
 						tracked = append(replVolumeToDisk(info.Start, clusterSize, runs), vmCopyRange{Start: info.Start + info.Length - replTrackTail, Length: replTrackTail})
 						volume.track.LastCheck = previous.LastCheck
 						if now.Sub(previous.LastCheck) >= replTrackCheckEvery {
