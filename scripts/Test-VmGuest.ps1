@@ -26,6 +26,11 @@ $checks = New-Object Collections.ArrayList
 function Assert([bool]$Condition, [string]$Description) { if (-not $Condition) { throw ('FAIL ' + $Description) }; [void]$checks.Add($Description); Write-Host ('PASS ' + $Description) }
 $script:run = 0
 $fakeClass = 'HKLM:\SYSTEM\CurrentControlSet\Control\Class\{5349434d-0000-4000-8000-000000000001}'
+$fakeUninstall = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{5349434D-0000-4000-8000-000000000002}'
+$fakeProduct = 'HKLM:\SOFTWARE\Classes\Installer\Products\D4349435000000040800000000000020'
+$fakeVendor = 'HKLM:\SOFTWARE\VMware, Inc.'
+$fakeToolsFolder = Join-Path $env:ProgramFiles 'VMware\VMware Tools'
+$ownsVendor = -not (Test-Path -LiteralPath $fakeVendor) -and -not (Test-Path -LiteralPath $fakeToolsFolder)
 function Invoke-Engine([string]$Mode, [object]$Plan, [string]$Name) {
     $script:run++
     $log = Join-Path $OutputDirectory ('{0:00}-{1}.log' -f $script:run, $Name)
@@ -200,12 +205,37 @@ try {
         New-ItemProperty -Path $fakeClass -Name 'UpperFilters' -PropertyType MultiString -Value @('sicmkeep', 'vmrawdsk') -Force | Out-Null
         $left = Invoke-Engine 'RemoveVmwareTools' $null 'remove-tools-left'
         Assert ($left.code -eq 0 -and $left.json.result.Disabled -and $left.json.result.RestartRequired) 'Services and drivers VMware Tools left behind are turned off'
-        Assert ([int](Get-ItemProperty -LiteralPath 'HKLM:\SYSTEM\CurrentControlSet\Services\vmrawdsk').Start -eq 4) 'A left-behind VMware driver is set not to start'
+        Assert (-not (Test-Path -LiteralPath 'HKLM:\SYSTEM\CurrentControlSet\Services\vmrawdsk')) 'A left-behind VMware driver is deleted'
+        $backup = Join-Path $work 'VMware-Tools-Removed'
+        Assert (@(Get-ChildItem -LiteralPath $backup -Filter '*.reg' | Where-Object { (Get-Content -LiteralPath $_.FullName -Raw) -match 'Services\\vmrawdsk' }).Count -eq 1) 'The driver key is exported before it is deleted'
         Assert ((@((Get-ItemProperty -LiteralPath $fakeClass).UpperFilters) -join ',') -eq 'sicmkeep') 'The VMware driver is taken out of device filter lists and other filters are kept'
         $record = Get-Content -LiteralPath (Join-Path $work 'VMware-Tools-Disabled.json') -Raw | ConvertFrom-Json
         Assert ((@($record.Services | Where-Object { $_.Name -eq 'vmrawdsk' -and $_.Start -eq 3 }).Count -eq 1) -and (@($record.Filters | Where-Object { @($_.Before) -contains 'vmrawdsk' }).Count -eq 1)) 'The previous start type and filter list are saved first'
         $toolsState = Invoke-Engine 'Status' $null 'status-tools-off'
         Assert ($toolsState.code -eq 0 -and -not $toolsState.json.result.State.VmwareTools.Installed -and @($toolsState.json.result.State.VmwareTools.Running).Count -eq 0) 'Status no longer reports VMware Tools components turned on'
+        # An installed VMware Tools whose uninstaller fails (here a product
+        # code Windows Installer does not know, as the real one fails with 1603
+        # outside VMware): it is removed by hand.
+        if (-not (Test-Path -LiteralPath $fakeVendor) -and -not (Test-Path -LiteralPath $fakeToolsFolder)) {
+            New-Item -Path $fakeUninstall -Force | Out-Null
+            New-ItemProperty -Path $fakeUninstall -Name 'DisplayName' -Value 'VMware Tools' -Force | Out-Null
+            New-ItemProperty -Path $fakeUninstall -Name 'DisplayVersion' -Value '12.1.5.20735119' -Force | Out-Null
+            New-Item -Path $fakeProduct -Force | Out-Null
+            New-ItemProperty -Path $fakeProduct -Name 'ProductName' -Value 'VMware Tools' -Force | Out-Null
+            New-Item -Path ($fakeVendor + '\VMware Tools') -Force | Out-Null
+            New-ItemProperty -Path ($fakeVendor + '\VMware Tools') -Name 'InstallPath' -Value $fakeToolsFolder -Force | Out-Null
+            New-Item -ItemType Directory -Path (Join-Path $fakeToolsFolder 'bin') -Force | Out-Null
+            Set-Content -LiteralPath (Join-Path $fakeToolsFolder 'bin\sicm-test.txt') -Value 'test'
+            $full = Invoke-Engine 'RemoveVmwareTools' $null 'remove-tools-installed'
+            Assert ($full.code -eq 0 -and $full.json.result.Disabled -and $full.json.result.RestartRequired -and [string]$full.json.result.Message -match 'removed by hand') 'An uninstaller that fails leads to removal by hand'
+            Assert (-not (Test-Path -LiteralPath $fakeUninstall) -and -not (Test-Path -LiteralPath $fakeProduct)) 'The Programs and Features and Windows Installer entries are removed'
+            Assert (-not (Test-Path -LiteralPath $fakeVendor) -and -not (Test-Path -LiteralPath $fakeToolsFolder)) 'The VMware registry key and Program Files folder are removed'
+            $exports = @(Get-ChildItem -LiteralPath $backup -Filter '*.reg' | ForEach-Object { Get-Content -LiteralPath $_.FullName -Raw })
+            Assert ((@($exports | Where-Object { $_ -match 'D4349435000000040800000000000020' }).Count -ge 1) -and (@($exports | Where-Object { $_ -match 'VMware, Inc\.' }).Count -ge 1) -and (@($exports | Where-Object { $_ -match '5349434D-0000-4000-8000-000000000002' }).Count -ge 1)) 'Every removed key is exported first, with the product code packed as Windows Installer stores it'
+            Assert (@($full.json.result.Removed.Notes).Count -eq 0) 'Nothing is left over'
+            $after = Invoke-Engine 'Status' $null 'status-tools-removed'
+            Assert ($after.code -eq 0 -and -not $after.json.result.State.VmwareTools.Installed) 'Status reports VMware Tools as removed'
+        } else { Write-Host 'SKIP removal by hand: this runner already has VMware registry entries or files.' }
     }
     $bitlocker = Invoke-Engine 'SaveBitLocker' $null 'save-bitlocker'
     Assert ($bitlocker.code -eq 0 -and ($bitlocker.json.result.NoBitLocker -or (Test-Path -LiteralPath ([string]$bitlocker.json.result.KeyFile)))) 'Saving BitLocker keys succeeds, or reports that BitLocker is off'
@@ -216,6 +246,11 @@ try {
 finally {
     & sc.exe delete vmrawdsk | Out-Null
     if (Test-Path -LiteralPath $fakeClass) { Remove-Item -LiteralPath $fakeClass -Recurse -Force }
+    foreach ($path in @($fakeUninstall, $fakeProduct)) { if (Test-Path -LiteralPath $path) { Remove-Item -LiteralPath $path -Recurse -Force } }
+    if ($ownsVendor) {
+        if (Test-Path -LiteralPath $fakeVendor) { Remove-Item -LiteralPath $fakeVendor -Recurse -Force }
+        if (Test-Path -LiteralPath (Join-Path $env:ProgramFiles 'VMware')) { Remove-Item -LiteralPath (Join-Path $env:ProgramFiles 'VMware') -Recurse -Force }
+    }
     $device = Get-CimInstance -ClassName Win32_NetworkAdapter -Filter ('InterfaceIndex=' + $index) -ErrorAction SilentlyContinue
     if ($device -and $device.PNPDeviceID) { & pnputil.exe /remove-device $device.PNPDeviceID | Out-Host }
     $checks | Set-Content -LiteralPath (Join-Path $OutputDirectory 'checks.txt')
