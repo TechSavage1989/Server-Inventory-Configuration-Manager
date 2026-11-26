@@ -54,6 +54,9 @@ type vmReplicaOptions struct {
 	// Throttle paces what is read from the datastore; nil reads at full
 	// speed. One throttle shared by several VMs limits them together.
 	Throttle *vmThrottle
+	// Stage reports the step the round is on (snapshot, copy, cleanup) for
+	// the live progress panel; detail names the disk being copied.
+	Stage func(stage, detail string)
 }
 
 // vmThrottledSource paces reads through a throttle.
@@ -165,9 +168,14 @@ type vmReplicaDisk struct {
 	file     string
 	changeID string
 	capacity int64
+	// chain lists the parent files under file, nearest first; empty for a
+	// disk with no snapshot delta.
+	chain []string
 }
 
-func vmReplicaDisks(devices []types.BaseVirtualDevice) ([]vmReplicaDisk, error) {
+// vmReplicaDiskList lists a VM's (or a snapshot's) virtual disks with their
+// delta chains, refusing disks that cannot be copied at all.
+func vmReplicaDiskList(devices []types.BaseVirtualDevice) ([]vmReplicaDisk, error) {
 	disks := []vmReplicaDisk{}
 	for _, device := range devices {
 		disk, ok := device.(*types.VirtualDisk)
@@ -185,19 +193,86 @@ func vmReplicaDisks(devices []types.BaseVirtualDevice) ([]vmReplicaDisk, error) 
 		if backing.KeyId != nil {
 			return nil, fmt.Errorf("%s is encrypted; decrypt the VM with Prepare source first", label)
 		}
-		if backing.Parent != nil {
-			return nil, fmt.Errorf("%s still has a snapshot chain; remove snapshots with Prepare source first", label)
+		chain := []string{}
+		for parent := backing.Parent; parent != nil && len(chain) < 64; parent = parent.Parent {
+			chain = append(chain, parent.FileName)
 		}
 		capacity := disk.CapacityInBytes
 		if capacity == 0 {
 			capacity = disk.CapacityInKB * 1024
 		}
-		disks = append(disks, vmReplicaDisk{key: disk.Key, label: label, file: backing.FileName, changeID: backing.ChangeId, capacity: capacity})
+		disks = append(disks, vmReplicaDisk{key: disk.Key, label: label, file: backing.FileName, changeID: backing.ChangeId, capacity: capacity, chain: chain})
 	}
 	if len(disks) == 0 {
 		return nil, errors.New("the VM has no virtual disks")
 	}
 	return disks, nil
+}
+
+// vmReplicaChainMessage is the error for a VM whose running disk is a delta
+// while vSphere lists no snapshot of it (an orphaned delta, or disks that
+// need consolidation). Its wording ends with vmConsolidateHint, which the
+// Move tab looks for to offer Consolidate disks.
+func vmReplicaChainMessage(disk vmReplicaDisk) error {
+	return fmt.Errorf("%s still has a snapshot chain: the VM runs on %s on top of %s. %s", disk.label, disk.file, strings.Join(disk.chain, " on top of "), vmConsolidateHint)
+}
+
+const vmConsolidateHint = "Consolidate the disks with Prepare source (Delete snapshots and consolidate), or Snapshots > Consolidate in vSphere, then copy again."
+
+// vmReplicaDisks lists the VM's current disks and refuses any that runs on
+// a snapshot delta: its base disk would not be the VM's current state.
+func vmReplicaDisks(devices []types.BaseVirtualDevice) ([]vmReplicaDisk, error) {
+	disks, err := vmReplicaDiskList(devices)
+	if err != nil {
+		return nil, err
+	}
+	for _, disk := range disks {
+		if len(disk.chain) > 0 {
+			return nil, vmReplicaChainMessage(disk)
+		}
+	}
+	return disks, nil
+}
+
+// vmFrozenReplicaDisks matches the disks vSphere reports for this round's
+// snapshot with the VM's disks read just before the snapshot was taken.
+//
+// vSphere can describe the snapshot's disk as a delta on top of the base
+// disk even though the VM had no snapshot: a quiesced Windows snapshot keeps
+// a short-lived delta that VSS writes to while the guest is frozen. The base
+// disk the VM ran on before the snapshot stopped changing when the snapshot
+// was taken, so that base is what is copied, with the change ID it had
+// before the snapshot: changed block tracking then reports anything written
+// after it (including the quiesce delta once it is merged back) to the next
+// round. A chain that does not end in the VM's own base disk is refused.
+func vmFrozenReplicaDisks(frozenDevices []types.BaseVirtualDevice, before []vmReplicaDisk, log func(string)) ([]vmReplicaDisk, error) {
+	frozen, err := vmReplicaDiskList(frozenDevices)
+	if err != nil {
+		return nil, err
+	}
+	byKey := map[int32]vmReplicaDisk{}
+	for _, disk := range before {
+		byKey[disk.key] = disk
+	}
+	for index, disk := range frozen {
+		if len(disk.chain) == 0 {
+			continue
+		}
+		base, known := byKey[disk.key]
+		root := disk.chain[len(disk.chain)-1]
+		if !known || len(base.chain) > 0 || !strings.EqualFold(root, base.file) {
+			return nil, fmt.Errorf("%s: the replication snapshot shows %s on top of %s, which does not end in the disk the VM ran on (%s). %s", disk.label, disk.file, strings.Join(disk.chain, " on top of "), base.file, vmConsolidateHint)
+		}
+		if log != nil {
+			log(fmt.Sprintf("%s: vSphere keeps a short-lived delta (%s) for this snapshot; copying the base disk %s, which stopped changing when the snapshot was taken.", disk.label, disk.file, base.file))
+		}
+		disk.file, disk.changeID, disk.chain = base.file, base.changeID, nil
+		if disk.capacity == 0 {
+			disk.capacity = base.capacity
+		}
+		frozen[index] = disk
+	}
+	return frozen, nil
 }
 
 func vmFindSnapshots(tree []types.VirtualMachineSnapshotTree, ours *[]types.ManagedObjectReference) (others int) {
@@ -252,10 +327,14 @@ func vmReplicateRound(ctx context.Context, client *vim25.Client, ref types.Manag
 	if machine.Config.Template {
 		return nil, errors.New("templates are not replicated")
 	}
-	if _, err := vmReplicaDisks(machine.Config.Hardware.Device); err != nil {
+	if _, err := vmReplicaDiskList(machine.Config.Hardware.Device); err != nil {
 		return nil, err
 	}
 	vmObject := object.NewVirtualMachine(client, ref)
+	stage := options.Stage
+	if stage == nil {
+		stage = func(string, string) {}
+	}
 
 	var leftovers []types.ManagedObjectReference
 	if machine.Snapshot != nil {
@@ -275,6 +354,17 @@ func vmReplicateRound(ctx context.Context, client *vim25.Client, ref types.Manag
 		}
 	}
 
+	// Our own leftover snapshot is gone now, so a disk that still runs on a
+	// delta has a chain vSphere lists no snapshot for.
+	if len(leftovers) > 0 {
+		if err := collector.RetrieveOne(ctx, ref, []string{"name", "config", "runtime.powerState", "snapshot"}, &machine); err != nil {
+			return nil, err
+		}
+	}
+	if _, err := vmReplicaDisks(machine.Config.Hardware.Device); err != nil {
+		return nil, err
+	}
+
 	cbt := machine.Config.ChangeTrackingEnabled != nil && *machine.Config.ChangeTrackingEnabled
 	if !cbt && options.EnableCBT {
 		if err := vmReplicaRecord(options.RecordFolder, machine, "turn on changed block tracking"); err != nil {
@@ -291,9 +381,24 @@ func vmReplicateRound(ctx context.Context, client *vim25.Client, ref types.Manag
 		cbt, result.EnabledCBT = true, true
 	}
 
+	// The disks as they are just before the snapshot (with the change IDs
+	// tracking has now): the base each snapshot disk must end in.
+	var current mo.VirtualMachine
+	if err := collector.RetrieveOne(ctx, ref, []string{"config.hardware.device"}, &current); err != nil {
+		return nil, err
+	}
+	if current.Config == nil {
+		return nil, errors.New("vSphere did not return this VM's configuration")
+	}
+	before, err := vmReplicaDisks(current.Config.Hardware.Device)
+	if err != nil {
+		return nil, err
+	}
+
 	if err := vmReplicaRecord(options.RecordFolder, machine, "create and remove the replication snapshot"); err != nil {
 		return nil, err
 	}
+	stage("snapshot", "")
 	log("Taking the replication snapshot.")
 	task, err := vmObject.CreateSnapshot(ctx, vmReplicaSnapshotName, "Taken while copying this VM's disks; removed when the copy round ends.", false, options.Quiesce && machine.Runtime.PowerState == types.VirtualMachinePowerStatePoweredOn)
 	if err != nil {
@@ -312,6 +417,7 @@ func vmReplicateRound(ctx context.Context, client *vim25.Client, ref types.Manag
 		// stopped, with a context that the stop does not cancel.
 		cleanup, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
 		defer cancel()
+		stage("cleanup", "")
 		log("Removing the replication snapshot.")
 		if err := vmRemoveReplicaSnapshot(cleanup, client, snapshot); err != nil {
 			log("Could not remove the replication snapshot: " + err.Error() + ". Remove \"" + vmReplicaSnapshotName + "\" in vSphere.")
@@ -322,7 +428,7 @@ func vmReplicateRound(ctx context.Context, client *vim25.Client, ref types.Manag
 	if err := collector.RetrieveOne(ctx, snapshot, []string{"config"}, &frozen); err != nil {
 		return nil, err
 	}
-	disks, err := vmReplicaDisks(frozen.Config.Hardware.Device)
+	disks, err := vmFrozenReplicaDisks(frozen.Config.Hardware.Device, before, log)
 	if err != nil {
 		return nil, err
 	}
@@ -335,6 +441,7 @@ func vmReplicateRound(ctx context.Context, client *vim25.Client, ref types.Manag
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
+		stage("copy", fmt.Sprintf("%s (%d of %d)", disk.label, index+1, len(disks)))
 		target := filepath.Join(options.Folder, vmReplicaFileName(machine.Name, index))
 		item := vmReplicaDiskResult{Label: disk.label, Source: disk.file, Target: target, ChangeID: disk.changeID}
 		copyOptions := vmCopyOptions{Verify: options.Verify, ChangeID: disk.changeID}
