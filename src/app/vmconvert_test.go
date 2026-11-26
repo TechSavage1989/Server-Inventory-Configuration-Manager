@@ -266,6 +266,23 @@ func TestDescriptorPaddedByQEMUIsRecognised(t *testing.T) {
 	if vmLooksLikeDescriptor(append([]byte(text+"\x00"), "KDMV"...)) {
 		t.Fatal("data after the padding was accepted as a descriptor")
 	}
+	// QEMU records a new CID without leading zeros and writes back the whole
+	// old buffer, so the old text's last bytes stay after the first zero.
+	full := strings.Replace(text, "CID=2d63dd", "CID=12345678", 1) + "ddb.toolsVersion = \"2147483647\"\n"
+	for _, cut := range []int{1, 2, 4, 7} {
+		shrunk := strings.Replace(full, "CID=12345678", "CID="+"12345678"[cut:], 1)
+		left := []byte(shrunk + "\x00" + full[len(full)-cut:])
+		left = append(left, make([]byte, 512-len(left))...)
+		got, ok := vmDescriptorText(left)
+		if !ok || got != shrunk {
+			t.Fatalf("cut %d: a descriptor QEMU shortened was refused (%q)", cut, left)
+		}
+	}
+	for _, bad := range []string{"\x00\x01\x02", "\x00KDMV", "\x00\n\x00\x00\x07", "\x00ffff\"\n"} {
+		if _, ok := vmDescriptorText([]byte(full + bad)); ok {
+			t.Fatalf("%q after the text was accepted", bad)
+		}
+	}
 }
 
 func TestConvertSuggestedName(t *testing.T) {

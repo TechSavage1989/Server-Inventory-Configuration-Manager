@@ -6406,9 +6406,13 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   function fvChecked(){return Array.prototype.filter.call(document.querySelectorAll('[data-fv-copy]'),function(b){return b.checked;}).map(function(b){return b.getAttribute('data-fv-copy');});}
   function fvLoad(switches,quiet){
     if(!quiet){fvBusy=true;syncFv();}
-    request('GET','/api/repl/failover'+(switches?'?switches=1':''),null,function(err,data){if(!quiet){fvBusy=false;}if(err){if(!quiet){vmSetStatus('fvStatus',err,true);}syncFv();return;}var keep=fvState&&fvState.switches;fvState=data||{};if(!fvState.switches&&keep){fvState.switches=keep;}renderFv();});
+    request('GET','/api/repl/failover'+(switches?'?switches=1':''),null,function(err,data){if(!quiet){fvBusy=false;}if(err){if(!quiet){vmSetStatus('fvStatus',err,true);}syncFv();return;}
+      // A background refresh that brings nothing new leaves the page alone, so the
+      // panel does not jump while it is scrolled or being typed in.
+      var seen=JSON.stringify(data||{});if(quiet&&seen===fvLastSeen){syncFv();return;}fvLastSeen=seen;
+      var keep=fvState&&fvState.switches;fvState=data||{};if(!fvState.switches&&keep){fvState.switches=keep;}renderFv();});
   }
-  var fvTouched=false,fvPoll=0;
+  var fvTouched=false,fvPoll=0,fvLastSeen='';
   function fvCopyWhy(c){
     if(c.busy){return 'being received now. It unlocks by itself when this round finishes';}
     if(c.held){return 'in use: '+c.held;}
@@ -6541,7 +6545,8 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   // the copies); a production start is typed by hand.
   function fvPrefillConfirm(){var test=byId('fvModeTest').checked,name=trimText(byId('fvName').value);if(test&&name){byId('fvConfirm').value=name;}else if(!test&&byId('fvConfirm').getAttribute('data-auto')==='1'){byId('fvConfirm').value='';}byId('fvConfirm').setAttribute('data-auto',test?'1':'0');}
   function renderFv(){
-    var s=fvState||{},box=byId('fvCopies'),chosen=fvChecked();
+    var s=fvState||{},box=byId('fvCopies'),chosen=fvChecked(),typed={},focused=document.activeElement&&document.activeElement.getAttribute('data-fv-endname');
+    Array.prototype.forEach.call(document.querySelectorAll('[data-fv-endname]'),function(x){typed[x.getAttribute('data-fv-endname')]=x.value;});
     byId('fvFolder').textContent=s.folder?'Copies in '+s.folder:'';
     box.textContent='';
     if(s.hyperV===false){box.appendChild(el('p','restore-alert danger','This computer has no Hyper-V role or module. Run this on the Hyper-V host that receives the copies.'));}
@@ -6568,7 +6573,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       var li=el('li',f.mode==='test'?'warning':'good');
       li.appendChild(el('strong','',f.name+': '));
       li.appendChild(document.createTextNode((f.mode==='test'?'test failover on differencing disks':'production VM')+' from '+vmArr(f.copies).join(', ')+(rpWhen(f.recoveryPoint)?', recovery point '+rpWhen(f.recoveryPoint):'')+'. Started '+rpWhen(f.started)+'. '));
-      var name=document.createElement('input');name.type='text';name.placeholder='Type '+f.name;name.setAttribute('aria-label','Type '+f.name+' to confirm');name.setAttribute('data-fv-endname',f.id);name.className='fv-end-name';
+      var name=document.createElement('input');name.type='text';name.placeholder='Type '+f.name;name.setAttribute('aria-label','Type '+f.name+' to confirm');name.setAttribute('data-fv-endname',f.id);name.className='fv-end-name';if(typed[f.id]){name.value=typed[f.id];}
       var b=el('button','secondary-button',f.mode==='test'?'End test: remove the test VM':'Release the copies');b.type='button';b.setAttribute('data-fv-end',f.id);b.setAttribute('data-fv-vm',f.name);
       if(f.mode==='test'){
         var steps=el('ol','fv-checklist');
@@ -6578,6 +6583,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       li.appendChild(name);li.appendChild(b);list.appendChild(li);
     });
     byId('fvRunning').classList.toggle('hidden',!vmArr(s.failovers).length);
+    if(focused){var back=document.querySelector('[data-fv-endname="'+CSS.escape(focused)+'"]');if(back){back.focus();}}
     renderFvNext(vmArr(s.failovers));
     syncFv();
   }
@@ -7393,7 +7399,8 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   var nwStepNames=['What','Where','How','When','Review','Status'];
   var nw={step:0,reached:0,source:'',picks:{},filter:'',target:'',copyRoot:'',vmFolder:'',cluster:false,node:'',hvHost:'',hvUser:'',net:{},method:'',
     opts:{syncMinutes:60,concurrency:2,quiesce:false,keepMac:true,startVms:true,disconnectSource:true,fixUp:true,testSwitch:'',bizMbps:'0',offMbps:'0',bizStart:8,bizEnd:18},
-    startMode:'now',startAt:'',waveMode:'',waves:{},cut:{},name:'',confirm:'',planId:'',busy:false,error:'',filled:'',statusFilter:''};
+    startMode:'now',startAt:'',waveMode:'',waves:{},cut:{},name:'',confirm:'',planId:'',busy:false,error:'',filled:'',statusFilter:'',statusKind:'',
+    srv:{picks:{},folder:'',interval:15,rpo:'30',services:'',compress:true,shutdown:true,fullRead:false,live:false,limit:'0',biz:'0',bizStart:0,bizEnd:0,confirm:'',agents:[],hosts:'',user:'',watch:false,instError:'',action:'sync',cutAt:''}};
   var nwSwitches=null,nwSwitchesAsked=false,nwLastPoll=0,nwSig='',nwStatusSig='',nwRowsChosen={};
   var nwSources=[
     {id:'vms',name:'VMs on VMware or Hyper-V',detail:'vCenter, ESXi or a Hyper-V host. Pick many at once; nothing is installed in them.'},
@@ -7423,7 +7430,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     if(s==='images'){return ['convert'];}
     return [];
   }
-  function nwEndToEnd(){return nw.source==='vms'&&nw.method==='plans'&&(nw.target==='here'||(nw.target==='hvremote'&&nwInvType()==='vmware'));}
+  function nwEndToEnd(){return nwSrvEnd()||(nw.source==='vms'&&nw.method==='plans'&&(nw.target==='here'||(nw.target==='hvremote'&&nwInvType()==='vmware')));}
   function nwRemote(){return nw.target==='hvremote';}
   // HyperCore, Nutanix AHV and Proxmox VE: VMware VMs move one by one through
   // receiver media on each new VM; Where connects to the platform.
@@ -7513,13 +7520,15 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     var v=vmwareState()||{};
     if(step===0){
       if(!nw.source){return 'Choose what you are moving.';}
+      if(nwSrvMode()){return !nwAs?'Reading the servers…':(nwSrvPicked().length?'':'Tick the servers to replicate, or add servers below.');}
       if(nw.source!=='vms'){return '';}
       if(!vmInventory){return 'Read vCenter, ESXi or a Hyper-V host first (above).';}
       if(!nwPickedVMs().length){return 'Tick the VMs to move.';}
       return '';
     }
     if(step===1){
-      if(!nw.target){return 'Choose where '+(nw.source==='vms'?'the VMs are':'it is')+' going.';}
+      if(!nw.target){return 'Choose where '+(nw.source==='vms'?'the VMs are':(nwSrvMode()?'the servers are':'it is'))+' going.';}
+      if(nwSrvMode()&&nw.target==='here'){if(!nwSrvHere()){return 'This computer is not a Hyper-V host. Pick another target, or run this application on the Hyper-V host.';}if(nw.srv.folder&&!nwSrvLocal().running&&!nwFullPath(nw.srv.folder)){return 'Type a full path for the copies, or leave it empty for the default.';}return '';}
       if(nw.target==='here'&&nw.source==='vms'){
         if(!v.hyperVHere){return 'This computer is not a Hyper-V host. Pick another target, or run this application on the Hyper-V host.';}
         if(nw.copyRoot&&!nwFullPath(nw.copyRoot)){return 'Type a full path for the copied disks, or leave it empty for the host\'s default.';}
@@ -7538,7 +7547,9 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       }
       return '';
     }
-    if(step===2){return nw.method?'':'Choose how to move.';}
+    if(step===2){if(!nw.method){return 'Choose how to move.';}return nwSrvEnd()?nwSrvHowWhy():'';}
+    if(step===3&&nwSrvMode()){return '';}
+    if(step===4&&nwSrvMode()){return nwSrvReviewWhy();}
     if(step===3){
       if(nw.startMode==='at'){var t=new Date(nw.startAt);if(!nw.startAt||isNaN(t.getTime())){return 'Choose when the first copies start.';}}
       var waves=nwWaveList();for(var i=0;i<waves.length;i++){var c=nw.cut[waves[i]];if(c&&c.mode==='at'){var at=new Date(c.at);if(!c.at||isNaN(at.getTime())){return 'Choose the cutover time of wave '+waves[i]+'.';}if(at.getTime()<Date.now()+5*60000){return 'The cutover time of wave '+waves[i]+' must be at least five minutes from now.';}}}
@@ -7589,6 +7600,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     if(nw.step===1){base+='|'+JSON.stringify(v.hostStorage||null)+'|'+(v.hvRemote?[v.hvRemote.connected,v.hvRemote.serial,v.hvRemote.failed,v.hvRemote.message].join(','):'');}
     if(nw.step===4&&v.hvRemote){base+='|'+v.hvRemote.serial;}
     if((nw.step===1||nw.step===2)&&v.target){base+='|t'+v.target.serial+(v.target.connected?'c':'')+(v.target.certificate?'x':'')+'|'+(v.move?v.move.vm+(v.move.error||''):'');}
+    if(nwSrvMode()){return base+'|srv|'+nwSrvSig()+'|'+nw.target+nw.method;}
     if(nw.step===4){base+='|'+JSON.stringify(nwChecks())+'|'+JSON.stringify(v.prepareBatch||null);}
     return base;
   }
@@ -7601,12 +7613,13 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   function nwTick(){
     if(activeTab!=='wizard'){return;}
     if(!nwSwitchesAsked&&(vmwareState()||{}).hyperVHere){nwLoadPlans(true);}
+    if(nwSrvMode()&&Date.now()-nwAsPoll>3000){nwSrvLoad();if(nw.srv.watch&&nw.step===0){rpRefresh();}}
     if((nw.step===5||nw.step===0)&&Date.now()-nwLastPoll>3000){nwLoadPlans(false);}
-    if(nw.step===5){renderNwStatusBody();renderNwNav();return;}
+    if(nw.step===5){if(nw.statusKind==='servers'){renderNwSrvStatusBody();}else{renderNwStatusBody();}renderNwNav();return;}
     if(nwSignature()!==nwSig&&!nwTyping()){renderNw();}else{renderNwNav();}
   }
   // Re-rendering while the operator types in a text field would lose it.
-  function nwTyping(){var a=document.activeElement;return !!(a&&byId('nwStep').contains(a)&&(a.type==='text'||a.type==='password'||a.type==='search'||a.tagName==='SELECT'));}
+  function nwTyping(){var a=document.activeElement;return !!(a&&byId('nwStep').contains(a)&&(a.type==='text'||a.type==='password'||a.type==='search'||a.type==='datetime-local'||a.tagName==='SELECT'));}
   function nwLoadPlans(withSwitches){
     if(withSwitches){nwSwitchesAsked=true;}nwLastPoll=Date.now();
     request('GET','/api/plans'+(withSwitches?'?switches=1':''),null,function(err,data){if(err){return;}mpState=data||{};if(withSwitches&&mpState.switches){nwSwitches=vmArr(mpState.switches);}if(activeTab==='wizard'){if(nw.step===5){renderNwStatusBody();renderNwNav();}else if(!nwTyping()){renderNw();}}});
@@ -7624,8 +7637,10 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       if(typeof asOpenFor==='function'){var all=el('button','link-button','Open the All servers console');all.type='button';all.setAttribute('data-nw-console','');cur.appendChild(all);}
       box.appendChild(cur);
     }
+    if(vmArr(nw.srv.agents).length){var sr=el('div','nw-running');sr.appendChild(el('strong','','Servers replicating from New migration'));var sb=el('button','secondary-button','Show the status of '+vmPlural(vmArr(nw.srv.agents).length,'server'));sb.type='button';sb.id='nwSrvOpenStatus';sr.appendChild(sb);box.appendChild(sr);}
     box.appendChild(nwHeading('What are you moving?'));
     var choices=el('div','gd-choices');nwSources.forEach(function(s){choices.appendChild(nwChoice('data-nw-source',s.id,s.name,s.detail,nw.source===s.id));});box.appendChild(choices);
+    if(nwSrvMode()){renderNwSrvWhat(box);return;}
     if(nw.source!=='vms'){if(nw.source){box.appendChild(el('p','migrate-help','Next: choose where it is going.'));}return;}
     var v=vmwareState()||{};
     if(!vmInventory||(nwInvType()==='vmware'&&!v.canPrepare)){box.appendChild(renderNwSignIn(v));}
@@ -7701,16 +7716,18 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   // Step 2: where.
   function renderNwWhere(box){
     var v=vmwareState()||{};
-    box.appendChild(nwHeading('Where '+(nw.source==='vms'?'are the VMs':'is it')+' going?'));
+    box.appendChild(nwHeading('Where '+(nw.source==='vms'?'are the VMs':(nwSrvMode()?'are the servers':'is it'))+' going?'));
     var choices=el('div','gd-choices');
     nwTargetsFor(nw.source).forEach(function(id){var t=nwTargetInfo[id],why='',off=false;
       if(id==='here'&&nw.source==='vms'&&!v.hyperVHere){why='This computer ('+vmComputer()+') is not a Hyper-V host.';off=true;}
+      if(id==='here'&&nwSrvMode()&&nwAs&&!nwSrvHere()){why='This computer ('+vmComputer()+') is not a Hyper-V host. Run this application on the Hyper-V host that will run the new VMs.';off=true;}
       if(id==='hvremote'&&nwInvType()==='hyperv'){why='From a Hyper-V host, use Replicate servers.';}
       if(id==='here'&&nw.source==='vms'&&!v.hyperVHere&&nwInvType()==='vmware'){why+=' Choose Another Hyper-V host or cluster to run the migration from here.';}
       choices.appendChild(nwChoice('data-nw-target',id,t.name,t.detail,nw.target===id,off,why));});
     box.appendChild(choices);
     var remote=nwRemote()&&nw.source==='vms'&&nwInvType()==='vmware';
     if(nwPlatform()){renderNwPlatformConnect(box);return;}
+    if(nwSrvMode()&&nw.target==='here'){renderNwSrvWhere(box);return;}
     if(nw.source!=='vms'||(nw.target!=='here'&&!remote)){if(nw.target){box.appendChild(el('p','migrate-help','Next: how to move. The tool for it is filled in from your choices.'));}return;}
     if(remote){if(!renderNwHvConnect(box)){return;}}
     var hs=nwStorage();
@@ -7835,10 +7852,11 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     ids.forEach(function(id,i){var m=nwMode(id);if(!m){return;}
       var b=el('button','nw-method');b.type='button';b.setAttribute('data-nw-method',id);b.setAttribute('aria-pressed',nw.method===id?'true':'false');
       var top=el('div','nw-method-top');top.appendChild(el('strong','',m.name));if(i===0){top.appendChild(el('span','nw-badge','Recommended'));}
-      var whole=id==='plans'&&nw.source==='vms'&&(nw.target==='here'||(nw.target==='hvremote'&&nwInvType()==='vmware'));top.appendChild(el('span','nw-badge '+(whole?'good':'handoff'),whole?'Runs from here, start to finish':'Continues in '+gdToolName(m.tool)));
+      var whole=(id==='plans'&&nw.source==='vms'&&(nw.target==='here'||(nw.target==='hvremote'&&nwInvType()==='vmware')))||(id==='replicate'&&nwSrvMode()&&nw.target==='here');top.appendChild(el('span','nw-badge '+(whole?'good':'handoff'),whole?'Runs from here, start to finish':'Continues in '+gdToolName(m.tool)));
       b.appendChild(top);b.appendChild(toolWhenLine(m.when));b.appendChild(el('span','vm-note',m.note));b.appendChild(modeTags([m.agent,m.live]));list.appendChild(b);});
     box.appendChild(list);
     if(!nwEndToEnd()){if(nw.method){var m=nwMode(nw.method);box.appendChild(el('p','migrate-help','Continue in '+gdToolName(m.tool)+' opens it with '+(nw.source==='vms'&&nwPickedVMs().length?'your '+vmPlural(nwPickedVMs().length,'VM')+' selected':'your choices')+'. Its own screen asks only for what that way needs.'));if(nwPlatform()&&m.tool==='movevms'){renderNwQueue(box);}}return;}
+    if(nwSrvMode()){renderNwSrvHow(box);return;}
     var o=nw.opts,isVMware=nwInvType()==='vmware';
     box.appendChild(nwHeading('Options for a migration plan'));
     box.appendChild(nwCheck('nwKeepMac','Keep each adapter\'s MAC address',o.keepMac,function(on){o.keepMac=on;}));
@@ -7869,6 +7887,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   }
   // Step 4: when.
   function renderNwWhen(box){
+    if(nwSrvMode()){renderNwSrvWhen(box);return;}
     var planWaves=nwPickedVMs().filter(function(vm){var p=vmPlanEntry(vm.id);return p&&p.wave>0&&!p.hold&&!p.exclude;}).length;
     if(!nw.waveMode){nw.waveMode=planWaves?'plan':'one';}
     box.appendChild(nwHeading('When do the first copies start?'));
@@ -7902,6 +7921,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   }
   // Step 5: review.
   function renderNwReview(box){
+    if(nwSrvMode()){renderNwSrvReview(box);return;}
     var picked=nwPickedVMs(),o=nw.opts,m=nwMode(nw.method);
     if(!nw.name){var d=new Date(),p=function(n){return (n<10?'0':'')+n;};nw.name='Migration '+d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate());}
     box.appendChild(nwHeading('Check and start'));
@@ -7934,6 +7954,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   }
   // Start: save the map and waves, create the plan, schedule timed cutovers.
   function nwStart(){
+    if(nwSrvMode()){nwSrvStart();return;}
     if(nw.busy||nwWhyNot(4)){return;}
     nw.busy=true;nw.error='';renderNwNav();
     var fail=function(err){nw.busy=false;nw.error=err;renderNw();};
@@ -7952,7 +7973,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     var create=function(){
       request('POST','/api/plans',{action:'create',name:name,settings:settings,vmIds:ids},function(err,data){
         if(err){fail(err);return;}
-        nw.planId=data.id||'';nwStorePlan(nw.planId);
+        nw.planId=data.id||'';nwStorePlan(nw.planId);nw.statusKind='plan';
         var timed=nwWaveList().filter(function(w){var c=nw.cut[w];return c&&c.mode==='at';}),errors=[];
         var next=function(i){
           if(i>=timed.length){nw.busy=false;nw.error=errors.length?'Created, but '+errors.join(' '):'';nw.step=5;nw.reached=5;mpSelected=nw.planId;nwLoadPlans(false);renderNw();return;}
@@ -7963,6 +7984,255 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       });
     };
     if(vmPlan){request('POST','/api/vmware/plan',{plan:vmPlan},function(err,data){if(err){fail('The network map and waves were not saved: '+err);return;}vmPlan=data.plan;vmSizing=data.sizing;vmPlanDirty=false;create();});}else{create();}
+  }
+  // Windows and Linux servers replicated by the agent to this Hyper-V host
+  // (phase 2 step 2): What lists the servers the replication console knows
+  // and installs the agent on new Windows ones; Where takes only the folder,
+  // because this computer's receiver is started and paired for the jobs
+  // (repl_local*.go); Start creates the jobs through All jobs and servers'
+  // own bulk action, and Status manages them with that console's actions.
+  var nwAs=null,nwAsPoll=0,nwSrvPw='',nwSrvChosen={},nwSrvStatusSig='',nwSrvBusy=false;
+  function nwSrvMode(){return nw.source==='servers';}
+  function nwSrvEnd(){return nw.source==='servers'&&nw.target==='here'&&nw.method==='replicate';}
+  function nwSrvRows(){return vmArr(nwAs&&nwAs.rows);}
+  function nwSrvLocal(){return (nwAs&&nwAs.local)||{};}
+  function nwSrvHere(){return !!(nwAs&&(nwAs.hyperVHere||nwSrvLocal().hyperV));}
+  function nwSrvCandidates(){return nwSrvRows().filter(function(r){return r.kind==='agent'||r.kind==='job';}).sort(function(a,b){return String(a.name).localeCompare(String(b.name));});}
+  function nwSrvPickWhy(r){
+    if(r.kind==='job'){return 'Already replicating ('+(r.stateText||r.state)+'). Manage it in All jobs and servers.';}
+    if(vmArr(r.actions).indexOf('createjob')<0){return r.reason||((r.stateText||'Not ready')+'.');}
+    return '';
+  }
+  function nwSrvPicked(){return nwSrvCandidates().filter(function(r){return nw.srv.picks[r.key]&&!nwSrvPickWhy(r);});}
+  // The rows this flow started: the jobs (and any agent still without one)
+  // of the agents it created jobs for.
+  function nwSrvStatusRows(){var mine={};vmArr(nw.srv.agents).forEach(function(id){mine[id]=true;});return nwSrvRows().filter(function(r){return (r.kind==='job'||r.kind==='agent')&&mine[r.agent];}).sort(function(a,b){return String(a.name).localeCompare(String(b.name));});}
+  function nwSrvSig(){
+    var l=nwSrvLocal(),rp=rpState||{};
+    return nwSrvCandidates().map(function(r){return r.key+':'+r.state+':'+vmArr(r.actions).join(',');}).join(';')+'|'+(nwAs?1:0)+(nwSrvHere()?'h':'')+(l.running?'r'+l.folder:'')+'|'+(nw.srv.watch?(rp.pushing?'p':'')+vmArr(rp.pushLog).length:'');
+  }
+  function nwSrvLoad(){
+    nwAsPoll=Date.now();
+    request('GET','/api/servers',null,function(err,data){
+      if(err){if(!nwAs){nwAs={rows:[],error:err};}return;}
+      nwAs=data||{};
+      if(activeTab!=='wizard'||!nwSrvMode()){return;}
+      if(nw.step===5){renderNwSrvStatusBody();renderNwNav();}else if(!nwTyping()&&nwSignature()!==nwSig){renderNw();}else{renderNwNav();}
+    });
+  }
+  function nwSrvStore(){try{window.localStorage.setItem('simm.wizard.servers',JSON.stringify(vmArr(nw.srv.agents)));}catch(e){}}
+  function nwSrvStored(){try{var v=JSON.parse(window.localStorage.getItem('simm.wizard.servers')||'[]');return Object.prototype.toString.call(v)==='[object Array]'?v.filter(function(x){return typeof x==='string';}):[];}catch(e){return [];}}
+  function renderNwSrvWhat(box){
+    if(!nwAs){box.appendChild(el('div','vm-note','Reading the servers this console knows…'));return;}
+    if(nwAs.error){box.appendChild(el('div','restore-alert warning',nwAs.error));}
+    var cands=nwSrvCandidates();
+    box.appendChild(nwHeading('Servers with the replication agent'));
+    box.appendChild(el('p','migrate-help','Tick the servers to replicate. Each one gets a job that copies every disk, system disk first, while the server keeps running; later rounds send only what changed. The agent reads each volume from a shadow copy and sends it over HTTPS; nothing else is installed.'));
+    if(cands.length){
+      var head=el('div','nw-vm-head');
+      var all=el('button','secondary-button','Tick every server shown that is ready');all.type='button';all.id='nwSrvAll';head.appendChild(all);
+      var none=el('button','link-button','Clear');none.type='button';none.id='nwSrvNone';head.appendChild(none);box.appendChild(head);
+      var list=el('div','nw-vm-list');list.id='nwSrvList';list.setAttribute('aria-label','Servers');
+      cands.forEach(function(r){
+        var why=nwSrvPickWhy(r),row=el('label','nw-vm'+(why?' disabled':'')),cb=document.createElement('input');cb.type='checkbox';cb.setAttribute('data-nw-srv',r.key);cb.checked=!why&&!!nw.srv.picks[r.key];cb.disabled=!!why;cb.setAttribute('aria-label','Replicate '+r.name);
+        row.appendChild(cb);row.appendChild(el('strong','',r.name));
+        row.appendChild(el('span','vm-note',why||[r.os,r.host,r.stateText].filter(function(x){return !!x;}).join(' · ')));list.appendChild(row);});
+      box.appendChild(list);
+      box.appendChild(el('div','vm-note nw-pick-count',vmPlural(nwSrvPicked().length,'server')+' ticked.'));
+    }else{box.appendChild(el('div','vm-note','No server has the agent yet. Add servers below.'));}
+    box.appendChild(nwHeading('Add Windows servers'));
+    box.appendChild(el('p','migrate-help','Installs the agent service on each server from here: the program is copied through the administrative share and started by the server\'s service manager, with one firewall rule for the console. It needs an administrator account on the servers.'));
+    var two=el('div','rp-two');
+    var hosts=nwInput('nwSrvHosts',nw.srv.hosts,'app01, app02.example.com, 10.0.0.15');two.appendChild(nwField('Servers (names or addresses, separated by commas)',hosts));
+    var user=nwInput('nwSrvUser',nw.srv.user,'Empty uses your Windows account');two.appendChild(nwField('Administrator account (DOMAIN\\user)',user));
+    box.appendChild(two);
+    var pw=document.createElement('input');pw.type='password';pw.id='nwSrvPassword';pw.autocomplete='off';pw.value=nwSrvPw;box.appendChild(nwField('Password',pw,'Used for this install only; it is not kept.'));
+    var row2=el('div','migrate-row'),inst=el('button','secondary-button',(rpState&&rpState.pushing&&nw.srv.watch)?'Installing…':'Install the agent');inst.type='button';inst.id='nwSrvInstall';inst.disabled=!!(rpState&&rpState.pushing)||!trimText(nw.srv.hosts);row2.appendChild(inst);
+    var lin=el('button','link-button','Linux servers: install in All jobs and servers');lin.type='button';lin.setAttribute('data-nw-console','');row2.appendChild(lin);box.appendChild(row2);
+    var msg=el('div','migrate-inline-status'+(nw.srv.instError?' error':''),nw.srv.instError||'');msg.id='nwSrvInstStatus';msg.setAttribute('role','status');box.appendChild(msg);
+    if(nw.srv.watch&&rpState){var lines=vmArr(rpState.pushLog);if(lines.length){var log=el('pre','log-view nw-push-log',lines.slice(-12).join('\n'));box.appendChild(log);}}
+  }
+  function nwSrvInstall(){
+    var pwi=byId('nwSrvPassword'),body={hosts:trimText(nw.srv.hosts),user:trimText(nw.srv.user),password:pwi?pwi.value:'',platform:'windows'};
+    if(!body.hosts){return;}nw.srv.instError='';
+    request('POST','/api/repl/push',body,function(err){
+      nwSrvPw='';if(pwi){pwi.value='';}
+      if(err){nw.srv.instError=err;renderNw();return;}
+      nw.srv.watch=true;nw.srv.hosts='';if(rpState){rpState.pushing=true;}rpRefresh();renderNw();
+    });
+  }
+  function renderNwSrvWhere(box){
+    var l=nwSrvLocal();
+    if(!nwSrvHere()){box.appendChild(el('div','restore-alert warning','This computer ('+vmComputer()+') is not a Hyper-V host. Run this application on the Hyper-V host that will run the new VMs, or choose another target.'));return;}
+    box.appendChild(nwHeading('Folder for the copies on this host'));
+    if(l.running){
+      var fixed=nwInput('nwSrvFolder',l.folder,'');fixed.disabled=true;box.appendChild(nwField('Copies are saved in',fixed,'The receiver on this computer already saves copies here, so every job to this host uses this folder.'));
+    }else{
+      var f=nwInput('nwSrvFolder',nw.srv.folder,l.defaultFolder||'C:\\ClusterStorage\\Volume1\\Replicas');box.appendChild(nwField('Copies are saved in',f,'Empty uses '+(l.defaultFolder||'the host\'s default folder')+'. A Cluster Shared Volume lets the new VMs be highly available.'));nwBrowse(f);
+    }
+    box.appendChild(el('p','migrate-help','Each server\'s disks are saved as SERVER-disk0.vhdx, SERVER-disk1.vhdx and so on. The receiver on this computer is started and paired with the jobs for you: there is no pairing code, thumbprint or Receive panel to set up. It runs inside this application, so keep the application open on '+(l.computer||vmComputer())+'; it starts again by itself when the application opens.'));
+  }
+  function nwSrvInt(v,min,max){v=trimText(v);return /^[0-9]+$/.test(v)&&Number(v)>=min&&Number(v)<=max;}
+  function nwSrvHowWhy(){
+    var s=nw.srv;
+    if(!nwSrvInt(s.rpo,1,10080)){return 'Type the RPO alert as a number of minutes from 1 to 10080.';}
+    if(!nwSrvInt(s.limit,0,100000)||!nwSrvInt(s.biz,0,100000)){return 'Type the bandwidth limits as numbers of Mbps (0 for none), under Advanced.';}
+    return '';
+  }
+  function renderNwSrvHow(box){
+    var s=nw.srv;
+    box.appendChild(nwHeading('Options for the replication jobs'));
+    var two=el('div','rp-two');
+    var iv=document.createElement('select');iv.id='nwSrvInterval';[[0,'Continuously'],[5,'Every 5 minutes'],[15,'Every 15 minutes'],[30,'Every 30 minutes'],[60,'Every hour'],[240,'Every 4 hours'],[1440,'Once a day']].forEach(function(x){iv.appendChild(new Option(x[1],String(x[0])));});iv.value=String(s.interval);
+    iv.addEventListener('change',function(){s.interval=Number(iv.value);});two.appendChild(nwField('Replicate',iv));
+    var rpo=nwInput('nwSrvRpo',s.rpo);rpo.inputMode='numeric';rpo.maxLength=5;rpo.addEventListener('input',function(){s.rpo=trimText(rpo.value);renderNwNav();});two.appendChild(nwField('Alert when the copy is older than (minutes)',rpo));
+    box.appendChild(two);
+    var svc=nwInput('nwSrvServices',s.services,'MSSQLSERVER, W3SVC');svc.addEventListener('input',function(){s.services=svc.value;});box.appendChild(nwField('Services to stop at cutover (comma separated)',svc,'Stopped before the last round so their data is consistent; started again if the cutover fails.'));
+    box.appendChild(nwCheck('nwSrvShutdown','Shut each server down after its last round at cutover',s.shutdown,function(on){s.shutdown=on;}));
+    box.appendChild(nwCheck('nwSrvCompress','Compress data on the network',s.compress,function(on){s.compress=on;}));
+    var adv=document.createElement('details');adv.className='nw-advanced';adv.id='nwAdvanced';adv.appendChild(el('summary','','Advanced: bandwidth, last-round read, live copy'));
+    var bw=el('div','mp-three');
+    var lim=nwInput('nwSrvLimit',s.limit);lim.inputMode='numeric';lim.maxLength=6;lim.addEventListener('input',function(){s.limit=trimText(lim.value)||'0';renderNwNav();});bw.appendChild(nwField('Bandwidth limit, Mbps (0 for none)',lim));
+    var biz=nwInput('nwSrvBiz',s.biz);biz.inputMode='numeric';biz.maxLength=6;biz.addEventListener('input',function(){s.biz=trimText(biz.value)||'0';renderNwNav();});bw.appendChild(nwField('During business hours, Mbps (0 for none)',biz));
+    var hours=el('span','rp-two'),hs=document.createElement('select'),he=document.createElement('select');hs.setAttribute('aria-label','Business hours start');he.setAttribute('aria-label','Business hours end');
+    for(var h=0;h<=24;h++){var lab=(h<10?'0':'')+h+':00';hs.appendChild(new Option(lab,String(h)));he.appendChild(new Option(lab,String(h)));}hs.value=String(s.bizStart);he.value=String(s.bizEnd);
+    hs.addEventListener('change',function(){s.bizStart=Number(hs.value);});he.addEventListener('change',function(){s.bizEnd=Number(he.value);});hours.appendChild(hs);hours.appendChild(he);
+    var hl=el('label','vm-field');hl.appendChild(document.createTextNode('Business hours (each server\'s own time)'));hl.appendChild(hours);bw.appendChild(hl);adv.appendChild(bw);
+    adv.appendChild(nwCheck('nwSrvFullRead','Read every used block in the last round (safest, takes longer)',s.fullRead,function(on){s.fullRead=on;}));
+    adv.appendChild(nwCheck('nwSrvLive','Copy volumes as they are if Volume Shadow Copy is unavailable',s.live,function(on){s.live=on;}));
+    box.appendChild(adv);
+  }
+  function renderNwSrvWhen(box){
+    var s=nw.srv;
+    box.appendChild(nwHeading('When does copying start?'));
+    box.appendChild(el('p','migrate-help','As soon as you press Start. Each server\'s first full copy starts within a few seconds while it keeps running; after that it replicates '+({0:'continuously',5:'every 5 minutes',15:'every 15 minutes',30:'every 30 minutes',60:'every hour',240:'every 4 hours',1440:'once a day'}[s.interval]||'on its schedule')+', and you are alerted when a copy is older than '+s.rpo+' minutes.'));
+    box.appendChild(nwHeading('When does each server cut over?'));
+    box.appendChild(el('p','migrate-help','When you choose, from Status, once its first copy has finished (In sync): Cut over now, or at a time you set, for the servers you select. Test failover first if you like: it starts a test VM on differencing disks, disconnected from the network, while replication carries on.'));
+    box.appendChild(el('p','vm-note','A cutover '+(s.services?'stops '+s.services+', ':'')+'copies the last changes and checks them'+(s.shutdown?', then shuts the server down':'')+'. Then start the new VM from its copies in Start VMs from copies; Status links to it.'));
+  }
+  function nwSrvChecks(){
+    var list=[],add=function(s,t){list.push({s:s,t:t,fix:''});},l=nwSrvLocal(),picked=nwSrvPicked();
+    add(nwSrvHere()?'ok':'block',nwSrvHere()?'This computer ('+(l.computer||vmComputer())+') is a Hyper-V host: it receives the copies and later runs the new VMs.':'This computer is not a Hyper-V host. Run this application on the Hyper-V host that will run the new VMs.');
+    add(picked.length?'ok':'block',picked.length?vmPlural(picked.length,'server')+' answer'+(picked.length===1?'s':'')+' and can take a job.':'Tick at least one server whose agent answers (in What).');
+    var gone=nwSrvCandidates().filter(function(r){return nw.srv.picks[r.key]&&nwSrvPickWhy(r);});
+    if(gone.length){add('warn',gone.map(function(r){return r.name;}).join(', ')+' can no longer take a job and '+(gone.length===1?'is':'are')+' left out: '+nwSrvPickWhy(gone[0]));}
+    if(nw.srv.folder&&!l.running&&!nwFullPath(nw.srv.folder)){add('block','Type a full path for the copies, such as C:\\ClusterStorage\\Volume1\\Replicas, or leave it empty for the default (in Where).');}
+    add('ok','The receiver on this computer saves the copies in '+(l.running?l.folder:(nw.srv.folder||l.defaultFolder||'the default folder'))+(l.running?' (it is already running).':' and is started and paired for the jobs.'));
+    if(nwAs&&nwAs.isAdministrator===false){add('warn','This application is not running as administrator. Starting VMs from the copies later needs administrator rights.');}
+    add('warn','Keep this application open on this host while the servers replicate: the receiver runs inside it.');
+    return list;
+  }
+  function renderNwSrvReview(box){
+    var picked=nwSrvPicked(),s=nw.srv,l=nwSrvLocal();
+    box.appendChild(nwHeading('Check and start'));
+    var dl=el('dl','nw-summary'),row=function(k,val,step){var dt=el('dt','',k),dd=el('dd','');dd.appendChild(document.createTextNode(val+' '));var e=el('button','link-button','Change');e.type='button';e.setAttribute('data-nw-step',String(step));dd.appendChild(e);dl.appendChild(dt);dl.appendChild(dd);};
+    row('What',vmPlural(picked.length,'server')+': '+picked.slice(0,12).map(function(r){return r.name;}).join(', ')+(picked.length>12?' and '+(picked.length-12)+' more':''),0);
+    row('Where','This Hyper-V host ('+(l.computer||vmComputer())+'), copies in '+(l.running?l.folder:(s.folder||l.defaultFolder||'the default folder'))+'.',1);
+    row('How','Agent replication, '+({0:'continuously',5:'every 5 minutes',15:'every 15 minutes',30:'every 30 minutes',60:'every hour',240:'every 4 hours',1440:'once a day'}[s.interval]||'')+', alert after '+s.rpo+' minutes'+(s.compress?', compressed':'')+(Number(s.limit)||Number(s.biz)?', bandwidth limited':'')+(s.services?', stops '+s.services+' at cutover':'')+(s.shutdown?', shuts each server down after its last round':'')+'.',2);
+    row('When','Copying starts now; each server cuts over when you choose in Status.',3);
+    box.appendChild(dl);
+    box.appendChild(nwHeading('Checks'));
+    var ul=el('ul','nw-checks');nwSrvChecks().forEach(function(c){var li=el('li','nw-check '+c.s);li.appendChild(el('span','nw-check-icon',{ok:'OK',warn:'Note',block:'Fix'}[c.s]));li.appendChild(el('span','',c.t));ul.appendChild(li);});box.appendChild(ul);
+    var conf=nwInput('nwSrvConfirm',s.confirm,'Type '+picked.length);conf.setAttribute('aria-label','Type the number of servers to start');conf.inputMode='numeric';conf.maxLength=4;
+    box.appendChild(nwField('Type the number of servers, '+picked.length+', to start',conf,'Start creates one replication job per server and starts its first copy. Copies only read the servers; nothing is shut down until a cutover.'));
+  }
+  function nwSrvReviewWhy(){
+    var block=nwSrvChecks().filter(function(c){return c.s==='block';})[0];if(block){return block.t;}
+    var n=nwSrvPicked().length;if(trimText(nw.srv.confirm)!==String(n)){return 'Type '+n+', the number of servers, to start.';}
+    return '';
+  }
+  function nwSrvStart(){
+    if(nw.busy||nwSrvReviewWhy()){return;}
+    var s=nw.srv,picked=nwSrvPicked(),l=nwSrvLocal();
+    var tmpl={local:true,folder:l.running?'':trimText(s.folder),receiver:{address:'',thumbprint:'',code:''},intervalMinutes:s.interval,rpoMinutes:Number(s.rpo),compress:s.compress,
+      throttle:{limitMbps:Number(s.limit)||0,businessMbps:Number(s.biz)||0,businessStart:s.bizStart,businessEnd:s.bizEnd},
+      stopServices:trimText(s.services)?trimText(s.services).split(/\s*,\s*/).filter(function(x){return !!x;}):[],shutdownAfterCutover:s.shutdown,fullReadAtCutover:s.fullRead,allowLive:s.live};
+    nw.busy=true;nw.error='';renderNwNav();
+    request('POST','/api/servers',{action:'createjob',keys:picked.map(function(r){return r.key;}),template:tmpl},function(err){
+      nw.busy=false;if(err){nw.error=err;renderNw();return;}
+      var seen={};s.agents=vmArr(s.agents).concat(picked.map(function(r){return r.agent;})).filter(function(id){if(!id||seen[id]){return false;}seen[id]=true;return true;});
+      nwSrvStore();nw.statusKind='servers';s.confirm='';nwSrvChosen={};nw.step=5;nw.reached=5;nwSrvLoad();renderNw();
+    });
+  }
+  // Status: the servers this flow started, with the console's own actions.
+  function renderNwSrvStatus(box){
+    var head=el('div','nw-status-head');head.id='nwStatusHead';box.appendChild(head);
+    var body=el('div','nw-status-body');body.id='nwStatusBody';box.appendChild(body);
+    var act=el('div','nw-status-actions');
+    act.appendChild(el('span','vm-note','Select servers, then act on them. Test failover, End test and Cut over ask for the number of servers they apply to.'));
+    var sel=document.createElement('select');sel.id='nwSrvAction';sel.setAttribute('aria-label','Action');[['sync','Sync now'],['test','Test failover'],['endtest','End test'],['cutover','Cut over now'],['cutoverat','Cut over at a time'],['cancelcutover','Cancel scheduled cutover'],['pause','Pause'],['resume','Resume']].forEach(function(x){sel.appendChild(new Option(x[1],x[0]));});sel.value=nw.srv.action||'sync';act.appendChild(sel);
+    var at=document.createElement('input');at.type='datetime-local';at.id='nwSrvCutAt';at.setAttribute('aria-label','Cutover time');at.value=nw.srv.cutAt||'';act.appendChild(at);
+    var conf=nwInput('nwSrvActConfirm','','Type the number');conf.setAttribute('aria-label','Type the number of servers to confirm');conf.inputMode='numeric';conf.maxLength=4;act.appendChild(conf);
+    var go=el('button','primary-button','Run');go.type='button';go.id='nwSrvRun';act.appendChild(go);
+    var msg=el('div','migrate-inline-status');msg.id='nwStatusMsg';msg.setAttribute('role','status');act.appendChild(msg);
+    box.appendChild(act);
+    nwSrvStatusSig='';renderNwSrvStatusBody();
+  }
+  var nwSrvTiles=[['total','Servers',''],['seeding','First copy','active'],['insync','In sync','good'],['behind','Behind','warning'],['paused','Paused',''],['testing','Testing','warning'],['cuttingover','Cutting over','active'],['cutover','Cut over','good'],['failed','Failed','danger'],['unreachable','Not answering','danger']];
+  function nwSrvActionRows(action){var a=action==='cutoverat'?'cutover':action;return nwSrvStatusRows().filter(function(r){return nwSrvChosen[r.key]&&vmArr(r.actions).indexOf(a)>=0;});}
+  function nwSrvRunWhy(){
+    var action=(byId('nwSrvAction')||{}).value||'sync',rows=nwSrvActionRows(action),picked=nwSrvStatusRows().filter(function(r){return nwSrvChosen[r.key];});
+    if(!picked.length){return 'Select the servers to act on.';}
+    if(!rows.length){var first=picked[0];return 'None of the selected servers can take this now. '+first.name+': '+(first.reason||first.stateText||'')+'';}
+    if(action==='cutoverat'){var at=byId('nwSrvCutAt'),t=new Date(at?at.value:'');if(!at||!at.value||isNaN(t.getTime())){return 'Choose the cutover time.';}if(t.getTime()<Date.now()+60000){return 'Choose a cutover time in the future.';}}
+    if(action==='test'||action==='endtest'||action==='cutover'||action==='cutoverat'){var c=byId('nwSrvActConfirm');if(!c||trimText(c.value)!==String(rows.length)){return 'Type '+rows.length+', the number of servers this applies to, to confirm.';}}
+    if(nwAs&&nwAs.bulk&&nwAs.bulk.running){return 'Another action on many servers is running; wait for it to finish.';}
+    return '';
+  }
+  function nwSrvSyncRun(){
+    var b=byId('nwSrvRun'),action=(byId('nwSrvAction')||{}).value||'sync';if(!b){return;}
+    var why=nwSrvRunWhy();b.disabled=nwSrvBusy||!!why;b.title=why;
+    var at=byId('nwSrvCutAt');if(at){at.classList.toggle('hidden',action!=='cutoverat');}
+    var c=byId('nwSrvActConfirm');if(c){c.classList.toggle('hidden',!(action==='test'||action==='endtest'||action==='cutover'||action==='cutoverat'));}
+    var m=byId('nwStatusMsg');if(m&&!m.getAttribute('data-sticky')){m.textContent=why;m.className='migrate-inline-status';}
+  }
+  function nwSrvRun(){
+    if(nwSrvRunWhy()){nwSrvSyncRun();return;}
+    var action=byId('nwSrvAction').value,rows=nwSrvActionRows(action),body={action:action==='cutoverat'?'cutover':action,keys:rows.map(function(r){return r.key;}),confirm:trimText(byId('nwSrvActConfirm').value)};
+    if(action==='cutoverat'){body.at=new Date(byId('nwSrvCutAt').value).toISOString();}
+    nwSrvBusy=true;nwSrvSyncRun();var m=byId('nwStatusMsg');
+    request('POST','/api/servers',body,function(err){nwSrvBusy=false;if(m){m.setAttribute('data-sticky','1');m.textContent=err||'Started on '+vmPlural(rows.length,'server')+'. Each row shows its result.';m.className='migrate-inline-status'+(err?' error':'');setTimeout(function(){if(m){m.removeAttribute('data-sticky');}},6000);}
+      if(!err){var c=byId('nwSrvActConfirm');if(c){c.value='';}}nwSrvStatusSig='';nwSrvLoad();});
+  }
+  function renderNwSrvStatusBody(){
+    var body=byId('nwStatusBody'),head=byId('nwStatusHead');if(!body){return;}
+    var rows=nwSrvStatusRows(),bulk=(nwAs&&nwAs.bulk)||{},sig=JSON.stringify(rows)+'|'+JSON.stringify(bulk)+'|'+nw.statusFilter+'|'+JSON.stringify(nwSrvChosen);
+    if(sig===nwSrvStatusSig){nwSrvSyncRun();return;}nwSrvStatusSig=sig;
+    head.textContent='';body.textContent='';
+    var title=el('div','nw-status-title'),l=nwSrvLocal();title.appendChild(el('strong','','Replicating '+vmPlural(vmArr(nw.srv.agents).length,'server')));title.appendChild(el('span','vm-note','to this Hyper-V host'+(l.running?', copies in '+l.folder:'')));
+    var tools=el('span','nw-status-tools');
+    if(typeof asOpenFor==='function'){var c=el('button','secondary-button','Open in All servers');c.type='button';c.setAttribute('data-nw-console','');c.title='Monitor these servers with every other job';tools.appendChild(c);}
+    var fv=el('button','link-button','Start VMs from copies');fv.type='button';fv.setAttribute('data-nw-tool','failover');tools.appendChild(fv);
+    var rp=el('button','link-button','Job settings in Replicate servers');rp.type='button';rp.setAttribute('data-nw-tool','replicate');tools.appendChild(rp);
+    title.appendChild(tools);head.appendChild(title);
+    if(!nwAs){body.appendChild(el('div','vm-note','Loading…'));return;}
+    if(bulk.action&&(bulk.running||vmArr(bulk.results).length)){
+      var res=vmArr(bulk.results),bad=res.filter(function(r){return !r.ok;}).length,name=(typeof asActName!=='undefined'&&asActName[bulk.action])||bulk.action;
+      var box=el('div','restore-alert'+(bad?' warning':''),bulk.running?name+': '+res.length+' of '+bulk.total+' done…':name+': '+(bulk.total-bad)+' of '+bulk.total+' done'+(bad?', '+bad+' not':'')+'.');
+      if(bad){var ul=el('ul','');res.filter(function(r){return !r.ok;}).forEach(function(r){ul.appendChild(el('li','',r.name+': '+(r.text||'')));});box.appendChild(ul);}
+      head.appendChild(box);
+    }
+    var counts={total:rows.length};rows.forEach(function(r){counts[r.state]=(counts[r.state]||0)+1;});
+    var tiles=el('div','mp-summary nw-tiles');
+    nwSrvTiles.forEach(function(t){var n=counts[t[0]]||0;if(!n&&t[0]!=='total'&&t[0]!=='insync'&&t[0]!=='cutover'){return;}var b=el('button','mp-stat'+(n&&t[2]?' '+t[2]:''));b.type='button';b.setAttribute('data-nw-filter',t[0]);b.setAttribute('aria-pressed',nw.statusFilter===t[0]&&t[0]!=='total'?'true':'false');b.appendChild(el('strong','',formatCount(n)));b.appendChild(el('span','',t[1]));b.title='Show '+(t[0]==='total'?'every server':t[1].toLowerCase()+' servers');tiles.appendChild(b);});
+    head.appendChild(tiles);
+    var next=counts.seeding?'The first copies are running. Each server can be tested and cut over once it shows In sync.':(counts.insync||counts.behind)?'Servers In sync can be tested and cut over. After a cutover, start the new VM in Start VMs from copies.':counts.cutover===rows.length&&rows.length?'Every server is cut over. Start each new VM in Start VMs from copies, then Prepare and fix up.':'';
+    if(next){head.appendChild(el('p','migrate-help',next));}
+    var shown=rows.filter(function(r){return !nw.statusFilter||r.state===nw.statusFilter;});
+    if(!rows.length){body.appendChild(el('div','vm-note','The jobs appear here within a few seconds of Start.'));nwSrvSyncRun();return;}
+    var wh=el('div','nw-wave-head');var pa=el('button','link-button','Select all shown');pa.type='button';pa.id='nwSrvPickAll';wh.appendChild(pa);var pn=el('button','link-button','Clear');pn.type='button';pn.id='nwSrvPickNone';wh.appendChild(pn);body.appendChild(wh);
+    var table=el('table','vm-table nw-status-table'),thead=document.createElement('thead'),hr=el('tr');['','Server','State','Copy','Cutover'].forEach(function(t){hr.appendChild(el('th','',t));});thead.appendChild(hr);table.appendChild(thead);
+    var tb=document.createElement('tbody');
+    shown.forEach(function(r){
+      var tr=el('tr'),c=el('td'),cb=document.createElement('input');cb.type='checkbox';cb.setAttribute('data-nw-srvrow',r.key);cb.checked=!!nwSrvChosen[r.key];cb.setAttribute('aria-label','Select '+r.name);c.appendChild(cb);tr.appendChild(c);
+      var n=el('td');n.appendChild(el('strong','',r.name));if(r.detail){n.appendChild(el('span','vm-note',r.detail));}tr.appendChild(n);
+      var st=el('td');st.appendChild(el('span','mp-chip '+({insync:'good',cutover:'good',failed:'danger',unreachable:'danger',behind:'warning',testing:'warning',seeding:'active',cuttingover:'active'}[r.state]||''),r.stateText||r.state));if(r.reason){st.appendChild(el('span','vm-note',r.reason));}tr.appendChild(st);
+      var cp=el('td');if(r.percent>=0){cp.appendChild(el('span','',r.percent+'%'+(r.secondsLeft?' · '+mpDuration(r.secondsLeft)+' left':'')));}else if(r.lagSeconds>=0){cp.appendChild(el('span','','Newest copy '+mpDuration(r.lagSeconds)+' old'));}else{cp.appendChild(el('span','vm-note','No whole copy yet'));}tr.appendChild(cp);
+      var cu=el('td');if(r.state==='cutover'){cu.appendChild(el('span','','Cut over'));}else if(mpTime(r.cutoverAt)){cu.appendChild(el('span','mp-chip warning','At '+mpTime(r.cutoverAt)));}else{cu.appendChild(el('span','vm-note',vmArr(r.actions).indexOf('cutover')>=0?'Ready when you are':'After its first copy'));}tr.appendChild(cu);
+      tb.appendChild(tr);});
+    table.appendChild(tb);var wrap=el('div','vm-table-wrap');wrap.appendChild(table);body.appendChild(wrap);
+    if(!shown.length){var none=el('div','vm-note','No servers in this view. ');var clr=el('button','link-button','Show all');clr.type='button';clr.setAttribute('data-nw-filter','total');none.appendChild(clr);body.appendChild(none);}
+    nwSrvSyncRun();
   }
   function nwStorePlan(id){try{window.localStorage.setItem('simm.wizard.plan',id||'');}catch(e){}}
   function nwStoredPlan(){try{return window.localStorage.getItem('simm.wizard.plan')||'';}catch(e){return '';}}
@@ -7978,6 +8248,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   // Step 6: status.
   function nwPlan(){var list=vmArr(mpState&&mpState.plans);for(var i=0;i<list.length;i++){if(list[i].id===nw.planId){return list[i];}}return null;}
   function renderNwStatus(box){
+    if(nw.statusKind==='servers'){renderNwSrvStatus(box);return;}
     var head=el('div','nw-status-head');head.id='nwStatusHead';box.appendChild(head);
     var body=el('div','nw-status-body');body.id='nwStatusBody';box.appendChild(body);
     var act=el('div','nw-status-actions');
@@ -8035,7 +8306,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     nw.busy=true;nwSyncCut();var m=byId('nwStatusMsg');
     request('POST','/api/plans',body,function(err){nw.busy=false;if(m){m.setAttribute('data-sticky','1');m.textContent=err||'';m.className='migrate-inline-status'+(err?' error':'');setTimeout(function(){if(m){m.removeAttribute('data-sticky');}},6000);}if(done){done(err);}nwStatusSig='';nwLoadPlans(false);});
   }
-  function nwReset(){var keep={reached:0};nw.step=0;nw.reached=0;nw.picks={};nw.filter='';nw.target='';nw.method='';nw.net={};nw.waves={};nw.cut={};nw.waveMode='';nw.name='';nw.confirm='';nw.planId='';nw.error='';nw.filled='';nw.startMode='now';nw.startAt='';nwRowsChosen={};nw.statusFilter='';return keep;}
+  function nwReset(){var keep={reached:0};nw.step=0;nw.reached=0;nw.picks={};nw.filter='';nw.target='';nw.method='';nw.net={};nw.waves={};nw.cut={};nw.waveMode='';nw.name='';nw.confirm='';nw.planId='';nw.error='';nw.filled='';nw.startMode='now';nw.startAt='';nwRowsChosen={};nw.statusFilter='';nw.statusKind='';nw.srv.picks={};nw.srv.confirm='';nw.srv.folder='';nwSrvChosen={};return keep;}
   function nwGo(step){nw.error='';nw.step=step;if(step>nw.reached){nw.reached=step;}renderNw();var top=byId('nwStepper');if(top&&top.scrollIntoView&&top.getBoundingClientRect().top<0){top.scrollIntoView({block:'start'});}}
   byId('nwNext').addEventListener('click',function(){
     if(nw.step===5){nwReset();nwGo(0);return;}
@@ -8048,12 +8319,19 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   byId('nwStepper').addEventListener('click',function(e){var b=e.target.closest('[data-nw-step]');if(b&&!b.disabled){nwGo(Number(b.getAttribute('data-nw-step')));}});
   byId('tabWizard').addEventListener('click',function(e){
     var t=e.target.closest('button');if(!t||!byId('nwStep').contains(t)){return;}
-    if(t.hasAttribute('data-nw-source')){var s=t.getAttribute('data-nw-source');if(s!==nw.source){nw.source=s;nw.target=s==='shares'?'fileserver':'';nw.method='';nw.filled='';nw.reached=0;}renderNw();return;}
+    if(t.hasAttribute('data-nw-source')){var s=t.getAttribute('data-nw-source');if(s!==nw.source){nw.source=s;nw.target=s==='shares'?'fileserver':'';nw.method='';nw.filled='';nw.reached=0;}if(s==='servers'){nwSrvLoad();}renderNw();return;}
+    if(t.id==='nwSrvOpenStatus'){nw.statusKind='servers';nw.source='servers';nw.step=5;nw.reached=5;nwSrvChosen={};nwSrvLoad();renderNw();return;}
+    if(t.id==='nwSrvInstall'){nwSrvInstall();return;}
+    if(t.id==='nwSrvAll'){nwSrvCandidates().forEach(function(r){if(!nwSrvPickWhy(r)){nw.srv.picks[r.key]=true;}});renderNw();return;}
+    if(t.id==='nwSrvNone'){nw.srv.picks={};renderNw();return;}
+    if(t.id==='nwSrvRun'){nwSrvRun();return;}
+    if(t.id==='nwSrvPickAll'){nwSrvStatusRows().forEach(function(r){if(!nw.statusFilter||r.state===nw.statusFilter){nwSrvChosen[r.key]=true;}});nwSrvStatusSig='';renderNwSrvStatusBody();return;}
+    if(t.id==='nwSrvPickNone'){nwSrvChosen={};nwSrvStatusSig='';renderNwSrvStatusBody();return;}
     if(t.hasAttribute('data-nw-target')){var tg=t.getAttribute('data-nw-target');if(tg!==nw.target){nw.target=tg;nw.method='';nw.filled='';nw.reached=1;}renderNw();return;}
     if(t.hasAttribute('data-nw-method')){nw.method=t.getAttribute('data-nw-method');nw.reached=2;renderNw();return;}
     if(t.hasAttribute('data-nw-step')){nwGo(Number(t.getAttribute('data-nw-step')));return;}
-    if(t.hasAttribute('data-nw-open')){nw.planId=t.getAttribute('data-nw-open');nwStorePlan(nw.planId);nw.step=5;nw.reached=5;nwRowsChosen={};nwLoadPlans(false);renderNw();return;}
-    if(t.hasAttribute('data-nw-console')){if(typeof asOpenFor==='function'){asOpenFor(nw.planId&&nw.step===5?{plan:nw.planId}:{});}return;}
+    if(t.hasAttribute('data-nw-open')){nw.planId=t.getAttribute('data-nw-open');nwStorePlan(nw.planId);nw.statusKind='plan';nw.step=5;nw.reached=5;nwRowsChosen={};nwLoadPlans(false);renderNw();return;}
+    if(t.hasAttribute('data-nw-console')){if(typeof asOpenFor==='function'){asOpenFor(nw.planId&&nw.step===5&&nw.statusKind!=='servers'?{plan:nw.planId}:{});}return;}
     if(t.hasAttribute('data-nw-tool')){if(t.getAttribute('data-nw-tool')==='plans'){mpSelected=nw.planId||mpSelected;}showTool(t.getAttribute('data-nw-tool'));return;}
     if(t.id==='nwConnect'){nwConnect('');return;}
     if(t.id==='nwHvConnect'){nwHvConnect(false);return;}
@@ -8068,7 +8346,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     if(t.id==='nwPickReady'){var used=nwInPlans(),f=nw.filter.toLowerCase();vmArr(vmInventory&&vmInventory.vms).forEach(function(vm){if(f&&[vm.name,vm.host,vm.cluster,vm.folder].join(' ').toLowerCase().indexOf(f)<0){return;}if(!nwPickWhy(vm,used)&&nwHyperVReadiness(vm).status==='ready'){nw.picks[vm.id]=true;}});renderNwVmList();return;}
     if(t.id==='nwPickNone'){nw.picks={};renderNwVmList();return;}
     if(t.id==='nwSnapshots'){nwRemoveSnapshots();return;}
-    if(t.hasAttribute('data-nw-filter')){var fl=t.getAttribute('data-nw-filter');nw.statusFilter=(fl===nw.statusFilter||fl==='total')?'':fl;renderNwStatusBody();return;}
+    if(t.hasAttribute('data-nw-filter')){var fl=t.getAttribute('data-nw-filter');nw.statusFilter=(fl===nw.statusFilter||fl==='total')?'':fl;if(nw.statusKind==='servers'){renderNwSrvStatusBody();}else{renderNwStatusBody();}return;}
     if(t.hasAttribute('data-nw-pickwave')){var w=Number(t.getAttribute('data-nw-pickwave')),p=nwPlan();vmArr(p&&p.vms).forEach(function(v){if((v.wave||0)===w&&v.state!=='done'){nwRowsChosen[v.id]=true;}});nwStatusSig='';renderNwStatusBody();return;}
     if(t.hasAttribute('data-mp-test')){nwPlanAction({action:'test',id:nw.planId,vmIds:[t.getAttribute('data-mp-test')]});return;}
     if(t.hasAttribute('data-mp-endtest')){nwPlanAction({action:'endTest',id:nw.planId,vmIds:[t.getAttribute('data-mp-endtest')]});return;}
@@ -8085,7 +8363,12 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     if(t.hasAttribute('data-nw-cutmode')){var w=t.getAttribute('data-nw-cutmode');nw.cut[w]=nw.cut[w]||{at:''};nw.cut[w].mode=t.value;renderNw();return;}
     if(t.hasAttribute('data-nw-cutat')){nw.cut[t.getAttribute('data-nw-cutat')].at=t.value;renderNwNav();return;}
     if(t.hasAttribute('data-nw-row')){nwRowsChosen[t.getAttribute('data-nw-row')]=t.checked;nwSyncCut();return;}
+    if(t.hasAttribute('data-nw-srv')){if(t.checked){nw.srv.picks[t.getAttribute('data-nw-srv')]=true;}else{delete nw.srv.picks[t.getAttribute('data-nw-srv')];}renderNw();return;}
+    if(t.hasAttribute('data-nw-srvrow')){nwSrvChosen[t.getAttribute('data-nw-srvrow')]=t.checked;nwSrvStatusSig='';nwSrvSyncRun();return;}
+    if(t.id==='nwSrvAction'){nw.srv.action=t.value;nwSrvSyncRun();return;}
+    if(t.id==='nwSrvCutAt'){nw.srv.cutAt=t.value;nwSrvSyncRun();return;}
     if(t.id==='nwNode'){nw.node=t.value;renderNw();return;}
+    if(t.id==='nwSrvFolder'){nw.srv.folder=trimText(t.value);renderNwNav();return;}
     if(t.id==='nwCopyRoot'||t.id==='nwVMFolder'){nw[t.id==='nwCopyRoot'?'copyRoot':'vmFolder']=trimText(t.value);renderNwNav();return;}
   });
   byId('tabWizard').addEventListener('input',function(e){
@@ -8097,11 +8380,17 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     if(t.id==='nwName'){nw.name=t.value;renderNwNav();return;}
     if(t.id==='nwConfirm'){nw.confirm=t.value;renderNwNav();return;}
     if(t.id==='nwCutConfirm'){nwSyncCut();return;}
+    if(t.id==='nwSrvHosts'){nw.srv.hosts=t.value;var ib=byId('nwSrvInstall');if(ib){ib.disabled=!!(rpState&&rpState.pushing)||!trimText(t.value);}return;}
+    if(t.id==='nwSrvUser'){nw.srv.user=t.value;return;}
+    if(t.id==='nwSrvPassword'){nwSrvPw=t.value;return;}
+    if(t.id==='nwSrvFolder'){nw.srv.folder=trimText(t.value);renderNwNav();return;}
+    if(t.id==='nwSrvConfirm'){nw.srv.confirm=t.value;renderNwNav();return;}
+    if(t.id==='nwSrvActConfirm'){nwSrvSyncRun();return;}
   });
   byId('tabWizard').addEventListener('keydown',function(e){if(e.key==='Enter'&&e.target&&(e.target.id==='nwPassword'||e.target.id==='nwUser'||e.target.id==='nwServer')){e.preventDefault();nwConnect('');}
     if(e.key==='Enter'&&e.target&&(e.target.id==='nwHvPassword'||e.target.id==='nwHvUser'||e.target.id==='nwHvHost')){e.preventDefault();nwHvConnect(false);}
     if(e.key==='Enter'&&e.target&&/^nwPf(Server|User|Secret|Node)$/.test(e.target.id)){e.preventDefault();nwPfConnect('');}});
-  (function(){var id=nwStoredPlan();if(id){nw.planId=id;}})();
+  (function(){var id=nwStoredPlan();if(id){nw.planId=id;}nw.srv.agents=nwSrvStored();})();
   function mpPlan(){var list=mpState?vmArr(mpState.plans):[];for(var i=0;i<list.length;i++){if(list[i].id===mpSelected){return list[i];}}return null;}
   function mpTime(t){if(!t||/^0001-/.test(t)){return '';}var d=new Date(t);if(isNaN(d.getTime())){return '';}var p=function(n){return (n<10?'0':'')+n;};return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes());}
   function mpLocalInput(t){var s=mpTime(t);return s?s.replace(' ','T'):'';}

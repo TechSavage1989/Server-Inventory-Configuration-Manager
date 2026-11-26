@@ -246,7 +246,9 @@ async function fixture(browser,old=false){
  });
  await new Promise(r=>server.listen(0,'127.0.0.1',r));const context=await browser.newContext({viewport:{width:1440,height:1000}}),page=await context.newPage();
  page.on('dialog',async d=>{dialogs.push(d.message());await d.dismiss();});page.on('pageerror',e=>errors.push(e.message));
- const url='http://127.0.0.1:'+server.address().port+'/';await page.goto(url);await page.waitForFunction(()=>document.querySelector('#serverName').textContent==='SRV-DEMO-01');
+ const url='http://127.0.0.1:'+server.address().port+'/';
+ // A fixture that fails to load closes its own server and context; otherwise Node never exits and the job hangs until its timeout.
+ try{await page.goto(url);await page.waitForFunction(()=>document.querySelector('#serverName').textContent==='SRV-DEMO-01');}catch(e){await context.close().catch(()=>{});server.close();throw new Error('Fixture page did not load ('+errors.concat(dialogs).join('; ')+'): '+e.message);}
  return {page,context,state,pickCalls,rejectPick(message){pickReject=message},vm,repl,plans,planCalls,servers,serverCalls,failover,receiverPair,targetTest,replCalls,vmwareCalls,convertCalls,rejectConvert(action,message){convertReject[action]=message},setConvertSize(size){convertSize=size},rejectVmware(action,message){vmwareReject[action]=message},logs,dialogs,errors,started,skipRequests,opens,restoreCalls,migrateCalls,rejectMigrate(action,message){migrateReject[action]=message},rejectRestore(message){restoreReject=message},get saved(){return saved},get saveCalls(){return saveCalls},reject(){rejectStart=true},async close(){assert.deepEqual(errors,[]);await context.close();await new Promise(r=>server.close(r));}};
 }
 // Tools live in two tabs: Discovery (Alt+1) and Migration and replication (Alt+5).
@@ -1626,7 +1628,13 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   assert.deepEqual(start,{action:'start',confirm:'app01-test',request:{mode:'test',name:'APP01-TEST',copies:['APP01-disk0.vhdx','APP01-disk1.vhdx'],generation:2,cpus:6,memoryMB:12288,secureBoot:'windows',tpm:false,switch:'',vlan:0,start:true,adapters:2}});
   assert((await f.page.locator('#fvList').textContent()).includes('Do not activate the test VM'));assert((await f.page.locator('#fvNext').textContent()).includes('Test running: APP01-TEST'));
   assert((await f.page.locator('#fvCopies').textContent()).includes('in use: test failover APP01-TEST'));
-  const end=f.page.locator('[data-fv-end="f1"]');assert(await end.isDisabled());await f.page.locator('[data-fv-endname="f1"]').fill('APP01-TEST');assert(await end.isEnabled());
+  const end=f.page.locator('[data-fv-end="f1"]');assert(await end.isDisabled());
+  // The list refreshes every 4 seconds: an unchanged answer leaves the page alone (no jump while scrolled), and a changed one keeps what is typed and where.
+  await f.page.locator('[data-fv-endname="f1"]').fill('APP01');await f.page.evaluate(()=>{document.querySelector('#fvList li').simmMark=1;});await f.page.waitForTimeout(5500);
+  assert(await f.page.evaluate(()=>document.querySelector('#fvList li').simmMark===1),'an unchanged refresh rebuilt the list');
+  f.failover.copies[0].updated='2026-11-25T14:30:00Z';await f.page.waitForFunction(()=>document.querySelector('#fvList li').simmMark!==1,null,{timeout:10000});
+  assert.equal(await f.page.locator('[data-fv-endname="f1"]').inputValue(),'APP01');assert(await f.page.evaluate(()=>document.activeElement&&document.activeElement.getAttribute('data-fv-endname')==='f1'));
+  await f.page.locator('[data-fv-endname="f1"]').fill('APP01-TEST');assert(await end.isEnabled());
   await end.click();await f.page.waitForFunction(()=>document.querySelector('#fvRunning').classList.contains('hidden'));
   assert((await f.page.locator('#fvStatus').textContent()).includes('catches up'));
   assert((await f.page.locator('#fvNext').textContent()).includes('Next: cut over'));await f.page.locator('[data-fv-next="replicate"]').click();await f.page.waitForFunction(()=>!document.querySelector('#tabReplication').classList.contains('hidden'));
@@ -1831,6 +1839,50 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   const created=f.planCalls.find(c=>c.body.action==='create');assert(created,'the plan is created');
   assert.equal(created.body.settings.remoteHost,'hvclu01.example.com');assert.equal(created.body.settings.node,'HV02');assert.equal(created.body.settings.copyRoot,'C:\\ClusterStorage\\Volume1\\Migrations');assert.equal(created.body.settings.cluster,true);
   assert(!JSON.stringify(f.planCalls).includes('Synthetic-Pass-1'),'the Hyper-V password never reaches the plan');
+ }finally{await f.close();}});
+ await check('New migration: Windows and Linux servers replicate to this Hyper-V host from the flow: pick agents, install one inline, only the folder in Where, start jobs with a typed count, and cut over from Status',async()=>{const f=await fixture(browser);try{
+  f.servers.rows=[
+   {key:'agent:a1',kind:'agent',method:'Agent replication',name:'APP01',state:'agent',stateText:'Agent installed',reason:'The agent answers. Create a replication job to start copying.',percent:-1,lagSeconds:-1,wave:0,host:'app01.example.com',os:'Windows Server 2019',agent:'a1',actions:['createjob']},
+   {key:'agent:a2',kind:'agent',method:'Agent replication',name:'DB01',state:'unreachable',stateText:'Not answering',reason:'The agent does not answer: check the server is on.',percent:-1,lagSeconds:-1,wave:0,host:'db01.example.com',agent:'a2',actions:[]},
+   {key:'job:a3|j3',kind:'job',method:'Agent replication',name:'WEB01',state:'insync',stateText:'In sync',reason:'A whole copy exists.',percent:-1,lagSeconds:120,wave:0,agent:'a3',job:'j3',actions:['sync','pause','test','cutover','wave']},
+   {key:'vm:vm-9',kind:'vm',method:'Not configured',name:'FILE01',state:'notconfigured',stateText:'Not configured',percent:-1,lagSeconds:-1,wave:0,actions:['install']}];
+  await goTool(f,'wizard');await f.page.locator('[data-nw-source="servers"]').click();await f.page.waitForSelector('#nwSrvList [data-nw-srv]');
+  assert.deepEqual(await f.page.locator('#nwSrvList [data-nw-srv]').evaluateAll(l=>l.map(x=>x.getAttribute('data-nw-srv')+(x.disabled?' off':''))),['agent:a1','agent:a2 off','job:a3|j3 off'],'agents and jobs are listed; only an answering agent without a job can be ticked');
+  assert((await f.page.locator('#nwSrvList').textContent()).includes('Already replicating (In sync)'));
+  assert.equal(await f.page.locator('#nwWhy').textContent(),'Tick the servers to replicate, or add servers below.');assert(await f.page.locator('#nwNext').isDisabled());
+  await f.page.locator('#nwSrvHosts').fill('app02.example.com');await f.page.locator('#nwSrvUser').fill('EXAMPLE\\admin');await f.page.locator('#nwSrvPassword').fill('Synthetic-Pass-2');await f.page.locator('#nwSrvInstall').click();
+  for(let i=0;i<100&&!f.replCalls.some(c=>c.action==='push');i++){await new Promise(r=>setTimeout(r,50));}
+  assert.deepEqual(f.replCalls.filter(c=>c.action==='push').map(c=>c.body),[{hosts:'app02.example.com',user:'EXAMPLE\\admin',password:'Synthetic-Pass-2',platform:'windows'}]);
+  await f.page.waitForSelector('.nw-push-log');assert.equal(await f.page.locator('#nwSrvPassword').inputValue(),'','the password is cleared after the install starts');
+  await f.page.locator('[data-nw-srv="agent:a1"]').check();assert.equal(await f.page.locator('#nwWhy').textContent(),'');await f.page.locator('#nwNext').click();
+  assert.deepEqual(await f.page.locator('[data-nw-target]').evaluateAll(l=>l.map(x=>x.getAttribute('data-nw-target'))),['here','scale','nutanix','proxmox','physical']);
+  await f.page.locator('[data-nw-target="here"]').click();await f.page.locator('#nwSrvFolder').waitFor();
+  assert.equal(await f.page.locator('#nwSrvFolder').getAttribute('placeholder'),'C:\\ClusterStorage\\Volume1\\Hyper-V\\Received');
+  {const t=await f.page.locator('#nwStep').textContent();assert(t.includes('no pairing code, thumbprint or Receive panel'),t);assert(!(await f.page.locator('#nwStep [data-nw-switch]').count()),'no network map for agent jobs');}
+  await f.page.locator('#nwSrvFolder').fill('relative');assert.equal(await f.page.locator('#nwWhy').textContent(),'Type a full path for the copies, or leave it empty for the default.');
+  await f.page.locator('#nwSrvFolder').fill('C:\\ClusterStorage\\Volume1\\Replicas');await f.page.locator('#nwNext').click();
+  assert.equal(await f.page.locator('[data-nw-method="replicate"]').getAttribute('aria-pressed'),'true');assert((await f.page.locator('[data-nw-method="replicate"]').textContent()).includes('Runs from here, start to finish'));
+  assert.equal(await f.page.locator('#nwNext').textContent(),'Next','replication jobs run from the flow instead of handing off');
+  await f.page.locator('#nwSrvInterval').selectOption('5');await f.page.locator('#nwSrvRpo').fill('x');assert.equal(await f.page.locator('#nwWhy').textContent(),'Type the RPO alert as a number of minutes from 1 to 10080.');
+  await f.page.locator('#nwSrvRpo').fill('20');await f.page.locator('#nwSrvServices').fill('MSSQLSERVER, W3SVC');await f.page.locator('#nwNext').click();
+  assert((await f.page.locator('#nwStep').textContent()).includes('every 5 minutes'));await f.page.locator('#nwNext').click();
+  {const t=await f.page.locator('.nw-checks').textContent();assert(t.includes('is a Hyper-V host'),t);assert(t.includes('C:\\ClusterStorage\\Volume1\\Replicas'),t);}
+  assert.equal(await f.page.locator('#nwNext').textContent(),'Start');assert.equal(await f.page.locator('#nwWhy').textContent(),'Type 1, the number of servers, to start.');
+  await f.page.locator('#nwSrvConfirm').fill('1');await f.page.locator('#nwNext').click();
+  for(let i=0;i<100&&!f.serverCalls.some(c=>c.body.action==='createjob');i++){await new Promise(r=>setTimeout(r,50));}
+  const created=f.serverCalls.find(c=>c.body.action==='createjob');assert.deepEqual(created.body.keys,['agent:a1']);
+  assert.deepEqual(created.body.template,{local:true,folder:'C:\\ClusterStorage\\Volume1\\Replicas',receiver:{address:'',thumbprint:'',code:''},intervalMinutes:5,rpoMinutes:20,compress:true,throttle:{limitMbps:0,businessMbps:0,businessStart:0,businessEnd:0},stopServices:['MSSQLSERVER','W3SVC'],shutdownAfterCutover:true,fullReadAtCutover:false,allowLive:false});
+  assert(!JSON.stringify(f.serverCalls).includes('Synthetic-Pass-2'));
+  f.servers.rows[0]={key:'job:a1|j1',kind:'job',method:'Agent replication',name:'APP01',detail:'To 192.0.2.40:44380',state:'insync',stateText:'In sync',reason:'A whole copy exists and stays current. Test it, then cut over.',percent:-1,lagSeconds:300,wave:0,agent:'a1',job:'j1',actions:['sync','pause','test','cutover','wave']};
+  await f.page.waitForSelector('[data-nw-srvrow="job:a1|j1"]',{timeout:15000});
+  assert.equal(await f.page.locator('.nw-status-table tbody tr').count(),1,'only the servers this flow started are listed');
+  assert((await f.page.locator('#nwStatusHead').textContent()).includes('Replicating 1 server'));
+  assert.equal(await f.page.evaluate(()=>window.localStorage.getItem('simm.wizard.servers')),'["a1"]');
+  await f.page.locator('[data-nw-srvrow="job:a1|j1"]').check();await f.page.locator('#nwSrvAction').selectOption('cutover');
+  assert(await f.page.locator('#nwSrvRun').isDisabled());assert.equal(await f.page.locator('#nwStatusMsg').textContent(),'Type 1, the number of servers this applies to, to confirm.');
+  await f.page.locator('#nwSrvActConfirm').fill('1');await f.page.locator('#nwSrvRun').click();
+  for(let i=0;i<100&&!f.serverCalls.some(c=>c.body.action==='cutover');i++){await new Promise(r=>setTimeout(r,50));}
+  assert.deepEqual(f.serverCalls.filter(c=>c.body.action==='cutover').map(c=>c.body),[{action:'cutover',keys:['job:a1|j1'],confirm:'1'}]);
  }finally{await f.close();}});
  await check('New migration: with no inventory the sign-in is on the first screen',async()=>{const f=await fixture(browser);try{
   await goTool(f,'wizard');await f.page.locator('[data-nw-source="vms"]').click();

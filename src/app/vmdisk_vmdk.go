@@ -316,13 +316,11 @@ func openVMDKImage(file *os.File, path string, fileSize int64, depth int) (*vmdk
 			return nil, err
 		}
 		file.Close()
-		if end := bytes.IndexByte(raw, 0); end >= 0 {
-			if !vmIsZero(raw[end:]) {
-				return nil, errors.New("this VMDK descriptor contains binary data")
-			}
-			raw = raw[:end]
+		text, ok := vmDescriptorText(raw)
+		if !ok {
+			return nil, errors.New("this VMDK descriptor contains binary data")
 		}
-		descriptorText = string(raw)
+		descriptorText = text
 		if err := image.openExtents(descriptorText); err != nil {
 			image.Close()
 			return nil, err
