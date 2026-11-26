@@ -5,6 +5,13 @@
 - Tests: `go test ./...` (`preflight_test.go`), `TestRolePreflightScriptReadsAServerThroughRemoting` on the Windows runner, the workspace check "SQL and DC checks".
 - Limits: not run against a real domain controller or SQL Server yet. Each check reads only the checked DC's own replication status (a remote session cannot pass the account on), so forest-wide `repadmin /replsummary` stays a manual step. dcdiag output is parsed in English; on other languages its last lines are kept and shown.
 
+## Unreleased: copies of running VMware VMs read through the snapshot export when the datastore refuses the disk — 2026-11-26
+
+- Field report on 3.2.36: the migration plan for MATCHC-DC01 (vCenter at 192.168.120.35, from admin computer MATCHC-DC02 to HV-HOST01 in MCHC-HVCL01) failed every round with "Hard disk 1: could not open MATCHC-DC01-flat.vmdk: [Datastore001] MATCHC-DC01/MATCHC-DC01-flat.vmdk: the server answered 500 Internal Server Error". The descriptor read through `/folder`; the HEAD of the flat extent the running VM holds open did not.
+- `vmReplicateRound` now falls back, per round, to `ExportSnapshot` of its own replication snapshot (`vmware_export.go`) when `/folder` answers a disk with an HTTP error, and reads the stream-optimized disk streams forward with `vmStreamVMDK` (`vmdisk_streamread.go`). Delta rounds stay delta passes of the same copy record; they stream the disk's used data each round instead of only changed blocks.
+- Tests: `TestReplicationReadsTheSnapshotExportWhenTheDatastoreRefusesTheDisk` (vcsim behind a proxy that answers 500 for the flat extent; seed, delta and failed-fallback rounds), `TestStreamVMDKReadsInOrderAndReopensForEarlierReads`, `TestExportKeysNameTheirDisks`, `TestExportDownloadPinsTheHostThumbprintFromTheLease`.
+- Not field-validated: a real ExportSnapshot lease on ESXi and through vCenter (key format, host thumbprint form, keep-alive over a 100 GB disk), and whether the admin computer can reach the ESXi host on 443.
+
 ## Unreleased: Guided migration folded into New migration; nothing clips — 2026-11-26
 
 - The separate Guided migration tool is gone (owner: one tool instead of two). New migration's How screen shows the same step list for every way that continues in its own tool (Move VMs one at a time, Replicate servers, Convert disk images, Move file shares, HyperCore/Nutanix/Proxmox/physical targets), with the computer each step runs on, live checks that block the wrong computer or too little space, the inline vCenter sign-in and Open buttons. The first screen shows this computer's facts. Old `guide` links open New migration. How only offers ways that can reach the chosen target (a disk image is no longer offered for a physical server).
