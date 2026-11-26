@@ -517,7 +517,7 @@ func (a *application) handleVMwareInventory(response http.ResponseWriter, reques
 		writeJSON(response, http.StatusOK, map[string]any{"ok": true, "inventory": nil})
 		return
 	}
-	writeJSON(response, http.StatusOK, map[string]any{"ok": true, "serial": serial, "inventory": inventory, "plan": plan, "sizing": sizePlan(*plan, inventory), "attention": vmDiscoveryWatch(inventory, time.Now())})
+	writeJSON(response, http.StatusOK, map[string]any{"ok": true, "serial": serial, "inventory": inventory, "plan": plan, "sizing": sizePlan(*plan, inventory), "rolling": analyzeRolling(*plan, inventory), "scenarios": vmScenarios, "attention": vmDiscoveryWatch(inventory, time.Now())})
 }
 
 func (a *application) handleVMwarePlan(response http.ResponseWriter, request *http.Request) {
@@ -529,6 +529,10 @@ func (a *application) handleVMwarePlan(response http.ResponseWriter, request *ht
 		Suggest     bool   `json:"suggest"`
 		WaveSize    int    `json:"waveSize"`
 		ResetManual bool   `json:"resetManual"`
+		// SuggestStages drafts a rolling plan's stages; KeepWaves keeps
+		// the waves already set.
+		SuggestStages bool `json:"suggestStages"`
+		KeepWaves     bool `json:"keepWaves"`
 	}
 	if !decodeVMwareRequest(response, request, &input) {
 		return
@@ -552,13 +556,20 @@ func (a *application) handleVMwarePlan(response http.ResponseWriter, request *ht
 		}
 		plan, _ = suggestWavesWith(plan, inventory, input.WaveSize, input.ResetManual)
 	}
+	if input.SuggestStages {
+		if vmPlanScenario(plan) != vmScenarioRolling {
+			writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "Choose Reuse the existing hosts first."})
+			return
+		}
+		plan = suggestRollingStages(plan, inventory, input.KeepWaves)
+	}
 	saveErr := a.saveVMwarePlan(plan)
 	a.mu.Lock()
 	if a.vmware.inventory == inventory {
 		a.vmware.plan = &plan
 	}
 	a.mu.Unlock()
-	result := map[string]any{"ok": true, "plan": plan, "sizing": sizePlan(plan, inventory), "saved": saveErr == nil}
+	result := map[string]any{"ok": true, "plan": plan, "sizing": sizePlan(plan, inventory), "rolling": analyzeRolling(plan, inventory), "scenarios": vmScenarios, "saved": saveErr == nil}
 	if saveErr != nil {
 		result["warning"] = "The plan is in use but could not be saved for next time: " + saveErr.Error()
 	}

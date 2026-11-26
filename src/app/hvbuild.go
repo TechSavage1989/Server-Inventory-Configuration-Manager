@@ -24,6 +24,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"net"
 	"regexp"
 	"sort"
 	"strconv"
@@ -51,6 +52,20 @@ type hvBuildNode struct {
 	HostIPs map[string]string `json:"hostIps"`
 	// Storage lists the physical adapters dedicated to iSCSI on this node.
 	Storage []hvBuildNodeNIC `json:"storage"`
+	// SourceNICs lists, per switch, the physical adapters the same server
+	// used for that switch under ESXi (a rolling conversion reuses the
+	// hardware). Read nodes matches them to Windows adapters by MAC address
+	// so the switch adapters are ticked for the operator to check.
+	SourceNICs map[string][]hvBuildSourceNIC `json:"sourceNics,omitempty"`
+	// ManagementIP is the address the host had under ESXi, for reference.
+	ManagementIP string `json:"managementIp,omitempty"`
+}
+
+// hvBuildSourceNIC is one physical adapter as ESXi reported it.
+type hvBuildSourceNIC struct {
+	Device  string `json:"device"`
+	MAC     string `json:"mac"`
+	SpeedMb int    `json:"speedMb"`
 }
 
 // hvBuildSwitch is a Hyper-V virtual switch: a Switch Embedded Teaming (SET)
@@ -180,7 +195,10 @@ type hvBuildPlan struct {
 	Settings      hvBuildSettings  `json:"settings"`
 	Sizing        []hvBuildSizing  `json:"sizing"`
 	Notes         []string         `json:"notes"`
-	UpdatedAt     time.Time        `json:"updatedAt"`
+	// Reuse is true when the nodes are the ESXi hosts themselves, rebuilt
+	// one at a time (Plan and runbook's rolling scenario).
+	Reuse     bool      `json:"reuse,omitempty"`
+	UpdatedAt time.Time `json:"updatedAt"`
 }
 
 var (
@@ -248,6 +266,15 @@ func hvBuildSourceHosts(inventory *vmInventory, cluster string) []vmHost {
 
 // hvBuildSuggest drafts a plan from the inventory for one VMware cluster.
 func hvBuildSuggest(inventory *vmInventory, cluster string) (hvBuildPlan, error) {
+	return hvBuildSuggestFor(inventory, cluster, false, nil)
+}
+
+// hvBuildSuggestFor drafts the plan. With reuse each node is the ESXi host
+// it replaces, rebuilt on the same hardware: it is named after the host,
+// keeps the host's vMotion address for live migration and lists the
+// physical adapters (by MAC) each switch used, in the order of order (the
+// rolling plan's stages) when given.
+func hvBuildSuggestFor(inventory *vmInventory, cluster string, reuse bool, order []string) (hvBuildPlan, error) {
 	if inventory == nil {
 		return hvBuildPlan{}, errors.New("read the VMware inventory first (Discovery, VMware and Hyper-V)")
 	}
@@ -477,12 +504,22 @@ func hvBuildSuggest(inventory *vmInventory, cluster string) (hvBuildPlan, error)
 	sort.Slice(plan.Sizing, func(i, j int) bool { return plan.Sizing[i].Datastore < plan.Sizing[j].Datastore })
 
 	// Nodes, one per ESXi host, with the switch adapter lists to fill in.
+	if reuse && len(order) > 0 {
+		hosts = hvBuildOrderHosts(hosts, order)
+	}
 	for _, host := range hosts {
 		node := hvBuildNode{ESXi: host.Name, Switches: map[string][]string{}, HostIPs: map[string]string{}, Storage: []hvBuildNodeNIC{}}
 		for _, sw := range plan.Switches {
 			node.Switches[sw.Name] = []string{}
 		}
+		if reuse {
+			hvBuildReuseHost(&plan, &node, host)
+		}
 		plan.Nodes = append(plan.Nodes, node)
+	}
+	if reuse {
+		plan.Reuse = true
+		plan.Notes = append(plan.Notes, "Rolling conversion: each node is an ESXi host rebuilt on the same hardware, in the order of the stages in Plan and runbook. Nodes are named after their ESXi hosts and keep their vMotion address for live migration; change either if you like. Read nodes ticks each switch's adapters by the MAC addresses ESXi used; check them before Apply.")
 	}
 
 	// Cluster.
@@ -588,4 +625,113 @@ func hvBuildSuggestedSize(used int64) int64 {
 		size = 256 * gib
 	}
 	return size
+}
+
+// hvBuildOrderHosts puts hosts in the given order; hosts not named follow.
+func hvBuildOrderHosts(hosts []vmHost, order []string) []vmHost {
+	result := []vmHost{}
+	used := map[string]bool{}
+	for _, name := range order {
+		for _, host := range hosts {
+			if strings.EqualFold(host.Name, name) && !used[strings.ToLower(host.Name)] {
+				result = append(result, host)
+				used[strings.ToLower(host.Name)] = true
+			}
+		}
+	}
+	for _, host := range hosts {
+		if !used[strings.ToLower(host.Name)] {
+			result = append(result, host)
+		}
+	}
+	return result
+}
+
+// hvBuildShortName is a host's computer name: its DNS name's first label,
+// or "" for an IP address or a name Windows cannot use.
+func hvBuildShortName(name string) string {
+	name = strings.TrimSpace(name)
+	if net.ParseIP(name) != nil {
+		return ""
+	}
+	short := strings.SplitN(name, ".", 2)[0]
+	if len(short) > 15 || !hvBuildClusterPattern.MatchString(short) {
+		return ""
+	}
+	return short
+}
+
+// hvBuildMaskBits turns a dotted IPv4 mask into its prefix length.
+func hvBuildMaskBits(mask string) int {
+	ip := net.ParseIP(strings.TrimSpace(mask)).To4()
+	if ip == nil {
+		return 0
+	}
+	ones, bits := net.IPv4Mask(ip[0], ip[1], ip[2], ip[3]).Size()
+	if bits == 0 {
+		return 0
+	}
+	return ones
+}
+
+// hvBuildReuseHost fills a node from the ESXi host it replaces.
+func hvBuildReuseHost(plan *hvBuildPlan, node *hvBuildNode, host vmHost) {
+	node.Name = hvBuildShortName(host.Name)
+	if host.Details == nil {
+		return
+	}
+	details := host.Details
+	node.ManagementIP = details.ManagementIP
+	node.SourceNICs = map[string][]hvBuildSourceNIC{}
+	for _, sw := range plan.Switches {
+		list := []hvBuildSourceNIC{}
+		for _, nic := range details.PhysicalNICs {
+			if nic.Switch != "" && hvBuildContains(sw.From, nic.Switch) && hvBuildMACPattern.MatchString(nic.MAC) {
+				list = append(list, hvBuildSourceNIC{Device: nic.Device, MAC: hvBuildNormalMAC(nic.MAC), SpeedMb: nic.SpeedMb})
+			}
+		}
+		if len(list) > 0 {
+			node.SourceNICs[sw.Name] = list
+		}
+	}
+	for _, nic := range plan.HostNICs {
+		if nic.From == "" {
+			continue
+		}
+		for _, vmk := range details.VMkernel {
+			if !strings.EqualFold(vmk.Portgroup, nic.From) || vmk.DHCP || net.ParseIP(vmk.IP).To4() == nil {
+				continue
+			}
+			if bits := hvBuildMaskBits(vmk.Mask); bits > 0 && bits < 32 {
+				node.HostIPs[nic.Name] = vmk.IP + "/" + strconv.Itoa(bits)
+			}
+		}
+	}
+	label := vmNonEmpty(node.Name, host.Name)
+	if details.ManagementIP != "" {
+		plan.Notes = append(plan.Notes, fmt.Sprintf("%s: give Windows the management address %s that ESXi used%s, and remove %s's old DNS record if it does not update.", label, details.ManagementIP, hvBuildGatewayText(details), host.Name))
+	}
+	iscsi := []string{}
+	for _, vmk := range details.VMkernel {
+		if !vmContains(vmk.Services, "management") && !vmContains(vmk.Services, "vmotion") && vmk.IP != "" && strings.Contains(strings.ToLower(vmk.Portgroup), "iscsi") {
+			iscsi = append(iscsi, vmk.IP)
+		}
+	}
+	if len(iscsi) > 0 {
+		plan.Notes = append(plan.Notes, fmt.Sprintf("%s used iSCSI addresses %s under ESXi; they are free for its iSCSI adapters in Storage once the host is rebuilt.", label, strings.Join(iscsi, ", ")))
+	}
+}
+
+func hvBuildGatewayText(details *vmHostDetails) string {
+	if details.DefaultGateway == "" {
+		return ""
+	}
+	return " (gateway " + details.DefaultGateway + ")"
+}
+
+var hvBuildMACPattern = regexp.MustCompile(`^[0-9A-Fa-f]{2}([:-][0-9A-Fa-f]{2}){5}$`)
+
+// hvBuildNormalMAC writes a MAC address the way Windows shows it.
+func hvBuildNormalMAC(mac string) string {
+	return strings.ToUpper(strings.ReplaceAll(strings.TrimSpace(mac), ":", "-"))
 }
