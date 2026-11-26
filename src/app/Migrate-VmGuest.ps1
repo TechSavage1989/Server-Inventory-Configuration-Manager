@@ -15,13 +15,9 @@ Modes
   RemoveGhostNics  Removes chosen network adapters that are no longer present
                    (the old platform's adapters).
   RemoveVmwareTools Uninstalls VMware Tools with its own uninstaller. When the
-                   uninstaller refuses (it does outside VMware: its custom
-                   actions need the VMware host), turns its services and
-                   drivers off, removes hidden VMware devices, then removes
-                   what is left: its services and drivers, driver packages,
-                   Windows Installer and uninstall entries, its registry key
-                   and its Program Files folder. Every value is saved and every
-                   key exported first.
+                   uninstaller refuses (most versions do outside VMware), turns
+                   its services and drivers off instead, saving every value
+                   first, and removes hidden VMware devices.
   OnlineDisks      Brings chosen offline or read-only disks online.
   AutoFixup        After a cutover, on the new VM, with no choices to make:
                    removes the hidden old-platform adapters, puts the
@@ -807,187 +803,6 @@ function Disable-VmwareToolsComponents {
     return [pscustomobject]@{ Components = $components.Count; Changed = $changed; Filters = $filters.Count; Devices = @($devices) }
 }
 
-# Windows' own mouse drivers: vmmouse.sys ships with Windows (msmouse.inf)
-# and vmusbmouse is bound through the mouse class, so neither is deleted; they
-# are only taken out of filter lists and set not to start.
-$script:VmwareToolsKeepDrivers = @('vmmouse', 'vmusbmouse')
-$script:VmwareToolsBackupName = 'VMware-Tools-Removed'
-
-# Windows Installer's packed form of a product code (registry key names under
-# Installer\Products).
-function ConvertTo-PackedGuid {
-    param([string]$Guid)
-    $g = $Guid.Trim().Trim('{', '}').Replace('-', '')
-    if ($g -notmatch '^[0-9A-Fa-f]{32}$') { return '' }
-    $out = New-Object Text.StringBuilder
-    foreach ($part in @(@(0, 8), @(8, 4), @(12, 4))) {
-        $chars = $g.Substring($part[0], $part[1]).ToCharArray()
-        [array]::Reverse($chars)
-        [void]$out.Append((New-Object string (, $chars)))
-    }
-    for ($i = 16; $i -lt 32; $i += 2) { [void]$out.Append($g[$i + 1]); [void]$out.Append($g[$i]) }
-    return $out.ToString().ToUpperInvariant()
-}
-
-function ConvertTo-RegExePath([string]$Path) {
-    return ($Path -replace '^Microsoft\.PowerShell\.Core\\Registry::', '' -replace '^HKLM:\\', 'HKEY_LOCAL_MACHINE\')
-}
-
-# Runs a Windows tool and returns its exit code and output. With
-# ErrorActionPreference Stop, Windows PowerShell turns a tool's error output
-# into a terminating error, so the preference is relaxed for the call.
-function Invoke-NativeTool {
-    param([string]$Path, [string[]]$Arguments)
-    $previous = $ErrorActionPreference
-    $ErrorActionPreference = 'Continue'
-    try { $output = & $Path @Arguments 2>&1 | Out-String; $code = $LASTEXITCODE } finally { $ErrorActionPreference = $previous }
-    return [pscustomobject]@{ Code = [int]$code; Output = ([string]$output).Trim() }
-}
-
-# Exports a key with reg.exe (so it can be imported again) before it is removed.
-function Export-RegistryKey {
-    param([string]$Path, [string]$Folder)
-    $target = ConvertTo-RegExePath $Path
-    $file = Join-Path $Folder (('{0:00}-' -f (@(Get-ChildItem -LiteralPath $Folder -Filter '*.reg' -ErrorAction SilentlyContinue).Count + 1)) + (($target -replace '[\\/:*?"<>| ]+', '_') -replace '^.{0,}(.{80})$', '$1') + '.reg')
-    $run = Invoke-NativeTool (Join-Path $env:SystemRoot 'System32\reg.exe') @('export', $target, $file, '/y')
-    if ($run.Code -ne 0 -or -not (Test-Path -LiteralPath $file)) { throw ('Could not export ' + $target + ' before removing it.') }
-    return $file
-}
-
-# Driver packages in the driver store whose provider is VMware, except the
-# storage, network and mouse drivers.
-function Get-VmwareDriverPackages {
-    $packages = @()
-    foreach ($inf in @(Get-ChildItem -LiteralPath (Join-Path $env:SystemRoot 'INF') -Filter 'oem*.inf' -ErrorAction SilentlyContinue)) {
-        $text = ''
-        try { $text = [IO.File]::ReadAllText($inf.FullName) } catch { continue }
-        $provider = ''
-        $match = [regex]::Match($text, '(?im)^\s*Provider\s*=\s*(.+?)\s*$')
-        if (-not $match.Success) { continue }
-        $provider = $match.Groups[1].Value.Trim('"')
-        if ($provider -match '^%(.+)%$') {
-            $token = [regex]::Escape($Matches[1])
-            $value = [regex]::Match($text, '(?im)^\s*' + $token + '\s*=\s*"?([^"\r\n]+)"?')
-            if ($value.Success) { $provider = $value.Groups[1].Value.Trim() }
-        }
-        if ($provider -notmatch '^VMware') { continue }
-        if ($text -match '(?i)\b(pvscsi|vmxnet3|vmxnet|vmmouse|vmusbmouse)\b') { continue }
-        $packages += [pscustomobject]@{ Name = $inf.Name; Provider = $provider }
-    }
-    return @($packages)
-}
-
-# After the uninstaller refused and Disable-VmwareToolsComponents turned
-# everything off: removes what VMware Tools left. Keys are exported to the
-# work folder first; files that are still in use go at the next restart.
-function Remove-VmwareToolsLeftovers {
-    param([object]$Entry)
-    $folder = Join-Path $WorkPath $script:VmwareToolsBackupName
-    New-Item -ItemType Directory -Path $folder -Force | Out-Null
-    $notes = New-Object Collections.ArrayList
-    $keys = New-Object Collections.ArrayList
-    # Services and drivers by exact name, never a wildcard (vmic* are Hyper-V's).
-    $services = @()
-    foreach ($name in @($script:VmwareToolsServices + $script:VmwareToolsDrivers)) {
-        if ($script:VmwareToolsKeepDrivers -contains $name) { continue }
-        $path = 'HKLM:\SYSTEM\CurrentControlSet\Services\' + $name
-        if (Test-Path -LiteralPath $path) { [void](Export-RegistryKey $path $folder); $services += $name }
-    }
-    # Windows Installer and uninstall entries.
-    $code = ''
-    if ($Entry -and [string]$Entry.ProductCode -match '^\{[0-9A-Fa-f\-]{36}\}$') { $code = [string]$Entry.ProductCode }
-    foreach ($root in @('HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall', 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall')) {
-        foreach ($key in @(Get-ChildItem -LiteralPath $root -ErrorAction SilentlyContinue)) {
-            if ([string](Get-RegistryValue $key.PSPath 'DisplayName') -eq 'VMware Tools') { [void]$keys.Add([string]$key.PSPath) }
-        }
-    }
-    $upgrade = @()
-    $packed = ConvertTo-PackedGuid $code
-    if ($packed) {
-        foreach ($path in @(('HKLM:\SOFTWARE\Classes\Installer\Products\' + $packed), ('HKLM:\SOFTWARE\Classes\Installer\Features\' + $packed), ('HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Installer\UserData\S-1-5-18\Products\' + $packed))) {
-            if (Test-Path -LiteralPath $path) { [void]$keys.Add($path) }
-        }
-        foreach ($key in @(Get-ChildItem -LiteralPath 'HKLM:\SOFTWARE\Classes\Installer\UpgradeCodes' -ErrorAction SilentlyContinue)) {
-            $names = @($key.GetValueNames())
-            if ($names -contains $packed) { $upgrade += [pscustomobject]@{ Path = [string]$key.PSPath; Only = ($names.Count -eq 1) } }
-        }
-    }
-    foreach ($path in @('HKLM:\SOFTWARE\VMware, Inc.', 'HKLM:\SOFTWARE\WOW6432Node\VMware, Inc.')) {
-        if (Test-Path -LiteralPath $path) { [void]$keys.Add($path) }
-    }
-    foreach ($path in $keys) { [void](Export-RegistryKey $path $folder) }
-    foreach ($item in $upgrade) { [void](Export-RegistryKey $item.Path $folder) }
-    $packages = @(Get-VmwareDriverPackages)
-    Write-JsonFile (Join-Path $folder 'removed.json') ([pscustomobject]@{ Schema = 1; SavedAt = (Get-Date).ToString('o'); ProductCode = $code; Services = @($services); Keys = @($keys); UpgradeCodes = @($upgrade); DriverPackages = @($packages) })
-    # Driver packages (pnputil's -f -d form works on every supported Windows).
-    $pnputil = Join-Path $env:SystemRoot 'System32\pnputil.exe'
-    $removedPackages = 0
-    foreach ($package in $packages) {
-        $run = Invoke-NativeTool $pnputil @('-f', '-d', $package.Name)
-        if ($run.Code -eq 0) { $removedPackages++; Write-GuestLog ('Removed the driver package ' + $package.Name + ' (' + $package.Provider + ').') }
-        else { [void]$notes.Add('driver package ' + $package.Name + ' was not removed'); Write-GuestLog ('Could not remove the driver package ' + $package.Name + ': ' + $run.Output) 'WARN' }
-    }
-    # Services and drivers: a running driver is deleted at the next restart.
-    $removedServices = 0
-    foreach ($name in $services) {
-        $run = Invoke-NativeTool (Join-Path $env:SystemRoot 'System32\sc.exe') @('delete', $name)
-        if ($run.Code -eq 0 -or $run.Code -eq 1072) { $removedServices++; Write-GuestLog ('Deleted the service ' + $name + '.') }
-        else { [void]$notes.Add('service ' + $name + ' was not deleted'); Write-GuestLog ('Could not delete the service ' + $name + ': ' + $run.Output) 'WARN' }
-    }
-    foreach ($path in $keys) {
-        try { Remove-Item -LiteralPath $path -Recurse -Force -ErrorAction Stop; Write-GuestLog ('Removed ' + (ConvertTo-RegExePath $path) + '.') }
-        catch { [void]$notes.Add((ConvertTo-RegExePath $path) + ' was not removed'); Write-GuestLog ('Could not remove ' + (ConvertTo-RegExePath $path) + ': ' + $_.Exception.Message) 'WARN' }
-    }
-    foreach ($item in $upgrade) {
-        try {
-            if ($item.Only) { Remove-Item -LiteralPath $item.Path -Recurse -Force -ErrorAction Stop } else { Remove-ItemProperty -LiteralPath $item.Path -Name $packed -ErrorAction Stop }
-        } catch { [void]$notes.Add('an upgrade code entry was not removed') }
-    }
-    # Its Program Files folder. Files still in use are deleted at the next restart.
-    $later = 0
-    $removedFolder = $false
-    $tools = Join-Path $env:ProgramFiles 'VMware\VMware Tools'
-    if (Test-Path -LiteralPath $tools) {
-        Initialize-FileHelper
-        foreach ($file in @(Get-ChildItem -LiteralPath $tools -Recurse -Force -ErrorAction SilentlyContinue | Where-Object { -not $_.PSIsContainer })) {
-            try { Remove-Item -LiteralPath $file.FullName -Force -ErrorAction Stop }
-            catch { if ([SicmFiles]::DeleteAtRestart($file.FullName)) { $later++ } else { [void]$notes.Add($file.FullName + ' was not removed') } }
-        }
-        foreach ($dir in @(@(Get-ChildItem -LiteralPath $tools -Recurse -Force -ErrorAction SilentlyContinue | Where-Object { $_.PSIsContainer } | Sort-Object { $_.FullName.Length } -Descending) + @(Get-Item -LiteralPath $tools))) {
-            if (@(Get-ChildItem -LiteralPath $dir.FullName -Force -ErrorAction SilentlyContinue).Count -eq 0) { Remove-Item -LiteralPath $dir.FullName -Force -ErrorAction SilentlyContinue }
-            elseif ($later -gt 0) { [void][SicmFiles]::DeleteAtRestart($dir.FullName) }
-        }
-        $parent = Join-Path $env:ProgramFiles 'VMware'
-        if ((Test-Path -LiteralPath $parent) -and @(Get-ChildItem -LiteralPath $parent -Force -ErrorAction SilentlyContinue).Count -eq 0) { Remove-Item -LiteralPath $parent -Force -ErrorAction SilentlyContinue }
-        $removedFolder = $true
-        Write-GuestLog ('Removed ' + $tools + $(if ($later) { ' (' + $later + ' file(s) in use go at the next restart)' } else { '' }) + '.')
-    }
-    return [pscustomobject]@{ Services = $removedServices; DriverPackages = $removedPackages; Keys = $keys.Count; Folder = $removedFolder; FilesAtRestart = $later; Notes = @($notes); Backup = $folder }
-}
-
-function Initialize-FileHelper {
-    if ($script:FileHelperLoaded) { return }
-    Add-Type -TypeDefinition @'
-using System;
-using System.Runtime.InteropServices;
-public static class SicmFiles {
-    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-    static extern bool MoveFileEx(string existing, string replacement, int flags);
-    public static bool DeleteAtRestart(string path) { return MoveFileEx(path, null, 4); }
-}
-'@
-    $script:FileHelperLoaded = $true
-}
-
-function Get-VmwareToolsRemovedText {
-    param([object]$Gone)
-    $text = 'removed by hand: ' + $Gone.Services + ' service(s) and driver(s), ' + $Gone.DriverPackages + ' driver package(s), ' + $Gone.Keys + ' registry key(s) including the Programs and Features entry'
-    if ($Gone.Folder) { $text += ', and its Program Files folder' }
-    $text += '. Restart the VM to finish.'
-    if (@($Gone.Notes).Count) { $text += ' Not removed: ' + (@($Gone.Notes) -join '; ') + '.' }
-    return $text + ' Every key was exported to ' + $Gone.Backup + ' first.'
-}
-
 function Invoke-RemoveVmwareTools {
     $platform = Get-Platform
     if ($platform.Name -eq 'VMware') { throw 'This VM is still running on VMware. Remove VMware Tools only after cutover, on the migrated VM.' }
@@ -997,8 +812,7 @@ function Invoke-RemoveVmwareTools {
     if (-not $entry.Installed) {
         # The program is gone but services or drivers were left behind.
         $off = Disable-VmwareToolsComponents
-        $gone = Remove-VmwareToolsLeftovers $entry
-        return [pscustomobject]@{ ExitCode = 0; RestartRequired = $true; AlreadyRemoved = $false; Disabled = $true; Removed = $gone; Message = ('VMware Tools was already uninstalled; the ' + $off.Components + ' service(s) and driver(s) it left behind were turned off and ' + (Get-VmwareToolsRemovedText $gone)) }
+        return [pscustomobject]@{ ExitCode = 0; RestartRequired = $true; AlreadyRemoved = $false; Disabled = $true; Message = ('VMware Tools was already uninstalled; turned off ' + $off.Components + ' service(s) and driver(s) it left behind.') }
     }
     $code = -1
     $why = ''
@@ -1014,10 +828,9 @@ function Invoke-RemoveVmwareTools {
         }
         $why = 'its uninstaller ended with code ' + $code + ' (most versions refuse to run outside VMware; see ' + $log + ')'
     }
-    Write-GuestLog ('VMware Tools could not be uninstalled: ' + $why + '. Turning it off and removing it by hand instead.') 'WARN'
+    Write-GuestLog ('VMware Tools could not be uninstalled: ' + $why + '. Turning its services and drivers off instead.') 'WARN'
     $off = Disable-VmwareToolsComponents
-    $gone = Remove-VmwareToolsLeftovers $entry
-    return [pscustomobject]@{ ExitCode = $code; RestartRequired = $true; AlreadyRemoved = $false; Disabled = $true; Removed = $gone; Message = ('VMware Tools could not be uninstalled (' + $why + '), so its ' + $off.Components + ' service(s) and driver(s) were turned off, ' + $off.Devices.Count + ' hidden VMware device(s) removed, and it was ' + (Get-VmwareToolsRemovedText $gone)) }
+    return [pscustomobject]@{ ExitCode = $code; RestartRequired = $true; AlreadyRemoved = $false; Disabled = $true; Message = ('VMware Tools could not be uninstalled (' + $why + '), so its ' + $off.Components + ' service(s) and driver(s) are turned off and ' + $off.Devices.Count + ' hidden VMware device(s) removed; a restart finishes it. Programs and Features still lists VMware Tools, and the values changed are saved in ' + $script:VmwareToolsRecordName + '.') }
 }
 
 function Invoke-OnlineDisks {
