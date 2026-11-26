@@ -63,6 +63,8 @@ A portable **Windows x64 application** for collecting server inventory, exportin
 ### Migration and replication
 
 <table>
+  <tr><td colspan="2"><b>New migration: pick the VMs, then where, how and when, on one set of screens, and start it</b><br><img src="docs/images/new-migration.png" alt="New migration, first screen, with VMs ticked from a vCenter inventory" width="880"></td></tr>
+  <tr><td colspan="2"><b>Every migration started there is shown live, wave by wave, through test and cutover</b><br><img src="docs/images/new-migration-status.png" alt="New migration status with clickable tiles, progress per VM and cutover by wave" width="880"></td></tr>
   <tr><td colspan="2"><b>Guided migration: pick what you are moving and where to, then follow every step with the computer it runs on and a live check</b><br><img src="docs/images/guided-migration.png" alt="Guided migration for a VMware VM moving to Hyper-V, with the steps and the computers involved" width="880"></td></tr>
   <tr><td colspan="2"><b>Build the new Hyper-V hosts or cluster from the VMware data: every step previewed, then applied only after you type the plan's name</b><br><img src="docs/images/hyperv-build.png" alt="Build Hyper-V hosts with a plan drafted from a VMware cluster and the roles step previewed on two nodes" width="880"></td></tr>
   <tr><td colspan="2"><b>The receiver shows who is connected and every copy arriving, with progress, speed and time left</b><br><img src="docs/images/receive-transfers.png" alt="Receiver with connected senders and copies in progress" width="880"></td></tr>
@@ -161,6 +163,7 @@ Every migration and replication tool lives in one **Migration and replication** 
 
 | Group | Tool | What it does | Runs on |
 | --- | --- | --- | --- |
+| Start here | **New migration** | One set of screens: what (many VMs at once), where (folders and network map filled in), how (the recommended way, with only its options), when (waves and cutover times), review, then live status. VMs to this Hyper-V host or its cluster run start to finish here; anything else continues in its tool with your choices. | The Hyper-V host that will run the VMs |
 | Start here | **Guided migration** | Pick what you are moving and where to; every step in order, with checks that stop you on the wrong computer, without a receiver or short of space. | The computer each step names |
 | Plan | **Plan and runbook** | Waves, network map, sizing and the runbook (HTML and Word). | Your admin computer |
 | Plan | **Build Hyper-V hosts** | Set up the new Hyper-V hosts or cluster from the VMware data: roles, SET switches and VLANs, iSCSI or Fibre Channel, Cluster Shared Volumes, the cluster, quorum and live migration, each step previewed before you approve it. | Your admin computer, changing the new nodes over WinRM |
@@ -171,6 +174,8 @@ Every migration and replication tool lives in one **Migration and replication** 
 | Disks | **Move file shares** | Shares, files and permissions to a new file server. | The new file server |
 | Disks | **Convert disk images** | VMDK, VHD, VHDX, qcow2 and raw, with Windows fix-ups and Send to a host. | Any computer that reaches the files |
 | Any computer, nothing installed in the machine | **Prepare and fix up**, **Compare before and after** | Record settings, fix up the new machine (from vCenter, PowerShell Direct or PowerShell remoting; inside the machine as a fallback), and compare two inventories. | The Hyper-V host or your admin computer; any computer |
+
+**New migration** is where Migration and replication opens. Tick the VMs (search, Select by host, cluster, folder, wave, readiness or power; blocked VMs say why), choose where they go and press Next: the copy and VM folders come from the host (a Cluster Shared Volume on a cluster, with high availability ticked), and each network the VMs use is mapped to a switch and VLAN. How recommends the way to move and shows only its options; When sets the first copies, the waves and a cutover time for any wave. Review checks everything first (Hyper-V host, vCenter session, space, networks, snapshots, VMs already in a migration) and Start, after you type the name, creates the migration. Status then shows it live: click a tile to filter, select a wave, test a VM on an isolated copy and cut over. The separate tools below it (**Tools (advanced)**) still do each part on its own.
 
 **Guided migration** starts with *what are you moving* (a VMware VM, a Hyper-V VM, a running server, a disk image or file shares) and *where to* (Hyper-V, Scale HyperCore, Nutanix AHV, Proxmox VE, a physical server or vSphere). It then lists each step with the computer it runs on, a live check of what this computer can see, and a button that opens the right tool. A step that would go wrong here (for example copying to Hyper-V from a computer that is not the Hyper-V host, or a host without room for the VM) is blocked with the reason. Ticks are remembered per flow.
 
