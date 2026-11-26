@@ -51,6 +51,31 @@ type vmReplicaOptions struct {
 	// Folder (for example a receiver's raw disk). It returns the sink and a
 	// label for the target; the sink's own copy record decides the mode.
 	NewSink func(index int, capacity int64) (vmCopySink, string, error)
+	// Throttle paces what is read from the datastore; nil reads at full
+	// speed. One throttle shared by several VMs limits them together.
+	Throttle *vmThrottle
+}
+
+// vmThrottledSource paces reads through a throttle.
+type vmThrottledSource struct {
+	vmCopySource
+	ctx      context.Context
+	throttle *vmThrottle
+}
+
+func (s *vmThrottledSource) ReadAt(p []byte, offset int64) (int, error) {
+	if err := s.throttle.Wait(s.ctx, int64(len(p))); err != nil {
+		return 0, err
+	}
+	return s.vmCopySource.ReadAt(p, offset)
+}
+
+// vmThrottleSource wraps source when a throttle is set.
+func vmThrottleSource(ctx context.Context, source vmCopySource, throttle *vmThrottle) vmCopySource {
+	if throttle == nil {
+		return source
+	}
+	return &vmThrottledSource{vmCopySource: source, ctx: ctx, throttle: throttle}
 }
 
 // vmOpenedSink is a sink already opened to read its copy record; the engine's
@@ -379,7 +404,7 @@ func vmReplicateRound(ctx context.Context, client *vim25.Client, ref types.Manag
 			sink.Close()
 			return nil, fmt.Errorf("%s: the VMDK is %d bytes but vSphere reports %d", disk.label, source.Size(), disk.capacity)
 		}
-		copied, err := vmCopyTo(ctx, source, sink, copyOptions)
+		copied, err := vmCopyTo(ctx, vmThrottleSource(ctx, source, options.Throttle), sink, copyOptions)
 		source.Close()
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", disk.label, err)

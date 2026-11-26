@@ -64,7 +64,7 @@ function vmwareCompareFixture(){const change=(dataset,label,kind,item,expected,f
  return {result,datasets};}
 async function fixture(browser,old=false){
  let saved=null,started=[],saveCalls=0,rejectStart=false,skipRequests=[],opens=[],restoreReject=null,migrateReject={},vmwareReject={};const receiverPair={allowed:false};
- const logs=[],dialogs=[],errors=[],restoreCalls={browse:0,scan:[],start:[],cancel:0,tokens:[]},migrateCalls=[],vmwareCalls=[],convertCalls=[],replCalls=[];let convertReject={},convertSize=0;
+ const logs=[],dialogs=[],errors=[],restoreCalls={browse:0,scan:[],start:[],cancel:0,tokens:[]},migrateCalls=[],vmwareCalls=[],convertCalls=[],replCalls=[],planCalls=[];const plans={plans:[],inventory:{open:true,server:'vc01.example.com',serverType:'vCenter Server',live:true}};let convertReject={},convertSize=0;
  const state={status:'idle',phase:'Ready',running:false,computerName:'SRV-DEMO-01',isAdministrator:true,powerShellVersion:'5.1',defaultOutputRoot:'C:\\Reports',update:{status:'current',title:'Up to date',message:'Installed v3.2.10. Latest v3.2.10.',canCheck:true},
   restore:{status:'idle',packages:{lastCollection:'',loadedReport:''},items:[],logs:[]},migrate:migrateIdle(),vmware:vmwareIdle(),convert:convertIdle()};
  const vm={inventory:null,plan:null,sizing:null,guest:null,compare:null};
@@ -192,6 +192,12 @@ async function fixture(browser,old=false){
    if(action==='repair'){Object.assign(c,{running:true,status:'running',task:'repair',repairTarget:data.target,message:'Fixing up '+data.path.split('\\').pop()+'.',serial:c.serial+1,log:['Opening '+data.path+' for changes.']});send(200,{ok:true});return;}
    send(200,{ok:true});return;
   }
+  if(url.pathname==='/api/plans'){
+   let body='';for await(const chunk of req)body+=chunk;const data=body?JSON.parse(body):{};planCalls.push({method:req.method,body:data,token:req.headers['x-app-token']});
+   if(req.method==='GET'){send(200,Object.assign({ok:true,sweeping:false,blocked:'',hyperVHere:true,testing:false,waves:{},switches:[{name:'Isolated',type:'Private'}]},plans));return;}
+   if(data.action==='create'){plans.plans.push({id:'p1',name:data.name,server:'vc01.example.com',paused:false,settings:data.settings,throttle:'no limit',summary:{total:data.vmIds.length,waiting:data.vmIds.length,copying:0,ready:0,testing:0,scheduled:0,done:0,failed:0},vms:data.vmIds.map(id=>({id,name:id.replace('vm-','').toUpperCase(),wave:0,state:'waiting',seeded:false,failures:0}))});send(200,{ok:true,id:'p1'});return;}
+   send(200,{ok:true});return;
+  }
   if(url.pathname==='/api/open'){let body='';for await(const chunk of req)body+=chunk;opens.push(JSON.parse(body).kind);send(200,{ok:true});return;}
   if(url.pathname==='/report/current'){res.writeHead(200,{'Content-Type':'text/html'});res.end('<!DOCTYPE html><html><head><title>Synthetic</title></head><body><div class="report-content"><section class="report-section active" id="s1"><p>alpha one</p><p>beta</p><p>alpha two</p><p>alpha three</p></section></div></body></html>');return;}
   if(url.pathname==='/api/skip-acl-export'){let body='';for await(const chunk of req)body+=chunk;skipRequests.push(JSON.parse(body));state.aclExport.skipRequested=true;send(202,{ok:true});return;}
@@ -202,7 +208,7 @@ async function fixture(browser,old=false){
  await new Promise(r=>server.listen(0,'127.0.0.1',r));const context=await browser.newContext({viewport:{width:1440,height:1000}}),page=await context.newPage();
  page.on('dialog',async d=>{dialogs.push(d.message());await d.dismiss();});page.on('pageerror',e=>errors.push(e.message));
  const url='http://127.0.0.1:'+server.address().port+'/';await page.goto(url);await page.waitForFunction(()=>document.querySelector('#serverName').textContent==='SRV-DEMO-01');
- return {page,context,state,vm,repl,failover,receiverPair,targetTest,replCalls,vmwareCalls,convertCalls,rejectConvert(action,message){convertReject[action]=message},setConvertSize(size){convertSize=size},rejectVmware(action,message){vmwareReject[action]=message},logs,dialogs,errors,started,skipRequests,opens,restoreCalls,migrateCalls,rejectMigrate(action,message){migrateReject[action]=message},rejectRestore(message){restoreReject=message},get saved(){return saved},get saveCalls(){return saveCalls},reject(){rejectStart=true},async close(){assert.deepEqual(errors,[]);await context.close();await new Promise(r=>server.close(r));}};
+ return {page,context,state,vm,repl,plans,planCalls,failover,receiverPair,targetTest,replCalls,vmwareCalls,convertCalls,rejectConvert(action,message){convertReject[action]=message},setConvertSize(size){convertSize=size},rejectVmware(action,message){vmwareReject[action]=message},logs,dialogs,errors,started,skipRequests,opens,restoreCalls,migrateCalls,rejectMigrate(action,message){migrateReject[action]=message},rejectRestore(message){restoreReject=message},get saved(){return saved},get saveCalls(){return saveCalls},reject(){rejectStart=true},async close(){assert.deepEqual(errors,[]);await context.close();await new Promise(r=>server.close(r));}};
 }
 // Tools live in two tabs: Discovery (Alt+1) and Migration and replication (Alt+5).
 const discoveryTools=['server','environment'];
@@ -867,7 +873,7 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   await goTool(f,'failover');assert((await f.page.locator('#toolWorks-tabVmware').textContent()).includes('Copies received on a Hyper-V host'));
   await goTool(f,'guide');await f.page.locator('[data-gd-source="vmware"]').click();await f.page.locator('[data-gd-target="hyperv"]').click();
   const modes=async()=>f.page.locator('[data-gd-mode]').evaluateAll(n=>n.map(x=>x.getAttribute('data-gd-mode')+(x.classList.contains('current')?'*':'')));
-  assert.deepEqual(await modes(),['movevms*','onevmhv','replicate','sendbyhand','convert']);
+  assert.deepEqual(await modes(),['movevms*','plans','onevmhv','replicate','sendbyhand','convert']);
   {const t=await f.page.locator('[data-gd-mode="onevmhv"]').textContent();assert(t.includes('remote Hyper-V host or failover cluster (Windows Server 2012 R2 to 2025')&&t.includes('vCenter Server or ESXi 6.5 to 8.0')&&t.includes('Agentless'),t);}
   await f.page.locator('[data-gd-target="scale"]').click();assert.deepEqual(await modes(),['movevms*','replicate','sendbyhand','convert']);
   await f.page.locator('[data-gd-target="physical"]').click();assert.deepEqual(await modes(),['movevms*','replicate','sendbyhand'],'disk images are not written to a physical server');
@@ -1418,6 +1424,48 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   await f.page.locator('#rpCutover').click();await f.page.waitForFunction(()=>document.querySelector('#rpDetailsStatus').textContent.includes('Cutting over'));
   assert.deepEqual(f.replCalls.filter(c=>c.action==='job'&&c.body.action==='cutover').map(c=>c.body),[{agent:'ag1',id:'a1b2c3d4e5f60718',action:'cutover',typed:'app01'}]);
   assert(f.replCalls.every(c=>c.token==='workspace-test'));assert.deepEqual(f.errors,[]);assert.deepEqual(f.dialogs,[]);
+ }finally{await f.close();}});
+ await check('Migration plans: VMs are picked from the inventory, tiles filter the list, live progress shows speed and time left, and cutover needs selected in-sync VMs and the typed plan name',async()=>{const f=await fixture(browser);try{
+  f.vm.inventory=vmwareInventoryFixture();f.vm.plan=vmwarePlanFixture();f.state.vmware=Object.assign(vmwareIdle(),{status:'connected',server:'vc01.example.com',summary:vmwareSummaryFixture(),inventorySerial:1});
+  await goTool(f,'plans');await f.page.waitForSelector('#mpNewButton');
+  assert((await f.page.locator('[data-tool="plans"] .tool-works').textContent()).includes('this Hyper-V host or its failover cluster'));
+  assert((await f.page.locator('.mp-when').textContent()).includes('Replicate servers'),'the pane says when to use it and when not');
+  await f.page.locator('#mpNewButton').click();await f.page.waitForFunction(()=>document.querySelectorAll('#mpPicker [data-mp-pick]').length>0,null,{timeout:15000});
+  await f.page.locator('#mpCreate').click();assert.equal(await f.page.locator('#mpNewStatus').textContent(),'Name the plan.');
+  await f.page.locator('#mpName').fill('Wave 1');await f.page.locator('#mpCreate').click();assert.equal(await f.page.locator('#mpNewStatus').textContent(),'Choose the VMs for the plan.');
+  const enabled=await f.page.locator('#mpPicker [data-mp-pick]:not([disabled])').evaluateAll(n=>n.map(i=>i.getAttribute('data-mp-pick')));assert(enabled.length>0);
+  await f.page.locator('#mpPicker [data-mp-pick="'+enabled[0]+'"]').check();
+  await f.page.locator('#mpStartMode').selectOption('at');await f.page.locator('#mpStartAt').fill('2026-12-01T22:00');await f.page.locator('#mpBizMbps').fill('200');await f.page.locator('#mpTestSwitch').selectOption('Isolated');
+  await f.page.locator('#mpCreate').click();await f.page.waitForFunction(()=>!document.querySelector('#mpDetail').classList.contains('hidden'),null,{timeout:15000});
+  const created=f.planCalls.find(c=>c.body.action==='create');assert.deepEqual(created.body.vmIds,[enabled[0]]);assert.equal(created.body.settings.throttle.businessMbps,200);assert.equal(created.body.settings.throttle.businessStart,8);assert.equal(created.body.settings.testSwitch,'Isolated');assert.equal(created.body.settings.disconnectSource,true,'disconnecting the old VM is ticked by default');assert(created.body.settings.startAt.startsWith('2026-12-0'));assert.equal(created.token,'workspace-test');
+  const now=new Date().toISOString();
+  f.plans.plans[0]=Object.assign(f.plans.plans[0],{summary:{total:3,waiting:0,copying:1,ready:1,testing:0,scheduled:0,done:0,failed:1},vms:[
+   {id:'vm-app01',name:'APP01',wave:1,state:'ready',seeded:true,lastSync:now,lastMode:'changed',lastRead:1073741824,lastWritten:268435456,lastSeconds:95,nextSync:now,failures:0},
+   {id:'vm-sql01',name:'SQL01',wave:1,state:'copying',seeded:false,live:{percent:40,bytesRead:42949672960,bytesPerSecond:104857600,secondsLeft:600,elapsed:400},failures:0},
+   {id:'vm-web01',name:'WEB01',wave:2,state:'failed',seeded:true,error:'<b>datastore unreachable</b>',failures:2}]});
+  await f.page.waitForFunction(()=>document.querySelectorAll('#mpRows tr').length===3,null,{timeout:15000});
+  assert((await f.page.locator('#mpRows').textContent()).includes('Seeding 40%'));assert((await f.page.locator('#mpRows .mp-progress-text').textContent()).includes('100 MB/s · 10 min left'));
+  assert.equal(await f.page.locator('#mpRows .mp-err').textContent(),'<b>datastore unreachable</b>','errors are text, not markup');
+  assert((await f.page.locator('#mpAdvice').textContent()).startsWith('1 VM(s) failed'));
+  await f.page.locator('#mpSummary [data-mp-filter="failed"]').click();await f.page.waitForFunction(()=>document.querySelectorAll('#mpRows tr').length===1);assert.equal(await f.page.locator('#mpSummary [data-mp-filter="failed"]').getAttribute('aria-pressed'),'true');
+  await f.page.locator('#mpFilterBar [data-mp-filter]').click();await f.page.waitForFunction(()=>document.querySelectorAll('#mpRows tr').length===3);
+  assert.equal(await f.page.locator('#mpCutWhy').textContent(),'Select the VMs to cut over in the list.');assert(await f.page.locator('#mpCutNow').isDisabled());
+  await f.page.locator('[data-mp-row="vm-sql01"]').check();assert.equal(await f.page.locator('#mpCutWhy').textContent(),'SQL01 has not finished its first copy yet.');
+  await f.page.locator('[data-mp-row="vm-sql01"]').uncheck();await f.page.locator('[data-mp-row="vm-app01"]').check();assert((await f.page.locator('#mpCutWhy').textContent()).startsWith('Type the plan name'));
+  await f.page.locator('#mpConfirm').fill('wave 1');assert(!await f.page.locator('#mpCutNow').isDisabled());assert(await f.page.locator('#mpCutSchedule').isDisabled(),'schedule needs a time');
+  await f.page.locator('#mpCutAt').fill('2026-12-05T23:30');await f.page.locator('#mpCutSchedule').click();
+  await f.page.waitForFunction(()=>document.querySelector('#mpConfirm').value==='',null,{timeout:15000});
+  const cut=f.planCalls.find(c=>c.body.action==='cutover');assert.deepEqual(cut.body.vmIds,['vm-app01']);assert.equal(cut.body.confirm,'wave 1');assert(cut.body.at.startsWith('2026-12-0'));
+  await f.page.waitForSelector('[data-mp-test="vm-app01"]');await f.page.locator('[data-mp-test="vm-app01"]').click();
+  for(let i=0;i<50&&!f.planCalls.some(c=>c.body.action==='test');i++){await new Promise(r=>setTimeout(r,100));}
+  assert.deepEqual(f.planCalls.find(c=>c.body.action==='test').body.vmIds,['vm-app01']);
+  for(const size of [{width:784,height:522},{width:1008,height:690}]){await f.page.setViewportSize(size);
+   const small=await f.page.evaluate(()=>Array.from(document.querySelectorAll('#tabPlans *')).filter(e=>e.offsetParent&&e.childNodes.length&&Array.from(e.childNodes).some(n=>n.nodeType===3&&n.nodeValue.trim())&&parseFloat(getComputedStyle(e).fontSize)<10.5).map(e=>e.className+':'+e.textContent.slice(0,30)));assert.deepEqual(small,[],'plans text below 10.5px at '+size.width);
+   assert(await f.page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'plans overflow at '+size.width);
+   await f.page.locator('#mpCutNow').scrollIntoViewIfNeeded();assert(await f.page.locator('#mpCutNow').isVisible());}
+  f.plans.plans[0].vms[2].error='Datastore DS-NL-02 could not be reached; the next round retries in 10 minutes.';await f.page.waitForFunction(()=>document.querySelector('#mpRows .mp-err').textContent.startsWith('Datastore'),null,{timeout:15000});
+  if(!f.errors.length&&!f.dialogs.length){await f.page.setViewportSize({width:1440,height:1000});await f.page.locator('.mp-body').evaluate(e=>e.scrollTop=0);await f.page.screenshot({path:out+'/migration-plans.png'});}
+  assert.deepEqual(f.errors,[]);assert.deepEqual(f.dialogs,[]);
  }finally{await f.close();}});
  await check('Replication summary tiles are buttons: each filters the servers and jobs it counts, shows the reason and next step, and the same tile or Show all clears it',async()=>{const f=await fixture(browser);try{
   const job=(id,name,state,rp,rpo,extra)=>({spec:{id,name,rpoMinutes:15,disks:[{source:'0',target:name+'-disk0.vhdx'}]},rpoSeconds:rpo,status:Object.assign({state,recoveryPoint:rp,rounds:3,disks:[]},extra||{})});
