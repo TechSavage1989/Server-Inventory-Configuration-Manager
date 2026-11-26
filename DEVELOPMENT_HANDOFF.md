@@ -14,6 +14,13 @@ Limits: the agent under SentinelOne on a real server, receiver discovery across 
 - The same scan now gives every round the runs of all NTFS system files (`replMFTScan.Metadata`). On Windows Server 2025, `$Boot` and `$Bitmap` return Access is denied even on a shadow copy. `$Boot` was in the optional list and was skipped silently. `$UsnJrnl`, `$RmMetadata` logs and other files under `$Extend` have no fixed record number.
 - Tests: `TestMFTScanFindsSystemFilesAndShadowCopyStorage` and `TestClearRunsMarksClustersFree` (synthetic records), plus the Windows test with the new in-shadow diagnostic.
 
+## Unreleased: nothing installed in the machine being moved, a step-by-step guide, vTPM VMs not blocked — 2026-11-26
+
+- Prepare and fix up runs from outside the machine: PowerShell Direct from the Hyper-V host (no network, after the cutover), PowerShell remoting over the network (before it), or inside the machine as a fallback (`Invoke-GuestRemote.ps1`, signed, RemoteSigned; AGENTS.md rule 40). A VMware VM's IP settings, gateways and DNS servers are recorded from vCenter before every Move VMs copy, so no recording step runs in the VM.
+- Readiness: a VM whose own files are encrypted only for its virtual TPM (disks plain) is no longer Blocked; encrypted disks stay Blocked with ways out (Replicate servers or decrypt). Rows list every reason, and findings have one-click buttons. Hyper-V vTPM plus cluster warns about the Shielded VM local certificates.
+- Guided migration shows one step at a time with Back and Next, folds optional steps (plan and runbook, BitLocker keys, compare, cluster on a standalone host), and fixes blocked steps inline (vCenter password). Each way of moving says "Pick this when".
+- Tests: `guest_capture_test.go` (capture from inventory, target validation, script rules, vTPM readiness and plan), `TestGuestRemoteRunsTheEngineThroughPowerShellRemoting` (Windows runner, WinRM to localhost), workspace checks. Not field-validated: PowerShell Direct into a real new VM, remoting to a domain VM, copying a vTPM VM's plain disks from an encrypted VM home through vCenter.
+
 ## Unreleased: Move VMs from one console to a remote Hyper-V host or cluster — 2026-11-25
 
 - Move VMs can now run on an admin computer: it connects to vCenter/ESXi and, over PowerShell remoting (WinRM), to a remote Hyper-V host or failover cluster. Copy rounds (VMware CBT, the VM keeps running) write VHDX files straight onto the chosen node's storage through its administrative share, or through a receiver started on the node; cutover re-reads the host, shuts the guest down through VMware Tools, copies and verifies the last changes, creates the VM on the node and optionally adds it as a clustered role. AGENTS.md rule 39.

@@ -22,6 +22,11 @@ Modes
 
 Every changing mode acts only on items named in the plan file, re-checks
 each one first, and stops at the first failure.
+
+The application runs this script on this computer, or sends its text to
+another Windows computer through Invoke-GuestRemote.ps1 (PowerShell remoting
+or PowerShell Direct), so nothing has to be copied into or installed in the
+machine being moved.
 #>
 [CmdletBinding()]
 param(
@@ -31,7 +36,12 @@ param(
     [Parameter(Mandatory = $true)][string]$WorkPath,
     [Parameter(Mandatory = $true)][string]$ResultPath,
     [string]$PlanPath = '',
-    [string]$ExportPath = ''
+    [string]$ExportPath = '',
+    # Set by Invoke-GuestRemote.ps1, which runs this script's text inside
+    # another computer through PowerShell remoting or PowerShell Direct: the
+    # result file is still written, but the script does not call exit, which
+    # would end the remote session's pipeline.
+    [switch]$Embedded
 )
 
 $ErrorActionPreference = 'Stop'
@@ -795,4 +805,4 @@ catch {
     Write-GuestLog ($Mode + ' failed: ' + $_.Exception.Message) 'ERROR'
     try { Write-JsonFile $ResultPath ([pscustomobject]@{ ok = $false; mode = $Mode; error = $_.Exception.Message }) } catch { }
 }
-exit $exitCode
+if (-not $Embedded) { exit $exitCode }
