@@ -31,21 +31,25 @@ type vmHostStorage struct {
 	VMPath    string            `json:"vmPath"`
 	Clustered bool              `json:"clustered"`
 	Volumes   []vmStorageVolume `json:"volumes"`
+	// Switches are the host's virtual switches, for matching VMware
+	// networks the plan does not map (vmAutoSwitches).
+	Switches []string `json:"switches"`
 }
 
 var (
 	vmHostDefaultsOnce sync.Once
 	vmHostDefaultsMu   sync.Mutex
 	vmHostDefaults     struct {
-		known   bool
-		vhd, vm string
+		known    bool
+		vhd, vm  string
+		switches []string
 	}
 )
 
 // vmReadHostDefaults reads the host's default folders through WMI, without
 // the Hyper-V module, once per run.
 func vmReadHostDefaults() {
-	out, err := vmRunPowerShell("$s = Get-WmiObject -Namespace 'root\\virtualization\\v2' -Class Msvm_VirtualSystemManagementServiceSettingData | Select-Object -First 1; [Console]::Out.WriteLine([string]$s.DefaultVirtualHardDiskPath); [Console]::Out.WriteLine([string]$s.DefaultExternalDataRoot)")
+	out, err := vmRunPowerShell("$s = Get-WmiObject -Namespace 'root\\virtualization\\v2' -Class Msvm_VirtualSystemManagementServiceSettingData | Select-Object -First 1; [Console]::Out.WriteLine([string]$s.DefaultVirtualHardDiskPath); [Console]::Out.WriteLine([string]$s.DefaultExternalDataRoot); foreach ($w in @(Get-WmiObject -Namespace 'root\\virtualization\\v2' -Class Msvm_VirtualEthernetSwitch)) { [Console]::Out.WriteLine('SWITCH ' + [string]$w.ElementName) }")
 	vmHostDefaultsMu.Lock()
 	defer vmHostDefaultsMu.Unlock()
 	vmHostDefaults.known = true
@@ -62,6 +66,21 @@ func vmReadHostDefaults() {
 		return ""
 	}
 	vmHostDefaults.vhd, vmHostDefaults.vm = clean(0), clean(1)
+	vmHostDefaults.switches = nil
+	for _, line := range lines {
+		if name := strings.TrimSpace(strings.TrimPrefix(line, "SWITCH ")); strings.HasPrefix(line, "SWITCH ") && name != "" {
+			vmHostDefaults.switches = append(vmHostDefaults.switches, name)
+		}
+	}
+}
+
+// vmHostSwitches lists this Hyper-V host's virtual switches (read with the
+// default folders).
+func vmHostSwitches() []string {
+	vmHostDefaultsOnce.Do(func() { go vmReadHostDefaults() })
+	vmHostDefaultsMu.Lock()
+	defer vmHostDefaultsMu.Unlock()
+	return append([]string(nil), vmHostDefaults.switches...)
 }
 
 func vmHostDefaultFolders() (known bool, vhd, vm string) {
@@ -119,7 +138,7 @@ func vmHostStorageNow() *vmHostStorage {
 		return nil
 	}
 	known, vhd, vm := vmHostDefaultFolders()
-	storage := &vmHostStorage{Known: known, VHDPath: vhd, VMPath: vm}
+	storage := &vmHostStorage{Known: known, VHDPath: vhd, VMPath: vm, Switches: vmHostSwitches()}
 	if entries, err := os.ReadDir(vmClusterStorageRoot()); err == nil {
 		for _, entry := range entries {
 			path := filepath.Join(vmClusterStorageRoot(), entry.Name())

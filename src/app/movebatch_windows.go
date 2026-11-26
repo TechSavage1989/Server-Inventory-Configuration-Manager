@@ -186,6 +186,10 @@ func (t *mbHostTarget) Create(ctx context.Context, plan *mbPlan, vm *mbVM, resul
 	switches, networks := vmMoveNetworkMap(inventory, a.vmware.plan)
 	server, user, password, thumbprint := a.vmware.server, a.vmware.account, a.vmware.password, a.vmware.thumbprint
 	a.mu.Unlock()
+	switches, switchNotes := vmAutoSwitches(switches, m, vmHostSwitches())
+	for _, note := range switchNotes {
+		log(note)
+	}
 	hyperV, err := vmHyperVPlanFor(m, networks, vmHyperVOptions{Folder: plan.Settings.VMFolder, Disks: result.Disks, Switches: switches, KeepMAC: plan.Settings.KeepMAC, Start: plan.Settings.StartVMs, ClusterRole: plan.Settings.Cluster})
 	if err != nil {
 		return "", nil, err
@@ -203,17 +207,9 @@ func (t *mbHostTarget) Create(ctx context.Context, plan *mbPlan, vm *mbVM, resul
 	if hyperV.ClusterResult != "" {
 		notes = append(notes, hyperV.ClusterResult)
 	}
-	if plan.Settings.DisconnectSource && m.Source != vmSourceHyperV {
-		changed, err := vmDisconnectSourceAdapters(ctx, vmConnectOptions{Server: server, User: user, Password: password, Thumbprint: thumbprint, UserAgent: displayName + " " + appVersion, AppVersion: appVersion},
-			m.ID, m.Name, filepath.Join(a.vmwareRoot(), safeName(strings.ToLower(plan.Server)), "Move"), log)
-		switch {
-		case err != nil:
-			// The new VM exists: report, never fail the cutover for this.
-			notes = append(notes, "The old VM's network adapters were not disconnected: "+err.Error()+".")
-		case changed > 0:
-			notes = append(notes, fmt.Sprintf("The old VM's %d network adapter(s) were set to not connect.", changed))
-		}
-	}
+	notes = append(notes, a.afterCutover(ctx, m, id, "", plan.Settings.StartVMs, plan.Settings.DisconnectSource, plan.Settings.FixUp,
+		vmConnectOptions{Server: server, User: user, Password: password, Thumbprint: thumbprint, UserAgent: displayName + " " + appVersion, AppVersion: appVersion},
+		filepath.Join(a.vmwareRoot(), safeName(strings.ToLower(plan.Server)), "Move"), log)...)
 	return id, notes, nil
 }
 

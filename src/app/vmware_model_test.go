@@ -52,11 +52,13 @@ func vmFindingCodes(r *vmReadiness) map[string]string {
 func TestReadinessModernWindowsWithStaticIP(t *testing.T) {
 	vm := vmSampleInventory().VMs[0]
 	hyperV, scale := vm.readinessFor(vmTargetHyperV), vm.readinessFor(vmTargetScale)
-	if hyperV.Status != vmStatusReview || hyperV.Generation != 2 {
+	// The cutover puts static IP settings back by itself (guest_autofix.go),
+	// so a modern Windows VM with only that is ready for Hyper-V.
+	if hyperV.Status != vmStatusReady || hyperV.Generation != 2 {
 		t.Fatalf("Hyper-V: %+v", hyperV)
 	}
 	codes := vmFindingCodes(hyperV)
-	if codes["static-ip"] != vmSeverityWarning || codes["tools-remove"] != vmSeverityInfo || codes["generation"] != vmSeverityInfo {
+	if codes["static-ip"] != vmSeverityInfo || codes["tools-remove"] != vmSeverityInfo || codes["generation"] != vmSeverityInfo {
 		t.Fatalf("Hyper-V findings: %v", codes)
 	}
 	if _, ok := codes["virtio-drivers"]; ok {
@@ -66,7 +68,10 @@ func TestReadinessModernWindowsWithStaticIP(t *testing.T) {
 	if scaleCodes["virtio-drivers"] != vmSeverityWarning || scaleCodes["secureboot"] != vmSeverityWarning {
 		t.Fatalf("HyperCore findings: %v", scaleCodes)
 	}
-	if hyperV.Findings[0].Severity != vmSeverityWarning {
+	if scaleCodes["static-ip"] != vmSeverityWarning {
+		t.Fatalf("HyperCore keeps the static IP review: %v", scaleCodes)
+	}
+	if scale.Findings[0].Severity != vmSeverityWarning {
 		t.Fatal("findings are not ordered worst first")
 	}
 }

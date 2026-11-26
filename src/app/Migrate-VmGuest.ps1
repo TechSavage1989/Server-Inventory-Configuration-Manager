@@ -16,6 +16,14 @@ Modes
                    (the old platform's adapters).
   RemoveVmwareTools Uninstalls VMware Tools with its own uninstaller.
   OnlineDisks      Brings chosen offline or read-only disks online.
+  AutoFixup        After a cutover, on the new VM, with no choices to make:
+                   removes the hidden old-platform adapters, puts the
+                   recorded static IP settings on the new adapters (matched by
+                   the MAC addresses the host reports), brings offline data
+                   disks online, removes VMware Tools and asks Windows to
+                   activate. Each step reports done, skipped, warning or
+                   failed; only a network failure fails the fix-up. Refuses to
+                   run on VMware.
   SaveBitLocker    Before removing a virtual TPM: writes every BitLocker
                    volume's recovery password to a file in ExportPath (never
                    to the log) and suspends BitLocker until it is resumed.
@@ -31,7 +39,7 @@ machine being moved.
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)]
-    [ValidateSet('Capture', 'Status', 'ApplyNetwork', 'UndoNetwork', 'RemoveGhostNics', 'RemoveVmwareTools', 'OnlineDisks', 'SaveBitLocker', 'Activate')]
+    [ValidateSet('Capture', 'Status', 'ApplyNetwork', 'UndoNetwork', 'RemoveGhostNics', 'RemoveVmwareTools', 'OnlineDisks', 'SaveBitLocker', 'Activate', 'AutoFixup')]
     [string]$Mode,
     [Parameter(Mandatory = $true)][string]$WorkPath,
     [Parameter(Mandatory = $true)][string]$ResultPath,
@@ -781,6 +789,173 @@ function Invoke-SaveBitLocker {
     return [pscustomobject]@{ NoBitLocker = $false; Volumes = $names; Suspended = $suspended; KeyFile = $keyFile }
 }
 
+function ConvertTo-MacKey {
+    param([string]$Mac)
+    return (([string]$Mac) -replace '[^0-9A-Fa-f]', '').ToUpperInvariant()
+}
+
+# Chooses the new adapter for each recorded adapter with static settings:
+# the MAC address the Hyper-V host gave the matching new adapter (plan
+# adapters: capture MAC to new MAC), the same MAC when it was kept, or the
+# only adapter when there is one of each. Anything else is not guessed.
+function Get-AutoAdapterPairs {
+    param([object[]]$Static, [object[]]$Present, [object[]]$Map)
+    $pairs = @()
+    $used = @{}
+    foreach ($source in $Static) {
+        $key = ConvertTo-MacKey $source.MacAddress
+        $target = $null
+        foreach ($entry in @($Map)) {
+            if ((ConvertTo-MacKey $entry.capture) -eq $key -and (ConvertTo-MacKey $entry.mac)) {
+                $target = @($Present | Where-Object { (ConvertTo-MacKey $_.MacAddress) -eq (ConvertTo-MacKey $entry.mac) }) | Select-Object -First 1
+            }
+        }
+        if (-not $target) { $target = @($Present | Where-Object { (ConvertTo-MacKey $_.MacAddress) -eq $key }) | Select-Object -First 1 }
+        $hardware = @($Present | Where-Object { $_.Description -notmatch 'KM-TEST Loopback|Microsoft Loopback' })
+        if (-not $target -and @($Static).Count -eq 1 -and $hardware.Count -eq 1) { $target = $hardware[0] }
+        if (-not $target) { throw ('No new adapter could be matched to ' + $source.Name + ' (' + $source.MacAddress + '). Choose it in Prepare and fix up.') }
+        if ($used[[int]$target.InterfaceIndex]) { throw ('Two recorded adapters matched the new adapter ' + $target.Name + '. Choose them in Prepare and fix up.') }
+        $used[[int]$target.InterfaceIndex] = $true
+        $pairs += [pscustomobject]@{ Source = $source; Target = $target }
+    }
+    return $pairs
+}
+
+function Invoke-AutoFixup {
+    $platform = Get-Platform
+    if ($platform.Name -eq 'VMware') { throw 'This computer still runs on VMware. The automatic fix-up runs only on the new VM after the cutover.' }
+    $plan = $null
+    if ($PlanPath -and (Test-Path -LiteralPath $PlanPath)) { $plan = Read-JsonFile $PlanPath }
+    $want = @{ network = $true; ghosts = $true; disks = $true; tools = $true; activate = $true; restart = $true }
+    if ($plan -and $plan.auto) { foreach ($name in @($want.Keys)) { if ($null -ne $plan.auto.$name) { $want[$name] = [bool]$plan.auto.$name } } }
+    $map = @()
+    if ($plan -and $plan.adapters) { $map = @($plan.adapters) }
+    $steps = New-Object System.Collections.ArrayList
+    $step = { param($Name, $Status, $Message) [void]$steps.Add([pscustomobject]@{ Step = $Name; Status = $Status; Message = $Message }); Write-GuestLog ($Name + ': ' + $Message) $(if ($Status -eq 'failed') { 'ERROR' } elseif ($Status -eq 'warning') { 'WARN' } else { 'INFO' }) }
+    $restart = $false
+    $networkOk = $true
+    Write-GuestLog ('Automatic fix-up of ' + $env:COMPUTERNAME + ' on ' + $platform.Name + '.')
+
+    # 1. The old platform's hidden adapters, first, so their names and
+    # addresses are free for the new adapters.
+    if ($want.ghosts) {
+        try {
+            $old = @(Get-GhostAdapters | Where-Object { $_.Description -match 'vmxnet|VMware|E1000|82574L|PRO/1000' })
+            foreach ($ghost in $old) { [SicmNetDevices]::Remove([string]$ghost.InstanceId) }
+            if ($old.Count) { & $step 'Hidden adapters' 'done' ('Removed ' + $old.Count + ' hidden VMware adapter(s): ' + (@($old | ForEach-Object { $_.Description }) -join ', ') + '.') }
+            else { & $step 'Hidden adapters' 'skipped' 'No hidden VMware adapters were found.' }
+        } catch { & $step 'Hidden adapters' 'warning' ('The hidden adapters could not be removed: ' + $_.Exception.Message) }
+    }
+
+    # 2. Static IP settings from the recording.
+    if ($want.network) {
+        $capture = Get-Capture
+        $static = @()
+        if ($capture) { $static = @($capture.State.Adapters | Where-Object { $_.Static }) }
+        if (-not $capture) {
+            $networkOk = $false
+            & $step 'IP settings' 'failed' 'No recording of the old VM''s network settings was found. Read vCenter again and copy once more, or put the settings back in Prepare and fix up.'
+        } elseif ($static.Count -eq 0) {
+            & $step 'IP settings' 'skipped' 'Every recorded adapter used DHCP, so the new adapters keep DHCP.'
+        } else {
+            try {
+                $present = @(Get-PresentAdapters)
+                $pairs = @(Get-AutoAdapterPairs -Static $static -Present $present -Map $map)
+                foreach ($pair in $pairs) {
+                    foreach ($address in @($pair.Source.Addresses | Where-Object { $_.Origin -eq 'Manual' })) {
+                        $owner = @($present | Where-Object { $_.InterfaceIndex -ne $pair.Target.InterfaceIndex -and @($_.Addresses | Where-Object { $_.Address -eq $address.Address }).Count -gt 0 })
+                        if ($owner.Count -gt 0) { throw ($address.Address + ' is already in use on ' + $owner[0].Name + '.') }
+                    }
+                }
+                $rollback = [pscustomobject]@{ Schema = 1; SavedAt = (Get-Date).ToString('o'); Adapters = @($pairs | ForEach-Object { $_.Target }) }
+                Write-JsonFile (Join-Path $WorkPath $script:RollbackName) $rollback
+                $done = @()
+                foreach ($pair in $pairs) {
+                    Set-AdapterConfiguration -InterfaceIndex $pair.Target.InterfaceIndex -Config $pair.Source -RestoreDhcp $false
+                    if ($pair.Target.Name -ne $pair.Source.Name -and $pair.Source.Name -notmatch '^Network adapter \d+$') {
+                        try { Rename-NetAdapter -Name $pair.Target.Name -NewName $pair.Source.Name -ErrorAction Stop } catch { Write-GuestLog ('The adapter kept its name ' + $pair.Target.Name + ': ' + $_.Exception.Message) 'WARN' }
+                    }
+                    $done += ((@($pair.Source.Addresses | Where-Object { $_.Origin -eq 'Manual' } | ForEach-Object { $_.Address + '/' + $_.PrefixLength })) -join ', ')
+                }
+                # Windows marks an address another computer answers for as
+                # Duplicate and does not use it.
+                Start-Sleep -Seconds 5
+                $duplicate = @()
+                foreach ($pair in $pairs) {
+                    $duplicate += @(Get-NetIPAddress -InterfaceIndex $pair.Target.InterfaceIndex -ErrorAction SilentlyContinue | Where-Object { [string]$_.AddressState -eq 'Duplicate' } | ForEach-Object { [string]$_.IPAddress })
+                }
+                if ($duplicate.Count -gt 0) {
+                    $networkOk = $false
+                    & $step 'IP settings' 'failed' ('Another computer on the network answers for ' + ($duplicate -join ', ') + ', so Windows does not use it. Make sure the old VM is off and disconnected, then use Put back IP settings again.')
+                } else {
+                    $answer = ''
+                    $gateway = @($pairs | ForEach-Object { @($_.Source.Gateways) } | Where-Object { [string]$_.NextHop -notmatch ':' } | Select-Object -First 1)
+                    if ($gateway.Count -gt 0) {
+                        $reached = [bool](Test-Connection -ComputerName ([string]$gateway[0].NextHop) -Count 2 -Quiet -ErrorAction SilentlyContinue)
+                        $answer = $(if ($reached) { ' The gateway ' + $gateway[0].NextHop + ' answers.' } else { ' The gateway ' + $gateway[0].NextHop + ' does not answer yet: check the switch and VLAN.' })
+                    }
+                    & $step 'IP settings' 'done' ('Put back ' + ($done -join '; ') + ' with the recorded gateway and DNS servers.' + $answer)
+                }
+            } catch {
+                $networkOk = $false
+                & $step 'IP settings' 'failed' $_.Exception.Message
+            }
+        }
+    }
+
+    # 3. Data disks that came up offline or read-only (the SAN policy).
+    if ($want.disks) {
+        try {
+            $offline = @(Get-Disk -ErrorAction Stop | Where-Object { -not $_.IsBoot -and -not $_.IsSystem -and ($_.IsOffline -or $_.IsReadOnly) })
+            foreach ($disk in $offline) {
+                if ($disk.IsOffline) { Set-Disk -Number $disk.Number -IsOffline $false }
+                if ((Get-Disk -Number $disk.Number).IsReadOnly) { Set-Disk -Number $disk.Number -IsReadOnly $false }
+            }
+            if ($offline.Count) { & $step 'Disks' 'done' ('Brought disk(s) ' + (@($offline | ForEach-Object { $_.Number }) -join ', ') + ' online.') }
+            else { & $step 'Disks' 'skipped' 'Every disk is already online.' }
+        } catch { & $step 'Disks' 'warning' ('The disks could not be brought online: ' + $_.Exception.Message) }
+    }
+
+    # 4. VMware Tools, with its own uninstaller.
+    if ($want.tools) {
+        try {
+            $removed = Invoke-RemoveVmwareTools
+            if ($removed.AlreadyRemoved) { & $step 'VMware Tools' 'skipped' 'VMware Tools is not installed.' }
+            else { if ($removed.RestartRequired) { $restart = $true }; & $step 'VMware Tools' 'done' ('Removed VMware Tools' + $(if ($removed.RestartRequired) { '; a restart finishes it.' } else { '.' })) }
+        } catch { & $step 'VMware Tools' 'warning' $_.Exception.Message }
+    }
+
+    # 5. Activation: only channels that activate again on their own terms.
+    if ($want.activate) {
+        try {
+            $license = Get-LicenseState
+            if (-not $license) { & $step 'Activation' 'warning' 'Windows activation could not be read.' }
+            elseif ($license.Licensed) { & $step 'Activation' 'skipped' ('Windows is activated (' + $license.Channel + ').') }
+            elseif ($license.Channel -eq 'OEM') { & $step 'Activation' 'warning' 'Windows uses an OEM licence, which belongs to the old hardware. Install a licence valid for this VM in Prepare and fix up.' }
+            elseif ($license.Channel -eq 'AVMA') { & $step 'Activation' 'skipped' 'Windows uses AVMA; the Hyper-V host activates it.' }
+            else {
+                $after = $null
+                try { $after = Invoke-Activate } catch { & $step 'Activation' 'warning' $_.Exception.Message }
+                if ($after) { & $step 'Activation' $(if ($after.Licensed) { 'done' } else { 'warning' }) ('Windows activation: ' + $after.Status + ' (' + $after.Channel + ').') }
+            }
+        } catch { & $step 'Activation' 'warning' ('Activation could not be checked: ' + $_.Exception.Message) }
+    }
+
+    # 6. A restart to finish removing VMware Tools, after the result is back.
+    $restarting = $false
+    if ($restart -and $want.restart -and $networkOk) {
+        try {
+            $shutdown = Join-Path $env:SystemRoot 'System32\shutdown.exe'
+            $null = & $shutdown /r /t 60 /d p:4:2 /c 'Server Inventory and Migration Manager: restarting to finish removing VMware Tools after the move.'
+            $restarting = $true
+            & $step 'Restart' 'done' 'Windows restarts in one minute to finish removing VMware Tools.'
+        } catch { & $step 'Restart' 'warning' ('Restart the VM to finish removing VMware Tools: ' + $_.Exception.Message) }
+    } elseif ($restart) {
+        & $step 'Restart' 'warning' 'Restart the VM to finish removing VMware Tools.'
+    }
+    return [pscustomobject]@{ Computer = $env:COMPUTERNAME; Platform = $platform.Name; NetworkOk = $networkOk; Restarting = $restarting; Steps = @($steps) }
+}
+
 $exitCode = 0
 $result = $null
 try {
@@ -797,6 +972,7 @@ try {
         'OnlineDisks' { $result = Invoke-OnlineDisks }
         'SaveBitLocker' { $result = Invoke-SaveBitLocker }
         'Activate' { $result = Invoke-Activate }
+        'AutoFixup' { $result = Invoke-AutoFixup }
     }
     Write-JsonFile $ResultPath ([pscustomobject]@{ ok = $true; mode = $Mode; result = $result })
 }

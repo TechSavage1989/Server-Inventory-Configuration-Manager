@@ -43,6 +43,10 @@ type vmPlanVM struct {
 	Hold    bool   `json:"hold"`
 	Exclude bool   `json:"exclude"`
 	Notes   string `json:"notes"`
+	// Acknowledged lists the readiness findings the operator has reviewed
+	// and accepted, as "<target>:<code>". A VM whose every Review first
+	// finding for the plan's target is acknowledged counts as ready.
+	Acknowledged []string `json:"acknowledged,omitempty"`
 }
 
 type vmPlan struct {
@@ -149,6 +153,30 @@ func reconcileVMPlan(plan vmPlan, inventory *vmInventory) vmPlan {
 	return plan
 }
 
+var vmAckPattern = regexp.MustCompile(`^[a-z0-9]{1,16}:[a-z0-9-]{1,48}$`)
+
+// vmAcknowledgedReady reports whether every Review first finding of a
+// readiness is acknowledged in the plan entry.
+func vmAcknowledgedReady(r *vmReadiness, item vmPlanVM) bool {
+	if r == nil || r.Status != vmStatusReview {
+		return false
+	}
+	acked := map[string]bool{}
+	for _, ack := range item.Acknowledged {
+		acked[ack] = true
+	}
+	any := false
+	for _, finding := range r.Findings {
+		if finding.Severity == vmSeverityWarning {
+			any = true
+			if !acked[r.Target+":"+finding.Code] {
+				return false
+			}
+		}
+	}
+	return any
+}
+
 // validateVMPlan checks an edited plan against the inventory.
 func validateVMPlan(input vmPlan, inventory *vmInventory) (vmPlan, error) {
 	if inventory == nil {
@@ -195,6 +223,14 @@ func validateVMPlan(input vmPlan, inventory *vmInventory) (vmPlan, error) {
 		}
 		if len(item.Notes) > 500 || strings.ContainsRune(item.Notes, 0) {
 			return vmPlan{}, errors.New("Notes are limited to 500 characters.")
+		}
+		if len(item.Acknowledged) > 64 {
+			return vmPlan{}, errors.New("Too many acknowledged findings for one VM.")
+		}
+		for _, ack := range item.Acknowledged {
+			if !vmAckPattern.MatchString(ack) {
+				return vmPlan{}, errors.New("An acknowledged finding is not valid.")
+			}
 		}
 	}
 	plan := reconcileVMPlan(input, inventory)

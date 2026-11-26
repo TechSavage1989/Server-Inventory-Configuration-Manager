@@ -89,6 +89,10 @@ func (a *application) handleVMwareMove(response http.ResponseWriter, request *ht
 		KeepMAC    bool   `json:"keepMac"`
 		Start      bool   `json:"start"`
 		Cluster    bool   `json:"cluster"`
+		// DisconnectSource sets the old VMware VM's adapters to not connect
+		// after the cutover; FixUp fixes the new VM up once it starts.
+		DisconnectSource bool `json:"disconnectSource"`
+		FixUp            bool `json:"fixUp"`
 	}
 	if !decodeVMwareRequest(response, request, &input) {
 		return
@@ -165,6 +169,7 @@ func (a *application) handleVMwareMove(response http.ResponseWriter, request *ht
 	// The plan's network map names the Hyper-V switch for each VMware
 	// network, and its new VLAN where one was typed.
 	switches, networks := vmMoveNetworkMap(inventory, plan)
+	switches, switchNotes := vmAutoSwitches(switches, vm, vmHostSwitches())
 	if status, message := a.startVMwareAction("move"); status != 0 {
 		writeJSON(response, status, map[string]any{"ok": false, "error": message})
 		return
@@ -184,9 +189,15 @@ func (a *application) handleVMwareMove(response http.ResponseWriter, request *ht
 	go func() {
 		defer cancel()
 		log := func(text string) { a.vmwareLog("%s", text) }
+		if input.Action == "cutover" {
+			for _, note := range switchNotes {
+				log(note)
+			}
+		}
 		records := filepath.Join(a.vmwareRoot(), safeName(strings.ToLower(server)), "Move")
 		progress, prefix := a.moveProgress(vm, copyFolder)
-		result, err := a.runMoveRound(ctx, inventory, vm, vmConnectOptions{Server: server, User: user, Password: password, Thumbprint: thumbprint, UserAgent: displayName + " " + appVersion, AppVersion: appVersion},
+		connect := vmConnectOptions{Server: server, User: user, Password: password, Thumbprint: thumbprint, UserAgent: displayName + " " + appVersion, AppVersion: appVersion}
+		result, err := a.runMoveRound(ctx, inventory, vm, connect,
 			vmMoveRequest{VMID: vm.ID, Name: vm.Name, Datacenter: vm.Datacenter, CopyFolder: copyFolder, Quiesce: input.Quiesce, Cutover: input.Action == "cutover", RecordFolder: records, Progress: progress}, log)
 		a.copyTransfers().EndRunning(prefix, err, errors.Is(err, context.Canceled), err == nil && input.Action == "cutover")
 		password = ""
@@ -203,8 +214,11 @@ func (a *application) handleVMwareMove(response http.ResponseWriter, request *ht
 			}
 			if err != nil {
 				err = errors.New("the disks are copied and the source VM is shut down, but the Hyper-V VM was not created: " + err.Error() + ". Start the source VM again to go back, or fix the cause and cut over again")
+			} else {
+				result.Notes = a.afterCutover(context.Background(), vm, result.HyperVID, "", input.Start, input.DisconnectSource, input.FixUp, connect, records, log)
 			}
 		}
+		connect.Password = ""
 		if result != nil {
 			result.Finished = time.Now().UTC()
 		}
