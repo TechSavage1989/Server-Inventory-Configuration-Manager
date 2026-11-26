@@ -3,10 +3,73 @@ on:
   push:
     branches: [main, fix/collection-responsiveness-3211]
   pull_request:
+  # Run the full suite on any branch from the Actions tab (or the API), for a
+  # change into release/next that needs the Windows checks before the batch.
+  workflow_dispatch:
 permissions:
   contents: read
+# Batched merges (AGENTS.md, "Batched merges"): fixes are pull requests into
+# release/next, which get the quick Linux checks only; the one pull request
+# from release/next to main runs everything. A newer push to the same pull
+# request or branch cancels the run it replaces; pushes to main always finish.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 jobs:
+  quick:
+    # Fast checks for every pull request, including those into release/next:
+    # provenance and layout, gofmt, vet and a Windows cross-build, and the
+    # platform-independent Go tests.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.20.14'
+          cache: false
+      - name: Layout, report renderer and baseline provenance
+        run: |
+          python3 scripts/check_layout.py
+          python3 scripts/embed_report_renderer.py --check
+          python3 scripts/verify_baseline.py
+      - name: Go format, vet and Windows cross-build
+        run: |
+          go mod download
+          unformatted=$(gofmt -l src/app)
+          if [ -n "$unformatted" ]; then echo "Not gofmt-formatted:"; echo "$unformatted"; exit 1; fi
+          go vet ./...
+          GOOS=windows GOARCH=amd64 go vet ./...
+          GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -H=windowsgui" -o build/check.exe ./src/app
+      - name: Platform-independent Go tests
+        run: go test -count=1 ./...
+  ui:
+    # The workspace and report logic checks against the production HTML and
+    # CSP, in Linux Chromium (the Windows job repeats them in Edge).
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Workspace checks in Chromium
+        run: |
+          npm install --prefix build/ui-tools playwright@1.58.2
+          npx --prefix build/ui-tools playwright install --with-deps chromium
+          export NODE_PATH=$(realpath build/ui-tools/node_modules)
+          chrome=$(node -e "console.log(require('playwright').chromium.executablePath())")
+          node scripts/test_workspace.cjs --executable "$chrome"
+          node scripts/test_report_copy_logic.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: workspace-validation-linux
+          path: build/workspace-validation/
+          if-no-files-found: ignore
   windows:
+    # Skipped for pull requests into release/next; the batch pull request runs it.
+    if: ${{ !startsWith(github.base_ref, 'release/') }}
     runs-on: windows-latest
     timeout-minutes: 25
     steps:
@@ -214,6 +277,8 @@ jobs:
           if grep -q -- '--- SKIP' ../../build/linux-agent-tests.txt; then echo 'Linux agent tests were skipped'; exit 1; fi
 
   restore:
+    # Skipped for pull requests into release/next; the batch pull request runs it.
+    if: ${{ !startsWith(github.base_ref, 'release/') }}
     # Real restore round trips: installs DHCP, DNS, IIS, NPS and Print Server on
     # the disposable runner, exports synthetic configuration the way the
     # collector does, changes it, and restores it with the embedded engine.
@@ -233,6 +298,8 @@ jobs:
             build/restore-validation/checks.txt
             build/restore-validation/scan.json
   migration:
+    # Skipped for pull requests into release/next; the batch pull request runs it.
+    if: ${{ !startsWith(github.base_ref, 'release/') }}
     # Real file share migration round trip on the disposable runner (it is both
     # the old and the new server): discover, check, copy, copy again, cutover,
     # old-share read-only and undo.
@@ -252,6 +319,8 @@ jobs:
             build/migration-validation/*.json
             build/migration-validation/checks.txt
   vmguest:
+    # Skipped for pull requests into release/next; the batch pull request runs it.
+    if: ${{ !startsWith(github.base_ref, 'release/') }}
     # Real guest fix-up round trip: a loopback adapter gets static settings,
     # they are recorded, cleared, put back and undone with the embedded engine.
     runs-on: windows-latest
