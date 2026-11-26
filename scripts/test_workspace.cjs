@@ -1885,6 +1885,18 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   f.repl.agents[0].live.jobs[1].status=Object.assign({},f.repl.agents[0].live.jobs[1].status,{state:'syncing',rounds:0,recoveryPoint:'',initialCopyAt:'',disks:[{source:'0',target:'PRINT01-disk0.vhdx',size:53687091200,chunks:12800,done:3200,read:13421772800,sent:6442450944}]});
   await f.page.waitForFunction(()=>!document.querySelector('[data-rp-test="ag1|j4"]'),null,{timeout:15000});await f.page.locator('#rpDetailsClose').click();
   assert((await f.page.locator('#rpAgents').textContent()).includes('Failed: the receiver at 192.0.2.50 did not answer'));
+  // A long error (URL and certificate thumbprint) wraps: the row's Open button stays in view and a click anywhere on the row opens the job.
+  const longError='disk 0: Post "https://192.0.2.50:44380/v1/hello": the receiver\'s certificate thumbprint is 9E:AB:8E:25:DF:2F:79:7C:BD:6A:7A:19:AD:34:DA:CC:7E:4D:19:48:6D:F6:F1:22:DE:ED:56:45:09:81:58:C0, not the one entered for this job';
+  f.repl.agents[0].live.jobs[3].status=Object.assign({},f.repl.agents[0].live.jobs[3].status,{lastError:longError});
+  for(const size of [{width:1008,height:690},{width:1440,height:1000}]){
+   await f.page.setViewportSize(size);await f.page.waitForFunction(()=>/9E:AB:8E:25/.test(document.querySelector('#rpAgents').textContent),null,{timeout:15000});
+   const fit=await f.page.evaluate(()=>{const t=document.querySelector('#rpAgents .rp-jobs'),box=t.parentElement.getBoundingClientRect(),open=document.querySelector('[data-rp-open="ag1|j3"]').getBoundingClientRect();return {table:Math.round(t.getBoundingClientRect().right),box:Math.round(box.right),open:Math.round(open.right),body:document.querySelector('#rpAgents').scrollWidth-document.querySelector('#rpAgents').clientWidth};});
+   assert(fit.table<=fit.box+1&&fit.open<=fit.box+1&&fit.body<=1,JSON.stringify(size)+' '+JSON.stringify(fit));
+  }
+  await f.page.locator('#rpAgents tr[data-rp-row="ag1|j3"]:not(.rp-advice) td:nth-child(4)').click();await f.page.waitForFunction(()=>!document.querySelector('#rpDetails').classList.contains('hidden'));
+  assert((await f.page.locator('#rpDetails').textContent()).includes('SQL01'));await f.page.locator('#rpDetailsClose').click();
+  await f.page.locator('[data-rp-advice="j3"]').click();await f.page.waitForFunction(()=>!document.querySelector('#rpDetails').classList.contains('hidden'));await f.page.locator('#rpDetailsClose').click();
+  f.repl.agents[0].live.jobs[3].status=Object.assign({},f.repl.agents[0].live.jobs[3].status,{lastError:'the receiver at 192.0.2.50 did not answer'});await f.page.waitForFunction(()=>!/9E:AB:8E:25/.test(document.querySelector('#rpAgents').textContent),null,{timeout:15000});
   assert.equal(await f.page.locator('#rpSummary [data-rp-filter="behind"]').evaluate(e=>e.tagName),'BUTTON');assert.equal(await f.page.locator('#rpSummary [data-rp-filter="behind"]').evaluate(e=>getComputedStyle(e).cursor),'pointer');
   await f.page.locator('#rpSummary [data-rp-filter="behind"]').click();
   assert.equal(await f.page.locator('#rpSummary [data-rp-filter="behind"]').getAttribute('aria-pressed'),'true');
