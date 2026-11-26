@@ -125,3 +125,52 @@ func TestMFTScanReportsFilesWhoseDataMoved(t *testing.T) {
 		t.Fatal("a torn record was accepted")
 	}
 }
+
+// The change journal and the other files in $Extend are written in place,
+// so their runs are read every round even when nothing shows a change,
+// including runs held by records that extend them.
+func TestMovedRunsAlwaysIncludeTheFilesInExtend(t *testing.T) {
+	at := func(lcn byte) []byte { return []byte{0x11, 0x10, lcn, 0} }
+	name := func(parent uint64) []byte {
+		attribute := make([]byte, 40)
+		binary.LittleEndian.PutUint32(attribute, 0x30)
+		binary.LittleEndian.PutUint32(attribute[4:], 40)
+		binary.LittleEndian.PutUint16(attribute[20:], 24)
+		binary.LittleEndian.PutUint64(attribute[24:], parent|5<<48)
+		return attribute
+	}
+	extends := func(record []byte, base uint64) []byte {
+		binary.LittleEndian.PutUint64(record[32:], base|1<<48)
+		return record
+	}
+	// 0: an ordinary file; 1: extends the journal (met before it);
+	// 2: the journal, in $Extend; 3: extends the journal; 4: another
+	// ordinary file.
+	records := [][]byte{
+		replTestMFTRecord(at(0x10), name(5)),
+		extends(replTestMFTRecord(at(0x20)), 2),
+		replTestMFTRecord(at(0x30), name(replMFTExtend)),
+		extends(replTestMFTRecord(at(0x40)), 2),
+		replTestMFTRecord(at(0x50)),
+	}
+	mft := func(each func(int64, []byte) error) error {
+		for i, record := range records {
+			if err := each(int64(i), record); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	first, moved, err := replMovedRuns(nil, mft)
+	if err != nil || len(moved) != 0 {
+		t.Fatalf("first scan %v %v", moved, err)
+	}
+	_, moved, err = replMovedRuns(first, mft)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []replRun{{Start: 0x30, Count: 16}, {Start: 0x20, Count: 16}, {Start: 0x40, Count: 16}}
+	if !reflect.DeepEqual(moved, want) {
+		t.Fatalf("nothing moved, yet the journal's runs must be read: got %v, want %v", moved, want)
+	}
+}
