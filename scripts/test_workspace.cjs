@@ -394,6 +394,18 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   f.state.update={...f.state.update,status:'error',title:'Update download failed',message:'Hash mismatch.'};await f.page.waitForTimeout(1100);assert(await f.page.locator('#updateBanner').isVisible());assert((await f.page.locator('#updateBanner').getAttribute('class')).includes('error'));
   f.state.update={status:'current',title:'Up to date',message:'Installed.',canCheck:true};await f.page.waitForTimeout(1100);assert(!await f.page.locator('#updateBanner').isVisible());assert.deepEqual(f.dialogs,[]);
  }finally{await f.close();}});
+ await check('Native feel: no browser right-click menu or selection on interface text; fields and values stay selectable',async()=>{const f=await fixture(browser);try{
+  await f.page.evaluate(()=>{window.menuLog=[];window.addEventListener('contextmenu',e=>{window.menuLog.push((e.target.id||e.target.className||e.target.nodeName)+':'+(e.defaultPrevented?'blocked':'shown'));});});
+  await f.page.locator('#tabButtonReport').click({button:'right'});await f.page.locator('.brand-title').click({button:'right'});
+  await f.page.keyboard.press('Alt+5');await goTool(f,'shares');await f.page.locator('#migrateSource').click({button:'right'});
+  assert.deepEqual(await f.page.evaluate(()=>window.menuLog),['tabButtonReport:blocked','brand-title:blocked','migrateSource:shown']);
+  await f.page.locator('.brand-title').click({clickCount:3});assert.equal(await f.page.evaluate(()=>String(window.getSelection()).trim()),'');
+  const looks=await f.page.evaluate(()=>['#tabButtonReport','.brand-title','.tool-name','#migrateSource','#logView','#vmReceiveThumbprint'].map(q=>{const el=document.querySelector(q);return q+'='+getComputedStyle(el).userSelect;}));
+  assert.deepEqual(looks,['#tabButtonReport=none','.brand-title=none','.tool-name=none','#migrateSource=text','#logView=text','#vmReceiveThumbprint=text']);
+  await f.page.evaluate(()=>{window.menuLog=[];const dd=document.createElement('dd');dd.id='menuValue';dd.textContent='192.0.2.10';document.body.appendChild(dd);const r=document.createRange();r.selectNodeContents(dd);const sel=window.getSelection();sel.removeAllRanges();sel.addRange(r);});
+  await f.page.locator('#menuValue').click({button:'right'});assert.deepEqual(await f.page.evaluate(()=>window.menuLog),['menuValue:shown']);
+  assert.deepEqual(f.dialogs,[]);
+ }finally{await f.close();}});
  await check('A loaded report offers Copy path for its file location',async()=>{const f=await fixture(browser);try{
   assert(!await f.page.locator('#copyReportPathButton').isVisible());await f.context.grantPermissions(['clipboard-read','clipboard-write']);
   f.state.loadedReportAvailable=true;f.state.loadedReportSerial=1;f.state.loadedReportName='SRV-DEMO-01_20261103';f.state.loadedReportPath='C:\\Reports\\SRV-DEMO-01_20261103\\OPEN-FIRST - Server Inventory Report.html';
