@@ -130,6 +130,7 @@ type logEntry struct {
 type stateResponse struct {
 	ACLExport               aclExportState         `json:"aclExport"`
 	CollectionPreferences   *collectionPreferences `json:"collectionPreferences,omitempty"`
+	UI                      uiSettings             `json:"ui"`
 	AppVersion              string                 `json:"appVersion"`
 	Closing                 bool                   `json:"closing"`
 	CollectorVersion        string                 `json:"collectorVersion"`
@@ -231,6 +232,7 @@ type internalState struct {
 
 type application struct {
 	collectionPreferences   *collectionPreferences
+	uiSettings              uiSettings
 	mu                      sync.Mutex
 	update                  updateRuntime
 	windowGeometry          windowGeometryRuntime
@@ -1192,6 +1194,7 @@ func newApplication() (*application, error) {
 		app.defaultOutputRoot = savedOutputRoot
 	}
 	app.loadCollectionPreferences()
+	app.uiSettings = loadUISettings(app.update.settingsDir)
 	return app, nil
 }
 
@@ -1330,6 +1333,7 @@ func (a *application) snapshot(since int) stateResponse {
 	return stateResponse{
 		ACLExport:               a.state.ACLExport,
 		CollectionPreferences:   a.collectionPreferences,
+		UI:                      a.uiSettings,
 		AppVersion:              appVersion,
 		Closing:                 a.closing,
 		CollectorVersion:        collectorVersion,
@@ -2347,6 +2351,7 @@ func (a *application) serve(listener net.Listener) error {
 	mux.HandleFunc("/report/current", a.handleCurrentReport)
 	mux.HandleFunc("/api/start", a.handleStart)
 	mux.HandleFunc("/api/preferences", a.handlePreferences)
+	mux.HandleFunc("/api/ui-settings", a.handleUISettings)
 	mux.HandleFunc("/api/cancel", a.handleCancel)
 	mux.HandleFunc("/api/skip-acl-export", a.handleSkipACLExport)
 	mux.HandleFunc("/api/open", a.handleOpen)
