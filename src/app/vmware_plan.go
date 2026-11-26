@@ -483,7 +483,7 @@ func buildRunbook(plan vmPlan, inventory *vmInventory) []vmRunbookWave {
 			item.Before = append(item.Before, "Save BitLocker recovery keys and suspend BitLocker.")
 		}
 		if classifyGuestOS(vm).Family == "windows" {
-			item.Before = append(item.Before, "Inside the VMware VM, run Server Inventory and Migration Manager as administrator: a full collection (Discovery, This server), and Record settings under Migration and replication, Prepare and fix up.")
+			item.Before = append(item.Before, "Nothing has to be installed in the VM: Move VMs records its IP settings from vCenter before each copy. Optionally, from your admin computer, Prepare and fix up (Migration and replication), A computer over the network, Record settings for its services, disks and activation, and Save keys and suspend if BitLocker is on.")
 		} else if vmHasFinding(readiness, "static-ip") {
 			item.Before = append(item.Before, "Record the guest's IP configuration (addresses, gateway, DNS) before cutover.")
 		}
@@ -553,9 +553,9 @@ func buildRunbook(plan vmPlan, inventory *vmInventory) []vmRunbookWave {
 		}
 		if classifyGuestOS(vm).Family == "windows" {
 			if profile.Kind == vmKindCloud {
-				item.Cutover = append(item.Cutover, "Check the guest uses DHCP and has the address you reserved. Then, inside the new VM, run the fix-up under Prepare and fix up (Migration and replication) to remove VMware Tools and hidden old adapters, and bring offline disks online.")
+				item.Cutover = append(item.Cutover, "Check the guest uses DHCP and has the address you reserved. Then fix up the new VM from outside with Prepare and fix up (Migration and replication): PowerShell Direct from the Hyper-V host, or PowerShell remoting over the network, removes VMware Tools and hidden old adapters and brings offline disks online. Running this application inside the VM is the fallback.")
 			} else {
-				item.Cutover = append(item.Cutover, "Inside the new VM, run the fix-up under Prepare and fix up (Migration and replication): put back the static IP settings, remove VMware Tools and hidden old adapters, and bring offline disks online.")
+				item.Cutover = append(item.Cutover, "Fix up the new VM from outside with Prepare and fix up (Migration and replication): PowerShell Direct from the Hyper-V host needs no network, or use PowerShell remoting. Put back the static IP settings, remove VMware Tools and hidden old adapters, and bring offline disks online. Running this application inside the VM is the fallback.")
 			}
 		} else if vmHasFinding(readiness, "static-ip") && profile.Kind != vmKindCloud {
 			item.Cutover = append(item.Cutover, "Reapply the recorded static IP configuration to the new network interface.")

@@ -90,6 +90,7 @@ type vmwareStateResponse struct {
 	GuestMessage    string              `json:"guestMessage"`
 	GuestError      bool                `json:"guestError"`
 	GuestWorkPath   string              `json:"guestWorkPath"`
+	GuestTarget     *guestTargetState   `json:"guestTarget"`
 	CompareSerial   uint64              `json:"compareSerial"`
 	CompareError    string              `json:"compareError"`
 	Prepare         *vmPrepareResult    `json:"prepare"`
@@ -152,7 +153,7 @@ func (a *application) vmwareSnapshotLocked() vmwareStateResponse {
 		Server: a.vmware.server, Account: a.vmware.account, Certificate: a.vmware.certificate,
 		InventorySerial: a.vmware.inventorySerial, OutputFolder: a.vmware.outputFolder, ReportPath: a.vmware.reportPath,
 		RunbookPath: a.vmware.runbookPath, RunbookDocxPath: vmRunbookDocxFor(a.vmware.runbookPath), DiscoveryPath: vmDiscoveryReportFor(a.vmware.reportPath), PlanCSVPath: a.vmware.planCSVPath,
-		GuestSerial: a.vmware.guestSerial, GuestMessage: a.vmware.guestMessage, GuestError: a.vmware.guestError, GuestWorkPath: a.guestWorkPath(),
+		GuestSerial: a.vmware.guestSerial, GuestMessage: a.vmware.guestMessage, GuestError: a.vmware.guestError, GuestWorkPath: a.guestWorkPath(), GuestTarget: a.guestTargetStateLocked(),
 		CompareSerial: a.vmware.compareSerial, CompareError: a.vmware.compareError,
 		Prepare: a.vmware.prepare, PrepareSerial: a.vmware.prepareSerial, PrepareError: a.vmware.prepareError,
 		Move: a.vmware.move, MoveSerial: a.vmware.moveSerial, MoveError: a.vmware.moveError, MoveCopyRoot: a.vmwareCopyRootLocked(),
@@ -655,12 +656,25 @@ func (a *application) handleVMwareGuest(response http.ResponseWriter, request *h
 	if !decodeVMwareRequest(response, request, &input) {
 		return
 	}
-	if !a.admin {
+	a.mu.Lock()
+	target := a.guestRemote
+	a.mu.Unlock()
+	if target.Mode == "" {
+		target.Mode = "local"
+	}
+	// PowerShell Direct needs Hyper-V administrator rights here; remoting
+	// uses the typed account (or this one) on the other computer.
+	if !a.admin && (target.Mode == "local" || target.Mode == "direct") {
 		writeJSON(response, http.StatusForbidden, map[string]any{"ok": false, "error": "The guest checks need administrator rights. Close the application and run it as administrator."})
 		return
 	}
-	if guestChangingModes[action] && !strings.EqualFold(strings.TrimSpace(input.Confirm), a.computerName) {
-		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "Type this computer's name, " + a.computerName + ", to confirm."})
+	label := guestTargetLabel(target, a.computerName)
+	if guestChangingModes[action] && !strings.EqualFold(strings.TrimSpace(input.Confirm), label) {
+		what := "this computer's name"
+		if target.Mode != "local" {
+			what = "the name of the machine being changed"
+		}
+		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "Type " + what + ", " + label + ", to confirm."})
 		return
 	}
 	plan, err := validateGuestItems(action, input.Items)
@@ -834,6 +848,12 @@ func validateGuestItems(action string, items []json.RawMessage) ([]byte, error) 
 }
 
 func (a *application) runGuestEngine(mode string, plan []byte) (json.RawMessage, error) {
+	a.mu.Lock()
+	target := a.guestRemote
+	a.mu.Unlock()
+	if target.Mode != "" && target.Mode != "local" {
+		return a.runGuestRemote(target, mode, plan)
+	}
 	runtimeDir, script, err := a.prepareRestoreEngineNamed("Guest-", guestEngineName)
 	if err != nil {
 		return nil, fmt.Errorf("the guest engine could not be prepared: %v", err)
@@ -929,6 +949,25 @@ func (a *application) handleVMwareGuestLoad(response http.ResponseWriter, reques
 	}
 	if json.Unmarshal(stripUTF8BOM(data), &capture) != nil || capture.Schema != 1 || capture.State.ComputerName == "" {
 		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "The file is not a guest capture."})
+		return
+	}
+	a.mu.Lock()
+	remote := a.guestRemote
+	a.mu.Unlock()
+	if remote.Mode != "" && remote.Mode != "local" {
+		// For another machine the console keeps the recording and hands it
+		// to the guest engine there at each run.
+		var whole any
+		if json.Unmarshal(stripUTF8BOM(data), &whole) != nil {
+			writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "The file is not a guest capture."})
+			return
+		}
+		if _, err := a.writeGuestCapture(whole, "Guest-Capture.json", remote.VM, remote.Computer, capture.State.ComputerName); err != nil {
+			writeJSON(response, http.StatusInternalServerError, map[string]any{"ok": false, "error": "The capture could not be saved."})
+			return
+		}
+		a.vmwareLog("Loaded the capture %s for %s.", newest, guestTargetLabel(remote, a.computerName))
+		writeJSON(response, http.StatusOK, map[string]any{"ok": true, "selected": true})
 		return
 	}
 	if !strings.EqualFold(capture.State.ComputerName, a.computerName) {

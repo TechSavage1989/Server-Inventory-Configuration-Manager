@@ -91,6 +91,9 @@ func vmHyperVPlanFor(vm vmMachine, networks []vmNetwork, options vmHyperVOptions
 			}
 		}
 		plan.TPM = vm.VTPM
+		if plan.TPM && options.ClusterRole {
+			plan.Warnings = append(plan.Warnings, "The new VM gets a virtual TPM with this host's local key protector. Before it fails over, copy this host's Shielded VM local certificates (Local Machine, Shielded VM Local Certificates) to every node of the cluster, or it starts only on this node.")
+		}
 	} else if vm.VTPM {
 		plan.Warnings = append(plan.Warnings, "The VM has a virtual TPM but BIOS firmware; Hyper-V offers a TPM only on generation 2, so none is added.")
 	}

@@ -545,6 +545,7 @@ func vmFromManagedObject(machine mo.VirtualMachine, datacenter string, hostNames
 	}
 
 	guestNICs := map[int32]types.GuestNicInfo{}
+	guestGateways := map[int32][]string{}
 	if guest := machine.Guest; guest != nil {
 		vm.GuestOSRunning = guest.GuestFullName
 		vm.GuestHostName = guest.HostName
@@ -555,6 +556,7 @@ func vmFromManagedObject(machine mo.VirtualMachine, datacenter string, hostNames
 		for _, nic := range guest.Net {
 			guestNICs[nic.DeviceConfigId] = nic
 		}
+		guestGateways = vmGuestGateways(guest)
 		for _, disk := range guest.Disk {
 			vm.GuestDisks = append(vm.GuestDisks, vmGuestDisk{Path: disk.DiskPath, CapacityBytes: disk.Capacity, FreeBytes: disk.FreeSpace})
 		}
@@ -589,6 +591,7 @@ func vmFromManagedObject(machine mo.VirtualMachine, datacenter string, hostNames
 		vm.SecureBoot = *config.BootOptions.EfiSecureBootEnabled
 	}
 	vm.Encrypted = config.KeyId != nil
+	vm.EncryptionRead = true
 	if config.ChangeTrackingEnabled != nil {
 		vm.ChangeTracking = *config.ChangeTrackingEnabled
 	}
@@ -674,6 +677,10 @@ func vmFromManagedObject(machine mo.VirtualMachine, datacenter string, hostNames
 			disk.File = path.Base(strings.ReplaceAll(vmDatastorePath.ReplaceAllString(disk.File, "$2"), `\`, "/"))
 			disk.BootCandidate = firstDisk
 			firstDisk = false
+			if vmDiskKey(item.Backing) != nil {
+				disk.Encrypted = true
+				vm.Encrypted = true
+			}
 			vm.Disks = append(vm.Disks, disk)
 		case types.BaseVirtualEthernetCard:
 			card := item.GetVirtualEthernetCard()
@@ -707,6 +714,7 @@ func vmFromManagedObject(machine mo.VirtualMachine, datacenter string, hostNames
 				} else {
 					nic.IPAddresses = append(nic.IPAddresses, guestNIC.IpAddress...)
 				}
+				vmNoteGuestSettings(&nic, guestNIC, guestGateways[base.Key])
 			}
 			vm.NICs = append(vm.NICs, nic)
 		case *types.VirtualCdrom:
@@ -740,4 +748,74 @@ func vmFromManagedObject(machine mo.VirtualMachine, datacenter string, hostNames
 		}
 	}
 	return vm
+}
+
+// vmGuestGateways maps each adapter (by device key) to the default gateways
+// VMware Tools reports for it. A route's device is the adapter's position in
+// guest.net.
+func vmGuestGateways(guest *types.GuestInfo) map[int32][]string {
+	result := map[int32][]string{}
+	for _, stack := range guest.IpStack {
+		if stack.IpRouteConfig == nil {
+			continue
+		}
+		for _, route := range stack.IpRouteConfig.IpRoute {
+			if route.PrefixLength != 0 || (route.Network != "0.0.0.0" && route.Network != "::") {
+				continue
+			}
+			hop := strings.TrimSpace(route.Gateway.IpAddress)
+			if hop == "" || hop == "0.0.0.0" || hop == "::" {
+				continue
+			}
+			position, err := strconv.Atoi(strings.TrimSpace(route.Gateway.Device))
+			if err != nil || position < 0 || position >= len(guest.Net) {
+				continue
+			}
+			key := guest.Net[position].DeviceConfigId
+			if !vmContainsString(result[key], hop) {
+				result[key] = append(result[key], hop)
+			}
+		}
+	}
+	return result
+}
+
+// vmNoteGuestSettings records the adapter's in-guest settings that a move
+// needs to put back: static addresses, gateways, DNS servers and suffix.
+func vmNoteGuestSettings(nic *vmNIC, guest types.GuestNicInfo, gateways []string) {
+	nic.MACInGuest = guest.MacAddress
+	dhcp := false
+	if config := guest.IpConfig; config != nil {
+		if config.Dhcp != nil && config.Dhcp.Ipv4 != nil {
+			dhcp = config.Dhcp.Ipv4.Enable
+		}
+		for _, address := range config.IpAddress {
+			lower := strings.ToLower(address.IpAddress)
+			if strings.HasPrefix(lower, "fe80:") || strings.HasPrefix(lower, "169.254.") {
+				continue
+			}
+			if strings.EqualFold(address.Origin, "manual") || (!dhcp && !strings.Contains(address.IpAddress, ":")) {
+				nic.StaticAddresses = append(nic.StaticAddresses, fmt.Sprintf("%s/%d", address.IpAddress, address.PrefixLength))
+			}
+		}
+	}
+	nic.DHCP = dhcp
+	nic.Gateways = append([]string(nil), gateways...)
+	if dns := guest.DnsConfig; dns != nil {
+		for _, server := range dns.IpAddress {
+			if server = strings.TrimSpace(server); server != "" && !strings.HasPrefix(strings.ToLower(server), "fec0:0:0:ffff::") {
+				nic.DNSServers = append(nic.DNSServers, server)
+			}
+		}
+		nic.DNSSuffix = strings.TrimSpace(dns.DomainName)
+	}
+}
+
+func vmContainsString(list []string, value string) bool {
+	for _, item := range list {
+		if item == value {
+			return true
+		}
+	}
+	return false
 }

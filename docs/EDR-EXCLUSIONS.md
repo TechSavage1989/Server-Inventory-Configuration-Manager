@@ -77,6 +77,27 @@ The console itself starts Windows PowerShell with `-ExecutionPolicy Bypass`
 restore, file share migration, guest preparation and Hyper-V steps. These run
 only when an operator starts them, on the computer running the console.
 
+### Prepare and fix up from outside the machine
+
+**Prepare and fix up** needs nothing installed in the machine being moved.
+It records a VMware VM's network settings from vCenter (what VMware Tools
+reports, read-only, no sign-in to the VM), and reads or fixes the machine
+from outside with PowerShell's own remoting:
+
+| Behaviour | Where | Why |
+| --- | --- | --- |
+| `powershell.exe -ExecutionPolicy RemoteSigned -File Invoke-GuestRemote.ps1` (signed script, never Bypass, no hidden-window or encoded-command flags) | The computer running the application (Hyper-V host or admin computer) | Sends the guest engine's text to the machine and brings its result back |
+| `Invoke-Command -VMName` (PowerShell Direct over the VM bus) | Hyper-V host, into the new VM | After the cutover: reads the VM and puts back its IP settings, removes VMware Tools and hidden adapters, brings disks online, activates Windows. Needs no network |
+| `Invoke-Command -ComputerName` over WinRM (TCP 5985, Kerberos), running in `wsmprovhost.exe` | Admin computer to the VMware VM, or to the remote Hyper-V host that then uses PowerShell Direct | Before the cutover: records settings and saves BitLocker recovery keys |
+| Data files only in `%ProgramData%\Server Inventory and Migration Manager\Guest-Migration` and a per-run folder in `%TEMP%` that is removed | Inside the machine | The recording and the undo data for IP changes. BitLocker keys come back to the application's output folder and are deleted from the machine |
+
+No program is copied into the machine, and no service, scheduled task,
+WMI process creation, credential delegation or encoded command is used.
+VMware guest operations (running programs through VMware Tools) are
+deliberately not used, because endpoint protection flags programs started
+by `vmtoolsd.exe`. The accounts reach PowerShell only as one JSON line on
+standard input and stay in memory until **Forget the account** or exit.
+
 ### Move VMs from one console (remote Hyper-V host or cluster)
 
 When **Move VMs** connects from an admin computer to a Hyper-V host or

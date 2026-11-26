@@ -271,9 +271,12 @@ type application struct {
 	convertSend             convertSendRuntime
 	hvRemote                hvRemoteRuntime
 	hvBuild                 hvBuildRuntime
-	vmReceive               vmReceiverRuntime
-	transfers               *vmTransferBoard
-	repl                    replRuntime
+	// guestRemote is where Prepare and fix up runs (guest_remote_windows.go);
+	// its password stays in memory until Forget or exit.
+	guestRemote guestTarget
+	vmReceive   vmReceiverRuntime
+	transfers   *vmTransferBoard
+	repl        replRuntime
 }
 
 func utf16Ptr(value string) *uint16 {
@@ -2351,6 +2354,8 @@ func (a *application) serve(listener net.Listener) error {
 	mux.HandleFunc("/api/vmware/guest", a.handleVMwareGuest)
 	mux.HandleFunc("/api/vmware/guest/", a.handleVMwareGuest)
 	mux.HandleFunc("/api/vmware/guest-load", a.handleVMwareGuestLoad)
+	mux.HandleFunc("/api/vmware/guest-target", a.handleGuestTarget)
+	mux.HandleFunc("/api/vmware/guest-target/", a.handleGuestTarget)
 	mux.HandleFunc("/api/vmware/compare/browse", a.handleVMwareCompareBrowse)
 	mux.HandleFunc("/api/vmware/compare", a.handleVMwareCompare)
 	mux.HandleFunc("/api/convert/browse", a.handleConvertBrowse)
