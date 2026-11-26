@@ -186,6 +186,14 @@ func (r *vmReceiver) announcement() vmReceiverAnnouncement {
 	if r.freeBytes != nil {
 		a.FreeBytes = r.freeBytes()
 	}
+	// This computer's addresses, default route first: a sender whose job
+	// cannot reach the address it found tries these (with the same pin).
+	for _, address := range vmLocalAddresses() {
+		if len(a.Addresses) == replMaxAlternates {
+			break
+		}
+		a.Addresses = append(a.Addresses, address)
+	}
 	return a
 }
 

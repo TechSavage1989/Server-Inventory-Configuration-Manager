@@ -46,6 +46,22 @@ const (
 	replFailuresToAlert = 3
 )
 
+// The stall watchdog: a round that makes no progress for replStallAfter
+// (no chunk read and sent) is stopped and tried again; a read or write that
+// does not return within replStallGrace after that is abandoned, so a hung
+// disk or network never holds a job (or a cutover) for good. A cutover's
+// final round is tried replCutoverAttempts times before it is rolled back.
+var (
+	replStallAfter      = 5 * time.Minute
+	replStallGrace      = 2 * time.Minute
+	replStallCheck      = 15 * time.Second
+	replCutoverAttempts = 3
+	replCutoverRetry    = 30 * time.Second
+)
+
+// errReplStalled fails a round the watchdog stopped.
+var errReplStalled = errors.New("the round made no progress")
+
 // Job states.
 const (
 	replStateIdle     = "idle"    // waiting for the next round
@@ -67,6 +83,39 @@ type replReceiverLink struct {
 	Address    string `json:"address"`
 	Thumbprint string `json:"thumbprint"`
 	Code       string `json:"code,omitempty"`
+	// Alternates are the receiver computer's other addresses (from Copy all
+	// or a find answer). When Address does not answer, a round tries them
+	// in order with the same pinned thumbprint and code, and the first that
+	// answers becomes Address.
+	Alternates []string `json:"alternates,omitempty"`
+}
+
+// replMaxAlternates limits how many other addresses a job keeps.
+const replMaxAlternates = 8
+
+// replCleanAlternates checks each address, drops duplicates and the primary
+// address, and keeps at most replMaxAlternates.
+func replCleanAlternates(primary string, list []string) ([]string, error) {
+	out := []string{}
+	seen := map[string]bool{strings.ToLower(primary): true}
+	for _, text := range list {
+		if strings.TrimSpace(text) == "" {
+			continue
+		}
+		address, err := vmReceiverAddress(text)
+		if err != nil {
+			return nil, fmt.Errorf("the receiver's other address %q was not accepted: %w", text, err)
+		}
+		if seen[strings.ToLower(address)] {
+			continue
+		}
+		seen[strings.ToLower(address)] = true
+		out = append(out, address)
+		if len(out) == replMaxAlternates {
+			break
+		}
+	}
+	return out, nil
 }
 
 // replDiskMap sends one source disk ("0" or "/dev/sda") to a receiver
@@ -148,6 +197,18 @@ type replJobStatus struct {
 	PauseAfterRound bool      `json:"pauseAfterRound,omitempty"`
 	CutoverAt       time.Time `json:"cutoverDone,omitempty"`
 	Notes           []string  `json:"notes,omitempty"`
+	// LastProgress is when the running round last read or sent a chunk,
+	// and Phase what it was doing (copying, finishing); the console warns
+	// when it stops moving.
+	LastProgress time.Time `json:"lastProgress,omitempty"`
+	Phase        string    `json:"phase,omitempty"`
+	// StallAfterSeconds is how long the watchdog waits before it stops a
+	// round that is not moving and tries again.
+	StallAfterSeconds int64 `json:"stallAfterSeconds,omitempty"`
+	// CutoverAttempt is the attempt of the final round while cutting over.
+	CutoverAttempt int `json:"cutoverAttempt,omitempty"`
+	// LogFolder is where the agent keeps this job's log on its computer.
+	LogFolder string `json:"logFolder,omitempty"`
 }
 
 type replAlert struct {
@@ -168,6 +229,9 @@ type replJobView struct {
 	Status    replJobStatus `json:"status"`
 	RPOSecond int64         `json:"rpoSeconds"`
 	HasCode   bool          `json:"hasCode"`
+	// IdleSeconds is how long the running round has gone without reading
+	// or sending anything, measured on the agent's clock.
+	IdleSeconds int64 `json:"idleSeconds,omitempty"`
 }
 
 // replOpenedDisks are the snapshots of one round.
@@ -226,6 +290,18 @@ type replJob struct {
 	pending *replJobSpec
 	// interrupted: the agent's previous run ended during this job's round.
 	interrupted bool
+	// restartServices: the agent's previous run ended during a cutover
+	// that had stopped services; they are started again (rollback).
+	restartServices bool
+	// generation counts rounds, so a round the watchdog abandoned never
+	// writes into a later round's status.
+	generation int
+	// lastErr is the error of the last round (nil when it succeeded).
+	lastErr error
+	// cancelCutover: the operator cancelled the running cutover;
+	// stopCutover stops it, including between attempts.
+	cancelCutover bool
+	stopCutover   context.CancelFunc
 }
 
 // replAgent runs jobs and keeps their records.
@@ -238,9 +314,12 @@ type replAgent struct {
 	alertID  int
 	now      func() time.Time
 	newSink  func(ctx context.Context, link replReceiverLink, target string) (replSink, error)
-	notify   func(replAlert)
-	wg       sync.WaitGroup
-	stopping bool
+	// probeReceiver asks a receiver for its disks with the job's pin and
+	// code; reachReceiver uses it to choose between the receiver's addresses.
+	probeReceiver func(ctx context.Context, address, thumbprint, code string) (bool, []vmReceiverDisk, error)
+	notify        func(replAlert)
+	wg            sync.WaitGroup
+	stopping      bool
 	// lastStop says how the agent's previous run ended when that was not
 	// a clean stop (see replCheckPreviousStop); empty otherwise.
 	lastStop   string
@@ -301,6 +380,7 @@ func newReplAgent(dir string, platform replPlatform) (*replAgent, error) {
 	a.newSink = func(ctx context.Context, link replReceiverLink, target string) (replSink, error) {
 		return newVMRemoteSink(ctx, link.Address, link.Thumbprint, link.Code, target)
 	}
+	a.probeReceiver = vmReceiverDescribe
 	raw, err := os.ReadFile(filepath.Join(dir, "jobs.json"))
 	switch {
 	case err == nil:
@@ -312,7 +392,16 @@ func newReplAgent(dir string, platform replPlatform) (*replAgent, error) {
 			job := &replJob{spec: item.Spec, status: item.Status, throttle: newVMThrottle(item.Spec.Throttle)}
 			if job.status.State == replStateSyncing || job.status.State == replStateCutover {
 				// The agent stopped during a round: run it again.
-				job.status.State, job.status.Message = replStateIdle, "The agent restarted during a round; it runs again now."
+				if job.status.State == replStateCutover && len(job.spec.StopServices) > 0 {
+					job.restartServices = true
+				}
+				if job.status.State == replStateCutover {
+					job.status.Message = "The agent restarted during the cutover, so it was rolled back; replication carries on. Cut over again when ready."
+				} else {
+					job.status.Message = "The agent restarted during a round; it runs again now."
+				}
+				job.status.State = replStateIdle
+				job.status.CutoverAttempt, job.status.Phase = 0, ""
 				job.interrupted = true
 				job.status.NextRun = time.Time{}
 			}
@@ -463,11 +552,14 @@ func validateReplSpec(spec *replJobSpec, existing *replJobSpec) error {
 		return err
 	}
 	spec.Receiver.Address = address
+	if spec.Receiver.Alternates, err = replCleanAlternates(address, spec.Receiver.Alternates); err != nil {
+		return err
+	}
 	spec.Receiver.Thumbprint = vmNormalizeThumbprint(spec.Receiver.Thumbprint)
 	if spec.Receiver.Thumbprint == "" {
 		return errors.New("enter the receiver's certificate thumbprint (64 characters)")
 	}
-	if spec.Receiver.Code == "" && existing != nil && existing.Receiver.Address == spec.Receiver.Address && existing.Receiver.Thumbprint == spec.Receiver.Thumbprint {
+	if spec.Receiver.Code == "" && existing != nil && existing.Receiver.Thumbprint == spec.Receiver.Thumbprint && replLinkHasAddress(existing.Receiver, spec.Receiver.Address) {
 		spec.Receiver.Code = existing.Receiver.Code // unchanged receiver: keep its code
 	}
 	if len(vmNormalizePairingCode(spec.Receiver.Code)) != 20 {
@@ -519,6 +611,9 @@ func (a *replAgent) viewLocked(job *replJob, now time.Time) replJobView {
 	view.Status.Disks = append([]replDiskStatus(nil), job.status.Disks...)
 	if !job.status.RecoveryPoint.IsZero() {
 		view.RPOSecond = int64(now.Sub(job.status.RecoveryPoint) / time.Second)
+	}
+	if job.running && !job.status.LastProgress.IsZero() {
+		view.IdleSeconds = int64(now.Sub(job.status.LastProgress) / time.Second)
 	}
 	return view
 }
@@ -756,14 +851,49 @@ func (a *replAgent) Action(id, action string) error {
 		}
 		job.cutover = true
 		a.logLocked(job, "Cutover was asked for.")
+	case "finish-by-hand":
+		// The operator finished the cutover themselves (the source is shut
+		// down and the new VM was started from the copies): the job stops
+		// replicating and shows cut over. Nothing on this server changes.
+		if done || job.status.State == replStateCutover {
+			return errors.New("the job is " + job.status.State)
+		}
+		if job.status.Rounds == 0 || job.status.RecoveryPoint.IsZero() {
+			return errors.New("the job has not finished a round yet, so there is no copy to cut over to")
+		}
+		if job.running {
+			return errors.New("a round is running; pause the job first, then finish the cutover by hand")
+		}
+		job.cutover, job.spec.CutoverAt = false, nil
+		job.status.State, job.status.CutoverAt, job.status.NextRun = replStateCutDone, a.now().UTC(), time.Time{}
+		job.status.Message = "Cutover finished by hand: replication stopped at the recovery point of " + job.status.RecoveryPoint.UTC().Format("2006-01-02 15:04:05") + " UTC. Changes made here after it are not on the copy."
+		for _, kind := range []string{"rpo", "cutover", "failing"} {
+			a.clearAlertsLocked(job, kind)
+		}
+		a.logLocked(job, "The operator marked the cutover as finished by hand; replication stopped. Nothing on this server was changed.")
 	case "cancel-cutover":
+		if job.status.State == replStateCutover && job.stopCutover != nil {
+			// A running cutover: stop the final round and roll back
+			// (the stopped services start again), then carry on
+			// replicating. The source has not been shut down: that only
+			// happens after the final round is verified.
+			job.cancelCutover = true
+			job.cutover = false
+			job.spec.CutoverAt = nil
+			job.stopCutover()
+			a.logLocked(job, "The cutover was cancelled by the operator; stopping the final round and rolling back.")
+			break
+		}
 		if job.spec.CutoverAt == nil {
 			return errors.New("no cutover is scheduled")
 		}
 		job.spec.CutoverAt = nil
 		a.logLocked(job, "The scheduled cutover was cancelled.")
 	case "delete":
-		if job.running || job.status.State == replStateCutover {
+		if job.status.State == replStateCutover {
+			return errors.New("the job is cutting over; cancel the cutover first")
+		}
+		if job.running {
 			if job.cancel != nil {
 				job.cancel()
 			}
@@ -882,7 +1012,9 @@ func (a *replAgent) startLocked(job *replJob, cutover bool) {
 	ctx, cancel := context.WithCancel(context.Background())
 	job.running, job.cancel = true, cancel
 	job.status.LastStart = a.now().UTC()
+	job.stopCutover, job.cancelCutover = nil, false
 	if cutover {
+		job.stopCutover = cancel
 		job.status.State, job.status.Message = replStateCutover, "Cutting over: stopping services, then the last round."
 	} else if job.status.State == replStateHeld {
 		job.status.Message = "Checking whether the VM started from the copy has been removed."
@@ -939,7 +1071,35 @@ func (a *replAgent) runRound(ctx context.Context, job *replJob, spec replJobSpec
 		sources = append(sources, disk.Source)
 	}
 	started := a.now()
-	err := func() (err error) {
+	roundCtx, stopRound := context.WithCancel(ctx)
+	defer stopRound()
+	a.mu.Lock()
+	job.generation++
+	generation := job.generation
+	job.status.LastProgress, job.status.Phase = a.now().UTC(), "opening"
+	job.status.StallAfterSeconds = int64(replStallAfter / time.Second)
+	job.status.LogFolder = filepath.Join(a.dir, "Logs")
+	a.mu.Unlock()
+	// live reports whether this round still owns the job's status (caller
+	// holds a.mu): false once the watchdog abandoned it.
+	live := func() bool { return job.generation == generation }
+	var activityMu sync.Mutex
+	lastActivity, phase := a.now(), "opening"
+	activity := func(p string) {
+		activityMu.Lock()
+		now := a.now()
+		changed := p != phase || now.Sub(lastActivity) >= 5*time.Second
+		lastActivity, phase = now, p
+		activityMu.Unlock()
+		if changed {
+			a.mu.Lock()
+			if live() {
+				job.status.LastProgress, job.status.Phase = now.UTC(), p
+			}
+			a.mu.Unlock()
+		}
+	}
+	work := func() (err error) {
 		// An internal error fails this round like any other failure (with
 		// backoff) instead of ending the agent; the disks are closed first.
 		defer func() {
@@ -947,12 +1107,18 @@ func (a *replAgent) runRound(ctx context.Context, job *replJob, spec replJobSpec
 				err = a.recordPanic(job, r)
 			}
 		}()
-		opened, err := a.platform.OpenDisks(ctx, spec.ID, sources, spec.AllowLive, log)
+		spec.Receiver = a.reachReceiver(roundCtx, job, spec.Receiver, log)
+		opened, err := a.platform.OpenDisks(roundCtx, spec.ID, sources, spec.AllowLive, log)
 		if err != nil {
 			return err
 		}
 		defer opened.Close()
+		activity("copying")
 		a.mu.Lock()
+		if !live() {
+			a.mu.Unlock()
+			return errReplStalled
+		}
 		job.status.Notes = opened.Notes
 		// The job row's progress bar starts each round at zero; the last
 		// round's numbers would show it already done.
@@ -974,11 +1140,14 @@ func (a *replAgent) runRound(ctx context.Context, job *replJob, spec replJobSpec
 			if source == nil {
 				return fmt.Errorf("disk %s was not opened", disk.Source)
 			}
-			sink, err := a.newSink(ctx, spec.Receiver, disk.Target)
+			sink, err := a.newSink(roundCtx, spec.Receiver, disk.Target)
 			if err != nil {
 				return fmt.Errorf("disk %s: %w", disk.Source, err)
 			}
 			sink.Configure(spec.Compress, job.throttle, rescan)
+			if remote, ok := sink.(*vmRemoteSink); ok {
+				remote.Owner = spec.ID
+			}
 			if rescan {
 				log(fmt.Sprintf("Disk %s: rescanning %s on the receiver.", disk.Source, disk.Target))
 			}
@@ -991,17 +1160,17 @@ func (a *replAgent) runRound(ctx context.Context, job *replJob, spec replJobSpec
 			}
 			round := spec.ID + "@" + opened.Snapshot.UTC().Format(time.RFC3339)
 			machine := replMachineInfo()
-			options := vmCopyOptions{Verify: final, Ranges: ranges, Round: round, Machine: &machine, Progress: func(p vmCopyProgress) {
+			options := vmCopyOptions{Verify: final, Ranges: ranges, Round: round, Machine: &machine, Activity: activity, Progress: func(p vmCopyProgress) {
 				a.mu.Lock()
-				if index < len(job.status.Disks) {
+				if live() && index < len(job.status.Disks) {
 					d := &job.status.Disks[index]
 					d.Chunks, d.Done, d.Read, d.Sent, d.Changed = p.Chunks, p.Done, p.BytesRead, p.BytesSent, p.Changed
 				}
 				a.mu.Unlock()
 			}}
-			result, err := vmCopyTo(ctx, source, sink, options)
+			result, err := vmCopyTo(roundCtx, source, sink, options)
 			a.mu.Lock()
-			if index < len(job.status.Disks) {
+			if live() && index < len(job.status.Disks) {
 				d := &job.status.Disks[index]
 				d.Error = ""
 				if err != nil {
@@ -1020,20 +1189,38 @@ func (a *replAgent) runRound(ctx context.Context, job *replJob, spec replJobSpec
 			sent += result.Progress.BytesSent
 			log(fmt.Sprintf("Disk %s to %s: %s read, %s sent, %d chunks changed%s.", disk.Source, disk.Target, vmFormatBytes(result.Progress.BytesRead), vmFormatBytes(result.Progress.BytesSent), result.Progress.Changed, map[bool]string{true: ", verified", false: ""}[result.State.Verified]))
 		}
+		a.mu.Lock()
+		owned := live()
+		a.mu.Unlock()
+		if !owned {
+			return errReplStalled
+		}
 		if opened.Commit != nil {
 			if err := opened.Commit(results); err != nil {
 				log("Change tracking could not record this round, so the next round reads every disk: " + err.Error())
 			}
 		}
 		a.mu.Lock()
+		if !live() {
+			a.mu.Unlock()
+			return errReplStalled
+		}
 		job.status.RecoveryPoint = opened.Snapshot.UTC()
 		job.status.LastRead, job.status.LastSent = read, sent
 		job.status.TotalSent += sent
 		a.mu.Unlock()
 		return nil
-	}()
+	}
+	err := a.watchRound(roundCtx, ctx, stopRound, job, spec, work, func() (time.Time, string) {
+		activityMu.Lock()
+		defer activityMu.Unlock()
+		return lastActivity, phase
+	})
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	job.generation++ // an abandoned round can no longer write here
+	job.lastErr = err
+	job.status.LastProgress, job.status.Phase = time.Time{}, ""
 	job.running, job.cancel = false, nil
 	job.status.LastEnd = a.now().UTC()
 	job.status.LastDuration = a.now().Sub(started).Seconds()
@@ -1095,6 +1282,14 @@ func (a *replAgent) runRound(ctx context.Context, job *replJob, spec replJobSpec
 		if !final {
 			backoff := []time.Duration{time.Minute, 2 * time.Minute, 5 * time.Minute, 10 * time.Minute, 15 * time.Minute}
 			waiting, reason := replReceiverWait(err, spec.Receiver.Address)
+			if errors.Is(err, errReplStalled) {
+				waiting = true
+				text := err.Error()
+				if i := strings.Index(text, "; it was stopped"); i > 0 {
+					text = text[:i]
+				}
+				reason = strings.ToUpper(text[:1]) + text[1:] + ", so it was stopped."
+			}
 			if waiting {
 				// A receiver that is restarting (its computer or the
 				// application) comes back on its own: try again often.
@@ -1122,6 +1317,66 @@ func (a *replAgent) runRound(ctx context.Context, job *replJob, spec replJobSpec
 	return err == nil
 }
 
+// watchRound runs a round's work and watches it. When nothing moves for
+// replStallAfter (outside finishing, which has its own time limits) the
+// round is stopped; when the work does not return within replStallGrace
+// after a stop (a read or write that hangs in the disk or network), it is
+// abandoned: its disks close when the call returns, and it never writes
+// into the job's status again.
+func (a *replAgent) watchRound(roundCtx, ctx context.Context, stopRound context.CancelFunc, job *replJob, spec replJobSpec, work func() error, last func() (time.Time, string)) error {
+	done := make(chan error, 1)
+	go func() { done <- work() }()
+	ticker := time.NewTicker(replStallCheck)
+	defer ticker.Stop()
+	var stalled error
+	var grace <-chan time.Time
+	stopped := ctx.Done()
+	for {
+		select {
+		case err := <-done:
+			if stalled != nil && err != nil {
+				return stalled
+			}
+			return err
+		case <-stopped:
+			stopped = nil
+			if grace == nil {
+				grace = time.After(replStallGrace)
+			}
+		case <-ticker.C:
+			if stalled != nil {
+				continue
+			}
+			at, phase := last()
+			idle := a.now().Sub(at)
+			if phase == "finishing" || idle < replStallAfter {
+				continue
+			}
+			what := map[string]string{"opening": "taking the snapshots", "copying": "reading and sending the disks"}[phase]
+			if what == "" {
+				what = phase
+			}
+			stalled = fmt.Errorf("%w for %s while %s (receiver %s); it was stopped and tried again, carrying on from where it stopped", errReplStalled, replAge(idle), what, spec.Receiver.Address)
+			a.mu.Lock()
+			a.logLocked(job, "No progress for %s while %s. Stopping this round; the next one carries on from where it stopped.", replAge(idle), what)
+			a.mu.Unlock()
+			stopRound()
+			grace = time.After(replStallGrace)
+		case <-grace:
+			a.mu.Lock()
+			a.logLocked(job, "A disk read or a request to the receiver did not return %s after the round was stopped; the round was abandoned.", replAge(replStallGrace))
+			a.mu.Unlock()
+			if stalled != nil {
+				return stalled
+			}
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+			return roundCtx.Err()
+		}
+	}
+}
+
 // runCutover stops services, runs the verified last round and, when asked,
 // shuts the source down. On failure it starts the services again.
 func (a *replAgent) runCutover(ctx context.Context, job *replJob, spec replJobSpec, rescan bool) {
@@ -1135,10 +1390,19 @@ func (a *replAgent) runCutover(ctx context.Context, job *replJob, spec replJobSp
 		}
 		a.mu.Lock()
 		job.cutover = false
-		job.running, job.cancel = false, nil
-		job.status.State, job.status.Message = replStateError, "Cutover failed and was rolled back: "+text
-		job.status.NextRun = a.now().Add(time.Minute).UTC()
-		a.alertLocked(job, "error", "cutover", fmt.Sprintf("Cutover of %s failed and was rolled back: %s", spec.Name, text))
+		job.running, job.cancel, job.stopCutover = false, nil, nil
+		job.status.CutoverAttempt = 0
+		if job.cancelCutover {
+			job.cancelCutover = false
+			job.status.State = replStateIdle
+			job.status.Message = "The cutover was cancelled and rolled back; this server keeps running and replication carries on. Cut over again when ready."
+			job.status.NextRun = a.now().Add(time.Minute).UTC()
+			a.logLocked(job, "The cutover was cancelled and rolled back.")
+		} else {
+			job.status.State, job.status.Message = replStateError, "Cutover failed and was rolled back: "+text
+			job.status.NextRun = a.now().Add(time.Minute).UTC()
+			a.alertLocked(job, "error", "cutover", fmt.Sprintf("Cutover of %s failed and was rolled back: %s", spec.Name, text))
+		}
 		a.saveLocked()
 		a.mu.Unlock()
 	}
@@ -1149,22 +1413,47 @@ func (a *replAgent) runCutover(ctx context.Context, job *replJob, spec replJobSp
 			return
 		}
 	}
-	a.mu.Lock()
-	job.status.Message = "Cutting over: sending the last changes and verifying every disk."
-	job.running = true
-	a.mu.Unlock()
-	if !a.runRound(ctx, job, spec, rescan, true) {
+	for attempt := 1; ; attempt++ {
 		a.mu.Lock()
-		text := job.status.LastError
+		job.status.CutoverAttempt = attempt
+		job.status.Message = "Cutting over: sending the last changes and verifying every disk."
+		if attempt > 1 {
+			job.status.Message += fmt.Sprintf(" Attempt %d of %d.", attempt, replCutoverAttempts)
+		}
+		job.running = true
+		a.mu.Unlock()
+		if a.runRound(ctx, job, spec, rescan, true) {
+			break
+		}
+		a.mu.Lock()
+		err, text, cancelled := job.lastErr, job.status.LastError, job.cancelCutover
+		// Between attempts the job still counts as running, so no
+		// ordinary round starts in the gap.
+		job.running = true
 		a.mu.Unlock()
 		if text == "" {
 			text = "the last round was stopped"
 		}
-		fail(text)
-		return
+		waiting, _ := replReceiverWait(err, spec.Receiver.Address)
+		retry := !cancelled && ctx.Err() == nil && attempt < replCutoverAttempts && (errors.Is(err, errReplStalled) || waiting)
+		if !retry {
+			fail(text)
+			return
+		}
+		a.mu.Lock()
+		job.status.Message = fmt.Sprintf("Cutting over: the final round did not finish (%s). Trying again in %s, attempt %d of %d; the services stay stopped and the copy carries on from where it stopped.", text, replAge(replCutoverRetry), attempt+1, replCutoverAttempts)
+		a.logLocked(job, "The final round did not finish: %s. Trying again in %s (attempt %d of %d).", text, replAge(replCutoverRetry), attempt+1, replCutoverAttempts)
+		a.saveLocked()
+		a.mu.Unlock()
+		if vmSleep(ctx, replCutoverRetry) != nil {
+			fail("the cutover was stopped")
+			return
+		}
 	}
 	a.mu.Lock()
 	job.cutover = false
+	job.running, job.cancel, job.stopCutover = false, nil, nil
+	job.status.CutoverAttempt = 0
 	job.status.State = replStateCutDone
 	job.status.CutoverAt = a.now().UTC()
 	job.status.NextRun = time.Time{}
@@ -1188,10 +1477,37 @@ func (a *replAgent) runCutover(ctx context.Context, job *replJob, spec replJobSp
 	}
 }
 
+// restartInterruptedServices starts the services a cutover stopped when
+// the agent's previous run ended during that cutover (the rollback the
+// cutover would have done).
+func (a *replAgent) restartInterruptedServices() {
+	a.mu.Lock()
+	type pending struct {
+		job      *replJob
+		services []string
+	}
+	var list []pending
+	for _, job := range a.jobs {
+		if job.restartServices {
+			job.restartServices = false
+			list = append(list, pending{job, append([]string(nil), job.spec.StopServices...)})
+		}
+	}
+	a.mu.Unlock()
+	for _, item := range list {
+		log := a.jobLog(item.job)
+		log("The agent restarted during a cutover; starting " + strings.Join(item.services, ", ") + " again (rollback).")
+		if err := a.platform.StartServices(item.services, log); err != nil {
+			log("Some services did not start again: " + err.Error())
+		}
+	}
+}
+
 // Run calls Tick until ctx ends, then stops every round.
 func (a *replAgent) Run(ctx context.Context) {
 	ticker := time.NewTicker(replTickInterval)
 	defer ticker.Stop()
+	a.restartInterruptedServices()
 	a.Tick()
 	for {
 		select {
@@ -1237,8 +1553,13 @@ func replReceiverWait(err error, address string) (waiting bool, reason string) {
 		return false, "The receiver at " + address + " has a different pairing code now. Change the job and enter the receiver's new pairing code."
 	case strings.Contains(text, "connectex"), strings.Contains(text, "connection refused"), strings.Contains(text, "actively refused"),
 		strings.Contains(text, "no route to host"), strings.Contains(text, "i/o timeout"), strings.Contains(text, "deadline exceeded"),
-		strings.Contains(text, "connection reset"), strings.Contains(text, "network is unreachable"), strings.Contains(text, "eof"):
+		strings.Contains(text, "connection reset"), strings.Contains(text, "network is unreachable"), strings.Contains(text, "eof"),
+		strings.Contains(text, "did not answer within"):
 		return true, "Waiting for the receiver at " + address + ": it does not answer (it may be restarting, or the application on it was closed)."
+	case strings.Contains(text, "still being verified"):
+		return true, "Waiting for the receiver at " + address + ": it is still verifying this disk from the previous round."
+	case strings.Contains(text, "is already being received"):
+		return true, "Waiting for the receiver at " + address + ": it still has this disk open from an earlier round (it releases it two minutes after that round stops)."
 	}
 	return false, ""
 }

@@ -380,3 +380,7 @@ func TestMigrationPlanSetsWaves(t *testing.T) {
 		t.Fatal("bad waves were accepted")
 	}
 }
+
+func (f *asFakeAgent) CheckReceiver(ctx context.Context, link replReceiverLink) (replReceiverCheck, error) {
+	return replReceiverCheck{Address: link.Address}, nil
+}
