@@ -30,6 +30,7 @@ import (
 	"github.com/vmware/govmomi/property"
 	"github.com/vmware/govmomi/vim25/methods"
 	"github.com/vmware/govmomi/vim25/mo"
+	"github.com/vmware/govmomi/vim25/progress"
 	"github.com/vmware/govmomi/vim25/types"
 )
 
@@ -246,9 +247,57 @@ func vmRunTask(ctx context.Context, task *object.Task, err error) error {
 	return task.Wait(ctx)
 }
 
+// vmRunTaskProgress waits for a task like vmRunTask and reports vSphere's
+// own percentage of it, once per change, so a long task such as decrypting
+// shows live progress.
+func vmRunTaskProgress(ctx context.Context, task *object.Task, err error, report func(int)) error {
+	if err != nil {
+		return err
+	}
+	if report == nil {
+		return task.Wait(ctx)
+	}
+	reports, finished := make(chan progress.Report), make(chan struct{})
+	sunk := false
+	go func() {
+		defer close(finished)
+		last := -1
+		for r := range reports {
+			if r == nil {
+				continue
+			}
+			if percent := int(r.Percentage()); percent != last && percent >= 0 && percent <= 100 {
+				last = percent
+				report(percent)
+			}
+		}
+	}()
+	_, err = task.WaitForResult(ctx, progress.SinkFunc(func() chan<- progress.Report { sunk = true; return reports }))
+	if !sunk {
+		close(reports)
+	}
+	<-finished
+	return err
+}
+
+// vmPrepareTimeout is how long one VM's prepare may take. Decrypting
+// rewrites every encrypted disk, so it gets far longer.
+func vmPrepareTimeout(steps vmPrepareSteps) time.Duration {
+	if steps.Decrypt {
+		return 24 * time.Hour
+	}
+	return 45 * time.Minute
+}
+
 // prepareVSphereVM runs the chosen steps on one VM, identified by its
 // managed object ID, after checking its name still matches.
 func prepareVSphereVM(parent context.Context, options vmConnectOptions, vmID, vmName string, steps vmPrepareSteps, recordFolder string, progress func(string)) (vmPrepareResult, error) {
+	return prepareVSphereVMWith(parent, options, vmID, vmName, steps, recordFolder, progress, nil)
+}
+
+// prepareVSphereVMWith is prepareVSphereVM with percent, which receives
+// vSphere's progress of the decrypt task (0 to 100) as it runs.
+func prepareVSphereVMWith(parent context.Context, options vmConnectOptions, vmID, vmName string, steps vmPrepareSteps, recordFolder string, progress func(string), percent func(int)) (vmPrepareResult, error) {
 	if progress == nil {
 		progress = func(string) {}
 	}
@@ -256,7 +305,7 @@ func prepareVSphereVM(parent context.Context, options vmConnectOptions, vmID, vm
 	if !steps.any() {
 		return result, errors.New("Choose at least one step.")
 	}
-	ctx, cancel := context.WithTimeout(parent, 45*time.Minute)
+	ctx, cancel := context.WithTimeout(parent, vmPrepareTimeout(steps))
 	defer cancel()
 	vsphere, err := openVSphereSession(ctx, options, progress)
 	if err != nil {
@@ -370,7 +419,7 @@ func prepareVSphereVM(parent context.Context, options vmConnectOptions, vmID, vm
 			}
 			progress("Decrypting " + vmName + ". vSphere rewrites every encrypted disk, so this takes about as long as copying them.")
 			task, taskErr := vm.Reconfigure(ctx, vmDecryptSpec(machine))
-			if err := vmRunTask(ctx, task, taskErr); err != nil {
+			if err := vmRunTaskProgress(ctx, task, taskErr, percent); err != nil {
 				return result, fmt.Errorf("Decrypting failed: %v. The key provider must be available and the account needs the Cryptographic operations > Decrypt privilege.", err)
 			}
 			result.Done = append(result.Done, "Decrypted the VM and its disks.")
