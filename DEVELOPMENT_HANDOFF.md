@@ -1,14 +1,22 @@
 ## Unreleased: All jobs and servers, and jobs to this Hyper-V host — 2026-11-26
 
-- New **All jobs and servers** tool (rule 46): one list of agent replication jobs, Migration plan VMs, Move VMs copies, unconfigured inventory VMs and running tasks, with one state set, live progress and bulk actions (install agents, create jobs, sync, pause/resume, test failover, waves, staggered cutover).
+- New **All jobs and servers** tool (rule 47): one list of agent replication jobs, Migration plan VMs, Move VMs copies, unconfigured inventory VMs and running tasks, with one state set, live progress and bulk actions (install agents, create jobs, sync, pause/resume, test failover, waves, staggered cutover).
 - Replicate servers and bulk job creation can target **This Hyper-V host**: the local receiver starts and pairs itself and only the destination folder is asked. Builds on the receiver identity fix from PR #138 (merged into this branch).
 - Tests: `go test ./...` (Linux), `GOOS=windows go vet`, and the workspace checks "All jobs and servers" and "Replication jobs can go to this Hyper-V host" plus the existing replication checks pass locally. Bulk actions against real agents, plans and Hyper-V hosts are not field-validated.
+
+## Unreleased: migration scenarios and rolling conversion on the same hardware — 2026-11-26
+
+- Plan and runbook starts with a **Migration scenario** (AGENTS.md rule 46): New hardware, or Reuse the existing hosts (rolling, one host at a time). Rolling fills New cluster size from the recorded hosts, flags which datastores can be reused, suggests one stage per host and checks every stage on both sides with N+1 warnings. Stages, waves and sizes are all editable.
+- The same data feeds Build Hyper-V hosts (nodes in stage order, named after their ESXi hosts, vMotion address kept, switch adapters matched by MAC after Read nodes), Migration plans (pick a stage's wave) and the runbook (HTML and Word stage sections).
+- Fixed: a VMware network with VLAN 0 gave a plan that could not be saved ("The target VLAN ... must be a number from 1 to 4094"); VLAN 0 now maps to no VLAN.
+- Tests: `vmscenario_test.go` (fill, storage flags, suggestion, editing and refusals, cloud targets, runbook HTML and Word, Build Hyper-V hosts reuse), workspace check "Rolling conversion". Not field-validated on a real rolling conversion.
 
 ## Unreleased: bulk VM actions and waves you can change — 2026-11-26
 
 User-requested after "why does suggest always set everything to 2" and "the plan, and batches/waves must be configurable and customizable". Suggest waves (`vmware_waves.go`) now groups by role and risk (pilot of powered-off and test/dev VMs, one domain controller early and the others last, databases alone, application servers by name stem, general servers in chunks, system and backup appliances excluded), says why for every VM and wave, uses an Auto size, and keeps VMs placed by hand and waves the operator named unless asked to replace them. The Plan and runbook tab has a wave board: drag VMs between waves, name a wave, give it a planned window and notes, move it earlier or later, split ticked VMs out, merge, add a wave; the runbook (HTML and Word) shows each wave's name, window, reason and notes. VMs can be ticked in the VM list, board and table, or picked by host, cluster, folder, wave, readiness or power, then put in a wave, held, excluded, included, network-mapped, added to a new Migration plan, or (in Move VMs) prepared on VMware as one batch: per-VM steps, one typed confirmation (the number of VMs), one VM after another, each VM's result shown (`vmware_bulk.go`, `prepareBatch`). Rule 45 in AGENTS.md.
 
 Tests: `go test` covers suggestion roles, hand-placed and edited waves, wave validation, and batch checks and runs (`vmware_waves_test.go`); `scripts/test_workspace.cjs` covers the board, drag, split, merge, reorder, bulk wave, select by, batch Prepare with its preview and confirmation, batch results, the network panel and Add to a migration plan. Not field-validated: batch Prepare against a real vCenter.
+
 ## 3.2.35 published and verified — 2026-11-26
 
 - [Release v3.2.35](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.35) ("Server Inventory and Migration Manager 3.2.35"), tag and target commit `5b4bb640657e3ccade78e6262bf8de68295a3760`. Source: Move VMs from one console to a remote Hyper-V host or cluster, nothing installed in the machine being moved, change tracking no longer missing shadow copy storage, Build Hyper-V hosts, the vSphere-style inventory and Migration plans (#119, #123, #124, #125, #126, #127), prepared in #128, published by #129. The owner approved publication on 2026-11-26 ("publish when ready").

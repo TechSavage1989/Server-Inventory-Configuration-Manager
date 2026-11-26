@@ -212,6 +212,24 @@ func hvBuildCheckPlan(plan hvBuildPlan) (hvBuildPlan, error) {
 			ips[name] = ip
 		}
 		node.HostIPs = ips
+		nics := map[string][]hvBuildSourceNIC{}
+		for name, list := range node.SourceNICs {
+			if !switchNames[strings.ToLower(name)] {
+				continue
+			}
+			clean := []hvBuildSourceNIC{}
+			for _, nic := range list {
+				if len(clean) < 32 && hvBuildMACPattern.MatchString(nic.MAC) && len(nic.Device) <= 64 && hvBuildAdapterPattern.MatchString(vmNonEmpty(nic.Device, "x")) {
+					nic.MAC = hvBuildNormalMAC(nic.MAC)
+					clean = append(clean, nic)
+				}
+			}
+			nics[name] = clean
+		}
+		node.SourceNICs = nics
+		if net.ParseIP(node.ManagementIP) == nil {
+			node.ManagementIP = ""
+		}
 		storage := []hvBuildNodeNIC{}
 		for _, nic := range node.Storage {
 			nic.Adapter = strings.TrimSpace(nic.Adapter)
