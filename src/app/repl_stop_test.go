@@ -115,7 +115,7 @@ func TestConsoleExplainsAnAgentThatIsNotListening(t *testing.T) {
 // must take shadow copies only through the VSS requester interface
 // (vss_windows.go) and start no PowerShell.
 func TestAgentCodeStartsNoPowerShellAndDeletesNoShadowCopies(t *testing.T) {
-	agentFiles := []string{"vmagent.go", "vmagent_windows.go", "vss_windows.go", "repl_agent_windows.go", "repl_agent_server.go", "repl_job.go", "repl_stop.go", "repl_track.go", "repl_track_windows.go", "repl_mft.go", "vmvolume_layout.go", "vmcopy_engine.go", "vmcopy_source.go", "vmcopy_raw_windows.go", "repl_machine.go", "repl_machine_windows.go"}
+	agentFiles := []string{"vmagent.go", "vmagent_windows.go", "vss_windows.go", "repl_agent_windows.go", "repl_agent_server.go", "repl_job.go", "repl_stop.go", "repl_track.go", "repl_track_windows.go", "repl_mft.go", "vmvolume_layout.go", "vmcopy_engine.go", "vmcopy_source.go", "vmcopy_raw_windows.go", "repl_machine.go", "repl_machine_windows.go", "vmreceiver_service_windows.go", "vmreceiver_identity.go"}
 	banned := []string{"vmRunPowerShell(", "powershellPath(", "Win32_ShadowCopy", "vssadmin", "DeleteSnapshots", "-EncodedCommand", "wmic"}
 	checked := 0
 	for _, name := range agentFiles {

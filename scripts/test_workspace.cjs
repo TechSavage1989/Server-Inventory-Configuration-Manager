@@ -172,6 +172,7 @@ async function fixture(browser,old=false){
    if(action==='receiver/pair'){(v.receiver.pairRequests||[]).splice(0);send(200,{ok:true});return;}
    if(action==='receiver'&&data.action==='close-other'){if(data.pid!==4321){send(409,{ok:false,error:'wrong process'});return;}v.receiverHeld=false;send(200,{ok:true});return;}
    if(action==='receiver'&&data.action==='start'&&v.receiverHeld){send(400,{ok:false,error:'Port 44390 is held by another copy of this application (process 4321, started 03:12) that is still running, perhaps without a window. Close it, then start the receiver.',otherInstance:{pid:4321,port:44390,started:'2026-11-26T08:12:00Z'}});return;}
+   if(action==='receiver'&&/^service-/.test(data.action)){if(v.receiver){v.receiver.serviceInstalled=data.action==='service-on';}send(200,{ok:true});return;}
    if(action==='receiver'){if(data.action==='start'){v.receiver={running:true,port:data.port||44380,code:'K7QMZ-2RT4X-9WBNP-H3VDA',thumbprint:'3f9a6c0e1b7d4a25c8e0f13b6a9d2c4e7f0a1b3c5d7e9f2a4c6e8b0d1f3a5c7e',folder:data.folder||'D:\\Migration\\VMware-Copies\\Received',addresses:['192.0.2.40'],sessions:0,firewall:!!data.firewall,fingerprint:'3F9A 6C0E 1B7D 4A25',discoverable:data.discoverable!==false,pairRequests:[],defaultFolder:'D:\\Migration\\VMware-Copies\\Received'};}else{v.receiver={running:false,port:44380,sessions:0,firewall:false,defaultFolder:'D:\\Migration\\VMware-Copies\\Received',message:'Stopped.'};}send(200,{ok:true});return;}
    if(action==='agent/disks'){send(200,{ok:true,computer:'APP01',disks:[{number:0,size:107374182400,system:true,volumes:[{name:'v1',mounts:[],fileSystem:'FAT32',length:104857600},{name:'v2',mounts:['C:\\'],fileSystem:'NTFS',length:106300000000}]},{number:1,size:536870912000,system:false,volumes:[{name:'v3',mounts:['D:\\'],fileSystem:'NTFS',length:536700000000}]}]});return;}
    if(action==='agent/receiverdisks'){send(200,{ok:true,folder:false,disks:[{name:'disk-0',label:'Disk 0, QEMU HARDDISK',size:107374182400,sectorSize:512},{name:'disk-1',label:'Disk 1, QEMU HARDDISK',size:214748364800,sectorSize:512}]});return;}
@@ -1343,6 +1344,13 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   await f.page.waitForFunction(()=>document.querySelector('#vmReceiveCode').textContent==='K7QMZ-2RT4X-9WBNP-H3VDA');
   assert.deepEqual(vmwareCalls(f,'receiver').map(c=>c.body),[{action:'start',folder:'',port:44390,firewall:true,discoverable:true,newIdentity:false}]);
   const where=await f.page.locator('#vmReceiveAddress').textContent();assert(where.includes('192.0.2.40:44390')&&where.includes('allowed in Windows Firewall'),where);
+  // Keep receiving after a reboot installs the receiver service on this computer; unticking removes it.
+  assert(await f.page.locator('#vmReceiveService').isEnabled()&&!await f.page.locator('#vmReceiveService').isChecked());
+  await f.page.locator('#vmReceiveService').check();await f.page.waitForFunction(()=>/receiver service is set up/.test(document.querySelector('#vmReceiveStatus').textContent));
+  assert.deepEqual(vmwareCalls(f,'receiver').at(-1).body,{action:'service-on'});
+  await f.page.waitForFunction(()=>document.querySelector('#vmReceiveService').checked);
+  await f.page.locator('#vmReceiveService').uncheck();await f.page.waitForFunction(()=>/receiver service was removed/.test(document.querySelector('#vmReceiveStatus').textContent));
+  assert.deepEqual(vmwareCalls(f,'receiver').at(-1).body,{action:'service-off'});
   assert(await f.page.locator('#vmReceiveStart').isHidden());
   await f.page.locator('#vmSendFind').click();await f.page.waitForFunction(()=>document.querySelectorAll('[data-send-disk]').length===2);
   assert((await f.page.locator('#vmSendDisks').textContent()).includes('Disk 0, 100 GB (Windows): no drive letter FAT32'));
