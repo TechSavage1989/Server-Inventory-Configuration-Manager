@@ -424,7 +424,7 @@ func (a *application) handleVMTargetReceiver(response http.ResponseWriter, reque
 	if !ok {
 		return
 	}
-	link := vmReceiverLink{Address: strings.TrimSpace(input.Address), Thumbprint: strings.TrimSpace(input.Thumbprint), Code: strings.TrimSpace(input.Code)}
+	link := vmReceiverLink{Address: strings.TrimSpace(input.Address), Thumbprint: vmNormalizeThumbprint(input.Thumbprint), Code: strings.TrimSpace(input.Code)}
 	if link.Code == "" {
 		a.mu.Lock()
 		if held, found := a.vmware.target.receivers[vm.ID]; found && held.Link.Address == link.Address {

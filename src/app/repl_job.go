@@ -1094,13 +1094,23 @@ func (a *replAgent) runRound(ctx context.Context, job *replJob, spec replJobSpec
 		job.status.LastError = err.Error()
 		if !final {
 			backoff := []time.Duration{time.Minute, 2 * time.Minute, 5 * time.Minute, 10 * time.Minute, 15 * time.Minute}
+			waiting, reason := replReceiverWait(err, spec.Receiver.Address)
+			if waiting {
+				// A receiver that is restarting (its computer or the
+				// application) comes back on its own: try again often.
+				backoff = []time.Duration{time.Minute, time.Minute, 2 * time.Minute, 5 * time.Minute}
+			}
 			wait := backoff[len(backoff)-1]
 			if job.status.Failures <= len(backoff) {
 				wait = backoff[job.status.Failures-1]
 			}
 			job.status.State = replStateError
 			job.status.NextRun = a.now().Add(wait).UTC()
-			job.status.Message = fmt.Sprintf("The round failed; it tries again at %s UTC.", job.status.NextRun.Format("15:04"))
+			if reason != "" {
+				job.status.Message = fmt.Sprintf("%s It tries again at %s UTC and carries on from the last good round.", reason, job.status.NextRun.Format("15:04"))
+			} else {
+				job.status.Message = fmt.Sprintf("The round failed; it tries again at %s UTC.", job.status.NextRun.Format("15:04"))
+			}
 		}
 		a.logLocked(job, "The round failed: %s", err.Error())
 		if job.status.Failures >= replFailuresToAlert {
@@ -1208,4 +1218,27 @@ func (a *replAgent) Stop() {
 	a.mu.Lock()
 	a.saveLocked()
 	a.mu.Unlock()
+}
+
+// replReceiverWait explains a round that failed reaching the receiver.
+// waiting is true when the receiver is most likely restarting or stopped
+// (nothing answers), so the job retries often and needs nothing from the
+// operator; a changed certificate or code needs the job's receiver details
+// updated, which retrying cannot fix.
+func replReceiverWait(err error, address string) (waiting bool, reason string) {
+	if err == nil {
+		return false, ""
+	}
+	text := strings.ToLower(err.Error())
+	switch {
+	case strings.Contains(text, "thumbprint is"):
+		return false, "The receiver at " + address + " now has a different certificate: it was started with a new code and certificate. Change the job and enter the receiver's new thumbprint and pairing code."
+	case strings.Contains(text, "pairing code is wrong"):
+		return false, "The receiver at " + address + " has a different pairing code now. Change the job and enter the receiver's new pairing code."
+	case strings.Contains(text, "connectex"), strings.Contains(text, "connection refused"), strings.Contains(text, "actively refused"),
+		strings.Contains(text, "no route to host"), strings.Contains(text, "i/o timeout"), strings.Contains(text, "deadline exceeded"),
+		strings.Contains(text, "connection reset"), strings.Contains(text, "network is unreachable"), strings.Contains(text, "eof"):
+		return true, "Waiting for the receiver at " + address + ": it does not answer (it may be restarting, or the application on it was closed)."
+	}
+	return false, ""
 }
