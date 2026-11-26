@@ -1,6 +1,6 @@
 ## Unreleased: the workspace fills the window and gets denser on small screens — 2026-11-26
 
-- Removed the 1220 px and 1480 px maximum widths so every tab and tool fills the window (AGENTS.md rule 44); wide windows give the tool list, inventory tree, category grid and guide cards more room, and the two inventory readers sit side by side from 1600 px.
+- Removed the 1220 px and 1480 px maximum widths so every tab and tool fills the window (AGENTS.md rule 45); wide windows give the tool list, inventory tree, category grid and guide cards more room, and the two inventory readers sit side by side from 1600 px.
 - Windows narrower than 1440 px or shorter than 900 px use smaller body text (13, then 12.5 px) and tighter controls; the 10.5 px minimum still holds. `scripts/test_workspace.cjs` passes (68 checks). `docs/images/hero.png` refreshed; other README captures at 1440 px were already older than the current tabs and are unchanged by this work.
 - Not checked on real Edge 109 on Windows Server 2012 R2; Chromium only.
 
@@ -17,6 +17,12 @@ Limits: remote Hyper-V hosts and clusters over PowerShell remoting, PowerShell D
 ## 3.2.35 release preparation — 2026-11-26
 
 Combined release of #119 (Move VMs from one console to a remote Hyper-V host or cluster), #123 (nothing installed in the machine being moved, one-step guide, vTPM VMs not blocked), #124 (change tracking no longer misses shadow copy storage), #125 (Build Hyper-V hosts), #126 (vSphere-style inventory) and #127 (Migration plans). The owner approved publication on 2026-11-26 ("publish when ready"). This branch bumps `appVersion`, `collectorVersion` and the collector `$scriptVersion` to 3.2.35, adds `docs/release-notes/3.2.35.md` (first three bullets free of Markdown) and points `scripts/test_published_upgrade.cjs` and AGENTS.md at the published v3.2.34 executable (SHA-256 `dfbba653d26cc37e969eb5f0666eb94f50bfc9d989cfa858cf483c21a578cbfa`).
+
+## Unreleased: interactive discovery and readiness reports, in Word and PDF too — 2026-11-26
+
+- The VMware and Hyper-V discovery and readiness reports are now one interactive, self-contained HTML page (AGENTS.md rule 44): a sidebar tree like the application's, a page for every host, cluster, VM, datastore and network with tabs, clickable summary tiles and readiness bars that filter the VM list, a VM list filtered by target, status, snapshots, static IPs or text and sortable by any column, and issues grouped per target with their fix and the VMs they apply to. One hash-pinned script, no requests, readable without script, prints every page.
+- New `Discovery-and-Readiness-Report.docx` (clickable contents, bookmarks and links between hosts, VMs, datastores, networks and issues, colour-coded readiness, linked tiles, bar tables, landscape VM table, page numbers) and `Discovery-and-Readiness-Report.pdf` (same content, contents with page numbers, internal links and bookmarks). The vCenter's page offers Report in Word and Report as PDF. The PDF uses github.com/go-pdf/fpdf v0.9.0 (MIT, no dependencies beyond the standard library).
+- Tests: `vmreport_test.go` (model, links resolve in HTML and Word, PDF outline), `scripts/test_vm_report.cjs` in CI against the synthetic samples. Word was checked by converting with LibreOffice and the PDF with an embedded font and with Helvetica on Linux; Segoe UI embedding runs on the Windows CI runner. Not yet opened in Microsoft Word itself.
 
 ## Unreleased: Migration plans (Nutanix Move-style batches) — 2026-11-26
 

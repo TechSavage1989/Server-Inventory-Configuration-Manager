@@ -4251,8 +4251,10 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       return;
     }
     if(ref.kind==='root'){
-      if(v.reportPath){box.appendChild(vmActionButton('Readiness report','Open the readiness report for every VM',function(){openKind('vmwarereport');}));}
-      if(v.discoveryPath){var disc=vmActionButton('Discovery report','Every host\'s hardware, BIOS, network, storage, services, software packages and alarms as HTML',function(){openKind('vmwarediscovery');});disc.id='vmOpenDiscovery';box.appendChild(disc);}
+      if(v.reportPath){box.appendChild(vmActionButton('Readiness report','Interactive HTML: readiness of every VM for each target, issues with their fixes, and the whole inventory',function(){openKind('vmwarereport');}));}
+      if(v.discoveryPath){var disc=vmActionButton('Discovery report','Interactive HTML opening at the hosts: hardware, BIOS, network, storage, services, software packages and alarms',function(){openKind('vmwarediscovery');});disc.id='vmOpenDiscovery';box.appendChild(disc);}
+      if(v.reportDocxPath){var rd=vmActionButton('Report in Word','The same report as a Word document with clickable contents and links between hosts, VMs and issues',function(){openKind('vmwarereportdocx');});rd.id='vmOpenReportDocx';box.appendChild(rd);}
+      if(v.reportPdfPath){var rp=vmActionButton('Report as PDF','The same report as a PDF with bookmarks, page numbers and links',function(){openKind('vmwarereportpdf');});rp.id='vmOpenReportPdf';box.appendChild(rp);}
     }
   }
   // Tabs for each kind of object. Each tab shows data this inventory holds.
