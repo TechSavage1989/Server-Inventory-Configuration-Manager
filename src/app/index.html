@@ -475,6 +475,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .vm-pick-col{width:26px;text-align:center}.vm-pick-col input{width:15px;height:15px;margin:0;accent-color:#2563eb;cursor:pointer}.vm-table tr.picked{background:#f1f6ff}
 .vm-bulk{display:flex;flex-direction:column;gap:6px;margin-top:8px}.vm-bulk:empty{display:none}.vm-bulk-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px}.vm-bulk-row select{height:30px;max-width:260px;border:1px solid #bcc9d9;border-radius:7px;padding:0 6px;font:inherit;font-size:12px;background:#fff}.vm-bulk-row .secondary-button{padding:5px 10px;font-size:12px}.vm-bulk-count{font-size:12.5px;color:#1b2942;margin-right:4px}
+.pf-panel{border:1px solid #d5dfec;border-radius:9px;padding:10px 12px;background:#f8fbff;margin-top:8px}.pf-title{display:block;font-size:12.5px}.pf-checks{display:flex;flex-wrap:wrap;gap:4px 16px;margin:6px 0}.pf-table-wrap{overflow-x:auto;max-height:340px;overflow-y:auto;margin:6px 0}.pf-table{width:100%;border-collapse:collapse;font-size:12.5px}.pf-table th{text-align:left;font-weight:600;color:#52647c;padding:4px 6px;border-bottom:1px solid #dbe3ed;white-space:nowrap}.pf-table td{padding:4px 6px;border-bottom:1px solid #eef2f7;vertical-align:top}.pf-table input[type=text]{width:100%;min-width:140px;box-sizing:border-box}.pf-table select{max-width:100%}.pf-last{color:#344256;min-width:180px}.pf-last.running{color:#1d4ed8;font-weight:600}.pf-last.failed{color:#b42318}.pf-account{margin:6px 0}.pf-details>summary{cursor:pointer;font-weight:600;font-size:13px;padding:6px 0}
 .vm-bulk-panel{border:1px solid #d5dfec;border-radius:9px;padding:10px 12px;background:#f8fbff}.vm-bulk-panel>strong{display:block;font-size:12.5px}.vm-bulk-panel .primary-button,.vm-bulk-panel .secondary-button{margin-top:8px}.vm-bulk-skip td{color:#6a7a8f}.vm-bulk-batch:empty{display:none}.vm-bulk-batch{margin-top:8px}.vm-bulk-bar{height:6px;border-radius:3px;background:#e3e9f2;margin-top:6px;overflow:hidden}.vm-bulk-bar span{display:block;height:100%;background:#2563eb}
 .vm-inline-check{margin-top:0;font-size:12px}.vm-why{font-size:11.5px;color:#52647c;min-width:160px}
 .vm-wave-board{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px;margin-top:10px}
@@ -4143,7 +4144,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     if(v.target&&v.target.serial!==vmTargetSerial){vmTargetSerial=v.target.serial;renderVmDetail();}
     if(v.hvRemote&&v.hvRemote.serial!==vmHvrSerial){vmHvrSerial=v.hvRemote.serial;renderVmDetail();}
     var fixKey=JSON.stringify([v.guestAuto||{},vmArr(v.fixups).map(function(f){return [f.vm,f.state,f.message,vmArr(f.steps).length];})]);if(fixKey!==vmFixKey){vmFixKey=fixKey;renderVmDetail();}
-    renderVmDiskCopy(state,v);renderVmRoles();renderVmMedia(v);renderVmMoveIntro();
+    renderVmDiskCopy(state,v);renderVmRoles();renderVmMedia(v);renderVmMoveIntro();pfUpdate();
     var batchKey=JSON.stringify(v.prepareBatch||null),lockKey=vmLocked()+'|'+(v.canPrepare?1:0);if(batchKey!==vmBulkPollKey){vmBulkPollKey=batchKey;renderVmBulkBatch(v);}if(lockKey!==vmBulkLockKey){vmBulkLockKey=lockKey;renderVmBulk();}
     byId('vmGuestHere').textContent=vmComputer()?'This computer: '+vmComputer()+'.':'';
     var guestMessage=byId('vmGuestMessage');guestMessage.textContent=v.guestMessage||'';guestMessage.className='migrate-inline-status'+(v.guestError?' error':'');
@@ -4775,6 +4776,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       ready.appendChild(row);
     }
     box.appendChild(el('div','vm-tree-facts','Readiness is checked again whenever the inventory is read or the target platform changes. Nothing on '+(vm.source==='hyperv'?'the Hyper-V host':'vCenter or ESXi')+' is changed by checking.'));
+    if(r.status!=='skip'){renderVmPreflight(box,vm);}
   }
   function renderVmConfigureTab(box,vm){
     var dc=vm.datacenter,w=vmWords(),media=vmArr(vm.connectedMedia),pass=vmArr(vm.passthrough);
@@ -5266,6 +5268,115 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     var st=el('div','migrate-inline-status');st.id=prefix+'Status';wrap.appendChild(st);box.appendChild(wrap);
   }
   function vmGaRefresh(wrap){var parent=wrap.parentNode;if(!parent){return;}var holder=document.createElement('div');vmGuestAutoPanel(holder,wrap.getAttribute('data-ga-prefix'));parent.replaceChild(holder.firstChild,wrap);var note=byId('vmAfterNote');if(note&&note.parentNode){var v=vmwareState()||{};if(v.guestAuto&&v.guestAuto.hasPassword&&note.classList.contains('warning')&&/guest account/.test(note.textContent)){note.textContent='Nothing is installed in the old or the new VM: the settings were recorded from vCenter, and the fix-up runs through PowerShell Direct from the Hyper-V host.';note.className='migrate-detail';}}}
+  // Optional domain controller and SQL Server checks (preflight.go): read
+  // only, run from this computer over PowerShell remoting (or PowerShell
+  // Direct on this Hyper-V host). Nothing is installed on the servers.
+  var pfForm={user:'',password:'',dc:true,sql:true,computers:{},via:{}},pfMsg={};
+  function pfState(){return (vmwareState()||{}).preflight||{};}
+  function pfWindows(vm){return /win/i.test((vm.guestOsRunning||'')+' '+(vm.guestOs||'')+' '+(vm.guestId||''))&&!vm.template;}
+  var pfDcPattern=/(^|[^a-z])(dc|pdc|bdc|adc|adds|ad)[0-9]*([^a-z]|$)/,pfDbPattern=/sql|(^|[^a-z])(db|dbs|database)[0-9]*([^a-z]|$)/;
+  function pfLikely(vm){if(!pfWindows(vm)){return '';}var n=String(vm.name||'').toLowerCase(),r=[];if(pfDcPattern.test(n)){r.push('domain controller');}if(pfDbPattern.test(n)){r.push('SQL Server');}return r.join(' and ');}
+  function pfComputerOf(vm){return pfForm.computers[vm.id]!==undefined?pfForm.computers[vm.id]:(vm.guestHostName||vm.ipAddress||'');}
+  function pfItemOf(id){var list=vmArr(pfState().items);for(var i=0;i<list.length;i++){if(list[i].id===id){return list[i];}}return null;}
+  // The last check of a VM in one line.
+  function pfLast(vm){
+    var p=vm.preflight;if(!p){return 'Not checked yet.';}
+    var when=vmWhen(p.checkedAt);if(p.error){return 'Not reached '+when+': '+p.error;}
+    var f=p.facts||{},parts=[];
+    if(f.dc&&f.dc.checked){parts.push(f.dc.isDC?'domain controller'+(vmArr(f.dc.roles).length?' ('+vmArr(f.dc.roles).join(', ')+')':''):'not a domain controller');}
+    if(f.sql&&f.sql.checked){var n=vmArr(f.sql.instances).length;parts.push(n?vmPlural(n,'SQL Server instance'):'no SQL Server');}
+    var bad=0;vmArr((vmReadiness(vm)||{}).findings).forEach(function(x){if(/^(dc|sql|preflight)-/.test(x.code)&&x.severity!=='info'){bad++;}});
+    return 'Checked '+when+': '+parts.join(', ')+(bad?'; '+vmPlural(bad,'item')+' in readiness.':'; checks passed.');
+  }
+  function renderPreflightPanel(box,vms,prefix,title){
+    var st=pfState(),wrap=el('div','pf-panel');wrap.id=prefix+'Panel';wrap.setAttribute('data-pf-panel',prefix);
+    if(title){wrap.appendChild(el('strong','pf-title',title));}
+    wrap.appendChild(el('div','migrate-help','Optional and read only. Runs on this computer ('+(vmComputer()||'this computer')+') and reaches each server over PowerShell remoting (WinRM, TCP 5985); nothing is installed, copied or changed on it. Domain controllers: dcdiag, repadmin /showrepl, SYSVOL, FSMO roles, USN rollback and the time source. SQL Server: instances, version and edition, failover cluster and availability groups, recovery models and last backups, TDE, service accounts and the VSS writer. The results are added to readiness and the reports.'));
+    var vmsWin=vms.filter(pfWindows),skipped=vms.length-vmsWin.length;
+    if(!vmsWin.length){wrap.appendChild(el('div','migrate-detail','None of these VMs runs Windows, so there is nothing to check.'));box.appendChild(wrap);return wrap;}
+    var checks=el('div','pf-checks');
+    [['dc','Domain controller'],['sql','SQL Server']].forEach(function(c){var label=el('label','vm-check'),cb=document.createElement('input');cb.type='checkbox';cb.checked=!!pfForm[c[0]];cb.id=prefix+(c[0]==='dc'?'Dc':'Sql');cb.addEventListener('change',function(){pfForm[c[0]]=cb.checked;pfUpdate();});label.appendChild(cb);label.appendChild(el('span','',c[1]));checks.appendChild(label);});
+    wrap.appendChild(checks);
+    var table=el('table','pf-table'),head=el('tr','');['VM','Computer name or IP address','How','Last check'].forEach(function(h){head.appendChild(el('th','',h));});var thead=el('thead','');thead.appendChild(head);table.appendChild(thead);
+    var tbody=el('tbody','');
+    vmsWin.slice(0,100).forEach(function(vm){
+      var tr=el('tr','');tr.setAttribute('data-pf-vm',vm.id);
+      var name=el('td','');name.appendChild(el('strong','',vm.name));var why=pfLikely(vm);if(why){name.appendChild(el('div','vm-note','Named like a '+why));}tr.appendChild(name);
+      var tdc=el('td',''),input=document.createElement('input');input.type='text';input.maxLength=253;input.spellcheck=false;input.autocomplete='off';input.setAttribute('aria-label','Computer name or IP address of '+vm.name);input.setAttribute('data-pf-computer',vm.id);input.value=pfComputerOf(vm);input.placeholder='dc01.example.com';
+      input.addEventListener('input',function(){pfForm.computers[vm.id]=input.value;pfUpdate();});tdc.appendChild(input);tr.appendChild(tdc);
+      var tdv=el('td',''),sel=document.createElement('select');sel.setAttribute('aria-label','How to reach '+vm.name);sel.setAttribute('data-pf-via',vm.id);sel.appendChild(new Option('PowerShell remoting','winrm'));
+      if(st.directHere&&vm.source==='hyperv'){sel.appendChild(new Option('PowerShell Direct (this Hyper-V host)','direct'));}
+      sel.value=pfForm.via[vm.id]==='direct'&&sel.options.length>1?'direct':'winrm';sel.addEventListener('change',function(){pfForm.via[vm.id]=sel.value;input.disabled=sel.value==='direct';pfUpdate();});input.disabled=sel.value==='direct';tdv.appendChild(sel);tr.appendChild(tdv);
+      var last=el('td','pf-last');last.setAttribute('data-pf-last',vm.id);tr.appendChild(last);
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);var scroll=el('div','pf-table-wrap');scroll.appendChild(table);wrap.appendChild(scroll);
+    if(vmsWin.length>100){wrap.appendChild(el('div','vm-note','Only the first 100 are checked in one run.'));}
+    if(skipped){wrap.appendChild(el('div','vm-note',vmPlural(skipped,'selected VM')+' that '+(skipped===1?'does':'do')+' not run Windows '+(skipped===1?'is':'are')+' left out.'));}
+    var acct=el('div','pf-account');acct.setAttribute('data-pf-account','1');wrap.appendChild(acct);pfRenderAccount(acct,prefix);
+    var row=el('div','vm-move-actions'),run=el('button','primary-button','Run the checks');run.type='button';run.id=prefix+'Run';
+    run.addEventListener('click',function(){pfRun(vmsWin.slice(0,100),prefix);});row.appendChild(run);
+    var stop=el('button','secondary-button','Stop after this server');stop.type='button';stop.id=prefix+'Stop';stop.addEventListener('click',function(){request('POST','/api/vmware/preflight/stop',{},function(err){if(err){pfMsg[prefix]={text:err,error:true};}pfUpdate();});});row.appendChild(stop);
+    wrap.appendChild(row);
+    var status=el('div','migrate-inline-status');status.id=prefix+'Status';status.setAttribute('role','status');wrap.appendChild(status);
+    box.appendChild(wrap);pfUpdate();return wrap;
+  }
+  function pfRenderAccount(acct,prefix){
+    var st=pfState();acct.textContent='';acct.setAttribute('data-pf-has',st.hasPassword?st.user:'');
+    if(st.hasPassword){
+      var line=el('div','migrate-detail good','Checks sign in as '+st.user+'. The password is held in memory only, until you use your own account or close the application. ');
+      var own=el('button','link-button','Use my Windows account');own.type='button';own.id=prefix+'Own';own.addEventListener('click',function(){request('POST','/api/vmware/preflight/forget',{},function(err){if(err){pfMsg[prefix]={text:err,error:true};}else{var p=pfState();p.user='';p.hasPassword=false;pfRefreshAccounts();}pfUpdate();});});line.appendChild(own);acct.appendChild(line);return;
+    }
+    acct.appendChild(el('div','migrate-help','Leave the account empty to use the Windows account running this application'+(latestState&&latestState.signedInAccount?' ('+latestState.signedInAccount+')':'')+'. Otherwise type an administrator of the servers (a domain admin for domain controllers; for SQL Server, a login with sysadmin or VIEW SERVER STATE). It is held in memory only and never saved.'));
+    [['user','Account (optional)','text','EXAMPLE\\admin'],['password','Password','password','']].forEach(function(x){var label=el('label','vm-field'),input=document.createElement('input');input.type=x[2];input.maxLength=256;input.autocomplete='off';input.spellcheck=false;input.id=prefix+(x[0]==='user'?'User':'Password');if(x[3]){input.placeholder=x[3];}input.value=pfForm[x[0]]||'';input.addEventListener('input',function(){pfForm[x[0]]=input.value;pfUpdate();});label.appendChild(el('span','',x[1]));label.appendChild(input);acct.appendChild(label);});
+  }
+  function pfRefreshAccounts(){document.querySelectorAll('[data-pf-panel]').forEach(function(w){var a=w.querySelector('[data-pf-account]');if(a){pfRenderAccount(a,w.getAttribute('data-pf-panel'));}});}
+  function pfRun(vms,prefix){
+    var items=[];vms.forEach(function(vm){var via=pfForm.via[vm.id]==='direct'?'direct':'winrm';items.push({id:vm.id,computer:via==='direct'?'':trimText(pfComputerOf(vm)),via:via});});
+    var checks=[];if(pfForm.dc){checks.push('dc');}if(pfForm.sql){checks.push('sql');}
+    var body={items:items,checks:checks};if(!pfState().hasPassword&&trimText(pfForm.user)){body.user=trimText(pfForm.user);body.password=pfForm.password||'';}
+    pfMsg[prefix]={text:'',error:false};
+    request('POST','/api/vmware/preflight/run',body,function(err){
+      if(err){pfMsg[prefix]={text:err,error:true};pfUpdate();return;}
+      pfForm.password='';var p=pfState();p.running=true;p.message='Checking '+vmPlural(items.length,'server')+' (read only).';p.items=items.map(function(i){return {id:i.id,state:'waiting',summary:''};});
+      if(body.user){p.user=body.user;p.hasPassword=true;}
+      pfRefreshAccounts();
+      pfUpdate();
+    });
+  }
+  // Refreshes the live parts of every open checks panel without rebuilding
+  // the fields being typed in.
+  function pfUpdate(){
+    var st=pfState(),panels=document.querySelectorAll('[data-pf-panel]');
+    for(var i=0;i<panels.length;i++){
+      var w=panels[i],prefix=w.getAttribute('data-pf-panel'),acct=w.querySelector('[data-pf-account]');
+      if(acct&&acct.getAttribute('data-pf-has')!==(st.hasPassword?st.user:'')&&!acct.contains(document.activeElement)){pfRenderAccount(acct,prefix);}
+      var rows=w.querySelectorAll('[data-pf-vm]'),missing=0;
+      for(var r=0;r<rows.length;r++){
+        var id=rows[r].getAttribute('data-pf-vm'),vm=vmFindVm(id),item=pfItemOf(id),cell=rows[r].querySelector('[data-pf-last]'),input=rows[r].querySelector('[data-pf-computer]'),sel=rows[r].querySelector('[data-pf-via]');
+        if(input){input.disabled=!!st.running||(sel&&sel.value==='direct');if(!(sel&&sel.value==='direct')&&!trimText(input.value)){missing++;}}if(sel){sel.disabled=!!st.running;}
+        var text=item&&(item.state==='waiting'||item.state==='running')?(item.state==='running'?'Checking now…':'Waiting…'):(vm?pfLast(vm):'');
+        if(cell&&cell.textContent!==text){cell.textContent=text;}
+        if(cell){cell.className='pf-last'+(item&&item.state==='running'?' running':'')+(vm&&vm.preflight&&vm.preflight.error?' failed':'');}
+      }
+      var run=byId(prefix+'Run'),stop=byId(prefix+'Stop'),why='';
+      if(st.running){why='';}else if(!pfForm.dc&&!pfForm.sql){why='Tick domain controller, SQL Server or both.';}else if(missing){why='Type the computer name or IP address of '+vmPlural(missing,'VM')+'.';}else if(!st.hasPassword&&trimText(pfForm.user)&&!pfForm.password){why='Type the password, or clear the account to use your own.';}
+      if(run){run.disabled=!!st.running||!!why;run.textContent=st.running?'Checking…':'Run the checks on '+vmPlural(rows.length,'server');run.title=why;}
+      if(stop){stop.classList.toggle('hidden',!st.running);stop.disabled=!!st.stopping;}
+      w.querySelectorAll('.pf-checks input').forEach(function(cb){cb.disabled=!!st.running;});
+      var status=byId(prefix+'Status');if(status){var m=pfMsg[prefix]&&pfMsg[prefix].text?pfMsg[prefix]:{text:why||st.message||'',error:!why&&!!st.failed};if(st.running){m={text:st.message||'',error:false};}status.textContent=m.text;status.className='migrate-inline-status'+(m.error?' error':'');}
+    }
+  }
+  function vmFindVm(id){var list=vmArr(vmInventory&&vmInventory.vms);for(var i=0;i<list.length;i++){if(list[i].id===id){return list[i];}}return null;}
+  // The check's facts on the VM's readiness page.
+  function renderVmPreflight(box,vm){
+    if(!pfWindows(vm)){return;}
+    var s=vmDrawerSection(box,'Domain controller and SQL Server checks','Optional, read only');s.id='pfVmSection';
+    var p=vm.preflight;
+    if(p&&vmArr(p.summary).length){s.appendChild(vmKv(vmArr(p.summary).map(function(r){return [r[0],r[1]];})));}
+    else if(p&&p.error){s.appendChild(el('div','migrate-detail warning',pfLast(vm)));}
+    renderPreflightPanel(s,[vm],'pfVm');
+  }
   function vmAfterCutover(box,vm,form){
     form=form||vmAfterForm;var hv=vm.source==='hyperv',checks={};
     box.appendChild(el('div','vm-subhead','After the cutover'));
@@ -5918,6 +6029,8 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     var by=document.createElement('select');by.setAttribute('aria-label','Select VMs by host, cluster, folder, wave, readiness or power');by.setAttribute('data-vm-pickby',where);vmPickByOptions(by);
     by.addEventListener('change',function(){if(by.value){vmPickBy(by.value);}});row.appendChild(by);
     if(where==='list'){var all=el('button','secondary-button','Select every VM that matches');all.type='button';all.setAttribute('data-bulk','all');all.disabled=!vmTableMatches.length;all.addEventListener('click',function(){vmSetPicked(vmTableMatches,true);});row.appendChild(all);}
+    if(where==='list'){var pfb=el('button','secondary-button','SQL and DC checks…');pfb.type='button';pfb.setAttribute('data-bulk','preflight');pfb.title=n?'Check the selected VMs for domain controller and SQL Server health, read only':'Select the VMs named like domain controllers or SQL Servers and check them, read only';
+      pfb.addEventListener('click',function(){if(!n){var likely=vmArr(vmInventory.vms).filter(function(vm){return pfLikely(vm);}).map(function(vm){return vm.id;});if(!likely.length){vmBulkMsg.list='No VM is named like a domain controller or SQL Server. Tick the VMs to check, then press SQL and DC checks again.';vmBulkMsg.listError=false;renderVmBulk();return;}vmBulkOpen='preflight';vmSetPicked(likely,true);return;}vmBulkOpen=vmBulkOpen==='preflight'?'':'preflight';renderVmBulk();});row.appendChild(pfb);}
     if(n){var clear=el('button','secondary-button','Clear selection');clear.type='button';clear.setAttribute('data-bulk','clear');clear.addEventListener('click',function(){vmPicked={};vmBulkOpen='';vmPickChanged();});row.appendChild(clear);}
     box.appendChild(row);
     if(n&&vmPlan){
@@ -5943,6 +6056,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     if(vmBulkMsg[where]){var msg=el('div','migrate-inline-status'+((where==='plan'?vmBulkMsg.planError:vmBulkMsg.listError)?' error':''),vmBulkMsg[where]);msg.setAttribute('role','status');box.appendChild(msg);}
     if(where==='list'&&n&&vmBulkOpen==='prepare'){renderVmBulkPrepare(box,ids,v);}
     if(where==='list'&&n&&vmBulkOpen==='networks'){renderVmBulkNetworks(box,ids);}
+    if(where==='list'&&n&&vmBulkOpen==='preflight'){renderPreflightPanel(box,ids.map(vmFindVm).filter(function(vm){return vm;}),'pfBulk','Domain controller and SQL Server checks for the selected VMs');}
   }
   function renderVmBulkPrepare(box,ids,v){
     var panel=el('div','vm-bulk-panel');panel.id='vmBulkPrepare';panel.appendChild(el('strong','','Prepare the selected VMs on VMware'));
@@ -7947,6 +8061,10 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       ul.appendChild(li);});
     box.appendChild(ul);
     var batch=vmArr((vmwareState()||{}).prepareBatch);if(batch.length){var bs=el('div','vm-note','Snapshots: '+batch.map(function(i){return i.vm+' '+i.state;}).join(', ')+'.');box.appendChild(bs);}
+    var pfVms=picked.filter(pfWindows);
+    if(pfVms.length){var pfd=el('details','pf-details');pfd.id='nwPreflight';if(picked.some(function(vm){return pfLikely(vm)&&!vm.preflight;})){pfd.open=true;}
+      var pfs=el('summary','','Optional: check domain controllers and SQL Servers first ('+vmPlural(pfVms.filter(function(vm){return vm.preflight;}).length,'VM')+' of '+pfVms.length+' checked)');pfd.appendChild(pfs);
+      renderPreflightPanel(pfd,pfVms.filter(function(vm){return pfLikely(vm);}).concat(pfVms.filter(function(vm){return !pfLikely(vm);})),'pfNw');box.appendChild(pfd);}
     var name=nwInput('nwName',nw.name);name.maxLength=100;box.appendChild(nwField('Name of this migration',name,'Shown in the status and in Migration plans.'));
     var conf=nwInput('nwConfirm',nw.confirm,'Type the name again');conf.setAttribute('aria-label','Type the name again to start');box.appendChild(nwField('Type the name again to start',conf,'Start saves the network map and waves, creates the migration and schedules the timed cutovers. Copies only read the VMs; nothing is shut down until a cutover.'));
   }

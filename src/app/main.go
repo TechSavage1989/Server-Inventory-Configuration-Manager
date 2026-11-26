@@ -281,6 +281,9 @@ type application struct {
 	// in memory only, until Forget or exit; fixups is each VM's result.
 	guestAuto guestAutoAccount
 	fixups    guestFixBoard
+	// preflight is the optional domain controller and SQL Server checks
+	// (preflight_windows.go); its password stays in memory only.
+	preflight preflightRuntime
 	plans     mbRuntime
 	vmReceive vmReceiverRuntime
 	transfers *vmTransferBoard
@@ -2401,6 +2404,7 @@ func (a *application) serve(listener net.Listener) error {
 	mux.HandleFunc("/api/vmware/guest/", a.handleVMwareGuest)
 	mux.HandleFunc("/api/vmware/guest-load", a.handleVMwareGuestLoad)
 	mux.HandleFunc("/api/vmware/guest-auto", a.handleGuestAuto)
+	mux.HandleFunc("/api/vmware/preflight/", a.handlePreflight)
 	mux.HandleFunc("/api/vmware/guest-auto/", a.handleGuestAuto)
 	mux.HandleFunc("/api/vmware/guest-target", a.handleGuestTarget)
 	mux.HandleFunc("/api/vmware/guest-target/", a.handleGuestTarget)

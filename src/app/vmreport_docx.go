@@ -857,6 +857,14 @@ func vmDocxVMs(d *vmDocx, model *vmReportModel) {
 			rows = append(rows, []vmDocxCell{{XML: dxBold(status.Label)}, cell, {XML: findings.String()}})
 		}
 		d.table([]int{16, 12, 72}, []string{"Target", "Readiness", "Findings and fixes"}, rows)
+		if len(vm.Checks) > 0 {
+			d.para("Lead", dxBold("Domain controller and SQL Server checks"))
+			checks := make([][2]string, 0, len(vm.Checks))
+			for _, row := range vm.Checks {
+				checks = append(checks, [2]string{row[0], dxText(row[1])})
+			}
+			d.kv(checks)
+		}
 		if len(vm.Disks) > 0 {
 			rows = nil
 			for _, disk := range vm.Disks {
