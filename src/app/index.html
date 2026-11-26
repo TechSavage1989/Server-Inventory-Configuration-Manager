@@ -480,6 +480,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
 .vm-pick-col{width:26px;text-align:center}.vm-pick-col input{width:15px;height:15px;margin:0;accent-color:#2563eb;cursor:pointer}.vm-table tr.picked{background:#f1f6ff}
 .vm-bulk{display:flex;flex-direction:column;gap:6px;margin-top:8px}.vm-bulk:empty{display:none}.vm-bulk-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px}.vm-bulk-row select{height:30px;max-width:260px;border:1px solid #bcc9d9;border-radius:7px;padding:0 6px;font:inherit;font-size:12px;background:#fff}.vm-bulk-row .secondary-button{padding:5px 10px;font-size:12px}.vm-bulk-count{font-size:12.5px;color:#1b2942;margin-right:4px}
 .pf-panel{border:1px solid #d5dfec;border-radius:9px;padding:10px 12px;background:#f8fbff;margin-top:8px}.pf-title{display:block;font-size:12.5px}.pf-checks{display:flex;flex-wrap:wrap;gap:4px 16px;margin:6px 0}.pf-table-wrap{overflow-x:auto;max-height:340px;overflow-y:auto;margin:6px 0}.pf-table{width:100%;border-collapse:collapse;font-size:12.5px}.pf-table th{text-align:left;font-weight:600;color:#52647c;padding:4px 6px;border-bottom:1px solid #dbe3ed;white-space:nowrap}.pf-table td{padding:4px 6px;border-bottom:1px solid #eef2f7;vertical-align:top}.pf-table input[type=text]{width:100%;min-width:140px;box-sizing:border-box}.pf-table select{max-width:100%}.pf-last{color:#344256;min-width:180px}.pf-last.running{color:#1d4ed8;font-weight:600}.pf-last.failed{color:#b42318}.pf-account{margin:6px 0}.pf-details>summary{cursor:pointer;font-weight:600;font-size:13px;padding:6px 0}
+.nw-enc{display:block;font-size:11px;color:#475569}.nw-enc.need{color:#9a3412;font-weight:600}.nw-batch{margin:10px 0}.nw-batch-list{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:6px}.nw-batch-item{border-top:1px solid #e3e9f2;padding-top:6px}.nw-batch-head{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}.nw-batch-state{font-size:11px;font-weight:700;color:#475569}.nw-batch-item.running .nw-batch-state{color:#1d4ed8}.nw-batch-item.done .nw-batch-state{color:#15803d}.nw-batch-item.failed .nw-batch-state,.nw-batch-error{color:#b91c1c}.nw-batch-error{font-size:12px}
 .vm-bulk-panel{border:1px solid #d5dfec;border-radius:9px;padding:10px 12px;background:#f8fbff}.vm-bulk-panel>strong{display:block;font-size:12.5px}.vm-bulk-panel .primary-button,.vm-bulk-panel .secondary-button{margin-top:8px}.vm-bulk-skip td{color:#6a7a8f}.vm-bulk-batch:empty{display:none}.vm-bulk-batch{margin-top:8px}.vm-bulk-bar{height:6px;border-radius:3px;background:#e3e9f2;margin-top:6px;overflow:hidden}.vm-bulk-bar span{display:block;height:100%;background:#2563eb}
 .vm-inline-check{margin-top:0;font-size:12px}.vm-why{font-size:11.5px;color:#52647c;min-width:160px}
 .vm-wave-board{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px;margin-top:10px}
@@ -7721,7 +7722,22 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     if(used&&used[vm.id]){return 'Already in the migration '+used[vm.id];}
     if(vm.template){return 'A template: not moved';}
     if(r.status==='skip'){return 'A system VM: not moved';}
+    if(r.status==='blocked'&&nwDecryptable(vm)){return '';}
     if(r.status==='blocked'){var f=vmArr(r.findings).filter(function(x){return x.severity==='blocker';})[0];return 'Blocked: '+(f?f.message:'see its readiness in Discovery')+(vmDisksEncrypted(vm)?' Replicate servers can copy it with an agent.':'');}
+    return '';
+  }
+  // A VMware VM whose only blocker is encrypted disks (known from this
+  // session's read) can be picked: Review decrypts it in place (nwDecrypt).
+  function nwDecryptable(vm){
+    if(!vm||vm.source==='hyperv'||!vm.encryptionRead||!vmDisksEncrypted(vm)||vm.template){return false;}
+    var blockers=vmArr(nwHyperVReadiness(vm).findings).filter(function(x){return x.severity==='blocker';});
+    return blockers.length>0&&blockers.every(function(x){return x.code==='encrypted';});
+  }
+  // A short encryption note for a VM row, or ''.
+  function nwEncryptionNote(vm){
+    if(!vm||!vm.encrypted||vm.source==='hyperv'){return '';}
+    if(nwDecryptable(vm)){return 'Encrypted disks: tick it and decrypt it in Review';}
+    if(!vmDisksEncrypted(vm)){return 'Only its own files are encrypted (virtual TPM): the disks copy as they are';}
     return '';
   }
   function nwPickedVMs(){var out=[];vmArr(vmInventory&&vmInventory.vms).forEach(function(vm){if(nw.picks[vm.id]){out.push(vm);}});return out;}
@@ -7789,6 +7805,10 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     var dup=picked.filter(function(vm){return used[vm.id];});if(dup.length){add('block',dup.map(function(vm){return vm.name;}).join(', ')+' '+(dup.length===1?'is':'are')+' already in another migration. Take '+(dup.length===1?'it':'them')+' out in What.');}
     var snaps=picked.filter(function(vm){return vm.source!=='hyperv'&&vmArr(vm.snapshots).length>0;});
     if(snaps.length){add('block',vmPlural(snaps.length,'VM')+' '+(snaps.length===1?'has':'have')+' VMware snapshots, and copies refuse a VM with snapshots: '+snaps.map(function(vm){return vm.name;}).join(', ')+'.','snapshots');}
+    var enc=picked.filter(nwDecryptable),unknown=picked.filter(function(vm){return vmDisksEncrypted(vm)&&!nwDecryptable(vm);}),home=picked.filter(function(vm){return vm.encrypted&&vm.source!=='hyperv'&&!vmDisksEncrypted(vm);});
+    if(enc.length){add('block',vmPlural(enc.length,'VM')+' '+(enc.length===1?'has':'have')+' disks encrypted with vSphere VM Encryption, which no other platform can read: '+enc.map(function(vm){return vm.name;}).join(', ')+'. Decrypt '+(enc.length===1?'it':'them')+' here; Start is ready as soon as the decryption finishes.','decrypt');}
+    if(unknown.length){add('block','This inventory does not say whether the disks of '+unknown.map(function(vm){return vm.name;}).join(', ')+' or only '+(unknown.length===1?'its':'their')+' own files are encrypted. Read vCenter again in What.','reread');}
+    if(home.length){add('ok',home.map(function(vm){return vm.name;}).join(', ')+': only the VM\'s own files are encrypted (for its virtual TPM). The disks are plain and copy as they are, so nothing needs decrypting.');}
     var off=picked.filter(function(vm){return vm.powerState!=='poweredOn';}).length;if(off){add('ok',vmPlural(off,'VM')+' '+(off===1?'is':'are')+' turned off: '+(off===1?'it is':'they are')+' copied as they are.');}
     return list;
   }
@@ -7880,7 +7900,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     if(nw.step===4&&v.hvRemote){base+='|'+v.hvRemote.serial;}
     if((nw.step===1||nw.step===2)&&v.target){base+='|t'+v.target.serial+(v.target.connected?'c':'')+(v.target.certificate?'x':'')+'|'+(v.move?v.move.vm+(v.move.error||''):'');}
     if(nwSrvMode()){return base+'|srv|'+nwSrvSig()+'|'+nw.target+nw.method;}
-    if(nw.step===4){base+='|'+JSON.stringify(nwChecks())+'|'+JSON.stringify(v.prepareBatch||null);}
+    if(nw.step===4){base+='|'+JSON.stringify(nwChecks())+'|'+JSON.stringify(v.prepareBatch||null)+'|'+(v.running?v.action:'')+(v.cancelRequested?'c':'');}
     return base;
   }
   function renderNw(){
@@ -7978,12 +7998,14 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       var row=el('label','nw-vm'+(why?' disabled':'')),cb=document.createElement('input');cb.type='checkbox';cb.setAttribute('data-nw-pick',vm.id);cb.checked=!!nw.picks[vm.id];cb.disabled=!!why;cb.setAttribute('aria-label','Move '+vm.name);
       row.appendChild(cb);row.appendChild(el('strong','',vm.name));row.appendChild(vmChip(nwHyperVReadiness(vm).status));
       row.appendChild(el('span','vm-note',why||[vm.host,vmPower(vm),vm.usedBytes?formatBytesShort(vm.usedBytes)+' used':''].filter(function(x){return x;}).join(' · ')));
+      var enc=why?'':nwEncryptionNote(vm);if(enc){row.appendChild(el('span','nw-enc'+(nwDecryptable(vm)?' need':''),enc));}
       list.appendChild(row);
     });
     if(shown>vmRowLimit){list.appendChild(el('div','vm-note','Showing the first '+vmRowLimit+' of '+shown+'. Search to narrow the list.'));}
     if(!shown){list.appendChild(el('div','vm-note','No VM matches.'));}
     var picked=nwPickedVMs(),count=document.querySelector('[data-nw="count"]');
-    if(count){count.textContent=picked.length?vmPlural(picked.length,'VM')+' ticked, about '+formatBytesShort(nwUsedBytes())+' to copy.':'No VMs ticked yet.';}
+    var encN=picked.filter(nwDecryptable).length;
+    if(count){count.textContent=picked.length?vmPlural(picked.length,'VM')+' ticked, about '+formatBytesShort(nwUsedBytes())+' to copy.'+(encN?' '+vmPlural(encN,'VM')+' '+(encN===1?'has':'have')+' encrypted disks: Review decrypts '+(encN===1?'it':'them')+' before the copies start.':''):'No VMs ticked yet.';}
     renderNwNav();
   }
   function nwPickBy(value){
@@ -8218,12 +8240,14 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     box.appendChild(nwHeading('Checks'));
     var ul=el('ul','nw-checks');
     nwChecks().forEach(function(c){var li=el('li','nw-check '+c.s);li.appendChild(el('span','nw-check-icon',{ok:'OK',warn:'Note',block:'Fix'}[c.s]));li.appendChild(el('span','',c.t));
-      if(c.fix==='snapshots'){var b=el('button','secondary-button','Remove snapshots on these VMs…');b.type='button';b.id='nwSnapshots';li.appendChild(b);}
+      if(c.fix==='snapshots'){var b=el('button','secondary-button','Remove snapshots on these VMs…');b.type='button';b.id='nwSnapshots';b.disabled=vmLocked();li.appendChild(b);}
+      if(c.fix==='decrypt'){var dn=nwPickedVMs().filter(nwDecryptable).length,db=el('button','secondary-button','Decrypt '+vmPlural(dn,'VM')+'…');db.type='button';db.id='nwDecrypt';db.disabled=vmLocked()||!(vmwareState()||{}).canPrepare;li.appendChild(db);}
+      if(c.fix==='reread'){var rr=el('button','secondary-button','Read vCenter again');rr.type='button';rr.setAttribute('data-nw-step','0');li.appendChild(rr);}
       if(c.fix==='where'){var gw=el('button','secondary-button',/switch/i.test(c.t)?'Choose the switch in Where':'Connect in Where');gw.type='button';gw.setAttribute('data-nw-step','1');li.appendChild(gw);}
       if(c.fix==='vcpass'){var g=el('button','secondary-button','Sign in again');g.type='button';g.setAttribute('data-nw-step','0');li.appendChild(g);}
       ul.appendChild(li);});
     box.appendChild(ul);
-    var batch=vmArr((vmwareState()||{}).prepareBatch);if(batch.length){var bs=el('div','vm-note','Snapshots: '+batch.map(function(i){return i.vm+' '+i.state;}).join(', ')+'.');box.appendChild(bs);}
+    var bp=nwBatchPanel();if(bp){box.appendChild(bp);}
     var pfVms=picked.filter(pfWindows);
     if(pfVms.length){var pfd=el('details','pf-details');pfd.id='nwPreflight';if(picked.some(function(vm){return pfLikely(vm)&&!vm.preflight;})){pfd.open=true;}
       var pfs=el('summary','','Optional: check domain controllers and SQL Servers first ('+vmPlural(pfVms.filter(function(vm){return vm.preflight;}).length,'VM')+' of '+pfVms.length+' checked)');pfd.appendChild(pfs);
@@ -8239,6 +8263,55 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     openMigrateDialog({title:'Remove snapshots on '+label,understand:'I understand every snapshot of '+label+' is removed in vSphere',path:'/api/vmware/prepare',field:'confirm',body:{items:items},expected:label,label:'Type the number of VMs to confirm',button:'Remove snapshots on '+label,
       alert:'Removing snapshots merges them into the disks; the VMs keep running. You cannot go back to a removed snapshot.',paragraphs:['vSphere does this on one VM after another and saves each VM\'s settings first. When it finishes, the inventory is read again.'],list:lines,
       after:function(){vmMarkRunning('prepare','preparing','Removing snapshots on '+label+', one at a time.');renderNw();}});
+  }
+  // The steps that decrypt one VM: vSphere decrypts only a powered-off VM
+  // with no snapshots and no virtual TPM (vmware_prepare.go).
+  function nwDecryptSteps(vm){return {snapshots:vmArr(vm.snapshots).length>0||!!vm.consolidationNeeded,shutdown:vm.powerState==='poweredOn',removeTpm:!!vm.vtpm,decrypt:true};}
+  function nwDecrypt(){
+    var vms=nwPickedVMs().filter(nwDecryptable);if(!vms.length||vmLocked()){return;}
+    var items=[],lines=[],bytes=0,tpm=0,noTools=[];
+    vms.forEach(function(vm){var st=nwDecryptSteps(vm),bits=[];items.push({vmId:vm.id,steps:st});
+      if(st.snapshots){bits.push('delete '+vmPlural(vmArr(vm.snapshots).length,'snapshot'));}if(st.shutdown){bits.push('shut down');if(!vm.toolsRunning){noTools.push(vm.name);}}if(st.removeTpm){bits.push('remove the virtual TPM');tpm++;}bits.push('decrypt');
+      var enc=vmArr(vm.disks).filter(function(d){return d.encrypted;}),size=0;enc.forEach(function(d){size+=d.capacityBytes||0;});bytes+=size;
+      lines.push(vm.name+': '+bits.join(', ')+' ('+vmPlural(enc.length,'encrypted disk')+(size?', '+formatBytesShort(size):'')+')');});
+    var label=vmPlural(items.length,'VM'),paragraphs=[
+      'Decrypting turns off vSphere VM Encryption, so the disks can be copied to Hyper-V like any other disk. vSphere does it on one VM after another; each VM\'s settings are saved first.',
+      'Each VM is shut down through VMware Tools (never forced) and stays off afterwards: vSphere decrypts only a powered-off VM. Start it again in vSphere when its decryption is done if it must keep running until the cutover; the copies work either way.',
+      'vSphere rewrites every encrypted disk in place, so it takes about as long as copying them: '+formatBytesShort(bytes)+' here, often 10 to 30 minutes per 100 GB depending on the storage. The key provider must be online, and the VM storage policy must then be one without encryption.',
+      'Progress shows under the checks. Stop skips the VMs not started yet; a VM being decrypted always finishes.'];
+    if(noTools.length){paragraphs.push('VMware Tools is not running in '+noTools.join(', ')+', so '+(noTools.length===1?'it':'they')+' cannot be shut down cleanly: shut '+(noTools.length===1?'it':'them')+' down from inside the guest first, or '+(noTools.length===1?'it':'they')+' will fail and the rest go on.');}
+    var alert=tpm?'Removing the virtual TPM: if Windows uses BitLocker with the TPM, it asks for the recovery key at the next start. Make sure you have the recovery keys (or BitLocker is suspended) before you go on.':'';
+    openMigrateDialog({title:'Decrypt '+label,path:'/api/vmware/prepare',field:'confirm',body:{items:items},expected:vmPrepareCountText(items.length),label:'Type the number of VMs to confirm',understand:'I understand: '+(items.length===1?'this VM is':'these VMs are')+' shut down and decrypted, which takes a while',button:'Decrypt '+label,
+      alert:alert,paragraphs:paragraphs,list:lines,
+      after:function(){vmMarkRunning('prepare','preparing','Decrypting '+label+', one at a time.');renderNw();}});
+  }
+  function vmPrepareCountText(n){return n===1?'1 VM':n+' VMs';}
+  // Live progress of a Prepare on VMware batch (decrypt or snapshots).
+  function nwBatchPanel(){
+    var v=vmwareState()||{},list=vmArr(v.prepareBatch);if(!list.length){return null;}
+    var done=list.filter(function(i){return i.state==='done';}).length,failed=list.filter(function(i){return i.state==='failed';}).length,running=v.running&&v.action==='prepare';
+    var panel=el('div','vm-bulk-panel nw-batch');panel.id='nwBatch';panel.setAttribute('aria-live','polite');
+    panel.appendChild(el('strong','',(running?'Preparing on VMware: ':'Prepared on VMware: ')+done+' of '+list.length+' done'+(failed?', '+failed+' failed':'')));
+    var whole=0;list.forEach(function(i){whole+=i.state==='running'?(i.percent>0?i.percent/100:0):(i.state==='waiting'?0:1);});
+    var bar=el('div','vm-bulk-bar'),fill=el('span','');fill.style.width=Math.round(whole*100/list.length)+'%';bar.appendChild(fill);panel.appendChild(bar);
+    var ul=el('ul','nw-batch-list');
+    list.forEach(function(item){
+      var li=el('li','nw-batch-item '+item.state);li.setAttribute('data-batch-vm',item.id);
+      var head=el('div','nw-batch-head');head.appendChild(el('strong','',item.vm));head.appendChild(el('span','nw-batch-state',vmBatchStateLabels[item.state]||item.state));
+      var start=item.startedAt?new Date(item.startedAt).getTime():0,end=item.endedAt?new Date(item.endedAt).getTime():Date.now();
+      if(start&&end>=start){head.appendChild(el('span','vm-note',mpDuration(Math.max(1,Math.round((end-start)/1000)))));}
+      li.appendChild(head);
+      if(item.state==='running'){
+        if(item.step){li.appendChild(el('div','vm-note',item.step));}
+        if(item.percent>=0){var b=el('div','vm-bulk-bar'),f=el('span','');f.style.width=item.percent+'%';b.appendChild(f);b.title=item.percent+'% decrypted';li.appendChild(b);li.appendChild(el('div','vm-note',item.percent+'% decrypted'));}
+      }
+      var bits=vmArr(item.done).concat(vmArr(item.skipped));if(bits.length&&(item.state==='done'||item.state==='failed')){li.appendChild(el('div','vm-note',bits.join(' ')));}
+      if(item.error){li.appendChild(el('div','nw-batch-error',item.error));}
+      ul.appendChild(li);
+    });
+    panel.appendChild(ul);
+    if(running){var stop=el('button','secondary-button','Stop after this VM');stop.type='button';stop.id='nwBatchStop';stop.disabled=!!v.cancelRequested;panel.appendChild(stop);}
+    return panel;
   }
   // Start: save the map and waves, create the plan, schedule timed cutovers.
   function nwStartAsk(){
@@ -8646,6 +8719,8 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     if(t.id==='nwPickReady'){var used=nwInPlans(),f=nw.filter.toLowerCase();vmArr(vmInventory&&vmInventory.vms).forEach(function(vm){if(f&&[vm.name,vm.host,vm.cluster,vm.folder].join(' ').toLowerCase().indexOf(f)<0){return;}if(!nwPickWhy(vm,used)&&nwHyperVReadiness(vm).status==='ready'){nw.picks[vm.id]=true;}});renderNwVmList();return;}
     if(t.id==='nwPickNone'){nw.picks={};renderNwVmList();return;}
     if(t.id==='nwSnapshots'){nwRemoveSnapshots();return;}
+    if(t.id==='nwDecrypt'){nwDecrypt();return;}
+    if(t.id==='nwBatchStop'){t.disabled=true;request('POST','/api/vmware/cancel',{},function(err){if(err){t.disabled=false;nw.error=err;renderNwNav();return;}var v=vmwareState();if(v){v.cancelRequested=true;}});return;}
     if(t.hasAttribute('data-nw-filter')){var fl=t.getAttribute('data-nw-filter');nw.statusFilter=(fl===nw.statusFilter||fl==='total')?'':fl;if(nw.statusKind==='servers'){renderNwSrvStatusBody();}else{renderNwStatusBody();}return;}
     if(t.hasAttribute('data-nw-pickwave')){var w=Number(t.getAttribute('data-nw-pickwave')),p=nwPlan();vmArr(p&&p.vms).forEach(function(v){if((v.wave||0)===w&&v.state!=='done'){nwRowsChosen[v.id]=true;}});nwStatusSig='';renderNwStatusBody();return;}
     if(t.hasAttribute('data-mp-test')){nwPlanAction({action:'test',id:nw.planId,vmIds:[t.getAttribute('data-mp-test')]});return;}

@@ -31,6 +31,7 @@ A step bar across the top (1 What, 2 Where, 3 How, 4 When, 5 Review, 6 Status). 
 5. **Review**
    - One summary of every choice, plus checks that block Start: this computer is a Hyper-V host, the vCenter session is live, there is enough space, every network is mapped, and no VM is in another plan.
    - VMware snapshots: VMs with snapshots are listed with **Remove snapshots on N VMs** (confirmed in the way chosen under Help, Settings; the existing batch Prepare), because copies refuse a VM with snapshots.
+   - VMware encryption: VMs with encrypted disks (flagged already in What) are listed with **Decrypt N VMs** (confirmed in the way chosen under Help, Settings; the same batch Prepare: snapshots, guest shutdown, virtual TPM, decrypt), with live progress under the checks; Start stays disabled until they are decrypted. VMs encrypted only for their virtual TPM copy as they are.
    - Confirm and press **Start** (by default a tick box: "I understand Start creates the migration ..."; Help, Settings can make it a dialog, the typed plan name or nothing, AGENTS.md rule 55). That saves the network map and waves, creates the migration plan and schedules any timed cutovers, all with that one confirmation.
 6. **Status**
    - The live view of what was started: clickable tiles (all, copying, ready, testing, scheduled, done, failed) that filter the list, and a progress bar, speed and time left per VM.

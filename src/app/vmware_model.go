@@ -416,6 +416,27 @@ func vmStaticNICs(vm vmMachine) []vmNIC {
 	return nics
 }
 
+// vmDisksEncrypted is true when a VMware VM's disks are, or may be,
+// encrypted with vSphere VM Encryption, so they cannot be copied until the
+// VM is decrypted. A VM whose own files only are encrypted (for a virtual
+// TPM) has plain disks that copy as they are. Older saved inventories do not
+// say which disks are encrypted, so they count as encrypted. Matches
+// vmDisksEncrypted in index.html.
+func vmDisksEncrypted(vm vmMachine) bool {
+	if !vm.Encrypted || vm.Source == "hyperv" {
+		return false
+	}
+	if !vm.EncryptionRead {
+		return true
+	}
+	for _, disk := range vm.Disks {
+		if disk.Encrypted {
+			return true
+		}
+	}
+	return false
+}
+
 // assessVM checks one VM against one target. Each finding names what was
 // found and what to do about it; the status is the worst severity.
 func assessVM(vm vmMachine, target string, now time.Time) vmReadiness {
