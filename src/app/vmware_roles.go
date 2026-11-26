@@ -21,12 +21,12 @@ func vmMoveRoles(target string) []vmMoveRole {
 	short := vmNonEmpty(profile.Short, "the target")
 	source := vmMoveRole{
 		Where: "The VMware VM being moved",
-		Does:  "Nothing has to be installed. Optional: run this application inside it as administrator to save BitLocker keys and record its IP settings (Migration and replication, Prepare and fix up) before the move.",
+		Does:  "Nothing has to be installed or run in it. Its IP settings are recorded from vCenter before each copy. With BitLocker on, save its recovery keys from your admin computer over PowerShell remoting (Migration and replication, Prepare and fix up) before the move.",
 		Needs: "VMware Tools running, so the guest can be quiesced and shut down cleanly.",
 	}
 	after := vmMoveRole{
 		Where: "The new " + vmTargetMachine(target) + ", after it starts",
-		Does:  "Run this application inside it as administrator (Migration and replication, Prepare and fix up) to put back the IP settings, remove VMware Tools and hidden old adapters and bring disks online. Then collect again and compare (Compare before and after).",
+		Does:  "Nothing has to be installed in it either: Prepare and fix up (Migration and replication) reaches it from the Hyper-V host through PowerShell Direct, or over the network with PowerShell remoting, to put back the IP settings, remove VMware Tools and hidden old adapters and bring disks online. Running this application inside it still works as a fallback. Then collect again and compare (Compare before and after).",
 		Needs: "Its network and storage drivers, installed before the move.",
 	}
 	switch target {
