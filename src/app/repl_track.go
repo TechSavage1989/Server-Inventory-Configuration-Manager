@@ -50,6 +50,23 @@ func replAllocatedRuns(bitmap []byte, total int64) []replRun {
 	return replBitRuns(total, func(i int64) bool { return bitmap[i/8]&(1<<(uint(i)%8)) != 0 })
 }
 
+// replClearRuns returns a copy of a volume bitmap with the clusters of runs
+// marked free (runs past total are cut off).
+func replClearRuns(bitmap []byte, total int64, runs []replRun) []byte {
+	if len(runs) == 0 {
+		return bitmap
+	}
+	out := append([]byte(nil), bitmap...)
+	for _, run := range runs {
+		for i := run.Start; i < run.Start+run.Count && i < total; i++ {
+			if i >= 0 && i/8 < int64(len(out)) {
+				out[i/8] &^= 1 << (uint(i) % 8)
+			}
+		}
+	}
+	return out
+}
+
 // replNewlyAllocated lists clusters set in current but not in previous.
 func replNewlyAllocated(previous, current []byte, total int64) []replRun {
 	return replBitRuns(total, func(i int64) bool {
