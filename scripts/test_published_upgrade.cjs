@@ -194,6 +194,7 @@ async function nativeProcess(exe,args,env){const child=spawn(exe,args,{env,windo
  const root=appRoot(badEnv);const health=path.join(root,'Health','intentionally-unconfirmed.json');await fsp.mkdir(path.dirname(health),{recursive:true});
  const code=await nativeProcess(stage,['--update-helper','--parent-pid','0','--target',badTarget,'--expected-version',expected,'--expected-sha256',manifest.asset.sha256,'--old-version',oldVersion,'--health-marker',health,'--health-token',crypto.randomUUID(),'--rollback',path.join(root,'Rollback','previous.exe'),'--rollback-meta',path.join(root,'Rollback','previous.json'),'--log',path.join(root,'Logs','Updates.log')],badEnv);
  check(code===17,'Missing healthy-start confirmation triggers the actual native rollback path');
+ const outcome=JSON.parse(await fsp.readFile(path.join(root,'Health','last-update.json'),'utf8'));check(outcome.status==='rollback'&&outcome.code===17&&outcome.target===expected&&outcome.version===oldVersion&&/healthy visible startup/.test(outcome.message),'Rollback records the attempted version and its reason for the next start');
  check(sha(await fsp.readFile(badTarget))===sha(oldBytes),'Rollback restores the previous executable bytes at a legacy versioned filename');
  const restoredURL=await urlFor(badEnv,oldVersion==='3.2.0');check((await state(restoredURL)).appVersion===oldVersion,'Rollback relaunches the previous application');
  check((await fsp.readFile(badSaved.path)).equals(badSaved.bytes),'Rollback preserves user settings');await stopApp(badEnv);
