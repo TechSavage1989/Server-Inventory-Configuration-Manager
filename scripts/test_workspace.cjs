@@ -245,7 +245,9 @@ async function fixture(browser,old=false){
  });
  await new Promise(r=>server.listen(0,'127.0.0.1',r));const context=await browser.newContext({viewport:{width:1440,height:1000}}),page=await context.newPage();
  page.on('dialog',async d=>{dialogs.push(d.message());await d.dismiss();});page.on('pageerror',e=>errors.push(e.message));
- const url='http://127.0.0.1:'+server.address().port+'/';await page.goto(url);await page.waitForFunction(()=>document.querySelector('#serverName').textContent==='SRV-DEMO-01');
+ const url='http://127.0.0.1:'+server.address().port+'/';
+ // A fixture that fails to load closes its own server and context; otherwise Node never exits and the job hangs until its timeout.
+ try{await page.goto(url);await page.waitForFunction(()=>document.querySelector('#serverName').textContent==='SRV-DEMO-01');}catch(e){await context.close().catch(()=>{});server.close();throw new Error('Fixture page did not load ('+errors.concat(dialogs).join('; ')+'): '+e.message);}
  return {page,context,state,pickCalls,rejectPick(message){pickReject=message},vm,repl,plans,planCalls,servers,serverCalls,failover,receiverPair,targetTest,replCalls,vmwareCalls,convertCalls,rejectConvert(action,message){convertReject[action]=message},setConvertSize(size){convertSize=size},rejectVmware(action,message){vmwareReject[action]=message},logs,dialogs,errors,started,skipRequests,opens,restoreCalls,migrateCalls,rejectMigrate(action,message){migrateReject[action]=message},rejectRestore(message){restoreReject=message},get saved(){return saved},get saveCalls(){return saveCalls},reject(){rejectStart=true},async close(){assert.deepEqual(errors,[]);await context.close();await new Promise(r=>server.close(r));}};
 }
 // Tools live in two tabs: Discovery (Alt+1) and Migration and replication (Alt+5).
@@ -1618,7 +1620,13 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   assert.deepEqual(start,{action:'start',confirm:'app01-test',request:{mode:'test',name:'APP01-TEST',copies:['APP01-disk0.vhdx','APP01-disk1.vhdx'],generation:2,cpus:6,memoryMB:12288,secureBoot:'windows',tpm:false,switch:'',vlan:0,start:true,adapters:2}});
   assert((await f.page.locator('#fvList').textContent()).includes('Do not activate the test VM'));assert((await f.page.locator('#fvNext').textContent()).includes('Test running: APP01-TEST'));
   assert((await f.page.locator('#fvCopies').textContent()).includes('in use: test failover APP01-TEST'));
-  const end=f.page.locator('[data-fv-end="f1"]');assert(await end.isDisabled());await f.page.locator('[data-fv-endname="f1"]').fill('APP01-TEST');assert(await end.isEnabled());
+  const end=f.page.locator('[data-fv-end="f1"]');assert(await end.isDisabled());
+  // The list refreshes every 4 seconds: an unchanged answer leaves the page alone (no jump while scrolled), and a changed one keeps what is typed and where.
+  await f.page.locator('[data-fv-endname="f1"]').fill('APP01');await f.page.evaluate(()=>{document.querySelector('#fvList li').simmMark=1;});await f.page.waitForTimeout(5500);
+  assert(await f.page.evaluate(()=>document.querySelector('#fvList li').simmMark===1),'an unchanged refresh rebuilt the list');
+  f.failover.copies[0].updated='2026-11-25T14:30:00Z';await f.page.waitForFunction(()=>document.querySelector('#fvList li').simmMark!==1,null,{timeout:10000});
+  assert.equal(await f.page.locator('[data-fv-endname="f1"]').inputValue(),'APP01');assert(await f.page.evaluate(()=>document.activeElement&&document.activeElement.getAttribute('data-fv-endname')==='f1'));
+  await f.page.locator('[data-fv-endname="f1"]').fill('APP01-TEST');assert(await end.isEnabled());
   await end.click();await f.page.waitForFunction(()=>document.querySelector('#fvRunning').classList.contains('hidden'));
   assert((await f.page.locator('#fvStatus').textContent()).includes('catches up'));
   assert((await f.page.locator('#fvNext').textContent()).includes('Next: cut over'));await f.page.locator('[data-fv-next="replicate"]').click();await f.page.waitForFunction(()=>!document.querySelector('#tabReplication').classList.contains('hidden'));
