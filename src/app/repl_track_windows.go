@@ -677,8 +677,9 @@ func replPlanTrackedRound(ctx context.Context, trackDir, job string, numbers []i
 				}
 			} else {
 				volume.locations = locations
-				// Shadow copy storage reads as free space: it changes under
-				// a shadow copy and means nothing on the copy.
+				// Shadow copy storage reads as free space: each round's
+				// reuses the last one's clusters unseen, and it means
+				// nothing on the copy.
 				bitmap = replClearRuns(bitmap, clusters, scan.DiffArea)
 			}
 			if !source.WrapOverlay(info.Start, func(r io.ReaderAt) io.ReaderAt {

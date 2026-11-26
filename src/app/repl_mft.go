@@ -219,10 +219,10 @@ type replMFTScan struct {
 	// Windows will not open some of them even on a shadow copy, and none
 	// is listed in the change journal, so every round reads them.
 	Metadata []replRun
-	// DiffArea holds the runs of shadow copy storage files. Their content
-	// on a shadow copy is not frozen (shadow copies do not copy their own
-	// storage on write) and is meaningless on a copy, so they are read as
-	// free space.
+	// DiffArea holds the runs of shadow copy storage files. Each round's
+	// new one reuses the clusters of the last with no change journal entry
+	// and no bitmap change, and their content is meaningless on a copy, so
+	// they are read as free space.
 	DiffArea []replRun
 }
 
