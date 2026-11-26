@@ -85,6 +85,8 @@ type vmwareStateResponse struct {
 	RunbookPath     string              `json:"runbookPath"`
 	RunbookDocxPath string              `json:"runbookDocxPath"`
 	DiscoveryPath   string              `json:"discoveryPath"`
+	ReportDocxPath  string              `json:"reportDocxPath"`
+	ReportPDFPath   string              `json:"reportPdfPath"`
 	PlanCSVPath     string              `json:"planCsvPath"`
 	GuestSerial     uint64              `json:"guestSerial"`
 	GuestMessage    string              `json:"guestMessage"`
@@ -156,7 +158,7 @@ func (a *application) vmwareSnapshotLocked() vmwareStateResponse {
 		Running: a.vmware.action != "", Action: a.vmware.action, Status: status, Message: a.vmware.message,
 		Server: a.vmware.server, Account: a.vmware.account, Certificate: a.vmware.certificate,
 		InventorySerial: a.vmware.inventorySerial, OutputFolder: a.vmware.outputFolder, ReportPath: a.vmware.reportPath,
-		RunbookPath: a.vmware.runbookPath, RunbookDocxPath: vmRunbookDocxFor(a.vmware.runbookPath), DiscoveryPath: vmDiscoveryReportFor(a.vmware.reportPath), PlanCSVPath: a.vmware.planCSVPath,
+		RunbookPath: a.vmware.runbookPath, RunbookDocxPath: vmRunbookDocxFor(a.vmware.runbookPath), DiscoveryPath: vmDiscoveryReportFor(a.vmware.reportPath), ReportDocxPath: vmReportBeside(a.vmware.reportPath, vmReportDocx), ReportPDFPath: vmReportBeside(a.vmware.reportPath, vmReportPDF), PlanCSVPath: a.vmware.planCSVPath,
 		GuestSerial: a.vmware.guestSerial, GuestMessage: a.vmware.guestMessage, GuestError: a.vmware.guestError, GuestWorkPath: a.guestWorkPath(), GuestTarget: a.guestTargetStateLocked(), GuestAuto: guestAutoState{User: a.guestAuto.user, HasPassword: a.guestAuto.password != ""}, Fixups: a.fixups.List(),
 		CompareSerial: a.vmware.compareSerial, CompareError: a.vmware.compareError,
 		Prepare: a.vmware.prepare, PrepareSerial: a.vmware.prepareSerial, PrepareError: a.vmware.prepareError,
@@ -1112,6 +1114,10 @@ func (a *application) vmwareOpenTarget(kind string) (target string, folder bool,
 		return a.vmware.reportPath, false, true
 	case "vmwarediscovery":
 		return vmDiscoveryReportFor(a.vmware.reportPath), false, true
+	case "vmwarereportdocx":
+		return vmReportBeside(a.vmware.reportPath, vmReportDocx), false, true
+	case "vmwarereportpdf":
+		return vmReportBeside(a.vmware.reportPath, vmReportPDF), false, true
 	case "vmwarefolder":
 		return a.vmware.outputFolder, true, true
 	case "vmwarerunbook":

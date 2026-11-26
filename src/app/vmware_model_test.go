@@ -228,8 +228,8 @@ func TestReportsAndRunbookRenderEscapedAndSafe(t *testing.T) {
 	if strings.Contains(string(html), "<script>alert") || !strings.Contains(string(html), "&lt;script&gt;") {
 		t.Fatal("VM name not escaped in the report")
 	}
-	if strings.Contains(string(html), "<script") || strings.Contains(string(html), "http-equiv=\"refresh\"") {
-		t.Fatal("report contains script")
+	if strings.Count(string(html), "<script") != 1 || !strings.Contains(string(html), "<script>"+vmReportScript+"</script>") || strings.Contains(string(html), "http-equiv=\"refresh\"") {
+		t.Fatal("report contains a script other than its own")
 	}
 	csvData, _ := os.ReadFile(filepath.Join(folder, "VMs.csv"))
 	if !strings.Contains(string(csvData), "'=HYPERLINK") {

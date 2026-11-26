@@ -3,6 +3,7 @@ module serverinventory
 go 1.20
 
 require (
+	github.com/go-pdf/fpdf v0.9.0
 	github.com/vmware/govmomi v0.38.0
 	github.com/wailsapp/go-webview2 v1.0.23
 	golang.org/x/crypto v0.29.0
