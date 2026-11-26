@@ -163,6 +163,8 @@ async function fixture(browser,old=false){
    if(action==='hyperv'){Object.assign(v,{running:true,action:'hyperv',status:'connecting'});send(202,{ok:true});return;}
    if(action==='guest-auto'){v.guestAuto={user:data.user,hasPassword:true};send(200,{ok:true,user:data.user});return;}
    if(action==='guest-auto/forget'){v.guestAuto={user:'',hasPassword:false};send(200,{ok:true});return;}
+   if(action==='preflight/run'){const p=v.preflight||{};v.preflight=Object.assign(p,{running:true,user:data.user||p.user||'',hasPassword:!!data.user||!!p.hasPassword,items:(data.items||[]).map(i=>({id:i.id,state:'waiting',summary:''})),message:'Checking.'});send(202,{ok:true});return;}
+   if(action==='preflight/forget'){v.preflight=Object.assign(v.preflight||{},{user:'',hasPassword:false});send(200,{ok:true});return;}
    if(action==='guest-auto/run'){(v.fixups||[]).forEach(x=>{if(x.vm===data.vm){x.state='waiting';x.message='Waiting for Windows in '+x.vm+' to start.';x.steps=[];}});send(202,{ok:true});return;}
    if(action==='connect'){Object.assign(v,{running:true,action:'connect',status:'connecting',server:data.server,account:data.user,certificate:null});send(202,{ok:true});return;}
    if(action==='plan'){vm.plan=JSON.parse(JSON.stringify(data.plan));if(data.suggest){vm.plan.vms.forEach((p,i)=>{if(p.manual&&!data.resetManual){return;}p.manual=false;p.hold=i===2;p.wave=i===2?0:(i===3?1:2);p.why=i===2?'Blocked for Hyper-V.':(i===3?'Powered off, so nobody is using it.':'A running server with no special role in its name.');});vm.plan.waves=[{wave:1,title:'Pilot',reason:'Powered-off, test and development VMs go first.'},{wave:2,title:'General servers',reason:'Running servers with no special role in their names.'}];vm.plan.waveSize=data.waveSize||2;}if(vm.plan.scenario==='rolling'){vm.plan.rolling=vm.plan.rolling||{autoCapacity:true,stages:[],sourceCluster:''};if(!vm.plan.rolling.sourceCluster){vm.plan.rolling.sourceCluster='Prod-Cluster';}if(data.suggestStages){vm.plan.rolling.stages=['esx03.example.com','esx01.example.com','esx02.example.com'].map((h,i)=>({host:h,wave:i+1,moveFirst:i===2,notes:''}));}if(vm.plan.rolling.autoCapacity){Object.assign(vm.plan.capacity,{nodes:3,coresPerNode:32,memoryGbPerNode:512,usableStorageTb:4,reserveNodes:1});}}vm.sizing=['azure','aws'].includes(vm.plan.target)?Object.assign(vmwareSizingFixture(false),{status:'quota',notes:['Check the subscription quota covers 14 vCPUs.']}):vmwareSizingFixture(!!vm.plan.capacity.coresPerNode);send(200,{ok:true,plan:vm.plan,sizing:vm.sizing,rolling:vm.plan.scenario==='rolling'?vmRollingFixture(vm.plan):null,saved:true});return;}
@@ -724,6 +726,34 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   await f.page.waitForFunction(()=>document.querySelectorAll('#vmTableBody tr.vm-row').length===4);
  };
  const vmwareCalls=(f,action)=>f.vmwareCalls.filter(c=>c.action===action&&c.method==='POST');
+ await check('SQL and DC checks: optional, read only, run on chosen VMs with this or another account and shown in readiness',async()=>{const f=await fixture(browser);try{
+  await vmwareConnected(f);await f.page.locator('[data-vmfilter="all"]').click();
+  await f.page.locator('#vmListBulk [data-bulk="preflight"]').click();
+  await f.page.waitForSelector('#pfBulkPanel');assert.deepEqual(await f.page.locator('#pfBulkPanel [data-pf-vm]').evaluateAll(l=>l.map(e=>e.getAttribute('data-pf-vm'))),['vm-sql01'],'the VMs named like SQL Servers are selected');
+  const panel=await f.page.locator('#pfBulkPanel').textContent();assert(panel.includes('nothing is installed, copied or changed')&&panel.includes('Named like a SQL Server'),panel);
+  assert.equal(await f.page.locator('[data-pf-computer="vm-sql01"]').inputValue(),'192.0.2.10','the guest address is filled in');
+  assert(await f.page.locator('#pfBulkRun').isEnabled());assert.equal(await f.page.locator('#pfBulkRun').textContent(),'Run the checks on 1 server');
+  await f.page.locator('#pfBulkUser').fill('EXAMPLE\\admin');assert(await f.page.locator('#pfBulkRun').isDisabled());assert.equal(await f.page.locator('#pfBulkStatus').textContent(),'Type the password, or clear the account to use your own.');
+  await f.page.locator('#pfBulkPassword').fill('Synthetic-Pa55');await f.page.locator('[data-pf-computer="vm-sql01"]').fill('sql01.example.com');
+  await f.page.locator('#pfBulkDc').uncheck();await f.page.locator('#pfBulkSql').uncheck();assert(await f.page.locator('#pfBulkRun').isDisabled());await f.page.locator('#pfBulkSql').check();
+  await f.page.locator('#pfBulkRun').click();await f.page.waitForFunction(()=>document.querySelector('#pfBulkRun').textContent==='Checking…');
+  assert.deepEqual(vmwareCalls(f,'preflight/run').map(c=>c.body),[{items:[{id:'vm-sql01',computer:'sql01.example.com',via:'winrm'}],checks:['sql'],user:'EXAMPLE\\admin',password:'Synthetic-Pa55'}]);
+  assert(!(await f.page.locator('#pfBulkPanel').textContent()).includes('Synthetic-Pa55'));
+  f.state.vmware.preflight={running:true,user:'EXAMPLE\\admin',hasPassword:true,checks:['sql'],items:[{id:'vm-sql01',name:'SQL01',computer:'sql01.example.com',via:'winrm',state:'running',summary:''}],message:'Checking SQL01 (sql01.example.com), read only.',summary:{}};
+  await f.page.waitForFunction(()=>document.querySelector('[data-pf-last="vm-sql01"]').textContent==='Checking now…');assert(await f.page.locator('#pfBulkStop').isVisible());assert(await f.page.locator('[data-pf-computer="vm-sql01"]').isDisabled(),'fields lock while checking');
+  assert((await f.page.locator('#pfBulkPanel').textContent()).includes('Checks sign in as EXAMPLE\\admin'));
+  const sql=f.vm.inventory.vms.find(v=>v.id==='vm-sql01');sql.preflight={checkedAt:'2026-11-26T10:00:00Z',computer:'sql01.example.com',via:'winrm',checks:['sql'],facts:{sql:{checked:true,instances:[{name:'MSSQLSERVER'}]}},summary:[['Checked','2026-11-26 10:00 through PowerShell remoting to sql01.example.com'],['SQL Server MSSQLSERVER','Standard Edition (64-bit) 16.0.4135.4 RTM; running']]};
+  sql.readiness.forEach(r=>r.findings.push({severity:'warning',code:'sql-backup',message:'SQL Server instance MSSQLSERVER: no full backup in the last 7 days for Sales.',action:'Take a full backup of each database before the cutover.'}));
+  f.state.vmware.preflight=Object.assign(f.state.vmware.preflight,{running:false,items:[{id:'vm-sql01',name:'SQL01',state:'done',summary:'1 SQL Server instance: 1 item to review.'}],message:'Checked 1 server. The results are in each VM\'s readiness and the reports.'});f.state.vmware.inventorySerial++;
+  await f.page.waitForFunction(()=>/^Checked 2026-11-26 10:00/.test(document.querySelector('[data-pf-last="vm-sql01"]').textContent));
+  assert.equal(await f.page.locator('[data-pf-last="vm-sql01"]').textContent(),'Checked 2026-11-26 10:00:00 UTC: 1 SQL Server instance; 1 item in readiness.');
+  await openVm(f,'vm-sql01');await f.page.locator('#vmObjTab-readiness').click();
+  const section=await f.page.locator('#pfVmSection').textContent();assert(section.includes('SQL Server MSSQLSERVER')&&section.includes('Standard Edition (64-bit)'),section);
+  assert((await f.page.locator('#vmDetail').textContent()).includes('no full backup in the last 7 days for Sales'),'the finding is in readiness');
+  await f.page.locator('#pfVmOwn').click();await f.page.waitForFunction(()=>!!document.querySelector('#pfVmUser'));assert.equal(vmwareCalls(f,'preflight/forget').length,1);
+  await f.page.setViewportSize({width:1008,height:690});assert(await f.page.locator('#pfVmRun').isVisible());assert.equal(await f.page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true,'no horizontal scroll at 1024x768');
+  assert.deepEqual(f.dialogs,[]);
+ }finally{await f.close();}});
  await check('VMware tab: Read Hyper-V host reads this computer or a remote host, sends the optional account once, opens a VM disk in the Disk converter, and copies a running Hyper-V VM through checkpoints without a vSphere session',async()=>{const f=await fixture(browser);try{
   await goTool(f,'environment');
   await f.page.locator('#vmHvUser').fill('EXAMPLE\\admin');await f.page.locator('#vmHvRead').click();
@@ -1819,6 +1849,7 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   f.vm.inventory.vms[1].snapshots=[];f.state.vmware.inventorySerial=2;
   await f.page.waitForFunction(()=>!document.querySelector('#nwSnapshots'),null,{timeout:15000});
   {const t=await f.page.locator('.nw-summary').textContent();assert(t.includes('VM-Servers to Isolated VLAN 20'),t);}
+  assert(await f.page.locator('#nwPreflight').evaluate(d=>d.open),'the optional SQL and DC checks open for a VM named like a SQL Server');assert.equal(await f.page.locator('#nwPreflight [data-pf-vm]').first().getAttribute('data-pf-vm'),'vm-sql01','likely ones first');assert(await f.page.locator('#pfNwRun').isVisible());
   const name=await f.page.locator('#nwName').inputValue();assert(name.startsWith('Migration '));
   assert.equal(await f.page.locator('#nwWhy').textContent(),'Tick "I understand" to start '+name+'.');
   assert(!await f.page.locator('#nwConfirm').isVisible(),'no name to type');assert((await f.page.locator('label:has(#nwConfirmTick)').textContent()).includes('I understand Start creates the migration '+name));
@@ -1839,6 +1870,43 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   for(let i=0;i<100&&f.planCalls.filter(c=>c.body.action==='cutover').length<2;i++){await new Promise(r=>setTimeout(r,50));}const now=f.planCalls.filter(c=>c.body.action==='cutover').pop();assert.equal(now.body.at,'now');assert.equal(now.body.confirm,name);
   await f.page.setViewportSize({width:1008,height:690});await f.page.locator('[data-nw-step]').first().waitFor();
   assert(await f.page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1),'no horizontal scroll at 1024x768');
+ }finally{await f.close();}});
+ await check('New migration: a VM with encrypted disks is flagged in What, blocks Start in Review and is decrypted there with a tick box and live progress',async()=>{const f=await fixture(browser);try{
+  f.state.ui={schema:1,confirmStyle:'tick'};f.vm.inventory=vmwareInventoryFixture();f.vm.plan=vmwarePlanFixture();
+  const encDisk={label:'Hard disk 1',controller:'SCSI 0',bus:0,unit:0,capacityBytes:107374182400,datastore:'DS-SSD-01',provisioning:'thin',mode:'persistent',rdm:'',encrypted:true};
+  f.vm.inventory.vms.push(vmFixtureVM('DESK21',{hv:'blocked',hvFindings:[{severity:'blocker',code:'encrypted',message:'1 of the VM\'s 1 disks are encrypted with vSphere VM Encryption, so no other platform can read them.',action:'Decrypt it.'}],vm:{encrypted:true,encryptionRead:true,vtpm:true,disks:[encDisk]}}));
+  f.vm.inventory.vms.push(vmFixtureVM('DESK22',{vm:{encrypted:true,encryptionRead:true,vtpm:true}}));
+  f.state.vmware=Object.assign(vmwareIdle(),{status:'connected',server:'vc01.example.com',account:'administrator@vsphere.local',summary:vmwareSummaryFixture(),inventorySerial:1,canPrepare:true,hyperVHere:true,hostStorage:{known:true,vhdPath:'D:\\Hyper-V\\Disks',vmPath:'D:\\Hyper-V',clustered:false,volumes:[{path:'D:\\',freeBytes:1099511627776,totalBytes:2199023255552,csv:false}]}});
+  await goTool(f,'wizard');await f.page.locator('[data-nw-source="vms"]').click();await f.page.waitForSelector('#nwVmList [data-nw-pick]');
+  assert(!(await f.page.locator('[data-nw-pick="vm-desk21"]').isDisabled()),'a VM blocked only by encrypted disks can be ticked, because it is decrypted here');
+  assert(await f.page.locator('[data-nw-pick="vm-legacy03"]').isDisabled(),'other blockers still stop a VM');
+  const list=await f.page.locator('#nwVmList').textContent();assert(list.includes('Encrypted disks: tick it and decrypt it in Review'),list);assert(list.includes('the disks copy as they are'),'a VM encrypted only for its virtual TPM needs nothing');
+  await f.page.locator('[data-nw-pick="vm-desk21"]').check();await f.page.locator('[data-nw-pick="vm-desk22"]').check();
+  assert((await f.page.locator('[data-nw="count"]').textContent()).includes('1 VM has encrypted disks: Review decrypts it'),'encryption is flagged on the first screen');
+  await f.page.locator('#nwNext').click();await f.page.locator('[data-nw-target="here"]').click();await f.page.locator('[data-nw-switch="VM-Servers"]').selectOption('Isolated');
+  await f.page.locator('#nwNext').click();await f.page.locator('#nwNext').click();await f.page.locator('#nwNext').click();
+  const checks=await f.page.locator('.nw-checks').textContent();assert(checks.includes('disks encrypted with vSphere VM Encryption'),checks);assert(checks.includes('DESK22: only the VM\'s own files are encrypted'),checks);
+  await f.page.locator('#nwConfirmTick').check();
+  assert(await f.page.locator('#nwNext').isDisabled(),'Start stays disabled while a VM is still encrypted');assert((await f.page.locator('#nwWhy').textContent()).includes('encrypted'));
+  assert.equal(await f.page.locator('#nwDecrypt').textContent(),'Decrypt 1 VM…');
+  await f.page.locator('#nwDecrypt').click();assert(await f.page.locator('#migrateDialog').isVisible());
+  const text=await f.page.locator('#migrateDialogText').textContent();assert(text.includes('shut down through VMware Tools')&&text.includes('about as long as copying them'),text);assert(text.includes('DESK21: shut down, remove the virtual TPM, decrypt'),text);
+  assert((await f.page.locator('#migrateDialogAlert').textContent()).includes('BitLocker'),'removing the virtual TPM warns about BitLocker');
+  assert(await f.page.locator('#migrateConfirmInput').isHidden(),'nothing to type');assert(await f.page.locator('#migrateConfirmButton').isDisabled());
+  await f.page.locator('#migrateConfirmTick').check();assert(!(await f.page.locator('#migrateConfirmButton').isDisabled()));await f.page.locator('#migrateConfirmButton').click();
+  await f.page.waitForFunction(()=>!document.querySelector('#migrateDialog').open);
+  assert.deepEqual(vmwareCalls(f,'prepare').map(c=>c.body),[{items:[{vmId:'vm-desk21',steps:{snapshots:false,shutdown:true,removeTpm:true,decrypt:true}}],confirm:'1 VM'}]);
+  const started=new Date(Date.now()-125000).toISOString();
+  f.state.vmware.prepareBatch=[{id:'vm-desk21',vm:'DESK21',steps:{decrypt:true},state:'running',step:'Decrypting DESK21. vSphere rewrites every encrypted disk, so this takes about as long as copying them.',percent:42,startedAt:started,done:[],skipped:[]}];
+  await f.page.waitForFunction(()=>document.querySelector('#nwBatch')&&document.querySelector('#nwBatch').textContent.includes('42% decrypted'),null,{timeout:15000});
+  assert((await f.page.locator('#nwBatch').textContent()).includes('Preparing on VMware: 0 of 1 done'));assert(await f.page.locator('#nwBatchStop').isVisible());assert(await f.page.locator('#nwDecrypt').isDisabled(),'no second batch while one runs');
+  await f.page.screenshot({path:out+'/new-migration-decrypt-1440x1000.png'});
+  const desk=f.vm.inventory.vms.find(v=>v.id==='vm-desk21');Object.assign(desk,{encrypted:false,vtpm:false,powerState:'poweredOff',disks:[Object.assign({},encDisk,{encrypted:false})]});desk.readiness[0]={target:'hyperv',status:'ready',generation:2,findings:[]};
+  Object.assign(f.state.vmware,{running:false,action:'',status:'connected',inventorySerial:2,prepareBatch:[{id:'vm-desk21',vm:'DESK21',steps:{decrypt:true},state:'done',percent:-1,startedAt:started,endedAt:new Date().toISOString(),done:['Shut down the guest.','Removed the virtual TPM.','Decrypted the VM and its disks.'],skipped:[]}]});
+  await f.page.waitForFunction(()=>!document.querySelector('#nwDecrypt'),null,{timeout:15000});
+  assert((await f.page.locator('#nwBatch').textContent()).includes('Decrypted the VM and its disks.'));assert.equal(await f.page.locator('#nwWhy').textContent(),'','Start is ready once the VM is decrypted');
+  await f.page.setViewportSize({width:1008,height:690});assert(await f.page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1),'no horizontal scroll at 1024x768');
+  assert.deepEqual(f.errors,[]);f.state.ui={schema:1,confirmStyle:'typed'};
  }finally{await f.close();}});
  await check('New migration: a Proxmox target connects inside Where, lists each VM with where it stands, and hands off to Move VMs with the VMs selected',async()=>{const f=await fixture(browser);try{
   f.vm.inventory=vmwareInventoryFixture();f.vm.plan=vmwarePlanFixture();f.state.vmware=Object.assign(vmwareIdle(),{status:'connected',server:'vc01.example.com',summary:vmwareSummaryFixture(),inventorySerial:1,canPrepare:true,hyperVHere:false});
@@ -2235,7 +2303,7 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
    await f.page.locator('#migrateDialogCancel').click();assert(!await f.page.locator('#migrateDialog').isVisible());
    await goTool(f,'environment');await f.page.locator('#vmwareBody').evaluate(e=>e.scrollTop=0);await inView('#vmwareBody',withUpdate?110:150);await inView('#vmServer',24);
    for(const view of ['env','plan','guest','disks','failover','compare']){await goTool(f,{env:'movevms',disks:'diskcopy'}[view]||view);await inView('[data-tool="'+({env:'movevms',disks:'diskcopy'}[view]||view)+'"]',24);
-    for(const target of {env:['#vmInvTree .vm-inv-row','#vmDrawerTitle','.vm-obj-tab'],plan:['#vmSuggest','#vmWriteRunbook'],guest:['#vmGuestCapture','#vmGuestApply','#vmGuestTools'],disks:['#vmReceiveStart','#vmSendFind','#vmSendStart','#vmMediaBuild'],failover:['#fvRefresh'],compare:['#vmCompareRun','#vmCompareBody tr']}[view]){await f.page.locator(target).first().scrollIntoViewIfNeeded();await inView(target+':visible >> nth=0',20);}
+    for(const target of {env:['#vmInvTree .vm-inv-row','#vmDrawerTitle','.vm-obj-tab'],plan:['#vmSuggest','#vmWriteRunbook'],guest:['#vmGuestCapture','#vmGuestApply','#vmGuestTools'],disks:['#vmReceiveStart','#vmSendFind','#vmSendStart','#vmMediaBuild'],failover:['#fvRefresh'],compare:['#vmCompareRun','#vmCompareBody tr']}[view]){for(let attempt=0;;attempt++){await f.page.locator(target).first().scrollIntoViewIfNeeded();try{await inView(target+':visible >> nth=0',20);break;}catch(e){if(attempt>=2){throw e;}await f.page.waitForTimeout(300);}}}
     assert.deepEqual(await smallText(),[],label+' vmware '+view+' text below 10.5px');assert(await f.page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),label+' vmware overflow');assert(await f.page.locator('#vmwareBody').evaluate(e=>e.scrollWidth<=e.clientWidth+1),label+' vmware panel overflow '+view);}
    if(size.width===784&&!withUpdate){await goTool(f,'environment');await f.page.locator('#vmwareBody').evaluate(e=>e.scrollTop=0);await f.page.screenshot({path:out+'/vmware-800x600.png'});}
    await goTool(f,'convert');await inView('#cvStart',28);await inView('#cvSource',24);await inView('#cvBrowse',24);

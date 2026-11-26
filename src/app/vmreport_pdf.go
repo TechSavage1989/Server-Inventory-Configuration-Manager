@@ -1120,6 +1120,10 @@ func vmPDFVMs(p *vmPDF) {
 			rows = append(rows, []vmPDFCell{{Text: status.Label, Bold: true}, cell, {Text: text}})
 		}
 		p.table([]float64{16, 12, 72}, []string{"Target", "Readiness", "Findings and fixes"}, rows)
+		if len(vm.Checks) > 0 {
+			p.para("Domain controller and SQL Server checks", "1E293B", 9.5, true)
+			p.kv(vm.Checks)
+		}
 		if len(vm.Disks) > 0 {
 			rows = nil
 			for _, disk := range vm.Disks {

@@ -100,6 +100,7 @@ func (a *application) handleVMwareHyperV(response http.ResponseWriter, request *
 			return
 		}
 		inventory := hypervInventoryFromReport(*report, local, time.Now(), appVersion)
+		a.applySavedPreflight(inventory)
 		folder := a.vmwareOutputFolder("HyperV_" + safeName(inventory.Server))
 		reportPath, writeErr := writeVMwareInventoryOutputs(folder, inventory)
 		plan := a.loadVMwarePlan(inventory)

@@ -268,6 +268,9 @@ type vmMachine struct {
 	IntegrationServices string `json:"integrationServices,omitempty"`
 	IntegrationVersion  string `json:"integrationVersion,omitempty"`
 	DynamicMemory       bool   `json:"dynamicMemory,omitempty"`
+	// Preflight is the last optional domain controller and SQL Server
+	// check (preflight.go); nil when it was never run.
+	Preflight *vmPreflight `json:"preflight,omitempty"`
 }
 
 type vmFinding struct {
@@ -411,6 +414,27 @@ func vmStaticNICs(vm vmMachine) []vmNIC {
 		}
 	}
 	return nics
+}
+
+// vmDisksEncrypted is true when a VMware VM's disks are, or may be,
+// encrypted with vSphere VM Encryption, so they cannot be copied until the
+// VM is decrypted. A VM whose own files only are encrypted (for a virtual
+// TPM) has plain disks that copy as they are. Older saved inventories do not
+// say which disks are encrypted, so they count as encrypted. Matches
+// vmDisksEncrypted in index.html.
+func vmDisksEncrypted(vm vmMachine) bool {
+	if !vm.Encrypted || vm.Source == "hyperv" {
+		return false
+	}
+	if !vm.EncryptionRead {
+		return true
+	}
+	for _, disk := range vm.Disks {
+		if disk.Encrypted {
+			return true
+		}
+	}
+	return false
 }
 
 // assessVM checks one VM against one target. Each finding names what was
@@ -780,6 +804,7 @@ func assessVM(vm vmMachine, target string, now time.Time) vmReadiness {
 	if !powered && !vm.Template {
 		add(vmSeverityInfo, "powered-off", "The VM is powered off: a good first test migration.", "")
 	}
+	result.Findings = append(result.Findings, preflightFindings(vm.Preflight)...)
 
 	sort.SliceStable(result.Findings, func(i, j int) bool {
 		return vmSeverityRank(result.Findings[i].Severity) > vmSeverityRank(result.Findings[j].Severity)
