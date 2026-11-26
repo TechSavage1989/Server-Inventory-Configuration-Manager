@@ -270,6 +270,7 @@ type application struct {
 	convert                 convertRuntime
 	convertSend             convertSendRuntime
 	hvRemote                hvRemoteRuntime
+	plans                   mbRuntime
 	vmReceive               vmReceiverRuntime
 	transfers               *vmTransferBoard
 	repl                    replRuntime
@@ -2330,6 +2331,8 @@ func (a *application) serve(listener net.Listener) error {
 	mux.HandleFunc("/api/vmware/reset", a.handleVMwareReset)
 	mux.HandleFunc("/api/vmware/prepare", a.handleVMwarePrepare)
 	mux.HandleFunc("/api/vmware/move", a.handleVMwareMove)
+	mux.HandleFunc("/api/plans", a.handlePlans)
+	go a.startPlans()
 	mux.HandleFunc("/api/hvremote/", a.handleHVRemote)
 	mux.HandleFunc("/api/vmware/target/", a.handleVMwareTarget)
 	mux.HandleFunc("/api/vmware/receiver", a.handleVMwareReceiver)

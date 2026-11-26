@@ -96,6 +96,20 @@ standard input and is kept in memory until **Forget** or exit. If your EDR
 watches remote PowerShell, allow `wsmprovhost.exe` running the Hyper-V and
 FailoverClusters cmdlets above for the admin computers you migrate from.
 
+### Migration plans (on a Hyper-V host)
+
+A **Migration plan** runs inside the console on the Hyper-V host and does
+the same work as Move VMs, on a schedule, for many VMs. It adds no agent, no
+service and no program on the source VMs or hosts.
+
+| Behaviour | Where | Why |
+| --- | --- | --- |
+| HTTPS to vCenter or ESXi (443): one snapshot named "Server Inventory and Migration Manager replication" per VM per round, created and removed again, plus Range reads of the VMDK files | Hyper-V host to vCenter/ESXi | Copy rounds every interval the operator chose |
+| VHDX writes under the plan's copy folder (or the host's virtual hard disk folder) | Hyper-V host | The copied disks |
+| `powershell.exe` with `Import-Module Hyper-V`, `New-VHD -Differencing`, `New-VM`, `Remove-VM` of the test VM by its ID | Hyper-V host | Test cutover and End test, only when the operator chooses them |
+| `New-VM`, `Add-VMHardDiskDrive`, `Add-VMNetworkAdapter`, optionally `Add-ClusterVirtualMachineRole` | Hyper-V host | Cutover, now or at the time the operator scheduled |
+| A vSphere reconfigure of the old VM's network adapters (not connected), with a JSON record saved first | vCenter/ESXi | Only when **After cutover, set the old VMware VM's adapters to not connect** is ticked |
+
 ## Exclusions
 
 Use the narrowest form your product allows. Prefer the signer (certificate)
