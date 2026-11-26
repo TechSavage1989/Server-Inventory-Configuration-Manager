@@ -46,17 +46,25 @@ type vmPlanVM struct {
 	Hold    bool   `json:"hold"`
 	Exclude bool   `json:"exclude"`
 	Notes   string `json:"notes"`
+	// Manual is true once the operator set this VM's wave, hold or exclude
+	// by hand; Suggest waves keeps it. Why is the suggestion's reason.
+	Manual bool   `json:"manual,omitempty"`
+	Why    string `json:"why,omitempty"`
 }
 
 type vmPlan struct {
-	Schema    int            `json:"schema"`
-	Server    string         `json:"server"`
-	Target    string         `json:"target"`
-	Networks  []vmNetworkMap `json:"networks"`
-	Storage   []vmStorageMap `json:"storage"`
-	Capacity  vmCapacity     `json:"capacity"`
-	VMs       []vmPlanVM     `json:"vms"`
-	UpdatedAt time.Time      `json:"updatedAt"`
+	Schema   int            `json:"schema"`
+	Server   string         `json:"server"`
+	Target   string         `json:"target"`
+	Networks []vmNetworkMap `json:"networks"`
+	Storage  []vmStorageMap `json:"storage"`
+	Capacity vmCapacity     `json:"capacity"`
+	VMs      []vmPlanVM     `json:"vms"`
+	// Waves explains each suggested wave (vmware_waves.go); WaveSize is the
+	// size the last suggestion used.
+	Waves     []vmWaveInfo `json:"waves,omitempty"`
+	WaveSize  int          `json:"waveSize,omitempty"`
+	UpdatedAt time.Time    `json:"updatedAt"`
 	// Scenario is how the move uses hardware (vmscenario.go): "new" (or
 	// empty, plans saved by 3.2.35 and earlier) or "rolling".
 	Scenario string         `json:"scenario,omitempty"`
@@ -203,6 +211,17 @@ func validateVMPlan(input vmPlan, inventory *vmInventory) (vmPlan, error) {
 		if len(item.Notes) > 500 || strings.ContainsRune(item.Notes, 0) {
 			return vmPlan{}, errors.New("Notes are limited to 500 characters.")
 		}
+		if len(item.Why) > 500 || strings.ContainsRune(item.Why, 0) {
+			return vmPlan{}, errors.New("A wave reason is limited to 500 characters.")
+		}
+	}
+	waves, err := validateVMWaves(input.Waves)
+	if err != nil {
+		return vmPlan{}, err
+	}
+	input.Waves = waves
+	if input.WaveSize < 0 || input.WaveSize > 200 {
+		input.WaveSize = 0
 	}
 	if input.Scenario != "" {
 		if _, ok := vmScenarioFor(input.Scenario); !ok {
@@ -217,49 +236,6 @@ func validateVMPlan(input vmPlan, inventory *vmInventory) (vmPlan, error) {
 	plan = applyScenario(plan, inventory)
 	plan.UpdatedAt = time.Now()
 	return plan, nil
-}
-
-// suggestWaves fills waves for VMs that have none: blocked VMs are held,
-// templates excluded, powered-off VMs go first as low-risk tests and the
-// rest follow in groups of the given size.
-func suggestWaves(plan vmPlan, inventory *vmInventory, waveSize int) vmPlan {
-	if waveSize <= 0 {
-		waveSize = 10
-	}
-	byID := map[string]vmMachine{}
-	for _, vm := range inventory.VMs {
-		byID[vm.ID] = vm
-	}
-	nextWave, inWave := 2, 0
-	for index := range plan.VMs {
-		item := &plan.VMs[index]
-		vm, ok := byID[item.ID]
-		if !ok || item.Wave > 0 || item.Exclude || item.Hold {
-			continue
-		}
-		if vm.Template || vmInfrastructureRole(vm) != "" {
-			item.Exclude = true
-			continue
-		}
-		if readiness := vm.readinessFor(plan.Target); readiness != nil && readiness.Status == vmStatusBlocked {
-			item.Hold = true
-			continue
-		}
-		if !strings.EqualFold(vm.PowerState, "poweredOn") {
-			item.Wave = 1
-			continue
-		}
-		item.Wave = nextWave
-		inWave++
-		if inWave >= waveSize {
-			nextWave++
-			inWave = 0
-		}
-		if nextWave > vmPlanMaxWaves {
-			nextWave = vmPlanMaxWaves
-		}
-	}
-	return plan
 }
 
 func (plan vmPlan) entry(id string) vmPlanVM {
@@ -406,7 +382,36 @@ type vmRunbookVM struct {
 type vmRunbookWave struct {
 	Number int
 	Label  string
+	// Detail is the wave's planned window, reason and notes.
+	Detail string
 	VMs    []vmRunbookVM
+}
+
+// vmWaveLabelAndDetail names a wave for the runbook from its description.
+func vmWaveLabelAndDetail(plan vmPlan, number int) (string, string) {
+	label := fmt.Sprintf("Wave %d", number)
+	for _, info := range plan.Waves {
+		if info.Wave != number {
+			continue
+		}
+		if info.Title != "" && !strings.EqualFold(info.Title, label) {
+			label += ": " + info.Title
+		}
+		parts := []string{}
+		if info.Window != "" {
+			if when, err := time.ParseInLocation(vmWaveWindowLayout, info.Window, time.Local); err == nil {
+				parts = append(parts, "Planned for "+when.Format("Monday 2 January 2006, 15:04")+".")
+			}
+		}
+		if info.Reason != "" {
+			parts = append(parts, info.Reason)
+		}
+		if info.Notes != "" {
+			parts = append(parts, "Notes: "+info.Notes)
+		}
+		return label, strings.Join(parts, " ")
+	}
+	return label, ""
 }
 
 func vmHasFinding(readiness vmReadiness, code string) bool {
@@ -446,7 +451,7 @@ func buildRunbook(plan vmPlan, inventory *vmInventory) []vmRunbookWave {
 			case number == 0:
 				wave.Label = "Not yet scheduled"
 			default:
-				wave.Label = fmt.Sprintf("Wave %d", number)
+				wave.Label, wave.Detail = vmWaveLabelAndDetail(plan, number)
 			}
 			waves[number] = wave
 		}

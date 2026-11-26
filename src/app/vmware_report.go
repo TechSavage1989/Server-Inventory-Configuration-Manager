@@ -85,6 +85,7 @@ const vmRunbookTemplate = `<!DOCTYPE html>
 <h2>Waves</h2>
 <table><tr><th>Wave</th><th>VMs</th><th>Done</th></tr>{{range $w, $wave := .Waves}}<tr><td>{{$wave.Label}}</td><td>{{range $i, $vm := $wave.VMs}}{{if $i}}, {{end}}{{$vm.VM.Name}}{{end}}</td><td><span class="progress" data-wave-row="wave-{{$w}}"></span></td></tr>{{end}}</table>
 {{range $w, $wave := .Waves}}<section class="wave" id="wave-{{$w}}"><h2>{{$wave.Label}} <span class="progress"></span></h2>
+{{if $wave.Detail}}<p class="muted">{{$wave.Detail}}</p>{{end}}
 {{range $wave.VMs}}{{$id := .VM.ID}}<div class="vm"><h3>{{.VM.Name}} <span class="chip {{.Readiness.Status}}">{{statusLabel .Readiness.Status}}</span> <span class="progress"></span></h3>
 <div class="muted">{{os .VM}} · {{.VM.CPUs}} vCPU · {{mb .VM.MemoryMB}} · {{bytes .VM.UsedBytes}} used{{if .Entry.Notes}} · Notes: {{.Entry.Notes}}{{end}}</div>
 <div class="grid2"><div><h3>Network adapters</h3><ul>{{range .NICs}}<li>{{.}}</li>{{else}}<li>None</li>{{end}}</ul></div><div><h3>Disks</h3><ul>{{range .Disks}}<li>{{.}}</li>{{else}}<li>None</li>{{end}}</ul></div></div>

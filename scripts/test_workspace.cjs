@@ -154,7 +154,7 @@ async function fixture(browser,old=false){
    if(action==='inventory'){send(200,vm.inventory?{ok:true,serial:v.inventorySerial,inventory:vm.inventory,plan:vm.plan,sizing:vm.sizing,attention:vm.attention||[]}:{ok:true,inventory:null});return;}
    if(action==='hyperv'){Object.assign(v,{running:true,action:'hyperv',status:'connecting'});send(202,{ok:true});return;}
    if(action==='connect'){Object.assign(v,{running:true,action:'connect',status:'connecting',server:data.server,account:data.user,certificate:null});send(202,{ok:true});return;}
-   if(action==='plan'){vm.plan=JSON.parse(JSON.stringify(data.plan));if(data.suggest){vm.plan.vms.forEach((p,i)=>{p.hold=i===2;p.wave=i===2?0:(i===3?1:2);});}if(vm.plan.scenario==='rolling'){vm.plan.rolling=vm.plan.rolling||{autoCapacity:true,stages:[],sourceCluster:''};if(!vm.plan.rolling.sourceCluster){vm.plan.rolling.sourceCluster='Prod-Cluster';}if(data.suggestStages){vm.plan.rolling.stages=['esx03.example.com','esx01.example.com','esx02.example.com'].map((h,i)=>({host:h,wave:i+1,moveFirst:i===2,notes:''}));}if(vm.plan.rolling.autoCapacity){Object.assign(vm.plan.capacity,{nodes:3,coresPerNode:32,memoryGbPerNode:512,usableStorageTb:4,reserveNodes:1});}}vm.sizing=['azure','aws'].includes(vm.plan.target)?Object.assign(vmwareSizingFixture(false),{status:'quota',notes:['Check the subscription quota covers 14 vCPUs.']}):vmwareSizingFixture(!!vm.plan.capacity.coresPerNode);send(200,{ok:true,plan:vm.plan,sizing:vm.sizing,rolling:vm.plan.scenario==='rolling'?vmRollingFixture(vm.plan):null,saved:true});return;}
+   if(action==='plan'){vm.plan=JSON.parse(JSON.stringify(data.plan));if(data.suggest){vm.plan.vms.forEach((p,i)=>{if(p.manual&&!data.resetManual){return;}p.manual=false;p.hold=i===2;p.wave=i===2?0:(i===3?1:2);p.why=i===2?'Blocked for Hyper-V.':(i===3?'Powered off, so nobody is using it.':'A running server with no special role in its name.');});vm.plan.waves=[{wave:1,title:'Pilot',reason:'Powered-off, test and development VMs go first.'},{wave:2,title:'General servers',reason:'Running servers with no special role in their names.'}];vm.plan.waveSize=data.waveSize||2;}if(vm.plan.scenario==='rolling'){vm.plan.rolling=vm.plan.rolling||{autoCapacity:true,stages:[],sourceCluster:''};if(!vm.plan.rolling.sourceCluster){vm.plan.rolling.sourceCluster='Prod-Cluster';}if(data.suggestStages){vm.plan.rolling.stages=['esx03.example.com','esx01.example.com','esx02.example.com'].map((h,i)=>({host:h,wave:i+1,moveFirst:i===2,notes:''}));}if(vm.plan.rolling.autoCapacity){Object.assign(vm.plan.capacity,{nodes:3,coresPerNode:32,memoryGbPerNode:512,usableStorageTb:4,reserveNodes:1});}}vm.sizing=['azure','aws'].includes(vm.plan.target)?Object.assign(vmwareSizingFixture(false),{status:'quota',notes:['Check the subscription quota covers 14 vCPUs.']}):vmwareSizingFixture(!!vm.plan.capacity.coresPerNode);send(200,{ok:true,plan:vm.plan,sizing:vm.sizing,rolling:vm.plan.scenario==='rolling'?vmRollingFixture(vm.plan):null,saved:true});return;}
    if(action==='export-plan'){v.runbookPath='C:\\Reports\\VMware_vc01\\Migration-Runbook.html';v.planCsvPath='C:\\Reports\\VMware_vc01\\Migration-Plan.csv';v.runbookDocxPath='C:\\Reports\\VMware_vc01\\Migration-Runbook.docx';send(200,{ok:true});return;}
    if(action==='reset'){state.vmware=Object.assign(vmwareIdle(),{inventorySerial:v.inventorySerial+1,logs:v.logs});vm.inventory=null;vm.plan=null;send(200,{ok:true});return;}
    if(action==='prepare'){Object.assign(v,{running:true,action:'prepare',status:'preparing'});send(202,{ok:true});return;}
@@ -237,6 +237,8 @@ async function fixture(browser,old=false){
 const discoveryTools=['server','environment'];
 async function goTool(f,id){await f.page.keyboard.press(discoveryTools.includes(id)?'Alt+1':'Alt+5');await f.page.locator('[data-tool="'+id+'"]').click();}
 // The VMware and Hyper-V inventory: open an item from the tree, and read the tree as 'level label' lines.
+// HTML5 drag and drop with real mouse steps (locator.dragTo misses the drop on scrolled pages).
+async function dragTo(f,from,to){const a=await f.page.locator(from).boundingBox(),b=await f.page.locator(to).boundingBox();await f.page.mouse.move(a.x+5,a.y+5);await f.page.mouse.down();await f.page.mouse.move(a.x+30,a.y+30,{steps:5});await f.page.mouse.move(b.x+5,b.y+5,{steps:10});await f.page.mouse.up();}
 async function openVm(f,id){await f.page.locator('#vmInvTree li[data-inv-id="vm:'+id+'"] > .vm-inv-row').click();}
 async function openTree(f,label){await f.page.locator('#vmInvTree li.vm-inv-item > .vm-inv-row').filter({has:f.page.locator('.vm-inv-label',{hasText:new RegExp('^'+label.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'$')})}).first().click();}
 async function treeLines(f){return f.page.locator('#vmInvTree li.vm-inv-item').evaluateAll(list=>list.map(li=>li.getAttribute('aria-level')+' '+li.querySelector('.vm-inv-label').textContent));}
@@ -1078,7 +1080,7 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   assert.equal(await f.page.locator('#vmCountAll').textContent(),'5');assert.equal(await f.page.locator('#vmTableNote').textContent(),'5 VMs');assert.equal(await f.page.locator('#vmCountSkip').textContent(),'1');
   const sum=['#vmCountBlocked','#vmCountReview','#vmCountReady','#vmCountSkip'];let total=0;for(const id of sum){total+=Number(await f.page.locator(id).textContent());}assert.equal(total,5,'the cards add up to All VMs');
   assert.equal(await f.page.locator('#vmCountsNote').textContent(),'4 VMs to move; 1 VMware system VM stays behind.');
-  await f.page.locator('[data-vmfilter="skip"]').click();assert.deepEqual(await f.page.locator('#vmTableBody tr.vm-row strong').allTextContents(),['vCLS-0001']);assert.equal(await f.page.locator('#vmTableBody tr.vm-row td').nth(6).textContent(),'VMware system VM, not moved.');
+  await f.page.locator('[data-vmfilter="skip"]').click();assert.deepEqual(await f.page.locator('#vmTableBody tr.vm-row strong').allTextContents(),['vCLS-0001']);assert.equal(await f.page.locator('#vmTableBody tr.vm-row td').nth(7).textContent(),'VMware system VM, not moved.');
   await goTool(f,'movevms');await openVm(f,'vm-vcls-0001');assert.equal(await f.page.locator('#vmPrepareButton').count(),0,'system VMs cannot be prepared');assert.equal(await f.page.locator('#vmObjActions button',{hasText:'Prepare on VMware'}).count(),0);
   assert.deepEqual(f.dialogs,[]);
  }finally{await f.close();}});
@@ -1111,15 +1113,15 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   await vmwareConnected(f);await goTool(f,'plan');assert(await f.page.locator('#vmPlanContent').isVisible());
   assert((await f.page.locator('#vmSizing').textContent()).includes('Not described'));
   await f.page.locator('#vmCapCores').fill('32');await f.page.locator('#vmCapMemory').fill('512');await f.page.locator('#vmCapStorage').fill('20');await f.page.locator('[aria-label="New network for VM-Servers"]').fill('Servers');await f.page.locator('[aria-label="New VLAN for VM-Servers"]').fill('20');
-  await f.page.locator('input[data-vm-wave="vm-app01"]').fill('3');await f.page.locator('[aria-label="Notes for APP01"]').fill('Weekend window');
+  await f.page.locator('.vm-wave-table > summary').click();  await f.page.locator('input[data-vm-wave="vm-app01"]').fill('3');await f.page.locator('[aria-label="Notes for APP01"]').fill('Weekend window');
   assert.equal(await f.page.locator('#vmPlanDirtyNote').textContent(),'Unsaved changes.');await f.page.waitForTimeout(1100);
   assert.equal(await f.page.locator('input[data-vm-wave="vm-app01"]').inputValue(),'3','edits survive polls');assert.equal(await f.page.locator('#vmCapCores').inputValue(),'32');
   await f.page.locator('#vmSavePlan').click();await f.page.waitForFunction(()=>document.querySelector('#vmPlanStatus').textContent==='Plan saved.');
   const saved=vmwareCalls(f,'plan')[0].body.plan;assert.equal(saved.capacity.coresPerNode,32);assert.equal(saved.capacity.memoryGbPerNode,512);assert.deepEqual(saved.networks[0],{source:'VM-Servers',sourceVlan:'20',targetName:'Servers',targetVlan:'20'});
-  assert.deepEqual(saved.vms[0],{id:'vm-app01',name:'APP01',wave:3,hold:false,exclude:false,notes:'Weekend window'});assert((await f.page.locator('#vmSizing').textContent()).includes('Fits'));assert.equal(await f.page.locator('#vmPlanDirtyNote').textContent(),'');
-  await f.page.locator('#vmWaveSize').fill('5');await f.page.locator('#vmSuggest').click();await f.page.waitForFunction(()=>/Suggested waves/.test(document.querySelector('#vmPlanStatus').textContent));
+  assert.deepEqual(saved.vms[0],{id:'vm-app01',name:'APP01',wave:3,hold:false,exclude:false,notes:'Weekend window',manual:true,why:''});assert((await f.page.locator('#vmSizing').textContent()).includes('Fits'));assert.equal(await f.page.locator('#vmPlanDirtyNote').textContent(),'');
+  await f.page.locator('#vmWaveSize').fill('5');await f.page.locator('#vmSuggest').click();await f.page.waitForFunction(()=>/Suggested/.test(document.querySelector('#vmPlanStatus').textContent));
   assert.equal(vmwareCalls(f,'plan')[1].body.suggest,true);assert.equal(vmwareCalls(f,'plan')[1].body.waveSize,5);
-  assert.equal(await f.page.locator('#vmWaveSummary').textContent(),'wave 1: 1, wave 2: 2, 1 on hold');assert(await f.page.locator('[aria-label="Hold LEGACY03"]').isChecked());
+  assert.equal(await f.page.locator('#vmWaveSummary').textContent(),'wave 1: 1, wave 2: 1, wave 3: 1, 1 on hold','APP01, placed in wave 3 by hand, keeps its wave');assert(await f.page.locator('[aria-label="Hold LEGACY03"]').isChecked());
   await f.page.locator('#vmWriteRunbook').click();await f.page.waitForFunction(()=>document.querySelector('#vmPlanStatus').textContent==='Wrote the runbook and plan CSV.');
   assert.equal(vmwareCalls(f,'plan').length,3,'the runbook saves the plan first');assert.equal(vmwareCalls(f,'export-plan').length,1);
   await f.page.waitForFunction(()=>!document.querySelector('#vmOpenRunbook').classList.contains('hidden'));await f.page.locator('#vmOpenRunbook').click();await f.page.locator('#vmOpenRunbookDocx').click();await f.page.locator('#vmOpenPlanCsv').click();await f.page.waitForTimeout(200);assert.deepEqual(f.opens,['vmwarerunbook','vmwarerunbookdocx','vmwareplancsv']);
@@ -1156,6 +1158,69 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   // Back to new hardware: the stages hide and the plan says so.
   await goTool(f,'plan');await f.page.locator('#vmScenarios input[data-scenario="new"]').check();await f.page.waitForTimeout(300);
   assert.equal(vmwareCalls(f,'plan').at(-1).body.plan.scenario,'new');assert(!await f.page.locator('#vmStagesSection').isVisible());
+  assert.deepEqual(f.dialogs,[]);
+ }finally{await f.close();}});
+ await check('VMware waves: explained, editable by name, planned window, drag, move, split and merge; bulk wave, prepare and plan actions on ticked VMs',async()=>{const f=await fixture(browser);try{
+  await vmwareConnected(f);await goTool(f,'plan');
+  assert((await f.page.locator('#vmWaveWhat').textContent()).includes('A group of VMs you move together'),'waves are explained');
+  assert.equal(await f.page.locator('#vmWaveSize').inputValue(),'','the size starts on Auto');
+  await f.page.locator('#vmSuggest').click();await f.page.waitForFunction(()=>/Suggested 2 waves of up to 2 VMs \(Auto\)/.test(document.querySelector('#vmPlanStatus').textContent));
+  assert.equal(vmwareCalls(f,'plan')[0].body.waveSize,0);assert.equal(vmwareCalls(f,'plan')[0].body.resetManual,false);
+  assert.deepEqual(await f.page.locator('#vmWaveBoard .vm-wave-card').evaluateAll(c=>c.map(x=>x.getAttribute('data-wave-lane'))),['1','2','hold'],'one card per wave, then held VMs');
+  assert((await f.page.locator('[data-wave-lane="1"] .vm-wave-reason').textContent()).includes('Powered-off'),'each wave says why');
+  assert((await f.page.locator('[data-wave-lane="1"] .vm-wave-vm').textContent()).includes('Powered off, so nobody is using it.'),'each VM says why');
+  await f.page.locator('[aria-label="Name of wave 1"]').fill('Friday pilot');await f.page.locator('[aria-label="Planned window for wave 1"]').fill('2026-12-04T22:00');await f.page.locator('[aria-label="Notes for wave 1"]').fill('CHG-1001');
+  await dragTo(f,'[data-wave-lane="2"] .vm-wave-vm[data-vm-id="vm-app01"] strong','[data-wave-lane="1"] .vm-wave-stats');
+  await f.page.waitForFunction(()=>!!document.querySelector('[data-wave-lane="1"] .vm-wave-vm[data-vm-id="vm-app01"]'));
+  assert((await f.page.locator('[data-wave-lane="1"] .vm-wave-vm[data-vm-id="vm-app01"]').textContent()).includes('Placed by you.'));
+  assert.equal(await f.page.locator('[aria-label="Name of wave 1"]').inputValue(),'Friday pilot','a drag keeps the typed name');
+  await f.page.locator('[data-wave-lane="1"] input[data-vm-pick="vm-app01"]').check();assert.equal(await f.page.locator('#vmWaveBulk .vm-bulk-count').textContent(),'1 VM selected');
+  await f.page.locator('[data-wave-act="split"][data-wave="1"]').click();await f.page.waitForFunction(()=>!!document.querySelector('[data-wave-lane="2"] .vm-wave-vm[data-vm-id="vm-app01"]'));
+  assert.equal(await f.page.locator('[aria-label="Name of wave 2"]').inputValue(),'Friday pilot (part 2)','split makes a new wave right after');assert.equal(await f.page.locator('[aria-label="Name of wave 3"]').inputValue(),'General servers','later waves move down one');
+  await f.page.locator('[data-wave-act="up"][data-wave="3"]').click();assert.equal(await f.page.locator('[aria-label="Name of wave 2"]').inputValue(),'General servers','Move earlier swaps two waves');
+  await f.page.locator('[data-wave-act="merge"][data-wave="3"]').click();assert.equal(await f.page.locator('#vmWaveBoard [data-wave-lane]').count(),3,'merge removes the wave');
+  assert.equal(await f.page.locator('[data-wave-lane="2"] .vm-wave-vm[data-vm-id="vm-app01"]').count(),1,'merged VMs join the wave before');
+  await f.page.locator('#vmWaveAdd').click();assert.equal(await f.page.locator('[data-wave-lane="3"]').count(),1,'New wave adds an empty wave');
+  await f.page.locator('#vmWaveBulk [data-bulk="wave"]').selectOption('3');await f.page.locator('#vmWaveBulk [data-bulk="put"]').click();
+  assert.equal(await f.page.locator('[data-wave-lane="3"] .vm-wave-vm[data-vm-id="vm-app01"]').count(),1,'Put in wave moves the ticked VMs');
+  await f.page.locator('#vmWaveBulk [data-vm-pickby]').selectOption({label:'On hold'});assert.equal(await f.page.locator('#vmWaveBulk .vm-bulk-count').textContent(),'2 VMs selected','select by wave or lane');
+  await f.page.locator('#vmWaveBulk [data-bulk="clear"]').click();assert.equal(await f.page.locator('#vmWaveBulk .vm-bulk-count').textContent(),'Tick VMs to change many at once');
+  assert.equal(await f.page.locator('#vmPlanDirtyNote').textContent(),'Unsaved changes.');
+  await f.page.locator('#vmSavePlan').click();await f.page.waitForFunction(()=>document.querySelector('#vmPlanStatus').textContent==='Plan saved.');
+  const saved=vmwareCalls(f,'plan')[1].body.plan;
+  assert.deepEqual(saved.waves.map(w=>[w.wave,w.title,w.window||'',w.notes||'',!!w.edited]),[[1,'Friday pilot','2026-12-04T22:00','CHG-1001',true],[2,'General servers','','',true],[3,'Wave 3','','',true]]);
+  const app=saved.vms.find(v=>v.id==='vm-app01');assert.deepEqual([app.wave,app.manual,app.why],[3,true,'']);
+  await f.page.setViewportSize({width:1440,height:1000});await f.page.locator('#vmWaveTitle').evaluate(e=>e.scrollIntoView({block:'start'}));await f.page.screenshot({path:shots+'/vmware-waves-1440x1000.png'});
+  await f.page.locator('#vmWaveReset').check();await f.page.locator('#vmSuggest').click();await f.page.waitForFunction(()=>/Suggested/.test(document.querySelector('#vmPlanStatus').textContent));
+  assert.equal(vmwareCalls(f,'plan')[2].body.resetManual,true,'Suggest can replace hand-placed VMs too');
+  // Bulk in the VM list (Move VMs): select by readiness, put in a wave, prepare one after another, add to a migration plan.
+  f.state.vmware.canPrepare=true;f.vm.inventory.vms[1].snapshots=[{name:'before patch',created:'2026-10-06T00:00:00Z'}];f.state.vmware.inventorySerial=2;
+  await goTool(f,'movevms');await f.page.locator('[data-vmfilter="all"]').first().click().catch(()=>{});
+  await f.page.waitForFunction(()=>document.querySelectorAll('#vmTableBody input[data-vm-pick]').length===4);
+  await f.page.locator('#vmListBulk [data-vm-pickby]').selectOption({label:'Running'});assert.equal(await f.page.locator('#vmListBulk .vm-bulk-count').textContent(),'3 VMs selected');
+  assert(await f.page.locator('#vmTableBody input[data-vm-pick="vm-sql01"]').isChecked(),'the list shows the selection');
+  await f.page.locator('#vmTableBody input[data-vm-pick="vm-legacy03"]').uncheck();assert.equal(await f.page.locator('#vmListBulk .vm-bulk-count').textContent(),'2 VMs selected');
+  assert.equal(await f.page.locator('#vmDrawerTitle').textContent(),'vc01.example.com','ticking a VM does not open it');
+  await f.page.waitForTimeout(1200);await f.page.locator('#vmListBulk [data-bulk="prepare"]').click();assert(await f.page.locator('#vmBulkPrepare').isVisible());
+  const preview=await f.page.locator('#vmBulkPrepare tbody tr').allTextContents();assert.deepEqual(preview,['APP01Nothing to do with the steps ticked.','SQL01delete all snapshots'],'only VMs that need a step get it');
+  await f.page.locator('#vmBulkPrepare input[data-bulk-step="shutdown"]').check();
+  await f.page.locator('#vmBulkPrepareButton').click();assert.equal(await f.page.locator('#migrateConfirmLabel').textContent(),'Type the number of VMs to confirm: 2 VMs');
+  assert((await f.page.locator('#migrateDialogAlert').textContent()).includes('2 running VMs will be shut down'));
+  await f.page.locator('#migrateConfirmInput').fill('2 vms');await f.page.locator('#migrateConfirmButton').click();
+  await f.page.waitForFunction(()=>document.querySelector('#vmwareTabBadge').textContent==='Working');
+  assert.deepEqual(vmwareCalls(f,'prepare').map(c=>c.body),[{items:[{vmId:'vm-app01',steps:{snapshots:false,shutdown:true,removeTpm:false,decrypt:false}},{vmId:'vm-sql01',steps:{snapshots:true,shutdown:true,removeTpm:false,decrypt:false}}],confirm:'2 vms'}]);
+  Object.assign(f.state.vmware,{prepareBatch:[{id:'vm-app01',vm:'APP01',state:'done',done:['Shut down the guest.'],skipped:[]},{id:'vm-sql01',vm:'SQL01',state:'failed',done:['Deleted 1 snapshot.'],skipped:[],error:'The guest did not shut down within 10 minutes.'}]});
+  await f.page.waitForFunction(()=>/1 of 2 done, 1 failed/.test(document.querySelector('#vmListBatch').textContent));
+  assert((await f.page.locator('#vmListBatch [data-batch-vm="vm-sql01"]').textContent()).includes('did not shut down'),'each VM shows its own result');
+  Object.assign(f.state.vmware,{running:false,action:'',status:'connected'});await f.page.waitForFunction(()=>!document.querySelector('#vmListBulk [data-bulk="put"]').disabled);
+  await f.page.locator('#vmListBulk [data-bulk="networks"]').click();assert.deepEqual(await f.page.locator('#vmBulkNetworks tbody td:first-child').allTextContents(),['VM-Servers (VLAN 20)']);
+  await f.page.locator('#vmListBulk [data-bulk="wave"]').selectOption('2');await f.page.locator('#vmListBulk [data-bulk="put"]').click();
+  await f.page.waitForFunction(()=>/2 VMs put in wave 2/.test(document.querySelector('#vmListBulk').textContent));const listSave=vmwareCalls(f,'plan').pop().body.plan;
+  assert.deepEqual(listSave.vms.filter(v=>v.wave===2).map(v=>v.id).sort(),['vm-app01','vm-sql01'],'list actions save the plan at once');
+  await f.page.locator('#vmListBulk [data-bulk="plans"]').click();assert.equal(await f.page.locator('[data-tool="plans"]').getAttribute('aria-pressed'),'true');
+  await f.page.waitForFunction(()=>document.querySelectorAll('#mpPicker input[data-mp-pick]:checked').length>0);
+  assert.deepEqual(await f.page.locator('#mpPicker input[data-mp-pick]:checked').evaluateAll(n=>n.map(x=>x.getAttribute('data-mp-pick'))),['vm-app01','vm-sql01'],'the selection comes into a new migration plan');
+  assert.equal(await f.page.locator('#mpName').inputValue(),'Wave 2: General servers');
   assert.deepEqual(f.dialogs,[]);
  }finally{await f.close();}});
  await check('VMware disk copy: the receiver shows its address, code and thumbprint; sending checks them and sends only the chosen disks',async()=>{const f=await fixture(browser);try{

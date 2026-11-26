@@ -51,6 +51,7 @@ type vmwareRuntime struct {
 	prepare         *vmPrepareResult
 	prepareSerial   uint64
 	prepareError    string
+	prepareBatch    []vmPrepareBatchItem
 	move            *vmMoveResult
 	moveSerial      uint64
 	moveError       string
@@ -71,40 +72,41 @@ type vmwareRuntime struct {
 }
 
 type vmwareStateResponse struct {
-	Running         bool                `json:"running"`
-	Action          string              `json:"action"`
-	Status          string              `json:"status"`
-	Message         string              `json:"message"`
-	Server          string              `json:"server"`
-	Account         string              `json:"account"`
-	Certificate     *vmCertificateError `json:"certificate"`
-	Summary         *vmInventorySummary `json:"summary"`
-	InventorySerial uint64              `json:"inventorySerial"`
-	OutputFolder    string              `json:"outputFolder"`
-	ReportPath      string              `json:"reportPath"`
-	RunbookPath     string              `json:"runbookPath"`
-	RunbookDocxPath string              `json:"runbookDocxPath"`
-	DiscoveryPath   string              `json:"discoveryPath"`
-	ReportDocxPath  string              `json:"reportDocxPath"`
-	ReportPDFPath   string              `json:"reportPdfPath"`
-	PlanCSVPath     string              `json:"planCsvPath"`
-	GuestSerial     uint64              `json:"guestSerial"`
-	GuestMessage    string              `json:"guestMessage"`
-	GuestError      bool                `json:"guestError"`
-	GuestWorkPath   string              `json:"guestWorkPath"`
-	GuestTarget     *guestTargetState   `json:"guestTarget"`
-	CompareSerial   uint64              `json:"compareSerial"`
-	CompareError    string              `json:"compareError"`
-	Prepare         *vmPrepareResult    `json:"prepare"`
-	PrepareSerial   uint64              `json:"prepareSerial"`
-	PrepareError    string              `json:"prepareError"`
-	CanPrepare      bool                `json:"canPrepare"`
-	HyperVHere      bool                `json:"hyperVHere"`
-	Move            *vmMoveResult       `json:"move"`
-	MoveSerial      uint64              `json:"moveSerial"`
-	MoveError       string              `json:"moveError"`
-	MoveCopyRoot    string              `json:"moveCopyRoot"`
-	HostStorage     *vmHostStorage      `json:"hostStorage"`
+	Running         bool                 `json:"running"`
+	Action          string               `json:"action"`
+	Status          string               `json:"status"`
+	Message         string               `json:"message"`
+	Server          string               `json:"server"`
+	Account         string               `json:"account"`
+	Certificate     *vmCertificateError  `json:"certificate"`
+	Summary         *vmInventorySummary  `json:"summary"`
+	InventorySerial uint64               `json:"inventorySerial"`
+	OutputFolder    string               `json:"outputFolder"`
+	ReportPath      string               `json:"reportPath"`
+	RunbookPath     string               `json:"runbookPath"`
+	RunbookDocxPath string               `json:"runbookDocxPath"`
+	DiscoveryPath   string               `json:"discoveryPath"`
+	ReportDocxPath  string               `json:"reportDocxPath"`
+	ReportPDFPath   string               `json:"reportPdfPath"`
+	PlanCSVPath     string               `json:"planCsvPath"`
+	GuestSerial     uint64               `json:"guestSerial"`
+	GuestMessage    string               `json:"guestMessage"`
+	GuestError      bool                 `json:"guestError"`
+	GuestWorkPath   string               `json:"guestWorkPath"`
+	GuestTarget     *guestTargetState    `json:"guestTarget"`
+	CompareSerial   uint64               `json:"compareSerial"`
+	CompareError    string               `json:"compareError"`
+	Prepare         *vmPrepareResult     `json:"prepare"`
+	PrepareSerial   uint64               `json:"prepareSerial"`
+	PrepareError    string               `json:"prepareError"`
+	PrepareBatch    []vmPrepareBatchItem `json:"prepareBatch"`
+	CanPrepare      bool                 `json:"canPrepare"`
+	HyperVHere      bool                 `json:"hyperVHere"`
+	Move            *vmMoveResult        `json:"move"`
+	MoveSerial      uint64               `json:"moveSerial"`
+	MoveError       string               `json:"moveError"`
+	MoveCopyRoot    string               `json:"moveCopyRoot"`
+	HostStorage     *vmHostStorage       `json:"hostStorage"`
 	// HVRemote is the remote Hyper-V host or cluster Move VMs is connected
 	// to from this computer (never its password).
 	HVRemote *hvRemoteStateResponse `json:"hvRemote"`
@@ -157,7 +159,7 @@ func (a *application) vmwareSnapshotLocked() vmwareStateResponse {
 		RunbookPath: a.vmware.runbookPath, RunbookDocxPath: vmRunbookDocxFor(a.vmware.runbookPath), DiscoveryPath: vmDiscoveryReportFor(a.vmware.reportPath), ReportDocxPath: vmReportBeside(a.vmware.reportPath, vmReportDocx), ReportPDFPath: vmReportBeside(a.vmware.reportPath, vmReportPDF), PlanCSVPath: a.vmware.planCSVPath,
 		GuestSerial: a.vmware.guestSerial, GuestMessage: a.vmware.guestMessage, GuestError: a.vmware.guestError, GuestWorkPath: a.guestWorkPath(), GuestTarget: a.guestTargetStateLocked(),
 		CompareSerial: a.vmware.compareSerial, CompareError: a.vmware.compareError,
-		Prepare: a.vmware.prepare, PrepareSerial: a.vmware.prepareSerial, PrepareError: a.vmware.prepareError,
+		Prepare: a.vmware.prepare, PrepareSerial: a.vmware.prepareSerial, PrepareError: a.vmware.prepareError, PrepareBatch: append([]vmPrepareBatchItem{}, a.vmware.prepareBatch...),
 		Move: a.vmware.move, MoveSerial: a.vmware.moveSerial, MoveError: a.vmware.moveError, MoveCopyRoot: a.vmwareCopyRootLocked(),
 		Send: a.vmware.send, SendSerial: a.vmware.sendSerial, SendError: a.vmware.sendError, Receiver: a.vmReceiverStateLocked(),
 		HyperVHere:      vmHyperVHere(),
@@ -523,9 +525,10 @@ func (a *application) handleVMwarePlan(response http.ResponseWriter, request *ht
 		return
 	}
 	var input struct {
-		Plan     vmPlan `json:"plan"`
-		Suggest  bool   `json:"suggest"`
-		WaveSize int    `json:"waveSize"`
+		Plan        vmPlan `json:"plan"`
+		Suggest     bool   `json:"suggest"`
+		WaveSize    int    `json:"waveSize"`
+		ResetManual bool   `json:"resetManual"`
 		// SuggestStages drafts a rolling plan's stages; KeepWaves keeps
 		// the waves already set.
 		SuggestStages bool `json:"suggestStages"`
@@ -547,10 +550,11 @@ func (a *application) handleVMwarePlan(response http.ResponseWriter, request *ht
 		return
 	}
 	if input.Suggest {
-		if input.WaveSize < 1 || input.WaveSize > 200 {
-			input.WaveSize = 10
+		// 0 is Auto: about four waves of running servers.
+		if input.WaveSize < 0 || input.WaveSize > 200 {
+			input.WaveSize = 0
 		}
-		plan = suggestWaves(plan, inventory, input.WaveSize)
+		plan, _ = suggestWavesWith(plan, inventory, input.WaveSize, input.ResetManual)
 	}
 	if input.SuggestStages {
 		if vmPlanScenario(plan) != vmScenarioRolling {
@@ -1181,11 +1185,16 @@ func (a *application) handleVMwarePrepare(response http.ResponseWriter, request 
 		return
 	}
 	var input struct {
-		VMID    string         `json:"vmId"`
-		Confirm string         `json:"confirm"`
-		Steps   vmPrepareSteps `json:"steps"`
+		VMID    string                  `json:"vmId"`
+		Confirm string                  `json:"confirm"`
+		Steps   vmPrepareSteps          `json:"steps"`
+		Items   []vmPrepareBatchRequest `json:"items"`
 	}
 	if !decodeVMwareRequest(response, request, &input) {
+		return
+	}
+	if len(input.Items) > 0 {
+		a.prepareVMwareBatch(response, input.Items, input.Confirm)
 		return
 	}
 	if !input.Steps.any() {
@@ -1222,6 +1231,7 @@ func (a *application) handleVMwarePrepare(response http.ResponseWriter, request 
 	a.vmware.status = "preparing"
 	a.vmware.message = "Preparing " + name + "."
 	a.vmware.prepareError = ""
+	a.vmware.prepareBatch = nil
 	a.mu.Unlock()
 	a.vmwareLog("Preparing %s: %s.", name, strings.Join(vmPrepareStepNames(input.Steps), ", "))
 	go func() {
@@ -1234,27 +1244,7 @@ func (a *application) handleVMwarePrepare(response http.ResponseWriter, request 
 		if err != nil {
 			a.vmware.prepareError = err.Error()
 		}
-		// Reflect what changed so readiness is checked again.
-		if a.vmware.inventory != nil {
-			for index := range a.vmware.inventory.VMs {
-				vm := &a.vmware.inventory.VMs[index]
-				if vm.ID != id || result.PowerState == "" {
-					continue
-				}
-				vm.PowerState, vm.VTPM, vm.Encrypted = result.PowerState, result.VTPM, result.Encrypted
-				if result.Snapshots == 0 {
-					vm.Snapshots, vm.ConsolidationNeeded = nil, false
-				}
-				if result.PowerState == "poweredOff" {
-					vm.ToolsRunning = false
-				}
-				vm.Readiness = nil
-				for _, target := range vmTargets {
-					vm.Readiness = append(vm.Readiness, assessVM(*vm, target, time.Now()))
-				}
-			}
-			a.vmware.inventorySerial++
-		}
+		a.applyPrepareResultLocked(id, result)
 		a.mu.Unlock()
 		for _, line := range append(result.Done, result.Skipped...) {
 			a.vmwareLog("%s", line)
@@ -1265,6 +1255,101 @@ func (a *application) handleVMwarePrepare(response http.ResponseWriter, request 
 			return
 		}
 		a.finishVMwareAction("connected", "Prepared "+name+".")
+	}()
+	writeJSON(response, http.StatusAccepted, map[string]any{"ok": true})
+}
+
+// applyPrepareResultLocked reflects what a prepare changed in the inventory
+// so readiness is checked again. Caller holds a.mu.
+func (a *application) applyPrepareResultLocked(id string, result vmPrepareResult) {
+	if a.vmware.inventory == nil {
+		return
+	}
+	for index := range a.vmware.inventory.VMs {
+		vm := &a.vmware.inventory.VMs[index]
+		if vm.ID != id || result.PowerState == "" {
+			continue
+		}
+		vm.PowerState, vm.VTPM, vm.Encrypted = result.PowerState, result.VTPM, result.Encrypted
+		if result.Snapshots == 0 {
+			vm.Snapshots, vm.ConsolidationNeeded = nil, false
+		}
+		if result.PowerState == "poweredOff" {
+			vm.ToolsRunning = false
+		}
+		vm.Readiness = nil
+		for _, target := range vmTargets {
+			vm.Readiness = append(vm.Readiness, assessVM(*vm, target, time.Now()))
+		}
+	}
+	a.vmware.inventorySerial++
+}
+
+// prepareVMwareBatch runs Prepare on VMware for many VMs, one after another,
+// after one typed confirmation of the batch (vmware_bulk.go).
+func (a *application) prepareVMwareBatch(response http.ResponseWriter, requests []vmPrepareBatchRequest, confirm string) {
+	a.mu.Lock()
+	inventory, server, user, password, thumbprint := a.vmware.inventory, a.vmware.server, a.vmware.account, a.vmware.password, a.vmware.thumbprint
+	a.mu.Unlock()
+	if inventory == nil || password == "" || !strings.EqualFold(inventory.Server, server) {
+		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "Read the inventory from vCenter or ESXi in this session first. A saved inventory cannot change anything."})
+		return
+	}
+	items, err := vmPlanPrepareBatch(inventory, requests, confirm)
+	if err != nil {
+		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	if status, message := a.startVMwareAction("prepare"); status != 0 {
+		writeJSON(response, status, map[string]any{"ok": false, "error": message})
+		return
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	label := vmPrepareBatchConfirmText(len(items))
+	a.mu.Lock()
+	a.vmware.cancel = cancel
+	a.vmware.status = "preparing"
+	a.vmware.message = "Preparing " + label + ", one at a time."
+	a.vmware.prepareError = ""
+	a.vmware.prepareBatch = append([]vmPrepareBatchItem{}, items...)
+	a.mu.Unlock()
+	a.vmwareLog("Preparing %s one at a time.", label)
+	go func() {
+		defer cancel()
+		folder := filepath.Join(a.vmwareRoot(), safeName(strings.ToLower(server)), "Prepare")
+		options := vmConnectOptions{Server: server, User: user, Password: password, Thumbprint: thumbprint, UserAgent: displayName + " " + appVersion, AppVersion: appVersion}
+		done, failed, stopped := vmPrepareBatchRun(ctx, items, func(item vmPrepareBatchItem) (vmPrepareResult, error) {
+			a.vmwareLog("Preparing %s: %s.", item.VM, strings.Join(vmPrepareStepNames(item.Steps), ", "))
+			// Each VM runs to the end even if Stop is pressed meanwhile.
+			result, err := prepareVSphereVM(context.Background(), options, item.ID, item.VM, item.Steps, folder, func(text string) { a.vmwareLog("%s", text) })
+			for _, line := range append(append([]string{}, result.Done...), result.Skipped...) {
+				a.vmwareLog("%s: %s", item.VM, line)
+			}
+			if err != nil {
+				a.vmwareLog("%s: %s", item.VM, err.Error())
+			}
+			a.mu.Lock()
+			a.applyPrepareResultLocked(item.ID, result)
+			a.mu.Unlock()
+			return result, err
+		}, func(list []vmPrepareBatchItem) {
+			a.mu.Lock()
+			a.vmware.prepareBatch = list
+			a.mu.Unlock()
+		})
+		options.Password, password = "", ""
+		message := fmt.Sprintf("Prepared %d of %d VMs.", done, len(items))
+		if failed > 0 {
+			message += fmt.Sprintf(" %d failed: see each VM's result.", failed)
+		}
+		if stopped > 0 {
+			message += fmt.Sprintf(" Stopped before %d.", stopped)
+		}
+		a.mu.Lock()
+		a.vmware.prepareSerial++
+		a.mu.Unlock()
+		a.vmwareLog("%s", message)
+		a.finishVMwareAction("connected", message)
 	}()
 	writeJSON(response, http.StatusAccepted, map[string]any{"ok": true})
 }

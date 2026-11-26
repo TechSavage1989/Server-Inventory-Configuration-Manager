@@ -222,6 +222,9 @@ func writeRunbookDocx(path string, inventory *vmInventory, plan vmPlan, waves []
 
 	for _, wave := range waves {
 		d.heading(1, wave.Label)
+		if wave.Detail != "" {
+			d.paragraph("Subtitle", wave.Detail)
+		}
 		for _, item := range wave.VMs {
 			vm := item.VM
 			d.heading(2, vm.Name+" ("+vmReportStatusLabel(item.Readiness.Status)+")")

@@ -1,9 +1,15 @@
 ## Unreleased: migration scenarios and rolling conversion on the same hardware — 2026-11-26
 
-- Plan and runbook starts with a **Migration scenario** (AGENTS.md rule 45): New hardware, or Reuse the existing hosts (rolling, one host at a time). Rolling fills New cluster size from the recorded hosts, flags which datastores can be reused, suggests one stage per host and checks every stage on both sides with N+1 warnings. Stages, waves and sizes are all editable.
+- Plan and runbook starts with a **Migration scenario** (AGENTS.md rule 46): New hardware, or Reuse the existing hosts (rolling, one host at a time). Rolling fills New cluster size from the recorded hosts, flags which datastores can be reused, suggests one stage per host and checks every stage on both sides with N+1 warnings. Stages, waves and sizes are all editable.
 - The same data feeds Build Hyper-V hosts (nodes in stage order, named after their ESXi hosts, vMotion address kept, switch adapters matched by MAC after Read nodes), Migration plans (pick a stage's wave) and the runbook (HTML and Word stage sections).
 - Fixed: a VMware network with VLAN 0 gave a plan that could not be saved ("The target VLAN ... must be a number from 1 to 4094"); VLAN 0 now maps to no VLAN.
 - Tests: `vmscenario_test.go` (fill, storage flags, suggestion, editing and refusals, cloud targets, runbook HTML and Word, Build Hyper-V hosts reuse), workspace check "Rolling conversion". Not field-validated on a real rolling conversion.
+
+## Unreleased: bulk VM actions and waves you can change — 2026-11-26
+
+User-requested after "why does suggest always set everything to 2" and "the plan, and batches/waves must be configurable and customizable". Suggest waves (`vmware_waves.go`) now groups by role and risk (pilot of powered-off and test/dev VMs, one domain controller early and the others last, databases alone, application servers by name stem, general servers in chunks, system and backup appliances excluded), says why for every VM and wave, uses an Auto size, and keeps VMs placed by hand and waves the operator named unless asked to replace them. The Plan and runbook tab has a wave board: drag VMs between waves, name a wave, give it a planned window and notes, move it earlier or later, split ticked VMs out, merge, add a wave; the runbook (HTML and Word) shows each wave's name, window, reason and notes. VMs can be ticked in the VM list, board and table, or picked by host, cluster, folder, wave, readiness or power, then put in a wave, held, excluded, included, network-mapped, added to a new Migration plan, or (in Move VMs) prepared on VMware as one batch: per-VM steps, one typed confirmation (the number of VMs), one VM after another, each VM's result shown (`vmware_bulk.go`, `prepareBatch`). Rule 45 in AGENTS.md.
+
+Tests: `go test` covers suggestion roles, hand-placed and edited waves, wave validation, and batch checks and runs (`vmware_waves_test.go`); `scripts/test_workspace.cjs` covers the board, drag, split, merge, reorder, bulk wave, select by, batch Prepare with its preview and confirmation, batch results, the network panel and Add to a migration plan. Not field-validated: batch Prepare against a real vCenter.
 
 ## 3.2.35 published and verified — 2026-11-26
 

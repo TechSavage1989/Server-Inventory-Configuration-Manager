@@ -830,7 +830,9 @@ func suggestRollingStages(plan vmPlan, inventory *vmInventory, keepWaves bool) v
 		if readiness := vm.readinessFor(plan.Target); readiness != nil && readiness.Status == vmStatusBlocked && item.Wave == 0 {
 			item.Hold = true
 		}
-		if !keepWaves && !item.Hold {
+		// VMs the operator placed by hand keep their wave, as with Suggest
+		// waves (rule 45).
+		if !keepWaves && !item.Hold && !item.Manual {
 			item.Wave = 0
 		}
 	}
@@ -865,6 +867,7 @@ func suggestRollingStages(plan vmPlan, inventory *vmInventory, keepWaves bool) v
 		for index := range plan.VMs {
 			if plan.VMs[index].ID == id {
 				plan.VMs[index].Wave = wave
+				plan.VMs[index].Why = "Fits on the new nodes rebuilt by the rolling stages so far."
 			}
 		}
 	}
