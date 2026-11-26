@@ -150,7 +150,7 @@ func (a *application) handleVMwareMove(response http.ResponseWriter, request *ht
 		return
 	}
 	if input.Cluster && (!vmOnClusterStorage(copyFolder) || !vmOnClusterStorage(vmFolder)) {
-		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "A highly available VM must keep its disks and its configuration on a Cluster Shared Volume (" + vmClusterStorageRoot() + "\\...). Choose one for both folders, or untick Make it highly available."})
+		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "A highly available VM must keep its disks and its configuration on a Cluster Shared Volume (" + vmClusterStorageRoot() + "\\...). Choose one for both the copied disks folder and the VM configuration folder, or untick Make it highly available."})
 		return
 	}
 	// The first copy needs room for the VM's data; later copies rewrite
