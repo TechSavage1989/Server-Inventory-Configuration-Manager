@@ -594,7 +594,14 @@ func assessVM(vm vmMachine, target string, now time.Time) vmReadiness {
 		if homeOnly {
 			message += " Its own files are encrypted for the virtual TPM (vSphere VM Encryption), but its disks are not, so they copy as they are with nothing to decrypt."
 		}
-		add(vmSeverityWarning, "vtpm", message, "Before the cutover, save the BitLocker recovery keys and suspend BitLocker (Prepare and fix up: from this computer over the network, or inside the VM), or have the recovery keys from Active Directory or Intune ready. "+profile.VTPM)
+		action := "Before the cutover, save the BitLocker recovery keys and suspend BitLocker (Prepare and fix up: from this computer over the network, or inside the VM), or have the recovery keys from Active Directory or Intune ready. " + profile.VTPM
+		if target == vmTargetHyperV && !hyperV && efi {
+			// The cutover gives the generation 2 VM a new virtual TPM, so this
+			// is something to know rather than something to fix.
+			add(vmSeverityInfo, "vtpm", message+" The cutover gives the Hyper-V VM a new virtual TPM.", "If BitLocker is on inside the VM, Windows asks for the recovery key at the first start: save the keys first (Prepare and fix up) or have them from Active Directory or Intune.")
+		} else {
+			add(vmSeverityWarning, "vtpm", message, action)
+		}
 	}
 
 	// Disks.
@@ -739,6 +746,11 @@ func assessVM(vm vmMachine, target string, now time.Time) vmReadiness {
 		}
 		if profile.Kind == vmKindCloud {
 			add(vmSeverityWarning, "static-ip", "Static IP configuration on "+vmPlural(len(statics), "adapter", "adapters")+" ("+strings.Join(addresses, "; ")+"). "+profile.Short+" assigns addresses through DHCP, and a static address inside the guest cuts it off the network.", "Reserve the address as a static private IP on the new "+profile.NetworkLabel+" (if it fits the subnet), and leave the guest on DHCP. The migration service usually switches the guest to DHCP; check after cutover. Plan DNS changes for addresses that change.")
+		} else if target == vmTargetHyperV && !hyperV && os.Family == "windows" {
+			// Move VMs records these from vCenter on every copy and the
+			// automatic fix-up puts them back on the new adapters
+			// (guest_autofix.go), with the old VM's adapters disconnected.
+			add(vmSeverityInfo, "static-ip", "Static IP configuration on "+vmPlural(len(statics), "adapter", "adapters")+" ("+strings.Join(addresses, "; ")+"). Recorded from vCenter on every copy and put back on the new adapters automatically after the cutover.", "Enter the guest administrator account once in Move VMs or the migration plan. The old VM's adapters are set to not connect first, so the address is never used twice.")
 		} else {
 			add(vmSeverityWarning, "static-ip", "Static IP configuration on "+vmPlural(len(statics), "adapter", "adapters")+" ("+strings.Join(addresses, "; ")+"). The new "+map[bool]string{true: "server", false: "VM"}[profile.Kind == vmKindPhysical]+" gets new network adapters, which start without these settings.", "Run the guest pre-flight inside the VM before cutover, then the fix-up after cutover to put the settings back. Disconnect the old VM's adapters so the address is not used twice.")
 		}
