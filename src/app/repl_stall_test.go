@@ -90,11 +90,20 @@ func TestReplicationWatchdogStopsAStalledRoundAndTheNextResumes(t *testing.T) {
 	platform.mu.Lock()
 	platform.wrap = nil
 	platform.mu.Unlock()
-	if err := agent.Action(id, "sync"); err != nil {
-		t.Fatal(err)
+	// The abandoned round still holds the disk until its hung read returns
+	// and it closes; until then the receiver answers "already being
+	// received" and the job waits, as it would in the field.
+	for attempt := 0; attempt < 40; attempt++ {
+		if err := agent.Action(id, "sync"); err != nil {
+			t.Fatal(err)
+		}
+		agent.Tick()
+		view = replWaitIdle(t, agent, id)
+		if view.Status.Rounds == 1 || !strings.Contains(view.Status.LastError, "already being received") {
+			break
+		}
+		time.Sleep(250 * time.Millisecond)
 	}
-	agent.Tick()
-	view = replWaitIdle(t, agent, id)
 	if view.Status.State != replStateIdle || view.Status.Rounds != 1 || view.Status.LastError != "" {
 		t.Fatalf("the round after a stall: %+v", view.Status)
 	}
