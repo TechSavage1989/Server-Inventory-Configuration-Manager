@@ -6,7 +6,7 @@ Examples from that night: the Receive panel needed for replication, the destinat
 
 ## Goal
 
-One **New migration** tool, the first thing in Migration and replication, that takes an operator from "what am I moving" to a running, monitored migration on one sequence of screens. Every value has a default, so for the common case the operator only picks VMs, presses Next, types the plan name and presses Start. Only the options for the chosen way of moving are shown, and advanced options stay folded away. The separate tools stay where they are, listed under **Tools (advanced)**.
+One **New migration** tool, the first thing in Migration and replication, that takes an operator from "what am I moving" to a running, monitored migration on one sequence of screens. Every value has a default, so for the common case the operator only picks VMs, presses Next, confirms (a tick box by default) and presses Start. Only the options for the chosen way of moving are shown, and advanced options stay folded away. The separate tools stay where they are, listed under **Tools (advanced)**.
 
 ## Screens
 
@@ -30,8 +30,8 @@ A step bar across the top (1 What, 2 Where, 3 How, 4 When, 5 Review, 6 Status). 
    - Each wave has a cutover choice: **When I press Cut over** (the default, after a test) or a date and time.
 5. **Review**
    - One summary of every choice, plus checks that block Start: this computer is a Hyper-V host, the vCenter session is live, there is enough space, every network is mapped, and no VM is in another plan.
-   - VMware snapshots: VMs with snapshots are listed with **Remove snapshots on N VMs** (typed number of VMs, the existing batch Prepare), because copies refuse a VM with snapshots.
-   - Type the plan's name and press **Start**. That saves the network map and waves, creates the migration plan and schedules any timed cutovers, all with that one confirmation.
+   - VMware snapshots: VMs with snapshots are listed with **Remove snapshots on N VMs** (confirmed in the way chosen under Help, Settings; the existing batch Prepare), because copies refuse a VM with snapshots.
+   - Confirm and press **Start** (by default a tick box: "I understand Start creates the migration ..."; Help, Settings can make it a dialog, the typed plan name or nothing, AGENTS.md rule 55). That saves the network map and waves, creates the migration plan and schedules any timed cutovers, all with that one confirmation.
 6. **Status**
    - The live view of what was started: clickable tiles (all, copying, ready, testing, scheduled, done, failed) that filter the list, and a progress bar, speed and time left per VM.
    - Per VM: Test (an isolated NAME-TEST VM), End test, Cut over.
@@ -46,13 +46,13 @@ A step bar across the top (1 What, 2 Where, 3 How, 4 When, 5 Review, 6 Status). 
 ## Phase 2
 
 - Done (step 1): run a batch to a remote Hyper-V host or cluster from an admin computer. Where connects to the host inline and the migration plan gets `remoteHost` and `node`; every round, VM creation and test uses rule 39's remoting and administrative-share path.
-- Done (step 2): Windows and Linux servers to this Hyper-V host. What lists the agents the replication console knows and installs the agent on new Windows servers inline; Where takes only the copy folder (this computer's receiver is started and paired for the jobs); Start creates one job per server through All jobs and servers' bulk `createjob` with `local:true` after the number of servers is typed; Status shows those servers with the console's own actions. Other targets for servers still hand off to Replicate servers.
+- Done (step 2): Windows and Linux servers to this Hyper-V host. What lists the agents the replication console knows and installs the agent on new Windows servers inline; Where takes only the copy folder (this computer's receiver is started and paired for the jobs); Start creates one job per server through All jobs and servers' bulk `createjob` with `local:true` after the start is confirmed; Status shows those servers with the console's own actions. Other targets for servers still hand off to Replicate servers.
 - Done (step 3): HyperCore, Nutanix and Proxmox. Where connects to the platform inline, and How lists every chosen VM with where it stands and opens its Move panel. Each new VM's receiver shows its own pairing code on its console and the boot-media receiver takes no pairing requests, so these moves are paired one VM at a time by design; the wizard does not batch them.
 
 ## Rules
 
 - No new endpoint. The wizard uses only `/api/vmware/connect`, `/api/vmware/plan`, `/api/vmware/prepare`, `/api/plans` and the state.
-- The plan name typed in Review is the confirmation for creating the plan and for every timed cutover sent with it. Cut over now in Status asks for the plan name again.
+- The confirmation in Review (rule 55: a tick box by default, or a dialog, the typed plan name or none) covers creating the plan and every timed cutover sent with it; each request carries the plan name and the server checks it. Cut over now in Status asks again, and its tick box is cleared whenever the selected VMs change.
 - Ids start with `nw`. The tool is `data-tool="wizard"` with the pane `#tabWizard`. It is the Migration tab's default tool.
 
 ## Guided migration folded in (2026-11-26)

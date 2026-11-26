@@ -74,7 +74,7 @@ const hvBuildStepCount=hvBuildFixture.steps.length;
 async function fixture(browser,old=false){
  let saved=null,started=[],saveCalls=0,rejectStart=false,skipRequests=[],opens=[],restoreReject=null,migrateReject={},vmwareReject={};const receiverPair={allowed:false};
  const logs=[],dialogs=[],errors=[],restoreCalls={browse:0,scan:[],start:[],cancel:0,tokens:[]},migrateCalls=[],vmwareCalls=[],convertCalls=[],replCalls=[],planCalls=[],serverCalls=[];const servers={rows:[],summary:{total:0,states:{},scheduled:0,methods:{}},bulk:{running:false,action:'',total:0,results:[]},hyperVHere:true,isAdministrator:true,local:{hyperV:true,computer:'HV01',running:false,folder:'',defaultFolder:'C:\\ClusterStorage\\Volume1\\Hyper-V\\Received',port:44380,addresses:['192.0.2.40']}};const plans={plans:[],inventory:{open:true,server:'vc01.example.com',serverType:'vCenter Server',live:true}};let convertReject={},convertSize=0;const pickCalls=[],outputRootCalls=[];let pickReject='';
- const state={status:'idle',phase:'Ready',running:false,computerName:'SRV-DEMO-01',signedInAccount:'EXAMPLE\\operator',isAdministrator:true,powerShellVersion:'5.1',defaultOutputRoot:'C:\\Reports',update:{status:'current',title:'Up to date',message:'Installed v3.2.10. Latest v3.2.10.',canCheck:true},
+ const uiCalls=[];const state={ui:{schema:1,confirmStyle:'typed'},status:'idle',phase:'Ready',running:false,computerName:'SRV-DEMO-01',signedInAccount:'EXAMPLE\\operator',isAdministrator:true,powerShellVersion:'5.1',defaultOutputRoot:'C:\\Reports',update:{status:'current',title:'Up to date',message:'Installed v3.2.10. Latest v3.2.10.',canCheck:true},
   restore:{status:'idle',packages:{lastCollection:'',loadedReport:''},items:[],logs:[]},migrate:migrateIdle(),vmware:vmwareIdle(),convert:convertIdle()};
  const vm={inventory:null,plan:null,sizing:null,guest:null,compare:null};
  const failover={failovers:[],copies:[{name:'APP01-disk0.vhdx',size:107374182400,complete:true,verified:false,round:'a1@2026-11-25T14:19:23Z',job:'a1',recoveryPoint:'2026-11-25T14:19:23Z',updated:'2026-11-25T14:20:00Z',busy:false,generation:2,machine:{name:'APP01',cpus:6,memoryMB:12288,firmware:'uefi',adapters:2}},{name:'APP01-disk1.vhdx',size:536870912000,complete:true,verified:false,round:'a1@2026-11-25T14:19:23Z',job:'a1',recoveryPoint:'2026-11-25T14:19:23Z',updated:'2026-11-25T14:20:00Z',busy:false,generation:1},{name:'SQL01-disk0.vhdx',size:107374182400,complete:false,verified:false,updated:'2026-11-25T14:20:00Z',busy:true,generation:1}]};
@@ -86,6 +86,13 @@ async function fixture(browser,old=false){
   if(url.pathname==='/'){res.writeHead(200,{'Content-Type':'text/html','Content-Security-Policy':policy});res.end(html);return;}
   const send=(code,data)=>{res.writeHead(code,{'Content-Type':'application/json'});res.end(JSON.stringify(data));};
   if(url.pathname==='/api/state'){const since=Number(url.searchParams.get('since')||0);send(200,{...state,collectionPreferences:saved,logs:logs.slice(since).map((text,i)=>({index:since+i,text})),nextLogIndex:logs.length});return;}
+  if(url.pathname==='/api/ui-settings'){
+   let body='';for await(const chunk of req)body+=chunk;
+   if(req.headers['x-app-token']!=='workspace-test'){send(403,{});return;}
+   const data=JSON.parse(body);uiCalls.push(data);
+   if(!['none','tick','prompt','typed'].includes(data.confirmStyle)){send(400,{ok:false,error:'Choose how changes are confirmed: none, tick, prompt or typed.'});return;}
+   state.ui={schema:1,confirmStyle:data.confirmStyle};send(200,{ok:true,ui:state.ui});return;
+  }
   if(url.pathname==='/api/preferences'||url.pathname==='/api/start'){
    let body='';for await(const chunk of req)body+=chunk;
    if(req.headers['x-app-token']!=='workspace-test'){send(403,{});return;}
@@ -250,7 +257,7 @@ async function fixture(browser,old=false){
  const url='http://127.0.0.1:'+server.address().port+'/';
  // A fixture that fails to load closes its own server and context; otherwise Node never exits and the job hangs until its timeout.
  try{await page.goto(url);await page.waitForFunction(()=>document.querySelector('#serverName').textContent==='SRV-DEMO-01');}catch(e){await context.close().catch(()=>{});server.close();throw new Error('Fixture page did not load ('+errors.concat(dialogs).join('; ')+'): '+e.message);}
- return {page,context,state,pickCalls,outputRootCalls,rejectPick(message){pickReject=message},vm,repl,plans,planCalls,servers,serverCalls,failover,receiverPair,targetTest,replCalls,vmwareCalls,convertCalls,rejectConvert(action,message){convertReject[action]=message},setConvertSize(size){convertSize=size},rejectVmware(action,message){vmwareReject[action]=message},logs,dialogs,errors,started,skipRequests,opens,restoreCalls,migrateCalls,rejectMigrate(action,message){migrateReject[action]=message},rejectRestore(message){restoreReject=message},get saved(){return saved},get saveCalls(){return saveCalls},reject(){rejectStart=true},async close(){assert.deepEqual(errors,[]);await context.close();await new Promise(r=>server.close(r));}};
+ return {page,context,state,uiCalls,pickCalls,outputRootCalls,rejectPick(message){pickReject=message},vm,repl,plans,planCalls,servers,serverCalls,failover,receiverPair,targetTest,replCalls,vmwareCalls,convertCalls,rejectConvert(action,message){convertReject[action]=message},setConvertSize(size){convertSize=size},rejectVmware(action,message){vmwareReject[action]=message},logs,dialogs,errors,started,skipRequests,opens,restoreCalls,migrateCalls,rejectMigrate(action,message){migrateReject[action]=message},rejectRestore(message){restoreReject=message},get saved(){return saved},get saveCalls(){return saveCalls},reject(){rejectStart=true},async close(){assert.deepEqual(errors,[]);await context.close();await new Promise(r=>server.close(r));}};
 }
 // Tools live in two tabs: Discovery (Alt+1) and Migration and replication (Alt+5).
 const discoveryTools=['server','environment'];
@@ -1774,7 +1781,7 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   assert.deepEqual(f.replCalls.filter(c=>c.action==='job'&&c.body.action==='cutover').map(c=>c.body),[{agent:'ag1',id:'a1b2c3d4e5f60718',action:'cutover',typed:'app01'}]);
   assert(f.replCalls.every(c=>c.token==='workspace-test'));assert.deepEqual(f.errors,[]);assert.deepEqual(f.dialogs,[]);
  }finally{await f.close();}});
- await check('New migration: one sequence of screens picks VMs, fills the target, maps networks, recommends the way, sets waves and timed cutovers, checks, and starts a migration plan with one typed name',async()=>{const f=await fixture(browser);try{
+ await check('New migration: one sequence of screens picks VMs, fills the target, maps networks, recommends the way, sets waves and timed cutovers, checks, and starts a migration plan with one tick box (the default confirmation)',async()=>{const f=await fixture(browser);try{f.state.ui={schema:1,confirmStyle:'tick'};
   f.vm.inventory=vmwareInventoryFixture();f.vm.plan=vmwarePlanFixture();f.vm.inventory.vms[1].snapshots=[{name:'before patch',created:'2026-10-06T00:00:00Z'}];
   f.state.vmware=Object.assign(vmwareIdle(),{status:'connected',server:'vc01.example.com',account:'administrator@vsphere.local',summary:vmwareSummaryFixture(),inventorySerial:1,canPrepare:true,hyperVHere:true,hostStorage:{known:true,vhdPath:'D:\\Hyper-V\\Disks',vmPath:'D:\\Hyper-V',clustered:false,volumes:[{path:'D:\\',freeBytes:1099511627776,totalBytes:2199023255552,csv:false}]}});
   await f.page.keyboard.press('Alt+5');assert.equal(await f.page.locator('[data-tool="wizard"]').getAttribute('aria-pressed'),'true','New migration is the first thing in Migration and replication');
@@ -1808,13 +1815,14 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   await f.page.locator('[data-nw-wave="vm-sql01"]').selectOption(String(Math.max(...waves.map(Number))+1));await f.page.screenshot({path:out+'/new-migration-when-1440x1000.png'});
   await f.page.locator('#nwNext').click();
   assert((await f.page.locator('.nw-checks').textContent()).includes('VMware snapshots'),'snapshots are caught before Start');assert(await f.page.locator('#nwNext').isDisabled());
-  await f.page.locator('#nwSnapshots').click();assert(await f.page.locator('#migrateDialog').isVisible());assert((await f.page.locator('#migrateConfirmLabel').textContent()).endsWith('1 VM'));await f.page.locator('#migrateDialogCancel').click();
+  await f.page.locator('#nwSnapshots').click();assert(await f.page.locator('#migrateDialog').isVisible());assert(!await f.page.locator('#migrateConfirmInput').isVisible());assert((await f.page.locator('#migrateConfirmTickLabel').textContent()).includes('every snapshot of 1 VM'));assert(await f.page.locator('#migrateConfirmButton').isDisabled());await f.page.locator('#migrateDialogCancel').click();
   f.vm.inventory.vms[1].snapshots=[];f.state.vmware.inventorySerial=2;
   await f.page.waitForFunction(()=>!document.querySelector('#nwSnapshots'),null,{timeout:15000});
   {const t=await f.page.locator('.nw-summary').textContent();assert(t.includes('VM-Servers to Isolated VLAN 20'),t);}
   const name=await f.page.locator('#nwName').inputValue();assert(name.startsWith('Migration '));
-  assert.equal(await f.page.locator('#nwWhy').textContent(),'Type the name again, '+name+', to start.');
-  await f.page.locator('#nwConfirm').fill(name);await f.page.screenshot({path:out+'/new-migration-review-1440x1000.png'});await f.page.locator('#nwNext').click();
+  assert.equal(await f.page.locator('#nwWhy').textContent(),'Tick "I understand" to start '+name+'.');
+  assert(!await f.page.locator('#nwConfirm').isVisible(),'no name to type');assert((await f.page.locator('label:has(#nwConfirmTick)').textContent()).includes('I understand Start creates the migration '+name));
+  await f.page.locator('#nwConfirmTick').check();assert(!await f.page.locator('#nwNext').isDisabled());await f.page.screenshot({path:out+'/new-migration-review-1440x1000.png'});await f.page.locator('#nwNext').click();
   await f.page.waitForFunction(()=>document.querySelector('.nw-stepper-item.current')&&document.querySelector('.nw-stepper-item.current').textContent==='6Status',null,{timeout:15000});
   const saved=f.vmwareCalls.filter(c=>c.action==='plan'&&c.method==='POST').pop();const net=saved.body.plan.networks.find(n=>n.source==='VM-Servers');assert.equal(net.targetName,'Isolated');assert.equal(net.targetVlan,'20');
   assert(saved.body.plan.vms.find(v=>v.id==='vm-sql01').manual,'a wave changed here is kept by later suggestions');
@@ -1826,8 +1834,8 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   await f.page.waitForFunction(()=>document.querySelector('#nwStatusBody').textContent.includes('40%'),null,{timeout:15000});
   await f.page.locator('[data-nw-filter="copying"]').click();assert.equal(await f.page.locator('#nwStatusBody [data-nw-row]').count(),1,'tiles filter the list');await f.page.locator('[data-nw-filter="copying"]').click();
   await f.page.screenshot({path:out+'/new-migration-status-1440x1000.png'});
-  await f.page.locator('[data-nw-row="'+f.plans.plans[0].vms[0].id+'"]').check();assert((await f.page.locator('#nwStatusMsg').textContent()).startsWith('Type the name'));
-  await f.page.locator('#nwCutConfirm').fill(name);await f.page.locator('#nwCutNow').click();
+  await f.page.locator('[data-nw-row="'+f.plans.plans[0].vms[0].id+'"]').check();assert((await f.page.locator('#nwStatusMsg').textContent()).startsWith('Tick "I understand"'));
+  await f.page.locator('#nwCutConfirmTick').check();await f.page.locator('#nwCutNow').click();
   for(let i=0;i<100&&f.planCalls.filter(c=>c.body.action==='cutover').length<2;i++){await new Promise(r=>setTimeout(r,50));}const now=f.planCalls.filter(c=>c.body.action==='cutover').pop();assert.equal(now.body.at,'now');assert.equal(now.body.confirm,name);
   await f.page.setViewportSize({width:1008,height:690});await f.page.locator('[data-nw-step]').first().waitFor();
   assert(await f.page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1),'no horizontal scroll at 1024x768');
@@ -1897,7 +1905,7 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   assert.equal(created.body.settings.remoteHost,'hvclu01.example.com');assert.equal(created.body.settings.node,'HV02');assert.equal(created.body.settings.copyRoot,'C:\\ClusterStorage\\Volume1\\Migrations');assert.equal(created.body.settings.cluster,true);
   assert(!JSON.stringify(f.planCalls).includes('Synthetic-Pass-1'),'the Hyper-V password never reaches the plan');
  }finally{await f.close();}});
- await check('New migration: Windows and Linux servers replicate to this Hyper-V host from the flow: pick agents, install one inline, only the folder in Where, start jobs with a typed count, and cut over from Status',async()=>{const f=await fixture(browser);try{
+ await check('New migration: Windows and Linux servers replicate to this Hyper-V host from the flow: pick agents, install one inline, only the folder in Where, start jobs after a tick box, and cut over from Status',async()=>{const f=await fixture(browser);try{f.state.ui={schema:1,confirmStyle:'tick'};
   f.servers.rows=[
    {key:'agent:a1',kind:'agent',method:'Agent replication',name:'APP01',state:'agent',stateText:'Agent installed',reason:'The agent answers. Create a replication job to start copying.',percent:-1,lagSeconds:-1,wave:0,host:'app01.example.com',os:'Windows Server 2019',agent:'a1',actions:['createjob']},
    {key:'agent:a2',kind:'agent',method:'Agent replication',name:'DB01',state:'unreachable',stateText:'Not answering',reason:'The agent does not answer: check the server is on.',percent:-1,lagSeconds:-1,wave:0,host:'db01.example.com',agent:'a2',actions:[]},
@@ -1924,8 +1932,8 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   await f.page.locator('#nwSrvRpo').fill('20');await f.page.locator('#nwSrvServices').fill('MSSQLSERVER, W3SVC');await f.page.locator('#nwNext').click();
   assert((await f.page.locator('#nwStep').textContent()).includes('every 5 minutes'));await f.page.locator('#nwNext').click();
   {const t=await f.page.locator('.nw-checks').textContent();assert(t.includes('is a Hyper-V host'),t);assert(t.includes('C:\\ClusterStorage\\Volume1\\Replicas'),t);}
-  assert.equal(await f.page.locator('#nwNext').textContent(),'Start');assert.equal(await f.page.locator('#nwWhy').textContent(),'Type 1, the number of servers, to start.');
-  await f.page.locator('#nwSrvConfirm').fill('1');await f.page.locator('#nwNext').click();
+  assert.equal(await f.page.locator('#nwNext').textContent(),'Start');assert.equal(await f.page.locator('#nwWhy').textContent(),'Tick "I understand" to start replicating 1 server.');
+  await f.page.locator('#nwSrvConfirmTick').check();await f.page.locator('#nwNext').click();
   for(let i=0;i<100&&!f.serverCalls.some(c=>c.body.action==='createjob');i++){await new Promise(r=>setTimeout(r,50));}
   const created=f.serverCalls.find(c=>c.body.action==='createjob');assert.deepEqual(created.body.keys,['agent:a1']);
   assert.deepEqual(created.body.template,{local:true,folder:'C:\\ClusterStorage\\Volume1\\Replicas',receiver:{address:'',thumbprint:'',code:''},intervalMinutes:5,rpoMinutes:20,compress:true,throttle:{limitMbps:0,businessMbps:0,businessStart:0,businessEnd:0},stopServices:['MSSQLSERVER','W3SVC'],shutdownAfterCutover:true,fullReadAtCutover:false,allowLive:false});
@@ -1936,8 +1944,8 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   assert((await f.page.locator('#nwStatusHead').textContent()).includes('Replicating 1 server'));
   assert.equal(await f.page.evaluate(()=>window.localStorage.getItem('simm.wizard.servers')),'["a1"]');
   await f.page.locator('[data-nw-srvrow="job:a1|j1"]').check();await f.page.locator('#nwSrvAction').selectOption('cutover');
-  assert(await f.page.locator('#nwSrvRun').isDisabled());assert.equal(await f.page.locator('#nwStatusMsg').textContent(),'Type 1, the number of servers this applies to, to confirm.');
-  await f.page.locator('#nwSrvActConfirm').fill('1');await f.page.locator('#nwSrvRun').click();
+  assert(await f.page.locator('#nwSrvRun').isDisabled());assert.equal(await f.page.locator('#nwStatusMsg').textContent(),'Tick "I understand" to confirm.');
+  await f.page.locator('#nwSrvActConfirmTick').check();await f.page.locator('#nwSrvRun').click();
   for(let i=0;i<100&&!f.serverCalls.some(c=>c.body.action==='cutover');i++){await new Promise(r=>setTimeout(r,50));}
   assert.deepEqual(f.serverCalls.filter(c=>c.body.action==='cutover').map(c=>c.body),[{action:'cutover',keys:['job:a1|j1'],confirm:'1'}]);
  }finally{await f.close();}});
@@ -1988,6 +1996,57 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
    await f.page.locator('#mpCutNow').scrollIntoViewIfNeeded();assert(await f.page.locator('#mpCutNow').isVisible());}
   f.plans.plans[0].vms[2].error='Datastore DS-NL-02 could not be reached; the next round retries in 10 minutes.';await f.page.waitForFunction(()=>document.querySelector('#mpRows .mp-err').textContent.startsWith('Datastore'),null,{timeout:15000});
   if(!f.errors.length&&!f.dialogs.length){await f.page.setViewportSize({width:1440,height:1000});await f.page.locator('.mp-body').evaluate(e=>e.scrollTop=0);await f.page.screenshot({path:out+'/migration-plans.png'});}
+  assert.deepEqual(f.errors,[]);assert.deepEqual(f.dialogs,[]);
+ }finally{await f.close();}});
+ await check('Confirmations follow Help > Settings: a tick box by default, a dialog, the typed name, or none, and every request still carries the name it confirms',async()=>{const f=await fixture(browser);try{
+  f.vm.inventory=vmwareInventoryFixture();f.vm.plan=vmwarePlanFixture();f.state.vmware=Object.assign(vmwareIdle(),{status:'connected',server:'vc01.example.com',summary:vmwareSummaryFixture(),inventorySerial:1});
+  // Settings: saved through /api/ui-settings, the radio buttons follow the state.
+  await f.page.locator('#helpMenuButton').click();await f.page.locator('#helpSettings').click();assert(await f.page.locator('#settingsDialog').isVisible());
+  assert(await f.page.locator('#cfmStyleTyped').isChecked(),'the saved style is shown');
+  await f.page.locator('#cfmStyleTick').check();await f.page.waitForFunction(()=>/Saved\. Confirmations now: Tick a box/.test(document.querySelector('#settingsStatus').textContent));
+  assert.deepEqual(f.uiCalls,[{confirmStyle:'tick'}]);assert.equal(f.state.ui.confirmStyle,'tick');
+  await f.page.screenshot({path:out+'/confirm-settings-1440x1000.png'});await f.page.locator('#settingsClose').click();
+  // A plan with one VM ready to cut over.
+  await goTool(f,'plans');await f.page.waitForSelector('#mpNewButton');await f.page.locator('#mpNewButton').click();await f.page.waitForFunction(()=>document.querySelectorAll('#mpPicker [data-mp-pick]:not([disabled])').length>0,null,{timeout:15000});
+  const id=await f.page.locator('#mpPicker [data-mp-pick]:not([disabled])').first().getAttribute('data-mp-pick');await f.page.locator('#mpPicker [data-mp-pick="'+id+'"]').check();
+  await f.page.locator('#mpName').fill('Wave 1');await f.page.locator('#mpCreate').click();await f.page.waitForFunction(()=>!document.querySelector('#mpDetail').classList.contains('hidden'),null,{timeout:15000});
+  f.plans.plans[0]=Object.assign(f.plans.plans[0],{summary:{total:2,waiting:0,copying:0,ready:2,testing:0,scheduled:0,done:0,failed:0},vms:[{id:'vm-app01',name:'APP01',wave:1,state:'ready',seeded:true,failures:0},{id:'vm-web01',name:'WEB01',wave:1,state:'ready',seeded:true,failures:0}]});
+  await f.page.waitForFunction(()=>document.querySelectorAll('#mpRows tr').length===2,null,{timeout:15000});
+  // Tick box: no name to type, the box says what happens and is cleared when the selection changes.
+  assert(!await f.page.locator('#mpConfirm').isVisible(),'no plan name to type');assert(await f.page.locator('#mpConfirmTick').isVisible());
+  assert((await f.page.locator('label:has(#mpConfirmTick)').textContent()).includes('shut down and cut over'));
+  await f.page.locator('[data-mp-row="vm-app01"]').check();assert.equal(await f.page.locator('#mpCutWhy').textContent(),'Tick "I understand" to cut over the selected VMs.');assert(await f.page.locator('#mpCutNow').isDisabled());
+  await f.page.locator('#mpConfirmTick').check();assert(!await f.page.locator('#mpCutNow').isDisabled());
+  await f.page.locator('#mpCutNow').scrollIntoViewIfNeeded();await f.page.screenshot({path:out+'/confirm-tick-1440x1000.png'});
+  await f.page.locator('[data-mp-row="vm-web01"]').check();assert(!await f.page.locator('#mpConfirmTick').isChecked(),'a tick given for other VMs is cleared');assert(await f.page.locator('#mpCutNow').isDisabled());
+  await f.page.locator('[data-mp-row="vm-web01"]').uncheck();await f.page.locator('#mpConfirmTick').check();await f.page.locator('#mpCutNow').click();
+  for(let i=0;i<100&&!f.planCalls.some(c=>c.body.action==='cutover');i++){await new Promise(r=>setTimeout(r,50));}
+  {const cut=f.planCalls.find(c=>c.body.action==='cutover');assert.deepEqual(cut.body.vmIds,['vm-app01']);assert.equal(cut.body.confirm,'Wave 1','the request still names the plan');}
+  await f.page.waitForFunction(()=>!document.querySelector('#mpConfirmTick').checked,null,{timeout:15000});
+  // Delete opens its dialog with a tick box instead of a name.
+  await f.page.locator('#mpDelete').click();assert(await f.page.locator('#migrateDialog').isVisible());assert(!await f.page.locator('#migrateConfirmInput').isVisible());
+  assert.equal(await f.page.locator('#migrateConfirmTickLabel').textContent(),'I understand the plan Wave 1 is deleted and its schedules stop');assert(await f.page.locator('#migrateConfirmButton').isDisabled());
+  await f.page.locator('#migrateConfirmTick').check();assert(!await f.page.locator('#migrateConfirmButton').isDisabled());await f.page.locator('#migrateDialogCancel').click();
+  assert(!f.planCalls.some(c=>c.body.action==='delete'),'Cancel changes nothing');
+  // Dialog: the button is on at once and asks in a dialog first; Cancel sends nothing.
+  f.state.ui={schema:1,confirmStyle:'prompt'};await f.page.waitForFunction(()=>!document.querySelector('#mpConfirmTick').offsetParent,null,{timeout:15000});
+  await f.page.locator('[data-mp-row="vm-app01"]').check();await f.page.waitForFunction(()=>!document.querySelector('#mpCutNow').disabled,null,{timeout:15000});
+  await f.page.locator('#mpCutNow').click();assert(await f.page.locator('#cfmDialog').isVisible());assert.equal(await f.page.locator('#cfmDialogTitle').textContent(),'Cut over 1 VM');assert(/shut down now/.test(await f.page.locator('#cfmDialogText').textContent()));
+  await f.page.locator('#cfmDialogCancel').click();await new Promise(r=>setTimeout(r,300));assert.equal(f.planCalls.filter(c=>c.body.action==='cutover').length,1,'Cancel sends nothing');
+  await f.page.locator('#mpCutNow').click();await f.page.locator('#cfmDialogGo').click();
+  for(let i=0;i<100&&f.planCalls.filter(c=>c.body.action==='cutover').length<2;i++){await new Promise(r=>setTimeout(r,50));}
+  assert.equal(f.planCalls.filter(c=>c.body.action==='cutover').pop().body.confirm,'Wave 1');
+  await f.page.locator('#mpDelete').click();assert(!await f.page.locator('#migrateConfirmTickRow').isVisible());assert(!await f.page.locator('#migrateConfirmButton').isDisabled(),'the dialog itself is the confirmation');await f.page.locator('#migrateDialogCancel').click();
+  // Typed: the old behaviour.
+  f.state.ui={schema:1,confirmStyle:'typed'};await f.page.waitForFunction(()=>!!document.querySelector('#mpConfirm').offsetParent,null,{timeout:15000});
+  await f.page.locator('[data-mp-row="vm-app01"]').check();assert((await f.page.locator('#mpCutWhy').textContent()).startsWith('Type the plan name'));
+  // Don't ask: Delete runs at once with the plan name.
+  f.state.ui={schema:1,confirmStyle:'none'};await f.page.waitForFunction(()=>!document.querySelector('#mpConfirm').offsetParent&&!document.querySelector('#mpConfirmTick').offsetParent,null,{timeout:15000});
+  await f.page.locator('#mpDelete').click();
+  for(let i=0;i<100&&!f.planCalls.some(c=>c.body.action==='delete');i++){await new Promise(r=>setTimeout(r,50));}
+  assert(!await f.page.locator('#migrateDialog').isVisible());assert.equal(f.planCalls.find(c=>c.body.action==='delete').body.confirm,'Wave 1');
+  for(const size of [{width:1008,height:690}]){await f.page.setViewportSize(size);await f.page.locator('#helpMenuButton').click();await f.page.locator('#helpSettings').click();
+   assert(await f.page.evaluate(()=>{const d=document.querySelector('#settingsDialog').getBoundingClientRect();return d.bottom<=innerHeight&&d.right<=innerWidth;}),'Settings fits at 1024x768');await f.page.locator('#settingsClose').click();}
   assert.deepEqual(f.errors,[]);assert.deepEqual(f.dialogs,[]);
  }finally{await f.close();}});
  await check('All jobs and servers: one list of every method with clickable tiles, live progress, Select by, bulk cutover in waves with the typed count, jobs to this Hyper-V host without a receiver to set up, agent installs, and task rows that open their tool',async()=>{const f=await fixture(browser);try{
