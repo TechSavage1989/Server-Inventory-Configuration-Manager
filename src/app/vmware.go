@@ -797,10 +797,15 @@ func guestDoneMessage(action string, result json.RawMessage) string {
 		return "Removed the hidden network adapters."
 	case "remove-tools":
 		var data struct {
-			RestartRequired bool `json:"RestartRequired"`
-			AlreadyRemoved  bool `json:"AlreadyRemoved"`
+			RestartRequired bool   `json:"RestartRequired"`
+			AlreadyRemoved  bool   `json:"AlreadyRemoved"`
+			Disabled        bool   `json:"Disabled"`
+			Message         string `json:"Message"`
 		}
 		_ = json.Unmarshal(result, &data)
+		if data.Disabled && data.Message != "" {
+			return data.Message + " Restart the VM to finish."
+		}
 		if data.AlreadyRemoved {
 			return "VMware Tools was already removed."
 		}
