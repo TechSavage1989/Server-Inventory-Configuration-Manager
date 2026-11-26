@@ -1,3 +1,10 @@
+## Unreleased: migration scenarios and rolling conversion on the same hardware — 2026-11-26
+
+- Plan and runbook starts with a **Migration scenario** (AGENTS.md rule 44): New hardware, or Reuse the existing hosts (rolling, one host at a time). Rolling fills New cluster size from the recorded hosts, flags which datastores can be reused, suggests one stage per host and checks every stage on both sides with N+1 warnings. Stages, waves and sizes are all editable.
+- The same data feeds Build Hyper-V hosts (nodes in stage order, named after their ESXi hosts, vMotion address kept, switch adapters matched by MAC after Read nodes), Migration plans (pick a stage's wave) and the runbook (HTML and Word stage sections).
+- Fixed: a VMware network with VLAN 0 gave a plan that could not be saved ("The target VLAN ... must be a number from 1 to 4094"); VLAN 0 now maps to no VLAN.
+- Tests: `vmscenario_test.go` (fill, storage flags, suggestion, editing and refusals, cloud targets, runbook HTML and Word, Build Hyper-V hosts reuse), workspace check "Rolling conversion". Not field-validated on a real rolling conversion.
+
 ## 3.2.35 published and verified — 2026-11-26
 
 - [Release v3.2.35](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.35) ("Server Inventory and Migration Manager 3.2.35"), tag and target commit `5b4bb640657e3ccade78e6262bf8de68295a3760`. Source: Move VMs from one console to a remote Hyper-V host or cluster, nothing installed in the machine being moved, change tracking no longer missing shadow copy storage, Build Hyper-V hosts, the vSphere-style inventory and Migration plans (#119, #123, #124, #125, #126, #127), prepared in #128, published by #129. The owner approved publication on 2026-11-26 ("publish when ready").
