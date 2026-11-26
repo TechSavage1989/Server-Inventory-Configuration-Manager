@@ -73,7 +73,7 @@ const hvBuildFixture={"plan":{"schema":1,"name":"Prod","source":"vcenter.example
 const hvBuildStepCount=hvBuildFixture.steps.length;
 async function fixture(browser,old=false){
  let saved=null,started=[],saveCalls=0,rejectStart=false,skipRequests=[],opens=[],restoreReject=null,migrateReject={},vmwareReject={};const receiverPair={allowed:false};
- const logs=[],dialogs=[],errors=[],restoreCalls={browse:0,scan:[],start:[],cancel:0,tokens:[]},migrateCalls=[],vmwareCalls=[],convertCalls=[],replCalls=[],planCalls=[],serverCalls=[];const servers={rows:[],summary:{total:0,states:{},scheduled:0,methods:{}},bulk:{running:false,action:'',total:0,results:[]},hyperVHere:true,isAdministrator:true,local:{hyperV:true,computer:'HV01',running:false,folder:'',defaultFolder:'C:\\ClusterStorage\\Volume1\\Hyper-V\\Received',port:44380,addresses:['192.0.2.40']}};const plans={plans:[],inventory:{open:true,server:'vc01.example.com',serverType:'vCenter Server',live:true}};let convertReject={},convertSize=0;const pickCalls=[];let pickReject='';
+ const logs=[],dialogs=[],errors=[],restoreCalls={browse:0,scan:[],start:[],cancel:0,tokens:[]},migrateCalls=[],vmwareCalls=[],convertCalls=[],replCalls=[],planCalls=[],serverCalls=[];const servers={rows:[],summary:{total:0,states:{},scheduled:0,methods:{}},bulk:{running:false,action:'',total:0,results:[]},hyperVHere:true,isAdministrator:true,local:{hyperV:true,computer:'HV01',running:false,folder:'',defaultFolder:'C:\\ClusterStorage\\Volume1\\Hyper-V\\Received',port:44380,addresses:['192.0.2.40']}};const plans={plans:[],inventory:{open:true,server:'vc01.example.com',serverType:'vCenter Server',live:true}};let convertReject={},convertSize=0;const pickCalls=[],outputRootCalls=[];let pickReject='';
  const state={status:'idle',phase:'Ready',running:false,computerName:'SRV-DEMO-01',isAdministrator:true,powerShellVersion:'5.1',defaultOutputRoot:'C:\\Reports',update:{status:'current',title:'Up to date',message:'Installed v3.2.10. Latest v3.2.10.',canCheck:true},
   restore:{status:'idle',packages:{lastCollection:'',loadedReport:''},items:[],logs:[]},migrate:migrateIdle(),vmware:vmwareIdle(),convert:convertIdle()};
  const vm={inventory:null,plan:null,sizing:null,guest:null,compare:null};
@@ -236,6 +236,7 @@ async function fixture(browser,old=false){
    if(data.action==='create'){plans.plans.push({id:'p1',name:data.name,server:'vc01.example.com',paused:false,settings:data.settings,throttle:'no limit',summary:{total:data.vmIds.length,waiting:data.vmIds.length,copying:0,ready:0,testing:0,scheduled:0,done:0,failed:0},vms:data.vmIds.map(id=>({id,name:id.replace('vm-','').toUpperCase(),wave:0,state:'waiting',seeded:false,failures:0}))});send(200,{ok:true,id:'p1'});return;}
    send(200,{ok:true});return;
   }
+  if(url.pathname==='/api/output-root'){let body='';for await(const chunk of req)body+=chunk;const data=JSON.parse(body);outputRootCalls.push(data);if(data.outputRoot==='Q:\\NoSuchDrive'){send(400,{ok:false,error:'Reports cannot be saved there: synthetic failure.'});return;}state.defaultOutputRoot=data.outputRoot;send(200,{ok:true,outputRoot:data.outputRoot,saved:true});return;}
   if(url.pathname==='/api/pick'){let body='';for await(const chunk of req)body+=chunk;const data=JSON.parse(body);pickCalls.push(data);if(pickReject){send(400,{ok:false,error:pickReject});return;}send(200,{ok:true,selected:true,path:data.kind==='remote'?'C:\\ClusterStorage\\Volume1\\Picked':data.kind==='file'?'E:\\Media\\receiver.iso':'E:\\Picked'});return;}
   if(url.pathname==='/api/open'){let body='';for await(const chunk of req)body+=chunk;opens.push(JSON.parse(body).kind);send(200,{ok:true});return;}
   if(url.pathname==='/report/current'){res.writeHead(200,{'Content-Type':'text/html'});res.end('<!DOCTYPE html><html><head><title>Synthetic</title></head><body><div class="report-content"><section class="report-section active" id="s1"><p>alpha one</p><p>beta</p><p>alpha two</p><p>alpha three</p></section></div></body></html>');return;}
@@ -249,7 +250,7 @@ async function fixture(browser,old=false){
  const url='http://127.0.0.1:'+server.address().port+'/';
  // A fixture that fails to load closes its own server and context; otherwise Node never exits and the job hangs until its timeout.
  try{await page.goto(url);await page.waitForFunction(()=>document.querySelector('#serverName').textContent==='SRV-DEMO-01');}catch(e){await context.close().catch(()=>{});server.close();throw new Error('Fixture page did not load ('+errors.concat(dialogs).join('; ')+'): '+e.message);}
- return {page,context,state,pickCalls,rejectPick(message){pickReject=message},vm,repl,plans,planCalls,servers,serverCalls,failover,receiverPair,targetTest,replCalls,vmwareCalls,convertCalls,rejectConvert(action,message){convertReject[action]=message},setConvertSize(size){convertSize=size},rejectVmware(action,message){vmwareReject[action]=message},logs,dialogs,errors,started,skipRequests,opens,restoreCalls,migrateCalls,rejectMigrate(action,message){migrateReject[action]=message},rejectRestore(message){restoreReject=message},get saved(){return saved},get saveCalls(){return saveCalls},reject(){rejectStart=true},async close(){assert.deepEqual(errors,[]);await context.close();await new Promise(r=>server.close(r));}};
+ return {page,context,state,pickCalls,outputRootCalls,rejectPick(message){pickReject=message},vm,repl,plans,planCalls,servers,serverCalls,failover,receiverPair,targetTest,replCalls,vmwareCalls,convertCalls,rejectConvert(action,message){convertReject[action]=message},setConvertSize(size){convertSize=size},rejectVmware(action,message){vmwareReject[action]=message},logs,dialogs,errors,started,skipRequests,opens,restoreCalls,migrateCalls,rejectMigrate(action,message){migrateReject[action]=message},rejectRestore(message){restoreReject=message},get saved(){return saved},get saveCalls(){return saveCalls},reject(){rejectStart=true},async close(){assert.deepEqual(errors,[]);await context.close();await new Promise(r=>server.close(r));}};
 }
 // Tools live in two tabs: Discovery (Alt+1) and Migration and replication (Alt+5).
 const discoveryTools=['server','environment'];
@@ -1325,6 +1326,26 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   assert.deepEqual(await f.page.locator('#mpPicker input[data-mp-pick]:checked').evaluateAll(n=>n.map(x=>x.getAttribute('data-mp-pick'))),['vm-app01','vm-sql01'],'the selection comes into a new migration plan');
   assert.equal(await f.page.locator('#mpName').inputValue(),'Wave 2: General servers');
   assert.deepEqual(f.dialogs,[]);
+ }finally{await f.close();}});
+ await check('VMware and Hyper-V discovery saves its reports in a chosen folder, shared with This server, with Browse',async()=>{const f=await fixture(browser);try{
+  await goTool(f,'environment');
+  const field=f.page.locator('#vmOutputRoot');
+  assert(await field.isVisible(),'the save folder shows beside the reads');
+  await f.page.waitForFunction(()=>document.querySelector('#vmOutputRoot').value==='C:\\Reports');
+  await f.page.locator('#vmOutputRoot + .path-pick-button').click();await f.page.waitForFunction(()=>document.querySelector('#vmOutputStatus').textContent.includes('E:\\Picked'));
+  assert.deepEqual({kind:f.pickCalls[0].kind,current:f.pickCalls[0].current},{kind:'folder',current:'C:\\Reports'},'Browse opens at the current folder');
+  assert.deepEqual(f.outputRootCalls,[{outputRoot:'E:\\Picked'}],'a browsed folder is saved at once');
+  await field.fill('Q:\\NoSuchDrive');await field.press('Enter');await f.page.waitForFunction(()=>document.querySelector('#vmOutputStatus').textContent.includes('synthetic failure'));
+  assert.equal(await field.getAttribute('aria-invalid'),'true');assert.equal(f.dialogs.length,0,'a refused folder stays inline');
+  await field.press('Escape');assert.equal(await field.inputValue(),'E:\\Picked','Escape puts the saved folder back');
+  await field.fill('D:\\Migration\\Reports');await field.press('Tab');await f.page.waitForFunction(()=>document.querySelector('#vmOutputStatus').textContent==='Saved. New reports go to D:\\Migration\\Reports.');
+  assert.equal(f.state.defaultOutputRoot,'D:\\Migration\\Reports');
+  await goTool(f,'server');
+  assert.equal(await f.page.locator('#outputPath').inputValue(),'D:\\Migration\\Reports','This server shows the same folder');
+  await goTool(f,'movevms');assert(await field.isHidden(),'Move VMs does not show the discovery save folder');
+  for(const size of [{width:1008,height:690},{width:784,height:522}]){await f.page.setViewportSize(size);await goTool(f,'environment');await field.scrollIntoViewIfNeeded();
+   const box=await f.page.locator('#vmOutputRoot + .path-pick-button').boundingBox();assert(box&&box.x+box.width<=size.width,'Browse stays inside '+size.width+' px');
+   assert(await f.page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),'no horizontal scroll at '+size.width+' px');}
  }finally{await f.close();}});
  await check('VMware disk copy: the receiver shows its address, code and thumbprint; sending checks them and sends only the chosen disks',async()=>{const f=await fixture(browser);try{
   await goTool(f,'environment');await goTool(f,'diskcopy');

@@ -1,3 +1,8 @@
+## Unreleased: choose where VMware and Hyper-V discovery saves its reports — 2026-11-26
+
+- Discovery's VMware and Hyper-V tool shows **Save discovery reports in** with Browse (rule 54). It is the application's one output folder, shared with This server, saved through `/api/output-root` the same way a collection saves it. Before this, VMware reads used that folder only after a collection had run or saved choices, so a fresh install always wrote to the Desktop.
+- Tests: `go test` (`TestCleanOutputRootChoice`), `GOOS=windows go vet` and the full `scripts/test_workspace.cjs` pass locally with Chromium, including the new check at 1008x690 and 784x522. Choosing a UNC folder from a real Windows session is not field-validated.
+
 ## 3.2.36 published and verified — 2026-11-26
 
 - [Release v3.2.36](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.36) ("Server Inventory and Migration Manager 3.2.36"), tag and target commit `353e424d5cf4145cd5dd171bda8f839781f1f157`. Source: the combined release of #131 to #147 listed under the 3.2.36 preparation below, prepared and published by #150, with the release blocker fixed in #151. The owner asked for it on 2026-11-26 ("publish and release as soon as complete").
