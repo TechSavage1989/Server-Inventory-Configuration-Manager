@@ -253,6 +253,21 @@ func TestProbeRefusesMisnamedAndSnapshotFiles(t *testing.T) {
 	}
 }
 
+// QEMU pads a descriptor to a whole sector and, for some lengths, leaves its
+// final line feed after the first zero byte. TestReadsEveryImageQEMUWrites
+// hit this only when the random CID happened to give that length.
+func TestDescriptorPaddedByQEMUIsRecognised(t *testing.T) {
+	text := "# Disk DescriptorFile\nversion=1\nCID=2d63dd\nparentCID=ffffffff\ncreateType=\"monolithicFlat\"\n"
+	padded := []byte(text + "\x00\n")
+	padded = append(padded, make([]byte, 512-len(padded))...)
+	if !vmLooksLikeDescriptor(padded) {
+		t.Fatal("a zero-padded descriptor with a trailing line feed was not recognised")
+	}
+	if vmLooksLikeDescriptor(append([]byte(text+"\x00"), "KDMV"...)) {
+		t.Fatal("data after the padding was accepted as a descriptor")
+	}
+}
+
 func TestConvertSuggestedName(t *testing.T) {
 	cases := map[string]string{
 		`disk-flat.vmdk`: "disk.vhdx",

@@ -211,9 +211,11 @@ func vmProbeDiskFormat(file *os.File, size int64, name string) (string, error) {
 }
 
 func vmLooksLikeDescriptor(head []byte) bool {
-	// Some tools pad the descriptor with zeros to a whole sector.
+	// Some tools pad the descriptor with zeros to a whole sector. QEMU can
+	// leave a line feed after the first zero byte (it pads, then writes the
+	// final newline), so only zeros and line breaks may follow it.
 	if end := bytes.IndexByte(head, 0); end >= 0 {
-		if !vmIsZero(head[end:]) {
+		if len(bytes.Trim(head[end:], "\x00\r\n")) != 0 {
 			return false
 		}
 		head = head[:end]

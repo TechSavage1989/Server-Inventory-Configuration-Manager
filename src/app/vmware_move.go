@@ -44,7 +44,12 @@ type vmMoveResult struct {
 	ShutDown bool             `json:"shutDown"`
 	HyperV   *vmHyperVPlan    `json:"hyperV,omitempty"`
 	HyperVID string           `json:"hyperVId,omitempty"`
-	Finished time.Time        `json:"finished"`
+	// Host is the remote node the VM was created on ("" for this host).
+	Host string `json:"host,omitempty"`
+	// Notes are what followed the cutover: the old VM's adapters
+	// disconnected and the automatic fix-up started or skipped.
+	Notes    []string  `json:"notes,omitempty"`
+	Finished time.Time `json:"finished"`
 }
 
 // vmMoveRound runs one copy round, or the cutover round (shut the guest

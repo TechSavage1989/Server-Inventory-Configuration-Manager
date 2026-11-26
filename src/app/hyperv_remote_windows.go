@@ -246,6 +246,9 @@ func (a *application) handleHVRemoteMove(response http.ResponseWriter, request *
 		KeepMAC    bool   `json:"keepMac"`
 		Start      bool   `json:"start"`
 		Cluster    bool   `json:"cluster"`
+		// DisconnectSource and FixUp: as in handleVMwareMove.
+		DisconnectSource bool `json:"disconnectSource"`
+		FixUp            bool `json:"fixUp"`
 		// Path is "share" (write over the node's administrative share) or
 		// "receiver" (a receiver the operator started on the node).
 		Path       string `json:"path"`
@@ -347,6 +350,11 @@ func (a *application) handleHVRemoteMove(response http.ResponseWriter, request *
 	}
 	vm := *target
 	switches, networks := vmMoveNetworkMap(inventory, plan)
+	hostSwitches := []string{}
+	for _, item := range hv.info.Switches {
+		hostSwitches = append(hostSwitches, item.Name)
+	}
+	switches, switchNotes := vmAutoSwitches(switches, vm, hostSwitches)
 	// The VM is planned now, with the disk paths it will get, so a missing
 	// switch is refused before the guest is shut down.
 	diskCount := len(vm.Disks)
@@ -396,13 +404,24 @@ func (a *application) handleHVRemoteMove(response http.ResponseWriter, request *
 	go func() {
 		defer cancel()
 		log := func(text string) { a.vmwareLog("%s", text) }
-		result, err := a.hvRemoteMoveRun(ctx, hv, vm, node, copyLocal, copyAdmin, input.Action == "cutover", input.Quiesce && input.Action == "copy", need, useReceiver, link, receiverNames, shown,
-			vmConnectOptions{Server: server, User: user, Password: password, Thumbprint: thumbprint, UserAgent: displayName + " " + appVersion, AppVersion: appVersion}, log)
+		if input.Action == "cutover" {
+			for _, note := range switchNotes {
+				log(note)
+			}
+		}
+		connect := vmConnectOptions{Server: server, User: user, Password: password, Thumbprint: thumbprint, UserAgent: displayName + " " + appVersion, AppVersion: appVersion}
+		result, err := a.hvRemoteMoveRun(ctx, hv, vm, node, copyLocal, copyAdmin, input.Action == "cutover", input.Quiesce && input.Action == "copy", need, useReceiver, link, receiverNames, shown, connect, log)
 		password = ""
 		if err == nil && input.Action == "cutover" {
 			a.moveStage("create", "")
 			err = a.hvRemoteCreate(ctx, hv, vm, node, networks, options, result, log)
+			if err == nil {
+				result.Host = node
+				result.Notes = a.afterCutover(context.Background(), vm, result.HyperVID, node, input.Start, input.DisconnectSource, input.FixUp, connect,
+					filepath.Join(a.vmwareRoot(), safeName(strings.ToLower(server)), "Move"), log)
+			}
 		}
+		connect.Password = ""
 		if result != nil {
 			result.Finished = time.Now().UTC()
 		}

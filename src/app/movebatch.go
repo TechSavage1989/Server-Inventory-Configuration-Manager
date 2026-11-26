@@ -73,6 +73,10 @@ type mbSettings struct {
 	// DisconnectSource sets the old VMware VM's adapters to not connect
 	// after a successful cutover (recorded first, so it can be undone).
 	DisconnectSource bool `json:"disconnectSource"`
+	// FixUp fixes each new VM up once it has started (guest_autofix.go):
+	// IP settings, hidden adapters, disks, VMware Tools and activation,
+	// with the guest account typed once in Move VMs or the plan.
+	FixUp bool `json:"fixUp"`
 }
 
 type mbTest struct {

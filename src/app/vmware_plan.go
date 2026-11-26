@@ -24,6 +24,9 @@ type vmNetworkMap struct {
 type vmStorageMap struct {
 	Source string `json:"source"`
 	Target string `json:"target"`
+	// Reuse is the operator's choice to reuse this datastore's LUN as
+	// target storage in a rolling plan (nil: the suggested default).
+	Reuse *bool `json:"reuse,omitempty"`
 }
 
 type vmCapacity struct {
@@ -43,6 +46,10 @@ type vmPlanVM struct {
 	Hold    bool   `json:"hold"`
 	Exclude bool   `json:"exclude"`
 	Notes   string `json:"notes"`
+	// Acknowledged lists the readiness findings the operator has reviewed
+	// and accepted, as "<target>:<code>". A VM whose every Review first
+	// finding for the plan's target is acknowledged counts as ready.
+	Acknowledged []string `json:"acknowledged,omitempty"`
 	// Manual is true once the operator set this VM's wave, hold or exclude
 	// by hand; Suggest waves keeps it. Why is the suggestion's reason.
 	Manual bool   `json:"manual,omitempty"`
@@ -62,6 +69,10 @@ type vmPlan struct {
 	Waves     []vmWaveInfo `json:"waves,omitempty"`
 	WaveSize  int          `json:"waveSize,omitempty"`
 	UpdatedAt time.Time    `json:"updatedAt"`
+	// Scenario is how the move uses hardware (vmscenario.go): "new" (or
+	// empty, plans saved by 3.2.35 and earlier) or "rolling".
+	Scenario string         `json:"scenario,omitempty"`
+	Rolling  *vmRollingPlan `json:"rolling,omitempty"`
 }
 
 type vmSizing struct {
@@ -115,7 +126,7 @@ func reconcileVMPlan(plan vmPlan, inventory *vmInventory) vmPlan {
 		item, ok := networks[key]
 		if !ok {
 			item = vmNetworkMap{Source: network.Name, TargetName: network.Name}
-			if vmVLANPattern.MatchString(network.VLAN) && network.VLAN != "" {
+			if vmVLANPattern.MatchString(network.VLAN) && network.VLAN != "" && network.VLAN != "0" {
 				item.TargetVLAN = network.VLAN
 			}
 		}
@@ -155,6 +166,30 @@ func reconcileVMPlan(plan vmPlan, inventory *vmInventory) vmPlan {
 		plan.VMs = append(plan.VMs, item)
 	}
 	return plan
+}
+
+var vmAckPattern = regexp.MustCompile(`^[a-z0-9]{1,16}:[a-z0-9-]{1,48}$`)
+
+// vmAcknowledgedReady reports whether every Review first finding of a
+// readiness is acknowledged in the plan entry.
+func vmAcknowledgedReady(r *vmReadiness, item vmPlanVM) bool {
+	if r == nil || r.Status != vmStatusReview {
+		return false
+	}
+	acked := map[string]bool{}
+	for _, ack := range item.Acknowledged {
+		acked[ack] = true
+	}
+	any := false
+	for _, finding := range r.Findings {
+		if finding.Severity == vmSeverityWarning {
+			any = true
+			if !acked[r.Target+":"+finding.Code] {
+				return false
+			}
+		}
+	}
+	return any
 }
 
 // validateVMPlan checks an edited plan against the inventory.
@@ -204,6 +239,14 @@ func validateVMPlan(input vmPlan, inventory *vmInventory) (vmPlan, error) {
 		if len(item.Notes) > 500 || strings.ContainsRune(item.Notes, 0) {
 			return vmPlan{}, errors.New("Notes are limited to 500 characters.")
 		}
+		if len(item.Acknowledged) > 64 {
+			return vmPlan{}, errors.New("Too many acknowledged findings for one VM.")
+		}
+		for _, ack := range item.Acknowledged {
+			if !vmAckPattern.MatchString(ack) {
+				return vmPlan{}, errors.New("An acknowledged finding is not valid.")
+			}
+		}
 		if len(item.Why) > 500 || strings.ContainsRune(item.Why, 0) {
 			return vmPlan{}, errors.New("A wave reason is limited to 500 characters.")
 		}
@@ -216,8 +259,17 @@ func validateVMPlan(input vmPlan, inventory *vmInventory) (vmPlan, error) {
 	if input.WaveSize < 0 || input.WaveSize > 200 {
 		input.WaveSize = 0
 	}
+	if input.Scenario != "" {
+		if _, ok := vmScenarioFor(input.Scenario); !ok {
+			return vmPlan{}, errors.New("Choose a migration scenario from the list.")
+		}
+	}
+	if err := checkRollingPlan(input.Rolling, inventory); err != nil {
+		return vmPlan{}, err
+	}
 	plan := reconcileVMPlan(input, inventory)
 	plan.Capacity = capacity
+	plan = applyScenario(plan, inventory)
 	plan.UpdatedAt = time.Now()
 	return plan, nil
 }
@@ -277,6 +329,9 @@ func sizePlan(plan vmPlan, inventory *vmInventory) vmSizing {
 		return sizing
 	}
 	capacity := plan.Capacity
+	if vmPlanScenario(plan) == vmScenarioRolling && plan.Rolling != nil && plan.Rolling.AutoCapacity && capacity.Nodes > 0 {
+		sizing.Notes = append(sizing.Notes, fmt.Sprintf("Filled from the %d source hosts being reused: one node each, with the smallest host's cores and memory. Type any value to set your own.", capacity.Nodes))
+	}
 	sizing.UsableNodes = capacity.Nodes - capacity.ReserveNodes
 	if capacity.Nodes <= 0 || capacity.CoresPerNode <= 0 || capacity.MemoryGBPerNode <= 0 || capacity.UsableStorageTB <= 0 {
 		sizing.Notes = append(sizing.Notes, "Enter the target's nodes, cores, memory and usable storage to check whether the VMs fit.")
