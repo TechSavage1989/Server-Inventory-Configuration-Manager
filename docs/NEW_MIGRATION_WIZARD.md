@@ -54,3 +54,7 @@ A step bar across the top (1 What, 2 Where, 3 How, 4 When, 5 Review, 6 Status). 
 - No new endpoint. The wizard uses only `/api/vmware/connect`, `/api/vmware/plan`, `/api/vmware/prepare`, `/api/plans` and the state.
 - The plan name typed in Review is the confirmation for creating the plan and for every timed cutover sent with it. Cut over now in Status asks for the plan name again.
 - Ids start with `nw`. The tool is `data-tool="wizard"` with the pane `#tabWizard`. It is the Migration tab's default tool.
+
+## Guided migration folded in (2026-11-26)
+
+The separate Guided migration tool was removed. Its step list now appears in How for every way that continues in its own tool: each step with the computer it runs on, a live check (blocking the wrong computer or too little space), a fix inside the step and an Open button. What shows this computer's facts. A way that runs end to end in the wizard needs no step list.
