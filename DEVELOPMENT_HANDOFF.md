@@ -1,8 +1,22 @@
 ## Unreleased: the workspace fills the window and gets denser on small screens — 2026-11-26
 
-- Removed the 1220 px and 1480 px maximum widths so every tab and tool fills the window (AGENTS.md rule 45); wide windows give the tool list, inventory tree, category grid and guide cards more room, and the two inventory readers sit side by side from 1600 px.
+- Removed the 1220 px and 1480 px maximum widths so every tab and tool fills the window (AGENTS.md rule 49); wide windows give the tool list, inventory tree, category grid and guide cards more room, and the two inventory readers sit side by side from 1600 px.
 - Windows narrower than 1440 px or shorter than 900 px use smaller body text (13, then 12.5 px) and tighter controls; the 10.5 px minimum still holds. `scripts/test_workspace.cjs` passes (68 checks). `docs/images/hero.png` refreshed; other README captures at 1440 px were already older than the current tabs and are unchanged by this work.
 - Not checked on real Edge 109 on Windows Server 2012 R2; Chromium only.
+- Replicate servers: a long job error (a URL or certificate thumbprint) no longer stretches the job table off screen; it wraps, the Open button stays visible and clicking a job row opens the job.
+
+## Unreleased: migration scenarios and rolling conversion on the same hardware — 2026-11-26
+
+- Plan and runbook starts with a **Migration scenario** (AGENTS.md rule 46): New hardware, or Reuse the existing hosts (rolling, one host at a time). Rolling fills New cluster size from the recorded hosts, flags which datastores can be reused, suggests one stage per host and checks every stage on both sides with N+1 warnings. Stages, waves and sizes are all editable.
+- The same data feeds Build Hyper-V hosts (nodes in stage order, named after their ESXi hosts, vMotion address kept, switch adapters matched by MAC after Read nodes), Migration plans (pick a stage's wave) and the runbook (HTML and Word stage sections).
+- Fixed: a VMware network with VLAN 0 gave a plan that could not be saved ("The target VLAN ... must be a number from 1 to 4094"); VLAN 0 now maps to no VLAN.
+- Tests: `vmscenario_test.go` (fill, storage flags, suggestion, editing and refusals, cloud targets, runbook HTML and Word, Build Hyper-V hosts reuse), workspace check "Rolling conversion". Not field-validated on a real rolling conversion.
+
+## Unreleased: bulk VM actions and waves you can change — 2026-11-26
+
+User-requested after "why does suggest always set everything to 2" and "the plan, and batches/waves must be configurable and customizable". Suggest waves (`vmware_waves.go`) now groups by role and risk (pilot of powered-off and test/dev VMs, one domain controller early and the others last, databases alone, application servers by name stem, general servers in chunks, system and backup appliances excluded), says why for every VM and wave, uses an Auto size, and keeps VMs placed by hand and waves the operator named unless asked to replace them. The Plan and runbook tab has a wave board: drag VMs between waves, name a wave, give it a planned window and notes, move it earlier or later, split ticked VMs out, merge, add a wave; the runbook (HTML and Word) shows each wave's name, window, reason and notes. VMs can be ticked in the VM list, board and table, or picked by host, cluster, folder, wave, readiness or power, then put in a wave, held, excluded, included, network-mapped, added to a new Migration plan, or (in Move VMs) prepared on VMware as one batch: per-VM steps, one typed confirmation (the number of VMs), one VM after another, each VM's result shown (`vmware_bulk.go`, `prepareBatch`). Rule 45 in AGENTS.md.
+
+Tests: `go test` covers suggestion roles, hand-placed and edited waves, wave validation, and batch checks and runs (`vmware_waves_test.go`); `scripts/test_workspace.cjs` covers the board, drag, split, merge, reorder, bulk wave, select by, batch Prepare with its preview and confirmation, batch results, the network panel and Add to a migration plan. Not field-validated: batch Prepare against a real vCenter.
 
 ## 3.2.35 published and verified — 2026-11-26
 
@@ -54,6 +68,13 @@ Limits: the agent under SentinelOne on a real server, receiver discovery across 
 - Fix: the MFT scan that each round already runs finds shadow copy storage files (`replMFTScan.DiffArea`). The zero view treats their clusters as free space (`replClearRuns`), so they are never sent and never differ. Shadow copies (previous versions) on the source are not carried to the copy.
 - The same scan now gives every round the runs of all NTFS system files (`replMFTScan.Metadata`). On Windows Server 2025, `$Boot` and `$Bitmap` return Access is denied even on a shadow copy. `$Boot` was in the optional list and was skipped silently. `$UsnJrnl`, `$RmMetadata` logs and other files under `$Extend` have no fixed record number.
 - Tests: `TestMFTScanFindsSystemFilesAndShadowCopyStorage` and `TestClearRunsMarksClustersFree` (synthetic records), plus the Windows test with the new in-shadow diagnostic. A temporary stress workflow on #124 ran the Windows test on hosted Windows Server 2025 runners: 27 of 30 passed before the fix (3 failures, all the same 16 chunks), 102 of 102 passed with it. The advice to tick Read every used block in the last round because of this failure no longer applies; the option stays as an extra check.
+
+## Unreleased: New migration, one guided flow — 2026-11-26
+
+- Migration and replication now opens on **New migration**: What (VMs, many at once, with the sign-in on the same screen), Where (this Hyper-V host or its cluster with the folders, high availability and a network map of only the networks used, all filled in), How (the recommended way with "Pick this when", only its options, advanced ones folded), When (start time, waves, a cutover time per wave), Review (one summary, checks that block Start, snapshot removal inline, typed name) and Status (live per-wave progress, Test, End test, Cut over, link to the All servers console). The other tools are listed under Tools (advanced). AGENTS.md rule 47, design in `docs/NEW_MIGRATION_WIZARD.md`.
+- End to end: VMware or Hyper-V VMs to this Hyper-V host or cluster, through Migration plans. Other sources and targets hand off to their tool with the selection carried over. Phase 2 (remote Hyper-V batches from an admin computer, replication jobs and HyperCore, Nutanix and Proxmox inside the wizard) is not built yet.
+- `movebatch.go`: a cutover can be scheduled before the VM's first copy finishes; if the copy is still unfinished when the time comes, the cutover is cancelled with a note instead of running late (`mbMissedCutovers`, tests in `movebatch_test.go`).
+- Tests: three `scripts/test_workspace.cjs` checks (full flow with the requests it sends, hand-off to Move VMs, inline sign-in). Not field-validated on a real Hyper-V host and vCenter.
 
 ## Unreleased: vSphere-style VMware and Hyper-V inventory — 2026-11-26
 

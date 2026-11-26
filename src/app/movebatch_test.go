@@ -175,8 +175,8 @@ func TestPlanCutsOverOnScheduleAndNeverCreatesAfterAFailedFinalRound(t *testing.
 		t.Fatal(err)
 	}
 	ids := []string{"vm-app01", "vm-app02"}
-	if err := runner.ScheduleCutover(plan.ID, ids, now.Add(time.Hour)); err == nil {
-		t.Fatal("a VM that was never copied must not be scheduled")
+	if err := runner.ScheduleCutover(plan.ID, ids, *now); err == nil {
+		t.Fatal("a VM that was never copied must not be cut over now")
 	}
 	runner.Sweep()
 	at := now.Add(2 * time.Hour)
@@ -365,4 +365,52 @@ func mbSorted(list []string) []string {
 	out := append([]string(nil), list...)
 	sort.Strings(out)
 	return out
+}
+
+func TestPlanCutoverScheduledBeforeTheFirstCopyIsCancelledIfTheCopyIsLate(t *testing.T) {
+	target := &mbFakeTarget{gate: make(chan struct{})}
+	runner, now := mbTestRunner(t, target)
+	plan, err := runner.Create("P", "vc", mbSettings{SyncMinutes: 60, Concurrency: 4}, mbVMs("app01"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	at := now.Add(2 * time.Hour)
+	if err := runner.ScheduleCutover(plan.ID, []string{"vm-app01"}, at); err != nil {
+		t.Fatalf("a future cutover must be accepted before the first copy: %v", err)
+	}
+	*now = at
+	if !mbMissedCutovers(runner.plans, *now) {
+		t.Fatal("the missed cutover was not cancelled")
+	}
+	vm := runner.plans[0].VMs[0]
+	if !vm.CutoverAt.IsZero() || len(vm.Notes) == 0 {
+		t.Fatalf("expected a cleared schedule and a note: %+v", vm)
+	}
+	close(target.gate)
+	runner.Sweep()
+	if len(target.cutovers) != 0 {
+		t.Fatalf("a cutover ran after its window: %v", target.cutovers)
+	}
+	if len(target.rounds) != 1 {
+		t.Fatalf("the VM must keep copying: %v", target.rounds)
+	}
+}
+
+func TestPlanCutoverScheduledBeforeTheFirstCopyRunsOnceSeeded(t *testing.T) {
+	target := &mbFakeTarget{}
+	runner, now := mbTestRunner(t, target)
+	plan, err := runner.Create("P", "vc", mbSettings{SyncMinutes: 60, Concurrency: 4}, mbVMs("app01"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	at := now.Add(3 * time.Hour)
+	if err := runner.ScheduleCutover(plan.ID, []string{"vm-app01"}, at); err != nil {
+		t.Fatal(err)
+	}
+	runner.Sweep() // seeds
+	*now = at
+	runner.Sweep()
+	if strings.Join(target.cutovers, ",") != "app01" || strings.Join(target.created, ",") != "app01" {
+		t.Fatalf("cutovers %v created %v", target.cutovers, target.created)
+	}
 }

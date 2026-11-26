@@ -298,18 +298,29 @@ func (a *application) handleHVBuild(response http.ResponseWriter, request *http.
 func (a *application) handleHVBuildSuggest(response http.ResponseWriter, request *http.Request) {
 	var input struct {
 		Cluster string `json:"cluster"`
+		// Reuse drafts the nodes as the ESXi hosts rebuilt in place, in
+		// the order of the rolling plan's stages.
+		Reuse bool `json:"reuse"`
 	}
 	if !decodeVMwareRequest(response, request, &input) {
 		return
 	}
 	a.mu.Lock()
-	inventory, busy := a.vmware.inventory, a.vmwareBusyLocked()
+	inventory, busy, migration := a.vmware.inventory, a.vmwareBusyLocked(), a.vmware.plan
 	a.mu.Unlock()
 	if busy {
 		hvBuildFail(response, http.StatusConflict, "Wait for the current step to finish.")
 		return
 	}
-	plan, err := hvBuildSuggest(inventory, strings.TrimSpace(input.Cluster))
+	order := []string{}
+	if input.Reuse && migration != nil && migration.Rolling != nil {
+		for _, stage := range migration.Rolling.Stages {
+			if stage.Host != "" {
+				order = append(order, stage.Host)
+			}
+		}
+	}
+	plan, err := hvBuildSuggestFor(inventory, strings.TrimSpace(input.Cluster), input.Reuse, order)
 	if err != nil {
 		hvBuildFail(response, http.StatusBadRequest, err.Error())
 		return

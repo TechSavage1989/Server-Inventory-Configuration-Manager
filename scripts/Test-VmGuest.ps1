@@ -165,6 +165,23 @@ try {
     $again = Invoke-Engine 'UndoNetwork' $null 'undo-again'
     Assert ($again.code -ne 0 -and $again.json.error -match 'no saved settings') 'A second undo is refused'
 
+    # The automatic fix-up after a cutover: the host's adapter map names the
+    # new adapter by MAC; the recorded settings go back with no choices.
+    $auto = Invoke-Engine 'AutoFixup' @{ auto = @{ network = $true; ghosts = $false; disks = $true; tools = $true; activate = $false; restart = $false }; adapters = @(@{ capture = $mac; hostAdapter = 'Network Adapter 1'; mac = ($mac -replace '-', '') }) } 'auto-fixup'
+    if ([string]$capture.json.result.State.Platform.Name -eq 'VMware') {
+        Assert ($auto.code -ne 0 -and $auto.json.error -match 'still runs on VMware') 'The automatic fix-up refuses to run on VMware'
+    } else {
+        Assert ($auto.code -eq 0 -and $auto.json.ok -and $auto.json.result.NetworkOk) 'The automatic fix-up succeeds'
+        $ipStep = @($auto.json.result.Steps | Where-Object { $_.Step -eq 'IP settings' })
+        Assert ($ipStep.Count -eq 1 -and $ipStep[0].Status -eq 'done') 'The automatic fix-up reports the IP settings step as done'
+        Assert (@(Get-NetIPAddress -InterfaceIndex $index -AddressFamily IPv4 | Where-Object { $_.IPAddress -eq '198.51.100.77' -and $_.PrefixLength -eq 24 }).Count -eq 1) 'The automatic fix-up puts back the static address on the adapter the host named'
+        Assert (((Get-DnsClientServerAddress -InterfaceIndex $index -AddressFamily IPv4).ServerAddresses -join ',') -eq '198.51.100.53,198.51.100.54') 'The automatic fix-up puts back the DNS servers'
+        Assert (@($auto.json.result.Steps | Where-Object { $_.Step -eq 'VMware Tools' -and $_.Status -eq 'skipped' }).Count -eq 1) 'The automatic fix-up skips VMware Tools when it is not installed'
+        Assert (Test-Path -LiteralPath (Join-Path $work 'Network-Rollback.json')) 'The automatic fix-up saves the previous settings first'
+        $undo = Invoke-Engine 'UndoNetwork' $null 'undo-auto'
+        Assert ($undo.code -eq 0 -and (Get-NetIPInterface -InterfaceIndex $index -AddressFamily IPv4).Dhcp -eq 'Enabled') 'Undo reverses the automatic fix-up'
+    }
+
     $ghost = Invoke-Engine 'RemoveGhostNics' @{ items = @(@{ instanceId = 'PCI\VEN_15AD&DEV_07B0&SUBSYS_07B015AD\SICMTEST' }) } 'ghost-unknown'
     Assert ($ghost.code -ne 0 -and $ghost.json.error -match 'no longer listed') 'Removing a hidden adapter that is not listed is refused'
     $boot = @(Get-Disk | Where-Object { $_.IsBoot } | Select-Object -First 1)

@@ -154,7 +154,7 @@ func vmRunbookDocxFor(runbookHTML string) string {
 }
 
 // writeRunbookDocx writes the same runbook as the HTML version, as Word.
-func writeRunbookDocx(path string, inventory *vmInventory, plan vmPlan, waves []vmRunbookWave, sizing vmSizing) error {
+func writeRunbookDocx(path string, inventory *vmInventory, plan vmPlan, waves []vmRunbookWave, sizing vmSizing, rolling *vmRollingReport) error {
 	profile, _ := vmTargetProfileFor(plan.Target)
 	d := &docxBuilder{}
 	title := "Migration runbook: VMware to " + vmTargetLabel(plan.Target)
@@ -173,6 +173,28 @@ func writeRunbookDocx(path string, inventory *vmInventory, plan vmPlan, waves []
 	d.heading(2, "Capacity check")
 	d.table([]string{"VMs to move", "vCPUs", "Memory", "Storage used"}, [][]string{{strconv.Itoa(sizing.VMs), strconv.Itoa(sizing.VCPUs), vmFormatBytes(sizing.MemoryBytes), vmFormatBytes(sizing.UsedBytes)}})
 	d.bullets(sizing.Notes)
+
+	if rolling != nil {
+		info, _ := vmScenarioFor(vmScenarioRolling)
+		d.heading(2, fmt.Sprintf("Rolling conversion: %d stages", len(rolling.Stages)))
+		d.paragraph("Note", info.Name+". Do the stages in order and check both sides before each one.")
+		for _, stage := range vmRollingRunbookStages(rolling) {
+			d.heading(3, stage.Title+" ("+stage.Status+")")
+			if stage.VMs != "" {
+				d.paragraph("", "VMs moved: "+stage.VMs)
+			}
+			d.checklist(stage.Steps, true)
+			d.bullets(stage.Checks)
+		}
+		d.bullets(rolling.Notes)
+		storageRows := [][]string{}
+		for _, item := range rolling.Storage {
+			storageRows = append(storageRows, []string{item.Datastore, item.Type, vmFormatBytes(item.CapacityBytes), map[bool]string{true: "Yes", false: "No"}[item.Reuse], item.Advice})
+		}
+		if len(storageRows) > 0 {
+			d.table([]string{"Datastore", "Type", "Capacity", "Reused", "What happens"}, storageRows)
+		}
+	}
 
 	d.heading(2, "Network mapping")
 	networkRows := [][]string{}
@@ -200,6 +222,9 @@ func writeRunbookDocx(path string, inventory *vmInventory, plan vmPlan, waves []
 
 	for _, wave := range waves {
 		d.heading(1, wave.Label)
+		if wave.Detail != "" {
+			d.paragraph("Subtitle", wave.Detail)
+		}
 		for _, item := range wave.VMs {
 			vm := item.VM
 			d.heading(2, vm.Name+" ("+vmReportStatusLabel(item.Readiness.Status)+")")

@@ -72,6 +72,12 @@ const vmRunbookTemplate = `<!DOCTYPE html>
 <h2>Capacity check</h2>
 <div class="cards"><div class="card"><b>{{.Sizing.VMs}}</b><span>VMs to move</span></div><div class="card"><b>{{.Sizing.VCPUs}}</b><span>vCPUs{{if .Sizing.Configured}} ({{.Sizing.VCPUPerCore}} per core){{end}}</span></div><div class="card"><b>{{bytes .Sizing.MemoryBytes}}</b><span>memory{{if .Sizing.Configured}} ({{pct .Sizing.MemoryPercent}} of available){{end}}</span></div><div class="card"><b>{{bytes .Sizing.UsedBytes}}</b><span>storage used{{if .Sizing.Configured}} ({{pct .Sizing.StoragePercent}} of usable){{end}}</span></div></div>
 <ul>{{range .Sizing.Notes}}<li>{{.}}</li>{{end}}</ul>
+{{if .Rolling}}<section class="wave" id="stages"><h2>Rolling conversion: {{len .Rolling}} stages <span class="progress"></span></h2>
+<div class="note">{{.Scenario}}. Do the stages in order and check both sides before each one. Every stage keeps the hosts not yet rebuilt running the VMs not yet moved.</div>
+{{range $i, $st := .Rolling}}<div class="vm"><h3>{{$st.Title}} <span class="chip {{$st.Status}}">{{$st.Status}}</span> <span class="progress"></span></h3>{{if $st.VMs}}<div class="muted">VMs moved: {{$st.VMs}}</div>{{end}}
+<div class="grid2"><div><h3>Steps</h3><ol class="steps">{{range $st.Steps}}<li><label><input type="checkbox" class="step" data-step="stage-{{$i}}|{{.}}"><span>{{.}}</span></label></li>{{end}}</ol></div><div><h3>Capacity at this stage</h3><ul>{{range $st.Checks}}<li>{{.}}</li>{{else}}<li>Nothing to check.</li>{{end}}</ul></div></div></div>{{end}}
+{{if .RollingNotes}}<ul>{{range .RollingNotes}}<li>{{.}}</li>{{end}}</ul>{{end}}
+{{if .RollingStorage}}<h3>Storage when the hosts are rebuilt</h3><table><tr><th>Datastore</th><th>Type</th><th>Capacity</th><th>Reused</th><th>What happens</th></tr>{{range .RollingStorage}}<tr><td>{{.Datastore}}</td><td>{{.Type}}</td><td>{{bytes .CapacityBytes}}</td><td>{{if .Reuse}}Yes{{else}}No{{end}}</td><td>{{.Advice}}</td></tr>{{end}}</table>{{end}}</section>{{end}}
 <h2>Network mapping</h2>
 <table><tr><th>VMware network</th><th>VLAN</th><th>Target network</th><th>Target VLAN</th></tr>{{range .Plan.Networks}}<tr><td>{{.Source}}</td><td>{{.SourceVLAN}}</td><td>{{.TargetName}}</td><td>{{.TargetVLAN}}</td></tr>{{end}}</table>
 <h2>Storage mapping</h2>
@@ -79,6 +85,7 @@ const vmRunbookTemplate = `<!DOCTYPE html>
 <h2>Waves</h2>
 <table><tr><th>Wave</th><th>VMs</th><th>Done</th></tr>{{range $w, $wave := .Waves}}<tr><td>{{$wave.Label}}</td><td>{{range $i, $vm := $wave.VMs}}{{if $i}}, {{end}}{{$vm.VM.Name}}{{end}}</td><td><span class="progress" data-wave-row="wave-{{$w}}"></span></td></tr>{{end}}</table>
 {{range $w, $wave := .Waves}}<section class="wave" id="wave-{{$w}}"><h2>{{$wave.Label}} <span class="progress"></span></h2>
+{{if $wave.Detail}}<p class="muted">{{$wave.Detail}}</p>{{end}}
 {{range $wave.VMs}}{{$id := .VM.ID}}<div class="vm"><h3>{{.VM.Name}} <span class="chip {{.Readiness.Status}}">{{statusLabel .Readiness.Status}}</span> <span class="progress"></span></h3>
 <div class="muted">{{os .VM}} · {{.VM.CPUs}} vCPU · {{mb .VM.MemoryMB}} · {{bytes .VM.UsedBytes}} used{{if .Entry.Notes}} · Notes: {{.Entry.Notes}}{{end}}</div>
 <div class="grid2"><div><h3>Network adapters</h3><ul>{{range .NICs}}<li>{{.}}</li>{{else}}<li>None</li>{{end}}</ul></div><div><h3>Disks</h3><ul>{{range .Disks}}<li>{{.}}</li>{{else}}<li>None</li>{{end}}</ul></div></div>
@@ -283,15 +290,22 @@ func writeVMwarePlanOutputs(folder string, inventory *vmInventory, plan vmPlan) 
 	}
 	waves := buildRunbook(plan, inventory)
 	sizing := sizePlan(plan, inventory)
+	rolling := analyzeRolling(plan, inventory)
+	stages, rollingNotes, rollingStorage, scenario := vmRollingRunbookStages(rolling), []string{}, []vmStorageReuse{}, ""
+	if rolling != nil {
+		rollingNotes, rollingStorage = rolling.Notes, rolling.Storage
+		info, _ := vmScenarioFor(vmScenarioRolling)
+		scenario = info.Name
+	}
 	var page bytes.Buffer
-	if err := vmRunbookTmpl.Execute(&page, map[string]any{"Inventory": inventory, "Plan": plan, "Roles": vmMoveRoles(plan.Target), "Waves": waves, "Sizing": sizing, "Style": template.CSS(vmReportStylesheet + vmRunbookStyle), "Script": template.JS(vmRunbookScript), "ScriptHash": vmRunbookScriptHash(), "Generator": vmReportGeneratorLine}); err != nil {
+	if err := vmRunbookTmpl.Execute(&page, map[string]any{"Inventory": inventory, "Plan": plan, "Roles": vmMoveRoles(plan.Target), "Waves": waves, "Sizing": sizing, "Rolling": stages, "RollingNotes": rollingNotes, "RollingStorage": rollingStorage, "Scenario": scenario, "Style": template.CSS(vmReportStylesheet + vmRunbookStyle), "Script": template.JS(vmRunbookScript), "ScriptHash": vmRunbookScriptHash(), "Generator": vmReportGeneratorLine}); err != nil {
 		return "", "", err
 	}
 	runbook := filepath.Join(folder, vmRunbookReport)
 	if err := os.WriteFile(runbook, page.Bytes(), 0600); err != nil {
 		return "", "", err
 	}
-	if err := writeRunbookDocx(filepath.Join(folder, vmRunbookDocx), inventory, plan, waves, sizing); err != nil {
+	if err := writeRunbookDocx(filepath.Join(folder, vmRunbookDocx), inventory, plan, waves, sizing, rolling); err != nil {
 		return "", "", err
 	}
 	rows := [][]string{}

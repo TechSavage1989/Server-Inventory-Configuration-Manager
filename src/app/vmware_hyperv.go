@@ -148,6 +148,39 @@ func vmHyperVPlanFor(vm vmMachine, networks []vmNetwork, options vmHyperVOptions
 	return plan, nil
 }
 
+// vmAutoSwitches fills in the Hyper-V switch for every VMware network the
+// plan's network map leaves empty, so a move needs no mapping when the
+// answer is clear: a switch with the network's own name, else the host's
+// only switch. The VLAN still comes from the VMware port group. It returns
+// the map to use and one line per network it filled in.
+func vmAutoSwitches(switches map[string]string, vm vmMachine, hostSwitches []string) (map[string]string, []string) {
+	filled := map[string]string{}
+	for network, name := range switches {
+		filled[network] = name
+	}
+	notes := []string{}
+	for _, nic := range vm.NICs {
+		if strings.TrimSpace(filled[nic.Network]) != "" || len(hostSwitches) == 0 {
+			continue
+		}
+		choice, why := "", ""
+		for _, name := range hostSwitches {
+			if strings.EqualFold(strings.TrimSpace(name), strings.TrimSpace(nic.Network)) {
+				choice, why = name, "it has the same name"
+			}
+		}
+		if choice == "" && len(hostSwitches) == 1 {
+			choice, why = hostSwitches[0], "it is the host's only switch"
+		}
+		if choice == "" {
+			continue
+		}
+		filled[nic.Network] = choice
+		notes = append(notes, fmt.Sprintf("%s connects to Hyper-V switch %s because %s; name another in the plan's network map to change it.", vmNonEmpty(nic.Network, nic.Label), choice, why))
+	}
+	return filled, notes
+}
+
 // vmPSQuote returns a PowerShell single-quoted string literal. Every quote
 // character PowerShell accepts as a single quote is doubled, so no value can
 // end the literal.
