@@ -67,7 +67,8 @@ Limits: the agent under SentinelOne on a real server, receiver discovery across 
 - Migration plans can run from an admin computer against another Hyper-V host or failover cluster (`mbSettings.RemoteHost`, `Node`; `movebatch_remote_windows.go`). Every round is Move VMs' remote round over the node's administrative share (one shared IPC$ connection per node, `replConnectIPCShared`), each VM is created by the rule 39 creation script over PowerShell remoting, and test cutovers make and remove the NAME-TEST VM on differencing disks through the same remoting script. Names, node, folders and switches are checked when the plan is made and again before each guest is shut down. VMware sources only. AGENTS.md rule 41.
 - New migration: choosing Another Hyper-V host or cluster in Where connects to it inline, picks the node and fills the folders from its Cluster Shared Volumes; the plan then runs end to end like the local one. AGENTS.md rule 47.
 - Tests: `TestPlanAgainstARemoteHostChecksItsPathsAndKeepsItsHost` and a `scripts/test_workspace.cjs` check for the remote flow. Not field-validated: a real remote Hyper-V host or cluster, admin-share writes to a CSV, remote test cutovers.
-- Still to do in phase 2: replication jobs and HyperCore, Nutanix and Proxmox inside the flow.
+- Step 3: for HyperCore, Nutanix AHV and Proxmox VE, Where connects to the platform inline and How lists each chosen VM (created, receiver paired, last result) with an Open button for its Move panel. These stay one VM at a time because each receiver's pairing code is read from its console.
+- Still to do in phase 2: replication jobs inside the flow (needs the All servers console, PR #139).
 
 ## Unreleased: New migration, one guided flow — 2026-11-26
 

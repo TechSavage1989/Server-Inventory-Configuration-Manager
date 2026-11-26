@@ -758,6 +758,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
 .nw-radios{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:12.5px}
 .nw-wave-vms{display:flex;flex-wrap:wrap;gap:4px 6px}.nw-wave-vm{display:inline-flex;align-items:center;gap:4px;padding:2px 4px 2px 8px;border:1px solid #dbe3ed;border-radius:999px;background:#f8fafc;font-size:12px}.nw-wave-vm select{font-size:11.5px;padding:1px 2px}
 .nw-summary{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:6px 14px;margin:0;padding:10px 12px;border:1px solid #dbe3ed;border-radius:9px;background:#fbfcfe;font-size:12.5px}.nw-summary dt{font-weight:700;color:#334156}.nw-summary dd{margin:0;color:#3d4c61}
+.nw-steps{margin:2px 0 10px;padding-left:22px;line-height:1.5}.nw-steps li{margin:2px 0}
 .nw-checks{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:5px}
 .nw-check{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:6px 9px;border-radius:7px;background:#f1f4f8;font-size:12.5px;color:#334156}.nw-check.ok{background:#e9f6ee;color:#1d6b43}.nw-check.warn{background:#fff4e2;color:#8a5610}.nw-check.block{background:#fdecec;color:#8f2f2f}
 .nw-check-icon{min-width:34px;font-weight:700;font-size:11px;text-transform:uppercase}
@@ -6833,6 +6834,11 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   }
   function nwEndToEnd(){return nw.source==='vms'&&nw.method==='plans'&&(nw.target==='here'||(nw.target==='hvremote'&&nwInvType()==='vmware'));}
   function nwRemote(){return nw.target==='hvremote';}
+  // HyperCore, Nutanix AHV and Proxmox VE: VMware VMs move one by one through
+  // receiver media on each new VM; Where connects to the platform.
+  function nwPlatform(){return nw.source==='vms'&&nwInvType()==='vmware'&&!!vmTargetCreatable[nw.target];}
+  function nwPfState(){var t=(vmwareState()||{}).target||{};return t;}
+  function nwPfConnected(){var t=nwPfState();return !!(t.connected&&t.platform===nw.target);}
   // The connected remote Hyper-V host or cluster, or null.
   function nwHvr(){var h=(vmwareState()||{}).hvRemote;return h&&h.connected&&h.info?h:null;}
   function nwHvrName(){var h=nwHvr();return h?(h.info.cluster?'cluster '+h.info.cluster:h.info.computer||h.host):'';}
@@ -6929,6 +6935,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
         if(nw.vmFolder&&!nwFullPath(nw.vmFolder)){return 'Type a full path for the VMs, or leave it empty for the host\'s default.';}
         var unmapped=nwNetworks().filter(function(n){return nwMap(n).sw===null;});if(unmapped.length){return 'Choose a switch for '+unmapped[0].name+'.';}
       }
+      if(nwPlatform()&&!nwPfConnected()){return 'Connect to '+vmTargetName(nw.target)+' (above).';}
       if(nwRemote()&&nw.source==='vms'&&nwInvType()==='vmware'){
         var hvr=nwHvr();if(!hvr){return 'Connect to the Hyper-V host or cluster (above).';}
         if(!hvr.info.supported){return hvr.info.support||'That host cannot receive the VMs.';}
@@ -6990,6 +6997,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     var base=[nw.step,vmInvKeyOf(vmInventory),!!v.running,v.status,!!v.canPrepare,!!v.hyperVHere,nwSwitches?nwSwitches.length:-1,mpState?vmArr(mpState.plans).length:-1].join('|');
     if(nw.step===1){base+='|'+JSON.stringify(v.hostStorage||null)+'|'+(v.hvRemote?[v.hvRemote.connected,v.hvRemote.serial,v.hvRemote.failed,v.hvRemote.message].join(','):'');}
     if(nw.step===4&&v.hvRemote){base+='|'+v.hvRemote.serial;}
+    if((nw.step===1||nw.step===2)&&v.target){base+='|t'+v.target.serial+(v.target.connected?'c':'')+(v.target.certificate?'x':'')+'|'+(v.move?v.move.vm+(v.move.error||''):'');}
     if(nw.step===4){base+='|'+JSON.stringify(nwChecks())+'|'+JSON.stringify(v.prepareBatch||null);}
     return base;
   }
@@ -7111,6 +7119,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       choices.appendChild(nwChoice('data-nw-target',id,t.name,t.detail,nw.target===id,off,why));});
     box.appendChild(choices);
     var remote=nwRemote()&&nw.source==='vms'&&nwInvType()==='vmware';
+    if(nwPlatform()){renderNwPlatformConnect(box);return;}
     if(nw.source!=='vms'||(nw.target!=='here'&&!remote)){if(nw.target){box.appendChild(el('p','migrate-help','Next: how to move. The tool for it is filled in from your choices.'));}return;}
     if(remote){if(!renderNwHvConnect(box)){return;}}
     var hs=nwStorage();
@@ -7143,6 +7152,56 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       tbody.appendChild(tr);});
     table.appendChild(tbody);var wrap=el('div','vm-table-wrap');wrap.appendChild(table);box.appendChild(wrap);
     if(!nwSwitchList().length){box.appendChild(el('div','vm-note','No virtual switch was found on '+(remote?nwHvrName():'this host')+' yet. Create one in Hyper-V Manager (or Build Hyper-V hosts), then come back to this step'+(remote?' and choose Read again':'')+'.'));}
+  }
+  // The connection to HyperCore, Prism Central or Proxmox VE, inside Where.
+  function renderNwPlatformConnect(box){
+    var t=nwPfState(),label=vmTargetName(nw.target),ok=nwPfConnected(),px=nw.target==='proxmox',nx=nw.target==='nutanix',panel=el('div','nw-signin');panel.id='nwPfPanel';
+    var runs=el('p','vm-runs-on');runs.appendChild(el('span','vm-lead','Runs on this computer, your admin computer. '));runs.appendChild(document.createTextNode('It creates each new VM on '+label+', which boots receiver media and receives the copy straight onto its own disks. The disks pass through this computer; nothing is installed in the VMware VMs.'));panel.appendChild(runs);
+    panel.appendChild(el('strong','',ok?'Connected to '+t.server+(t.inventory&&t.inventory.version?' ('+t.inventory.version+')':''):'Connect to '+label));
+    if(!ok){panel.appendChild(el('p','migrate-help',px?'Use an API token (Datacenter > Permissions > API Tokens) with VM and storage rights. The secret stays in memory until Forget or you close the application.':'The password stays in memory until Forget or you close the application.'));
+      var row=el('div','migrate-row'),sv=nwInput('nwPfServer',nw.pfServer||(t.platform===nw.target?t.server:'')||'',nx?'prism-central.example.com':(px?'pve1.example.com':'hypercore.example.com')),us=nwInput('nwPfUser',nw.pfUser||(t.platform===nw.target?t.user:'')||'',px?'migrate@pve!move':'admin'),pw=document.createElement('input');
+      sv.setAttribute('aria-label',nx?'Prism Central':(px?'Proxmox VE host':'HyperCore cluster'));us.setAttribute('aria-label',px?'API token ID':'User name');pw.type='password';pw.id='nwPfSecret';pw.autocomplete='new-password';pw.placeholder=px?'Token secret':'Password';pw.setAttribute('aria-label',px?'Token secret':'Password');
+      row.appendChild(sv);row.appendChild(us);row.appendChild(pw);
+      if(nw.target!=='scale'){var nd=nwInput('nwPfNode',nw.pfNode||'',px?'Node (first if empty)':'AHV cluster (only one if empty)');nd.setAttribute('aria-label',px?'Node':'AHV cluster name');row.appendChild(nd);}
+      var go=el('button','primary-button','Connect');go.type='button';go.id='nwPfConnect';go.disabled=nw.busy;row.appendChild(go);panel.appendChild(row);
+      if(t.certificate){var c=el('div','restore-alert warning');c.appendChild(document.createTextNode('Windows does not trust this server\'s certificate. SHA-256 thumbprint: '+t.certificate.thumbprint+'. Trust it only if it matches the one shown on the server. '));var tr=el('button','secondary-button','Trust this thumbprint and connect');tr.type='button';tr.id='nwPfTrust';c.appendChild(tr);panel.appendChild(c);}}
+    else{var acts=el('div','migrate-row'),fg=el('button','secondary-button','Forget');fg.type='button';fg.id='nwPfForget';acts.appendChild(fg);panel.appendChild(acts);}
+    var st=el('div','migrate-inline-status'+(nw.pfError?' error':''),nw.pfError||'');st.id='nwPfStatus';st.setAttribute('role','status');panel.appendChild(st);
+    box.appendChild(panel);
+    box.appendChild(el('p','migrate-help','Next: each VM gets the same processors, memory, firmware and disks (rounded up) on '+label+'. You build the receiver media once, then for each VM create it, type the pairing code shown on its console, copy while the VMware VM runs and cut over.'));
+  }
+  function nwPfConnect(thumbprint){
+    var sv=trimText((byId('nwPfServer')||{}).value),us=trimText((byId('nwPfUser')||{}).value),pw=byId('nwPfSecret'),nd=trimText((byId('nwPfNode')||{}).value),t=nwPfState();
+    nw.pfServer=sv;nw.pfUser=us;nw.pfNode=nd;
+    if(!sv||!us){vmSetStatus('nwPfStatus','Type the server and the '+(nw.target==='proxmox'?'API token ID':'user name')+'.',true);return;}
+    var held=t.platform===nw.target&&String(t.server||'').toLowerCase()===sv.toLowerCase()&&t.user===us;
+    if(!pw.value&&!held){vmSetStatus('nwPfStatus','Type the '+(nw.target==='proxmox'?'token secret':'password')+'.',true);pw.focus();return;}var body={platform:nw.target,server:sv,user:us,password:pw.value,node:nd};if(thumbprint){body.thumbprint=thumbprint;}pw.value='';
+    nw.busy=true;nw.pfError='';renderNwNav();
+    request('POST','/api/vmware/target/connect',body,function(err){nw.busy=false;nw.pfError=err||'';
+      // The next state shows the connection; leave the fields so it can redraw.
+      if(!err&&document.activeElement&&byId('nwStep').contains(document.activeElement)){document.activeElement.blur();}renderNw();});
+  }
+  // For a platform target: the VMs in order, each with where it stands and
+  // a button that opens its own Move panel.
+  function renderNwQueue(box){
+    var t=nwPfState(),v=vmwareState()||{},label=vmTargetName(nw.target);
+    box.appendChild(nwHeading('For each VM'));
+    var ol=el('ol','nw-steps');['Build the receiver media once (Windows ADK and its Windows PE add-on, with the VirtIO drivers), then upload it to '+label+'.','Create the VM on '+label+' (its name typed to confirm). It starts from the receiver media.','Type the address, pairing code and thumbprint shown on the new VM\'s console. The code is never saved.','Copy while the VMware VM keeps running, as often as you like; each copy sends only what changed.','Cut over: the guest shuts down through VMware Tools, the last changes are copied and checked, and the new VM starts from its own disk.'].forEach(function(x){ol.appendChild(el('li','',x));});box.appendChild(ol);
+    var table=el('table','vm-table nw-queue'),thead=document.createElement('thead'),hr=el('tr');['VM','On '+label,'Receiver','Last result',''].forEach(function(x){hr.appendChild(el('th','',x));});thead.appendChild(hr);table.appendChild(thead);
+    var tbody=document.createElement('tbody');
+    nwPickedVMs().forEach(function(vm){var tr=el('tr'),made=t.created&&t.created[vm.id],rx=t.receivers&&t.receivers[vm.id],last=v.move&&v.move.vm===vm.name?v.move:null;
+      tr.appendChild(el('td','',vm.name));
+      tr.appendChild(el('td','',made?(made.cutOver?'Cut over':'Created'+(made.vm&&made.vm.name&&made.vm.name!==vm.name?' as '+made.vm.name:'')):'Not created yet'));
+      tr.appendChild(el('td','',rx?'Paired ('+rx.link.address+')':'Not paired'));
+      tr.appendChild(el('td','',last?(last.error?'Failed: '+last.error:(last.cutover?'Cut over':'Copied')):''));
+      var td=el('td'),b=el('button','secondary-button',made&&made.cutOver?'Show':'Open');b.type='button';b.setAttribute('data-nw-openvm',vm.id);b.title='Open '+vm.name+'\'s Move panel in Move VMs';td.appendChild(b);tr.appendChild(td);tbody.appendChild(tr);});
+    table.appendChild(tbody);var wrap=el('div','vm-table-wrap');wrap.appendChild(table);box.appendChild(wrap);
+    box.appendChild(el('p','vm-note','Each VM\'s receiver shows its own pairing code on its console, so the copies are paired one VM at a time. This list shows where each VM stands; come back to it from New migration at any time.'));
+  }
+  function nwOpenVm(id){
+    var tgt=nw.target;vmPicked={};nwPickedVMs().forEach(function(vm){vmPicked[vm.id]=true;});
+    if(vmTargetList.some(function(x){return x.id===tgt;})&&vmTarget()!==tgt){changeVmTarget(tgt);}
+    showTool('movevms');vmObjTab['vm-move']='move';vmOpenDrawer({kind:'vm',id:id},{focus:true,reveal:true});
   }
   // The connection to another Hyper-V host or cluster, inside Where. Returns
   // true when connected to a host that can take the VMs.
@@ -7188,7 +7247,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       var whole=id==='plans'&&nw.source==='vms'&&(nw.target==='here'||(nw.target==='hvremote'&&nwInvType()==='vmware'));top.appendChild(el('span','nw-badge '+(whole?'good':'handoff'),whole?'Runs from here, start to finish':'Continues in '+gdToolName(m.tool)));
       b.appendChild(top);b.appendChild(toolWhenLine(m.when));b.appendChild(el('span','vm-note',m.note));b.appendChild(modeTags([m.agent,m.live]));list.appendChild(b);});
     box.appendChild(list);
-    if(!nwEndToEnd()){if(nw.method){var m=nwMode(nw.method);box.appendChild(el('p','migrate-help','Continue in '+gdToolName(m.tool)+' opens it with '+(nw.source==='vms'&&nwPickedVMs().length?'your '+vmPlural(nwPickedVMs().length,'VM')+' selected':'your choices')+'. Its own screen asks only for what that way needs.'));}return;}
+    if(!nwEndToEnd()){if(nw.method){var m=nwMode(nw.method);box.appendChild(el('p','migrate-help','Continue in '+gdToolName(m.tool)+' opens it with '+(nw.source==='vms'&&nwPickedVMs().length?'your '+vmPlural(nwPickedVMs().length,'VM')+' selected':'your choices')+'. Its own screen asks only for what that way needs.'));if(nwPlatform()&&m.tool==='movevms'){renderNwQueue(box);}}return;}
     var o=nw.opts,isVMware=nwInvType()==='vmware';
     box.appendChild(nwHeading('Options for a migration plan'));
     box.appendChild(nwCheck('nwKeepMac','Keep each adapter\'s MAC address',o.keepMac,function(on){o.keepMac=on;}));
@@ -7404,6 +7463,10 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     if(t.hasAttribute('data-nw-tool')){if(t.getAttribute('data-nw-tool')==='plans'){mpSelected=nw.planId||mpSelected;}showTool(t.getAttribute('data-nw-tool'));return;}
     if(t.id==='nwConnect'){nwConnect('');return;}
     if(t.id==='nwHvConnect'){nwHvConnect(false);return;}
+    if(t.id==='nwPfConnect'){nwPfConnect('');return;}
+    if(t.id==='nwPfTrust'){var pt=nwPfState();if(pt.certificate){nwPfConnect(pt.certificate.thumbprint);}return;}
+    if(t.id==='nwPfForget'){request('POST','/api/vmware/target/forget',{},function(){nw.pfError='';renderNw();});return;}
+    if(t.hasAttribute('data-nw-openvm')){nwOpenVm(t.getAttribute('data-nw-openvm'));return;}
     if(t.id==='nwHvReread'){nwHvConnect(true);return;}
     if(t.id==='nwHvForget'){vmPost('/api/hvremote/forget',{},'nwHvStatus',function(){nw.filled='';renderNw();});return;}
     if(t.hasAttribute('data-nw-volume')){var root=String(t.getAttribute('data-nw-volume')).replace(/\\+$/,''),csv=!!t.getAttribute('data-nw-csv');nw.copyRoot=root+(csv?'\\Migrations':'\\Hyper-V\\Migrations');nw.vmFolder=csv?root+'\\VMs':'';if(csv&&nwStorage().clustered){nw.cluster=true;}renderNw();return;}
@@ -7442,7 +7505,8 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     if(t.id==='nwCutConfirm'){nwSyncCut();return;}
   });
   byId('tabWizard').addEventListener('keydown',function(e){if(e.key==='Enter'&&e.target&&(e.target.id==='nwPassword'||e.target.id==='nwUser'||e.target.id==='nwServer')){e.preventDefault();nwConnect('');}
-    if(e.key==='Enter'&&e.target&&(e.target.id==='nwHvPassword'||e.target.id==='nwHvUser'||e.target.id==='nwHvHost')){e.preventDefault();nwHvConnect(false);}});
+    if(e.key==='Enter'&&e.target&&(e.target.id==='nwHvPassword'||e.target.id==='nwHvUser'||e.target.id==='nwHvHost')){e.preventDefault();nwHvConnect(false);}
+    if(e.key==='Enter'&&e.target&&/^nwPf(Server|User|Secret|Node)$/.test(e.target.id)){e.preventDefault();nwPfConnect('');}});
   (function(){var id=nwStoredPlan();if(id){nw.planId=id;}})();
   function mpPlan(){var list=mpState?vmArr(mpState.plans):[];for(var i=0;i<list.length;i++){if(list[i].id===mpSelected){return list[i];}}return null;}
   function mpTime(t){if(!t||/^0001-/.test(t)){return '';}var d=new Date(t);if(isNaN(d.getTime())){return '';}var p=function(n){return (n<10?'0':'')+n;};return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes());}

@@ -1699,12 +1699,24 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   await f.page.setViewportSize({width:1008,height:690});await f.page.locator('[data-nw-step]').first().waitFor();
   assert(await f.page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1),'no horizontal scroll at 1024x768');
  }finally{await f.close();}});
- await check('New migration: a target this host cannot run hands off to its tool with the VMs selected',async()=>{const f=await fixture(browser);try{
+ await check('New migration: a Proxmox target connects inside Where, lists each VM with where it stands, and hands off to Move VMs with the VMs selected',async()=>{const f=await fixture(browser);try{
   f.vm.inventory=vmwareInventoryFixture();f.vm.plan=vmwarePlanFixture();f.state.vmware=Object.assign(vmwareIdle(),{status:'connected',server:'vc01.example.com',summary:vmwareSummaryFixture(),inventorySerial:1,canPrepare:true,hyperVHere:false});
   await goTool(f,'wizard');await f.page.locator('[data-nw-source="vms"]').click();await f.page.waitForSelector('#nwVmList [data-nw-pick]');await f.page.locator('[data-nw-pick="vm-app01"]').check();await f.page.locator('#nwNext').click();
   assert(await f.page.locator('[data-nw-target="here"]').isDisabled(),'this host is not a Hyper-V host');assert((await f.page.locator('[data-nw-target="here"]').textContent()).includes('is not a Hyper-V host'));
-  await f.page.locator('[data-nw-target="proxmox"]').click();await f.page.locator('#nwNext').click();
+  await f.page.locator('[data-nw-target="proxmox"]').click();await f.page.locator('#nwPfConnect').waitFor();
+  assert((await f.page.locator('#nwPfPanel .vm-runs-on').textContent()).includes('Runs on this computer, your admin computer'));
+  assert.equal(await f.page.locator('#nwWhy').textContent(),'Connect to Proxmox VE (above).','the platform connection is part of Where');
+  await f.page.locator('#nwPfServer').fill('pve1.example.com');await f.page.locator('#nwPfUser').fill('migrate@pve!move');await f.page.locator('#nwPfConnect').click();
+  assert.equal(await f.page.locator('#nwPfStatus').textContent(),'Type the token secret.');
+  await f.page.locator('#nwPfSecret').fill('Synthetic-Token-Secret');await f.page.locator('#nwPfSecret').press('Enter');
+  await f.page.waitForFunction(()=>document.querySelector('#nwPfForget'),null,{timeout:15000});
+  assert.deepEqual(f.vmwareCalls.filter(c=>c.action==='target/connect').map(c=>c.body),[{platform:'proxmox',server:'pve1.example.com',user:'migrate@pve!move',password:'Synthetic-Token-Secret',node:''}]);
+  assert(!(await f.page.content()).includes('Synthetic-Token-Secret'),'the token secret is not kept in the page');
+  assert.equal(await f.page.locator('#nwWhy').textContent(),'');
+  await f.page.locator('#nwNext').click();
   assert.equal(await f.page.locator('.nw-stepper-item').count(),3,'a hand-off ends at How');
+  assert.equal(await f.page.locator('.nw-queue tbody tr').count(),1,'each chosen VM is listed with where it stands');assert((await f.page.locator('.nw-queue').textContent()).includes('Not created yet'));
+  assert.equal(await f.page.locator('.nw-steps li').count(),5,'the steps of this way are listed');
   assert.equal(await f.page.locator('#nwNext').textContent(),'Continue in Move VMs');await f.page.locator('#nwNext').click();
   assert.equal(await f.page.locator('[data-tool="movevms"]').getAttribute('aria-pressed'),'true');assert.equal(await f.page.locator('#vmTargetSelect').inputValue(),'proxmox','the target comes along');
   assert(await f.page.locator('#vmDetail').isVisible(),'the VM opens in Move VMs');
