@@ -1,3 +1,10 @@
+## Unreleased: the workspace fills the window and gets denser on small screens — 2026-11-26
+
+- Removed the 1220 px and 1480 px maximum widths so every tab and tool fills the window (AGENTS.md rule 51); wide windows give the tool list, inventory tree, category grid and guide cards more room, and the two inventory readers sit side by side from 1600 px.
+- Windows narrower than 1440 px or shorter than 900 px use smaller body text (13, then 12.5 px) and tighter controls; the 10.5 px minimum still holds. `scripts/test_workspace.cjs` passes (68 checks). `docs/images/hero.png` refreshed; other README captures at 1440 px were already older than the current tabs and are unchanged by this work.
+- Not checked on real Edge 109 on Windows Server 2012 R2; Chromium only.
+- Replicate servers: a long job error (a URL or certificate thumbprint) no longer stretches the job table off screen; it wraps, the Open button stays visible and clicking a job row opens the job.
+
 ## Unreleased: Install and restart never loops silently — 2026-11-26
 
 - Field report (owner's DESKTOP, 3.2.34 to 3.2.35): Install and restart restarted the old version and showed the same update again, with no reason; a later attempt worked. The helper had several exits (codes 4 to 11) that wrote no result, so the next start had nothing to show, and a 45-second health limit could roll back a healthy but slow first start (new executable scanned by endpoint protection, first WebView2 start).
