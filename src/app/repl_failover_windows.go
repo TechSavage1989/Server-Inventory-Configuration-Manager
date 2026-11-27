@@ -270,6 +270,9 @@ func (a *application) replStartFromCopiesLocked(r replFailoverRequest, list []re
 		a.vmwareLog("%s was created but could not be recorded: %v. End it in Hyper-V Manager.", plan.Name, err)
 	}
 	a.vmwareLog("%s was created (ID %s).", plan.Name, id)
+	if r.Mode == "production" {
+		a.recordCopiesCutover(record, chosen[0].Job)
+	}
 	return record, http.StatusOK, nil
 }
 

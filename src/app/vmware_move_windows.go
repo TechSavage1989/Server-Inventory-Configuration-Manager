@@ -219,7 +219,7 @@ func (a *application) handleVMwareMove(response http.ResponseWriter, request *ht
 			if err != nil {
 				err = errors.New("the disks are copied and the source VM is shut down, but the Hyper-V VM was not created: " + err.Error() + ". Start the source VM again to go back, or fix the cause and cut over again")
 			} else {
-				result.Notes = a.afterCutover(context.Background(), vm, result.HyperVID, "", input.Start, input.DisconnectSource, input.FixUp, connect, records, log)
+				result.Notes = a.afterCutover(context.Background(), vm, result.HyperVID, "", input.Start, input.DisconnectSource, input.FixUp, connect, records, "", log)
 			}
 		}
 		connect.Password = ""

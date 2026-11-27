@@ -1,7 +1,11 @@
 [CmdletBinding()]
 param([Parameter(Mandatory=$true)][string]$ExpectedVersion)
 $ErrorActionPreference='Stop'
-$base='https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/latest/download'
+$repository='https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager'
+# A test build (X.Y.Z-test.N) is a prerelease: it is read from its own tag, and
+# the stable feed (latest release) must not name it.
+$isTest=$ExpectedVersion -match '^\d+\.\d+\.\d+-test\.[1-9]\d*$'
+$base=if($isTest){"$repository/releases/download/v$ExpectedVersion"}else{"$repository/releases/latest/download"}
 $temp=Join-Path $env:TEMP ('SICM-ReleaseVerify-'+[guid]::NewGuid().ToString('N'))
 New-Item $temp -ItemType Directory -Force|Out-Null
 try{
@@ -37,6 +41,13 @@ try{
     Invoke-WebRequest -UseBasicParsing -Uri "$base/simm-agent-linux-amd64" -OutFile $agent
     $expectedAgent=(Get-FileHash (Join-Path $PSScriptRoot '..\dist\simm-agent-linux-amd64') -Algorithm SHA256).Hash
     if((Get-FileHash $agent -Algorithm SHA256).Hash -ne $expectedAgent){throw 'Public Linux agent differs from the built agent.'}
+    if($isTest){
+        $stablePath=Join-Path $temp 'stable-manifest.json'
+        Invoke-WebRequest -UseBasicParsing -Uri "$repository/releases/latest/download/update-manifest.json" -OutFile $stablePath
+        $stable=Get-Content $stablePath -Raw|ConvertFrom-Json
+        if([string]$stable.version -match '-test\.'){throw "The stable feed names test build $($stable.version)."}
+        Write-Host "Stable feed still names $($stable.version)."
+    }
     Write-Host 'Public updater feed and release asset verification passed.'
 }
 finally{Remove-Item $temp -Recurse -Force -ErrorAction SilentlyContinue}

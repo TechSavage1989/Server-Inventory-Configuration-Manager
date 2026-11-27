@@ -1,7 +1,7 @@
 """Build a Windows COFF .rsrc object from the approved active icon and exact version metadata.
 Resources are linked by Go; the compiled executable is never patched afterward.
 """
-import argparse,pathlib,struct
+import argparse,pathlib,re,struct
 
 def align(n,a=4):return (n+a-1)&~(a-1)
 def wide(s):return (s+'\0').encode('utf-16le')
@@ -12,9 +12,12 @@ def block(key,value=b'',children=(),text=False):
         data.extend(b'\0'*(align(len(data))-len(data)));data.extend(child)
     struct.pack_into('<H',data,0,len(data));return bytes(data)
 def version_info(version):
-    major,minor,patch=map(int,version.split('.'))
-    if any(v<0 or v>65535 for v in [major,minor,patch]):raise ValueError('version outside Windows metadata range')
-    ms=(major<<16)|minor;ls=patch<<16
+    # X.Y.Z, or X.Y.Z-test.N for a test build (AGENTS rule 61): N is the build field.
+    match=re.fullmatch(r'(0|[1-9]\d{0,4})\.(0|[1-9]\d{0,4})\.(0|[1-9]\d{0,4})(?:-test\.([1-9]\d{0,4}))?',version)
+    if not match:raise ValueError('version must be X.Y.Z or X.Y.Z-test.N')
+    major,minor,patch=(int(v) for v in match.groups()[:3]);build=int(match.group(4) or 0)
+    if any(v<0 or v>65535 for v in [major,minor,patch,build]):raise ValueError('version outside Windows metadata range')
+    ms=(major<<16)|minor;ls=(patch<<16)|build
     fixed=struct.pack('<13I',0xfeef04bd,0x10000,ms,ls,ms,ls,0x3f,0,0x40004,1,0,0,0)
     values={'CompanyName':'TechSavage1989','FileDescription':'Server Inventory and Migration Manager','FileVersion':version,'InternalName':'Server-Inventory-Configuration-Manager','OriginalFilename':'Server-Inventory-Configuration-Manager.exe','ProductName':'Server Inventory Configuration Manager','ProductVersion':version}
     table=block('040904b0',children=[block(k,wide(v),text=True) for k,v in values.items()])

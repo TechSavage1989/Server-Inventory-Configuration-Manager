@@ -148,9 +148,13 @@ type vmRollingStageReport struct {
 	Target vmStageCheck `json:"target"`
 	// LocalVMs are VMs with disks on storage only the stage's host has.
 	LocalVMs []string `json:"localVms"`
-	Steps    []string `json:"steps"`
-	Status   string   `json:"status"`
-	Notes    []string `json:"notes"`
+	// RollbackEnds are VMs already cut over whose old VM this stage
+	// destroys (registered on the host, on its local datastores, or on a
+	// LUN this stage reuses): Roll back cannot bring them back after it.
+	RollbackEnds []string `json:"rollbackEnds"`
+	Steps        []string `json:"steps"`
+	Status       string   `json:"status"`
+	Notes        []string `json:"notes"`
 }
 
 type vmRollingReport struct {
@@ -627,6 +631,7 @@ func analyzeRolling(plan vmPlan, inventory *vmInventory) *vmRollingReport {
 	sourceHosts := append([]vmHost{}, hosts...)
 	targetNodes := []vmHost{}
 	moved := vmLoad{}
+	movedVMs := []vmMachine{}
 	removeHost := func(list []vmHost, name string) []vmHost {
 		out := []vmHost{}
 		for _, host := range list {
@@ -647,13 +652,14 @@ func analyzeRolling(plan vmPlan, inventory *vmInventory) *vmRollingReport {
 	}
 	reserve := plan.Capacity.ReserveNodes
 	for index, stage := range plan.Rolling.Stages {
-		item := vmRollingStageReport{Number: index + 1, Host: stage.Host, Wave: stage.Wave, MoveFirst: stage.MoveFirst || stage.Host == "", WaveVMs: []string{}, LocalVMs: []string{}, Steps: []string{}, Status: "ok", Notes: []string{}}
+		item := vmRollingStageReport{Number: index + 1, Host: stage.Host, Wave: stage.Wave, MoveFirst: stage.MoveFirst || stage.Host == "", WaveVMs: []string{}, LocalVMs: []string{}, RollbackEnds: []string{}, Steps: []string{}, Status: "ok", Notes: []string{}}
 		wave := waveVMs(stage.Wave)
 		moveWave := func() {
 			for _, vm := range wave {
 				item.WaveVMs = append(item.WaveVMs, vm.Name)
 				delete(onSource, vm.ID)
 				moved.add(vm, true)
+				movedVMs = append(movedVMs, vm)
 			}
 			item.Target = vmSideCheck(targetNodes, moved, plan.Capacity, reserve, "target")
 			if len(targetNodes) == 0 && len(wave) > 0 {
@@ -698,6 +704,19 @@ func analyzeRolling(plan vmPlan, inventory *vmInventory) *vmRollingReport {
 			if len(item.LocalVMs) > 0 {
 				item.Source.Status = vmWorse(item.Source.Status, "tight")
 				item.Source.Notes = append(item.Source.Notes, "On storage only "+host.Name+" has: "+strings.Join(item.LocalVMs, ", ")+". Storage vMotion them to shared storage, or move them in this stage's wave first.")
+			}
+			reused := map[string]bool{}
+			if index == 0 {
+				for _, store := range report.Storage {
+					if store.Reuse && store.Kind == "san" {
+						reused[strings.ToLower(store.Datastore)] = true
+					}
+				}
+			}
+			item.RollbackEnds = vmRollbackEndsAt(inventory, movedVMs, host.Name, reused)
+			if len(item.RollbackEnds) > 0 {
+				item.Notes = append(item.Notes, "Rollback ends here for "+strings.Join(item.RollbackEnds, ", ")+": their old VMs are on "+host.Name+" or storage this stage erases or reuses.")
+				item.Steps = append(item.Steps, "Before you go on, test every VM already moved and use Roll back for any that does not work. Once "+host.Name+" is removed and rebuilt (or its LUN reused), Roll back can no longer bring back "+strings.Join(item.RollbackEnds, ", ")+".")
 			}
 			item.Steps = append(item.Steps, fmt.Sprintf("Check the %s hosts left (%s) can take %s's VMs.", words.platform, vmNonEmpty(strings.Join(hostNames(sourceHosts), ", "), "none"), host.Name))
 			item.Steps = append(item.Steps, words.evacuate)
@@ -955,4 +974,24 @@ func vmRollingRunbookStages(report *vmRollingReport) []vmRollingRunbookStage {
 		result = append(result, vmRollingRunbookStage{Title: title, Status: stage.Status, Steps: stage.Steps, Checks: checks, VMs: strings.Join(stage.WaveVMs, ", ")})
 	}
 	return result
+}
+
+// vmRollbackEndsAt lists the VMs already cut over whose old VM a rolling
+// stage destroys: registered on the host being rebuilt, with a disk on a
+// datastore only that host has, or on a datastore the stage reuses.
+func vmRollbackEndsAt(inventory *vmInventory, moved []vmMachine, host string, reused map[string]bool) []string {
+	names := []string{}
+	for _, vm := range moved {
+		lost := strings.EqualFold(vm.Host, host)
+		for _, disk := range vm.Disks {
+			if lost {
+				break
+			}
+			lost = vmDatastoreLocalTo(inventory, disk.Datastore, host) || reused[strings.ToLower(disk.Datastore)]
+		}
+		if lost {
+			names = append(names, vm.Name)
+		}
+	}
+	return names
 }

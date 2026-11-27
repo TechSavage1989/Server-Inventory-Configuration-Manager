@@ -37,7 +37,7 @@ function Require-Match {
 }
 
 Require-Match $main 'appName\s*=\s*"Server Inventory Configuration Manager"' 'application name'
-Require-Match $main 'appVersion\s*=\s*"(?<v>\d+\.\d+\.\d+)"' 'application version'
+Require-Match $main 'appVersion\s*=\s*"(?<v>\d+\.\d+\.\d+(-test\.[1-9]\d*)?)"' 'application version'
 Require-Match $main 'collectorVersion\s*=\s*"(?<v>\d+\.\d+\.\d+)"' 'collector version'
 Require-Match $update 'stableExecutableName\s*=\s*"Server-Inventory-Configuration-Manager\.exe"' 'stable executable filename'
 Require-Match $update 'releases/latest/download/update-manifest\.json' 'public update feed'
@@ -53,11 +53,14 @@ Require-Match $html 'window\.addEventListener\(''focus''' 'focus-return update c
 Require-Match $collector '\$scriptVersion\s*=\s*''(?<v>\d+\.\d+\.\d+)''' 'collector script version'
 
 
-$appVersion = [regex]::Match($main,'appVersion\s*=\s*"(?<v>\d+\.\d+\.\d+)"').Groups['v'].Value
+$appVersion = [regex]::Match($main,'appVersion\s*=\s*"(?<v>\d+\.\d+\.\d+(-test\.[1-9]\d*)?)"').Groups['v'].Value
+# A test build (X.Y.Z-test.N, AGENTS rule 61) keeps the collector at X.Y.Z, so the
+# baseline-protected collector's version normalisation is unchanged.
+$baseVersion = ($appVersion -split '-test\.')[0]
 $collectorVersion = [regex]::Match($main,'collectorVersion\s*=\s*"(?<v>\d+\.\d+\.\d+)"').Groups['v'].Value
 $scriptVersion = [regex]::Match($collector,'\$scriptVersion\s*=\s*''(?<v>\d+\.\d+\.\d+)''').Groups['v'].Value
 
-if ($appVersion -ne $collectorVersion -or $appVersion -ne $scriptVersion) {
+if ($baseVersion -ne $collectorVersion -or $baseVersion -ne $scriptVersion) {
     throw "Version mismatch. App=$appVersion collector=$collectorVersion script=$scriptVersion"
 }
 if (-not [string]::IsNullOrWhiteSpace($ExpectedVersion) -and $appVersion -ne $ExpectedVersion) {

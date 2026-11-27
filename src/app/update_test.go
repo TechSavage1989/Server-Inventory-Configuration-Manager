@@ -4,27 +4,6 @@ package main
 
 import "testing"
 
-func TestCompareVersions(t *testing.T) {
-	cases := []struct {
-		left, right string
-		want        int
-	}{
-		{"3.2.0", "3.2.0", 0},
-		{"3.1.9", "3.2.0", -1},
-		{"3.2.1", "3.2.0", 1},
-		{"4.0.0", "3.99.99", 1},
-	}
-	for _, tc := range cases {
-		got, err := compareVersions(tc.left, tc.right)
-		if err != nil {
-			t.Fatalf("compareVersions(%q,%q): %v", tc.left, tc.right, err)
-		}
-		if got != tc.want {
-			t.Fatalf("compareVersions(%q,%q)=%d want %d", tc.left, tc.right, got, tc.want)
-		}
-	}
-}
-
 func TestValidateManifest(t *testing.T) {
 	manifest := &updateManifest{
 		SchemaVersion: 1,

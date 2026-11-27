@@ -1,5 +1,5 @@
 param(
-    [Parameter(Mandatory = $true)][ValidateSet('State', 'Checkpoint', 'TrackingCheckpoint', 'KeepReferencePoint', 'DiskChanges', 'RemoveReferencePoint', 'RemoveCheckpoint', 'Shutdown')][string]$Mode,
+    [Parameter(Mandatory = $true)][ValidateSet('State', 'Checkpoint', 'TrackingCheckpoint', 'KeepReferencePoint', 'DiskChanges', 'RemoveReferencePoint', 'RemoveCheckpoint', 'Shutdown', 'Start')][string]$Mode,
     [Parameter(Mandatory = $true)][string]$VMId,
     [string]$ComputerName = '',
     [string]$CheckpointId = '',
@@ -7,6 +7,7 @@ param(
     [string]$DiskPath = '',
     [string]$LimitId = '',
     [long]$DiskSize = 0,
+    [string]$VMName = '',
     [Parameter(Mandatory = $true)][string]$ResultPath
 )
 
@@ -16,10 +17,12 @@ param(
 # checkpoint (found by its ID and name, never any other), keep that same
 # recovery checkpoint as a change tracking reference point, remove a
 # reference point of this VM whose ID the application recorded when it kept
-# it, and ask the guest to shut down through the shutdown integration
-# service (never a forced power-off). State and DiskChanges only read. It
-# uses WMI (root\virtualization\v2) with the account running it, locally or
-# on -ComputerName, and needs no Hyper-V PowerShell module.
+# it, ask the guest to shut down through the shutdown integration service
+# (never a forced power-off), and, for Roll back after a cutover, start the
+# old VM again (Start, only when its ID and -VMName still match). State and
+# DiskChanges only read. It uses WMI (root\virtualization\v2) with the
+# account running it, locally or on -ComputerName, and needs no Hyper-V
+# PowerShell module.
 # Compatible with Windows PowerShell 3.0 (Windows Server 2012) and later.
 
 $ErrorActionPreference = 'Stop'
@@ -368,6 +371,18 @@ function Stop-Guest {
     return @{ powerState = (Get-PowerState $vm) }
 }
 
+# Start-Source starts the old VM for a rollback (rollback.go), after the new
+# VM was confirmed off. Its name must still match; nothing else changes.
+function Start-Source {
+    $vm = Get-VM
+    if (-not $VMName -or [string]$vm.ElementName -ne $VMName) { throw ('The VM with this ID is now named ' + [string]$vm.ElementName + '; it was not started.') }
+    if ([int]$vm.EnabledState -eq 2) { Write-Log 'The old VM is already running.'; return @{ powerState = 'poweredOn' } }
+    Write-Log ('Starting the old VM ' + $VMName + '.')
+    Wait-HyperVJob ($vm.RequestStateChange(2)) 'Starting the VM'
+    $vm = Get-VM
+    return @{ powerState = (Get-PowerState $vm) }
+}
+
 try {
     switch ($Mode) {
         'State' { $result = Get-State }
@@ -378,6 +393,7 @@ try {
         'RemoveReferencePoint' { $result = Remove-ReferencePoint }
         'RemoveCheckpoint' { $result = Remove-Checkpoint }
         'Shutdown' { $result = Stop-Guest }
+        'Start' { $result = Start-Source }
     }
     Write-Result $true '' $result
 } catch {

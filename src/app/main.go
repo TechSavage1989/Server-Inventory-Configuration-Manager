@@ -291,6 +291,8 @@ type application struct {
 	transfers *vmTransferBoard
 	repl      replRuntime
 	servers   asRuntime
+	// rollback is Roll back after a cutover (rollback_windows.go).
+	rollback rbRuntime
 }
 
 func utf16Ptr(value string) *uint16 {
@@ -1853,6 +1855,31 @@ func (a *application) handleUpdateDownload(response http.ResponseWriter, request
 	writeJSON(response, http.StatusAccepted, map[string]any{"ok": true})
 }
 
+// handleUpdateChannel saves the update channel (Help > Settings): stable, or
+// test to also be offered signed test builds.
+func (a *application) handleUpdateChannel(response http.ResponseWriter, request *http.Request) {
+	if !a.requireAuthorization(response, request) {
+		return
+	}
+	if request.Method != http.MethodPost {
+		writeJSON(response, http.StatusMethodNotAllowed, map[string]any{"ok": false, "error": "POST is required."})
+		return
+	}
+	var payload struct {
+		Channel string `json:"channel"`
+	}
+	decoder := json.NewDecoder(http.MaxBytesReader(response, request.Body, 4*1024))
+	if err := decoder.Decode(&payload); err != nil || decoder.Decode(new(any)) != io.EOF {
+		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "The update channel could not be read."})
+		return
+	}
+	if err := a.setUpdateChannel(strings.ToLower(strings.TrimSpace(payload.Channel))); err != nil {
+		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	writeJSON(response, http.StatusOK, map[string]any{"ok": true, "update": a.updateSnapshot()})
+}
+
 func (a *application) handleUpdateInstall(response http.ResponseWriter, request *http.Request) {
 	if !a.requireAuthorization(response, request) {
 		return
@@ -2414,6 +2441,7 @@ func (a *application) serve(listener net.Listener) error {
 	mux.HandleFunc("/api/vmware/guest/", a.handleVMwareGuest)
 	mux.HandleFunc("/api/vmware/guest-load", a.handleVMwareGuestLoad)
 	mux.HandleFunc("/api/vmware/guest-auto", a.handleGuestAuto)
+	mux.HandleFunc("/api/rollback/", a.handleRollback)
 	mux.HandleFunc("/api/vmware/preflight/", a.handlePreflight)
 	mux.HandleFunc("/api/vmware/guest-auto/", a.handleGuestAuto)
 	mux.HandleFunc("/api/vmware/guest-target", a.handleGuestTarget)
@@ -2433,6 +2461,7 @@ func (a *application) serve(listener net.Listener) error {
 	mux.HandleFunc("/api/update/check", a.handleUpdateCheck)
 	mux.HandleFunc("/api/update/download", a.handleUpdateDownload)
 	mux.HandleFunc("/api/update/install", a.handleUpdateInstall)
+	mux.HandleFunc("/api/update/channel", a.handleUpdateChannel)
 	mux.HandleFunc("/api/reset", a.handleReset)
 	mux.HandleFunc("/api/shutdown", a.handleShutdown)
 
