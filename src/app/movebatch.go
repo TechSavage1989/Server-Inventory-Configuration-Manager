@@ -149,8 +149,11 @@ type mbVM struct {
 	Disks      []string  `json:"disks,omitempty"`
 	CutoverAt  time.Time `json:"cutoverAt,omitempty"`
 	Test       *mbTest   `json:"test,omitempty"`
-	HyperVID   string    `json:"hyperVId,omitempty"`
-	CutOver    time.Time `json:"cutOver,omitempty"`
+	// TestedAt is when the operator last ended a test VM of this VM, so the
+	// status track and the go/no-go check can say it was tested.
+	TestedAt time.Time `json:"testedAt,omitempty"`
+	HyperVID string    `json:"hyperVId,omitempty"`
+	CutOver  time.Time `json:"cutOver,omitempty"`
 	// Notes are results worth keeping (cluster role, source adapters).
 	Notes []string `json:"notes,omitempty"`
 	// SyncNow asks for a round at the next sweep.
@@ -1400,8 +1403,40 @@ func (r *mbRunner) EndTest(ctx context.Context, id, vmID string) error {
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	vm.Test, vm.State = nil, mbReady
+	vm.Test, vm.State, vm.TestedAt = nil, mbReady, r.now()
 	r.log(vm.Name + ": test ended; the test VM and its test disks were removed and syncs resume.")
+	return r.saveLocked()
+}
+
+// MarkTested records that the operator tested these VMs some other way (a
+// test ended by an older or stable version, which does not keep TestedAt,
+// or a test made outside the plan). It changes nothing else.
+func (r *mbRunner) MarkTested(id string, ids []string) error {
+	if len(ids) == 0 {
+		return errors.New("choose the VMs")
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	plan, err := r.planLocked(id)
+	if err != nil {
+		return err
+	}
+	chosen := []*mbVM{}
+	for _, vmID := range ids {
+		vm := mbFindVM(plan, vmID)
+		if vm == nil {
+			return errors.New("a chosen VM is no longer in the plan")
+		}
+		if vm.State == mbDone {
+			return errors.New(vm.Name + " is already cut over")
+		}
+		chosen = append(chosen, vm)
+	}
+	now := r.now()
+	for _, vm := range chosen {
+		vm.TestedAt = now
+		r.log(vm.Name + ": marked as tested.")
+	}
 	return r.saveLocked()
 }
 

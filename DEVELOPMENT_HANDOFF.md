@@ -1,4 +1,66 @@
+## 3.3.0 release preparation (test promoted to stable) — 2026-11-27
+
+The owner asked for the test line to become the next stable release. `test` (3.3.0-test.5, `5f7b6ee`) was merged into `release/next` with a merge commit so `test` stays an ancestor; every conflict took the test side, which already carried each `release/next` fix (#202, #206, #208, #213, #215 were ported as #201, #207, #210, #214, #216), and afterwards the tree matched `test` except for the 3.2.41 records and release notes. `release/VERSION` kept the stable value until publication. `appVersion` is 3.3.0; `collectorVersion` and the collector's `$scriptVersion` were already 3.3.0, so baseline provenance is unchanged. Release notes: `docs/release-notes/3.3.0.md`. The published-upgrade check starts from 3.2.41. After publication, fast-forward `release/next` to `main` and merge `main` into `test` so both lines start from 3.3.0.
+
+## 3.3.0-test.5 release preparation — 2026-11-27
+
+3.3.0-test.4 was published 20:12 UTC from test `1c967f3` (release run 46059649488, signed prerelease, EXE SHA-256 `6f0e7f99b2d13dc3841c604836f253ebe0d93e2006e47e67d0f510167f206af7`; the stable feed stayed 3.2.40). Test.5 adds #209 (console Copy out), #214 (SQL and DC check failures on one line in the wave go/no-go) and #216 (test port of #215: changed-block reads after a stopped round, read method per disk, 5-minute syncs, VDDK-aware retries, kept plan fields, Tested fixes). Version 3.3.0-test.5 in `main.go` and `release/VERSION`; collector stays 3.3.0. Notes in `docs/release-notes/3.3.0-test.5.md`.
+
 ## Unreleased: visible changed-block reads, 5-minute syncs, VDDK-aware retries — 2026-11-27
+
+- Owner on 3.3.0-test.3: "i can't even tell if VDDK changed block sync is even working"; MATCHC-DC02's last round read all 90 GB. Cause: a round that stopped part way left the copy record unfinished, and the next round silently read the whole disk. `vmReplicaPlanDisk` now reads everything changed since the last whole copy's change ID instead, and every full read gives its reason (AGENTS rule 70). Hyper-V RCT accepts an unfinished copy the same way.
+- Each round records how each disk was read (VDDK, datastore, export, RCT, file), what change tracking reported and why it read more; Migration plans and All jobs and servers show it under Last sync with a ✓ or ! and a folded **Why:**, and the plan log has one summary line per round.
+- Near-real-time replication: plans sync every 5 or 10 minutes as well (`mbMinSyncMinutes`), with at least 2 minutes after a long round ends (`mbRoundGap`). Short intervals only read changes cheaply through VDDK (VMware) or RCT (Hyper-V); through vSphere's export every round streams the whole used disk.
+- With VDDK set up, a vTPM VM's failure ends with `vmEncryptedHomeVDDKHint` and offers Retry with VDDK and Open the VDDK log instead of Set up VDDK.
+- Test branch only: the status track read Go's zero `testedAt` as a test (Tested lit while the wave check said not tested); it now goes through `mpTime`. The wave check's untested line offers **I tested these** (`markTested`), because a stable build rewrites the plans file without `testedAt`. The virtual TPM error has its own plain explanation in `errorCatalog`.
+- Not field-validated: a real stopped round followed by a changed-block round on vCenter, and 5-minute rounds on a busy host.
+
+## Unreleased (test branch): copy text out of a VM console — 2026-11-27
+
+- Owner asked whether the VM's clipboard can come back to this computer. No platform's web console passes it out (WebMKS, Proxmox and Prism VNC, HyperCore VNC; Hyper-V's basic console has no clipboard), and installing nothing in the guest rules out a clipboard agent. The console's **Copy out** panel (was VM clipboard) now offers two ways that work: text from the screen (Windows OCR on this computer, `Read-ScreenText.ps1`, `/api/console/ocr`, every platform) and text from a file in the VM (`/api/console/text` through VMware Tools, the QEMU guest agent or PowerShell Direct on the Hyper-V host; **Type the save command** types `Get-Clipboard | Set-Content` into PowerShell in the VM). Hyper-V Enhanced session still gives full clipboard both ways. AGENTS rule 68, README, EDR exclusions updated; `Read-ScreenText.ps1` added to the signing list.
+- Tests: `console_text_test.go` (Linux), `TestReadScreenTextScriptReadsTextFromAPicture` (Windows, skips without OCR), workspace check "VM console". Not field-validated: OCR accuracy on real console fonts, and the file read on each platform.
+
+## 3.3.0-test.4 release preparation — 2026-11-27
+
+Owner asked to ship all of today's requested changes in the next releases. 3.3.0-test.3 was published 18:40 UTC from test `085fd5c` (release run 46048321455, signed prerelease, EXE SHA-256 `19e4340cbe8fce55ffd02ca13410543c30af015a7fda44e3bb1997a4534f76cd`, 29,452,592 bytes; the stable feed stayed 3.2.40). test.4 adds #205 (VM console Ctrl+V), #207 (save plans during copies, folded Discovery read sections, steadier guest account) and #210 (VDDK plugin loading, start-up diagnosis, one-line errors). Version 3.3.0-test.4 in `release/VERSION` and `appVersion`; collector stays 3.3.0.
+
+## Unreleased: VDDK start-up diagnosis and one-line errors — 2026-11-27
+
+- Owner on 3.3.0-test.3: DESK21-CPA01/CPA02 rounds failed with VDDK error 16053 (VIX_E_DISK_SUBSYSTEM_INIT_FAIL) after the folder check passed. The owner's VixDiskLib log showed the cause: `Failed to load vddkVimAccess.dll : ErrorCode = 0x7e` and diskLibPlugin.dll not found, because VixDiskLib loads its plugins itself and their dependencies were searched for outside the VDDK folder. `vddkLoad` now calls `SetDllDirectory(bin)` before loading vixDiskLib.dll.
+- Check and save names DLLs the VDDK DLLs import that the computer lacks (`peImports`, `vddkMissingDependencies`). VixDiskLib's log functions now write `VMware\VDDK\Temp\vddk.log`; start, connect and open failures name the step and that log. `tmpDirectory` in `vixDiskLib.conf` is written with single backslashes.
+- Long errors in Migration plans, All jobs and servers and the transfer list show one line with Details (`errLine`, open state kept across refreshes in `errOpen`).
+- Tests: `TestVDDKNamesMissingVisualCRuntime`; the workspace check for virtual TPM VMs checks the folded error. Not field-validated: the log callbacks on a real VDDK.
+
+## Unreleased (test branch): Ctrl+V in the VM console — 2026-11-27
+
+Owner on 3.3.0-test.2: Ctrl+V should paste into a VM console. Pressing Ctrl+V (or Shift+Insert) with the console focused now types this computer's clipboard into the VM through the existing Paste as typing path (`/api/console/type`), using the browser's paste event on the canvas, with `navigator.clipboard.readText` as a fallback. Ctrl and Shift are let go in the VM first and no V is sent; Ctrl+Shift+V sends a plain Ctrl+V. Page-only change; the workspace check "VM console" covers both keys. Not field-validated on a real console.
+
+## 3.3.0-test.3 preparation — 2026-11-27
+
+- 3.3.0-test.2 published 17:44 UTC (run 46041811614, tag commit `a230ea6`, signed prerelease, EXE SHA-256 `a73324111f45e514ce734d694ba0191a4cc7b213442ca358ca6fb94e19c44c8b`, 29,406,000 bytes; stable feed unchanged at 3.2.40). The owner then approved 3.3.0-test.3 with #201 (Sync now feedback, Syncing state, opt-in remembered vCenter sign-in). Version 3.3.0-test.3 (collector 3.3.0), notes in `docs/release-notes/3.3.0-test.3.md`.
+
+## 3.3.0-test.2 preparation — 2026-11-27
+
+- Owner approved a second signed test build carrying 3.2.40's VDDK fix (#190) after learning 3.3.0-test.1 lacked it. `test` now holds `main` at 3.2.40 (#197) and `release/next` (#196, rows ticked without moving the layout). The test branch's VM list Migrate button changed label and class with the selection, which wrapped the bulk row at 1350 px and failed #196's "Selecting rows keeps the layout still" check; it now always reads Migrate selected VMs… and only turns on or off (rule 51). Version 3.3.0-test.2 (collector 3.3.0), notes in `docs/release-notes/3.3.0-test.2.md`.
+
+## 3.2.40 brought into the test branch — 2026-11-27
+
+- `main` (3.2.40: the VDDK signature fix #190, the 3.2.39 record #192 and the #187 fix as merged on main) is merged into `test`, keeping `test`'s version 3.3.0-test.1, collector 3.3.0 and `release/VERSION` so no release starts. The next test build (3.3.0-test.2, when the owner approves it) carries the 3.2.40 fixes; 3.3.0-test.1 does not include #190.
+
+## 3.3.0-test.1 (first test build) — 2026-11-27
+
+- Owner approved the first signed test build after 3.2.39. `test` holds 3.2.39 (#186), VM consoles (#179, AGENTS rule 68) and the migration UX work (#175, rule 69). `appVersion` 3.3.0-test.1, `collectorVersion` and the collector's `$scriptVersion` 3.3.0 (rule 61), notes in `docs/release-notes/3.3.0-test.1.md`, `release/VERSION` 3.3.0-test.1 on `test` only.
+- Also carries the Build Hyper-V hosts stale-editor fix (#187 into release/next), because the same low-resolution workspace check runs in the release job.
+- Publication runs from `test` as a signed prerelease with `--latest=false`; the stable feed must stay on 3.2.39.
+
+## Unreleased (test branch): migration UX — 2026-11-27
+
+- The owner asked for the migration UI to be more intuitive and for the work to go to the opt-in `test` branch so normal installs never update to it. All 12 ideas (AGENTS rule 69): compact tool lists with **About this tool**, no collection banner on Migration and replication, empty screens that start New migration, a sortable VM table and step summaries in New migration, Migrate from Discovery, a status track with the next step per plan VM and All servers row (`mbVM.TestedAt`, row `tested`), plain-language error help with fix buttons (`errorCatalog`), and the activity strip under the top tabs.
+- Workspace checks "Migration UX: ..." (two). README `hero.png`, `new-migration.png` and `migration-plans.png` recaptured at 1440x1000 (set `SIMM_README_SHOTS` to a folder to recapture them from those checks).
+- Also: go/no-go per wave in Migration plans, Move VMs pointing Hyper-V moves to New migration (the "When to use this" box removed), saved defaults per customer (`migration_profiles.go`, `/api/profiles`, Go tests `TestMigrationProfiles*`) and the rolling conversion in New migration's When.
+- The header bar and the "Your server, documented" banner are gone from every screen: Help sits beside the tabs, and the icon, name, connection, administrator rights, versions and Keyboard shortcuts are in a slim status bar at the bottom. The Portable EXE badge is gone. `scripts/test_icon_render.cjs` and the published-upgrade test still find `.brand-mark img` (now 16 px in the status bar); run them on Windows CI. README `hero.png`, `new-migration.png` and `migration-plans.png` show it; the other README images still show the old banner until they are next recaptured.
+- Not field-validated: all of it is covered by synthetic workspace checks and Go tests only. The Move VMs by-hand steps for Hyper-V stay (not removed), so nothing that worked before is gone.
+## 3.2.40 release preparation — 2026-11-27
 
 - Owner on 3.3.0-test.3: "i can't even tell if VDDK changed block sync is even working"; MATCHC-DC02's last round read all 90 GB. Cause: a round that stopped part way left the copy record unfinished, and the next round silently read the whole disk. `vmReplicaPlanDisk` now reads everything changed since the last whole copy's change ID instead, and every full read gives its reason (AGENTS rule 70). Hyper-V RCT accepts an unfinished copy the same way.
 - Each round records how each disk was read (VDDK, datastore, export, RCT, file), what change tracking reported and why it read more; Migration plans and All jobs and servers show it under Last sync with a ✓ or ! and a folded **Why:**, and the plan log has one summary line per round.
@@ -6,6 +68,15 @@
 - With VDDK set up, a vTPM VM's failure ends with `vmEncryptedHomeVDDKHint` and offers Retry with VDDK and Open the VDDK log instead of Set up VDDK.
 - Saving migration plans keeps fields this version does not know (`mbKeepUnknownFields`), so a stable build no longer drops the test channel's `testedAt` when the owner switches channels.
 - Not field-validated: a real stopped round followed by a changed-block round on vCenter, and 5-minute rounds on a busy host.
+
+## 3.2.41 published and verified — 2026-11-27
+
+- [Release v3.2.41](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.41) ("Server Inventory and Migration Manager 3.2.41"), tag and target commit `4edd878b3114aa856603d6ad374d1d1a6e601c29`. Source: #196, #198, #202, #206, #208, #213 and #215 through the batch #200 (merged into `main` with a merge commit, `391fa5f`), prepared by #211 and #217, published by #219. The owner approved publishing on 2026-11-27 ("make all the current requested changes go out in the next releases").
+- The [release run](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/46069313015) passed: publish job 21:17–21:41 UTC, embedded scripts and EXE signed through Azure Artifact Signing over OIDC before the tests and checksum (Valid, timestamped); public feed and downloads verified.
+- The actual 3.2.40-to-3.2.41 upgrade (published signed 3.2.40 EXE through Download and Install, restart into 3.2.41, native health, settings, shortcut, timers, cleanup and rollback) passed in the same run, 21:41–21:53 UTC.
+- Stable EXE: 29,063,984 bytes; SHA-256 `9ed8202bbe48732430e424b110c1649281c5d31bd9d1c07ad3a4bf6394322bdb` (matches the public feed). Linux agent `simm-agent-linux-amd64`: 13,717,504 bytes; SHA-256 `709e36c674a14acac8e503649c0056d4bf7f550965eb8f4bb04fc43437f7192b`. All 14 assets are published.
+- Test channel the same day: 3.3.0-test.4 (run 46059649488, test `1c967f3`, EXE SHA-256 `6f0e7f99b2d13dc3841c604836f253ebe0d93e2006e47e67d0f510167f206af7`) and 3.3.0-test.5 (run 46066269602, test `5f7b6ee`, EXE SHA-256 `d76ef8839a5cfd7565182f6329789a15b7dddbc1c3dbc265df03aba0c5ad60fa`), both signed prereleases; the stable feed stayed on its stable version.
+- Not field-tested: VDDK plugin loading and vddk.log against a real VDDK, changed-block rounds after a stopped round on a real vCenter, 5-minute rounds on a busy host, remembered sign-ins after a restart.
 
 ## 3.2.41 release preparation — 2026-11-27
 
@@ -89,6 +160,14 @@ Limits: VDDK reads against a real ESXi host and vCenter, ejecting images on a re
 ## 3.2.38 release preparation — 2026-11-27
 
 Owner asked to publish ("publish"). Contents, merged into `release/next`: #164 (VM names on New migration tiles with an encryption note), #165 (eject CD/DVD images before copies), #167 (VDDK changed-block reads, operator-supplied), #168 (fluid density), #169 (file shares between two other servers) and #170 (rule numbering). Version 3.2.38 in `main.go` and the collector, release notes in `docs/release-notes/3.2.38.md`, and the published-upgrade test now starts from signed 3.2.37 (`323f7f7b...8545`).
+
+## Unreleased (test channel): VM console in the app's own window — 2026-11-27
+
+- Owner asked to console into source, target, replicated and migrated VMs from the app, with special keys, clipboard paste that works on sign-in screens and file transfer. AGENTS.md rule 68.
+- One console window for VMware (WebMKS), Proxmox VE, Nutanix AHV, Scale HyperCore (VNC) and Hyper-V (WMI screen, keyboard and mouse through the signed `Connect-HyperVConsole.ps1`). Paste as typing, the Keys menu, sticky Ctrl/Alt/Win, VM clipboard where the platform passes it on, Files on VMware, Proxmox VE and Hyper-V (never replacing a file), and the platform's own console as a native window. No power controls.
+- Console buttons on VM pages, migration plan rows, All jobs and servers rows, New migration's platform queue and Start VMs from copies.
+- Validation: `go test ./...` with `-race` (`console_test.go`), Windows `go vet` and test compile, the workspace check "VM console". Targets the `test` branch (rule 61).
+- Not field-validated: real WebMKS, Prism VNC proxy, HyperCore console port, Hyper-V WMI input and screenshots on a real host, guest file transfer and VMRC.
 
 ## Unreleased: one-click Roll back after a cutover — 2026-11-27
 

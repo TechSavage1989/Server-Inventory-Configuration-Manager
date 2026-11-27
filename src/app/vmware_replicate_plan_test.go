@@ -109,6 +109,27 @@ func TestShortSyncIntervalsLeaveAGapAfterALongRound(t *testing.T) {
 	}
 }
 
+// A test ended by a version that does not keep TestedAt (a stable build
+// rewrites the plans file without it) can be recorded by hand.
+func TestPlanMarksVMsTestedByHand(t *testing.T) {
+	runner, _ := mbTestRunner(t, &mbFakeTarget{})
+	plan, err := runner.Create("P", "vc", mbSettings{SyncMinutes: 60, Concurrency: 1}, mbVMs("app01", "app02"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := runner.MarkTested(plan.ID, nil); err == nil {
+		t.Fatal("marking no VMs must be refused")
+	}
+	id := plan.VMs[0].ID
+	if err := runner.MarkTested(plan.ID, []string{id}); err != nil {
+		t.Fatal(err)
+	}
+	views, _, _ := runner.View()
+	if views[0].VMs[0].TestedAt.IsZero() || !views[0].VMs[1].TestedAt.IsZero() {
+		t.Fatalf("only the chosen VM is tested: %+v", views[0].VMs)
+	}
+}
+
 // Fields a newer version wrote survive a save by a version that does not
 // know them (a stable build saving a test-channel plan file).
 func TestPlanSaveKeepsFieldsItDoesNotKnow(t *testing.T) {
