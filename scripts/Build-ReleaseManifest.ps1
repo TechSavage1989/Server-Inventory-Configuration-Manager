@@ -12,7 +12,7 @@ $OutputDirectory=[IO.Path]::GetFullPath($OutputDirectory)
 & (Join-Path $PSScriptRoot 'Test-Source.ps1') -ExpectedVersion $ExpectedVersion
 if([string]::IsNullOrWhiteSpace($ExpectedVersion)){
     $main=[IO.File]::ReadAllText((Join-Path $PSScriptRoot '..\src\app\main.go'))
-    $ExpectedVersion=[regex]::Match($main,'appVersion\s*=\s*"(?<v>\d+\.\d+\.\d+)"').Groups['v'].Value
+    $ExpectedVersion=[regex]::Match($main,'appVersion\s*=\s*"(?<v>\d+\.\d+\.\d+(-test\.[1-9]\d*)?)"').Groups['v'].Value
 }
 & (Join-Path $PSScriptRoot 'Test-Binary.ps1') -ExecutablePath $ExecutablePath -ExpectedVersion $ExpectedVersion
 
