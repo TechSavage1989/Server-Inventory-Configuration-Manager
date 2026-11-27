@@ -189,6 +189,7 @@ async function fixture(browser,old=false){
    if(action==='preflight/run'){const p=v.preflight||{};v.preflight=Object.assign(p,{running:true,user:data.user||p.user||'',hasPassword:!!data.user||!!p.hasPassword,items:(data.items||[]).map(i=>({id:i.id,state:'waiting',summary:''})),message:'Checking.'});send(202,{ok:true});return;}
    if(action==='preflight/forget'){v.preflight=Object.assign(v.preflight||{},{user:'',hasPassword:false});send(200,{ok:true});return;}
    if(action==='guest-auto/run'){(v.fixups||[]).forEach(x=>{if(x.vm===data.vm){x.state='waiting';x.message='Waiting for Windows in '+x.vm+' to start.';x.steps=[];}});send(202,{ok:true});return;}
+   if(action==='remember'){const r=vm.remember||(vm.remember={enabled:false,entries:[]});if(req.method==='POST'){if(typeof data.enabled==='boolean'){r.enabled=data.enabled;if(!data.enabled){r.entries=[];}}if(data.forget){r.entries=r.entries.filter(e=>e.server!==data.forget);}}send(200,{ok:true,remember:r});return;}
    if(action==='connect'){Object.assign(v,{running:true,action:'connect',status:'connecting',server:data.server,account:data.user,certificate:null});send(202,{ok:true});return;}
    if(action==='plan'){vm.plan=JSON.parse(JSON.stringify(data.plan));if(data.suggest){vm.plan.vms.forEach((p,i)=>{if(p.manual&&!data.resetManual){return;}p.manual=false;p.hold=i===2;p.wave=i===2?0:(i===3?1:2);p.why=i===2?'Blocked for Hyper-V.':(i===3?'Powered off, so nobody is using it.':'A running server with no special role in its name.');});vm.plan.waves=[{wave:1,title:'Pilot',reason:'Powered-off, test and development VMs go first.'},{wave:2,title:'General servers',reason:'Running servers with no special role in their names.'}];vm.plan.waveSize=data.waveSize||2;}if(vm.plan.scenario==='rolling'){vm.plan.rolling=vm.plan.rolling||{autoCapacity:true,stages:[],sourceCluster:''};if(!vm.plan.rolling.sourceCluster){vm.plan.rolling.sourceCluster='Prod-Cluster';}if(data.suggestStages){vm.plan.rolling.stages=['esx03.example.com','esx01.example.com','esx02.example.com'].map((h,i)=>({host:h,wave:i+1,moveFirst:i===2,notes:''}));}if(vm.plan.rolling.autoCapacity){Object.assign(vm.plan.capacity,{nodes:3,coresPerNode:32,memoryGbPerNode:512,usableStorageTb:4,reserveNodes:1});}}vm.sizing=['azure','aws'].includes(vm.plan.target)?Object.assign(vmwareSizingFixture(false),{status:'quota',notes:['Check the subscription quota covers 14 vCPUs.']}):vmwareSizingFixture(!!vm.plan.capacity.coresPerNode);send(200,{ok:true,plan:vm.plan,sizing:vm.sizing,rolling:vm.plan.scenario==='rolling'?vmRollingFixture(vm.plan):null,saved:true});return;}
    if(action==='export-plan'){v.runbookPath='C:\\Reports\\VMware_vc01\\Migration-Runbook.html';v.planCsvPath='C:\\Reports\\VMware_vc01\\Migration-Plan.csv';v.runbookDocxPath='C:\\Reports\\VMware_vc01\\Migration-Runbook.docx';send(200,{ok:true});return;}
@@ -265,6 +266,7 @@ async function fixture(browser,old=false){
   if(url.pathname==='/api/plans'){
    let body='';for await(const chunk of req)body+=chunk;const data=body?JSON.parse(body):{};planCalls.push({method:req.method,body:data,token:req.headers['x-app-token']});
    if(req.method==='GET'){send(200,Object.assign({ok:true,sweeping:false,blocked:'',hyperVHere:true,testing:false,waves:{},switches:[{name:'Isolated',type:'Private'}]},plans));return;}
+   if(data.action==='sync'){send(200,{ok:true,sync:plans.syncAnswer||{queued:(data.vmIds&&data.vmIds.length)||1}});return;}
    if(data.action==='create'){plans.plans.push({id:'p1',name:data.name,server:'vc01.example.com',paused:false,settings:data.settings,throttle:'no limit',summary:{total:data.vmIds.length,waiting:data.vmIds.length,copying:0,ready:0,testing:0,scheduled:0,done:0,failed:0},vms:data.vmIds.map(id=>({id,name:id.replace('vm-','').toUpperCase(),wave:0,state:'waiting',seeded:false,failures:0}))});send(200,{ok:true,id:'p1'});return;}
    send(200,{ok:true});return;
   }
@@ -2234,6 +2236,76 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   await f.page.locator('#nwPassword').fill('secret');await f.page.locator('#nwPassword').press('Enter');
   for(let i=0;i<100&&!f.vmwareCalls.some(c=>c.action==='connect');i++){await new Promise(r=>setTimeout(r,50));}const call=f.vmwareCalls.find(c=>c.action==='connect');assert(call&&call.body.server==='vc01.example.com');
   assert.equal(await f.page.evaluate(()=>{const p=document.querySelector('#nwPassword');return p?p.value:'';}),'','the password is cleared from the page');
+ }finally{await f.close();}});
+ await check('Migration plans: Sync now always says what it did, and a plan waiting for its vCenter password signs in right there',async()=>{const f=await fixture(browser);try{
+  const now=new Date().toISOString(),blocked='Sign in to vc01.example.com in Discovery again: the password is kept only while the application runs.';
+  f.state.vmware=Object.assign(vmwareIdle(),{server:'vc01.example.com',account:'admin@vsphere.local'});
+  f.plans.plans.push({id:'p1',name:'Wave 1',server:'vc01.example.com',paused:false,blocked,settings:{syncMinutes:60,concurrency:2,copyRoot:'D:\\Copies',vmFolder:'D:\\VMs',startAt:now},throttle:'no limit',summary:{total:2,waiting:0,copying:0,ready:2,testing:0,scheduled:0,done:0,failed:0},vms:[{id:'vm-app01',name:'APP01',wave:1,state:'ready',seeded:true,lastSync:now,failures:0},{id:'vm-sql01',name:'SQL01',wave:1,state:'ready',seeded:true,lastSync:now,failures:0}]});
+  f.plans.syncAnswer={queued:2,waiting:blocked};
+  await goTool(f,'plans');await f.page.waitForSelector('#mpSignIn:not(.hidden)');
+  await f.page.waitForFunction(()=>document.querySelector('#mpSignInUser').value==='admin@vsphere.local',null,{timeout:15000});
+  assert((await f.page.locator('#mpSignIn').textContent()).includes('Sign in to vc01.example.com so this plan can copy'));
+  // Sync all now answers at once, even though the plan cannot copy yet.
+  await f.page.locator('#mpSyncAll').click();
+  await f.page.waitForFunction(()=>/2 VMs asked to sync, but the plan cannot copy yet/.test(document.querySelector('#mpStatus').textContent),null,{timeout:15000});
+  assert((await f.page.locator('#mpStatus').textContent()).includes('Sign in above and it syncs.'));
+  assert.equal(await f.page.evaluate(()=>document.activeElement&&document.activeElement.id),'mpSignInPassword','the password box takes the focus');
+  // Signing in reads vCenter again and asks the plan to sync; the password never stays in the page.
+  await f.page.locator('#mpSignInButton').click();assert.equal(await f.page.locator('#mpSignInStatus').textContent(),'Type the password.');
+  await f.page.locator('#mpSignInPassword').fill('S3cret!');await f.page.locator('#mpSignInButton').click();
+  await f.page.waitForFunction(()=>/Signed in\. Reading vc01\.example\.com again/.test(document.querySelector('#mpSignInStatus').textContent),null,{timeout:15000});
+  const connect=f.vmwareCalls.filter(c=>c.action==='connect'&&c.method==='POST');assert.equal(connect.length,1);assert.deepEqual(connect[0].body,{server:'vc01.example.com',user:'admin@vsphere.local',password:'S3cret!'});
+  assert.equal(await f.page.locator('#mpSignInPassword').inputValue(),'','the password is cleared at once');
+  await f.page.waitForTimeout(300);
+  assert.equal(f.planCalls.filter(c=>c.body.action==='sync').length,2,'signing in asks the plan to sync');
+  // Once the plan can copy, the prompt goes and Sync says when copying starts.
+  f.plans.plans[0].blocked='';f.plans.syncAnswer={queued:1,skipped:['SQL01 is copying now']};
+  await f.page.waitForSelector('#mpSignIn.hidden',{state:'attached',timeout:15000});
+  await f.page.locator('#mpSyncAll').click();
+  await f.page.waitForFunction(()=>/1 VM asked to sync\. Copying starts within 20 seconds/.test(document.querySelector('#mpStatus').textContent),null,{timeout:15000});
+  assert((await f.page.locator('#mpStatus').textContent()).includes('Left alone: SQL01 is copying now.'));
+  f.plans.syncAnswer={queued:0,skipped:['APP01 is already cut over']};await f.page.locator('#mpSyncAll').click();
+  await f.page.waitForFunction(()=>document.querySelector('#mpStatus').textContent==='Nothing to sync. Left alone: APP01 is already cut over.',null,{timeout:15000});
+  assert(!(await f.page.content()).includes('S3cret!'));
+ }finally{await f.close();}});
+ await check('Remembered vCenter sign-ins are opt-in, listed without passwords and forgettable, and the plan sign-in can turn them on',async()=>{const f=await fixture(browser);try{
+  const now=new Date().toISOString(),blocked='Sign in to vc01.example.com in Discovery again: the password is kept only while the application runs.';
+  f.state.vmware=Object.assign(vmwareIdle(),{server:'vc01.example.com',account:'svc-migrate@vsphere.local'});
+  f.plans.plans.push({id:'p1',name:'Wave 1',server:'vc01.example.com',paused:false,blocked,settings:{syncMinutes:60,concurrency:2,copyRoot:'D:\\Copies',vmFolder:'D:\\VMs',startAt:now},throttle:'no limit',summary:{total:1,waiting:0,copying:0,ready:1,testing:0,scheduled:0,done:0,failed:0},vms:[{id:'vm-app01',name:'APP01',wave:1,state:'ready',seeded:true,lastSync:now,failures:0}]});
+  await goTool(f,'plans');await f.page.waitForSelector('#mpSignIn:not(.hidden)');
+  assert.equal(await f.page.locator('#mpSignInRemember').isChecked(),false,'remembering is off by default');
+  assert((await f.page.locator('#mpSignIn').textContent()).includes('use a dedicated vCenter account'));
+  await f.page.waitForFunction(()=>document.querySelector('#mpSignInUser').value==='svc-migrate@vsphere.local',null,{timeout:15000});
+  await f.page.locator('#mpSignInRemember').check();await f.page.locator('#mpSignInPassword').fill('Pa55-word!');await f.page.locator('#mpSignInButton').click();
+  await f.page.waitForFunction(()=>/Signed in\./.test(document.querySelector('#mpSignInStatus').textContent),null,{timeout:15000});
+  const connect=f.vmwareCalls.filter(c=>c.action==='connect'&&c.method==='POST');assert.equal(connect.length,1);assert.equal(connect[0].body.remember,true,'the tick asks to remember it');
+  // Help > Settings lists it by server and user only, and Forget and the tick remove it.
+  f.vm.remember={enabled:true,entries:[{server:'vc01.example.com',user:'svc-migrate@vsphere.local',saved:now}]};
+  await f.page.locator('#helpMenuButton').click();await f.page.locator('#helpSettings').click();await f.page.waitForSelector('#vcRememberList [data-vc-forget="vc01.example.com"]');
+  assert(await f.page.locator('#vcRememberOn').isChecked());
+  assert((await f.page.locator('#vcRememberList').textContent()).includes('svc-migrate@vsphere.local on vc01.example.com'));
+  await f.page.locator('#vcRememberList [data-vc-forget="vc01.example.com"]').click();
+  await f.page.waitForFunction(()=>!document.querySelector('#vcRememberList [data-vc-forget]'),null,{timeout:15000});
+  assert.deepEqual(f.vmwareCalls.filter(c=>c.action==='remember'&&c.method==='POST').map(c=>c.body),[{forget:'vc01.example.com'}]);
+  await f.page.locator('#vcRememberOn').uncheck();
+  await f.page.waitForFunction(()=>/kept in memory only/.test(document.querySelector('#vcRememberStatus').textContent),null,{timeout:15000});
+  assert.deepEqual(f.vmwareCalls.filter(c=>c.action==='remember'&&c.method==='POST').map(c=>c.body).pop(),{enabled:false});
+  assert(!(await f.page.content()).includes('Pa55-word!'),'the password never stays in the page');
+ }finally{await f.close();}});
+ await check('All jobs and servers: a VM whose sync is running shows Syncing with its progress, overdue or not',async()=>{const f=await fixture(browser);try{
+  const now=Date.now(),iso=t=>new Date(t).toISOString();
+  const base={kind:'plan',method:'Migration plan',detail:'Plan Wave 1',plan:'p1',percent:-1,lagSeconds:600,wave:1,limitMinutes:60,actions:['sync','pause','cutover','wave']};
+  f.servers.rows=[Object.assign({},base,{key:'plan:p1|a',vm:'a',name:'EPIC01',state:'syncing',stateText:'Syncing',reason:'A sync is copying the changes since the last one. A whole copy exists, so it can be cut over.',percent:1,bytesPerSecond:9800000,secondsLeft:4260,lastSync:iso(now-110*60000)}),
+   Object.assign({},base,{key:'plan:p1|b',vm:'b',name:'DC02',state:'syncing',stateText:'Syncing',overdue:true,reason:'A sync is copying the changes since the last one. A whole copy exists, so it can be cut over. The last sync is older than twice the plan\'s interval; this one brings it up to date.',percent:3,bytesPerSecond:20200000,secondsLeft:2460,lastSync:iso(now-132*60000),lagSeconds:7920}),
+   Object.assign({},base,{key:'plan:p1|c',vm:'c',name:'APP03',state:'insync',stateText:'In sync, ready to cut over',reason:'Seeded and kept in sync. Test it, then cut over.',lastSync:iso(now-600000)})];
+  f.servers.summary={total:3,states:{syncing:2,insync:1},scheduled:0,methods:{plan:3}};
+  await goTool(f,'servers');await f.page.waitForFunction(()=>document.querySelectorAll('#asRows tr').length>=3,null,{timeout:15000});
+  const chips=await f.page.locator('#asRows .as-chip').allTextContents();assert.deepEqual(chips.slice(0,3).sort(),['In sync, ready to cut over','Syncing','Syncing']);
+  assert(!(await f.page.locator('#tabServers').textContent()).includes('Tick servers in the list'),'the obvious hint is gone');
+  const tile=f.page.locator('#tabServers button[data-as-filter="syncing"]');assert((await tile.textContent()).includes('2'));
+  await tile.click();await f.page.waitForTimeout(200);
+  const shown=await f.page.locator('#asRows tr .as-name').allTextContents();assert.deepEqual(shown.sort(),['DC02','EPIC01']);
+  assert((await f.page.locator('#asRows').textContent()).includes('this one brings it up to date'),'overdue is a detail of the Syncing row');
  }finally{await f.close();}});
  await check('Migration plans: VMs are picked from the inventory, tiles filter the list, live progress shows speed and time left, and cutover needs selected in-sync VMs and the typed plan name',async()=>{const f=await fixture(browser);try{
   f.vm.inventory=vmwareInventoryFixture();f.vm.plan=vmwarePlanFixture();f.state.vmware=Object.assign(vmwareIdle(),{status:'connected',server:'vc01.example.com',summary:vmwareSummaryFixture(),inventorySerial:1});
