@@ -209,7 +209,7 @@ func consoleOpenVMware(ctx context.Context, options vmConnectOptions, target con
 	}
 	where := "ESXi host " + firstNonEmpty(info.HostName, ticket.Host)
 	caps.ClipToGuest = false
-	caps.ClipFromWhy = "VMware's web console does not pass the VM's clipboard out. Copy text out of the VM through a file (Files) or a remote desktop session."
+	caps.ClipFromWhy = "VMware's web console does not pass the VM's clipboard out (VMware Remote Console does only when the VM allows it with isolation.tools.copy.disable set to FALSE, which this application does not change). Read text from the screen, or save the text to a file in the VM and read it here."
 	if info.ToolsOK {
 		caps.FilesTo, caps.FilesFrom = true, true
 		caps.FilesHow = "Through VMware Tools, already running in the VM (its file transfer only: no program is started in the VM). Needs a user name and password of the VM's operating system."
@@ -363,7 +363,7 @@ func consoleOpenProxmox(ctx context.Context, connection vmTargetConnection, targ
 		return nil, caps, "", fmt.Errorf("the Proxmox VE console did not start: %v", err)
 	}
 	caps.ClipToGuest = false
-	caps.ClipFromWhy = "Proxmox VE's VNC console does not pass the VM's clipboard out."
+	caps.ClipFromWhy = "Proxmox VE's VNC console does not pass the VM's clipboard out. Read text from the screen, or save the text to a file in the VM and read it here through the QEMU guest agent."
 	caps.FilesTo, caps.FilesFrom = true, true
 	caps.FilesHow = "Through the QEMU guest agent, if it is already running in the VM (Proxmox VE's agent file-read and file-write). Small files only: up to 60 KB in and 16 MB out."
 	caps.Notes = append(caps.Notes, "Shown through Proxmox VE's own VNC console on node "+node+".")
@@ -413,7 +413,7 @@ func consoleOpenNutanix(ctx context.Context, connection vmTargetConnection, targ
 	if err != nil {
 		return nil, caps, "", fmt.Errorf("the Prism console did not start: %v", err)
 	}
-	caps.ClipFromWhy = "Prism's VNC console does not pass the VM's clipboard out."
+	caps.ClipFromWhy = "Prism's VNC console does not pass the VM's clipboard out, and Nutanix offers no file copy through its console. Read text from the screen."
 	caps.FilesWhy = "Prism has no API to copy files into or out of a VM's operating system."
 	caps.Notes = append(caps.Notes, "Shown through Prism's own VNC console proxy.")
 	return backend, caps, "Prism " + n.http.base.Hostname(), nil
@@ -468,7 +468,7 @@ func consoleOpenHyperCore(ctx context.Context, connection vmTargetConnection, ta
 	if err != nil {
 		return nil, caps, "", fmt.Errorf("the HyperCore console did not start: %v", err)
 	}
-	caps.ClipFromWhy = "HyperCore's VNC console does not pass the VM's clipboard out."
+	caps.ClipFromWhy = "HyperCore's VNC console does not pass the VM's clipboard out, and HyperCore offers no file copy through its console. Read text from the screen."
 	caps.FilesWhy = "HyperCore has no API to copy files into or out of a VM's operating system."
 	caps.Notes = append(caps.Notes, "Shown through the VM's VNC console on HyperCore node "+address+". The connection is not encrypted, as HyperCore's own VNC port is not.")
 	return backend, caps, "HyperCore node " + address, nil

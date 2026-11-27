@@ -928,6 +928,9 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
 .cn-screen.actual{align-items:flex-start;justify-content:flex-start}
 .cn-canvas{display:block;background:#000;outline:none;image-rendering:auto;box-shadow:0 0 0 1px #1e293b}
 .cn-canvas:focus{box-shadow:0 0 0 2px #3b82f6}
+.cn-canvas.cn-selecting{cursor:crosshair!important}
+.cn-selbox{position:absolute;z-index:3;border:2px dashed #38bdf8;background:rgba(56,189,248,.15);pointer-events:none}
+.cn-side h4.cn-sub{margin:calc(14*var(--sp)) 0 calc(2*var(--sp));font-size:max(10.5px,calc(13*var(--fz)));color:#e2e8f0}
 .cn-screen.fit .cn-canvas{max-width:100%;max-height:100%;object-fit:contain}
 .cn-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:calc(20*var(--sp));text-align:center;pointer-events:none}
 .cn-overlay>div{pointer-events:auto;max-width:620px;background:rgba(15,23,42,.92);border:1px solid #334766;border-radius:12px;padding:calc(16*var(--sp)) calc(20*var(--sp));font-size:max(10.5px,calc(13.5*var(--fz)));line-height:1.45}
@@ -2103,7 +2106,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     <button id="cnStickyWin" type="button" aria-pressed="false" title="Hold the Windows key for the next key you press">Win</button>
     <span class="cn-sep" aria-hidden="true"></span>
     <button id="cnPasteButton" type="button" title="Type text into the VM as keystrokes. Works on sign-in screens and in BIOS, setup and recovery screens.">Paste as typing</button>
-    <button id="cnClipButton" type="button" title="Text the VM put on its clipboard, when the platform passes it on">VM clipboard</button>
+    <button id="cnClipButton" type="button" title="Copy text out of the VM: from the screen, from a file in the VM, or from the VM's clipboard where the platform passes it on">Copy out</button>
     <button id="cnFilesButton" type="button" title="Copy a file into or out of the VM">Files</button>
     <span class="cn-sep" aria-hidden="true"></span>
     <button id="cnFit" type="button" aria-pressed="true" title="Fit the screen in the window, or show it at its actual size">Fit to window</button>
@@ -2114,6 +2117,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   </div>
   <div class="cn-main">
     <div class="cn-screen fit" id="cnScreen">
+      <div class="cn-selbox hidden" id="cnSelBox" aria-hidden="true"></div>
       <div class="cn-overlay hidden" id="cnOverlay"><div id="cnOverlayBox"></div></div>
       <div class="cn-hint hidden" id="cnHint">Click the screen to type into the VM. Keys go to the VM while it has focus. Ctrl+V types your clipboard into the VM; Ctrl+Shift+V sends a plain Ctrl+V.</div>
     </div>
@@ -10283,9 +10287,9 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     c.addEventListener('keyup',function(e){cnKeyEvent(s,e,false);});
     c.addEventListener('blur',function(){cnReleaseAll(s);byId('cnHint').classList.toggle('hidden',!cnLive(s));});
     c.addEventListener('focus',function(){byId('cnHint').classList.add('hidden');});
-    c.addEventListener('mousedown',function(e){c.focus();e.preventDefault();cnPointer(s,e,true);});
-    c.addEventListener('mouseup',function(e){cnPointer(s,e,true);});
-    c.addEventListener('mousemove',function(e){cnPointer(s,e,false);});
+    c.addEventListener('mousedown',function(e){c.focus();e.preventDefault();if(cnSelectMouse(s,e,'down')){return;}cnPointer(s,e,true);});
+    c.addEventListener('mouseup',function(e){if(cnSelectMouse(s,e,'up')){return;}cnPointer(s,e,true);});
+    c.addEventListener('mousemove',function(e){if(cnSelectMouse(s,e,'move')){return;}cnPointer(s,e,false);});
     c.addEventListener('wheel',function(e){e.preventDefault();cnWheel(s,e);},{passive:false});
     c.addEventListener('contextmenu',function(e){e.preventDefault();});
     c.addEventListener('paste',function(e){e.preventDefault();e.stopPropagation();if(!s.pasteWait){return;}s.pasteWait=false;var d=e.clipboardData,t=d?d.getData('text/plain'):'';cnTypeClipboard(s,t);});
@@ -10383,6 +10387,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   }
   function cnKeyEvent(s,e,down){
     if(!cnLive(s)){e.preventDefault();e.stopPropagation();return;}
+    if(s.selecting){e.preventDefault();e.stopPropagation();if(down&&e.key==='Escape'){cnSelectEnd(s);cnOutSet(s,s.outText,'',false);}return;}
     if(down&&cnIsPasteKey(e)){cnPasteKey(s,e);return;}
     e.preventDefault();e.stopPropagation();
     if(!down&&s.pasteKey&&(e.code||e.key)===s.pasteKey){s.pasteKey='';return;}
@@ -10481,7 +10486,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     var keysMenu=byId('cnKeysMenu');if(!live){keysMenu.removeAttribute('open');}keysMenu.querySelector('summary').setAttribute('aria-disabled',live?'false':'true');
     byId('cnStickyCtrl').setAttribute('aria-pressed',cnSticky.ctrl?'true':'false');byId('cnStickyAlt').setAttribute('aria-pressed',cnSticky.alt?'true':'false');byId('cnStickyWin').setAttribute('aria-pressed',cnSticky.win?'true':'false');
     byId('cnPasteButton').setAttribute('aria-pressed',cnPanel==='paste'?'true':'false');byId('cnClipButton').setAttribute('aria-pressed',cnPanel==='clip'?'true':'false');byId('cnFilesButton').setAttribute('aria-pressed',cnPanel==='files'?'true':'false');byId('cnInfoButton').setAttribute('aria-pressed',cnPanel==='info'?'true':'false');
-    var clip=byId('cnClipButton');clip.textContent='VM clipboard';if(s&&s.clipUnread){clip.appendChild(el('span','cn-badge','new'));}
+    var clip=byId('cnClipButton');clip.textContent='Copy out';if(s&&s.clipUnread){clip.appendChild(el('span','cn-badge','new'));}
     byId('cnFilesButton').title=live?(caps.filesTo||caps.filesFrom?'Copy a file into or out of the VM: '+(caps.filesHow||''):(caps.filesWhy||'This console cannot copy files.')):'Copy a file into or out of the VM';
     byId('cnFit').setAttribute('aria-pressed',cnFit?'true':'false');byId('cnFit').textContent=cnFit?'Fit to window':'Actual size';
     var native=byId('cnNative');native.textContent='';
@@ -10504,7 +10509,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   }
   function cnRenderSide(){
     var side=byId('cnSide'),s=cnCurrent(),live=cnLive(s);
-    var keep=side.getAttribute('data-panel')===cnPanel&&side.getAttribute('data-session')===(s&&s.key)&&cnPanel!=='clip'&&cnPanel!=='info';
+    var keep=side.getAttribute('data-panel')===cnPanel&&side.getAttribute('data-session')===(s&&s.key)&&cnPanel!=='info';
     side.classList.toggle('hidden',!cnPanel||!live);
     if(!cnPanel||!live){side.textContent='';side.removeAttribute('data-panel');return;}
     if(keep){cnUpdateSide(s);return;}
@@ -10536,13 +10541,37 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
       side.appendChild(el('p','cn-note','The text is sent to this console only. It is not saved or logged.'));
       cnUpdateSide(s);setTimeout(function(){ta.focus();},0);
     }else if(cnPanel==='clip'){
-      head.appendChild(el('span','','VM clipboard'));head.appendChild(close);side.appendChild(head);s.clipUnread=false;
-      if(s.clip){side.appendChild(el('p','cn-note','Text the VM put on its clipboard:'));side.appendChild(el('div','cn-clip selectable',s.clip));
-        var r=el('div','cn-row'),copy=el('button','cn-primary','Copy to this computer');copy.type='button';copy.addEventListener('click',function(){copyText(s.clip,function(ok){copy.textContent=ok?'Copied':'Copy failed';});});r.appendChild(copy);side.appendChild(r);}
-      else{side.appendChild(el('p','cn-note','Nothing has come from the VM\'s clipboard.'));}
+      head.appendChild(el('span','','Copy out of the VM'));head.appendChild(close);side.appendChild(head);s.clipUnread=false;
+      var cb=el('div');cb.id='cnClipFromVm';side.appendChild(cb);
+      side.appendChild(el('h4','cn-sub','Read text from the screen'));
+      side.appendChild(el('p','cn-note','Windows on this computer reads the text in the part of the screen you choose. Works on every platform and on any screen, sign-in and setup screens too. Check the result: a few characters can be misread.'));
+      var or=el('div','cn-row'),area=el('button','cn-primary','Select an area');area.type='button';area.id='cnOcrArea';area.addEventListener('click',function(){cnSelectStart(s);});
+      var whole=el('button','','Whole screen');whole.type='button';whole.id='cnOcrWhole';whole.addEventListener('click',function(){cnOcr(s,{x:0,y:0,w:s.canvas.width,h:s.canvas.height});});
+      or.appendChild(area);or.appendChild(whole);side.appendChild(or);
+      side.appendChild(el('h4','cn-sub','Text from a file in the VM'));
+      if(caps.filesFrom){
+        var win=true;
+        side.appendChild(el('p','cn-note','Save the text to a file in the VM, then read it here exactly as written. '+(s.target.platform==='proxmox'?'Read through the QEMU guest agent.':'Read through '+(s.target.platform==='hyperv'?'PowerShell Direct':'VMware Tools')+' with an account of the VM\'s operating system.')));
+        var tl=el('label','','File in the VM');tl.htmlFor='cnTextGuest';side.appendChild(tl);
+        var tg=document.createElement('input');tg.type='text';tg.id='cnTextGuest';tg.spellcheck=false;tg.value=s.textGuest||'C:\\Users\\Public\\vm-clipboard.txt';tg.addEventListener('input',function(){s.textGuest=tg.value;});side.appendChild(tg);
+        if(win){var sr=el('div','cn-row'),save=el('button','','Type the save command (Windows)');save.type='button';save.id='cnTextSave';save.title='Types a PowerShell command into the VM that saves its clipboard to this file. Open PowerShell in the VM first.';
+          save.addEventListener('click',function(){var path=trimText(tg.value);if(!path){cnOutSet(s,'','Type the path of the file first.',true);return;}request('POST','/api/console/type',{id:s.id,text:cnSaveClipboardCommand(path),delayMs:15},function(err,data){if(err||!data.ok){cnOutSet(s,s.outText,(data&&data.error)||err,true);return;}cnOutSet(s,s.outText,'Typed. Press Enter in the VM\'s PowerShell window, then Read the file.',false);s.canvas.focus();});});
+          sr.appendChild(save);side.appendChild(sr);
+          side.appendChild(el('p','cn-note','Type the save command types Get-Clipboard into whatever has focus in the VM, so open PowerShell there first. Any other way of saving text to the file works too.'));}
+        if(s.target.platform!=='proxmox'){
+          var tul=el('label','','User name in the VM\'s operating system');tul.htmlFor='cnTextUser';side.appendChild(tul);var tu=document.createElement('input');tu.type='text';tu.id='cnTextUser';tu.autocomplete='off';tu.placeholder='Administrator or DOMAIN\\user';tu.value=s.textUser||'';tu.addEventListener('input',function(){s.textUser=tu.value;});side.appendChild(tu);
+          var tpl=el('label','','Password');tpl.htmlFor='cnTextPass';side.appendChild(tpl);var tp=document.createElement('input');tp.type='password';tp.id='cnTextPass';tp.autocomplete='off';side.appendChild(tp);}
+        var rr=el('div','cn-row'),rd=el('button','cn-primary','Read the file');rd.type='button';rd.id='cnTextRead';rd.addEventListener('click',function(){cnReadText(s);});rr.appendChild(rd);side.appendChild(rr);
+        side.appendChild(el('p','cn-note','The account is used for this read only and is not kept. The file stays in the VM; delete it there when you are done.'));
+      }else{side.appendChild(el('p','cn-note',caps.filesWhy||'This console cannot copy files out of the VM.'));}
+      var ol=el('label','','Text out of the VM');ol.htmlFor='cnOutText';side.appendChild(ol);
+      var ot=document.createElement('textarea');ot.id='cnOutText';ot.spellcheck=false;ot.value=s.outText||'';ot.addEventListener('input',function(){s.outText=ot.value;});side.appendChild(ot);
+      var cr=el('div','cn-row'),oc=el('button','cn-primary','Copy to this computer');oc.type='button';oc.id='cnOutCopy';oc.addEventListener('click',function(){copyText(ot.value,function(ok){cnOutSet(s,ot.value,ok?'Copied to this computer\'s clipboard.':'The clipboard could not be written. Select the text and press Ctrl+C.',!ok);});});cr.appendChild(oc);side.appendChild(cr);
+      var om=el('p','cn-note');om.id='cnOutMsg';om.setAttribute('role','status');side.appendChild(om);
       side.appendChild(el('p','cn-note',caps.clipFromWhy||''));
       if(vmArr(caps.native).indexOf('enhanced')>=0){side.appendChild(el('p','cn-note','For copy and paste both ways, open Enhanced session from the toolbar once Windows in the VM is running.'));}
-      cnRenderBar();
+      side.appendChild(el('p','cn-note','Text read out of the VM is shown here only. It is not saved or logged.'));
+      cnUpdateSide(s);cnRenderBar();
     }else if(cnPanel==='files'){
       head.appendChild(el('span','','Files'));head.appendChild(close);side.appendChild(head);
       if(!caps.filesTo&&!caps.filesFrom){side.appendChild(el('p','cn-note',caps.filesWhy||'This console cannot copy files.'));return;}
@@ -10594,8 +10623,54 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     if(!body.local||!body.guest){status.textContent='Fill in both paths.';status.className='cn-note cn-err';return;}
     request('POST','/api/console/file',body,function(err,data){if(byId('cnFilePass')){byId('cnFilePass').value='';}if(err||!data.ok){status.textContent=(data&&data.error)||err;status.className='cn-note cn-err';}});
   }
+  // Copy out of the VM (rule 68): text from the screen through Windows text
+  // recognition on this computer, or from a file in the VM read through the
+  // platform's file transfer. Nothing is installed in the VM.
+  function cnSaveClipboardCommand(path){return "Get-Clipboard | Set-Content -Encoding UTF8 -LiteralPath '"+String(path).replace(/['\u2018\u2019\u201a\u201b]/g,function(c){return c+c;})+"'";}
+  function cnOutSet(s,text,msg,isErr){s.outText=text||'';s.outMsg=msg||'';s.outErr=!!isErr;var ot=byId('cnOutText');if(ot&&cnCurrent()===s&&cnPanel==='clip'){ot.value=s.outText;}cnUpdateSide(s);}
+  function cnReadText(s){
+    var body={id:s.id,guest:trimText(byId('cnTextGuest').value)};
+    if(byId('cnTextUser')){body.user=trimText(byId('cnTextUser').value);body.password=byId('cnTextPass').value;}
+    if(!body.guest){cnOutSet(s,s.outText,'Type the path of the file in the VM.',true);return;}
+    s.outBusy=true;cnOutSet(s,s.outText,'Reading the file in the VM\u2026',false);
+    request('POST','/api/console/text',body,function(err,data){s.outBusy=false;if(byId('cnTextPass')){byId('cnTextPass').value='';}
+      if(err||!data.ok){cnOutSet(s,s.outText,(data&&data.error)||err,true);return;}
+      cnOutSet(s,data.text,data.text?'Read '+data.text.length+' characters from the file.':'The file in the VM is empty.',false);});
+  }
+  function cnOcr(s,r){
+    if(r.w<8||r.h<8){cnOutSet(s,s.outText,'Choose a larger area of the screen.',true);return;}
+    var scale=Math.max(1,Math.min(3,Math.floor(2400/Math.max(r.w,r.h)))),c=document.createElement('canvas');c.width=r.w*scale;c.height=r.h*scale;
+    var g=c.getContext('2d');g.imageSmoothingEnabled=scale>1;g.drawImage(s.canvas,r.x,r.y,r.w,r.h,0,0,c.width,c.height);
+    var png=c.toDataURL('image/png').replace(/^data:image\/png;base64,/,'');
+    s.outBusy=true;cnOutSet(s,s.outText,'Reading the text on the screen\u2026',false);
+    request('POST','/api/console/ocr',{id:s.id,png:png},function(err,data){s.outBusy=false;
+      if(err||!data.ok){cnOutSet(s,s.outText,(data&&data.error)||err,true);return;}
+      cnOutSet(s,data.text,data.text?'Read from the screen'+(data.language?' ('+data.language+')':'')+'. Check it before using it.':'No text was found in that part of the screen.',!data.text);});
+  }
+  function cnSelectStart(s){
+    s.selecting=true;s.selFrom=null;var box=byId('cnSelBox');box.classList.add('hidden');s.canvas.classList.add('cn-selecting');
+    cnOutSet(s,s.outText,'Drag across the text on the screen. Esc cancels.',false);
+  }
+  function cnSelectEnd(s){s.selecting=false;s.selFrom=null;byId('cnSelBox').classList.add('hidden');s.canvas.classList.remove('cn-selecting');}
+  function cnCanvasPoint(s,e){var r=s.canvas.getBoundingClientRect(),x=(e.clientX-r.left)*s.canvas.width/r.width,y=(e.clientY-r.top)*s.canvas.height/r.height;return {x:Math.max(0,Math.min(s.canvas.width,Math.round(x))),y:Math.max(0,Math.min(s.canvas.height,Math.round(y))),cx:Math.max(r.left,Math.min(r.right,e.clientX)),cy:Math.max(r.top,Math.min(r.bottom,e.clientY))};}
+  // cnSelectMouse handles the mouse while an area is being chosen; it
+  // returns true so nothing reaches the VM.
+  function cnSelectMouse(s,e,kind){
+    if(!s.selecting){return false;}
+    e.preventDefault();var p=cnCanvasPoint(s,e),box=byId('cnSelBox'),host=byId('cnScreen').getBoundingClientRect();
+    if(kind==='down'){s.selFrom=p;}
+    if(!s.selFrom){return true;}
+    var a=s.selFrom;box.style.left=(Math.min(a.cx,p.cx)-host.left+byId('cnScreen').scrollLeft)+'px';box.style.top=(Math.min(a.cy,p.cy)-host.top+byId('cnScreen').scrollTop)+'px';box.style.width=Math.abs(p.cx-a.cx)+'px';box.style.height=Math.abs(p.cy-a.cy)+'px';box.classList.remove('hidden');
+    if(kind==='up'){var r={x:Math.min(a.x,p.x),y:Math.min(a.y,p.y),w:Math.abs(p.x-a.x),h:Math.abs(p.y-a.y)};cnSelectEnd(s);cnOcr(s,r);}
+    return true;
+  }
   // cnUpdateSide refreshes the live parts of a panel without rebuilding it.
   function cnUpdateSide(s){
+    if(cnPanel==='clip'&&byId('cnClipFromVm')){var cbx=byId('cnClipFromVm');cbx.textContent='';
+      if(s.clip){cbx.appendChild(el('p','cn-note','Text the VM put on its clipboard:'));cbx.appendChild(el('div','cn-clip selectable',s.clip));var cr2=el('div','cn-row'),cp=el('button','','Copy to this computer');cp.type='button';cp.addEventListener('click',function(){copyText(s.clip,function(ok){cp.textContent=ok?'Copied':'Copy failed';});});cr2.appendChild(cp);cbx.appendChild(cr2);}
+      var om=byId('cnOutMsg');om.textContent=s.outMsg||'';om.className='cn-note'+(s.outErr?' cn-err':'');
+      ['cnOcrArea','cnOcrWhole','cnTextRead'].forEach(function(id){if(byId(id)){byId(id).disabled=!!s.outBusy;}});
+      if(byId('cnTextSave')){byId('cnTextSave').disabled=!s.view.caps.typeText||!!s.view.typing;}}
     if(cnPanel==='paste'&&byId('cnPasteGo')){var b=byId('cnPasteGo');b.textContent=s.view.typing?'Stop typing':'Type into the VM';b.disabled=!s.view.caps.typeText;b.title=s.view.caps.typeText?'':(s.view.caps.typeWhy||'');}
     if(cnPanel==='files'&&byId('cnFileStatus')){var f=s.view.file,st=byId('cnFileStatus');if(f){st.className='cn-note'+(f.status==='failed'?' cn-err':(f.status==='done'?' cn-ok':''));st.textContent=f.status==='running'?('Copying '+(f.direction==='to'?'into':'out of')+' the VM\u2026'+(f.bytes?' '+formatBytesShort(f.bytes):'')):f.message;}byId('cnFileGo').disabled=!!(f&&f.status==='running');}
   }

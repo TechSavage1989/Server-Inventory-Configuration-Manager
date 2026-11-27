@@ -281,6 +281,8 @@ async function fixture(browser,old=false){
     send(200,{ok:true,session:consoleStreams.view});return;
    }
    if(action==='file'){send(202,{ok:true});const view=Object.assign({},consoleStreams.view,{file:{direction:data.direction,status:'done',bytes:2048,message:'Copied 2 KB.'}});consoleStreams.view=view;consoleStreams.forEach(e=>e.ev('state',view));return;}
+   if(action==='ocr'){const png=Buffer.from(data.png||'','base64');const ok=png.length>24&&png.readUInt32BE(0)===0x89504e47;send(200,ok?{ok:true,text:'Setup log: '+png.readUInt32BE(16)+'x'+png.readUInt32BE(20),language:'en-US'}:{ok:false,error:'The picture of the screen is not a PNG.'});return;}
+   if(action==='text'){send(200,data.guest?{ok:true,text:'C:\\> ipconfig\nIPv4 Address. . . : 192.0.2.25'}:{ok:false,error:'Type the path of the text file in the VM.'});return;}
    if(action==='close'){const view=Object.assign({},consoleStreams.view,{status:'closed',message:'The console was closed.'});consoleStreams.forEach(e=>e.ev('state',view));send(200,{ok:true});return;}
    send(200,{ok:true});return;
   }
@@ -926,6 +928,28 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   assert(vi>0&&rawEvents.slice(0,vi).some(e=>e.s===0xffe3&&e.d),'Ctrl+Shift+V sends Ctrl+V to the VM');
   f.consoleStreams.forEach(e=>e.ev('clip',{text:'copied in the VM'}));await f.page.waitForFunction(()=>/new/.test(document.querySelector('#cnClipButton').textContent));
   await f.page.locator('#cnClipButton').click();assert.equal(await f.page.locator('#cnSide .cn-clip').textContent(),'copied in the VM');
+  // Copy out: text from the screen (a dragged area and the whole screen,
+  // sent as PNG crops and read by Windows on this computer) and from a file
+  // in the VM, with the save command typed into the VM.
+  const inputsBeforeSel=f.consoleCalls.filter(c=>c.action==='input').length;
+  await f.page.locator('#cnOcrArea').click();const cbox=await f.page.locator('#cnScreen canvas').boundingBox();
+  await f.page.mouse.move(cbox.x+cbox.width*0.1,cbox.y+cbox.height*0.1);await f.page.mouse.down();await f.page.mouse.move(cbox.x+cbox.width*0.35,cbox.y+cbox.height*0.3,{steps:4});
+  assert(await f.page.locator('#cnSelBox').isVisible(),'the chosen area is outlined');await f.page.mouse.up();
+  await f.page.waitForFunction(()=>/Setup log/.test(document.querySelector('#cnOutText').value));
+  const ocr=f.consoleCalls.filter(c=>c.action==='ocr').at(-1).body,png=Buffer.from(ocr.png,'base64'),ow=png.readUInt32BE(16),oh=png.readUInt32BE(20);
+  assert.equal(ocr.id,'cn1');assert(ow>=0.25*640*0.9&&oh>=0.2*480*0.9&&ow<640*3,'the crop covers the dragged area: '+ow+'x'+oh);
+  assert.equal(f.consoleCalls.filter(c=>c.action==='input').length,inputsBeforeSel,'dragging an area sends no mouse events to the VM');
+  assert(await f.page.locator('#cnSelBox').isHidden());assert((await f.page.locator('#cnOutMsg').textContent()).includes('Check it'));
+  await f.page.locator('#cnOcrWhole').click();await f.page.waitForFunction(()=>/Setup log: (1280|1920|640)x/.test(document.querySelector('#cnOutText').value));
+  await f.page.locator('#cnTextGuest').fill("C:\\Users\\Public\\it's.txt");await f.page.locator('#cnTextSave').click();
+  await f.page.waitForFunction(()=>/Press Enter/.test(document.querySelector('#cnOutMsg').textContent));
+  assert.equal(f.consoleCalls.filter(c=>c.action==='type').at(-1).body.text,"Get-Clipboard | Set-Content -Encoding UTF8 -LiteralPath 'C:\\Users\\Public\\it''s.txt'",'the save command quotes the path');
+  await f.page.locator('#cnTextUser').fill('Administrator');await f.page.locator('#cnTextPass').fill('Synthetic-Pa55');await f.page.locator('#cnTextRead').click();
+  await f.page.waitForFunction(()=>/192\.0\.2\.25/.test(document.querySelector('#cnOutText').value));
+  assert.deepEqual(f.consoleCalls.filter(c=>c.action==='text').at(-1).body,{id:'cn1',guest:"C:\\Users\\Public\\it's.txt",user:'Administrator',password:'Synthetic-Pa55'});
+  assert.equal(await f.page.locator('#cnTextPass').inputValue(),'','the guest password leaves the page');
+  await f.page.locator('#cnOutCopy').click();await f.page.waitForFunction(()=>/Copied/.test(document.querySelector('#cnOutMsg').textContent));
+  assert.equal(await f.page.evaluate(()=>navigator.clipboard.readText()),'C:\\> ipconfig\nIPv4 Address. . . : 192.0.2.25','Copy puts the text on this computer\'s clipboard');
   await f.page.locator('#cnFilesButton').click();await f.page.locator('#cnFileLocal').fill('C:\\Transfer\\setup.log');await f.page.locator('#cnFileGuest').fill('C:\\Temp\\setup.log');await f.page.locator('#cnFileUser').fill('Administrator');await f.page.locator('#cnFilePass').fill('Synthetic-Pa55');await f.page.locator('#cnFileGo').click();
   await f.page.waitForFunction(()=>/Copied 2 KB/.test(document.querySelector('#cnFileStatus').textContent));assert.equal(await f.page.locator('#cnFilePass').inputValue(),'','the guest password leaves the page');
   assert.deepEqual(f.consoleCalls.filter(c=>c.action==='file').at(-1).body,{id:'cn1',direction:'to',local:'C:\\Transfer\\setup.log',guest:'C:\\Temp\\setup.log',user:'Administrator',password:'Synthetic-Pa55'});

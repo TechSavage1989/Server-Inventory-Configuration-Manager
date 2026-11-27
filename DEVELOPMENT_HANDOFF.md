@@ -1,3 +1,8 @@
+## Unreleased (test branch): copy text out of a VM console — 2026-11-27
+
+- Owner asked whether the VM's clipboard can come back to this computer. No platform's web console passes it out (WebMKS, Proxmox and Prism VNC, HyperCore VNC; Hyper-V's basic console has no clipboard), and installing nothing in the guest rules out a clipboard agent. The console's **Copy out** panel (was VM clipboard) now offers two ways that work: text from the screen (Windows OCR on this computer, `Read-ScreenText.ps1`, `/api/console/ocr`, every platform) and text from a file in the VM (`/api/console/text` through VMware Tools, the QEMU guest agent or PowerShell Direct on the Hyper-V host; **Type the save command** types `Get-Clipboard | Set-Content` into PowerShell in the VM). Hyper-V Enhanced session still gives full clipboard both ways. AGENTS rule 68, README, EDR exclusions updated; `Read-ScreenText.ps1` added to the signing list.
+- Tests: `console_text_test.go` (Linux), `TestReadScreenTextScriptReadsTextFromAPicture` (Windows, skips without OCR), workspace check "VM console". Not field-validated: OCR accuracy on real console fonts, and the file read on each platform.
+
 ## Unreleased (test branch): Ctrl+V in the VM console — 2026-11-27
 
 Owner on 3.3.0-test.2: Ctrl+V should paste into a VM console. Pressing Ctrl+V (or Shift+Insert) with the console focused now types this computer's clipboard into the VM through the existing Paste as typing path (`/api/console/type`), using the browser's paste event on the canvas, with `navigator.clipboard.readText` as a fallback. Ctrl and Shift are let go in the VM first and no V is sent; Ctrl+Shift+V sends a plain Ctrl+V. Page-only change; the workspace check "VM console" covers both keys. Not field-validated on a real console.

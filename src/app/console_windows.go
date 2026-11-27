@@ -83,6 +83,10 @@ func (a *application) handleConsole(response http.ResponseWriter, request *http.
 		m.handleType(response, request)
 	case "file":
 		a.handleConsoleFile(response, request)
+	case "text":
+		a.handleConsoleText(response, request)
+	case "ocr":
+		a.handleConsoleOCR(response, request)
 	case "native":
 		a.handleConsoleNative(response, request)
 	default:
