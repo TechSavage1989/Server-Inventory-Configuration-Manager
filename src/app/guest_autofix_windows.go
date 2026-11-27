@@ -29,6 +29,19 @@ type guestAutoAccount struct {
 type guestAutoState struct {
 	User        string `json:"user"`
 	HasPassword bool   `json:"hasPassword"`
+	// Remembered is true when the account is kept sealed on this computer
+	// (Remember sign-ins in Help > Settings); Notice says why it was
+	// forgotten.
+	Remembered bool   `json:"remembered,omitempty"`
+	RememberOn bool   `json:"rememberOn,omitempty"`
+	Notice     string `json:"notice,omitempty"`
+}
+
+// guestAutoStateLocked is the guest account as the page sees it: never the
+// password. Caller holds a.mu.
+func (a *application) guestAutoStateLocked() guestAutoState {
+	store := a.vcRememberStore()
+	return guestAutoState{User: a.guestAuto.user, HasPassword: a.guestAuto.password != "", Remembered: store.Has(vcRememberGuestKey), RememberOn: store.Enabled(), Notice: store.Notice(vcRememberGuestKey)}
 }
 
 func validGuestAccountName(user string) bool {
@@ -50,6 +63,8 @@ func (a *application) handleGuestAuto(response http.ResponseWriter, request *htt
 		var input struct {
 			User     string `json:"user"`
 			Password string `json:"password"`
+			// Remember turns on Remember sign-ins (Help > Settings) first.
+			Remember bool `json:"remember"`
 		}
 		if !decodeVMwareRequest(response, request, &input) {
 			return
@@ -73,6 +88,19 @@ func (a *application) handleGuestAuto(response http.ResponseWriter, request *htt
 		a.guestAuto = guestAutoAccount{user: user, password: password}
 		a.mu.Unlock()
 		a.vmwareLog("The new VMs will be fixed up after each cutover with the account %s.", user)
+		// With Remember sign-ins on (Help > Settings), the account is kept
+		// sealed for this Windows user like vCenter sign-ins.
+		store := a.vcRememberStore()
+		if input.Remember && !store.Enabled() {
+			if err := store.SetEnabled(true); err != nil {
+				a.vmwareLog("Remember sign-ins could not be turned on: %s", err.Error())
+			}
+		}
+		if store.Enabled() {
+			if err := store.Remember(vcRememberGuestKey, user, password, "", time.Now()); err != nil {
+				a.vmwareLog("The guest administrator account could not be remembered: %s", err.Error())
+			}
+		}
 		writeJSON(response, http.StatusOK, map[string]any{"ok": true, "user": user})
 	case "/forget":
 		if !decodeVMwareRequest(response, request, nil) {
@@ -81,6 +109,7 @@ func (a *application) handleGuestAuto(response http.ResponseWriter, request *htt
 		a.mu.Lock()
 		a.guestAuto = guestAutoAccount{}
 		a.mu.Unlock()
+		a.vcRememberStore().Forget(vcRememberGuestKey, "")
 		writeJSON(response, http.StatusOK, map[string]any{"ok": true})
 	case "/run":
 		var input struct {
@@ -121,6 +150,36 @@ func (a *application) handleGuestAuto(response http.ResponseWriter, request *htt
 		writeJSON(response, http.StatusAccepted, map[string]any{"ok": true})
 	default:
 		fail(http.StatusNotFound, "Not found.")
+	}
+}
+
+// loadRememberedGuest puts the remembered guest administrator account in
+// memory when the application starts, unless one was typed already.
+func (a *application) loadRememberedGuest() {
+	store := a.vcRememberStore()
+	if !store.Has(vcRememberGuestKey) {
+		return
+	}
+	user, password, _, ok := store.Get(vcRememberGuestKey)
+	if !ok {
+		store.Forget(vcRememberGuestKey, "The remembered guest administrator account could not be read on this computer, so it was forgotten. Type it again.")
+		return
+	}
+	a.mu.Lock()
+	if a.guestAuto.password == "" {
+		a.guestAuto = guestAutoAccount{user: user, password: password}
+	}
+	a.mu.Unlock()
+}
+
+// forgetRefusedGuest forgets a remembered guest account a new VM refused.
+func (a *application) forgetRefusedGuest(user, message string) {
+	if !strings.Contains(message, "refused the account") {
+		return
+	}
+	store := a.vcRememberStore()
+	if remembered, _, _, ok := store.Get(vcRememberGuestKey); ok && strings.EqualFold(remembered, user) {
+		store.Forget(vcRememberGuestKey, "The remembered guest administrator account "+user+" was refused by a new VM, so it was forgotten. Type it again.")
 	}
 }
 
@@ -229,6 +288,7 @@ func (a *application) startAutoFixup(vm vmMachine, hyperVID, host string, again 
 		message := ""
 		if err != nil {
 			message = vm.Name + " was not fixed up: " + err.Error() + ". Use Prepare and fix up for this VM (A VM on this Hyper-V host, or on the connected host)."
+			a.forgetRefusedGuest(target.User, err.Error())
 		} else {
 			message = guestFixSummary(vm.Name, state, report)
 		}
