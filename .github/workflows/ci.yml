@@ -88,7 +88,7 @@ jobs:
         shell: powershell
         run: |
           $main=Get-Content .\src\app\main.go -Raw
-          $version=[regex]::Match($main,'appVersion\s*=\s*"(?<v>\d+\.\d+\.\d+)"').Groups['v'].Value
+          $version=[regex]::Match($main,'appVersion\s*=\s*"(?<v>\d+\.\d+\.\d+(?:-test\.\d+)?)"').Groups['v'].Value
           if(-not $version){throw 'Missing source version'}
           "version=$version" | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
       - name: Verify SVG-derived icon assets
