@@ -44,6 +44,14 @@ Limits: VDDK reads against a real ESXi host and vCenter, ejecting images on a re
 
 Owner asked to publish ("publish"). Contents, merged into `release/next`: #164 (VM names on New migration tiles with an encryption note), #165 (eject CD/DVD images before copies), #167 (VDDK changed-block reads, operator-supplied), #168 (fluid density), #169 (file shares between two other servers) and #170 (rule numbering). Version 3.2.38 in `main.go` and the collector, release notes in `docs/release-notes/3.2.38.md`, and the published-upgrade test now starts from signed 3.2.37 (`323f7f7b...8545`).
 
+## Unreleased (test channel): VM console in the app's own window — 2026-11-27
+
+- Owner asked to console into source, target, replicated and migrated VMs from the app, with special keys, clipboard paste that works on sign-in screens and file transfer. AGENTS.md rule 68.
+- One console window for VMware (WebMKS), Proxmox VE, Nutanix AHV, Scale HyperCore (VNC) and Hyper-V (WMI screen, keyboard and mouse through the signed `Connect-HyperVConsole.ps1`). Paste as typing, the Keys menu, sticky Ctrl/Alt/Win, VM clipboard where the platform passes it on, Files on VMware, Proxmox VE and Hyper-V (never replacing a file), and the platform's own console as a native window. No power controls.
+- Console buttons on VM pages, migration plan rows, All jobs and servers rows, New migration's platform queue and Start VMs from copies.
+- Validation: `go test ./...` with `-race` (`console_test.go`), Windows `go vet` and test compile, the workspace check "VM console". Targets the `test` branch (rule 61).
+- Not field-validated: real WebMKS, Prism VNC proxy, HyperCore console port, Hyper-V WMI input and screenshots on a real host, guest file transfer and VMRC.
+
 ## Unreleased: one-click Roll back after a cutover — 2026-11-27
 
 - New **Roll back** tool (Migration and replication, Start here) and a **Roll back…** button beside every cut-over VM. Every cutover that creates a VM now leaves a record (`rollback.go`, AGENTS rule 62). Rolling back shuts the new VM down and disconnects it, confirms it is off, puts the original VMware VM's adapters back from the record the cutover saved and starts the original (vSphere, or the source Hyper-V host through `Move-HyperVVM.ps1 -Mode Start`), or asks the replication agent to start its stopped services (new agent action `rollback`; older agents get manual steps).
