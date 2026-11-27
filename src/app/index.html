@@ -5638,7 +5638,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     if(autoSw.length){section.appendChild(el('div','migrate-detail','Networks: '+autoSw.join(', ')+' (the same name, or the host\'s only switch; name another in the plan\'s network map to change it). VLANs come from the VMware port groups.'));}
     if(unmapped.length){section.appendChild(el('div','migrate-detail warning','No Hyper-V switch is named for '+unmapped.join(', ')+' in the plan\'s network map; those adapters are added disconnected.'));}
     var after=vmAfterCutover(section,vm);
-    var body=function(action){return {vmId:vm.id,action:action,copyFolder:trimText(folder.value),vmFolder:trimText(vmFolder.value),quiesce:!!(checks.quiesce&&checks.quiesce.checked),ejectMedia:!!(checks.ejectMedia&&checks.ejectMedia.checked),keepMac:checks.keepMac.checked,start:after.start(),cluster:!!(checks.cluster&&checks.cluster.checked),disconnectSource:after.disconnect(),fixUp:after.fixUp()};};
+    var body=function(action){return {vmId:vm.id,action:action,copyFolder:trimText(folder.value),vmFolder:trimText(vmFolder.value),quiesce:!!(checks.quiesce&&checks.quiesce.checked),keepMac:checks.keepMac.checked,start:after.start(),cluster:!!(checks.cluster&&checks.cluster.checked),disconnectSource:after.disconnect(),fixUp:after.fixUp()};};var bodyNoMedia=body;body=function(action){var b=bodyNoMedia(action);if(checks.ejectMedia){b.ejectMedia=checks.ejectMedia.checked;}return b;};
     if(checks.cluster){checks.cluster.addEventListener('change',function(){kept.cluster=checks.cluster.checked;});}
     var row=el('div','vm-move-actions'),copy=el('button','secondary-button',last&&!last.cutover?'Copy changes\u2026':'Copy disks\u2026'),cut=el('button','secondary-button','Cut over\u2026');
     copy.type='button';copy.id='vmMoveCopy';copy.disabled=vmLocked()||notHost;cut.type='button';cut.id='vmMoveCutover';cut.disabled=vmLocked()||notHost;syncSpace();
@@ -5736,7 +5736,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       var off=vmLocked()||!v.canPrepare;copy.disabled=off||short;cut.disabled=off;}
     syncSpace();
     var target=function(){return (trimText(folder.value)||folder.placeholder)+' on '+(vmHvrForm.node||info.computer);};
-    var body=function(action){return {vmId:vm.id,action:action,node:vmHvrForm.node||info.computer,copyFolder:trimText(folder.value),vmFolder:trimText(vmFolder.value),path:vmHvrForm.path,address:trimText(vmHvrForm.address),thumbprint:vmThumbHex(vmHvrForm.thumbprint),code:trimText(vmHvrForm.code),quiesce:!!(checks.quiesce&&checks.quiesce.checked),ejectMedia:!!(checks.ejectMedia&&checks.ejectMedia.checked),keepMac:checks.keepMac.checked,start:after.start(),cluster:!!(checks.cluster&&checks.cluster.checked),disconnectSource:after.disconnect(),fixUp:after.fixUp()};};
+    var body=function(action){return {vmId:vm.id,action:action,node:vmHvrForm.node||info.computer,copyFolder:trimText(folder.value),vmFolder:trimText(vmFolder.value),path:vmHvrForm.path,address:trimText(vmHvrForm.address),thumbprint:vmThumbHex(vmHvrForm.thumbprint),code:trimText(vmHvrForm.code),quiesce:!!(checks.quiesce&&checks.quiesce.checked),keepMac:checks.keepMac.checked,start:after.start(),cluster:!!(checks.cluster&&checks.cluster.checked),disconnectSource:after.disconnect(),fixUp:after.fixUp()};};var bodyNoMedia=body;body=function(action){var b=bodyNoMedia(action);if(checks.ejectMedia){b.ejectMedia=checks.ejectMedia.checked;}return b;};
     var sent=function(){vmHvrForm.code='';};
     copy.addEventListener('click',function(){
       openMigrateDialog({title:'Copy '+vm.name,path:'/api/hvremote/move',understand:'I understand '+vm.name+' gets a temporary snapshot in vSphere while it copies',field:'confirm',body:body('copy'),expected:vm.name,label:"Type the VM's name to confirm",button:'Copy disks',
@@ -5767,6 +5767,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     if(options.type==='password'){input.addEventListener('change',function(){vmTargetForm[key]=input.value;});}
     wrap.appendChild(input);return wrap;
   }
+  function vmWithEject(body,vm,hv){if(!hv&&vmArr(vm.mediaImages).length){body.ejectMedia=vmTargetForm.ejectMedia!==false;}return body;}
   function vmMediaShort(file){var m=/^\[[^\]]*\]\s*(.*)$/.exec(String(file||''));var p=m?m[1]:String(file||'');return p.split('/').pop()||p;}
   function vmTargetCheck(key,label,fallback){var wrap=el('label','vm-check'),input=document.createElement('input');input.type='checkbox';input.setAttribute('data-vm-target',key);
     input.checked=vmTargetForm.hasOwnProperty(key)?!!vmTargetForm[key]:!!fallback;vmTargetForm[key]=input.checked;input.addEventListener('change',function(){vmTargetForm[key]=input.checked;});wrap.appendChild(input);wrap.appendChild(el('span','',label));return wrap;}
@@ -5853,12 +5854,12 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     if(!hv&&vmArr(vm.mediaImages).length){mv.appendChild(vmTargetCheck('ejectMedia','Eject CD/DVD and floppy images before copying: the drives are set to a client device, not connected (the ISO path is recorded first), so a missing ISO cannot stop the copy ('+vmArr(vm.mediaImages).join(', ')+')',true));}
     var row=el('div','vm-move-actions');
     var copy=vmTargetButton('vmTargetCopy',last&&!last.cutover?'Copy changes\u2026':'Copy disks\u2026',function(){
-      openMigrateDialog({title:'Copy '+vm.name,path:'/api/vmware/target/move',understand:'I understand '+vm.name+' gets a temporary snapshot in vSphere while it copies',field:'confirm',body:{vmId:vm.id,action:'copy',quiesce:!!vmTargetForm.quiesce,ejectMedia:!hv&&vmArr(vm.mediaImages).length>0&&vmTargetForm.ejectMedia!==false},expected:vm.name,label:"Type the VM's name to confirm",button:'Copy disks',
+      openMigrateDialog({title:'Copy '+vm.name,path:'/api/vmware/target/move',understand:'I understand '+vm.name+' gets a temporary snapshot in vSphere while it copies',field:'confirm',body:vmWithEject({vmId:vm.id,action:'copy',quiesce:!!vmTargetForm.quiesce},vm,hv),expected:vm.name,label:"Type the VM's name to confirm",button:'Copy disks',
         paragraphs:[hv?'The VM keeps running. On the source Hyper-V host this will:':'The VM keeps running. vSphere will:'],list:(hv?[vmHyperVCheckpointStep]:['turn on changed block tracking for this VM, if it is off','take a snapshot named "Server Inventory and Migration Manager replication" and remove it when the copy ends']).concat(['send each disk to the receiver at '+(receiver?receiver.link.address:'')]),
         after:function(){vmMarkRunning('move','moving','Copying '+vm.name+'\'s disks.');}});
     });
     var cut=vmTargetButton('vmTargetCutover','Cut over\u2026',function(){
-      openMigrateDialog({title:'Cut over '+vm.name,path:'/api/vmware/target/move',understand:'I understand '+vm.name+' is shut down and moved now',field:'confirm',body:{vmId:vm.id,action:'cutover',ejectMedia:!hv&&vmArr(vm.mediaImages).length>0&&vmTargetForm.ejectMedia!==false},expected:vm.name,label:"Type the VM's name to confirm",button:'Shut down and cut over',
+      openMigrateDialog({title:'Cut over '+vm.name,path:'/api/vmware/target/move',understand:'I understand '+vm.name+' is shut down and moved now',field:'confirm',body:vmWithEject({vmId:vm.id,action:'cutover'},vm,hv),expected:vm.name,label:"Type the VM's name to confirm",button:'Shut down and cut over',
         alert:hv?vmHyperVShutdownAlert('new '+(target==='physical'?'server':'VM')+' is running'):'The VMware VM is shut down through VMware Tools and stays off. Users lose access until the new '+(target==='physical'?'server':'VM')+' is running.',
         paragraphs:['In this order:'],list:['shut the guest down (never a hard power-off)','copy the last changes and verify every disk'].concat(created?['turn off the receiver VM on '+label+', switch it to boot from its first disk and start it']:['then restart the new '+(target==='physical'?'server':'VM')+' from its own disk yourself']),
         after:function(){vmMarkRunning('move','moving','Cutting '+vm.name+' over.');}});
