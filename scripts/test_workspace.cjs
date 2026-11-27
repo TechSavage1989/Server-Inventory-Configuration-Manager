@@ -1325,7 +1325,7 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   // Go's zero time is not a test: the track agrees with the wave check (3.3.0-test.3 showed Tested done beside "not tested yet").
   assert(!(await f.page.locator('#mpRows tr').filter({hasText:'APP01'}).locator('.vm-track .done').allTextContents()).some(t=>t.includes('Tested')),'an untested VM is not shown as tested');
   await w1.locator('[data-mp-marktested]').click();for(let i=0;i<50&&!f.planCalls.some(c=>c.body.action==='markTested');i++){await f.page.waitForTimeout(100);}
-  assert.deepEqual(f.planCalls.find(c=>c.body.action==='markTested').body.vmIds,['vm-a'],'a test run another way can be recorded');assert(await w1.locator('[data-mp-gowave]').isDisabled());
+  assert.deepEqual(f.planCalls.find(c=>c.body.action==='markTested').body.vmIds,['vm-a','vm-b'],'a test run another way can be recorded for the wave');assert(await w1.locator('[data-mp-gowave]').isDisabled());
   assert.equal(await w2.locator('.mp-chip').textContent(),'Go',await w2.textContent());
   await w2.locator('[data-mp-gowave]').click();assert.equal(await f.page.locator('#mpSelCount').textContent(),'1 VM(s) selected.');assert(await f.page.locator('[data-mp-row="vm-c"]').isChecked(),'the wave is selected for the cutover');
   const help=f.page.locator('#mpRows tr').filter({hasText:'WEB01'}).locator('.err-help');assert((await help.textContent()).includes('ESXi'),await help.textContent());
