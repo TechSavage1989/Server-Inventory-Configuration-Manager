@@ -984,9 +984,13 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   f.state.vmware.preflight=Object.assign(f.state.vmware.preflight,{running:false,items:[{id:'vm-sql01',name:'SQL01',state:'done',summary:'1 SQL Server instance: 1 item to review.'}],message:'Checked 1 server. The results are in each VM\'s readiness and the reports.'});f.state.vmware.inventorySerial++;
   await f.page.waitForFunction(()=>/^Checked 2026-11-26 10:00/.test(document.querySelector('[data-pf-last="vm-sql01"]').textContent));
   assert.equal(await f.page.locator('[data-pf-last="vm-sql01"]').textContent(),'Checked 2026-11-26 10:00:00 UTC: 1 SQL Server instance; 1 item in readiness.');
+  sql.readiness.forEach(r=>r.findings.push({severity:'warning',code:'preflight-failed',message:'SQL and DC checks: couldn\'t reach sql01.example.com over WinRM (TCP 5985). (2026-11-25 10:00)',action:'Check the computer name.',detail:'Connecting to remote server sql01.example.com failed with the following error message : The client cannot connect to the destination specified in the request.'}));f.state.vmware.inventorySerial++;
+  await f.page.waitForFunction(()=>/2 items in readiness/.test(document.querySelector('[data-pf-last="vm-sql01"]').textContent));
   await openVm(f,'vm-sql01');await f.page.locator('#vmObjTab-readiness').click();
   const section=await f.page.locator('#pfVmSection').textContent();assert(section.includes('SQL Server MSSQLSERVER')&&section.includes('Standard Edition (64-bit)'),section);
   assert((await f.page.locator('#vmDetail').textContent()).includes('no full backup in the last 7 days for Sales'),'the finding is in readiness');
+  const unreached=f.page.locator('#vmDetail li').filter({hasText:'couldn\'t reach sql01.example.com over WinRM'}).first();assert(!await unreached.locator('pre').isVisible(),'a remote error is folded under Details');
+  await unreached.locator('summary').click();assert((await unreached.locator('pre').textContent()).includes('The client cannot connect to the destination'),'Details shows the full error');
   assert(await f.page.locator('#pfVmSignInOther').isChecked(),'a held account shows as a different account');await f.page.locator('#pfVmSignInCurrent').check();await f.page.waitForFunction(()=>!!document.querySelector('#pfVmUser'));assert.equal(vmwareCalls(f,'preflight/forget').length,1);
   await f.page.setViewportSize({width:1008,height:690});assert(await f.page.locator('#pfVmRun').isVisible());assert.equal(await f.page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true,'no horizontal scroll at 1024x768');
   assert.deepEqual(f.dialogs,[]);
@@ -1327,6 +1331,17 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   const help=f.page.locator('#mpRows tr').filter({hasText:'WEB01'}).locator('.err-help');assert((await help.textContent()).includes('ESXi'),await help.textContent());
   await help.locator('[data-err-fix]').click();for(let i=0;i<50&&!f.planCalls.some(c=>c.body.action==='sync');i++){await f.page.waitForTimeout(100);}
   const sync=f.planCalls.filter(c=>c.body.action==='sync').at(-1);assert(sync&&sync.body.vmIds[0]==='vm-b','the fix copies that VM again');
+  // A SQL and DC check that could not reach its server is one line per server, with the remote error under Details.
+  const raw='Connecting to remote server sql01.example.com failed with the following error message : The client cannot connect to the destination specified in the request. Verify that the service on the destination is running and is accepting requests.\nFor more information, see the about_Remote_Troubleshooting Help topic.';
+  await vmwareConnected(f);const sqlVm=f.vm.inventory.vms.find(v=>v.id==='vm-sql01');
+  sqlVm.readiness.forEach(r=>r.findings.push({severity:'warning',code:'preflight-failed',message:'SQL and DC checks: couldn\'t reach sql01.example.com over WinRM (TCP 5985). (2026-11-27 06:33)',action:'Check the computer name.',detail:raw}));
+  f.state.vmware.inventorySerial++;await f.page.waitForTimeout(1500);
+  f.plans.plans[0].vms.push({id:'vm-sql01',name:'SQL01',wave:3,state:'ready',seeded:true,failures:0,lastSync:new Date().toISOString(),testedAt:new Date().toISOString()});
+  await goTool(f,'plans');const w3=f.page.locator('[data-mp-go="3"]');await w3.waitFor();
+  const item=w3.locator('.mp-go-items li');assert.equal(await item.count(),1);
+  assert.equal(await item.evaluate(li=>li.firstChild.textContent),'SQL01: SQL and DC checks: couldn\'t reach sql01.example.com over WinRM (TCP 5985). (2026-11-27 06:33)');
+  assert(!await item.locator('pre').isVisible(),'the raw error is folded');await item.locator('summary').click();assert.equal(await item.locator('pre').textContent(),raw,'Details shows the full error');
+  assert.equal(await w3.locator('.mp-chip').textContent(),'Check first');
   assert.deepEqual(f.errors,[]);assert.deepEqual(f.dialogs,[]);
  }finally{await f.close();}});
  await check('Migration UX: saved defaults per customer fill New migration and Migration plans, without any password, and a rolling conversion runs stage by stage',async()=>{const f=await fixture(browser);try{
