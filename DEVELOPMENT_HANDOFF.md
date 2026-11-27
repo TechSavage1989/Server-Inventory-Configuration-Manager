@@ -12,7 +12,7 @@
 
 - Field report on 3.2.38: running VMs with a virtual TPM (DESK21-CPA01, CPA02) failed every round. vSphere refuses to export a VM whose own files are encrypted (Broadcom KB 431565, every vTPM VM) and the host locks the running disk, so only VDDK or a copy while the VM is off can read them. The round now says so in plain words (`vmEncryptedHomeError`) instead of the raw fault.
 - Migration plan VMs have a copy method (`mbVM.Method`): live (default; VDDK when set) or copy at cutover while shut down. One plan mixes them with the same waves, cutover, fix-up and rollback. Plan rows offer Set up VDDK and Copy at cutover for these VMs; All jobs and servers shows Copies at cutover.
-- New migration's Review blocks a running vTPM VM until VDDK is set up (inline, same check as Help > Settings) or the VM is set to copy at cutover; the other VMs are unaffected. AGENTS rule 64.
+- New migration's Review blocks a running vTPM VM until VDDK is set up (inline, same check as Help > Settings) or the VM is set to copy at cutover; the other VMs are unaffected. AGENTS rule 65.
 - Validation here: `go test ./...` and vet on Linux, a Windows cross-build, and `scripts/test_workspace.cjs` in Linux Chromium. Not field-validated: VDDK reads of a real vTPM VM, and an offline cutover of one.
 
 ## 3.2.38 published and verified — 2026-11-27

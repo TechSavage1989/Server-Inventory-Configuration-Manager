@@ -2214,7 +2214,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   }
   function setConfigDisabled(disabled){
     // A running restore, migration or VMware step also locks collection; the server enforces the same rule.
-    // A Discovery read or a migration plan copy does not lock it (rule 65).
+    // A Discovery read or a migration plan copy does not lock it (rule 66).
     var why=latestState&&!latestState.running?busyWhy({skip:['collection','plan','read']}):null;
     renderBusyNotice('configLockNotice','configLockText','configLockOpen',why?{text:why.text+' Collection is available again when it finishes.',label:why.label,open:why.open}:null);
     disabled=!!disabled||configurationBusy||!!why;

@@ -9,7 +9,7 @@ import (
 
 // A migration plan copy leaves Discovery reads of the same server and
 // collections running, and refuses only what would change its VMs or the
-// session it uses (rule 65).
+// session it uses (rule 66).
 func TestPlanCopyKeepsDiscoveryReadsAndCollectionsAvailable(t *testing.T) {
 	a := &application{computerName: "HV01"}
 	a.vmware.server = "vc01.example.com"
