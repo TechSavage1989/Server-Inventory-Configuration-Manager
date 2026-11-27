@@ -1,3 +1,7 @@
+## 3.2.40 brought into the test branch — 2026-11-27
+
+- `main` (3.2.40: the VDDK signature fix #190, the 3.2.39 record #192 and the #187 fix as merged on main) is merged into `test`, keeping `test`'s version 3.3.0-test.1, collector 3.3.0 and `release/VERSION` so no release starts. The next test build (3.3.0-test.2, when the owner approves it) carries the 3.2.40 fixes; 3.3.0-test.1 does not include #190.
+
 ## 3.3.0-test.1 (first test build) — 2026-11-27
 
 - Owner approved the first signed test build after 3.2.39. `test` holds 3.2.39 (#186), VM consoles (#179, AGENTS rule 68) and the migration UX work (#175, rule 69). `appVersion` 3.3.0-test.1, `collectorVersion` and the collector's `$scriptVersion` 3.3.0 (rule 61), notes in `docs/release-notes/3.3.0-test.1.md`, `release/VERSION` 3.3.0-test.1 on `test` only.
@@ -11,6 +15,19 @@
 - Also: go/no-go per wave in Migration plans, Move VMs pointing Hyper-V moves to New migration (the "When to use this" box removed), saved defaults per customer (`migration_profiles.go`, `/api/profiles`, Go tests `TestMigrationProfiles*`) and the rolling conversion in New migration's When.
 - The header bar and the "Your server, documented" banner are gone from every screen: Help sits beside the tabs, and the icon, name, connection, administrator rights, versions and Keyboard shortcuts are in a slim status bar at the bottom. The Portable EXE badge is gone. `scripts/test_icon_render.cjs` and the published-upgrade test still find `.brand-mark img` (now 16 px in the status bar); run them on Windows CI. README `hero.png`, `new-migration.png` and `migration-plans.png` show it; the other README images still show the old banner until they are next recaptured.
 - Not field-validated: all of it is covered by synthetic workspace checks and Go tests only. The Move VMs by-hand steps for Hyper-V stay (not removed), so nothing that worked before is gone.
+## 3.2.40 release preparation — 2026-11-27
+
+Owner asked to publish now ("publish now"), mainly for the VDDK signature fix #190. Contents, merged into `release/next` after 3.2.39: #190 (VDDK DLL signatures and version read from the files) and #192 (3.2.39 record; the published-upgrade test starts from signed 3.2.39, `4aae60ff...52b8`). Version 3.2.40 in `main.go` and the collector, release notes in `docs/release-notes/3.2.40.md`.
+
+## 3.2.39 published and verified — 2026-11-27
+
+- [Release v3.2.39](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.39) ("Server Inventory and Migration Manager 3.2.39"), tag and target commit `a4f8f04e09ed0ac496b72a7c49454ca09a13d31d`. Source: #173, #174, #176, #177, #180, #181 and #182 through the batch #183 (merged into `main` with a merge commit), prepared by #184, published by #185, and the release fix #187 through the batch #189. The owner approved publishing on 2026-11-27.
+- The first two release runs ([46007364948](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/46007364948)) stopped before publishing at the workspace low-resolution check: Build Hyper-V hosts drew a stale editor only at the next state poll (`#hbBlank` missing at 784x522). No tag or release was created. Fixed by #187, which draws the editor when the tool opens.
+- The [publish run](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/46015346544) (workflow_dispatch from `main`) passed: publish job 14:22–14:47 UTC, embedded scripts and EXE signed through Azure Artifact Signing over OIDC before the tests and checksum (Valid, timestamped); public feed and downloads verified.
+- The actual 3.2.38-to-3.2.39 upgrade (published signed 3.2.38 EXE through Download and Install, restart into 3.2.39, native health, settings, shortcut, timers, cleanup and rollback) passed in one run, 14:47–15:00 UTC.
+- Stable EXE: 28,938,032 bytes; SHA-256 `4aae60ffb28771f6f391025f37302db710d0b9e186700203605df3214eeb52b8` (matches the public feed). Linux agent `simm-agent-linux-amd64`: 13,717,504 bytes; SHA-256 `8a6699df145a0cc0781b413fc1e4f51735579e7af1a4184a3a61e0767705fc5f`. All 14 assets are published.
+
+Limits: Roll back on a real vCenter and Hyper-V cluster node, Hyper-V RCT reference points on a real host, VDDK reads of a real vTPM VM, production-guard free space on real datastores and CSVs, and a real return from a test build to stable have not been field-tested. The limits under 3.2.38 still apply. CI artifacts were not downloaded, and no client data was used.
 
 ## Unreleased: protect production space and bandwidth while copying — 2026-11-27
 
@@ -21,6 +38,13 @@
 - Files: `prodguard.go`, `prodguard_windows.go`, `prodguard_unix.go`, `prodguard_test.go`; hooks in `vmware_replicate.go`, `vmware_move.go`, `hyperv_move.go`, `hyperv_move_windows.go`, `hyperv_remote_windows.go`, `movebatch*.go`, `repl_job.go`, `repl_throttle.go`, `migrate.go`, `Migrate-FileShares.ps1`, `index.html`, `scripts/test_workspace.cjs`.
 - The Hyper-V checkpoint hook is a small block in `hypervMoveRound`'s running-VM branch, so it merges with the RCT work in PR #173.
 - Not field-validated: real datastore free space during concurrent snapshots, CSV free space through administrative shares, Robocopy's `/IPG` rate.
+
+
+## VDDK folder check reads signatures itself (2026-11-27, next release after 3.2.39)
+
+- Field report on 3.2.38: Help > Settings refused the owner's genuine VDDK 8.0.3 folder. WinVerifyTrust answered TRUST_E_SUBJECT_FORM_UNKNOWN for every DLL, and GetFileVersionInfo said vixDiskLib.dll had no resource section, although every DLL carries an embedded Broadcom Inc signature (DigiCert Trusted G4 chain) and a version resource (checked against the owner's zip).
+- `authenticode.go` (untagged) verifies embedded Authenticode from the file bytes (PE hash, signed attributes, RSA/ECDSA signature, code-signing chain to the system roots) and reads RT_VERSION itself. `vddkFileSigner` and `vddkLibraryVersion` use it first and fall back to Windows' APIs; a file both refuse is still refused, with both reasons.
+- `TestAuthenticodeVerifyChecksHashSignatureAndChain` signs a synthetic PE and checks tampering, untrusted and expired signers, mismatched attributes, unsigned and non-PE files. All 22 DLLs of VDDK 8.0.3 for Windows verified as Broadcom Inc locally (VDDK not committed). Still not field-validated: why Windows' own APIs failed on that host, and loading VDDK there.
 
 ## Unreleased: virtual TPM VMs copy through VDDK or at their cutover; one migration mixes copy methods — 2026-11-27
 
