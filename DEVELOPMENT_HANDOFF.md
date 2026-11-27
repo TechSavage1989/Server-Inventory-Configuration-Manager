@@ -7,6 +7,10 @@
 - Saving migration plans keeps fields this version does not know (`mbKeepUnknownFields`), so a stable build no longer drops the test channel's `testedAt` when the owner switches channels.
 - Not field-validated: a real stopped round followed by a changed-block round on vCenter, and 5-minute rounds on a busy host.
 
+## 3.2.41 release preparation — 2026-11-27
+
+Owner asked to ship all of today's requested changes in the next releases ("make all the current requested changes go out in the next releases"). Contents, merged into `release/next` after 3.2.40: #196 (fewer obvious hints, layout stays still when rows are ticked), #198 (3.2.40 record; the published-upgrade test starts from signed 3.2.40, `45026e53...d7d6`), #202 (Sync now answers, inline plan sign-in, Syncing state, opt-in remembered sign-ins) #206 (save plans during copies, folded Discovery read sections, steadier New migration and guest account) and #208 (VDDK start-up diagnosis: missing imports named, vddk.log, one-line errors with Details). Version 3.2.41 in `main.go` and the collector, release notes in `docs/release-notes/3.2.41.md`.
+
 ## Unreleased: VDDK start-up diagnosis and one-line errors — 2026-11-27
 
 - Owner on 3.3.0-test.3: DESK21-CPA01/CPA02 rounds failed with VDDK error 16053 (VIX_E_DISK_SUBSYSTEM_INIT_FAIL) after the folder check passed. The owner's VixDiskLib log showed the cause: `Failed to load vddkVimAccess.dll : ErrorCode = 0x7e` and diskLibPlugin.dll not found, because VixDiskLib loads its plugins itself and their dependencies were searched for outside the VDDK folder. `vddkLoad` now calls `SetDllDirectory(bin)` before loading vixDiskLib.dll.
