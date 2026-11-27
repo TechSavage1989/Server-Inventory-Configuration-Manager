@@ -1,3 +1,20 @@
+## 3.2.40 published and verified — 2026-11-27
+
+- [Release v3.2.40](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.40) ("Server Inventory and Migration Manager 3.2.40"), tag and target commit `b55347bc7c8b869fe8b49bf8b23f9d790f74df3d`. Source: #190 and #192 through the batch #193 (merged into `main` with a merge commit), prepared by #194, published by #195. The owner approved publishing on 2026-11-27 ("publish now").
+- The [release run](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/46032647588) passed: publish job 16:19–16:41 UTC, embedded scripts and EXE signed through Azure Artifact Signing over OIDC before the tests and checksum (Valid, timestamped); public feed and downloads verified.
+- The actual 3.2.39-to-3.2.40 upgrade (published signed 3.2.39 EXE through Download and Install, restart into 3.2.40, native health, settings, shortcut, timers, cleanup and rollback) passed in the same run, 16:41–16:55 UTC.
+- Stable EXE: 28,961,584 bytes; SHA-256 `45026e533f53e61cd2f4521d84d5410105dde8a1aee5612bb381c6fe1b80d7d6` (matches the public feed). Linux agent `simm-agent-linux-amd64`: 13,717,504 bytes; SHA-256 `b15b8bb646cb842aa61eb1072b3bc9b7658bd59a695df6ca00e4a38b329e9fb0`. All 14 assets are published.
+
+Limits: loading VDDK on the owner's Hyper-V host after the new signature check, and why Windows' own APIs refused those DLLs there, have not been field-tested. The limits under 3.2.39 still apply. CI artifacts were not downloaded, and no client data was used.
+
+## 3.3.0-test.1 published as a test prerelease — 2026-11-27
+
+- [Prerelease v3.3.0-test.1](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.3.0-test.1) from the `test` branch (3.2.39 merged in, with #175, #179 and the test-build check fix #191), tag and target commit `75f4e1c7fe50268f78de7d7c70a3a0c39f083c2b`, published 16:00 UTC with `--prerelease --latest=false`.
+- [Release run 46026990217](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/46026990217) (workflow_dispatch from `test`): publish job 15:40–16:01 UTC, signed exactly like stable (Valid, timestamped); the stable feed was checked unchanged (it named 3.2.39 then, 3.2.40 now). The published-upgrade job is skipped for test builds by design. An earlier run (46015438386) stopped in the updater tests before publishing, because those tests assumed a plain X.Y.Z version; #191 fixed them and the CI version check.
+- EXE: 29,383,472 bytes; SHA-256 `fb9bb00ba90d03ab3235420c6c7fc1c9040e37336569544e91494b2341a27048`. Linux agent: 13,725,696 bytes; SHA-256 `d063eafb7e75bb27ce020c5a4ff11590c97e2daca7f64119fadc965d0dc96c01`.
+
+Limits: a real install of the test build through the Test channel, and the return to stable from it, have not been field-tested. 3.3.0-test.1 does not include the 3.2.40 VDDK fix; #197 merges `main` into `test` so the next test build carries it.
+
 ## 3.2.39 published and verified — 2026-11-27
 
 - [Release v3.2.39](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.39) ("Server Inventory and Migration Manager 3.2.39"), tag and target commit `a4f8f04e09ed0ac496b72a7c49454ca09a13d31d`. Source: #173, #174, #176, #177, #180, #181 and #182 through the batch #183 (merged into `main` with a merge commit), prepared by #184, published by #185, and the release fix #187 through the batch #189. The owner approved publishing on 2026-11-27.
