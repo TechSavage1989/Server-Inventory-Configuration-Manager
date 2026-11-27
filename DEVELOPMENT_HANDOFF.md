@@ -1,3 +1,10 @@
+## Unreleased (test branch): migration UX — 2026-11-27
+
+- The owner asked for the migration UI to be more intuitive and for the work to go to the opt-in `test` branch so normal installs never update to it. All 12 ideas (AGENTS rule 62): compact tool lists with **About this tool**, no collection banner on Migration and replication, empty screens that start New migration, a sortable VM table and step summaries in New migration, Migrate from Discovery, a status track with the next step per plan VM and All servers row (`mbVM.TestedAt`, row `tested`), plain-language error help with fix buttons (`errorCatalog`), and the activity strip under the top tabs.
+- Workspace checks "Migration UX: ..." (two). README `hero.png`, `new-migration.png` and `migration-plans.png` recaptured at 1440x1000 (set `SIMM_README_SHOTS` to a folder to recapture them from those checks).
+- Also: go/no-go per wave in Migration plans, Move VMs pointing Hyper-V moves to New migration (the "When to use this" box removed), saved defaults per customer (`migration_profiles.go`, `/api/profiles`, Go tests `TestMigrationProfiles*`) and the rolling conversion in New migration's When.
+- Not field-validated: all of it is covered by synthetic workspace checks and Go tests only. The Move VMs by-hand steps for Hyper-V stay (not removed), so nothing that worked before is gone.
+
 ## 3.2.38 release preparation — 2026-11-27
 
 Owner asked to publish ("publish"). Contents, merged into `release/next`: #164 (VM names on New migration tiles with an encryption note), #165 (eject CD/DVD images before copies), #167 (VDDK changed-block reads, operator-supplied), #168 (fluid density), #169 (file shares between two other servers) and #170 (rule numbering). Version 3.2.38 in `main.go` and the collector, release notes in `docs/release-notes/3.2.38.md`, and the published-upgrade test now starts from signed 3.2.37 (`323f7f7b...8545`).

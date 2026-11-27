@@ -2353,6 +2353,7 @@ func (a *application) serve(listener net.Listener) error {
 	mux.HandleFunc("/api/start", a.handleStart)
 	mux.HandleFunc("/api/preferences", a.handlePreferences)
 	mux.HandleFunc("/api/ui-settings", a.handleUISettings)
+	mux.HandleFunc("/api/profiles", a.handleMigrationProfiles)
 	mux.HandleFunc("/api/vddk", a.handleVDDK)
 	mux.HandleFunc("/api/cancel", a.handleCancel)
 	mux.HandleFunc("/api/skip-acl-export", a.handleSkipACLExport)
