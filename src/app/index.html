@@ -3968,7 +3968,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     var overwrites=(m.plan||[]).filter(function(p){return !!p.allowOverwrite;});
     if(minutes&&overwrites.length){
       box.checked=false;
-      openMigrateDialog({title:'Keep copying with overwrite',understand:'I understand each automatic copy deletes files that exist only at the destination',path:'/api/migrate/autosync',body:{minutes:minutes},field:'confirmComputerName',expected:migrateTargetName(),label:"Type the new server's name to confirm",button:'Keep copying',
+      openMigrateDialog({title:'Keep copying with overwrite',understand:'I understand each automatic copy deletes files that exist only at the destination',path:'/api/migrate/autosync',body:{minutes:minutes},field:'confirmComputerName',expected:migrateTargetName(),label:migrateRemote()?"Type the new server's name to confirm":"Type this server's name to confirm",button:'Keep copying',
         alert:'Each automatic copy is an exact mirror: files that exist only at the destination are permanently deleted. There is no automatic file rollback.',
         paragraphs:['Overwrite is allowed for these shares. Automatic copies mirror every change and deletion from the old server until you cut over.'],
         list:overwrites.map(function(p){return p.destName+' - '+p.destPath;}),
@@ -4196,7 +4196,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     if(this.disabled){return;}
     var m=migrateState()||{},overwrites=(m.plan||[]).filter(function(p){return !!p.allowOverwrite;}),computer=migrateTargetName();
     if(!overwrites.length){migratePost('/api/migrate/sync',{},null,function(err){if(!err){migrateMarkRunning('sync','copying','Copying.');}});return;}
-    openMigrateDialog({title:'Confirm overwrite and copy',understand:'I understand files that exist only at the destination will be deleted',path:'/api/migrate/sync',field:'confirmComputerName',expected:computer,label:"Type the new server's name to confirm",button:'Overwrite and copy',
+    openMigrateDialog({title:'Confirm overwrite and copy',understand:'I understand files that exist only at the destination will be deleted',path:'/api/migrate/sync',field:'confirmComputerName',expected:computer,label:migrateRemote()?"Type the new server's name to confirm":"Type this server's name to confirm",button:'Overwrite and copy',
       alert:'This is an exact mirror: files that exist only at the destination will be permanently deleted. There is no automatic file rollback.',
       paragraphs:['You selected overwrite for the following shares. Existing destination files may be replaced. Repeat copies will mirror future changes and deletions. Existing share names can also be replaced when you cut over.'],
       list:overwrites.map(function(p){return p.destName+' - '+p.destPath;}),
@@ -4204,7 +4204,7 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
   });
   byId('migrateCutover').addEventListener('click',function(){
     if(this.disabled){return;}var m=migrateState()||{},computer=migrateTargetName(),where=m.target?computer:'this server';
-    openMigrateDialog({title:'Cut over to '+where,understand:'I understand the shares are created on '+where+' now',path:'/api/migrate/cutover',field:'confirmComputerName',expected:computer,label:"Type the new server's name to confirm",button:'Cut over now',
+    openMigrateDialog({title:'Cut over to '+where,understand:'I understand the shares are created on '+where+' now',path:'/api/migrate/cutover',field:'confirmComputerName',expected:computer,label:migrateRemote()?"Type the new server's name to confirm":"Type this server's name to confirm",button:'Cut over now',
       alert:(m.plan||[]).some(function(p){return !!p.allowOverwrite;})?
         'Overwrite is enabled: the final mirror may delete destination-only files, and an existing share name may be replaced, disconnecting its users. System shares may affect Windows roles.':
         'Ask users to stop using the old shares now. Files they change during cutover may need another pass.',
