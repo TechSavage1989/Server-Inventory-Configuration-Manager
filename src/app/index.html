@@ -7815,7 +7815,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   // All servers (allservers.go): every server and VM this console moves or
   // replicates, with one state each, and the same action on many at once.
   var asState=null,asLastPoll=0,asFilter='',asText='',asMethodFilter='',asChosen={},asForm='',asBusy=false,asMeters={},asPushWatch=false;
-  var asTiles=[['all','Everything','','Show every server and VM'],['notconfigured','Not configured','','Show VMs of the inventory that nothing moves yet'],['agent','Agent, no job','','Show servers with the agent installed and no replication job'],['unreachable','Not answering','warning','Show servers whose agent does not answer'],['seeding','Initial copy','active','Show servers whose first full copy is running'],['insync','In sync','good','Show servers with a whole, current copy: ready to test and cut over'],['behind','Behind','warning','Show servers whose newest copy is older than its limit'],['paused','Paused','','Show paused servers'],['testing','Testing','warning','Show servers with a test VM running'],['scheduled','Cutover scheduled','warning','Show servers with a cutover scheduled'],['cuttingover','Cutting over','active','Show servers being cut over'],['cutover','Cut over','good','Show servers that are cut over'],['failed','Failed','danger','Show servers and jobs whose last copy or run failed, with the error'],['running','Running','active','Show conversions, restores and file share moves running on this computer'],['finished','Finished','good','Show conversions, restores and file share moves that finished in the last 12 hours']];
+  var asTiles=[['all','Everything','','Show every server and VM'],['notconfigured','Not configured','','Show VMs of the inventory that nothing moves yet'],['agent','Agent, no job','','Show servers with the agent installed and no replication job'],['unreachable','Not answering','warning','Show servers whose agent does not answer'],['seeding','Initial copy','active','Show servers whose first full copy is running'],['atcutover','Copies at cutover','','Show VMs copied only at their cutover, while shut down (vSphere cannot read them while they run)'],['insync','In sync','good','Show servers with a whole, current copy: ready to test and cut over'],['behind','Behind','warning','Show servers whose newest copy is older than its limit'],['paused','Paused','','Show paused servers'],['testing','Testing','warning','Show servers with a test VM running'],['scheduled','Cutover scheduled','warning','Show servers with a cutover scheduled'],['cuttingover','Cutting over','active','Show servers being cut over'],['cutover','Cut over','good','Show servers that are cut over'],['failed','Failed','danger','Show servers and jobs whose last copy or run failed, with the error'],['running','Running','active','Show conversions, restores and file share moves running on this computer'],['finished','Finished','good','Show conversions, restores and file share moves that finished in the last 12 hours']];
   var asActs=[['install','Install agents','Install the replication agent on the selected VMs that nothing moves yet'],['createjob','Create replication jobs','Create one job per selected server with the agent and no job, all to one receiver'],['sync','Sync now','Start a round for each selected server now'],['pause','Pause','Pause the selected jobs (a plan VM pauses its whole plan)'],['resume','Resume','Resume the selected jobs and plans'],['test','Test failover','Start an isolated test VM from each selected server\'s copy'],['endtest','End test','Remove the test VMs of the selected servers'],['wave','Set wave','Put the selected servers in a cutover wave'],['cutover','Cut over','Cut the selected servers over now or at a time, wave by wave'],['cancelcutover','Cancel scheduled cutover','Cancel the scheduled cutover of the selected servers']];
   var asActName={};asActs.forEach(function(a){asActName[a[0]]=a[1];});
   var asForms={install:'asFormInstall',createjob:'asFormJobs',wave:'asFormWave',cutover:'asFormCutover',test:'asFormTest',endtest:'asFormTest'};
@@ -8091,7 +8091,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   // through Migration plans; every other way hands off to its tool with the
   // selection carried over, and says so.
   var nwStepNames=['What','Where','How','When','Review','Status'];
-  var nw={step:0,reached:0,source:'',picks:{},filter:'',target:'',copyRoot:'',vmFolder:'',cluster:false,node:'',hvHost:'',hvUser:'',net:{},method:'',
+  var nw={step:0,reached:0,source:'',picks:{},methods:{},vddkFolder:'',vddkMsg:'',vddkBusy:false,filter:'',target:'',copyRoot:'',vmFolder:'',cluster:false,node:'',hvHost:'',hvUser:'',net:{},method:'',
     opts:{syncMinutes:60,concurrency:2,quiesce:false,keepMac:true,startVms:true,disconnectSource:true,ejectMedia:true,fixUp:true,testSwitch:'',bizMbps:'0',offMbps:'0',bizStart:8,bizEnd:18},
     startMode:'now',startAt:'',waveMode:'',waves:{},cut:{},name:'',confirm:'',planId:'',busy:false,error:'',filled:'',statusFilter:'',statusKind:'',
     srv:{picks:{},folder:'',interval:15,rpo:'30',services:'',compress:true,shutdown:true,fullRead:false,live:false,limit:'0',biz:'0',bizStart:0,bizEnd:0,confirm:'',agents:[],hosts:'',user:'',watch:false,instError:'',action:'sync',cutAt:''}};
@@ -8177,9 +8177,24 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   function nwEncryptionNote(vm){
     if(!vm||!vm.encrypted||vm.source==='hyperv'){return '';}
     if(nwDecryptable(vm)){return 'Encrypted disks: tick it and decrypt it in Review';}
-    if(!vmDisksEncrypted(vm)){return 'Only its own files are encrypted (virtual TPM): the disks copy as they are';}
+    if(!vmDisksEncrypted(vm)){return nwNeedsOffline(vm)?'Virtual TPM: copied while it runs only with VDDK, otherwise at its cutover while shut down (Review)':'Only its own files are encrypted (virtual TPM): the disks copy as they are';}
     return '';
   }
+  // Copy methods per VM (movebatch.go mbVM.Method). vSphere will not export
+  // a VM whose own files are encrypted (every VM with a virtual TPM), and the
+  // ESXi host locks a running disk, so such a VM is read while it runs only
+  // through VDDK; otherwise it is copied at its cutover, while shut down.
+  var nwVddk=null,nwVddkAsked=false;
+  function nwVddkLoad(force){if(nwVddkAsked&&!force){return;}nwVddkAsked=true;request('GET','/api/vddk',null,function(err,data){nwVddk=err?{error:err}:((data&&data.vddk)||{});if(!nw.vddkFolder&&nwVddk.folder){nw.vddkFolder=nwVddk.folder;}});}
+  function nwVddkReady(){return !!(nwVddk&&nwVddk.ready);}
+  function nwNeedsOffline(vm){return !!vm&&vm.source!=='hyperv'&&!!vm.encrypted&&!vmDisksEncrypted(vm)&&vm.powerState==='poweredOn';}
+  function nwOfflineVMs(){return nwPickedVMs().filter(function(vm){return nw.methods[vm.id]==='offline';});}
+  function nwVddkSave(){
+    var f=byId('nwVddkFolder'),folder=trimText(f?f.value:nw.vddkFolder);nw.vddkFolder=folder;if(!folder){nw.vddkMsg='Choose the folder you extracted the Windows VDDK download into.';renderNw();return;}
+    nw.vddkBusy=true;nw.vddkMsg='Checking the signatures in '+folder+'\u2026';renderNw();
+    request('POST','/api/vddk',{folder:folder},function(err,data){nw.vddkBusy=false;if(err){nw.vddkMsg=err;renderNw();return;}nwVddk=(data&&data.vddk)||{};nw.vddkMsg=nwVddk.message||'';renderNw();});
+  }
+  function openVddkSettings(){openSettings();var f=byId('vddkSettings');if(f&&f.scrollIntoView){f.scrollIntoView({block:'start'});}var i=byId('vddkFolder');if(i){i.focus();}}
   function nwPickedVMs(){var out=[];vmArr(vmInventory&&vmInventory.vms).forEach(function(vm){if(nw.picks[vm.id]){out.push(vm);}});return out;}
   function nwNetworks(){
     var names={},list=[];nwPickedVMs().forEach(function(vm){vmArr(vm.nics).forEach(function(n){var k=n.network||'';if(k&&!names[k]){names[k]=0;list.push(k);}names[k]=(names[k]||0)+1;});});
@@ -8248,7 +8263,13 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     var enc=picked.filter(nwDecryptable),unknown=picked.filter(function(vm){return vmDisksEncrypted(vm)&&!nwDecryptable(vm);}),home=picked.filter(function(vm){return vm.encrypted&&vm.source!=='hyperv'&&!vmDisksEncrypted(vm);});
     if(enc.length){add('block',vmPlural(enc.length,'VM')+' '+(enc.length===1?'has':'have')+' disks encrypted with vSphere VM Encryption, which no other platform can read: '+enc.map(function(vm){return vm.name;}).join(', ')+'. Decrypt '+(enc.length===1?'it':'them')+' here; Start is ready as soon as the decryption finishes.','decrypt');}
     if(unknown.length){add('block','This inventory does not say whether the disks of '+unknown.map(function(vm){return vm.name;}).join(', ')+' or only '+(unknown.length===1?'its':'their')+' own files are encrypted. Read vCenter again in What.','reread');}
-    if(home.length){add('ok',home.map(function(vm){return vm.name;}).join(', ')+': only the VM\'s own files are encrypted (for its virtual TPM). The disks are plain and copy as they are, so nothing needs decrypting.');}
+    var vt=home.filter(nwNeedsOffline),vtOff=vt.filter(function(vm){return nw.methods[vm.id]==='offline';}),vtLive=vt.filter(function(vm){return nw.methods[vm.id]!=='offline';}),homeOff=home.filter(function(vm){return !nwNeedsOffline(vm);}),names=function(l){return l.map(function(vm){return vm.name;}).join(', ');};
+    if(homeOff.length){add('ok',names(homeOff)+': only the VM\'s own files are encrypted (for its virtual TPM) and '+(homeOff.length===1?'it is':'they are')+' turned off, so the disks copy as they are.');}
+    if(vtLive.length){nwVddkLoad(false);
+      if(nwVddkReady()){add('ok',names(vtLive)+' '+(vtLive.length===1?'has':'have')+' a virtual TPM, so vSphere will not export '+(vtLive.length===1?'it':'them')+' while running; VDDK'+(nwVddk.version?' '+nwVddk.version:'')+' reads '+(vtLive.length===1?'it':'them')+' instead. If the vCenter account is not an administrator, its role needs Cryptographic operations > Direct Access, and this host must reach each ESXi host on port 902.');}
+      else if(!nwVddk){add('block','Checking whether VDDK is set up, which '+names(vtLive)+' need'+(vtLive.length===1?'s':'')+' to be copied while running\u2026');}
+      else{add('block',names(vtLive)+' '+(vtLive.length===1?'runs':'run')+' with a virtual TPM, so '+(vtLive.length===1?'its':'their')+' own files are encrypted. vSphere will not export an encrypted VM and the ESXi host locks a running disk, so '+(vtLive.length===1?'it':'they')+' cannot be copied while running without VDDK. Choose one: set up VDDK below to copy '+(vtLive.length===1?'it':'them')+' live like the others, or copy '+(vtLive.length===1?'it':'them')+' at the cutover while shut down. The other VMs are not affected.','vtpm');}}
+    if(vtOff.length){var gb=0;vtOff.forEach(function(vm){gb+=vm.usedBytes||0;});add('ok',names(vtOff)+': copied at '+(vtOff.length===1?'its':'their')+' cutover, while shut down (about '+formatBytesShort(gb)+' in all). Each one is off for as long as its whole copy takes, and has no test cutover before then. Schedule '+(vtOff.length===1?'its':'their')+' wave in a maintenance window.','vtpmoff');}
     var off=picked.filter(function(vm){return vm.powerState!=='poweredOn';}).length;if(off){add('ok',vmPlural(off,'VM')+' '+(off===1?'is':'are')+' turned off: '+(off===1?'it is':'they are')+' copied as they are.');}
     return list;
   }
@@ -8340,7 +8361,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     if(nw.step===4&&v.hvRemote){base+='|'+v.hvRemote.serial;}
     if((nw.step===1||nw.step===2)&&v.target){base+='|t'+v.target.serial+(v.target.connected?'c':'')+(v.target.certificate?'x':'')+'|'+(v.move?v.move.vm+(v.move.error||''):'');}
     if(nwSrvMode()){return base+'|srv|'+nwSrvSig()+'|'+nw.target+nw.method;}
-    if(nw.step===4){base+='|'+JSON.stringify(nwChecks())+'|'+JSON.stringify(v.prepareBatch||null)+'|'+(v.running?v.action:'')+(v.cancelRequested?'c':'');}
+    if(nw.step===4){base+='|'+(nwVddk?(nwVddk.ready?'v1':'v0'):'v?')+nw.vddkBusy+nw.vddkMsg+'|'+JSON.stringify(nwChecks())+'|'+JSON.stringify(v.prepareBatch||null)+'|'+(v.running?v.action:'')+(v.cancelRequested?'c':'');}
     return base;
   }
   function renderNw(){
@@ -8681,7 +8702,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     row('What',vmPlural(picked.length,'VM')+' from '+(vmInventory&&vmInventory.server||'')+': '+picked.slice(0,12).map(function(vm){return vm.name;}).join(', ')+(picked.length>12?' and '+(picked.length-12)+' more':'')+' (about '+formatBytesShort(nwUsedBytes())+')',0);
     row('Where',(nwRemote()?'Hyper-V host '+(nw.node||'')+(nwHvr()&&nwHvr().info.cluster?' in cluster '+nwHvr().info.cluster:'')+', run from this computer ('+vmComputer()+')':'This Hyper-V host ('+vmComputer()+')')+(nw.cluster?', highly available in its cluster':'')+'. Disks in '+(nw.copyRoot||'the host\'s default folder')+'; VMs in '+(nw.vmFolder||'the host\'s default folder')+'.',1);
     row('Networks',nwNetworks().map(function(n){var mm=nwMap(n);return n.name+' to '+(mm.sw===null?'?':(mm.sw||'not connected'))+(mm.vlan?' VLAN '+mm.vlan:'');}).join('; ')||'None',1);
-    row('How',(m?m.name:'')+': sync every '+mpDuration(o.syncMinutes*60)+', '+o.concurrency+' at once'+(Number(o.bizMbps)||Number(o.offMbps)?', bandwidth limited':'')+(o.keepMac?', MAC addresses kept':'')+(o.startVms?', new VMs started':'')+(o.ejectMedia&&nwInvType()==='vmware'&&nwPickedVMs().some(function(v){return vmArr(v.mediaImages).length>0;})?', CD/DVD images ejected before copying':'')+(o.disconnectSource&&nwInvType()==='vmware'?', old adapters disconnected after cutover':'')+(o.fixUp&&o.startVms&&nwInvType()==='vmware'?', IP settings put back automatically':'')+'.',2);
+    row('How',(m?m.name:'')+': sync every '+mpDuration(o.syncMinutes*60)+', '+o.concurrency+' at once'+(Number(o.bizMbps)||Number(o.offMbps)?', bandwidth limited':'')+(o.keepMac?', MAC addresses kept':'')+(o.startVms?', new VMs started':'')+(o.ejectMedia&&nwInvType()==='vmware'&&nwPickedVMs().some(function(v){return vmArr(v.mediaImages).length>0;})?', CD/DVD images ejected before copying':'')+(o.disconnectSource&&nwInvType()==='vmware'?', old adapters disconnected after cutover':'')+(o.fixUp&&o.startVms&&nwInvType()==='vmware'?', IP settings put back automatically':'')+(nwOfflineVMs().length?', '+vmPlural(nwOfflineVMs().length,'VM')+' copied at cutover while shut down ('+nwOfflineVMs().map(function(vm){return vm.name;}).join(', ')+')':'')+'.',2);
     var waves=nwWaveList();
     row('When','First copies '+(nw.startMode==='at'?'at '+nw.startAt.replace('T',' '):'now')+'. '+waves.map(function(w){var c=nw.cut[w]||{};return 'Wave '+w+' ('+nwPickedVMs().filter(function(vm){return nwWaveOf(vm.id)===w;}).length+'): '+(c.mode==='at'?'cut over at '+c.at.replace('T',' '):'cut over when you press Cut over');}).join('; ')+'.',3);
     box.appendChild(dl);
@@ -8690,6 +8711,14 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     nwChecks().forEach(function(c){var li=el('li','nw-check '+c.s);li.appendChild(el('span','nw-check-icon',{ok:'OK',warn:'Note',block:'Fix'}[c.s]));li.appendChild(el('span','',c.t));
       if(c.fix==='snapshots'){var b=el('button','secondary-button','Remove snapshots on these VMs…');b.type='button';b.id='nwSnapshots';b.disabled=vmLocked();li.appendChild(b);}
       if(c.fix==='decrypt'){var dn=nwPickedVMs().filter(nwDecryptable).length,db=el('button','secondary-button','Decrypt '+vmPlural(dn,'VM')+'…');db.type='button';db.id='nwDecrypt';db.disabled=vmLocked()||!(vmwareState()||{}).canPrepare;li.appendChild(db);}
+      if(c.fix==='vtpm'){var vb=el('div','nw-fix');
+        var vi=nwInput('nwVddkFolder',nw.vddkFolder,'C:\\VDDK\\VMware-vix-disklib-8.0.3');vi.setAttribute('aria-label','VDDK folder');
+        vb.appendChild(nwField('VDDK folder (copies them while they run)',vi,'VMware does not let this application include VDDK: download VDDK 7.0.3, 8 or 9 for Windows from Broadcom, extract it on this computer and choose its folder. Saved for every copy, as in Help > Settings.'));pathBrowse(vi,{kind:'folder',title:'Choose the folder you extracted the Windows VDDK download into (it holds bin\\vixDiskLib.dll).'});
+        var vs=el('button','secondary-button',nw.vddkBusy?'Checking\u2026':'Check and save');vs.type='button';vs.id='nwVddkSave';vs.disabled=nw.vddkBusy;vb.appendChild(vs);
+        if(nw.vddkMsg||(nwVddk&&nwVddk.folder&&!nwVddk.ready)){vb.appendChild(el('div','helper'+(nwVddk&&nwVddk.ready?'':' error'),nw.vddkMsg||nwVddk.message||''));}
+        var cnt=nwPickedVMs().filter(function(vm){return nwNeedsOffline(vm)&&nw.methods[vm.id]!=='offline';}).length,ob=el('button','secondary-button','Copy '+(cnt===1?'it':'these '+cnt)+' at cutover, while shut down');ob.type='button';ob.id='nwVtpmOffline';vb.appendChild(ob);
+        vb.appendChild(el('span','vm-note',' Or take '+(cnt===1?'it':'them')+' out in What.'));li.appendChild(vb);}
+      if(c.fix==='vtpmoff'){var lb=el('button','link-button','Copy them while they run instead');lb.type='button';lb.id='nwVtpmLive';li.appendChild(lb);}
       if(c.fix==='reread'){var rr=el('button','secondary-button','Read vCenter again');rr.type='button';rr.setAttribute('data-nw-step','0');li.appendChild(rr);}
       if(c.fix==='where'){var gw=el('button','secondary-button',/switch/i.test(c.t)?'Choose the switch in Where':'Connect in Where');gw.type='button';gw.setAttribute('data-nw-step','1');li.appendChild(gw);}
       if(c.fix==='vcpass'){var g=el('button','secondary-button','Sign in again');g.type='button';g.setAttribute('data-nw-step','0');li.appendChild(g);}
@@ -8785,7 +8814,8 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     if(nwRemote()){var hvr=nwHvr();settings.remoteHost=hvr?hvr.host:'';settings.node=nw.node||'';}
     var name=trimText(nw.name),confirm=cfmSend(nw.confirm,nw.name);
     var create=function(){
-      request('POST','/api/plans',{action:'create',name:name,settings:settings,vmIds:ids},function(err,data){
+      var methods={};nwOfflineVMs().forEach(function(vm){methods[vm.id]='offline';});
+      request('POST','/api/plans',{action:'create',name:name,settings:settings,vmIds:ids,methods:methods},function(err,data){
         if(err){fail(err);return;}
         nw.planId=data.id||'';nwStorePlan(nw.planId);nw.statusKind='plan';
         var timed=nwWaveList().filter(function(w){var c=nw.cut[w];return c&&c.mode==='at';}),errors=[];
@@ -9110,14 +9140,14 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
         var tr=el('tr'),c=el('td'),cb=document.createElement('input');cb.type='checkbox';cb.setAttribute('data-nw-row',v.id);cb.checked=!!nwRowsChosen[v.id];cb.setAttribute('aria-label','Select '+v.name);c.appendChild(cb);tr.appendChild(c);
         var n=el('td');n.appendChild(el('strong','',v.name));if(v.copyFolder){n.appendChild(el('span','vm-note',v.copyFolder));}tr.appendChild(n);
         tr.appendChild(mpStateCell(v));
-        var cut=el('td');if(v.state==='done'){cut.appendChild(el('span','',(mpTime(v.cutOver)?'Cut over '+mpTime(v.cutOver):'Cut over')));cut.appendChild(rbSlot(v.name));}else if(mpTime(v.cutoverAt)){cut.appendChild(el('span','mp-chip warning','Cutover at '+mpTime(v.cutoverAt)));}else{cut.appendChild(el('span','vm-note',v.seeded?'Ready when you are':'After its first copy'));}tr.appendChild(cut);
+        var cut=el('td');if(v.state==='done'){cut.appendChild(el('span','',(mpTime(v.cutOver)?'Cut over '+mpTime(v.cutOver):'Cut over')));cut.appendChild(rbSlot(v.name));}else if(mpTime(v.cutoverAt)){cut.appendChild(el('span','mp-chip warning','Cutover at '+mpTime(v.cutoverAt)));}else{cut.appendChild(el('span','vm-note',v.seeded?'Ready when you are':(v.method==='offline'?'Copied at cutover':'After its first copy')));}tr.appendChild(cut);
         tb.appendChild(tr);});
       table.appendChild(tb);var wrap=el('div','vm-table-wrap');wrap.appendChild(table);sec.appendChild(wrap);body.appendChild(sec);
     });
     if(!body.childNodes.length){var none=el('div','vm-note','No VMs in this view. ');var clr=el('button','link-button','Show all');clr.type='button';clr.setAttribute('data-nw-filter','total');none.appendChild(clr);body.appendChild(none);}
     nwSyncCut();
   }
-  function mpCanCutOverView(v){if(v.state==='done'){return 'already cut over';}if(v.state==='testing'){return 'a test VM is running';}if(v.state==='cutting'){return 'being cut over';}if(!v.seeded){return 'its first copy has not finished';}return '';}
+  function mpCanCutOverView(v){if(v.state==='done'){return 'already cut over';}if(v.state==='testing'){return 'a test VM is running';}if(v.state==='cutting'){return 'being cut over';}if(!v.seeded&&v.method!=='offline'){return 'its first copy has not finished';}return '';}
   function nwChosen(){var p=nwPlan();return p?vmArr(p.vms).filter(function(v){return nwRowsChosen[v.id];}):[];}
   function nwCutWhy(){
     var p=nwPlan(),list=nwChosen();if(!p){return 'No migration open.';}if(!list.length){return 'Select the VMs to cut over.';}
@@ -9172,6 +9202,11 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     if(t.id==='nwPickNone'){nw.picks={};renderNwVmList();return;}
     if(t.id==='nwSnapshots'){nwRemoveSnapshots();return;}
     if(t.id==='nwDecrypt'){nwDecrypt();return;}
+    if(t.id==='nwVddkSave'){nwVddkSave();return;}
+    if(t.id==='nwVtpmOffline'){nwPickedVMs().forEach(function(vm){if(nwNeedsOffline(vm)){nw.methods[vm.id]='offline';}});renderNw();return;}
+    if(t.id==='nwVtpmLive'){nwPickedVMs().forEach(function(vm){delete nw.methods[vm.id];});renderNw();return;}
+    if(t.hasAttribute('data-mp-offline')||t.hasAttribute('data-mp-live')){var mpl=nwPlan();if(mpl){mpMethodSwitch(mpl,t,function(body,done){nwPlanAction(body,done);});}return;}
+    if(t.hasAttribute('data-mp-vddk')){openVddkSettings();return;}
     if(t.id==='nwBatchStop'){t.disabled=true;request('POST','/api/vmware/cancel',{},function(err){if(err){t.disabled=false;nw.error=err;renderNwNav();return;}var v=vmwareState();if(v){v.cancelRequested=true;}});return;}
     if(t.hasAttribute('data-nw-filter')){var fl=t.getAttribute('data-nw-filter');nw.statusFilter=(fl===nw.statusFilter||fl==='total')?'':fl;if(nw.statusKind==='servers'){renderNwSrvStatusBody();}else{renderNwStatusBody();}return;}
     if(t.hasAttribute('data-nw-pickwave')){var w=Number(t.getAttribute('data-nw-pickwave')),p=nwPlan();vmArr(p&&p.vms).forEach(function(v){if((v.wave||0)===w&&v.state!=='done'){nwRowsChosen[v.id]=true;}});nwStatusSig='';renderNwStatusBody();return;}
@@ -9204,6 +9239,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     if(t.id==='nwFilter'){nw.filter=t.value;renderNwVmList();return;}
     if(t.id==='nwCopyRoot'){nw.copyRoot=trimText(t.value);renderNwNav();return;}
     if(t.id==='nwVMFolder'){nw.vmFolder=trimText(t.value);renderNwNav();return;}
+    if(t.id==='nwVddkFolder'){nw.vddkFolder=t.value;return;}
     if(t.hasAttribute('data-nw-vlan')){var name=t.getAttribute('data-nw-vlan'),cur=nw.net[name],clean=t.value.replace(/[^0-9]/g,'');if(clean!==t.value){t.value=clean;}if(cur){cur.vlan=clean;}return;}
     if(t.id==='nwName'){nw.name=t.value;var nc=byId('nwConfirm');if(nc){cfmOk(nc,nw.name);if(cfmStyle()==='tick'){nw.confirm=nc.value;}}renderNwNav();return;}
     if(t.id==='nwConfirm'){nw.confirm=t.value;renderNwNav();return;}
@@ -9303,13 +9339,24 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   function mpEjectRetry(plan,vmId,post){var vm=vmArr(plan.vms).filter(function(v){return v.id===vmId;})[0];
     cfmAsk({title:'Eject CD/DVD images',names:[vm?vm.name:vmId],text:['Every VM in plan '+plan.name+' gets its CD/DVD and floppy drives set to a client device, not connected, before its next copy. Each ISO path is recorded first, so it can be put back by hand. Only the drives change.'],button:'Eject and copy again'},function(){
       post({action:'update',id:plan.id,settings:Object.assign({},plan.settings,{ejectMedia:true})},function(err){if(!err){post({action:'sync',id:plan.id,vmIds:[vmId]});}});});}
+  // mpEncHomeRe matches vmEncryptedHomeHint (vmware_replicate.go).
+  var mpEncHomeRe=/Choose the VDDK folder in Help > Settings to copy it while it runs/;
+  // mpMethodSwitch sets a VM's copy method (movebatch.go SetMethod).
+  function mpMethodSwitch(plan,t,post){
+    var off=t.hasAttribute('data-mp-offline'),id=t.getAttribute(off?'data-mp-offline':'data-mp-live'),vm=vmArr(plan.vms).filter(function(v){return v.id===id;})[0],name=vm?vm.name:id;
+    if(!off){post({action:'method',id:plan.id,vmIds:[id],method:''});return;}
+    cfmAsk({title:'Copy '+name+' at cutover',names:[name],text:[name+' is no longer copied while it runs. At its cutover the guest is shut down through VMware Tools, the whole VM is copied and checked while it is off, and the Hyper-V VM is created. It stays off for that whole copy. Nothing changes until the cutover, and you can switch back.'],button:'Copy at cutover'},function(){post({action:'method',id:plan.id,vmIds:[id],method:'offline'});});
+  }
   function mpStateCell(v){
-    var td=el('td'),label=mpStateNames[v.state]||v.state;
+    var td=el('td'),label=v.method==='offline'&&(v.state==='waiting'||v.state==='ready')?'Copies at cutover':(mpStateNames[v.state]||v.state);
     if(v.live){var pct=v.live.percent||0,box=el('div','mp-progress'),bar=el('div','mp-bar active'),fill=el('span','mp-bar-fill');fill.style.width=pct+'%';bar.appendChild(fill);box.appendChild(el('div','',(v.live.cutover?'Cutting over':(v.seeded?'Syncing':'Seeding'))+' '+pct+'%'));box.appendChild(bar);
       var bits=[formatBytesShort(v.live.bytesRead)+' read'];if(v.live.bytesPerSecond){bits.push(formatBytesShort(v.live.bytesPerSecond)+'/s');}if(v.live.secondsLeft){bits.push(mpDuration(v.live.secondsLeft)+' left');}box.appendChild(el('div','mp-progress-text',bits.join(' · ')));td.appendChild(box);}
     else{td.appendChild(el('span','mp-chip '+({ready:'good',done:'good',failed:'danger',testing:'warning'}[v.state]||''),label));}
+    if(v.method==='offline'&&v.state!=='done'){var on=el('div','vm-note','Copied at its cutover, while shut down: vSphere cannot read it while it runs, so it is off for its whole copy. ');if(v.state!=='cutting'){var lv=el('button','link-button','Copy it while it runs instead');lv.type='button';lv.setAttribute('data-mp-live',v.id);lv.title='Needs VDDK for a VM with a virtual TPM';on.appendChild(lv);}td.appendChild(on);}
     if(v.test){td.appendChild(el('span','vm-note','Test VM '+v.test.name+(v.test.vmId?'':' (not finished: end the test to clean up)')+'. Syncs wait until the test ends.'));}
     if(v.error){td.appendChild(el('div','mp-err',v.error));
+      if(v.state!=='done'&&v.method!=='offline'&&mpEncHomeRe.test(v.error)){var vd=el('button','secondary-button','Set up VDDK\u2026');vd.type='button';vd.setAttribute('data-mp-vddk',v.id);vd.title='Opens Help > Settings at the VDDK folder. Then Sync copies '+v.name+' while it runs.';td.appendChild(vd);
+        var of=el('button','secondary-button','Copy at cutover, while shut down');of.type='button';of.setAttribute('data-mp-offline',v.id);of.title=v.name+' is copied only when it is cut over, while it is off';td.appendChild(of);}
       var owner=mpPlanOfVM(v);if(owner&&!(owner.settings||{}).ejectMedia&&v.state!=='done'&&/Tick Eject CD\/DVD and floppy images/.test(v.error)){var ej=el('button','secondary-button','Eject the CD/DVD images and copy again');ej.type='button';ej.setAttribute('data-mp-eject',v.id);ej.title='Turns on Eject CD/DVD and floppy images for this plan and copies '+v.name+' now';td.appendChild(ej);}}
     vmArr(v.notes).slice(-2).forEach(function(n){td.appendChild(el('div','mp-notes',n));});
     if(v.state==='done'){vmFixupStatus(td,v.name);td.appendChild(rbSlot(v.name));}
@@ -9360,7 +9407,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   function mpCutWhy(){
     var p=mpPlan();if(!p){return '';}var ids=mpChosenIds();if(!ids.length){return 'Select the VMs to cut over in the list.';}
     var by={};vmArr(p.vms).forEach(function(v){by[v.id]=v;});
-    for(var i=0;i<ids.length;i++){var v=by[ids[i]];if(v.state==='done'){return v.name+' is already cut over.';}if(v.state==='testing'){return v.name+' has a test VM running: end the test first.';}if(!v.seeded){return v.name+' has not finished its first copy yet.';}if(v.state==='cutting'){return v.name+' is being cut over.';}}
+    for(var i=0;i<ids.length;i++){var v=by[ids[i]];if(v.state==='done'){return v.name+' is already cut over.';}if(v.state==='testing'){return v.name+' has a test VM running: end the test first.';}if(!v.seeded&&v.method!=='offline'){return v.name+' has not finished its first copy yet.';}if(v.state==='cutting'){return v.name+' is being cut over.';}}
     if(!cfmOk(byId('mpConfirm'),p.name,ids.join(','))){return cfmStyle()==='tick'?'Tick "I understand" to cut over the selected VMs.':'Type the plan name, '+p.name+', to confirm.';}
     return '';
   }
@@ -9399,6 +9446,8 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   byId('mpRows').addEventListener('click',function(e){
     var p=mpPlan();if(!p){return;}
     var t=e.target.closest('[data-mp-test]');if(t){vmSetStatus('mpStatus','Making the test VM...',false);mpPost({action:'test',id:p.id,vmIds:[t.getAttribute('data-mp-test')]},'mpStatus');return;}
+    var mm=e.target.closest('[data-mp-offline],[data-mp-live]');if(mm){mpMethodSwitch(p,mm,function(body,done){mpPost(body,'mpStatus',done);});return;}
+    if(e.target.closest('[data-mp-vddk]')){openVddkSettings();return;}
     var ej=e.target.closest('[data-mp-eject]');if(ej){mpEjectRetry(p,ej.getAttribute('data-mp-eject'),function(body,done){mpPost(body,'mpStatus',done);});return;}
     var x=e.target.closest('[data-mp-endtest]');if(x){vmSetStatus('mpStatus','Removing the test VM...',false);mpPost({action:'endTest',id:p.id,vmIds:[x.getAttribute('data-mp-endtest')]},'mpStatus');}
   });
