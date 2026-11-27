@@ -137,6 +137,22 @@ standard input and is kept in memory until **Forget** or exit. If your EDR
 watches remote PowerShell, allow `wsmprovhost.exe` running the Hyper-V and
 FailoverClusters cmdlets above for the admin computers you migrate from.
 
+### VMware VDDK reads (optional)
+
+Only when an operator chooses a VDDK folder in **Help → Settings…**. VDDK is
+not shipped with the application (its license does not allow it); the
+operator downloads it from Broadcom.
+
+| Behaviour | Where | Why |
+| --- | --- | --- |
+| Loads `vixDiskLib.dll` and its dependencies from the chosen folder into the application's own process, after every DLL there passes Windows' Authenticode check with a Broadcom or VMware signer | Computer running the move (Hyper-V host or admin computer) | Reads only the changed blocks of a running VM's snapshot |
+| TLS to vCenter or ESXi (443) and NBDSSL to each ESXi host (TCP 902), read only | Same computer to vSphere | The block reads |
+| VixDiskLib's own log in `%LOCALAPPDATA%\Server Inventory Configuration Manager\VMware\VDDK\Temp` | Same computer | VDDK writes it; it holds no password |
+
+No driver (vstor2) is installed, no VDDK program is started, and nothing runs
+in the VM. If your EDR blocks unknown DLLs, allow the Broadcom-signed VDDK
+folder for the application's executable.
+
 ### Build Hyper-V hosts
 
 **Build Hyper-V hosts** sets up new Hyper-V nodes and failover clusters from

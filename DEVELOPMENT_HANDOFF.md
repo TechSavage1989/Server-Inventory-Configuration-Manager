@@ -1,3 +1,11 @@
+## Unreleased: VMware VDDK reads of running VMs (changed blocks only) — 2026-11-27
+
+- Owner request: explore VDDK so pre-cutover syncs of running VMs read only the CBT changed blocks instead of streaming the whole disk through the export. Rule 58.
+- Licensing: the owner's VDDK 8.0.3 download carries only the VMware General Terms (2023-11-22, section 1.3: internal use only, no sublicensing), so VDDK is not shipped. Operators choose their own extracted VDDK folder in Help > Settings (`/api/vddk`, `Settings\vddk.json`).
+- `vddk.go` (sector source, settings, connection), `vddk_windows.go` (signature check with WinVerifyTrust and Broadcom/VMware signer, version 7.0.3+, LoadLibraryEx, VixDiskLib through syscalls with the header's pack-4 offsets, NBDSSL only, read only, no PrepareForAccess), `vddk_other.go`. Rounds try VDDK first, then the datastore read, then the export.
+- Tests: `vddk_test.go` (vcsim with a fake session: seed, a changed-block round reading one chunk, fallback when VDDK cannot connect), `vddk_windows_test.go` (unsigned and Microsoft-signed DLLs refused), workspace check for the setting.
+- Not field-validated: real VixDiskLib calls (struct offsets, UID login, SHA-1 thumbprint, nbdssl to port 902) against vCenter and ESXi with VDDK 7.0.3, 8.0.3 and 9.
+
 ## Unreleased: a missing CD/DVD image no longer stops copies of running VMware VMs — 2026-11-26
 
 - Field report on 3.2.37: EPICHyperspaceLocal's migration plan failed. The datastore refused the running disk (500), and the snapshot export fallback failed with "File ds:///vmfs/volumes/.../ISO Files/SW_DVD9_Win_Server_STD_CORE_2022....ISO was not found": vSphere's export opens every file the snapshot's devices name, and the VM's CD/DVD drive still named a deleted ISO (shown as not connected, because a missing file cannot connect). The export cannot leave a device out.
@@ -21,7 +29,7 @@ Owner asked to publish ("publish") after the MATCHC-DC01 fix, then to release ev
 
 ## Unreleased: move file shares between two other servers from an admin computer — 2026-11-27
 
-- Owner asked whether file shares can move from one remote machine to another without running the application on the new server. Move file shares now has **New server: Another server** (AGENTS rule 58). The admin computer runs the signed `Invoke-ShareMigrationRemote.ps1` (RemoteSigned), which runs the existing engine inside the new server through PowerShell remoting, so the new server copies straight from the old one with Robocopy: files cross the network once, nothing is installed, and the old server's account is typed because of the double hop.
+- Owner asked whether file shares can move from one remote machine to another without running the application on the new server. Move file shares now has **New server: Another server** (AGENTS rule 59). The admin computer runs the signed `Invoke-ShareMigrationRemote.ps1` (RemoteSigned), which runs the existing engine inside the new server through PowerShell remoting, so the new server copies straight from the old one with Robocopy: files cross the network once, nothing is installed, and the old server's account is typed because of the double hop.
 - **Keep copying until cutover** (15 minutes to 24 hours, while the application is open) works for both targets. New migration has the target **Another file server** with its own steps.
 - Validation: Linux `go vet`, the platform-independent Go tests, a Windows cross-build and test compile, the workspace checks (new "Migrate from an admin computer" check and the fileremote hand-off). `scripts/Test-Migration.ps1` and `TestMigrateToAnotherServerFromAnAdminComputer` run through the remote runner to localhost on the Windows runner. Not field-validated: two real servers across a domain, a new server in another domain or workgroup.
 

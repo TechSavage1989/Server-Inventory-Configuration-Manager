@@ -428,6 +428,8 @@ Reports stay in the selected output folder. Updates preserve your executable pat
 
 The choice is saved for your Windows account in `Settings\interface.json`. Whichever you choose, every request still names the VM, plan, job or number of servers it applies to and the application checks it, so a stale page can never act on the wrong one. Wherever this README says an action asks you to confirm, it uses this setting.
 
+**Faster copies of running VMware VMs (optional).** Copies of a running VMware VM normally stream the whole disk through vSphere's export each round, because ESXi locks the disk. If you download VMware's Virtual Disk Development Kit (VDDK 7.0.3, 8 or 9 for Windows) from Broadcom and choose its folder under **Help → Settings…**, each round reads only the blocks that changed, straight from the ESXi host (NBDSSL, TCP 902). VMware's license does not allow VDDK to be included in this application. Every DLL in the folder must carry VMware's or Broadcom's signature, nothing is installed, and when VDDK cannot connect a round reads the disk the usual way. The folder is saved in `Settings\vddk.json`.
+
 The application was renamed from Server Inventory Configuration Manager to **Server Inventory and Migration Manager** in 3.2.20. The executable (`Server-Inventory-Configuration-Manager.exe`), the settings folder above and the download address keep their original names, so existing copies keep updating themselves and keep their settings and shortcuts.
 
 ### Desktop behavior
