@@ -76,13 +76,16 @@ func TestProductionReserveStopAndGrowth(t *testing.T) {
 	if got := s.StopLevel(tb); got != tb/100*5 {
 		t.Fatalf("stop level %d", got)
 	}
-	if got := s.Growth(10 * pgGiB); got != 4*pgGiB {
+	if got := s.Growth(10*pgGiB, tb); got != 4*pgGiB {
 		t.Fatalf("a small VM's growth is at least 4 GB, got %d", got)
 	}
-	if got := s.Growth(500 * pgGiB); got != 50*pgGiB {
+	if got := s.Growth(500*pgGiB, tb); got != 50*pgGiB {
 		t.Fatalf("growth is 10%% of the disks, got %d", got)
 	}
-	if s.Growth(0) != 0 {
+	if got := s.Growth(4*pgGiB, 4*pgGiB); got != pgGiB {
+		t.Fatalf("the minimum is at most a quarter of a small volume, got %d", got)
+	}
+	if s.Growth(0, tb) != 0 {
 		t.Fatal("no disks there, no growth")
 	}
 }
@@ -394,6 +397,13 @@ func TestAgentRoundWaitsForSpaceOnTheServer(t *testing.T) {
 	if err := a.checkSpace(replJobSpec{}, []string{"1"}); err != nil {
 		t.Fatalf("other disks are not checked: %v", err)
 	}
+	// A small volume with most of it free is not held forever: the reserve
+	// is at most half of it and the growth at most a quarter.
+	platform.disks[0].Volumes[0].Length = 4 * pgGiB
+	a.spaceFree = func(string) (uint64, uint64, bool) { return uint64(39) * uint64(pgGiB) / 10, uint64(4 * pgGiB), true }
+	if err := a.checkSpace(replJobSpec{}, []string{"0"}); err != nil {
+		t.Fatalf("a nearly empty 4 GB volume must not be held: %v", err)
+	}
 	if (&replSpace{ReservePercent: 51}).validate() == nil {
 		t.Fatal("over 50% is refused")
 	}
@@ -451,7 +461,7 @@ func TestVMwareRoundWaitsForDatastoreSpaceBeforeItsSnapshot(t *testing.T) {
 	}
 	// A growth estimate larger than any datastore holds the round.
 	s := defaultPGSettings()
-	s.GrowthMinGB = 10000
+	s.GrowthPercent = 100000000
 	guard := newPGGuard(s)
 	options := vmReplicaOptions{Datacenter: "ha-datacenter", Folder: filepath.Join(t.TempDir(), "replica"), EnableCBT: true, RecordFolder: t.TempDir(), Space: guard, SpaceOwner: "app01"}
 	_, err = vmReplicateRound(ctx, client, ref, options)

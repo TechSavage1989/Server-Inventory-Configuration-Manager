@@ -206,13 +206,19 @@ func pgLevel(capacity int64, percent, gb int) int64 {
 	return level
 }
 
-// Growth estimates how much a snapshot of vmBytes of disks grows in a round.
-func (s pgSettings) Growth(vmBytes int64) int64 {
+// Growth estimates how much a snapshot of vmBytes of disks grows in a round
+// on a volume of capacity bytes (0 when unknown). The minimum is never more
+// than a quarter of the volume, so a small volume is not held forever.
+func (s pgSettings) Growth(vmBytes, capacity int64) int64 {
 	if vmBytes <= 0 {
 		return 0
 	}
 	growth := vmBytes / 100 * int64(s.GrowthPercent)
-	if min := int64(s.GrowthMinGB) * pgGiB; growth < min {
+	min := int64(s.GrowthMinGB) * pgGiB
+	if capacity > 0 && min > capacity/4 {
+		min = capacity / 4
+	}
+	if growth < min {
 		growth = min
 	}
 	return growth
@@ -330,7 +336,7 @@ func (g *pgGuard) Admit(owner string, volumes []pgVolume) (*pgClaim, error) {
 		}
 		need := int64(0)
 		if !v.Target {
-			need = s.Growth(v.VMBytes)
+			need = s.Growth(v.VMBytes, v.Capacity)
 		}
 		others := int64(0)
 		running := 0
