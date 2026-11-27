@@ -1,3 +1,7 @@
+## 3.3.0-test.5 release preparation — 2026-11-27
+
+3.3.0-test.4 was published 20:12 UTC from test `1c967f3` (release run 46059649488, signed prerelease, EXE SHA-256 `6f0e7f99b2d13dc3841c604836f253ebe0d93e2006e47e67d0f510167f206af7`; the stable feed stayed 3.2.40). Test.5 adds #209 (console Copy out), #214 (SQL and DC check failures on one line in the wave go/no-go) and #216 (test port of #215: changed-block reads after a stopped round, read method per disk, 5-minute syncs, VDDK-aware retries, kept plan fields, Tested fixes). Version 3.3.0-test.5 in `main.go` and `release/VERSION`; collector stays 3.3.0. Notes in `docs/release-notes/3.3.0-test.5.md`.
+
 ## Unreleased: visible changed-block reads, 5-minute syncs, VDDK-aware retries — 2026-11-27
 
 - Owner on 3.3.0-test.3: "i can't even tell if VDDK changed block sync is even working"; MATCHC-DC02's last round read all 90 GB. Cause: a round that stopped part way left the copy record unfinished, and the next round silently read the whole disk. `vmReplicaPlanDisk` now reads everything changed since the last whole copy's change ID instead, and every full read gives its reason (AGENTS rule 70). Hyper-V RCT accepts an unfinished copy the same way.
