@@ -9041,7 +9041,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     free.sort(cmp);off.sort(cmp);
     if(free.length){list.appendChild(nwVmTable(free,true));}
     else if(shown){list.appendChild(el('div','vm-note','None of these VMs can be moved here. The reasons are below.'));}
-    if(off.length){var d=el('details','nw-vm-off');d.open=keepOpen||!free.length;d.appendChild(el('summary','',vmPlural(off.length,'VM')+' cannot be ticked (already in a plan, blocked or not moved). Show why'));d.appendChild(nwVmTable(off,false));list.appendChild(d);}
+    if(off.length){var d=el('details','nw-vm-off');d.id='nwVmOff';d.open=keepOpen||!free.length;d.appendChild(el('summary','',vmPlural(off.length,'VM')+' cannot be ticked (already in a plan, blocked or not moved). Show why'));d.appendChild(nwVmTable(off,false));list.appendChild(d);}
     if(shown>vmRowLimit){list.appendChild(el('div','vm-note','Showing the first '+vmRowLimit+' of '+shown+'. Search to narrow the list.'));}
     if(!shown){list.appendChild(el('div','vm-note','No VM matches.'));}
     var picked=nwPickedVMs(),count=document.querySelector('[data-nw="count"]');

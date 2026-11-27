@@ -1239,6 +1239,9 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   assert.deepEqual(await order(),['APP01','SQL01','WEB02']);await f.page.locator('[data-nw-sort="ready"]').first().click();{const o=await order();assert.deepEqual(o,['APP01','WEB02','SQL01'],'Readiness sorts ready first: '+o);}
   await f.page.locator('[data-nw-sort="ready"]').first().click();assert.equal(await f.page.locator('#nwVmList table').first().locator('th[aria-sort="descending"]').count(),1);
   assert(!await f.page.locator('[data-nw-pick="vm-legacy03"]').isVisible(),'a VM that cannot move is folded away');await f.page.locator('.nw-vm-off summary').click();assert(await f.page.locator('[data-nw-pick="vm-legacy03"]').isVisible());
+  // A redraw from the live refresh keeps it open (owner, 2026-11-27: it folded by itself after a few seconds).
+  await f.page.evaluate(()=>{window.__nwBefore=document.querySelector('#nwVmOff');});f.state.vmware.canPrepare=!f.state.vmware.canPrepare;
+  await f.page.waitForFunction(()=>document.querySelector('#nwVmOff')!==window.__nwBefore,null,{timeout:10000});assert(await f.page.locator('#nwVmOff').evaluate(d=>d.open),'Show why stays open through a redraw');
   assert((await f.page.locator('[data-nw-pick="vm-sql01"]').locator('xpath=ancestor::tr').textContent()).includes('1 snapshot'),'a Review first VM says why');
   await f.page.locator('#nwPickShown').check();assert((await f.page.locator('[data-nw="count"]').textContent()).startsWith('3 VMs ticked'));await readmeShot(f,'new-migration.png');
   await f.page.locator('#nwNext').click();const done=await f.page.locator('.nw-stepper-item.done').first().textContent();assert(done.includes('3 VMs'),'the step bar sums up a finished step: '+done);
