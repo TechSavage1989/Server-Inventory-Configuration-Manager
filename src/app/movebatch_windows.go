@@ -170,7 +170,7 @@ func (t *mbHostTarget) Round(ctx context.Context, plan *mbPlan, vm *mbVM, cutove
 	a.mu.Unlock()
 	board, prefix := a.moveProgress(m, folder)
 	result, err := a.runMoveRound(ctx, inventory, m, vmConnectOptions{Server: server, User: user, Password: password, Thumbprint: thumbprint, UserAgent: displayName + " " + appVersion, AppVersion: appVersion},
-		vmMoveRequest{VMID: m.ID, Name: m.Name, Datacenter: m.Datacenter, CopyFolder: folder, Quiesce: plan.Settings.Quiesce, Cutover: cutover,
+		vmMoveRequest{VMID: m.ID, Name: m.Name, Datacenter: m.Datacenter, CopyFolder: folder, Quiesce: plan.Settings.Quiesce, Cutover: cutover, EjectMedia: plan.Settings.EjectMedia,
 			RecordFolder: filepath.Join(a.vmwareRoot(), safeName(strings.ToLower(plan.Server)), "Move"), Throttle: throttle,
 			Progress: func(disk string, p vmCopyProgress) { board(disk, p); progress(disk, p) }}, log)
 	a.copyTransfers().EndRunning(prefix, err, errors.Is(err, context.Canceled), err == nil && cutover)

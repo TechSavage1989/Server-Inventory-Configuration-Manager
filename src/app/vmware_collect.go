@@ -718,6 +718,9 @@ func vmFromManagedObject(machine mo.VirtualMachine, datacenter string, hostNames
 			}
 			vm.NICs = append(vm.NICs, nic)
 		case *types.VirtualCdrom:
+			if backing, ok := base.Backing.(*types.VirtualCdromIsoBackingInfo); ok && strings.TrimSpace(backing.FileName) != "" {
+				vm.MediaImages = append(vm.MediaImages, backing.FileName)
+			}
 			if !connected(base) {
 				continue
 			}
@@ -728,8 +731,15 @@ func vmFromManagedObject(machine mo.VirtualMachine, datacenter string, hostNames
 				vm.ConnectedMedia = append(vm.ConnectedMedia, label(base)+" (host or client device)")
 			}
 		case *types.VirtualFloppy:
+			if backing, ok := base.Backing.(*types.VirtualFloppyImageBackingInfo); ok && strings.TrimSpace(backing.FileName) != "" {
+				vm.MediaImages = append(vm.MediaImages, backing.FileName)
+			}
 			if connected(base) {
-				vm.ConnectedMedia = append(vm.ConnectedMedia, label(base))
+				if backing, ok := base.Backing.(*types.VirtualFloppyImageBackingInfo); ok && strings.TrimSpace(backing.FileName) != "" {
+					vm.ConnectedMedia = append(vm.ConnectedMedia, vmMediaFileName(backing.FileName))
+				} else {
+					vm.ConnectedMedia = append(vm.ConnectedMedia, label(base))
+				}
 			}
 		case *types.VirtualPCIPassthrough:
 			name := label(base)

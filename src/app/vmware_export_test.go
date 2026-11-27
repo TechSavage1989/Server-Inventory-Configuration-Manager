@@ -17,6 +17,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/property"
 	"github.com/vmware/govmomi/session"
 	"github.com/vmware/govmomi/simulator"
@@ -282,6 +283,80 @@ func TestReplicationReadsTheSnapshotExportWhenTheDatastoreRefusesTheDisk(t *test
 	}
 	if _, err := vmReplicateRound(ctx, client, ref, options); err == nil || !strings.Contains(err.Error(), "500") || !strings.Contains(err.Error(), "no export privilege") {
 		t.Fatalf("a failed fallback did not give both reasons: %v", err)
+	}
+
+	// A CD/DVD drive naming an ISO that no longer exists makes vSphere's
+	// export fail (EPICHyperspaceLocal, 2026-11-26). Without the tick the
+	// error says how to fix it; with it the round sets the drive to a client
+	// device first, records the ISO, and the export works.
+	vmObject := object.NewVirtualMachine(client, ref)
+	devices, err := vmObject.Device(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ide, err := devices.FindIDEController("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cdrom, err := devices.CreateCdrom(ide)
+	if err != nil {
+		t.Fatal(err)
+	}
+	iso := "[LocalDS_0] ISO Files/missing.iso"
+	cdrom = devices.InsertIso(cdrom, iso)
+	cdrom.Connectable = &types.VirtualDeviceConnectInfo{StartConnected: true, AllowGuestControl: true}
+	if err := vmObject.AddDevice(ctx, cdrom); err != nil {
+		t.Fatal(err)
+	}
+	vmOpenSnapshotExport = func(ctx context.Context, client *vim25.Client, snapshot types.ManagedObjectReference, total int64, log func(string)) (vmSnapshotExport, error) {
+		var frozen mo.VirtualMachineSnapshot
+		property.DefaultCollector(client).RetrieveOne(ctx, snapshot, []string{"config"}, &frozen)
+		if len(vmImageMedia(frozen.Config.Hardware.Device)) > 0 {
+			return nil, errors.New("File ds:///vmfs/volumes/x/ISO Files/missing.iso was not found")
+		}
+		current, _ := os.ReadFile(flatPath)
+		stream := vmStreamBytes(t, current)
+		return &vmFakeExport{disks: []vmExportDisk{{Key: "/" + ref.Value + "/" + strconv.Itoa(int(diskKey))}}, body: func() []byte { return stream }}, nil
+	}
+	if _, err := vmReplicateRound(ctx, client, ref, options); err == nil || !strings.Contains(err.Error(), "missing.iso") || !strings.Contains(err.Error(), vmEjectMediaHint) {
+		t.Fatalf("a missing ISO did not end in the eject hint: %v", err)
+	}
+	records := t.TempDir()
+	options.EjectMedia, options.RecordFolder = true, records
+	ejected, err := vmReplicateRound(ctx, client, ref, options)
+	if err != nil {
+		t.Fatalf("the round with Eject ticked failed: %v", err)
+	}
+	if len(ejected.EjectedMedia) != 1 || !strings.Contains(ejected.EjectedMedia[0], iso) {
+		t.Fatalf("the round did not report the ejected ISO: %v", ejected.EjectedMedia)
+	}
+	devices, _ = vmObject.Device(ctx)
+	clients := 0
+	for _, device := range devices.SelectByType((*types.VirtualCdrom)(nil)) {
+		base := device.GetVirtualDevice()
+		switch base.Backing.(type) {
+		case *types.VirtualCdromIsoBackingInfo:
+			t.Fatal("the CD/DVD drive still names the ISO")
+		case *types.VirtualCdromRemotePassthroughBackingInfo:
+			if base.Connectable == nil || base.Connectable.Connected || base.Connectable.StartConnected {
+				t.Fatalf("the ejected drive is still set to connect: %#v", base.Connectable)
+			}
+			clients++
+		}
+	}
+	if clients != 1 {
+		t.Fatalf("%d drives were set to a client device, want 1", clients)
+	}
+	found := false
+	entries, _ := os.ReadDir(records)
+	for _, entry := range entries {
+		raw, _ := os.ReadFile(filepath.Join(records, entry.Name()))
+		if strings.HasSuffix(entry.Name(), "-media.json") && strings.Contains(string(raw), "missing.iso") {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("no record kept the ISO's path before it was ejected: %v", entries)
 	}
 }
 

@@ -149,7 +149,7 @@ func (t *mbHostTarget) remoteRound(ctx context.Context, plan *mbPlan, vm *mbVM, 
 	a.mu.Lock()
 	connect := vmConnectOptions{Server: a.vmware.server, User: a.vmware.account, Password: a.vmware.password, Thumbprint: a.vmware.thumbprint, UserAgent: displayName + " " + appVersion, AppVersion: appVersion}
 	a.mu.Unlock()
-	result, err := a.hvRemoteRound(ctx, hv, m, node, copyLocal, copyAdmin, cutover, plan.Settings.Quiesce && !cutover, need, false, vmReceiverLink{}, nil, copyLocal+" on "+node, connect, throttle, progress, log)
+	result, err := a.hvRemoteRound(ctx, hv, m, node, copyLocal, copyAdmin, cutover, plan.Settings.Quiesce && !cutover, plan.Settings.EjectMedia, need, false, vmReceiverLink{}, nil, copyLocal+" on "+node, connect, throttle, progress, log)
 	connect.Password = ""
 	if result != nil {
 		result.Host = node

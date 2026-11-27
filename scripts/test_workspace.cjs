@@ -1840,6 +1840,7 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
  }finally{await f.close();}});
  await check('New migration: one sequence of screens picks VMs, fills the target, maps networks, recommends the way, sets waves and timed cutovers, checks, and starts a migration plan with one tick box (the default confirmation)',async()=>{const f=await fixture(browser);try{f.state.ui={schema:1,confirmStyle:'tick'};
   f.vm.inventory=vmwareInventoryFixture();f.vm.plan=vmwarePlanFixture();f.vm.inventory.vms[1].snapshots=[{name:'before patch',created:'2026-10-06T00:00:00Z'}];
+  f.vm.inventory.vms.find(v=>v.id==='vm-app01').mediaImages=['[DS-SSD-01] ISO Files/en_windows_server_2022.iso'];
   f.state.vmware=Object.assign(vmwareIdle(),{status:'connected',server:'vc01.example.com',account:'administrator@vsphere.local',summary:vmwareSummaryFixture(),inventorySerial:1,canPrepare:true,hyperVHere:true,hostStorage:{known:true,vhdPath:'D:\\Hyper-V\\Disks',vmPath:'D:\\Hyper-V',clustered:false,volumes:[{path:'D:\\',freeBytes:1099511627776,totalBytes:2199023255552,csv:false}]}});
   await f.page.keyboard.press('Alt+5');assert.equal(await f.page.locator('[data-tool="wizard"]').getAttribute('aria-pressed'),'true','New migration is the first thing in Migration and replication');
   assert(await f.page.locator('#toolsAdvancedTitle').isVisible(),'the separate tools are listed under Tools (advanced)');
@@ -1863,7 +1864,8 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   assert((await f.page.locator('[data-nw-method="plans"]').textContent()).includes('Recommended'));assert((await f.page.locator('[data-nw-method="plans"]').textContent()).includes('Pick this when'));
   assert(await f.page.locator('#nwAdvanced').isVisible());assert(await f.page.locator('#nwSync').isHidden(),'advanced options stay folded');
   await f.page.locator('[data-nw-method="movevms"]').click();assert.equal((await f.page.locator('#nwNext').textContent()),'Continue in Move VMs','another way hands off, and says so');assert(!(await f.page.locator('#nwStep').textContent()).includes('Options for a migration plan'),'only the chosen way\'s options are shown');
-  await f.page.locator('[data-nw-method="plans"]').click();await f.page.screenshot({path:out+'/new-migration-how-1440x1000.png'});await f.page.locator('#nwAdvanced summary').click();await f.page.locator('#nwSync').selectOption('30');
+  await f.page.locator('[data-nw-method="plans"]').click();await f.page.screenshot({path:out+'/new-migration-how-1440x1000.png'});
+  {assert(await f.page.locator('#nwEject').isChecked(),'ejecting CD/DVD images is offered, ticked, for a VM whose drive names an ISO');const t=await f.page.locator('label:has(#nwEject)').textContent();assert(t.includes('APP01: en_windows_server_2022.iso')&&t.includes('no longer exists'),t);}await f.page.locator('#nwAdvanced summary').click();await f.page.locator('#nwSync').selectOption('30');
   await f.page.locator('#nwNext').click();
   const at=new Date(Date.now()+48*3600000),pad=n=>String(n).padStart(2,'0'),local=at.getFullYear()+'-'+pad(at.getMonth()+1)+'-'+pad(at.getDate())+'T22:00';
   const waves=await f.page.locator('[data-nw-cutmode]').evaluateAll(n=>n.map(x=>x.getAttribute('data-nw-cutmode')));assert(waves.length>=1);
@@ -1884,7 +1886,7 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   await f.page.waitForFunction(()=>document.querySelector('.nw-stepper-item.current')&&document.querySelector('.nw-stepper-item.current').textContent==='6Status',null,{timeout:15000});
   const saved=f.vmwareCalls.filter(c=>c.action==='plan'&&c.method==='POST').pop();const net=saved.body.plan.networks.find(n=>n.source==='VM-Servers');assert.equal(net.targetName,'Isolated');assert.equal(net.targetVlan,'20');
   assert(saved.body.plan.vms.find(v=>v.id==='vm-sql01').manual,'a wave changed here is kept by later suggestions');
-  const created=f.planCalls.find(c=>c.body.action==='create');assert.deepEqual(created.body.vmIds.sort(),['vm-app01','vm-sql01']);assert.equal(created.body.settings.copyRoot,'D:\\Hyper-V\\Disks');assert.equal(created.body.settings.syncMinutes,30);assert.equal(created.body.settings.disconnectSource,true);
+  const created=f.planCalls.find(c=>c.body.action==='create');assert.deepEqual(created.body.vmIds.sort(),['vm-app01','vm-sql01']);assert.equal(created.body.settings.copyRoot,'D:\\Hyper-V\\Disks');assert.equal(created.body.settings.syncMinutes,30);assert.equal(created.body.settings.disconnectSource,true);assert.equal(created.body.settings.ejectMedia,true,'the Eject tick reaches the plan');
   const cut=f.planCalls.find(c=>c.body.action==='cutover');assert(cut,'the timed cutover is scheduled at Start');assert.equal(cut.body.confirm,name);assert.equal(cut.body.vmIds.length,1);assert.equal(new Date(cut.body.at).getHours(),22);
   await f.page.waitForSelector('[data-nw-filter="total"]');assert((await f.page.locator('#nwStatusHead').textContent()).includes(name));
   assert(await f.page.locator('#nwCutNow').isDisabled());
@@ -2094,6 +2096,14 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
    assert(await f.page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'plans overflow at '+size.width);
    await f.page.locator('#mpCutNow').scrollIntoViewIfNeeded();assert(await f.page.locator('#mpCutNow').isVisible());}
   f.plans.plans[0].vms[2].error='Datastore DS-NL-02 could not be reached; the next round retries in 10 minutes.';await f.page.waitForFunction(()=>document.querySelector('#mpRows .mp-err').textContent.startsWith('Datastore'),null,{timeout:15000});
+  assert.equal(await f.page.locator('[data-mp-eject]').count(),0,'no eject button for an unrelated failure');
+  // A missing ISO stopped vSphere's export: one button turns Eject on for the plan and copies the VM again.
+  f.plans.plans[0].settings=Object.assign({},f.plans.plans[0].settings,{ejectMedia:false});
+  f.plans.plans[0].vms[2].error='Hard disk 1: the server answered 500 Internal Server Error; reading the snapshot through vSphere\'s export also failed: File [DS-NL-02] ISO Files/old.iso was not found. The VM\'s CD/DVD drive 1 ([DS-NL-02] ISO Files/old.iso) names an image file, and vSphere\'s export fails when that file no longer exists. Tick Eject CD/DVD and floppy images (New migration\'s Review, the migration plan\'s settings or Move VMs), then copy again.';
+  await f.page.waitForSelector('[data-mp-eject="vm-web01"]',{timeout:15000});const before=f.planCalls.length;await f.page.locator('[data-mp-eject="vm-web01"]').click();
+  for(let i=0;i<100&&f.planCalls.slice(before).filter(c=>c.body.action==='update'||c.body.action==='sync').length<2;i++){await new Promise(r=>setTimeout(r,50));}
+  {const calls=f.planCalls.slice(before);const up=calls.find(c=>c.body.action==='update'),sy=calls.find(c=>c.body.action==='sync');assert(up&&up.body.settings.ejectMedia===true,'the plan turns Eject on');assert(sy&&sy.body.vmIds.join()==='vm-web01','and copies the VM again');}
+  f.plans.plans[0].vms[2].error='Datastore DS-NL-02 could not be reached; the next round retries in 10 minutes.';
   if(!f.errors.length&&!f.dialogs.length){await f.page.setViewportSize({width:1440,height:1000});await f.page.locator('.mp-body').evaluate(e=>e.scrollTop=0);await f.page.screenshot({path:out+'/migration-plans.png'});}
   assert.deepEqual(f.errors,[]);assert.deepEqual(f.dialogs,[]);
  }finally{await f.close();}});

@@ -242,25 +242,28 @@ type vmMachine struct {
 	Encrypted       bool   `json:"encrypted"`
 	// EncryptionRead is true when the inventory recorded which disks are
 	// encrypted (vmDisk.Encrypted); older saved inventories lack it.
-	EncryptionRead      bool          `json:"encryptionRead,omitempty"`
-	FaultTolerance      bool          `json:"faultTolerance"`
-	ChangeTracking      bool          `json:"changeTracking"`
-	ToolsStatus         string        `json:"toolsStatus"`
-	ToolsRunning        bool          `json:"toolsRunning"`
-	ToolsVersion        string        `json:"toolsVersion"`
-	ProvisionedBytes    int64         `json:"provisionedBytes"`
-	UsedBytes           int64         `json:"usedBytes"`
-	Disks               []vmDisk      `json:"disks"`
-	NICs                []vmNIC       `json:"nics"`
-	Snapshots           []vmSnapshot  `json:"snapshots"`
-	ConsolidationNeeded bool          `json:"consolidationNeeded"`
-	ConnectedMedia      []string      `json:"connectedMedia"`
-	Passthrough         []string      `json:"passthrough"`
-	USBDevices          int           `json:"usbDevices"`
-	SerialPorts         int           `json:"serialPorts"`
-	ParallelPorts       int           `json:"parallelPorts"`
-	GuestDisks          []vmGuestDisk `json:"guestDisks"`
-	Readiness           []vmReadiness `json:"readiness"`
+	EncryptionRead      bool         `json:"encryptionRead,omitempty"`
+	FaultTolerance      bool         `json:"faultTolerance"`
+	ChangeTracking      bool         `json:"changeTracking"`
+	ToolsStatus         string       `json:"toolsStatus"`
+	ToolsRunning        bool         `json:"toolsRunning"`
+	ToolsVersion        string       `json:"toolsVersion"`
+	ProvisionedBytes    int64        `json:"provisionedBytes"`
+	UsedBytes           int64        `json:"usedBytes"`
+	Disks               []vmDisk     `json:"disks"`
+	NICs                []vmNIC      `json:"nics"`
+	Snapshots           []vmSnapshot `json:"snapshots"`
+	ConsolidationNeeded bool         `json:"consolidationNeeded"`
+	ConnectedMedia      []string     `json:"connectedMedia"`
+	// MediaImages are the image files CD/DVD and floppy drives name,
+	// connected or not (a missing ISO cannot connect, vmware_media.go).
+	MediaImages   []string      `json:"mediaImages,omitempty"`
+	Passthrough   []string      `json:"passthrough"`
+	USBDevices    int           `json:"usbDevices"`
+	SerialPorts   int           `json:"serialPorts"`
+	ParallelPorts int           `json:"parallelPorts"`
+	GuestDisks    []vmGuestDisk `json:"guestDisks"`
+	Readiness     []vmReadiness `json:"readiness"`
 	// Hyper-V source (hyperv_source.go); empty for VMware.
 	Source              string `json:"source,omitempty"`
 	Generation          int    `json:"generation,omitempty"`
@@ -746,11 +749,16 @@ func assessVM(vm vmMachine, target string, now time.Time) vmReadiness {
 		}
 		add(vmSeverityWarning, "serial", fmt.Sprintf("%d serial and %d parallel port(s).", vm.SerialPorts, vm.ParallelPorts), action)
 	}
+	if vm.Source != "hyperv" {
+		if idle := vmIdleMediaImages(vm); len(idle) > 0 {
+			add(vmSeverityWarning, "media-image", "A CD/DVD or floppy drive names an image file that is not connected: "+strings.Join(idle, ", ")+". The file may no longer exist, and vSphere's export of a running VM fails when it is missing.", "Tick Eject CD/DVD and floppy images in New migration's Review, the migration plan's settings or Move VMs: the copy then sets the drive to a client device, not connected (the VM's settings are recorded first).")
+		}
+	}
 	if len(vm.ConnectedMedia) > 0 {
 		if hyperV {
 			add(vmSeverityWarning, "media", "Connected DVD media: "+strings.Join(vm.ConnectedMedia, ", ")+".", "Eject the media before migrating. ISO files on the Hyper-V host do not move with the VM.")
 		} else {
-			add(vmSeverityWarning, "media", "Connected CD/DVD media: "+strings.Join(vm.ConnectedMedia, ", ")+".", "Disconnect the media before migrating. ISO files on VMware datastores do not move with the VM.")
+			add(vmSeverityWarning, "media", "Connected CD/DVD media: "+strings.Join(vm.ConnectedMedia, ", ")+".", "Disconnect the media before migrating, or tick Eject CD/DVD and floppy images in New migration's Review, the migration plan's settings or Move VMs. ISO files on VMware datastores do not move with the VM.")
 		}
 	}
 
@@ -952,4 +960,20 @@ func summarizeInventory(inventory *vmInventory) vmInventorySummary {
 		summary.Readiness = append(summary.Readiness, *counts[target])
 	}
 	return summary
+}
+
+// vmIdleMediaImages lists the image files a VM's drives name but do not
+// have connected.
+func vmIdleMediaImages(vm vmMachine) []string {
+	connected := map[string]bool{}
+	for _, name := range vm.ConnectedMedia {
+		connected[strings.ToLower(name)] = true
+	}
+	idle := []string{}
+	for _, file := range vm.MediaImages {
+		if !connected[strings.ToLower(vmMediaFileName(file))] {
+			idle = append(idle, file)
+		}
+	}
+	return idle
 }
