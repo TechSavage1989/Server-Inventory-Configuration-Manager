@@ -225,7 +225,7 @@ func (t *mbHostTarget) Create(ctx context.Context, plan *mbPlan, vm *mbVM, resul
 	}
 	notes = append(notes, a.afterCutover(ctx, m, id, "", plan.Settings.StartVMs, plan.Settings.DisconnectSource, plan.Settings.FixUp,
 		vmConnectOptions{Server: server, User: user, Password: password, Thumbprint: thumbprint, UserAgent: displayName + " " + appVersion, AppVersion: appVersion},
-		filepath.Join(a.vmwareRoot(), safeName(strings.ToLower(plan.Server)), "Move"), log)...)
+		filepath.Join(a.vmwareRoot(), safeName(strings.ToLower(plan.Server)), "Move"), plan.Name, log)...)
 	return id, notes, nil
 }
 
