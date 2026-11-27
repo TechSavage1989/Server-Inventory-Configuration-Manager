@@ -297,7 +297,17 @@ func vddkLoad(folder string) (*vddkLibrary, error) {
 		return nil, err
 	}
 	// Loading the DLL by its full path with the altered search path makes
-	// Windows take its dependencies from the same folder.
+	// Windows take its dependencies from the same folder. That covers only
+	// this load: VixDiskLib later loads diskLibPlugin.dll and
+	// vddkVimAccess.dll itself, and their own dependencies (vmacore,
+	// libcrypto, ...) are searched for in the normal order, which does not
+	// hold the VDDK folder. Without it both fail with 0x7e and every open
+	// fails with 16053 (owner's Hyper-V host, 2026-11-27: "VddkVimAccess was
+	// not loaded during initialization"). SetDllDirectory adds the folder to
+	// this process's search order (and drops the current directory from it).
+	if err := windows.SetDllDirectory(bin); err != nil {
+		return nil, fmt.Errorf("could not add the VDDK folder to the DLL search path: %v", err)
+	}
 	handle, err := windows.LoadLibraryEx(filepath.Join(bin, "vixDiskLib.dll"), 0, windows.LOAD_WITH_ALTERED_SEARCH_PATH)
 	if err != nil {
 		return nil, fmt.Errorf("could not load vixDiskLib.dll: %v", err)
