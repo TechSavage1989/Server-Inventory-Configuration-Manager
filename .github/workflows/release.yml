@@ -1,7 +1,10 @@
 name: Publish Release
+# Stable releases publish from main; signed test prereleases (X.Y.Z-test.N)
+# publish from the long-lived test branch (AGENTS rule 61). Both are signed the
+# same way; only Test-channel installs are ever offered a test build.
 on:
   push:
-    branches: [main]
+    branches: [main, test]
     paths: [release/VERSION]
   workflow_dispatch:
     inputs:
@@ -35,6 +38,9 @@ jobs:
     permissions:
       contents: write
       id-token: write
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      test: ${{ steps.version.outputs.test }}
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
@@ -54,8 +60,15 @@ jobs:
         run: |
           $version='${{ inputs.version }}'
           if(-not $version){$version=(Get-Content .\release\VERSION -Raw).Trim()}
-          if($version -notmatch '^\d+\.\d+\.\d+$'){throw 'Invalid release version'}
+          $isTest=$version -match '^\d+\.\d+\.\d+-test\.[1-9]\d*$'
+          if(-not $isTest -and $version -notmatch '^\d+\.\d+\.\d+$'){throw 'Invalid release version'}
+          # A test build publishes only from the test branch and a stable release
+          # only from main, so neither channel can publish the other's code.
+          $branch='${{ github.ref_name }}'
+          if($isTest -and $branch -ne 'test'){throw "Test builds publish only from the test branch, not $branch"}
+          if(-not $isTest -and $branch -ne 'main'){throw "Stable releases publish only from main, not $branch"}
           "version=$version" | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "test=$($isTest.ToString().ToLowerInvariant())" | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
           $tag="v$version"
           if(git tag --list $tag){throw 'Existing tags are never overwritten'}
           $releases=@(gh release list --limit 100 --json tagName|ConvertFrom-Json)
@@ -212,9 +225,17 @@ jobs:
         shell: powershell
         run: |
           $version='${{ steps.version.outputs.version }}';$tag="v$version"
-          gh release create $tag .\dist\Server-Inventory-Configuration-Manager.exe .\dist\Server-Inventory-Configuration-Manager.exe.sha256.txt .\dist\update-manifest.json .\dist\Server-Inventory-Configuration-Manager.svg .\dist\Server-Inventory-Configuration-Manager.svg.sha256.txt .\dist\Server-Inventory-Configuration-Manager-Illustrator.svg .\dist\Server-Inventory-Configuration-Manager-Illustrator.svg.sha256.txt .\dist\Report-Preview.png .\dist\Report-Preview.png.sha256.txt .\dist\Application-Preview.png .\dist\Application-Preview.png.sha256.txt .\dist\simm-agent-linux-amd64 .\dist\simm-agent-linux-amd64.sha256.txt .\build\go-test-results.txt --draft --target '${{ github.sha }}' --title "Server Inventory and Migration Manager $version" --notes-file ".\docs\release-notes\$version.md"
+          $title="Server Inventory and Migration Manager $version";$pre=@()
+          if('${{ steps.version.outputs.test }}' -eq 'true'){$title+=' (test build)';$pre=@('--prerelease')}
+          gh release create $tag .\dist\Server-Inventory-Configuration-Manager.exe .\dist\Server-Inventory-Configuration-Manager.exe.sha256.txt .\dist\update-manifest.json .\dist\Server-Inventory-Configuration-Manager.svg .\dist\Server-Inventory-Configuration-Manager.svg.sha256.txt .\dist\Server-Inventory-Configuration-Manager-Illustrator.svg .\dist\Server-Inventory-Configuration-Manager-Illustrator.svg.sha256.txt .\dist\Report-Preview.png .\dist\Report-Preview.png.sha256.txt .\dist\Application-Preview.png .\dist\Application-Preview.png.sha256.txt .\dist\simm-agent-linux-amd64 .\dist\simm-agent-linux-amd64.sha256.txt .\build\go-test-results.txt --draft --target '${{ github.sha }}' --title $title @pre --notes-file ".\docs\release-notes\$version.md"
           if($LASTEXITCODE -ne 0){throw 'Release create failed'}
-          gh release edit $tag --draft=false --latest
+          if('${{ steps.version.outputs.test }}' -eq 'true'){
+            # A prerelease never becomes GitHub's latest release, so the stable
+            # feed (releases/latest) keeps naming the newest stable build.
+            gh release edit $tag --draft=false --prerelease --latest=false
+          }else{
+            gh release edit $tag --draft=false --latest
+          }
           if($LASTEXITCODE -ne 0){throw 'Release publish failed'}
       - name: Verify public feed and downloads
         shell: powershell
@@ -235,6 +256,9 @@ jobs:
             build/workspace-validation/
   published-upgrade:
     needs: publish
+    # The published-upgrade check starts from the previous stable release; a
+    # test build is checked by the Test-channel installs that opt in to it.
+    if: needs.publish.outputs.test != 'true'
     runs-on: windows-latest
     timeout-minutes: 25
     permissions:

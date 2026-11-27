@@ -81,7 +81,7 @@ const hvBuildStepCount=hvBuildFixture.steps.length;
 async function fixture(browser,old=false){
  let saved=null,started=[],saveCalls=0,rejectStart=false,skipRequests=[],opens=[],restoreReject=null,migrateReject={},vmwareReject={};const receiverPair={allowed:false};
  const logs=[],dialogs=[],errors=[],restoreCalls={browse:0,scan:[],start:[],cancel:0,tokens:[]},migrateCalls=[],vmwareCalls=[],convertCalls=[],replCalls=[],planCalls=[],serverCalls=[];const servers={rows:[],summary:{total:0,states:{},scheduled:0,methods:{}},bulk:{running:false,action:'',total:0,results:[]},hyperVHere:true,isAdministrator:true,local:{hyperV:true,computer:'HV01',running:false,folder:'',defaultFolder:'C:\\ClusterStorage\\Volume1\\Hyper-V\\Received',port:44380,addresses:['192.0.2.40']}};const plans={plans:[],inventory:{open:true,server:'vc01.example.com',serverType:'vCenter Server',live:true}};let convertReject={},convertSize=0;const pickCalls=[],outputRootCalls=[];let pickReject='';
- const consoleCalls=[],consoleStreams=[],consoleOpt={needSignIn:'',caps:null};const uiCalls=[],vddkCalls=[];let vddk={folder:'',ready:false,loaded:false,message:'Off. Copies of running VMware VMs read whole disks through vSphere\'s export when the datastore refuses them.'};const state={ui:{schema:1,confirmStyle:'typed'},status:'idle',phase:'Ready',running:false,computerName:'SRV-DEMO-01',signedInAccount:'EXAMPLE\\operator',isAdministrator:true,powerShellVersion:'5.1',defaultOutputRoot:'C:\\Reports',update:{status:'current',title:'Up to date',message:'Installed v3.2.10. Latest v3.2.10.',canCheck:true},
+ const consoleCalls=[],consoleStreams=[],consoleOpt={needSignIn:'',caps:null};const uiCalls=[],vddkCalls=[],channelCalls=[];let vddk={folder:'',ready:false,loaded:false,message:'Off. Copies of running VMware VMs read whole disks through vSphere\'s export when the datastore refuses them.'};const state={ui:{schema:1,confirmStyle:'typed'},status:'idle',phase:'Ready',running:false,computerName:'SRV-DEMO-01',signedInAccount:'EXAMPLE\\operator',isAdministrator:true,powerShellVersion:'5.1',defaultOutputRoot:'C:\\Reports',update:{status:'current',title:'Up to date',message:'Installed v3.2.10. Latest v3.2.10.',canCheck:true},
   restore:{status:'idle',packages:{lastCollection:'',loadedReport:''},items:[],logs:[]},migrate:migrateIdle(),vmware:vmwareIdle(),convert:convertIdle()};
  const vm={inventory:null,plan:null,sizing:null,guest:null,compare:null};
  const failover={failovers:[],copies:[{name:'APP01-disk0.vhdx',size:107374182400,complete:true,verified:false,round:'a1@2026-11-25T14:19:23Z',job:'a1',recoveryPoint:'2026-11-25T14:19:23Z',updated:'2026-11-25T14:20:00Z',busy:false,generation:2,machine:{name:'APP01',cpus:6,memoryMB:12288,firmware:'uefi',adapters:2}},{name:'APP01-disk1.vhdx',size:536870912000,complete:true,verified:false,round:'a1@2026-11-25T14:19:23Z',job:'a1',recoveryPoint:'2026-11-25T14:19:23Z',updated:'2026-11-25T14:20:00Z',busy:false,generation:1},{name:'SQL01-disk0.vhdx',size:107374182400,complete:false,verified:false,updated:'2026-11-25T14:20:00Z',busy:true,generation:1}]};
@@ -93,6 +93,13 @@ async function fixture(browser,old=false){
   if(url.pathname==='/'){res.writeHead(200,{'Content-Type':'text/html','Content-Security-Policy':policy});res.end(html);return;}
   const send=(code,data)=>{res.writeHead(code,{'Content-Type':'application/json'});res.end(JSON.stringify(data));};
   if(url.pathname==='/api/state'){const since=Number(url.searchParams.get('since')||0);send(200,{...state,collectionPreferences:saved,logs:logs.slice(since).map((text,i)=>({index:since+i,text})),nextLogIndex:logs.length});return;}
+  if(url.pathname==='/api/update/channel'){
+   if(req.headers['x-app-token']!=='workspace-test'){send(403,{});return;}
+   let body='';for await(const chunk of req)body+=chunk;const data=JSON.parse(body);channelCalls.push(data);
+   const test=data.channel==='test';
+   state.update={...state.update,channel:data.channel,stableVersion:'3.2.10',testVersion:test?'3.3.0-test.2':'',available:test,canDownload:test,latestVersion:test?'3.3.0-test.2':'3.2.10',status:test?'available':'current',title:test?'Test build available':'Up to date',message:test?'Installed 3.2.10. Test build 3.3.0-test.2 is available (you chose the Test channel).':'Installed 3.2.10.'};
+   send(200,{ok:true,update:state.update});return;
+  }
   if(url.pathname==='/api/vddk'){
    if(req.headers['x-app-token']!=='workspace-test'){send(403,{});return;}
    if(req.method==='GET'){send(200,{ok:true,vddk});return;}
@@ -296,7 +303,7 @@ async function fixture(browser,old=false){
  const url='http://127.0.0.1:'+server.address().port+'/';
  // A fixture that fails to load closes its own server and context; otherwise Node never exits and the job hangs until its timeout.
  try{await page.goto(url);await page.waitForFunction(()=>document.querySelector('#serverName').textContent==='SRV-DEMO-01');}catch(e){await context.close().catch(()=>{});server.close();throw new Error('Fixture page did not load ('+errors.concat(dialogs).join('; ')+'): '+e.message);}
- return {consoleCalls,consoleStreams,consoleOpt,page,context,state,uiCalls,vddkCalls,pickCalls,outputRootCalls,rejectPick(message){pickReject=message},vm,repl,plans,planCalls,servers,serverCalls,failover,receiverPair,targetTest,replCalls,vmwareCalls,convertCalls,rejectConvert(action,message){convertReject[action]=message},setConvertSize(size){convertSize=size},rejectVmware(action,message){vmwareReject[action]=message},logs,dialogs,errors,started,skipRequests,opens,restoreCalls,migrateCalls,rejectMigrate(action,message){migrateReject[action]=message},rejectRestore(message){restoreReject=message},get saved(){return saved},get saveCalls(){return saveCalls},reject(){rejectStart=true},async close(){assert.deepEqual(errors,[]);await context.close();await new Promise(r=>server.close(r));}};
+ return {consoleCalls,consoleStreams,consoleOpt,page,context,state,uiCalls,vddkCalls,channelCalls,pickCalls,outputRootCalls,rejectPick(message){pickReject=message},vm,repl,plans,planCalls,servers,serverCalls,failover,receiverPair,targetTest,replCalls,vmwareCalls,convertCalls,rejectConvert(action,message){convertReject[action]=message},setConvertSize(size){convertSize=size},rejectVmware(action,message){vmwareReject[action]=message},logs,dialogs,errors,started,skipRequests,opens,restoreCalls,migrateCalls,rejectMigrate(action,message){migrateReject[action]=message},rejectRestore(message){restoreReject=message},get saved(){return saved},get saveCalls(){return saveCalls},reject(){rejectStart=true},async close(){assert.deepEqual(errors,[]);await context.close();await new Promise(r=>server.close(r));}};
 }
 // Tools live in two tabs: Discovery (Alt+1) and Migration and replication (Alt+5).
 const discoveryTools=['server','environment'];
@@ -2247,6 +2254,24 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   await f.page.setViewportSize({width:1008,height:690});
   assert(await f.page.evaluate(()=>{const d=document.querySelector('#settingsDialog');const r=d.getBoundingClientRect();return r.bottom<=innerHeight&&d.scrollHeight<=d.clientHeight+2||getComputedStyle(d).overflowY!=='visible';}),'Settings scrolls instead of clipping at 1024x768');
   await f.page.locator('#settingsClose').click();assert.deepEqual(f.dialogs,[]);
+ }finally{await f.close();}});
+ await check('Help > Settings opts in to the Test update channel: Stable by default, ticking offers the test build, unticking goes back to Stable',async()=>{const f=await fixture(browser);try{
+  await f.page.locator('#helpMenuButton').click();await f.page.locator('#helpSettings').click();
+  assert(!(await f.page.locator('#updateTestChannel').isChecked()),'Stable is the default');
+  assert(/stable release is offered in its place/.test(await f.page.locator('#updateChannelSettings').textContent()),'the setting explains returning to stable');
+  await f.page.locator('#updateTestChannel').check();
+  await f.page.waitForFunction(()=>/^Saved\. Test channel/.test(document.querySelector('#updateChannelStatus').textContent));
+  assert(/3\.3\.0-test\.2/.test(await f.page.locator('#updateChannelStatus').textContent()));
+  assert(await f.page.locator('#updateBanner').isVisible(),'the update bar offers the test build');
+  assert(/Test build available/.test(await f.page.locator('#updateTitle').textContent()));
+  await f.page.locator('#updateTestChannel').uncheck();
+  await f.page.waitForFunction(()=>/^Saved\. Stable channel/.test(document.querySelector('#updateChannelStatus').textContent));
+  assert(!(await f.page.locator('#updateBanner').isVisible()),'Stable again hides the test build');
+  assert.deepEqual(f.channelCalls,[{channel:'test'},{channel:'stable'}]);
+  await f.page.locator('#settingsClose').click();
+  await f.page.locator('#helpMenuButton').click();await f.page.locator('#helpAbout').click();
+  assert(/Update channel: Stable/.test(await f.page.locator('#aboutChannel').textContent()));
+  assert.deepEqual(f.dialogs,[]);
  }finally{await f.close();}});
  await check('Confirmations follow Help > Settings: a tick box by default, a dialog, the typed name, or none, and every request still carries the name it confirms',async()=>{const f=await fixture(browser);try{
   f.vm.inventory=vmwareInventoryFixture();f.vm.plan=vmwarePlanFixture();f.state.vmware=Object.assign(vmwareIdle(),{status:'connected',server:'vc01.example.com',summary:vmwareSummaryFixture(),inventorySerial:1});
