@@ -12,11 +12,12 @@ import (
 )
 
 // Connect-HyperVConsole.ps1 runs under Windows PowerShell with the
-// RemoteSigned policy the console uses (never Bypass). GitHub runners have no
-// Hyper-V role, so Console mode must answer with one JSON line saying so, a
+// RemoteSigned policy the console uses (never Bypass). For a VM ID the host
+// does not have (or a host without Hyper-V) Console mode must answer with one
+// JSON line saying so, a
 // VM ID that is not a GUID must be refused before anything is read, and the
 // account given on standard input must never reach the output.
-func TestHyperVConsoleScriptRefusesWithoutHyperVAndKeepsTheAccountPrivate(t *testing.T) {
+func TestHyperVConsoleScriptRefusesUnknownVMsAndKeepsTheAccountPrivate(t *testing.T) {
 	folder := t.TempDir()
 	script := filepath.Join(folder, consoleHyperVScriptName)
 	if err := os.WriteFile(script, consoleHyperVScriptData, 0600); err != nil {
@@ -50,13 +51,16 @@ func TestHyperVConsoleScriptRefusesWithoutHyperVAndKeepsTheAccountPrivate(t *tes
 		t.Fatalf("a VM ID that is not a GUID was not refused: %s", text)
 	}
 
+	// Hosted runners may or may not have the Hyper-V role; either way an
+	// unknown VM ID must be refused with the reason.
 	answer, text = run("00000000-0000-4000-8000-000000000000", "Console")
-	if answer["ok"] != false || !strings.Contains(answer["error"].(string), "Hyper-V is not installed") {
-		t.Fatalf("Console mode without Hyper-V did not say so: %s", text)
+	reason, _ := answer["error"].(string)
+	if answer["ok"] != false || !(strings.Contains(reason, "Hyper-V is not installed") || strings.Contains(reason, "has no VM with this ID")) {
+		t.Fatalf("Console mode did not refuse an unknown VM with the reason: %s", text)
 	}
 
-	// Files mode needs PowerShell Direct, which fails without Hyper-V; it must
-	// fail with a JSON answer and never print the account.
+	// Files mode needs PowerShell Direct into that VM, which does not exist; it
+	// must fail with a JSON answer and never print the account.
 	answer, text = run("00000000-0000-4000-8000-000000000000", "Files")
 	if answer["ok"] != false {
 		t.Fatalf("Files mode succeeded without Hyper-V: %s", text)
