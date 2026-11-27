@@ -1,3 +1,7 @@
+## 3.3.0-test.4 release preparation — 2026-11-27
+
+Owner asked to ship all of today's requested changes in the next releases. 3.3.0-test.3 was published 18:40 UTC from test `085fd5c` (release run 46048321455, signed prerelease, EXE SHA-256 `19e4340cbe8fce55ffd02ca13410543c30af015a7fda44e3bb1997a4534f76cd`, 29,452,592 bytes; the stable feed stayed 3.2.40). test.4 adds #205 (VM console Ctrl+V), #207 (save plans during copies, folded Discovery read sections, steadier guest account) and #210 (VDDK plugin loading, start-up diagnosis, one-line errors). Version 3.3.0-test.4 in `release/VERSION` and `appVersion`; collector stays 3.3.0.
+
 ## Unreleased: VDDK start-up diagnosis and one-line errors — 2026-11-27
 
 - Owner on 3.3.0-test.3: DESK21-CPA01/CPA02 rounds failed with VDDK error 16053 (VIX_E_DISK_SUBSYSTEM_INIT_FAIL) after the folder check passed. The owner's VixDiskLib log showed the cause: `Failed to load vddkVimAccess.dll : ErrorCode = 0x7e` and diskLibPlugin.dll not found, because VixDiskLib loads its plugins itself and their dependencies were searched for outside the VDDK folder. `vddkLoad` now calls `SetDllDirectory(bin)` before loading vixDiskLib.dll.
