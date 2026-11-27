@@ -102,7 +102,17 @@ func vmMoveRound(parent context.Context, options vmConnectOptions, request vmMov
 	if role := vmInfrastructureRole(vmMachine{Name: machine.Name, GuestID: guestID, GuestOS: guestName}); role != "" {
 		return result, errors.New("this is " + role + ", which is not migrated")
 	}
+	var vddk *vddkConnect
+	vddkFolder := currentVDDKFolder()
+	if vddkFolder != "" {
+		if vddk, err = vddkConnectFor(ctx, options); err != nil {
+			log("VDDK is not used this round: " + err.Error())
+			vddk = nil
+		}
+	}
 	round, err := vmReplicateRound(ctx, vsphere.client, ref, vmReplicaOptions{
+		VDDK:         vddk,
+		VDDKFolder:   vddkFolder,
 		Datacenter:   request.Datacenter,
 		Folder:       request.CopyFolder,
 		EnableCBT:    true,

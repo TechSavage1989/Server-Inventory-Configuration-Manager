@@ -57,6 +57,10 @@ type vmReplicaOptions struct {
 	// Stage reports the step the round is on (snapshot, copy, cleanup) for
 	// the live progress panel; detail names the disk being copied.
 	Stage func(stage, detail string)
+	// VDDK, when set with VDDKFolder, reads this round's snapshot through
+	// VixDiskLib (vddk.go) first; the round fills in the VM and snapshot.
+	VDDK       *vddkConnect
+	VDDKFolder string
 	// EjectMedia sets CD/DVD and floppy drives that name an image file to a
 	// client device, not connected, before the snapshot (vmware_media.go),
 	// so a missing ISO cannot stop vSphere's export of the snapshot.
@@ -506,7 +510,35 @@ func vmReplicateRound(ctx context.Context, client *vim25.Client, ref types.Manag
 			export.End(roundOK)
 		}
 	}()
+	var vddk vddkSession
+	vddkFailed := options.VDDK == nil || options.VDDKFolder == ""
+	defer func() {
+		if vddk != nil {
+			vddk.Close()
+		}
+	}()
 	openSource := func(disk vmReplicaDisk) (vmCopySource, error) {
+		if !vddkFailed {
+			if vddk == nil {
+				params := *options.VDDK
+				params.VMRef, params.Snapshot = ref.Value, snapshot.Value
+				opened, err := vddkOpenSession(ctx, options.VDDKFolder, params)
+				if err != nil {
+					vddkFailed = true
+					log(fmt.Sprintf("VDDK could not connect to this round's snapshot (%v); reading the disks without it.", err))
+				} else {
+					vddk = opened
+				}
+			}
+			if vddk != nil {
+				opened, err := vddk.Open(disk.file)
+				if err == nil {
+					log(fmt.Sprintf("%s: reading %s through VDDK (%s), only the blocks this round needs.", disk.label, disk.file, opened.Transport()))
+					return newVDDKSource(disk.file, opened), nil
+				}
+				log(fmt.Sprintf("%s: VDDK could not open %s (%v); reading it without VDDK.", disk.label, disk.file, err))
+			}
+		}
 		if export == nil {
 			source, err := openDatastoreVMDK(ctx, client, options.Datacenter, disk.file)
 			if err == nil || !vmFolderRefused(err) {

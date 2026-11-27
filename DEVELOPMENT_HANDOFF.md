@@ -1,3 +1,11 @@
+## Unreleased: VMware VDDK reads of running VMs (changed blocks only) — 2026-11-27
+
+- Owner request: explore VDDK so pre-cutover syncs of running VMs read only the CBT changed blocks instead of streaming the whole disk through the export. Rule 58.
+- Licensing: the owner's VDDK 8.0.3 download carries only the VMware General Terms (2023-11-22, section 1.3: internal use only, no sublicensing), so VDDK is not shipped. Operators choose their own extracted VDDK folder in Help > Settings (`/api/vddk`, `Settings\vddk.json`).
+- `vddk.go` (sector source, settings, connection), `vddk_windows.go` (signature check with WinVerifyTrust and Broadcom/VMware signer, version 7.0.3+, LoadLibraryEx, VixDiskLib through syscalls with the header's pack-4 offsets, NBDSSL only, read only, no PrepareForAccess), `vddk_other.go`. Rounds try VDDK first, then the datastore read, then the export.
+- Tests: `vddk_test.go` (vcsim with a fake session: seed, a changed-block round reading one chunk, fallback when VDDK cannot connect), `vddk_windows_test.go` (unsigned and Microsoft-signed DLLs refused), workspace check for the setting.
+- Not field-validated: real VixDiskLib calls (struct offsets, UID login, SHA-1 thumbprint, nbdssl to port 902) against vCenter and ESXi with VDDK 7.0.3, 8.0.3 and 9.
+
 ## Unreleased: a missing CD/DVD image no longer stops copies of running VMware VMs — 2026-11-26
 
 - Field report on 3.2.37: EPICHyperspaceLocal's migration plan failed. The datastore refused the running disk (500), and the snapshot export fallback failed with "File ds:///vmfs/volumes/.../ISO Files/SW_DVD9_Win_Server_STD_CORE_2022....ISO was not found": vSphere's export opens every file the snapshot's devices name, and the VM's CD/DVD drive still named a deleted ISO (shown as not connected, because a missing file cannot connect). The export cannot leave a device out.
