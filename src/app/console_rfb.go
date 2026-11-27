@@ -1,6 +1,6 @@
 package main
 
-// VM console (rule 63): an RFB (VNC) client for the consoles VMware
+// VM console (rule 68): an RFB (VNC) client for the consoles VMware
 // (WebMKS), Proxmox VE and Nutanix Prism serve. It decodes into the session's
 // framebuffer, which the console window shows; nothing here writes to disk.
 // Encodings: Raw, CopyRect, RRE, Hextile, ZRLE, with the Cursor and

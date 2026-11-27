@@ -1,6 +1,6 @@
 package main
 
-// VM console (rule 63): copying files into and out of a VM from its console
+// VM console (rule 68): copying files into and out of a VM from its console
 // window, using only what is already in the VM. VMware: VMware Tools' file
 // transfer (GuestFileManager InitiateFileTransferToGuest and FromGuest only;
 // never the process manager, so no program is started in the VM). Proxmox VE:

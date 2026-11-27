@@ -1,6 +1,6 @@
 package main
 
-// VM console (rule 63): the VNC-based consoles. VMware's WebMKS ticket,
+// VM console (rule 68): the VNC-based consoles. VMware's WebMKS ticket,
 // Proxmox VE's vncproxy, Nutanix Prism's VNC proxy and HyperCore's VNC port
 // all lead to an RFB stream, which consoleRFBBackend shows. Opening a console
 // changes nothing on the platform: the only calls are AcquireTicket

@@ -81,9 +81,10 @@ const hvBuildStepCount=hvBuildFixture.steps.length;
 async function fixture(browser,old=false){
  let saved=null,started=[],saveCalls=0,rejectStart=false,skipRequests=[],opens=[],restoreReject=null,migrateReject={},vmwareReject={};const receiverPair={allowed:false};
  const logs=[],dialogs=[],errors=[],restoreCalls={browse:0,scan:[],start:[],cancel:0,tokens:[]},migrateCalls=[],vmwareCalls=[],convertCalls=[],replCalls=[],planCalls=[],serverCalls=[];const servers={rows:[],summary:{total:0,states:{},scheduled:0,methods:{}},bulk:{running:false,action:'',total:0,results:[]},hyperVHere:true,isAdministrator:true,local:{hyperV:true,computer:'HV01',running:false,folder:'',defaultFolder:'C:\\ClusterStorage\\Volume1\\Hyper-V\\Received',port:44380,addresses:['192.0.2.40']}};const plans={plans:[],inventory:{open:true,server:'vc01.example.com',serverType:'vCenter Server',live:true}};let convertReject={},convertSize=0;const pickCalls=[],outputRootCalls=[];let pickReject='';
- const consoleCalls=[],consoleStreams=[],consoleOpt={needSignIn:'',caps:null};const uiCalls=[],vddkCalls=[],channelCalls=[];let vddk={folder:'',ready:false,loaded:false,message:'Off. Copies of running VMware VMs read whole disks through vSphere\'s export when the datastore refuses them.'};const state={ui:{schema:1,confirmStyle:'typed'},status:'idle',phase:'Ready',running:false,computerName:'SRV-DEMO-01',signedInAccount:'EXAMPLE\\operator',isAdministrator:true,powerShellVersion:'5.1',defaultOutputRoot:'C:\\Reports',update:{status:'current',title:'Up to date',message:'Installed v3.2.10. Latest v3.2.10.',canCheck:true},
+ const consoleCalls=[],consoleStreams=[],consoleOpt={needSignIn:'',caps:null};const uiCalls=[],vddkCalls=[],channelCalls=[],productionCalls=[];let vddk={folder:'',ready:false,loaded:false,message:'Off. Copies of running VMware VMs read whole disks through vSphere\'s export when the datastore refuses them.'};const state={ui:{schema:1,confirmStyle:'typed'},status:'idle',phase:'Ready',running:false,computerName:'SRV-DEMO-01',signedInAccount:'EXAMPLE\\operator',isAdministrator:true,powerShellVersion:'5.1',defaultOutputRoot:'C:\\Reports',update:{status:'current',title:'Up to date',message:'Installed v3.2.10. Latest v3.2.10.',canCheck:true},
   restore:{status:'idle',packages:{lastCollection:'',loadedReport:''},items:[],logs:[]},migrate:migrateIdle(),vmware:vmwareIdle(),convert:convertIdle()};
  const vm={inventory:null,plan:null,sizing:null,guest:null,compare:null};
+ const rollbackCalls=[];
  const failover={failovers:[],copies:[{name:'APP01-disk0.vhdx',size:107374182400,complete:true,verified:false,round:'a1@2026-11-25T14:19:23Z',job:'a1',recoveryPoint:'2026-11-25T14:19:23Z',updated:'2026-11-25T14:20:00Z',busy:false,generation:2,machine:{name:'APP01',cpus:6,memoryMB:12288,firmware:'uefi',adapters:2}},{name:'APP01-disk1.vhdx',size:536870912000,complete:true,verified:false,round:'a1@2026-11-25T14:19:23Z',job:'a1',recoveryPoint:'2026-11-25T14:19:23Z',updated:'2026-11-25T14:20:00Z',busy:false,generation:1},{name:'SQL01-disk0.vhdx',size:107374182400,complete:false,verified:false,updated:'2026-11-25T14:20:00Z',busy:true,generation:1}]};
  const targetTest={running:false,log:[],error:'',tests:[]};
  const repl={ok:true,pushing:false,pushLog:[],pushResults:null,serial:0,isAdministrator:true,defaultPort:44390,agents:[],summary:{agents:0,unreachable:0,jobs:0,healthy:0,behind:0,failing:0,paused:0,cutOver:0,alerts:0}};
@@ -107,6 +108,12 @@ async function fixture(browser,old=false){
    if(data.folder==='C:\\Bad'){send(400,{ok:false,error:'Not saved: zlib1.dll: its signature is not valid.'});return;}
    vddk=data.folder?{folder:data.folder,ready:true,version:'8.0.3 build 23950268',signer:'Broadcom Inc',loaded:false,message:'VDDK 8.0.3 build 23950268 (signed by Broadcom Inc) is ready. Copies of running VMware VMs read only changed blocks through it.'}:{folder:'',ready:false,loaded:false,message:'Off.'};
    send(200,{ok:true,vddk});return;
+  }
+  if(url.pathname==='/api/production'){
+   if(req.headers['x-app-token']!=='workspace-test'){send(403,{});return;}
+   let body='';for await(const chunk of req)body+=chunk;const data=JSON.parse(body);productionCalls.push(data);
+   if(data.stopPercent>data.reservePercent){send(400,{ok:false,error:'The stop level must not be above the free space kept for production.'});return;}
+   state.production=Object.assign({},state.production||{},{settings:data,limit:'set'});send(200,{ok:true,production:state.production});return;
   }
   if(url.pathname==='/api/ui-settings'){
    let body='';for await(const chunk of req)body+=chunk;
@@ -291,6 +298,14 @@ async function fixture(browser,old=false){
   }
   if(url.pathname==='/api/output-root'){let body='';for await(const chunk of req)body+=chunk;const data=JSON.parse(body);outputRootCalls.push(data);if(data.outputRoot==='Q:\\NoSuchDrive'){send(400,{ok:false,error:'Reports cannot be saved there: synthetic failure.'});return;}state.defaultOutputRoot=data.outputRoot;send(200,{ok:true,outputRoot:data.outputRoot,saved:true});return;}
   if(url.pathname==='/api/pick'){let body='';for await(const chunk of req)body+=chunk;const data=JSON.parse(body);pickCalls.push(data);if(pickReject){send(400,{ok:false,error:pickReject});return;}send(200,{ok:true,selected:true,path:data.kind==='remote'?'C:\\ClusterStorage\\Volume1\\Picked':data.kind==='file'?'E:\\Media\\receiver.iso':'E:\\Picked'});return;}
+  if(url.pathname.startsWith('/api/rollback/')){
+   if(req.headers['x-app-token']!=='workspace-test'){send(403,{});return;}
+   const action=url.pathname.slice('/api/rollback/'.length);
+   if(action==='guides'){send(200,{ok:true,guides:[{id:'movevms',title:'Move VMs, Migration plans and New migration (VMware or Hyper-V to Hyper-V)',automatic:'yes',covers:'VMware and Hyper-V VMs moved to Hyper-V.',steps:['Use Roll back beside the VM below.'],warnings:['Anything written on the new machine since the cutover is not on the old one.']},{id:'shares',title:'Move file shares',automatic:'partly',covers:'Shares moved to a new file server.',steps:['In Move file shares, use Undo read-only on the old server.','Point users back to the old server.'],warnings:[]}]});return;}
+   let body='';for await(const chunk of req)body+=chunk;const data=JSON.parse(body||'{}');rollbackCalls.push({action,body:data});
+   if(action==='run'){const rb=state.vmware.rollback,r=rb&&rb.records.find(x=>x.id===data.id);if(r&&r.dc&&!data.dcConfirmed){send(400,{ok:false,error:'Tick the box to confirm you understand the domain controller warning.'});return;}if(r){r.state='running';rb.running=r.id;rb.serial++;}send(202,{ok:true});return;}
+   send(200,{ok:true});return;
+  }
   if(url.pathname==='/api/open'){let body='';for await(const chunk of req)body+=chunk;opens.push(JSON.parse(body).kind);send(200,{ok:true});return;}
   if(url.pathname==='/report/current'){res.writeHead(200,{'Content-Type':'text/html'});res.end('<!DOCTYPE html><html><head><title>Synthetic</title></head><body><div class="report-content"><section class="report-section active" id="s1"><p>alpha one</p><p>beta</p><p>alpha two</p><p>alpha three</p></section></div></body></html>');return;}
   if(url.pathname==='/api/skip-acl-export'){let body='';for await(const chunk of req)body+=chunk;skipRequests.push(JSON.parse(body));state.aclExport.skipRequested=true;send(202,{ok:true});return;}
@@ -303,7 +318,7 @@ async function fixture(browser,old=false){
  const url='http://127.0.0.1:'+server.address().port+'/';
  // A fixture that fails to load closes its own server and context; otherwise Node never exits and the job hangs until its timeout.
  try{await page.goto(url);await page.waitForFunction(()=>document.querySelector('#serverName').textContent==='SRV-DEMO-01');}catch(e){await context.close().catch(()=>{});server.close();throw new Error('Fixture page did not load ('+errors.concat(dialogs).join('; ')+'): '+e.message);}
- return {consoleCalls,consoleStreams,consoleOpt,page,context,state,uiCalls,vddkCalls,channelCalls,pickCalls,outputRootCalls,rejectPick(message){pickReject=message},vm,repl,plans,planCalls,servers,serverCalls,failover,receiverPair,targetTest,replCalls,vmwareCalls,convertCalls,rejectConvert(action,message){convertReject[action]=message},setConvertSize(size){convertSize=size},rejectVmware(action,message){vmwareReject[action]=message},logs,dialogs,errors,started,skipRequests,opens,restoreCalls,migrateCalls,rejectMigrate(action,message){migrateReject[action]=message},rejectRestore(message){restoreReject=message},get saved(){return saved},get saveCalls(){return saveCalls},reject(){rejectStart=true},async close(){assert.deepEqual(errors,[]);await context.close();await new Promise(r=>server.close(r));}};
+ return {consoleCalls,consoleStreams,consoleOpt,page,context,state,rollbackCalls,uiCalls,vddkCalls,channelCalls,productionCalls,pickCalls,outputRootCalls,rejectPick(message){pickReject=message},vm,repl,plans,planCalls,servers,serverCalls,failover,receiverPair,targetTest,replCalls,vmwareCalls,convertCalls,rejectConvert(action,message){convertReject[action]=message},setConvertSize(size){convertSize=size},rejectVmware(action,message){vmwareReject[action]=message},logs,dialogs,errors,started,skipRequests,opens,restoreCalls,migrateCalls,rejectMigrate(action,message){migrateReject[action]=message},rejectRestore(message){restoreReject=message},get saved(){return saved},get saveCalls(){return saveCalls},reject(){rejectStart=true},async close(){assert.deepEqual(errors,[]);await context.close();await new Promise(r=>server.close(r));}};
 }
 // Tools live in two tabs: Discovery (Alt+1) and Migration and replication (Alt+5).
 const discoveryTools=['server','environment'];
@@ -857,7 +872,8 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   const panel=await f.page.locator('#pfBulkPanel').textContent();assert(panel.includes('nothing is installed, copied or changed')&&panel.includes('Named like a SQL Server'),panel);
   assert.equal(await f.page.locator('[data-pf-computer="vm-sql01"]').inputValue(),'192.0.2.10','the guest address is filled in');
   assert(await f.page.locator('#pfBulkRun').isEnabled());assert.equal(await f.page.locator('#pfBulkRun').textContent(),'Run the checks on 1 server');
-  await f.page.locator('#pfBulkUser').fill('EXAMPLE\\admin');assert(await f.page.locator('#pfBulkRun').isDisabled());assert.equal(await f.page.locator('#pfBulkStatus').textContent(),'Type the password, or clear the account to use your own.');
+  assert(await f.page.locator('#pfBulkSignInCurrent').isChecked(),'checks start on the current sign-in');assert(!await f.page.locator('#pfBulkUser').isVisible(),'the account fields are hidden while the current sign-in is chosen');
+  await f.page.locator('#pfBulkSignInOther').check();await f.page.locator('#pfBulkUser').fill('EXAMPLE\\admin');assert(await f.page.locator('#pfBulkRun').isDisabled());assert.equal(await f.page.locator('#pfBulkStatus').textContent(),'Type the password, or choose your current sign-in.');
   await f.page.locator('#pfBulkPassword').fill('Synthetic-Pa55');await f.page.locator('[data-pf-computer="vm-sql01"]').fill('sql01.example.com');
   await f.page.locator('#pfBulkDc').uncheck();await f.page.locator('#pfBulkSql').uncheck();assert(await f.page.locator('#pfBulkRun').isDisabled());await f.page.locator('#pfBulkSql').check();
   await f.page.locator('#pfBulkRun').click();await f.page.waitForFunction(()=>document.querySelector('#pfBulkRun').textContent==='Checking…');
@@ -874,14 +890,15 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   await openVm(f,'vm-sql01');await f.page.locator('#vmObjTab-readiness').click();
   const section=await f.page.locator('#pfVmSection').textContent();assert(section.includes('SQL Server MSSQLSERVER')&&section.includes('Standard Edition (64-bit)'),section);
   assert((await f.page.locator('#vmDetail').textContent()).includes('no full backup in the last 7 days for Sales'),'the finding is in readiness');
-  await f.page.locator('#pfVmOwn').click();await f.page.waitForFunction(()=>!!document.querySelector('#pfVmUser'));assert.equal(vmwareCalls(f,'preflight/forget').length,1);
+  assert(await f.page.locator('#pfVmSignInOther').isChecked(),'a held account shows as a different account');await f.page.locator('#pfVmSignInCurrent').check();await f.page.waitForFunction(()=>!!document.querySelector('#pfVmUser'));assert.equal(vmwareCalls(f,'preflight/forget').length,1);
   await f.page.setViewportSize({width:1008,height:690});assert(await f.page.locator('#pfVmRun').isVisible());assert.equal(await f.page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true,'no horizontal scroll at 1024x768');
   assert.deepEqual(f.dialogs,[]);
  }finally{await f.close();}});
  await check('VMware tab: Read Hyper-V host reads this computer or a remote host, sends the optional account once, opens a VM disk in the Disk converter, and copies a running Hyper-V VM through checkpoints without a vSphere session',async()=>{const f=await fixture(browser);try{
   await goTool(f,'environment');
+  assert(await f.page.locator('#vmHvSignInCurrent').isChecked());assert(!await f.page.locator('#vmHvUser').isVisible());await f.page.locator('#vmHvSignInOther').check();
   await f.page.locator('#vmHvUser').fill('EXAMPLE\\admin');await f.page.locator('#vmHvRead').click();
-  assert.equal(await f.page.locator('#vmHvStatus').textContent(),'Type the password for EXAMPLE\\admin, or clear the account to use your own.');assert.equal(vmwareCalls(f,'hyperv').length,0);
+  assert.equal(await f.page.locator('#vmHvStatus').textContent(),'Type the password for EXAMPLE\\admin, or choose your current sign-in.');assert.equal(vmwareCalls(f,'hyperv').length,0);
   await f.page.locator('#vmHvUser').fill('');await f.page.locator('#vmHvRead').click();await f.page.waitForFunction(()=>document.querySelector('#vmwareTabBadge').textContent==='Reading');
   assert.deepEqual(vmwareCalls(f,'hyperv').map(c=>c.body),[{host:'',user:'',password:''}],'an empty host reads this computer as the current user');
   assert(await f.page.locator('#vmStop').isVisible());assert(await f.page.locator('#vmHvHost').isDisabled());
@@ -929,7 +946,7 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   await f.page.locator('#vmPassword').fill('Synthetic-Pa55');await f.page.locator('#vmPassword').press('Enter');await f.page.waitForFunction(()=>document.querySelector('#vmwareTabBadge').textContent==='Reading');
   assert.deepEqual(vmwareCalls(f,'connect').map(c=>c.body),[{server:'vc01.example.com',user:'readonly@vsphere.local',password:'Synthetic-Pa55'}]);assert.equal(await f.page.locator('#vmPassword').inputValue(),'','the password leaves the page');
   assert(await f.page.locator('#vmStop').isVisible());assert(await f.page.locator('#vmServer').isDisabled());
-  await f.page.keyboard.press('Alt+1');assert(await f.page.locator('#startButton').isDisabled(),'collection locks while VMware reads');await goTool(f,'environment');
+  await f.page.keyboard.press('Alt+1');assert(await f.page.locator('#startButton').isEnabled(),'a Discovery read only reads, so collection stays available (rule 65)');await goTool(f,'environment');
   Object.assign(f.state.vmware,{running:false,action:'',status:'connectfailed',message:'vc01.example.com presented a certificate Windows does not trust.',certificate:{thumbprint:'AA:BB:CC:<b>',subject:'CN=vc01.example.com',issuer:'CN=CA <b>not markup</b>',notAfter:'2027-01-01',reason:'x509: certificate signed by unknown authority',mismatch:false}});
   await f.page.waitForFunction(()=>!document.querySelector('#vmCert').classList.contains('hidden'));assert.equal(await f.page.locator('#vmwareTabBadge').textContent(),'Failed');
   assert.equal(await f.page.locator('#vmCertIssuer').textContent(),'CN=CA <b>not markup</b>');assert.equal(await f.page.locator('#vmCert b').count(),0);
@@ -1085,7 +1102,7 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   const works=await f.page.locator('#vmHvrWorks').textContent();
   assert(works.includes('ESXi 6.5, 6.7, 7.0 or 8.0')&&works.includes('Windows Server 2012 R2, 2016, 2019, 2022 or 2025')&&works.includes('failover cluster with Cluster Shared Volumes')&&works.includes('free ESXi'),works);
   assert((await f.page.locator('#vmMove .vm-runs-on').textContent()).includes('Runs on this computer, your admin computer'));
-  await f.page.locator('[data-hvr="host"]').fill('hvclu01.example.com');await f.page.locator('[data-hvr="user"]').fill('EXAMPLE\\admin');await f.page.locator('[data-hvr="password"]').fill('Synthetic-Pass-1');
+  await f.page.locator('[data-hvr="host"]').fill('hvclu01.example.com');await f.page.locator('#vmHvrSignInOther').check();await f.page.locator('[data-hvr="user"]').fill('EXAMPLE\\admin');await f.page.locator('[data-hvr="password"]').fill('Synthetic-Pass-1');
   await f.page.locator('#vmHvrConnect').click();
   await f.page.waitForFunction(()=>document.querySelector('#vmwareTabBadge').textContent==='Working');
   assert.deepEqual(vmwareCalls(f,'hvremote/connect').map(c=>c.body),[{host:'hvclu01.example.com',user:'EXAMPLE\\admin',password:'Synthetic-Pass-1'}]);
@@ -1231,6 +1248,7 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   assert(await f.page.locator('input[name="vmGuestMode"][value="direct"]').isChecked(),'after a cutover on the host the steps pick PowerShell Direct');
   assert.equal(await f.page.locator('#vmGuestVmName').inputValue(),'APP01','the new VM is filled in');
   assert(await f.page.locator('input[name="vmGuestMode"][value="hostdirect"]').isDisabled(),'the connected-host option needs a connection');
+  assert(await f.page.locator('#vmGuestSignInCurrent').isDisabled()&&(await f.page.locator('#vmGuestSignInWhy').textContent()).includes('PowerShell Direct'),'PowerShell Direct says why the current sign-in cannot be used');
   await f.page.locator('#vmGuestUser').fill('.\\Administrator');await f.page.locator('#vmGuestPassword').fill('Synthetic-Guest-1');await f.page.locator('#vmGuestUse').click();
   await f.page.waitForFunction(()=>document.querySelector('#vmGuestPassword').value==='');
   assert.deepEqual(vmwareCalls(f,'guest-target').at(-1).body,{mode:'direct',vm:'APP01',computer:'',host:'',user:'.\\Administrator',password:'Synthetic-Guest-1',keepPassword:true});
@@ -1571,6 +1589,36 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
    const box=await f.page.locator('#vmOutputRoot + .path-pick-button').boundingBox();assert(box&&box.x+box.width<=size.width,'Browse stays inside '+size.width+' px');
    assert(await f.page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),'no horizontal scroll at '+size.width+' px');}
  }finally{await f.close();}});
+ await check('A migration plan copying keeps Discovery and This server usable, and says why anything waits',async()=>{const f=await fixture(browser);try{
+  f.vm.inventory=vmwareInventoryFixture();f.vm.plan=vmwarePlanFixture();
+  f.state.vmware=Object.assign(vmwareIdle(),{status:'connected',server:'vc01.example.com',account:'administrator@vsphere.local',summary:vmwareSummaryFixture(),inventorySerial:1,canPrepare:true,hyperVHere:true,
+   planCopy:{plans:['Wave 1'],servers:['vc01.example.com'],vms:4,cutover:false}});
+  await goTool(f,'environment');await f.page.waitForFunction(()=>!document.querySelector('#vmReadNotice').classList.contains('hidden'));
+  const notice=await f.page.locator('#vmReadNotice').textContent();
+  assert(notice.includes('Migration plan “Wave 1” is copying 4 VMs from vc01.example.com')&&notice.includes('read vc01.example.com again'),notice);
+  assert.equal(await f.page.locator('#vmwareTabBadge').textContent(),'Plan copying');
+  await f.page.locator('#vmServer').fill('vc01.example.com');await f.page.locator('#vmUser').fill('readonly@vsphere.local');
+  assert(await f.page.locator('#vmConnect').isEnabled(),'reading the same vCenter again stays available');
+  await f.page.locator('#vmServer').fill('vc02.example.com');assert(await f.page.locator('#vmConnect').isDisabled(),'reading another vCenter waits for the copy');
+  assert(await f.page.locator('#vmHvRead').isDisabled()&&await f.page.locator('#vmOpenInventory').isDisabled()&&await f.page.locator('#vmReset').isDisabled(),'reads that replace the session wait');
+  assert(await f.page.locator('#vmOutputRoot').isEnabled(),'the save folder can still be changed');
+  await f.page.locator('#vmReadNoticeOpen').click();await f.page.waitForFunction(()=>!document.querySelector('#tabPlans').classList.contains('hidden'));
+  await goTool(f,'server');assert(await f.page.locator('#startButton').isEnabled(),'This server can collect while a plan copies');assert(await f.page.locator('#configLockNotice').isHidden());
+  await goTool(f,'movevms');await f.page.waitForFunction(()=>!document.querySelector('#vmBusyNotice').classList.contains('hidden'));
+  assert((await f.page.locator('#vmBusyNotice').textContent()).includes('Wave 1'),'Move VMs says why its steps wait');assert(await f.page.locator('#vmReadNotice').isHidden());
+  // Another VMware step blocks collection, and This server says what and links to it.
+  Object.assign(f.state.vmware,{planCopy:null,running:true,action:'prepare',status:'preparing'});
+  await goTool(f,'server');await f.page.waitForFunction(()=>!document.querySelector('#configLockNotice').classList.contains('hidden'));
+  assert((await f.page.locator('#configLockText').textContent()).includes('Prepare on VMware'));assert(await f.page.locator('#startButton').isDisabled());
+  // A Discovery read never blocks collection.
+  Object.assign(f.state.vmware,{action:'connect',status:'connecting'});await f.page.waitForFunction(()=>!document.querySelector('#startButton').disabled);
+  // A collection never blocks a Discovery read.
+  Object.assign(f.state.vmware,{running:false,action:'',status:'connected'});f.state.running=true;f.state.status='running';
+  await f.page.waitForFunction(()=>/Collection/.test((document.querySelector('.tab-button.active')||{}).textContent||''));await goTool(f,'environment');await f.page.waitForFunction(()=>!document.querySelector('#vmServer').disabled);await f.page.locator('#vmServer').fill('vc02.example.com');await f.page.locator('#vmUser').fill('readonly@vsphere.local');
+  await f.page.waitForFunction(()=>!document.querySelector('#vmConnect').disabled&&!document.querySelector('#vmHvRead').disabled);
+  assert(await f.page.locator('#vmOutputRoot').isDisabled(),'the shared folder waits for the collection that writes there');
+  assert.deepEqual(f.dialogs,[]);
+ }finally{await f.close();}});
  await check('VMware disk copy: the receiver shows its address, code and thumbprint; sending checks them and sends only the chosen disks',async()=>{const f=await fixture(browser);try{
   await goTool(f,'environment');await goTool(f,'diskcopy');
   assert(await f.page.locator('#vmReceiveTitle').isVisible()&&await f.page.locator('#vmSendTitle').isVisible(),'both sides show until a role is chosen');
@@ -1889,7 +1937,8 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
  await check('Replication tab: Linux servers install over SSH, a new host key is shown and trusted only after the password is typed again',async()=>{const f=await fixture(browser);try{
   await goTool(f,'replicate');
   assert(await f.page.locator('#rpSshPortField').isHidden());await f.page.locator('#rpPlatform').selectOption('linux');
-  assert(await f.page.locator('#rpSshPortField').isVisible());assert(await f.page.locator('#rpPushHelpLinux').isVisible());assert(await f.page.locator('#rpPushHelp').isHidden());
+  assert(await f.page.locator('#rpSshPortField').isVisible());assert(await f.page.locator('#rpPushHelpLinux').isVisible());
+  assert(await f.page.locator('#rpPushSignInCurrent').isDisabled()&&await f.page.locator('#rpPushSignInOther').isChecked(),'Linux installs need a typed account');assert((await f.page.locator('#rpPushSignInWhy').textContent()).includes('SSH'));assert(await f.page.locator('#rpPushHelp').isHidden());
   await f.page.locator('#rpHosts').fill('web01.example.com');await f.page.locator('#rpPassword').fill('Fict1onal!');await f.page.locator('#rpPush').click();
   assert((await f.page.locator('#rpPushStatus').textContent()).includes('Linux account'));assert.equal(f.replCalls.filter(c=>c.action==='push').length,0);
   await f.page.locator('#rpUser').fill('root');await f.page.locator('#rpSshPort').fill('2222');await f.page.locator('#rpPush').click();
@@ -1909,7 +1958,7 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   await goTool(f,'replicate');assert.equal(await f.page.locator('[data-tool="replicate"]').getAttribute('aria-pressed'),'true');assert((await f.page.locator('#rpPushTitle').textContent()).includes('servers you are copying'));
   await f.page.waitForFunction(()=>document.querySelector('#rpAgents').textContent.includes('No servers yet'));
   assert(await f.page.locator('#rpPush').isDisabled(),'nothing to install yet');
-  await f.page.locator('#rpHosts').fill('app01.example.com, sql01.example.com');await f.page.locator('#rpUser').fill('EXAMPLE\\admin');
+  await f.page.locator('#rpHosts').fill('app01.example.com, sql01.example.com');await f.page.locator('#rpPushSignInOther').check();await f.page.locator('#rpUser').fill('EXAMPLE\\admin');
   await f.page.locator('#rpPush').click();assert((await f.page.locator('#rpPushStatus').textContent()).includes('password'));assert.equal(f.replCalls.filter(c=>c.action==='push').length,0);
   await f.page.locator('#rpPassword').fill('Fict1onal!');await f.page.locator('#rpPush').click();
   await f.page.waitForFunction(()=>!document.querySelector('#rpPushStop').classList.contains('hidden'));
@@ -1937,7 +1986,7 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   await f.page.locator('#rpInterval').selectOption('5');await f.page.locator('#rpLimit').fill('100');await f.page.locator('#rpBusinessLimit').fill('20');await f.page.locator('#rpBusinessStart').fill('8');await f.page.locator('#rpBusinessEnd').fill('18');
   await f.page.locator('#rpServices').fill('MSSQLSERVER, W3SVC');await f.page.locator('#rpJobSave').click();
   await f.page.waitForFunction(()=>!document.querySelector('#rpDetails').classList.contains('hidden'));
-  assert.deepEqual(f.replCalls.filter(c=>c.action==='job'&&c.body.action==='save').map(c=>c.body),[{agent:'ag1',action:'save',spec:{id:'',name:'APP01',disks:[{source:'0',target:'disk-0'},{source:'1',target:'disk-1'}],receiver:{address:'198.51.100.9:44380',alternates:['10.10.100.11:44380'],thumbprint:'3F9A6C0E1B7D4A25C8E0F13B6A9D2C4E7F0A1B3C5D7E9F2A4C6E8B0D1F3A5C7E',code:'K7QMZ-2RT4X-9WBNP-H3VDA'},intervalMinutes:5,rpoMinutes:15,compress:true,throttle:{limitMbps:100,businessMbps:20,businessStart:8,businessEnd:18},stopServices:['MSSQLSERVER','W3SVC'],shutdownAfterCutover:true,fullReadAtCutover:false,rescanFirst:false,allowLive:false}}]);
+  assert.deepEqual(f.replCalls.filter(c=>c.action==='job'&&c.body.action==='save').map(c=>c.body),[{agent:'ag1',action:'save',spec:{id:'',name:'APP01',disks:[{source:'0',target:'disk-0'},{source:'1',target:'disk-1'}],receiver:{address:'198.51.100.9:44380',alternates:['10.10.100.11:44380'],thumbprint:'3F9A6C0E1B7D4A25C8E0F13B6A9D2C4E7F0A1B3C5D7E9F2A4C6E8B0D1F3A5C7E',code:'K7QMZ-2RT4X-9WBNP-H3VDA'},intervalMinutes:5,rpoMinutes:15,compress:true,throttle:{limitMbps:100,businessMbps:20,businessStart:8,businessEnd:18},stopServices:['MSSQLSERVER','W3SVC'],shutdownAfterCutover:true,fullReadAtCutover:false,rescanFirst:false,allowLive:false,space:{reservePercent:10,reserveGB:20}}}]);
   assert(await f.page.locator('#rpEditor').isHidden());assert.equal(await f.page.locator('#rpRecvCode').inputValue(),'','the pairing code is cleared');
   await f.page.waitForFunction(()=>document.querySelector('#rpDetailsFacts').textContent.includes('Every 5 minutes'));
   assert((await f.page.locator('#rpAgents').textContent()).includes('Up to date'));
@@ -2036,7 +2085,7 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   f.state.ui={schema:1,confirmStyle:'tick'};f.vm.inventory=vmwareInventoryFixture();f.vm.plan=vmwarePlanFixture();
   const encDisk={label:'Hard disk 1',controller:'SCSI 0',bus:0,unit:0,capacityBytes:107374182400,datastore:'DS-SSD-01',provisioning:'thin',mode:'persistent',rdm:'',encrypted:true};
   f.vm.inventory.vms.push(vmFixtureVM('DESK21',{hv:'blocked',hvFindings:[{severity:'blocker',code:'encrypted',message:'1 of the VM\'s 1 disks are encrypted with vSphere VM Encryption, so no other platform can read them.',action:'Decrypt it.'}],vm:{encrypted:true,encryptionRead:true,vtpm:true,disks:[encDisk]}}));
-  f.vm.inventory.vms.push(vmFixtureVM('DESK22',{vm:{encrypted:true,encryptionRead:true,vtpm:true}}));
+  f.vm.inventory.vms.push(vmFixtureVM('DESK22',{vm:{encrypted:true,encryptionRead:true,vtpm:true,powerState:'poweredOff'}}));
   f.state.vmware=Object.assign(vmwareIdle(),{status:'connected',server:'vc01.example.com',account:'administrator@vsphere.local',summary:vmwareSummaryFixture(),inventorySerial:1,canPrepare:true,hyperVHere:true,hostStorage:{known:true,vhdPath:'D:\\Hyper-V\\Disks',vmPath:'D:\\Hyper-V',clustered:false,volumes:[{path:'D:\\',freeBytes:1099511627776,totalBytes:2199023255552,csv:false}]}});
   await goTool(f,'wizard');await f.page.locator('[data-nw-source="vms"]').click();await f.page.waitForSelector('#nwVmList [data-nw-pick]');
   assert(!(await f.page.locator('[data-nw-pick="vm-desk21"]').isDisabled()),'a VM blocked only by encrypted disks can be ticked, because it is decrypted here');
@@ -2073,6 +2122,69 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   await f.page.setViewportSize({width:1008,height:690});assert(await f.page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1),'no horizontal scroll at 1024x768');
   assert.deepEqual(f.errors,[]);f.state.ui={schema:1,confirmStyle:'typed'};
  }finally{await f.close();}});
+ await check('New migration: a running VM with a virtual TPM is copied through VDDK or at its cutover while shut down, in the same migration as the others',async()=>{const f=await fixture(browser);try{
+  f.state.ui={schema:1,confirmStyle:'tick'};f.vm.inventory=vmwareInventoryFixture();f.vm.plan=vmwarePlanFixture();
+  f.vm.inventory.vms.push(vmFixtureVM('DESK23',{vm:{encrypted:true,encryptionRead:true,vtpm:true,firmware:'efi'}}));
+  f.state.vmware=Object.assign(vmwareIdle(),{status:'connected',server:'vc01.example.com',account:'administrator@vsphere.local',summary:vmwareSummaryFixture(),inventorySerial:1,canPrepare:true,hyperVHere:true,hostStorage:{known:true,vhdPath:'D:\\Hyper-V\\Disks',vmPath:'D:\\Hyper-V',clustered:false,volumes:[{path:'D:\\',freeBytes:1099511627776,totalBytes:2199023255552,csv:false}]}});
+  await goTool(f,'wizard');await f.page.locator('[data-nw-source="vms"]').click();await f.page.waitForSelector('#nwVmList [data-nw-pick]');
+  assert((await f.page.locator('#nwVmList').textContent()).includes('Virtual TPM: copied while it runs only with VDDK'),'What says how a running vTPM VM can be copied');
+  await f.page.locator('[data-nw-pick="vm-app01"]').check();await f.page.locator('[data-nw-pick="vm-desk23"]').check();
+  await f.page.locator('#nwNext').click();await f.page.locator('[data-nw-target="here"]').click();await f.page.locator('[data-nw-switch="VM-Servers"]').selectOption('Isolated');
+  await f.page.locator('#nwNext').click();await f.page.locator('#nwNext').click();await f.page.locator('#nwNext').click();
+  await f.page.waitForSelector('#nwVddkFolder');
+  let checks=await f.page.locator('.nw-checks').textContent();assert(checks.includes('DESK23 runs with a virtual TPM')&&checks.includes('without VDDK')&&checks.includes('The other VMs are not affected'),checks);
+  await f.page.locator('#nwConfirmTick').check();assert(await f.page.locator('#nwNext').isDisabled(),'Start waits for a way to copy DESK23');
+  await f.page.screenshot({path:out+'/new-migration-vtpm-review-1440x1000.png'});
+  // Copy it at its cutover, while shut down: the rest of the migration is unchanged.
+  await f.page.locator('#nwVtpmOffline').click();
+  await f.page.waitForFunction(()=>document.querySelector('.nw-checks').textContent.includes('DESK23: copied at its cutover, while shut down'),null,{timeout:15000});
+  assert(!(await f.page.locator('.nw-checks').textContent()).includes('without VDDK'));assert((await f.page.locator('.nw-summary').textContent()).includes('1 VM copied at cutover while shut down (DESK23)'));
+  await f.page.screenshot({path:out+'/new-migration-vtpm-offline-1440x1000.png'});
+  // Back to live, then set up VDDK right here.
+  await f.page.locator('#nwVtpmLive').click();await f.page.waitForSelector('#nwVddkFolder');
+  await f.page.locator('#nwVddkFolder').fill('C:\\Bad');await f.page.locator('#nwVddkSave').click();
+  await f.page.waitForFunction(()=>document.querySelector('.nw-checks').textContent.includes('signature is not valid'),null,{timeout:15000});
+  await f.page.locator('#nwVddkFolder').fill('C:\\VDDK\\VMware-vix-disklib-8.0.3');await f.page.locator('#nwVddkSave').click();
+  await f.page.waitForFunction(()=>document.querySelector('.nw-checks').textContent.includes('VDDK 8.0.3 build 23950268 reads it instead'),null,{timeout:15000});
+  assert.deepEqual(f.vddkCalls.map(c=>c.folder),['C:\\Bad','C:\\VDDK\\VMware-vix-disklib-8.0.3']);
+  checks=await f.page.locator('.nw-checks').textContent();assert(checks.includes('Cryptographic operations > Direct Access'),checks);
+  await f.page.locator('#nwVtpmOffline').waitFor({state:'detached'});
+  // Start with DESK23 copied at its cutover: the plan carries each VM's method.
+  await f.page.locator('#nwConfirmTick').check();await f.page.locator('#nwNext').click();
+  await f.page.waitForFunction(()=>document.querySelector('.nw-stepper-item.current')&&document.querySelector('.nw-stepper-item.current').textContent==='6Status',null,{timeout:15000});
+  let created=f.planCalls.find(c=>c.body.action==='create');assert.deepEqual(created.body.methods,{},'with VDDK every VM is copied while it runs');
+  // A copy that fails for this reason offers both fixes on its row.
+  const desk=f.plans.plans[0].vms.find(v=>v.id==='vm-desk23');Object.assign(desk,{name:'DESK23',state:'failed',failures:1,error:'Hard disk 1: vSphere will not let this VM be read while it runs. Its own files are encrypted (every VM with a virtual TPM has them encrypted; the disks themselves are plain), vSphere refuses to export an encrypted VM, and the ESXi host locks the running disk. Choose the VDDK folder in Help > Settings to copy it while it runs, or copy it at its cutover while it is shut down.'});
+  await f.page.waitForSelector('#nwStatusBody [data-mp-offline="vm-desk23"]',{timeout:15000});assert(await f.page.locator('#nwStatusBody [data-mp-vddk="vm-desk23"]').isVisible());
+  await f.page.locator('#nwStatusBody [data-mp-offline="vm-desk23"]').click();
+  for(let i=0;i<100&&!f.planCalls.some(c=>c.body.action==='method');i++){await new Promise(r=>setTimeout(r,50));}
+  const m=f.planCalls.find(c=>c.body.action==='method');assert.deepEqual({vmIds:m.body.vmIds,method:m.body.method},{vmIds:['vm-desk23'],method:'offline'});
+  Object.assign(desk,{state:'waiting',failures:0,error:'',method:'offline'});
+  await f.page.waitForFunction(()=>document.querySelector('#nwStatusBody').textContent.includes('Copied at its cutover, while shut down'),null,{timeout:15000});
+  assert((await f.page.locator('#nwStatusBody').textContent()).includes('Copied at cutover'),'the cutover column says when it is copied');
+  await f.page.locator('[data-nw-row="vm-desk23"]').check();await f.page.locator('#nwCutConfirmTick').check();
+  assert(!(await f.page.locator('#nwCutNow').isDisabled()),'a VM copied at cutover can be cut over without an earlier copy');
+  await f.page.screenshot({path:out+'/new-migration-vtpm-status-1440x1000.png'});
+  await f.page.locator('#nwStatusBody [data-mp-vddk="vm-desk23"]').waitFor({state:'detached'});
+  await f.page.locator('#nwStatusBody [data-mp-live="vm-desk23"]').click();
+  for(let i=0;i<100&&f.planCalls.filter(c=>c.body.action==='method').length<2;i++){await new Promise(r=>setTimeout(r,50));}
+  assert.equal(f.planCalls.filter(c=>c.body.action==='method').pop().body.method,'','switching back to live');
+  assert.deepEqual(f.errors,[]);f.state.ui={schema:1,confirmStyle:'typed'};
+ }finally{await f.close();}});
+ await check('New migration: without VDDK, running vTPM VMs can be set to copy at cutover and the plan carries the method',async()=>{const f=await fixture(browser);try{
+  f.state.ui={schema:1,confirmStyle:'tick'};f.vm.inventory=vmwareInventoryFixture();f.vm.plan=vmwarePlanFixture();
+  f.vm.inventory.vms.push(vmFixtureVM('DESK23',{vm:{encrypted:true,encryptionRead:true,vtpm:true}}));
+  f.state.vmware=Object.assign(vmwareIdle(),{status:'connected',server:'vc01.example.com',account:'administrator@vsphere.local',summary:vmwareSummaryFixture(),inventorySerial:1,canPrepare:true,hyperVHere:true,hostStorage:{known:true,vhdPath:'D:\\Hyper-V\\Disks',vmPath:'D:\\Hyper-V',clustered:false,volumes:[{path:'D:\\',freeBytes:1099511627776,totalBytes:2199023255552,csv:false}]}});
+  await goTool(f,'wizard');await f.page.locator('[data-nw-source="vms"]').click();await f.page.waitForSelector('#nwVmList [data-nw-pick]');
+  await f.page.locator('[data-nw-pick="vm-app01"]').check();await f.page.locator('[data-nw-pick="vm-desk23"]').check();
+  await f.page.locator('#nwNext').click();await f.page.locator('[data-nw-target="here"]').click();await f.page.locator('[data-nw-switch="VM-Servers"]').selectOption('Isolated');
+  await f.page.locator('#nwNext').click();await f.page.locator('#nwNext').click();await f.page.locator('#nwNext').click();
+  await f.page.locator('#nwVtpmOffline').click();await f.page.locator('#nwVtpmLive').waitFor();
+  await f.page.locator('#nwConfirmTick').check();await f.page.locator('#nwNext').click();
+  await f.page.waitForFunction(()=>document.querySelector('.nw-stepper-item.current')&&document.querySelector('.nw-stepper-item.current').textContent==='6Status',null,{timeout:15000});
+  const created=f.planCalls.find(c=>c.body.action==='create');assert.deepEqual(created.body.methods,{'vm-desk23':'offline'});assert.deepEqual(created.body.vmIds.sort(),['vm-app01','vm-desk23'],'both VMs are in one migration');
+  assert.deepEqual(f.errors,[]);f.state.ui={schema:1,confirmStyle:'typed'};
+ }finally{await f.close();}});
  await check('New migration: a Proxmox target connects inside Where, lists each VM with where it stands, and hands off to Move VMs with the VMs selected',async()=>{const f=await fixture(browser);try{
   f.vm.inventory=vmwareInventoryFixture();f.vm.plan=vmwarePlanFixture();f.state.vmware=Object.assign(vmwareIdle(),{status:'connected',server:'vc01.example.com',summary:vmwareSummaryFixture(),inventorySerial:1,canPrepare:true,hyperVHere:false});
   await goTool(f,'wizard');await f.page.locator('[data-nw-source="vms"]').click();await f.page.waitForSelector('#nwVmList [data-nw-pick]');await f.page.locator('[data-nw-pick="vm-app01"]').check();await f.page.locator('#nwNext').click();
@@ -2102,8 +2214,8 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   await f.page.locator('[data-nw-target="hvremote"]').click();await f.page.locator('#nwHvConnect').waitFor();
   assert((await f.page.locator('#nwHvPanel .vm-runs-on').textContent()).includes('Runs on this computer, your admin computer'));
   assert.equal(await f.page.locator('#nwWhy').textContent(),'Connect to the Hyper-V host or cluster (above).');assert(await f.page.locator('#nwNext').isDisabled());
-  await f.page.locator('#nwHvHost').fill('hvclu01.example.com');await f.page.locator('#nwHvUser').fill('EXAMPLE\\admin');await f.page.locator('#nwHvConnect').click();
-  assert.equal(await f.page.locator('#nwHvStatus').textContent(),'Type the password for EXAMPLE\\admin, or leave the account empty to use your Windows account.');
+  await f.page.locator('#nwHvHost').fill('hvclu01.example.com');await f.page.locator('#nwHvSignInOther').check();await f.page.locator('#nwHvUser').fill('EXAMPLE\\admin');await f.page.locator('#nwHvConnect').click();
+  assert.equal(await f.page.locator('#nwHvStatus').textContent(),'Type the password for EXAMPLE\\admin, or choose your current sign-in.');
   await f.page.locator('#nwHvPassword').fill('Synthetic-Pass-1');await f.page.locator('#nwHvPassword').press('Enter');
   for(let i=0;i<100&&!f.vmwareCalls.some(c=>c.action==='hvremote/connect');i++){await new Promise(r=>setTimeout(r,50));}
   assert.deepEqual(f.vmwareCalls.filter(c=>c.action==='hvremote/connect').map(c=>c.body),[{host:'hvclu01.example.com',user:'EXAMPLE\\admin',password:'Synthetic-Pass-1'}]);
@@ -2148,7 +2260,7 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   assert.deepEqual(await f.page.locator('#nwSrvList [data-nw-srv]').evaluateAll(l=>l.map(x=>x.getAttribute('data-nw-srv')+(x.disabled?' off':''))),['agent:a1','agent:a2 off','job:a3|j3 off'],'agents and jobs are listed; only an answering agent without a job can be ticked');
   assert((await f.page.locator('#nwSrvList').textContent()).includes('Already replicating (In sync)'));
   assert.equal(await f.page.locator('#nwWhy').textContent(),'Tick the servers to replicate, or add servers below.');assert(await f.page.locator('#nwNext').isDisabled());
-  await f.page.locator('#nwSrvHosts').fill('app02.example.com');await f.page.locator('#nwSrvUser').fill('EXAMPLE\\admin');await f.page.locator('#nwSrvPassword').fill('Synthetic-Pass-2');await f.page.locator('#nwSrvInstall').click();
+  await f.page.locator('#nwSrvHosts').fill('app02.example.com');await f.page.locator('#nwSrvSignInOther').check();await f.page.locator('#nwSrvUser').fill('EXAMPLE\\admin');await f.page.locator('#nwSrvPassword').fill('Synthetic-Pass-2');await f.page.locator('#nwSrvInstall').click();
   for(let i=0;i<100&&!f.replCalls.some(c=>c.action==='push');i++){await new Promise(r=>setTimeout(r,50));}
   assert.deepEqual(f.replCalls.filter(c=>c.action==='push').map(c=>c.body),[{hosts:'app02.example.com',user:'EXAMPLE\\admin',password:'Synthetic-Pass-2',platform:'windows'}]);
   await f.page.waitForSelector('.nw-push-log');assert.equal(await f.page.locator('#nwSrvPassword').inputValue(),'','the password is cleared after the install starts');
@@ -2255,6 +2367,36 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   assert(await f.page.evaluate(()=>{const d=document.querySelector('#settingsDialog');const r=d.getBoundingClientRect();return r.bottom<=innerHeight&&d.scrollHeight<=d.clientHeight+2||getComputedStyle(d).overflowY!=='visible';}),'Settings scrolls instead of clipping at 1024x768');
   await f.page.locator('#settingsClose').click();assert.deepEqual(f.dialogs,[]);
  }finally{await f.close();}});
+ await check('Help > Settings protects production: free space kept, the stop level, copy caps and this computer\'s bandwidth; a copy that waits says why in a banner and in its plan row',async()=>{const f=await fixture(browser);try{
+  const defaults={schema:1,reservePercent:10,reserveGB:50,stopPercent:5,stopGB:20,growthPercent:10,growthMinGB:4,maxCopies:4,maxPerDatastore:2,maxPerSourceHost:2,maxPerTarget:2,bandwidth:{limitMbps:0,businessMbps:0,businessStart:0,businessEnd:0}};
+  f.state.production={settings:defaults,defaults:defaults,holds:[],active:[],running:0,limit:'no limit'};
+  await f.page.locator('#helpMenuButton').click();await f.page.locator('#helpSettings').click();
+  await f.page.waitForFunction(()=>document.querySelector('#pgReserveGB').value==='50');
+  assert.equal(await f.page.locator('#pgMaxCopies').inputValue(),'4');assert.equal(await f.page.locator('#pgPerDs').inputValue(),'2');
+  assert(/Nothing is waiting/.test(await f.page.locator('#pgHolds').textContent()));
+  // A stop level above the reserve is refused inline and nothing changes.
+  await f.page.locator('#pgStopPct').fill('20');await f.page.locator('#pgSave').click();
+  await f.page.waitForFunction(()=>/must not be above/.test(document.querySelector('#pgStatus').textContent));assert(await f.page.locator('#pgStatus.error').isVisible());
+  await f.page.locator('#pgDefaultsButton').click();assert.equal(await f.page.locator('#pgStopPct').inputValue(),'5');
+  await f.page.locator('#pgReserveGB').fill('100');await f.page.locator('#pgPerHost').selectOption('1');await f.page.locator('#pgBizMbps').fill('200');await f.page.locator('#pgOffMbps').fill('800');await f.page.locator('#pgBizStart').selectOption('8');await f.page.locator('#pgBizEnd').selectOption('18');
+  await f.page.locator('#pgSave').click();await f.page.waitForFunction(()=>/^Saved\./.test(document.querySelector('#pgStatus').textContent));
+  const saved=f.productionCalls[f.productionCalls.length-1];
+  assert.equal(saved.reserveGB,100);assert.equal(saved.maxPerSourceHost,1);assert.deepEqual(saved.bandwidth,{businessMbps:200,limitMbps:800,businessStart:8,businessEnd:18});
+  await f.page.locator('#pgOffMbps').fill('fast');await f.page.locator('#pgSave').click();assert(/whole numbers/.test(await f.page.locator('#pgStatus').textContent()));
+  await f.page.locator('#settingsClose').click();
+  // A copy waits for space: the banner over the tools says why and opens the settings.
+  f.state.production=Object.assign({},f.state.production,{holds:[{owner:'SQL01',kind:'space',reason:'Waiting for space on datastore DS-SQL: 80 GB of 1 TB is free, and 102 GB is kept free for production (Help > Settings). It tries again when space allows.',since:new Date().toISOString()}]});
+  await goTool(f,'plans');await f.page.waitForFunction(()=>!document.querySelector('#pgBanner').classList.contains('hidden'),null,{timeout:15000});
+  const banner=await f.page.locator('#pgBannerText').textContent();assert(/1 copy waits for free space/.test(banner)&&/DS-SQL/.test(banner),banner);
+  await f.page.locator('#pgBannerOpen').click();assert(await f.page.locator('#settingsDialog').isVisible());
+  await f.page.waitForFunction(()=>/Waiting for space: SQL01/.test(document.querySelector('#pgHolds').textContent));
+  await f.page.locator('#settingsClose').click();
+  // A plan VM held for space shows the reason, not an error.
+  f.plans.plans=[{id:'p1',name:'Wave 1',server:'vc01.example.com',created:new Date().toISOString(),paused:false,settings:{syncMinutes:60,concurrency:2,throttle:{},waves:[{wave:1,concurrency:1,throttle:{limitMbps:100,businessMbps:0,businessStart:8,businessEnd:18}}]},throttle:'no limit',summary:{total:1,waiting:0,copying:0,ready:1,testing:0,scheduled:0,done:0,failed:0},vms:[{id:'vm-sql01',name:'SQL01',wave:1,state:'ready',seeded:true,failures:0,held:'Waiting for space on datastore DS-SQL.'}]}];
+  await f.page.waitForFunction(()=>/Waiting for space on datastore DS-SQL/.test((document.querySelector('#mpRows')||{}).textContent||''),null,{timeout:15000});
+  assert(!/mp-err/.test(await f.page.locator('#mpRows').innerHTML()),'a held VM is not shown as an error');
+  assert.deepEqual(f.dialogs,[]);
+ }finally{await f.close();}});
  await check('Help > Settings opts in to the Test update channel: Stable by default, ticking offers the test build, unticking goes back to Stable',async()=>{const f=await fixture(browser);try{
   await f.page.locator('#helpMenuButton').click();await f.page.locator('#helpSettings').click();
   assert(!(await f.page.locator('#updateTestChannel').isChecked()),'Stable is the default');
@@ -2324,6 +2466,49 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
    assert(await f.page.evaluate(()=>{const d=document.querySelector('#settingsDialog').getBoundingClientRect();return d.bottom<=innerHeight&&d.right<=innerWidth;}),'Settings fits at 1024x768');await f.page.locator('#settingsClose').click();}
   assert.deepEqual(f.errors,[]);assert.deepEqual(f.dialogs,[]);
  }finally{await f.close();}});
+ await check('Roll back: every cutover is listed with its window, the dialog turns the new VM off first, warns about lost data, asks for a vCenter sign-in when needed, a domain controller needs its own tick, and every other way of moving has its steps',async()=>{const f=await fixture(browser);try{
+  const planned=[{key:'stop',title:'Shut the new VM down'},{key:'check',title:'Check the new VM is off'},{key:'network',title:'Put the adapters back'},{key:'start',title:'Start the old VM'}];
+  const base={method:'move',cutoverAt:'2026-11-27T08:00:00Z',state:'ready',planned,window:'Roll back works as long as the old VM stays in vcenter.example.com with its disks.',dataWarning:'Anything written on the new VM since the cutover 2026-11-27 08:00 UTC (3 hours ago) is not on the old one.'};
+  f.state.vmware.rollback={running:'',serial:1,records:[
+   Object.assign({},base,{id:'r1',name:'APP01',source:{kind:'vmware',server:'vcenter.example.com',vmId:'vm-42',name:'APP01',adapterRecord:'C:\\rec\\APP01-adapters.json'},new:{kind:'hyperv',id:'6f1c7a3e-1b2c-4d5e-8f90-0a1b2c3d4e5f',name:'APP01'}}),
+   Object.assign({},base,{id:'r2',name:'DC01',dc:true,dcWarning:'This is a domain controller. Starting the old copy can cause USN rollback.',source:{kind:'vmware',server:'vcenter.example.com',vmId:'vm-7',name:'DC01'},new:{kind:'hyperv',id:'7f1c7a3e-1b2c-4d5e-8f90-0a1b2c3d4e5f',name:'DC01',host:'HV02'}}),
+   Object.assign({},base,{id:'r3',name:'FILE01',method:'copies',state:'done',finished:'2026-11-27T09:00:00Z',message:'FILE01 is rolled back.',steps:[{key:'stop',title:'Shut the new VM down',state:'ok'},{key:'agent',title:'Ask the agent',state:'ok'}],logPath:'C:\\x\\r3.log',source:{kind:'agent',name:'FILE01',job:'j1'},new:{kind:'hyperv',id:'8f1c7a3e-1b2c-4d5e-8f90-0a1b2c3d4e5f',name:'FILE01'}})]};
+  await goTool(f,'rollback');
+  await f.page.waitForFunction(()=>document.querySelectorAll('#rbList .rb-item').length===3);
+  assert.equal(await f.page.locator('#rollbackBadge').textContent(),'2');
+  assert((await f.page.locator('[data-rb-item="r1"]').textContent()).includes('stays in vcenter.example.com'));
+  assert.equal(await f.page.locator('[data-rb-item="r3"] [data-rb-open]').count(),0,'a rolled back VM has no Roll back button');
+  await f.page.locator('[data-rb-item="r3"] [data-rb-log]').click();await f.page.waitForFunction(()=>true);
+  await f.page.waitForTimeout(300);assert.deepEqual(f.opens.slice(-1),['rollbacklog:r3']);
+  // Every other way of moving has its steps.
+  await f.page.waitForFunction(()=>document.querySelectorAll('#rbMethod option').length===2);
+  await f.page.selectOption('#rbMethod','shares');assert((await f.page.locator('#rbGuide').textContent()).includes('Undo read-only'));
+  // The dialog: not signed in to vCenter, so the sign-in shows and Roll back waits.
+  await f.page.locator('[data-rb-item="r1"] [data-rb-open]').click();
+  await f.page.waitForFunction(()=>document.querySelector('#rbDialog').open);
+  assert((await f.page.locator('#rbDialogData').textContent()).includes('is not on the old one'));
+  const steps=await f.page.locator('#rbDialogSteps li').allTextContents();assert(steps[0].startsWith('Shut the new VM APP01 down')&&steps[1].startsWith('Read the new VM again'),steps.join('|'));
+  assert(await f.page.locator('#rbDialogDC').isHidden());
+  assert(await f.page.locator('#rbSignIn').isVisible());assert(await f.page.locator('#rbDialogGo').isDisabled());
+  Object.assign(f.state.vmware,{server:'vcenter.example.com',account:'EXAMPLE\\operator',canPrepare:true});
+  await f.page.waitForFunction(()=>document.querySelector('#rbSignIn').classList.contains('hidden'),null,{timeout:10000});
+  await f.page.locator('#rbConfirmInput').fill('APP0');assert(await f.page.locator('#rbDialogGo').isDisabled());
+  await f.page.locator('#rbConfirmInput').fill('APP01');await f.page.locator('#rbTurnOff').uncheck();
+  assert(!(await f.page.locator('#rbDialogSteps li').first().textContent()).includes('turning it off'));
+  await f.page.locator('#rbDialogGo').click();
+  await f.page.waitForFunction(()=>!document.querySelector('#rbDialog').open);
+  assert.deepEqual(f.rollbackCalls.filter(c=>c.action==='run').map(c=>c.body),[{turnOff:false,reconnect:true,start:true,dcConfirmed:false,id:'r1',confirm:'APP01'}]);
+  await f.page.waitForFunction(()=>(document.querySelector('[data-rb-item="r1"]')||{}).className==='rb-item running',null,{timeout:10000});
+  // A domain controller needs its own tick, whatever the confirmation style.
+  await f.page.locator('[data-rb-item="r2"] [data-rb-open]').click();await f.page.waitForFunction(()=>document.querySelector('#rbDialog').open);
+  assert(await f.page.locator('#rbDialogDC').isVisible());assert((await f.page.locator('#rbDialogDCText').textContent()).includes('USN rollback'));
+  await f.page.locator('#rbConfirmInput').fill('DC01');assert(await f.page.locator('#rbDialogGo').isDisabled(),'the domain controller tick is required');
+  await f.page.locator('#rbDCTick').check();assert(await f.page.locator('#rbDialogGo').isEnabled());
+  assert((await f.page.locator('#rbDialogSteps li').first().textContent()).includes('on HV02'));
+  await f.page.locator('#rbDialogCancel').click();assert(!(await f.page.evaluate(()=>document.querySelector('#rbDialog').open)));
+  assert.equal(f.rollbackCalls.filter(c=>c.action==='run').length,1);
+  assert.deepEqual(f.dialogs,[]);
+ }finally{await f.close();}});
  await check('All jobs and servers: one list of every method with clickable tiles, live progress, Select by, bulk cutover in waves with the typed count, jobs to this Hyper-V host without a receiver to set up, agent installs, and task rows that open their tool',async()=>{const f=await fixture(browser);try{
   const now=new Date(),iso=d=>new Date(d).toISOString(),ago=m=>iso(now.getTime()-m*60000);
   const row=(o)=>Object.assign({percent:-1,lagSeconds:-1,wave:0,actions:[],detail:'',reason:''},o);
@@ -2368,9 +2553,9 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   // Install agents on a VM nothing moves yet: the guest name is filled in.
   await f.page.locator('[data-as-row="agent:a4"]').uncheck();await f.page.locator('[data-as-row="vm:vm-31"]').check();
   await f.page.locator('[data-as-act="install"]').click();await f.page.waitForSelector('#asFormInstall:not(.hidden)');
-  assert.equal(await f.page.locator('#asInstHosts').inputValue(),'new01.example.com');await f.page.locator('#asInstPassword').fill('synthetic-password');
-  await f.page.locator('#asInstRun').click();await f.page.waitForFunction(()=>document.querySelector('#asInstPassword').value==='',null,{timeout:15000});
-  const push=f.replCalls.find(c=>c.action==='push');assert.equal(push.body.hosts,'new01.example.com');assert.equal(push.body.platform,'windows');
+  assert.equal(await f.page.locator('#asInstHosts').inputValue(),'new01.example.com');assert(await f.page.locator('#asInstallSignInCurrent').isChecked()&&await f.page.locator('#asInstPassword').isHidden(),'installs start on the current sign-in');
+  await f.page.locator('#asInstRun').click();await f.page.waitForFunction(()=>document.querySelector('#asFormInstall').classList.contains('hidden')&&/Installing the agent/.test(document.querySelector('#asStatus').textContent),null,{timeout:15000});
+  const push=f.replCalls.find(c=>c.action==='push');assert.equal(push.body.hosts,'new01.example.com');assert.equal(push.body.user,'');assert.equal(push.body.password,'','the current sign-in sends no account');assert.equal(push.body.platform,'windows');
   for(const size of [{width:784,height:522},{width:1008,height:690}]){await f.page.setViewportSize(size);
    const small=await f.page.evaluate(()=>Array.from(document.querySelectorAll('#tabServers *')).filter(e=>e.offsetParent&&e.childNodes.length&&Array.from(e.childNodes).some(n=>n.nodeType===3&&n.nodeValue.trim())&&parseFloat(getComputedStyle(e).fontSize)<10.5).map(e=>e.className+':'+e.textContent.slice(0,30)));assert.deepEqual(small,[],'text below 10.5px at '+size.width);
    assert(await f.page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'overflow at '+size.width);

@@ -1,6 +1,6 @@
 package main
 
-// VM console (rule 63, 2026-11-27, owner: "a console access option ... to
+// VM console (rule 68, 2026-11-27, owner: "a console access option ... to
 // console into the vmware, hyper-v, etc source and target machines directly
 // from the app", with keyboard commands, clipboard that pastes into login
 // screens and file transfer where possible). Each platform's own console

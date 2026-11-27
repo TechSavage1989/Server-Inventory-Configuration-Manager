@@ -1,6 +1,6 @@
 package main
 
-// VM console (rule 63): Hyper-V. Hyper-V's own Virtual Machine Connection
+// VM console (rule 68): Hyper-V. Hyper-V's own Virtual Machine Connection
 // is RDP to port 2179, which a browser page cannot speak, so the console
 // window shows the VM through Hyper-V's WMI classes instead, the same way on
 // this host and on a remote host: the screen from

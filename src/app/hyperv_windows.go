@@ -64,10 +64,18 @@ func (a *application) handleVMwareHyperV(response http.ResponseWriter, request *
 		host, user, password = "", "", ""
 	}
 	if user != "" && (!vmwareUserPattern.MatchString(user) || password == "" || len(password) > 256 || strings.ContainsRune(password, 0)) {
-		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "Type the password for " + user + ", or leave the account empty to use your own."})
+		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "Type the password for " + user + ", or choose your current sign-in."})
 		return
 	}
-	if status, message := a.startVMwareAction("hyperv"); status != 0 {
+	// Reading the Hyper-V host already open refreshes it; anything else
+	// replaces the session, which waits while a migration plan copies.
+	if status, message := a.startVMwareActionWith("hyperv", func() string {
+		current := a.vmware.inventory
+		if current != nil && strings.EqualFold(current.ServerType, hypervServerType) && hypervSameHost(vmNonEmpty(host, a.computerName), current.Server) {
+			return ""
+		}
+		return a.vmSessionSwitchRefusalLocked("Reading Hyper-V host " + vmNonEmpty(host, a.computerName))
+	}); status != 0 {
 		writeJSON(response, status, map[string]any{"ok": false, "error": message})
 		return
 	}
@@ -171,4 +179,15 @@ func (a *application) runHyperVRead(ctx context.Context, host, user, password st
 		return nil, errors.New("the Hyper-V host's report is too large")
 	}
 	return parseHypervResult(data)
+}
+
+// hypervSameHost compares two names of a Hyper-V host, full or short.
+func hypervSameHost(a, b string) bool {
+	if strings.EqualFold(a, b) {
+		return true
+	}
+	if strings.Trim(a, "0123456789.") == "" || strings.Trim(b, "0123456789.") == "" {
+		return false
+	}
+	return strings.EqualFold(strings.SplitN(a, ".", 2)[0], strings.SplitN(b, ".", 2)[0])
 }

@@ -349,7 +349,7 @@ func (a *application) handleConvertStart(response http.ResponseWriter, request *
 	case a.migrateBusyLocked():
 		refusal = "A file migration step is running. Wait for it to finish first."
 	case a.vmwareBusyLocked():
-		refusal = "A VMware step is running. Wait for it to finish first."
+		refusal = a.vmwareBusyTextLocked() + " Wait for it to finish first."
 	case a.convertBusyLocked():
 		refusal = "A conversion is already running."
 	}

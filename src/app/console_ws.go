@@ -1,6 +1,6 @@
 package main
 
-// VM console (rule 63): a minimal RFC 6455 WebSocket client, used to reach
+// VM console (rule 68): a minimal RFC 6455 WebSocket client, used to reach
 // the VNC streams that VMware (WebMKS), Proxmox VE and Nutanix Prism serve
 // over HTTPS. It sends binary frames, reads binary and text frames as one
 // byte stream, answers pings and never follows redirects.

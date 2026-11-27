@@ -99,6 +99,31 @@ type vmThrottle struct {
 	next  time.Time
 	now   func() time.Time
 	until func(context.Context, time.Time) error
+	// parents are further throttles every byte also waits for: a plan's
+	// limit, its wave's limit and this computer's global limit
+	// (prodguard.go) each hold, whichever is lowest at the moment.
+	parents []*vmThrottle
+}
+
+// vmThrottleAll returns a throttle that waits for every non-nil throttle
+// given, or nil when there is none. The throttles keep their own pacing, so
+// one shared by several rounds still limits them together.
+func vmThrottleAll(throttles ...*vmThrottle) *vmThrottle {
+	list := []*vmThrottle{}
+	for _, t := range throttles {
+		if t != nil {
+			list = append(list, t)
+		}
+	}
+	switch len(list) {
+	case 0:
+		return nil
+	case 1:
+		return list[0]
+	}
+	t := newVMThrottle(vmThrottleSchedule{})
+	t.parents = list
+	return t
 }
 
 // vmThrottleBurst is how much sending may run ahead of the limit.
@@ -134,6 +159,18 @@ func (t *vmThrottle) Wait(ctx context.Context, n int64) error {
 	if t == nil || n <= 0 {
 		return nil
 	}
+	if err := t.waitOwn(ctx, n); err != nil {
+		return err
+	}
+	for _, parent := range t.parents {
+		if err := parent.Wait(ctx, n); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (t *vmThrottle) waitOwn(ctx context.Context, n int64) error {
 	t.mu.Lock()
 	now := t.now()
 	limit := t.schedule.BytesPerSecond(now)

@@ -2,7 +2,7 @@
 
 package main
 
-// VM console (rule 63): the Windows side. It opens each platform's console
+// VM console (rule 68): the Windows side. It opens each platform's console
 // with the connection the application already holds (the vSphere session's
 // account, the connected remote Hyper-V host, the connected Proxmox VE,
 // Nutanix or HyperCore target) and serves /api/console/*. Passwords never

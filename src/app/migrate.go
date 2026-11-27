@@ -134,6 +134,9 @@ type migrateSaved struct {
 	// open (0 is off). An overwrite confirmation is never saved: after a
 	// restart it is given again.
 	AutoSyncMinutes int `json:"autoSyncMinutes,omitempty"`
+	// Throttle limits repeat copies (not the final pass at cutover); the
+	// console's global limit applies too, whichever is lower at the time.
+	Throttle vmThrottleSchedule `json:"throttle"`
 }
 
 type migrateRuntime struct {
@@ -176,6 +179,8 @@ type migrateRuntime struct {
 	autoSyncMinutes   int
 	autoSyncFrom      time.Time
 	autoSyncOverwrite bool
+	// throttle limits repeat copies (Robocopy's inter-packet gap).
+	throttle vmThrottleSchedule
 }
 
 type migrateStateResponse struct {
@@ -209,6 +214,10 @@ type migrateStateResponse struct {
 	AutoSyncMinutes int    `json:"autoSyncMinutes"`
 	NextAutoSyncMs  int64  `json:"nextAutoSyncUnixMs"`
 	AutoSyncWaiting string `json:"autoSyncWaiting"`
+	// Throttle limits repeat copies; ThrottleNow is the limit in force now
+	// with the console's global limit (0 Mbps: none).
+	Throttle    vmThrottleSchedule `json:"throttle"`
+	ThrottleNow int                `json:"throttleNowMbps"`
 }
 
 // migrateUserPattern accepts user, DOMAIN\user and user@domain.example.
@@ -304,6 +313,8 @@ func (a *application) migrateSnapshotLocked() migrateStateResponse {
 		AutoSyncMinutes: a.migrate.autoSyncMinutes,
 		NextAutoSyncMs:  a.migrateNextAutoSyncMsLocked(),
 		AutoSyncWaiting: a.migrateAutoSyncWaitingLocked(),
+		Throttle:        a.migrate.throttle,
+		ThrottleNow:     migrateBandwidthMbps(time.Now(), a.migrate.throttle, a.prodGuard.Settings().Bandwidth),
 	}
 }
 
@@ -414,7 +425,7 @@ func (a *application) migrateSaveLocked() {
 	if work == "" {
 		return
 	}
-	data, err := json.MarshalIndent(migrateSaved{Source: a.migrate.source, Target: a.migrate.target, Plan: a.migrate.plan, SourceReadOnly: a.migrate.sourceReadOnly, Alias: a.migrate.aliasAdded, AutoSyncMinutes: a.migrate.autoSyncMinutes}, "", "  ")
+	data, err := json.MarshalIndent(migrateSaved{Source: a.migrate.source, Target: a.migrate.target, Plan: a.migrate.plan, SourceReadOnly: a.migrate.sourceReadOnly, Alias: a.migrate.aliasAdded, AutoSyncMinutes: a.migrate.autoSyncMinutes, Throttle: a.migrate.throttle}, "", "  ")
 	if err != nil || os.MkdirAll(work, 0700) != nil {
 		return
 	}
@@ -471,7 +482,11 @@ func (a *application) migratePlanFileLocked() ([]byte, error) {
 		}
 		shares = append(shares, migratePlanShare{migrateSourceShare: source, DestName: item.DestName, DestPath: item.DestPath, PreviouslySynced: item.PreviouslySynced, CreatedShare: item.CreatedShare, AllowOverwrite: item.AllowOverwrite, ExpectedFiles: expected})
 	}
-	return json.Marshal(map[string]any{"source": a.migrate.discovery.Source, "sourceFqdn": a.migrate.discovery.SourceFqdn, "shares": shares})
+	global := vmThrottleSchedule{}
+	if a.prodGuard != nil {
+		global = a.prodGuard.Settings().Bandwidth
+	}
+	return json.Marshal(map[string]any{"source": a.migrate.discovery.Source, "sourceFqdn": a.migrate.discovery.SourceFqdn, "shares": shares, "bandwidthMbps": migrateBandwidthMbps(time.Now(), a.migrate.throttle, global)})
 }
 
 // startMigrateAction claims the migration for one engine run. Caller must not
@@ -490,7 +505,7 @@ func (a *application) startMigrateAction(action string) (int, string) {
 	case a.migrateBusyLocked():
 		refusal = "A migration step is already running."
 	case a.vmwareBusyLocked():
-		refusal = "A VMware step is running. Wait for it to finish first."
+		refusal = a.vmwareBusyTextLocked() + " Wait for it to finish first."
 	case a.convertBusyLocked():
 		refusal = "A disk conversion is running. Wait for it to finish first."
 	default:
@@ -794,6 +809,9 @@ func (a *application) handleMigrateDiscover(response http.ResponseWriter, reques
 					a.migrate.plan = saved.Plan
 					a.migrate.sourceReadOnly = saved.SourceReadOnly
 					a.migrate.aliasAdded = saved.Alias
+					if saved.Throttle.Validate() == nil {
+						a.migrate.throttle = saved.Throttle
+					}
 					if saved.AutoSyncMinutes > 0 && migrateCheckAutoSync(saved.AutoSyncMinutes) == nil {
 						a.migrate.autoSyncMinutes = saved.AutoSyncMinutes
 						a.migrate.autoSyncFrom = time.Now()
@@ -1256,6 +1274,31 @@ func (a *application) handleMigrateAutoSync(response http.ResponseWriter, reques
 		a.migrate.autoSyncOverwrite = false
 	}
 	a.migrateSaveLocked()
+	writeJSON(response, http.StatusOK, map[string]any{"ok": true})
+}
+
+// handleMigrateThrottle sets the bandwidth limit of repeat copies (POST
+// {"throttle": {...}}). It takes effect at the next copy.
+func (a *application) handleMigrateThrottle(response http.ResponseWriter, request *http.Request) {
+	if !a.requireAuthorization(response, request) {
+		return
+	}
+	var input struct {
+		Throttle vmThrottleSchedule `json:"throttle"`
+	}
+	if !decodeMigrateRequest(response, request, &input) {
+		return
+	}
+	if err := input.Throttle.Validate(); err != nil {
+		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": strings.ToUpper(err.Error()[:1]) + err.Error()[1:] + "."})
+		return
+	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.migrate.throttle = input.Throttle
+	if a.migrate.source != "" {
+		a.migrateSaveLocked()
+	}
 	writeJSON(response, http.StatusOK, map[string]any{"ok": true})
 }
 

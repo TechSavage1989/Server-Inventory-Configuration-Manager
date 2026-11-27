@@ -35,8 +35,8 @@ const (
 	// displayName is the name people see.
 	appName            = "Server Inventory Configuration Manager"
 	displayName        = "Server Inventory and Migration Manager"
-	appVersion         = "3.2.38"
-	collectorVersion   = "3.2.38"
+	appVersion         = "3.2.39"
+	collectorVersion   = "3.2.39"
 	applicationPageCSP = "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; frame-src 'self'"
 	maximumCollectors  = 49
 
@@ -131,6 +131,7 @@ type stateResponse struct {
 	ACLExport               aclExportState         `json:"aclExport"`
 	CollectionPreferences   *collectionPreferences `json:"collectionPreferences,omitempty"`
 	UI                      uiSettings             `json:"ui"`
+	Production              pgView                 `json:"production"`
 	AppVersion              string                 `json:"appVersion"`
 	Closing                 bool                   `json:"closing"`
 	CollectorVersion        string                 `json:"collectorVersion"`
@@ -231,8 +232,11 @@ type internalState struct {
 }
 
 type application struct {
-	collectionPreferences   *collectionPreferences
-	uiSettings              uiSettings
+	collectionPreferences *collectionPreferences
+	uiSettings            uiSettings
+	// prodGuard keeps production's space and bandwidth during copies
+	// (prodguard.go).
+	prodGuard               *pgGuard
 	mu                      sync.Mutex
 	update                  updateRuntime
 	windowGeometry          windowGeometryRuntime
@@ -274,7 +278,7 @@ type application struct {
 	convert                 convertRuntime
 	convertSend             convertSendRuntime
 	hvRemote                hvRemoteRuntime
-	// consoles are the open VM consoles (console_windows.go, rule 63).
+	// consoles are the open VM consoles (console_windows.go, rule 68).
 	consoles *consoleManager
 	hvBuild  hvBuildRuntime
 	// guestRemote is where Prepare and fix up runs (guest_remote_windows.go);
@@ -293,6 +297,8 @@ type application struct {
 	transfers *vmTransferBoard
 	repl      replRuntime
 	servers   asRuntime
+	// rollback is Roll back after a cutover (rollback_windows.go).
+	rollback rbRuntime
 }
 
 func utf16Ptr(value string) *uint16 {
@@ -1197,6 +1203,7 @@ func newApplication() (*application, error) {
 	}
 	app.loadCollectionPreferences()
 	app.uiSettings = loadUISettings(app.update.settingsDir)
+	app.prodGuard = newPGGuard(loadPGSettings(app.update.settingsDir))
 	setVDDKFolder(loadVDDKSettings(app.update.settingsDir).Folder)
 	return app, nil
 }
@@ -1337,6 +1344,7 @@ func (a *application) snapshot(since int) stateResponse {
 		ACLExport:               a.state.ACLExport,
 		CollectionPreferences:   a.collectionPreferences,
 		UI:                      a.uiSettings,
+		Production:              a.prodGuard.View(),
 		AppVersion:              appVersion,
 		Closing:                 a.closing,
 		CollectorVersion:        collectorVersion,
@@ -1588,9 +1596,9 @@ func (a *application) handleStart(response http.ResponseWriter, request *http.Re
 		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "A file migration step is running. Wait for it to finish before collecting."})
 		return
 	}
-	if a.vmwareBusyLocked() {
+	if a.vmwareBlocksCollectionLocked() {
 		a.mu.Unlock()
-		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "A VMware step is running. Wait for it to finish before collecting."})
+		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "A VMware step is running (" + vmActionName(a.vmware.action) + "). Wait for it to finish before collecting."})
 		return
 	}
 	if a.convertBusyLocked() {
@@ -1626,9 +1634,9 @@ func (a *application) handleStart(response http.ResponseWriter, request *http.Re
 		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "A file migration step is running. Wait for it to finish before collecting."})
 		return
 	}
-	if a.vmwareBusyLocked() {
+	if a.vmwareBlocksCollectionLocked() {
 		a.mu.Unlock()
-		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "A VMware step is running. Wait for it to finish before collecting."})
+		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "A VMware step is running (" + vmActionName(a.vmware.action) + "). Wait for it to finish before collecting."})
 		return
 	}
 	if a.convertBusyLocked() {
@@ -2382,6 +2390,7 @@ func (a *application) serve(listener net.Listener) error {
 	mux.HandleFunc("/api/preferences", a.handlePreferences)
 	mux.HandleFunc("/api/ui-settings", a.handleUISettings)
 	mux.HandleFunc("/api/vddk", a.handleVDDK)
+	mux.HandleFunc("/api/production", a.handleProduction)
 	mux.HandleFunc("/api/cancel", a.handleCancel)
 	mux.HandleFunc("/api/skip-acl-export", a.handleSkipACLExport)
 	mux.HandleFunc("/api/open", a.handleOpen)
@@ -2402,6 +2411,7 @@ func (a *application) serve(listener net.Listener) error {
 	mux.HandleFunc("/api/migrate/alias", a.handleMigrateAlias)
 	mux.HandleFunc("/api/migrate/cancel", a.handleMigrateCancel)
 	mux.HandleFunc("/api/migrate/reset", a.handleMigrateReset)
+	mux.HandleFunc("/api/migrate/throttle", a.handleMigrateThrottle)
 	mux.HandleFunc("/api/migrate/autosync", a.handleMigrateAutoSync)
 	mux.HandleFunc("/api/vmware/connect", a.handleVMwareConnect)
 	mux.HandleFunc("/api/output-root", a.handleOutputRoot)
@@ -2443,6 +2453,7 @@ func (a *application) serve(listener net.Listener) error {
 	mux.HandleFunc("/api/vmware/guest/", a.handleVMwareGuest)
 	mux.HandleFunc("/api/vmware/guest-load", a.handleVMwareGuestLoad)
 	mux.HandleFunc("/api/vmware/guest-auto", a.handleGuestAuto)
+	mux.HandleFunc("/api/rollback/", a.handleRollback)
 	mux.HandleFunc("/api/vmware/preflight/", a.handlePreflight)
 	mux.HandleFunc("/api/vmware/guest-auto/", a.handleGuestAuto)
 	mux.HandleFunc("/api/vmware/guest-target", a.handleGuestTarget)
