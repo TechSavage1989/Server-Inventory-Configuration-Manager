@@ -130,6 +130,16 @@ func hvBuildCheckPlan(plan hvBuildPlan) (hvBuildPlan, error) {
 		if sw.ManagementVLAN != "" && !sw.ManagementOS {
 			sw.ManagementVLAN = ""
 		}
+		if sw.SourceVLAN, err = hvBuildCheckVLAN(sw.SourceVLAN, sw.Name); err != nil {
+			sw.SourceVLAN = ""
+		}
+		speeds := []int{}
+		for _, speed := range sw.UplinkSpeedsMb {
+			if speed > 0 && speed <= 1000000 && len(speeds) < 16 {
+				speeds = append(speeds, speed)
+			}
+		}
+		sw.UplinkSpeedsMb = speeds
 		if sw.LoadBalancing != "Dynamic" {
 			sw.LoadBalancing = "HyperVPort"
 		}
@@ -253,6 +263,14 @@ func hvBuildCheckPlan(plan hvBuildPlan) (hvBuildPlan, error) {
 			storage = append(storage, nic)
 		}
 		node.Storage = storage
+		node.Suggested = hvBuildCleanSuggested(node.Suggested)
+		iscsi := []string{}
+		for _, ip := range node.SourceISCSI {
+			if clean, err := hvBuildCheckIPv4CIDR(ip); err == nil && len(iscsi) < 8 {
+				iscsi = append(iscsi, clean)
+			}
+		}
+		node.SourceISCSI = iscsi
 	}
 	for index := range plan.Networks {
 		network := &plan.Networks[index]
@@ -331,10 +349,13 @@ func hvBuildCheckPlan(plan hvBuildPlan) (hvBuildPlan, error) {
 		return plan, errors.New("choose one witness disk")
 	}
 	cluster := &plan.Cluster
-	if len(plan.Nodes) > 1 {
+	if len(plan.Nodes) > 1 || cluster.Join {
 		cluster.Enabled = true
 	}
 	cluster.Name = strings.TrimSpace(cluster.Name)
+	if cluster.Join && cluster.Name == "" {
+		return plan, errors.New("type the name of the cluster the nodes join, or read it in step 1")
+	}
 	if cluster.Name != "" {
 		if !hvBuildClusterPattern.MatchString(cluster.Name) || strings.Trim(cluster.Name, "0123456789") == "" {
 			return plan, errors.New("the cluster name is its computer name in Active Directory: up to 15 letters, digits and hyphens, not only digits")
@@ -394,6 +415,26 @@ func hvBuildCheckPlan(plan hvBuildPlan) (hvBuildPlan, error) {
 	if plan.Notes == nil {
 		plan.Notes = []string{}
 	}
+	plan.Suggested = hvBuildCleanSuggested(plan.Suggested)
+	if existing := plan.Existing; existing != nil {
+		members := []hvBuildMember{}
+		for _, member := range existing.Members {
+			if hvRemoteNodePattern.MatchString(member.Name) && len(members) < 64 {
+				members = append(members, member)
+			}
+		}
+		existing.Members = members
+		if existing.Kind != "join" {
+			existing.Kind = "takein"
+		}
+		ips := map[string]string{}
+		for name, ip := range existing.HostIPs {
+			if clean, err := hvBuildCheckIPv4CIDR(ip); err == nil && nicNames[strings.ToLower(name)] {
+				ips[name] = clean
+			}
+		}
+		existing.HostIPs = ips
+	}
 	plan.UpdatedAt = time.Now().UTC()
 	return plan, nil
 }
@@ -426,18 +467,25 @@ func hvBuildRoleNames() map[string]string {
 }
 
 // hvBuildSteps lists the plan's steps in the order they run.
-func hvBuildSteps(plan hvBuildPlan) []hvBuildStepInfo {
+func hvBuildSteps(full hvBuildPlan) []hvBuildStepInfo {
 	steps := []hvBuildStepInfo{}
 	add := func(id, title, detail, where, missing string) {
 		steps = append(steps, hvBuildStepInfo{ID: id, Title: title, Detail: detail, Where: where, Missing: missing})
 	}
+	// Steps work on the nodes that are ready; waiting nodes join later.
+	plan := hvBuildActive(full)
 	nodesMissing := ""
+	if len(plan.Nodes) == 0 {
+		nodesMissing = "Every node still waits to be converted: mark the next one ready in step 2."
+	}
 	for index, node := range plan.Nodes {
 		if node.Name == "" {
 			nodesMissing = fmt.Sprintf("Type the name of node %d.", index+1)
 			break
 		}
 	}
+	join := plan.Cluster.Join
+	waiting := len(full.Nodes) - len(plan.Nodes)
 	clustered := plan.Cluster.Enabled
 	if clustered {
 		add("localtools", "Cluster tools on this computer", "The Failover Cluster Module for Windows PowerShell, which the cluster steps use from here.", hvWhereHere, "")
@@ -500,17 +548,29 @@ func hvBuildSteps(plan hvBuildPlan) []hvBuildStepInfo {
 	}
 	if clustered {
 		clusterMissing := nodesMissing
-		if clusterMissing == "" && len(plan.Nodes) < 2 {
+		if clusterMissing == "" && !join && len(full.Nodes) < 2 {
 			clusterMissing = "A failover cluster needs at least two nodes."
 		}
-		add("validate", "Validate the cluster", "Runs Microsoft's cluster validation and saves its report. Changes nothing.", hvWhereHere, clusterMissing)
+		validateDetail := "Runs Microsoft's cluster validation and saves its report. Changes nothing."
+		if members := hvBuildMembers(plan); join && len(members) > 0 {
+			validateDetail = "Runs Microsoft's cluster validation on " + strings.Join(members, ", ") + " and the new nodes, without the Storage tests, and saves its report. Changes nothing."
+		}
+		add("validate", "Validate the cluster", validateDetail, hvWhereHere, clusterMissing)
 		if clusterMissing == "" && plan.Cluster.Name == "" {
 			clusterMissing = "Type the cluster name."
 		}
-		if clusterMissing == "" && len(plan.Cluster.Addresses) == 0 {
+		if clusterMissing == "" && !join && len(plan.Cluster.Addresses) == 0 {
 			clusterMissing = "Type the cluster's IP address."
 		}
-		add("cluster", "Create the cluster", "Creates "+vmNonEmpty(plan.Cluster.Name, "the cluster")+" without storage, or adds missing nodes to it.", hvWhereHere, clusterMissing)
+		if join {
+			add("cluster", "Join the cluster", "Adds "+strings.Join(hvBuildNodeNames(plan), ", ")+" to "+vmNonEmpty(plan.Cluster.Name, "the cluster")+" without storage. Never creates a cluster or changes its quorum, networks or volumes.", hvWhereHere, clusterMissing)
+		} else {
+			detail := "Creates " + vmNonEmpty(plan.Cluster.Name, "the cluster") + " without storage, or adds missing nodes to it."
+			if waiting > 0 {
+				detail += fmt.Sprintf(" The %d node(s) still waiting join it when they are ready.", waiting)
+			}
+			add("cluster", "Create the cluster", detail, hvWhereHere, clusterMissing)
+		}
 		csvCount := 0
 		for _, disk := range plan.Storage.Disks {
 			if disk.Use == "csv" || disk.Use == "witness" {
@@ -537,8 +597,10 @@ func hvBuildSteps(plan hvBuildPlan) []hvBuildStepInfo {
 				}
 			}
 		}
-		add("quorum", "Quorum witness", hvBuildWitnessText(plan.Cluster), hvWhereHere, quorumMissing)
-		add("clusternetworks", "Cluster networks", "Names the cluster networks after the host adapters, sets their roles and keeps live migration on its own network.", hvWhereHere, clusterMissing)
+		if !join {
+			add("quorum", "Quorum witness", hvBuildWitnessText(plan.Cluster), hvWhereHere, quorumMissing)
+			add("clusternetworks", "Cluster networks", "Names the cluster networks after the host adapters, sets their roles and keeps live migration on its own network.", hvWhereHere, clusterMissing)
+		}
 	}
 	add("hostsettings", "Live migration and default folders", fmt.Sprintf("%s authentication, %d at a time, %s.", plan.Settings.MigrationAuth, plan.Settings.MaxMigrations, plan.Settings.Performance), hvWhereEach, nodesMissing)
 	return steps
@@ -593,6 +655,10 @@ func hvBuildStepByID(plan hvBuildPlan, id string) (hvBuildStepInfo, bool) {
 
 // hvBuildStepComputers lists where a step runs: node names, or hvBuildHere.
 func hvBuildStepComputers(plan hvBuildPlan, step hvBuildStepInfo) []string {
+	plan = hvBuildActive(plan)
+	if len(plan.Nodes) == 0 && step.Where != hvWhereHere {
+		return []string{}
+	}
 	switch step.Where {
 	case hvWhereHere:
 		return []string{hvBuildHere}
@@ -708,6 +774,7 @@ func hvBuildScript(plan hvBuildPlan, stepID, computer string) (string, error) {
 	if step.Missing != "" {
 		return "", errors.New(step.Missing)
 	}
+	plan = hvBuildActive(plan)
 	var body string
 	switch stepID {
 	case "localtools":
@@ -1133,7 +1200,7 @@ Plan-Change $text {
     $state.warnings = @($warnings | ForEach-Object { [string]$_ })
 } @{ nodes = $nodes; include = $include }
 }
-`, psList(hvBuildNodeNames(plan)), vmPSQuote(vmNonEmpty(plan.Cluster.Name, "-")), psBool(plan.Cluster.StorageTests))
+`, psList(append(hvBuildMembers(plan), hvBuildNodeNames(plan)...)), vmPSQuote(vmNonEmpty(plan.Cluster.Name, "-")), psBool(plan.Cluster.StorageTests && !plan.Cluster.Join))
 }
 
 func hvBuildClusterScript(plan hvBuildPlan) string {
@@ -1144,7 +1211,7 @@ $addresses = %[3]s
 $short = { param($n) ([string]$n).Split('.')[0].ToLower() }
 $exists = $null
 try { $exists = Get-Cluster -Name $clusterName -ErrorAction Stop } catch { }
-Note ('Your account must be allowed to create the computer object ' + $clusterName + ' in Active Directory, or it must be prestaged and disabled.')
+if (-not $exists -and -not %[4]s) { Note ('Your account must be allowed to create the computer object ' + $clusterName + ' in Active Directory, or it must be prestaged and disabled.') }
 if ($exists) {
     $members = @(Get-ClusterNode -Cluster $clusterName | ForEach-Object { & $short $_.Name })
     Note ('Cluster ' + $clusterName + ' exists with nodes ' + ($members -join ', ') + '.')
@@ -1155,6 +1222,8 @@ if ($exists) {
         if ($other) { Block ($node + ' is already in cluster ' + $other.Name + '.'); continue }
         Plan-Change ('Add node ' + $node + ' to cluster ' + $clusterName + ' without adding storage') { param($x) Add-ClusterNode -Cluster $x.cluster -Name $x.node -NoStorage | Out-Null } @{ cluster = $clusterName; node = $node }
     }
+} elseif (%[4]s) {
+    Block ('Cluster ' + $clusterName + ' was not found from this computer. Nothing is created: check that this computer is in the cluster''s domain and read the cluster again in step 1.')
 } else {
     foreach ($node in $nodes) {
         $other = $null
@@ -1167,7 +1236,7 @@ if ($exists) {
     } @{ cluster = $clusterName; nodes = $nodes; addresses = $addresses }
 }
 }
-`, vmPSQuote(plan.Cluster.Name), psList(hvBuildNodeNames(plan)), psList(plan.Cluster.Addresses))
+`, vmPSQuote(plan.Cluster.Name), psList(hvBuildNodeNames(plan)), psList(plan.Cluster.Addresses), psBool(plan.Cluster.Join))
 }
 
 func hvBuildCSVScript(plan hvBuildPlan) string {

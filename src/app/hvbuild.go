@@ -59,6 +59,18 @@ type hvBuildNode struct {
 	SourceNICs map[string][]hvBuildSourceNIC `json:"sourceNics,omitempty"`
 	// ManagementIP is the address the host had under ESXi, for reference.
 	ManagementIP string `json:"managementIp,omitempty"`
+	// Later leaves the node out of reads and steps until it is ready: an
+	// ESXi host still running VMs in a rolling conversion.
+	Later bool `json:"later,omitempty"`
+	// ExistingHost marks a node that already ran Hyper-V when the plan was
+	// matched to it.
+	ExistingHost bool `json:"existingHost,omitempty"`
+	// SourceISCSI are the iSCSI VMkernel addresses the same server had
+	// under ESXi (a rolling conversion), for its iSCSI adapters.
+	SourceISCSI []string `json:"sourceIscsi,omitempty"`
+	// Suggested lists the fields the page filled in by itself ("switch:X",
+	// "ip:X", "storage"); a field the operator changes leaves the list.
+	Suggested []string `json:"suggested,omitempty"`
 }
 
 // hvBuildSourceNIC is one physical adapter as ESXi reported it.
@@ -85,6 +97,15 @@ type hvBuildSwitch struct {
 	// adapters.
 	MTU     int `json:"mtu"`
 	Uplinks int `json:"uplinks"`
+	// UplinkSpeedsMb are the link speeds of the adapters the switch has on
+	// the VMware hosts (or the existing Hyper-V host), so Read nodes can
+	// tick adapters of the same speed and count.
+	UplinkSpeedsMb []int `json:"uplinkSpeedsMb,omitempty"`
+	// SourceVLAN is the VLAN VMware tagged the management network with,
+	// for reference (the management VLAN is set only when Windows uses it).
+	SourceVLAN string `json:"sourceVlan,omitempty"`
+	// Existing marks a switch read from an existing Hyper-V host.
+	Existing bool `json:"existing,omitempty"`
 }
 
 // hvBuildHostNIC is a host network adapter on a switch for one kind of
@@ -143,7 +164,10 @@ type hvBuildArray struct {
 }
 
 type hvBuildCluster struct {
-	Enabled   bool     `json:"enabled"`
+	Enabled bool `json:"enabled"`
+	// Join adds the nodes to the existing cluster Name and never creates
+	// one; quorum and cluster networks are left as the cluster has them.
+	Join      bool     `json:"join,omitempty"`
 	Name      string   `json:"name"`
 	Addresses []string `json:"addresses"`
 	// Witness is disk, fileshare, cloud or none.
@@ -197,8 +221,14 @@ type hvBuildPlan struct {
 	Notes         []string         `json:"notes"`
 	// Reuse is true when the nodes are the ESXi hosts themselves, rebuilt
 	// one at a time (Plan and runbook's rolling scenario).
-	Reuse     bool      `json:"reuse,omitempty"`
-	UpdatedAt time.Time `json:"updatedAt"`
+	Reuse bool `json:"reuse,omitempty"`
+	// Suggested lists the plan-wide fields the page filled in by itself
+	// ("cluster.name", "cluster.addresses", "witness", "vlan:<switch>",
+	// "disks").
+	Suggested []string `json:"suggested,omitempty"`
+	// Existing is the Hyper-V cluster or host the plan was matched to.
+	Existing  *hvBuildExisting `json:"existing,omitempty"`
+	UpdatedAt time.Time        `json:"updatedAt"`
 }
 
 var (
@@ -322,6 +352,13 @@ func hvBuildSuggestFor(inventory *vmInventory, cluster string, reuse bool, order
 			for _, portgroup := range item.Portgroups {
 				entry.portgroups = hvBuildAddUnique(entry.portgroups, portgroup)
 			}
+			if len(entry.speeds) == 0 {
+				for _, nic := range host.Details.PhysicalNICs {
+					if strings.EqualFold(nic.Switch, item.Name) && nic.SpeedMb > 0 {
+						entry.speeds = append(entry.speeds, nic.SpeedMb)
+					}
+				}
+			}
 		}
 		for _, vmk := range host.Details.VMkernel {
 			sw := hvBuildSwitchOfPortgroup(host.Details, vmk.Portgroup, byName)
@@ -363,7 +400,10 @@ func hvBuildSuggestFor(inventory *vmInventory, cluster string, reuse bool, order
 		if sw.mtu >= 9000 {
 			mtu = 9000
 		}
-		plan.Switches = append(plan.Switches, hvBuildSwitch{Name: name, From: []string{sw.name}, ManagementOS: sw.management, LoadBalancing: "HyperVPort", MTU: mtu, Uplinks: sw.uplinks})
+		plan.Switches = append(plan.Switches, hvBuildSwitch{Name: name, From: []string{sw.name}, ManagementOS: sw.management, LoadBalancing: "HyperVPort", MTU: mtu, Uplinks: sw.uplinks, UplinkSpeedsMb: sw.speeds})
+		if sw.management && sw.managementVLAN != "" {
+			plan.Switches[len(plan.Switches)-1].SourceVLAN = sw.managementVLAN
+		}
 		if sw.management && sw.managementVLAN != "" {
 			plan.Notes = append(plan.Notes, fmt.Sprintf("VMware tags the management network on %s with VLAN %s. Set the management VLAN on %s only if the nodes' switch ports are trunks and Windows already uses that VLAN; otherwise the node loses its connection.", sw.name, sw.managementVLAN, name))
 		}
@@ -514,6 +554,9 @@ func hvBuildSuggestFor(inventory *vmInventory, cluster string, reuse bool, order
 		}
 		if reuse {
 			hvBuildReuseHost(&plan, &node, host)
+			// A host vSphere still reaches runs ESXi: it waits until it
+			// is rebuilt with Windows.
+			node.Later = strings.EqualFold(host.ConnectionState, "connected")
 		}
 		plan.Nodes = append(plan.Nodes, node)
 	}
@@ -570,6 +613,7 @@ func hvBuildSuggestFor(inventory *vmInventory, cluster string, reuse bool, order
 type hvBuildSourceSwitch struct {
 	name, kind     string
 	mtu, uplinks   int
+	speeds         []int
 	portgroups     []string
 	management     bool
 	managementVLAN string
@@ -715,6 +759,9 @@ func hvBuildReuseHost(plan *hvBuildPlan, node *hvBuildNode, host vmHost) {
 	for _, vmk := range details.VMkernel {
 		if !vmContains(vmk.Services, "management") && !vmContains(vmk.Services, "vmotion") && vmk.IP != "" && strings.Contains(strings.ToLower(vmk.Portgroup), "iscsi") {
 			iscsi = append(iscsi, vmk.IP)
+			if bits := hvBuildMaskBits(vmk.Mask); bits > 0 && bits < 32 && net.ParseIP(vmk.IP).To4() != nil {
+				node.SourceISCSI = append(node.SourceISCSI, vmk.IP+"/"+strconv.Itoa(bits))
+			}
 		}
 	}
 	if len(iscsi) > 0 {
