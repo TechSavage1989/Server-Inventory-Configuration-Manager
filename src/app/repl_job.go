@@ -28,6 +28,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"runtime/debug"
 	"sort"
 	"strings"
@@ -150,6 +151,87 @@ type replJobSpec struct {
 	// disks with the source (a failback onto disks holding an older copy).
 	RescanFirst bool       `json:"rescanFirst,omitempty"`
 	CutoverAt   *time.Time `json:"cutoverAt,omitempty"`
+	// Space keeps free space on the server's own volumes: a round waits
+	// rather than take its shadow copies (or LVM snapshots) when a volume it
+	// reads would keep less (prodguard.go). nil uses replDefaultSpace;
+	// both values 0 turn the check off.
+	Space *replSpace `json:"space,omitempty"`
+}
+
+// replSpace is the free space a replication job keeps on its source volumes.
+type replSpace struct {
+	ReservePercent int `json:"reservePercent"`
+	ReserveGB      int `json:"reserveGB"`
+}
+
+// replDefaultSpace is what jobs without their own setting keep free. A
+// shadow copy grows only by what is written during the round, so the
+// estimate is small: 2 GB per volume.
+var replDefaultSpace = replSpace{ReservePercent: 10, ReserveGB: 20}
+
+func (s *replSpace) validate() error {
+	if s == nil {
+		return nil
+	}
+	if s.ReservePercent < 0 || s.ReservePercent > 50 || s.ReserveGB < 0 || s.ReserveGB > 100000 {
+		return errors.New("keep 0 to 50% and 0 to 100000 GB free on the server's volumes")
+	}
+	return nil
+}
+
+func (s *replSpace) settings() (pgSettings, bool) {
+	space := replDefaultSpace
+	if s != nil {
+		space = *s
+	}
+	if space.ReservePercent == 0 && space.ReserveGB == 0 {
+		return pgSettings{}, false
+	}
+	settings := defaultPGSettings()
+	settings.ReservePercent, settings.ReserveGB = space.ReservePercent, space.ReserveGB
+	settings.GrowthPercent, settings.GrowthMinGB = 0, 2
+	return settings, true
+}
+
+// checkSpace reads the free space of the volumes on the job's disks and
+// holds the round when one would keep less than the job's reserve. A volume
+// whose space cannot be read is not checked; the round goes on.
+func (a *replAgent) checkSpace(spec replJobSpec, sources []string) error {
+	settings, on := spec.Space.settings()
+	if !on || a.spaceFree == nil {
+		return nil
+	}
+	disks, err := a.platform.ListDisks()
+	if err != nil {
+		return nil
+	}
+	want := map[string]bool{}
+	for _, source := range sources {
+		want[source] = true
+	}
+	volumes := []pgVolume{}
+	for _, disk := range disks {
+		if !want[disk.ID] {
+			continue
+		}
+		for _, volume := range disk.Volumes {
+			if len(volume.Mounts) == 0 {
+				continue
+			}
+			free, total, ok := a.spaceFree(volume.Mounts[0])
+			if !ok || total == 0 {
+				continue
+			}
+			volumes = append(volumes, pgVolume{Key: volume.Name, Label: volume.Mounts[0], Free: int64(free), Capacity: int64(total), VMBytes: volume.Length})
+		}
+	}
+	if err := pgCheckFree(settings, volumes); err != nil {
+		text := strings.Replace(err.Error(), "Waiting for space on datastore", "Waiting for space on volume", 1)
+		text = strings.Replace(text, "this VM's snapshot may grow by", "the shadow copy may grow by", 1)
+		text = strings.Replace(text, "kept free for production (Help > Settings)", "kept free for this server (the job's settings)", 1)
+		return &pgHoldError{Reason: text}
+	}
+	return nil
 }
 
 type replDiskStatus struct {
@@ -317,9 +399,12 @@ type replAgent struct {
 	// probeReceiver asks a receiver for its disks with the job's pin and
 	// code; reachReceiver uses it to choose between the receiver's addresses.
 	probeReceiver func(ctx context.Context, address, thumbprint, code string) (bool, []vmReceiverDisk, error)
-	notify        func(replAlert)
-	wg            sync.WaitGroup
-	stopping      bool
+	// spaceFree reads a mounted volume's free and total bytes for the
+	// space check; nil skips it.
+	spaceFree func(mount string) (free, total uint64, ok bool)
+	notify    func(replAlert)
+	wg        sync.WaitGroup
+	stopping  bool
 	// lastStop says how the agent's previous run ended when that was not
 	// a clean stop (see replCheckPreviousStop); empty otherwise.
 	lastStop   string
@@ -381,6 +466,13 @@ func newReplAgent(dir string, platform replPlatform) (*replAgent, error) {
 		return newVMRemoteSink(ctx, link.Address, link.Thumbprint, link.Code, target)
 	}
 	a.probeReceiver = vmReceiverDescribe
+	// A Windows shadow copy grows inside the volume it copies, so the
+	// volume's free space decides whether a round may start. A Linux LVM
+	// snapshot takes its space from the volume group, and lvcreate refuses
+	// a snapshot the group cannot hold, so the file system is not checked.
+	if runtime.GOOS == "windows" {
+		a.spaceFree = pgMountFree
+	}
 	raw, err := os.ReadFile(filepath.Join(dir, "jobs.json"))
 	switch {
 	case err == nil:
@@ -573,6 +665,9 @@ func validateReplSpec(spec *replJobSpec, existing *replJobSpec) error {
 	}
 	if spec.RPOMinutes < 1 || spec.RPOMinutes > 7*24*60 {
 		return errors.New("the RPO alert must be from 1 minute to 7 days")
+	}
+	if err := spec.Space.validate(); err != nil {
+		return err
 	}
 	if err := spec.Throttle.Validate(); err != nil {
 		return err
@@ -871,6 +966,27 @@ func (a *replAgent) Action(id, action string) error {
 			a.clearAlertsLocked(job, kind)
 		}
 		a.logLocked(job, "The operator marked the cutover as finished by hand; replication stopped. Nothing on this server was changed.")
+	case "rollback":
+		// Roll back a finished cutover (rollback.go): the console has turned
+		// the new VM off. Start the services the cutover stopped and pause
+		// the job; the next round after Resume rescans the receiver's disks,
+		// because the new VM wrote to them. Nothing else here changes.
+		if !done {
+			return errors.New("the job is not cut over, so there is nothing to roll back")
+		}
+		job.cutover, job.spec.CutoverAt = false, nil
+		job.status.State, job.status.NextRun, job.status.RescanNext = replStatePaused, time.Time{}, true
+		job.status.Message = "Rolled back: this server runs again and the job is paused. To migrate again, remove the new VM on the Hyper-V host, then Resume: the first round rescans the copies, so only what differs is sent."
+		a.logLocked(job, "Rolled back by the operator after the cutover; the job is paused and its next round rescans the receiver's disks.")
+		if services := append([]string(nil), job.spec.StopServices...); len(services) > 0 {
+			log := a.jobLog(job)
+			go func() {
+				log("Starting " + strings.Join(services, ", ") + " again (rollback).")
+				if err := a.platform.StartServices(services, log); err != nil {
+					log("Some services did not start again: " + err.Error())
+				}
+			}()
+		}
 	case "cancel-cutover":
 		if job.status.State == replStateCutover && job.stopCutover != nil {
 			// A running cutover: stop the final round and roll back
@@ -1107,6 +1223,11 @@ func (a *replAgent) runRound(ctx context.Context, job *replJob, spec replJobSpec
 				err = a.recordPanic(job, r)
 			}
 		}()
+		if !final {
+			if err := a.checkSpace(spec, sources); err != nil {
+				return err
+			}
+		}
 		spec.Receiver = a.reachReceiver(roundCtx, job, spec.Receiver, log)
 		opened, err := a.platform.OpenDisks(roundCtx, spec.ID, sources, spec.AllowLive, log)
 		if err != nil {
@@ -1269,6 +1390,16 @@ func (a *replAgent) runRound(ctx context.Context, job *replJob, spec replJobSpec
 		a.clearAlertsLocked(job, "rpo")
 		if job.status.LastError != err.Error() {
 			a.logLocked(job, "The receiver holds the copy for a VM started from it; rounds resume when it is released.")
+		}
+		job.status.LastError = err.Error()
+	case pgHeld(err) && !final:
+		// Waiting for space on the server: not a failure, and nothing was
+		// snapshotted. It asks again in a few minutes.
+		job.status.State = replStateIdle
+		job.status.NextRun = a.now().Add(5 * time.Minute).UTC()
+		job.status.Message = err.Error() + " Next check at " + job.status.NextRun.Format("15:04") + " UTC."
+		if job.status.LastError != err.Error() {
+			a.logLocked(job, "%s", err.Error())
 		}
 		job.status.LastError = err.Error()
 	case errors.Is(err, context.Canceled):

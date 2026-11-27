@@ -29,6 +29,7 @@ const (
 	asAgent         = "agent"         // agent installed, no job yet
 	asUnreachable   = "unreachable"   // the agent does not answer
 	asSeeding       = "seeding"       // the first full copy is not finished
+	asAtCutover     = "atcutover"     // copied only at its cutover, while shut down
 	asInSync        = "insync"        // a whole copy exists and is current
 	asBehind        = "behind"        // a whole copy exists but is older than its limit
 	asPaused        = "paused"
@@ -69,6 +70,7 @@ var asStateText = map[string]string{
 	asAgent:         "Agent installed, no job",
 	asUnreachable:   "Agent not answering",
 	asSeeding:       "Initial copy",
+	asAtCutover:     "Copies at cutover",
 	asInSync:        "In sync, ready to cut over",
 	asBehind:        "Behind",
 	asPaused:        "Paused",
@@ -121,6 +123,9 @@ type asRow struct {
 	Actions []string `json:"actions"`
 	// Tested is true once a test VM of this VM was ended (plan rows).
 	Tested bool `json:"tested,omitempty"`
+	// Consoles are the VMs of this row whose console can be opened in the
+	// application (rule 68): the source VM, and the new or test Hyper-V VM.
+	Consoles []asConsole `json:"consoles,omitempty"`
 }
 
 type asSummary struct {
@@ -260,7 +265,7 @@ func asJobRow(agent replAgentRow, job replJobView, in asInput) asRow {
 	case asUnreachable:
 		acts = append(acts, asActWave)
 	default:
-		if row.State != asTesting {
+		if row.State != asTesting && row.State != asAtCutover {
 			acts = append(acts, asActSync)
 		}
 		if st.State == replStatePaused {
@@ -310,6 +315,8 @@ func asPlanRow(plan mbPlanView, vm mbVMView, now time.Time) asRow {
 			row.Reason += ": " + vm.Error
 		}
 		row.Reason += ". It is retried on its own."
+	case !vm.Seeded && mbOffline(&vm.mbVM):
+		row.State, row.Reason = asAtCutover, "Copied at its cutover, while shut down: vSphere cannot read it while it runs. Schedule or start the cutover when downtime suits."
 	case !vm.Seeded:
 		row.State, row.Reason = asSeeding, "The first full copy has not finished yet."
 		if plan.Blocked != "" {
@@ -326,7 +333,7 @@ func asPlanRow(plan mbPlanView, vm mbVMView, now time.Time) asRow {
 	row.StateText = asStateText[row.State]
 	acts := []string{}
 	if row.State != asCutOver && row.State != asCuttingOver {
-		if row.State != asTesting {
+		if row.State != asTesting && row.State != asAtCutover {
 			acts = append(acts, asActSync)
 		}
 		if plan.Paused {
@@ -507,6 +514,7 @@ func asBuild(in asInput) ([]asRow, asSummary) {
 	}
 	for i := range rows {
 		rows[i].Method = asMethodText[rows[i].Kind]
+		rows[i].Consoles = asConsolesFor(rows[i], in)
 	}
 	rows = append(rows, in.Tasks...)
 	sort.SliceStable(rows, func(i, j int) bool {
@@ -992,4 +1000,52 @@ func asFailoverRequest(row asRow, job replJobView, copies []replCopyInfo, testSw
 		r.SecureBoot = "off"
 	}
 	return r, nil
+}
+
+// asConsole is one console a row offers, labelled for its button.
+type asConsole struct {
+	Label  string        `json:"label"`
+	Target consoleTarget `json:"target"`
+}
+
+// asConsolesFor lists the consoles of a row: the source VM from the open
+// inventory (VMware, or Hyper-V on the inventory's host), then for a plan VM
+// the Hyper-V VM made at cutover and a running test VM, on the plan's host.
+func asConsolesFor(row asRow, in asInput) []asConsole {
+	var list []asConsole
+	if row.VM != "" && in.Inventory != nil {
+		for _, vm := range in.Inventory.VMs {
+			if vm.ID != row.VM {
+				continue
+			}
+			target := consoleTarget{Platform: "vmware", ID: vm.ID, Name: vm.Name}
+			if vm.Source == "hyperv" {
+				target.Platform, target.Host = "hyperv", in.Inventory.Server
+			}
+			if row.State != asCutOver || vm.Source == "hyperv" {
+				list = append(list, asConsole{Label: "Source", Target: target})
+			}
+			break
+		}
+	}
+	if row.Kind == asKindPlan {
+		for _, plan := range in.Plans {
+			if plan.ID != row.Plan {
+				continue
+			}
+			host := firstNonEmpty(plan.Settings.Node, plan.Settings.RemoteHost)
+			for _, vm := range plan.VMs {
+				if vm.ID != row.VM {
+					continue
+				}
+				if vm.HyperVID != "" {
+					list = append(list, asConsole{Label: "New VM", Target: consoleTarget{Platform: "hyperv", ID: vm.HyperVID, Name: vm.Name, Host: host}})
+				}
+				if vm.Test != nil && vm.Test.VMID != "" {
+					list = append(list, asConsole{Label: "Test VM", Target: consoleTarget{Platform: "hyperv", ID: vm.Test.VMID, Name: vm.Test.Name, Host: host}})
+				}
+			}
+		}
+	}
+	return list
 }

@@ -192,6 +192,18 @@ one JSON line on standard input and is kept in memory until **Use my Windows
 account** or exit. If your EDR watches remote PowerShell, allow
 `wsmprovhost.exe` running these read-only tools on the servers you check.
 
+### VM console
+
+The console window shows a VM's screen inside the application. Nothing is
+installed or started in the VM.
+
+| Behaviour | Where | Why |
+| --- | --- | --- |
+| HTTPS and WebSocket connections to vCenter/ESXi (WebMKS ticket, port 443 of the host), Proxmox VE (`vncwebsocket`, port 8006) and Prism (VNC proxy); a TCP VNC connection to the HyperCore node's console port | The computer running the application | Shows the console of VMware, Proxmox VE, Nutanix AHV and HyperCore VMs |
+| `powershell.exe -ExecutionPolicy RemoteSigned -File Connect-HyperVConsole.ps1` (signed script, never Bypass, no encoded command), kept running while the console is open | The computer running the application | Reads a Hyper-V VM's screen and sends its keys and mouse through `root\virtualization\v2` (CIM over WinRM, or DCOM) |
+| VMware Tools' file transfer (`InitiateFileTransferToGuest` / `FromGuest`, HTTPS to the ESXi host), the QEMU guest agent's file-read/file-write through the Proxmox VE API, or PowerShell Direct `Copy-Item` on the Hyper-V host | The VM, through its platform | **Files** in the console window; no program is started in the VM and an existing file is never replaced |
+| `mstsc.exe` with an `.rdp` file (Enhanced session, port 2179), `vmconnect.exe`, or a `vmrc://` link handled by VMware Remote Console | The computer running the application | Opens the platform's own console window when the operator chooses it |
+
 ### Migration plans (on a Hyper-V host)
 
 A **Migration plan** runs inside the console on the Hyper-V host and does
@@ -205,6 +217,26 @@ service and no program on the source VMs or hosts.
 | `powershell.exe` with `Import-Module Hyper-V`, `New-VHD -Differencing`, `New-VM`, `Remove-VM` of the test VM by its ID | Hyper-V host | Test cutover and End test, only when the operator chooses them |
 | `New-VM`, `Add-VMHardDiskDrive`, `Add-VMNetworkAdapter`, optionally `Add-ClusterVirtualMachineRole` | Hyper-V host | Cutover, now or at the time the operator scheduled |
 | A vSphere reconfigure of the old VM's network adapters (not connected), with a JSON record saved first | vCenter/ESXi | Only when **After cutover, set the old VMware VM's adapters to not connect** is ticked |
+
+### Roll back after a cutover
+
+**Roll back** changes only the two VMs of one cutover, after checking each one's ID and name. It installs nothing, starts no service or task and deletes nothing.
+
+| Behaviour | Where | Why |
+| --- | --- | --- |
+| `powershell.exe` with `Import-Module Hyper-V`: `Get-VM -Id`, `Stop-VM` (guest shutdown; `-TurnOff` only when the operator allowed it), `Set-VM -AutomaticStartAction Nothing`, `Disconnect-VMNetworkAdapter` | Hyper-V host running the new VM (over `Invoke-Command` through `Connect-HyperVTarget.ps1` for a remote node) | Turn the new VM off and keep it off the network before the original starts |
+| HTTPS to vCenter or ESXi (443): reconfigure the old VM's adapters back to how a JSON record saved them, then `PowerOnVM_Task` | Hyper-V host or admin computer to vCenter/ESXi | Bring the original back on its own network |
+| `powershell.exe -File Move-HyperVVM.ps1 -Mode Start` (signed): `Msvm_ComputerSystem.RequestStateChange(2)` over WMI | Computer running the application, to the source Hyper-V host | Start an original Hyper-V VM |
+| HTTPS to the replication agent (`/agent/v1/action` `rollback`); the agent starts the services its cutover stopped through the service manager | Console to the source server | Roll back an agent replication cutover |
+| Platform API power off of the new VM (HyperCore, Nutanix AHV, Proxmox VE) | Computer running the application | Turn the new VM off on those platforms |
+
+### Copying running Hyper-V VMs (Move VMs and Migration plans)
+
+| Behaviour | Where | Why |
+| --- | --- | --- |
+| `powershell.exe -ExecutionPolicy Bypass -File Move-HyperVVM.ps1` (signed script, process scope), WMI `root\virtualization\v2` with this computer's account, locally or to the source host over DCOM | Computer running the move, against the source Hyper-V host | One checkpoint named "Server Inventory and Migration Manager copy" per round. On Windows Server 2016 and later it is a recovery checkpoint (the kind backup software takes) that is kept as a change tracking reference point after a successful copy (`ConvertToReferencePoint`), replacing the previous one this application kept; otherwise it is removed again |
+| `Msvm_ImageManagementService.GetVirtualDiskChanges` (read only) | Source Hyper-V host | Lists the blocks written since the last copy (Hyper-V resilient change tracking), so only those are read |
+| Reads of the source VM's virtual hard disks through the host's administrative shares | Computer running the move | The copy itself. The guest is shut down only at cutover, through its shutdown integration service, and the last reference point is removed after the cutover |
 
 ## Exclusions
 
