@@ -318,7 +318,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visi
 
 /* Workspace polish: grouped categories, quick actions, shortcuts */
 .vm-ack{display:inline-block;margin-top:calc(3*var(--sp))}
-.vm-fixup{margin-top:calc(10*var(--sp));padding:calc(8*var(--sp)) calc(10*var(--sp));border:1px solid #dbe3ed;border-radius:8px;background:#fbfcfe}.vm-fixup.failed{border-color:#e7b4ae;background:#fdf6f5}.vm-fixup.done{border-color:#b9dcc4;background:#f5fbf7}.vm-fixup-head{display:flex;flex-wrap:wrap;gap:calc(6*var(--sp));align-items:baseline;font-size:max(10.5px,calc(12.5*var(--fz)))}.vm-ga{margin:calc(6*var(--sp)) 0}
+.vm-fixup{margin-top:calc(10*var(--sp));padding:calc(8*var(--sp)) calc(10*var(--sp));border:1px solid #dbe3ed;border-radius:8px;background:#fbfcfe}.vm-fixup.failed{border-color:#e7b4ae;background:#fdf6f5}.vm-fixup.done{border-color:#b9dcc4;background:#f5fbf7}.vm-fixup-head{display:flex;flex-wrap:wrap;gap:calc(6*var(--sp));align-items:baseline;font-size:max(10.5px,calc(12.5*var(--fz)))}.vm-ga{margin:calc(6*var(--sp)) 0}.vm-ga .vm-move-actions{margin-top:calc(10*var(--sp))}.vm-ga-remember{margin-top:calc(8*var(--sp))}.vm-ga .vm-field input{box-sizing:border-box}
 .mp-signin{display:flex;flex-direction:column;align-items:flex-start;gap:calc(6*var(--sp));margin:calc(8*var(--sp)) 0;padding:calc(10*var(--sp)) calc(12*var(--sp));border:1px solid #e0c98a;border-radius:8px;background:#fffaf0}.mp-signin.hidden{display:none}.mp-signin-remember{display:flex;gap:calc(6*var(--sp));align-items:flex-start;font-size:max(10.5px,calc(12*var(--fz)))}.mp-signin-remember input{flex:none;width:15px;height:15px;margin-top:2px}.vc-remember-list{display:flex;flex-direction:column;gap:calc(4*var(--sp))}.vc-remember-row{display:flex;gap:calc(8*var(--sp));align-items:center;flex-wrap:wrap}.mp-signin-row{display:flex;flex-wrap:wrap;gap:calc(8*var(--sp));align-items:center}.mp-signin-row input{width:16em;max-width:100%}
 .link-button{background:none;border:0;padding:2px calc(4*var(--sp));margin:0;color:#1f5fbf;font-weight:600;font-size:max(10.5px,calc(12*var(--fz)));cursor:pointer;border-radius:5px;text-decoration:underline;text-underline-offset:2px}.link-button:hover{color:#123f85}.link-button:focus-visible{outline:2px solid #2d6fd6;outline-offset:1px}.link-button:disabled{color:#94a0b3;cursor:default;text-decoration:none}
 .category-group{margin-top:calc(14*var(--sp))}.category-group+.category-group{margin-top:calc(16*var(--sp))}.category-group .category-grid{margin-top:calc(8*var(--sp))}.category-group-head{display:flex;align-items:center;gap:calc(10*var(--sp));padding-bottom:calc(6*var(--sp));border-bottom:1px solid #e3e8ef}.category-group-title{font-size:max(10.5px,calc(12*var(--fz)));font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#45526a}.category-group-count{font-size:max(10.5px,calc(12*var(--fz)));color:#6a7790;margin-right:auto}
@@ -716,7 +716,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
 .tool-pane{display:none;min-height:0;flex:1 1 auto}.tool-pane.active{display:flex;flex-direction:column}.tool-pane.active>*{flex:1 1 auto;min-height:0}
 .tool-current{display:none}
 .vm-move-intro{display:flex;flex-wrap:wrap;align-items:center;gap:calc(8*var(--sp)) calc(12*var(--sp));margin-bottom:calc(10*var(--sp));padding:calc(9*var(--sp)) calc(12*var(--sp));border:1px solid #c9d6ea;border-radius:8px;background:#f5f8fd;color:#243249;font-size:max(10.5px,calc(12.5*var(--fz)))}.vm-move-intro.hidden{display:none}
-.vm-ctx-move .vm-read-section{display:none}.vm-save-to .vm-field{margin-top:2px}.vm-save-to .path-pick{max-width:720px;margin-top:calc(4*var(--sp))}.vm-save-to .vm-field input{max-width:none;height:calc(34*var(--fz));box-sizing:border-box;border:1px solid #bcc9d9;border-radius:7px;padding:0 calc(10*var(--sp));font:inherit;font-size:max(10.5px,calc(13*var(--fz)))}.vm-save-to .path-pick-button{min-height:calc(34*var(--fz))}.vm-save-to .vm-field input[aria-invalid=true]{border-color:#c0392b}
+.vm-ctx-move .vm-read-section{display:none}.vm-ctx-move #vmReadPanels{display:none}.vm-read-bar{display:flex;flex-wrap:wrap;align-items:center;gap:calc(4*var(--sp)) calc(12*var(--sp));padding:calc(6*var(--sp)) calc(10*var(--sp));margin-bottom:calc(8*var(--sp));border:1px solid #dbe3ed;border-radius:8px;background:#f7f9fc}.vm-read-bar-text{flex:1 1 300px;min-width:0;overflow-wrap:anywhere;color:#3d5170;font-size:max(10.5px,calc(12.5*var(--fz)))}.vm-save-to .vm-field{margin-top:2px}.vm-save-to .path-pick{max-width:720px;margin-top:calc(4*var(--sp))}.vm-save-to .vm-field input{max-width:none;height:calc(34*var(--fz));box-sizing:border-box;border:1px solid #bcc9d9;border-radius:7px;padding:0 calc(10*var(--sp));font:inherit;font-size:max(10.5px,calc(13*var(--fz)))}.vm-save-to .path-pick-button{min-height:calc(34*var(--fz))}.vm-save-to .vm-field input[aria-invalid=true]{border-color:#c0392b}
 /* Wide windows: the two ways to read an inventory sit side by side, so the inventory starts higher. */
 @media(min-width:1600px){.vm-read-pair{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0 12px;align-items:start}}.vm-ctx-plain #vmRoles,.vm-ctx-notarget .vm-target{display:none}
 .vm-tool-runs{margin:0;flex:1 1 320px}
@@ -730,7 +730,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
  .tool-current{display:block;flex:0 0 auto;padding:0 2px 6px;font-size:11.5px;color:#3d5170}.vm-tool-runs{display:none}
 }
 @media(max-height:720px){.tool-nav{gap:8px}.tool-item{padding:6px 9px}.tool-desc{display:none}}
-.nw-guide{margin-top:calc(14*var(--sp))}.vm-ga-mine{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px calc(8*var(--sp));margin:-2px 0 calc(6*var(--sp))}
+.nw-guide{margin-top:calc(14*var(--sp))}
 .gd-here{display:flex;flex-wrap:wrap;gap:calc(6*var(--sp)) calc(14*var(--sp));margin-bottom:calc(12*var(--sp));padding:calc(8*var(--sp)) calc(12*var(--sp));border:1px solid #dbe3ed;border-radius:8px;background:#f8fafc;font-size:max(10.5px,calc(12.5*var(--fz)));color:#334156}.gd-here b{color:#1f2a3a}.gd-fact{font:inherit;color:inherit;background:none;border:1px solid transparent;border-radius:6px;padding:2px calc(6*var(--sp));cursor:pointer}.gd-fact:hover{border-color:#9db8e6;background:#fff}.gd-fact:focus-visible{outline:2px solid #2d6fd6}
 .gd-pick{margin-bottom:calc(12*var(--sp))}.gd-pick-title{font-size:max(10.5px,calc(13*var(--fz)));font-weight:700;color:#1f2a3a;margin-bottom:calc(6*var(--sp))}
 .gd-choices{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:calc(8*var(--sp))}
@@ -1124,6 +1124,8 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
           <div id="vmViewEnv">
             <div class="vm-move-intro hidden" id="vmMoveIntro"><span id="vmMoveIntroText"></span> <button class="secondary-button" id="vmMoveIntroDiscover" type="button">Go to Discovery: VMware and Hyper-V</button></div>
             <div class="restore-alert busy-notice vm-read-section hidden" id="vmReadNotice" role="status"><span id="vmReadNoticeText"></span><button class="secondary-button hidden" id="vmReadNoticeOpen" type="button"></button></div>
+            <div class="vm-read-bar vm-read-section hidden" id="vmReadBar"><span class="vm-read-bar-text" id="vmReadBarText"></span><button class="secondary-button" id="vmReadBarToggle" type="button" aria-expanded="false" aria-controls="vmReadPanels">Change or read again</button></div>
+            <div id="vmReadPanels">
             <div class="vm-read-pair">
             <section class="migrate-section vm-read-section" aria-labelledby="vmConnectTitle">
               <h3 class="migrate-section-title" id="vmConnectTitle">Read a vCenter or ESXi host</h3>
@@ -1150,6 +1152,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
               <label class="vm-field vm-save-field"><span class="migrate-help" id="vmOutputHelp">Each read makes a new folder here, such as VMware_vc01_20261126_093000, with the readiness and discovery reports (HTML, Word and PDF). It is the same output folder This server uses for its packages, and it is remembered.</span><input id="vmOutputRoot" type="text" spellcheck="false" autocomplete="off" maxlength="260" aria-label="Folder for discovery reports" aria-describedby="vmOutputHelp" placeholder="C:\Reports"></label>
               <div class="migrate-inline-status" id="vmOutputStatus" role="status" aria-live="polite"></div>
             </section>
+            </div>
             <div class="hidden" id="vmEnvResult">
               <div class="vm-counts-head"><span class="vm-counts-title" id="vmCountsTitle">Readiness</span><span class="vm-note" id="vmCountsNote"></span></div>
               <div class="vm-counts" role="group" aria-label="Hosts, and VMs by readiness"><button class="vm-count hosts" id="vmHostsCard" type="button" title="Open every host with its hardware, licensing, network, storage and VMs"><strong id="vmCountHosts">0</strong>Hosts<span class="vm-count-sub" id="vmCountHostsSub"></span></button><button class="vm-count" type="button" data-vmfilter="all" aria-pressed="true"><strong id="vmCountAll">0</strong>All VMs</button><button class="vm-count blocked" type="button" data-vmfilter="blocked" aria-pressed="false"><strong id="vmCountBlocked">0</strong>Blocked</button><button class="vm-count review" type="button" data-vmfilter="review" aria-pressed="false"><strong id="vmCountReview">0</strong>Review first</button><button class="vm-count ready" type="button" data-vmfilter="ready" aria-pressed="false"><strong id="vmCountReady">0</strong>Ready</button><button class="vm-count skip hidden" id="vmCountSkipCard" type="button" data-vmfilter="skip" aria-pressed="false" title="vCenter, vCLS and other VMware system VMs stay behind"><strong id="vmCountSkip">0</strong>Not moved</button></div>
@@ -1937,8 +1940,8 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
       <label class="cfm-style"><input type="checkbox" id="updateTestChannel"><span><strong>Also offer test builds (Test channel)</strong><small>Test builds hold new features before they reach a stable release. They are signed like stable releases but are tried by fewer people. With this ticked, the update bar offers whichever is newer: the newest test build or the newest stable release. Untick it to go back to stable releases only; if a test build is installed, the newest stable release is offered in its place. Nothing downloads or installs until you choose to.</small></span></label>
       <div class="helper" id="updateChannelStatus" role="status" aria-live="polite"></div>
     </fieldset>
-    <fieldset class="cfm-styles" id="vcRememberSettings"><legend>vCenter and ESXi sign-ins for migration plans</legend>
-      <label class="cfm-style"><input type="checkbox" id="vcRememberOn"><span><strong>Remember sign-ins on this computer, so plans carry on after a restart or update</strong><small>Off: the password is kept in memory only, and plans wait after every restart until someone signs in again. On: each sign-in that reads vCenter or ESXi is kept encrypted by Windows for your account on this computer (DPAPI), never in logs, plans or reports, and plans sign in again by themselves. A password the server refuses is forgotten at once. Anyone who can sign in to Windows as you on this computer could use it, so use a dedicated vCenter account with only the permissions migrations need, not an administrator's own account.</small></span></label>
+    <fieldset class="cfm-styles" id="vcRememberSettings"><legend>Sign-ins for migration plans and fix-ups</legend>
+      <label class="cfm-style"><input type="checkbox" id="vcRememberOn"><span><strong>Remember sign-ins on this computer, so plans carry on after a restart or update</strong><small>Off: passwords are kept in memory only, and plans wait after every restart until someone signs in again. On: each sign-in that reads vCenter or ESXi, and the guest administrator account that fixes up new VMs after cutover, is kept encrypted by Windows for your account on this computer (DPAPI), never in logs, plans or reports, and is used again by itself. A password the server refuses is forgotten at once. Anyone who can sign in to Windows as you on this computer could use it, so use a dedicated vCenter account with only the permissions migrations need, not an administrator's own account.</small></span></label>
       <div id="vcRememberList" class="vc-remember-list"></div>
       <div class="helper" id="vcRememberStatus" role="status" aria-live="polite"></div>
     </fieldset>
@@ -4655,6 +4658,11 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   function vmArr(value){if(value===null||value===undefined||value===''){return [];}return Object.prototype.toString.call(value)==='[object Array]'?value:[value];}
   function vmOtherBusy(){return !!(latestState&&latestState.running)||restoreIsRunning(latestState&&latestState.restore)||migrateIsRunning()||convertIsRunning();}
   function vmLocked(){return vmBusy||vmwareIsRunning()||vmOtherBusy();}
+  // Saving the migration plan (network map, waves, scenario, acknowledgements)
+  // writes only the plan file, so it runs beside every other step; only a
+  // Discovery read, which replaces the inventory the plan belongs to, holds
+  // it back (vmPlanSaveRefusalLocked in vmware.go checks the same).
+  function vmPlanLocked(){var v=vmwareState()||{};return vmBusy||!!(v.running&&vmReadActions[v.action]);}
   function vmTarget(){return vmPlan&&vmPlan.target?vmPlan.target:vmTargetLocal;}
   var vmTargetList=[{id:'hyperv',name:'Hyper-V',kind:'cluster'},{id:'scale',name:'Scale HyperCore',kind:'cluster'},{id:'nutanix',name:'Nutanix AHV',kind:'cluster'},{id:'proxmox',name:'Proxmox VE',kind:'cluster'},{id:'azure',name:'Azure',kind:'cloud'},{id:'aws',name:'AWS EC2',kind:'cloud'},{id:'physical',name:'a physical server',kind:'physical'}];
   function vmTargetInfo(target){for(var i=0;i<vmTargetList.length;i++){if(vmTargetList[i].id===target){return vmTargetList[i];}}return vmTargetList[0];}
@@ -4712,7 +4720,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   // Acknowledges (or, with on false, un-acknowledges) the Review first
   // findings of the given VMs for the current target and saves the plan.
   function vmAcknowledge(vms,on){
-    if(!vmPlan||vmLocked()){return;}
+    if(!vmPlan||vmPlanLocked()){return;}
     var target=vmTarget(),changed=0;
     vms.forEach(function(vm){var p=vmPlanEntry(vm.id);if(!p){return;}var raw=null;vmArr(vm.readiness).forEach(function(x){if(x.target===target){raw=x;}});if(!raw){return;}
       var keys=vmAckNeeded(raw).map(function(f){return target+':'+f.code;}),acks=vmArr(p.acknowledged).filter(function(a){return keys.indexOf(a)<0;});
@@ -4828,7 +4836,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     if(v.hvRemote&&v.hvRemote.serial!==vmHvrSerial){vmHvrSerial=v.hvRemote.serial;renderVmDetail();}
     var fixKey=JSON.stringify([v.guestAuto||{},vmArr(v.fixups).map(function(f){return [f.vm,f.state,f.message,vmArr(f.steps).length];})]);if(fixKey!==vmFixKey){vmFixKey=fixKey;renderVmDetail();}
     renderVmDiskCopy(state,v);renderVmRoles();renderVmMedia(v);renderVmMoveIntro();pfUpdate();
-    var batchKey=JSON.stringify(v.prepareBatch||null),lockKey=vmLocked()+'|'+(v.canPrepare?1:0);if(batchKey!==vmBulkPollKey){vmBulkPollKey=batchKey;renderVmBulkBatch(v);}if(lockKey!==vmBulkLockKey){vmBulkLockKey=lockKey;renderVmBulk();}
+    var batchKey=JSON.stringify(v.prepareBatch||null),lockKey=vmLocked()+'|'+vmPlanLocked()+'|'+(v.canPrepare?1:0);if(batchKey!==vmBulkPollKey){vmBulkPollKey=batchKey;renderVmBulkBatch(v);}if(lockKey!==vmBulkLockKey){vmBulkLockKey=lockKey;renderVmBulk();}
     byId('vmGuestHere').textContent=vmComputer()?'This computer: '+vmComputer()+'.':'';
     var guestMessage=byId('vmGuestMessage');guestMessage.textContent=v.guestMessage||'';guestMessage.className='migrate-inline-status'+(v.guestError?' error':'');
     renderVmGuestTarget();
@@ -4844,6 +4852,9 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   function renderVmBusyNotice(v){
     var why=null;
     if(vmToolId!=='environment'&&!vmBusy&&vmLocked()&&!(v.running&&(vmActionTools[v.action]||'environment')===vmToolId)){why=busyWhy();}
+    // Plan and runbook only saves the plan, which a migration plan copy does
+    // not hold back, so that copy needs no notice there.
+    if(why&&vmToolId==='plan'&&!v.running&&!vmOtherBusy()){why=null;}
     renderBusyNotice('vmBusyNotice','vmBusyNoticeText','vmBusyNoticeOpen',why?{text:why.text+' Steps here that change VMs or this computer are available again when it finishes.',label:why.label,open:why.open}:null,'info');
   }
   function vmHostKey(name){name=trimText(name).toLowerCase().replace(/^[a-z]+:\/\//,'').replace(/[\/?#].*$/,'').replace(/:\d+$/,'');return /^[\d.]+$/.test(name)?name:name.split('.')[0];}
@@ -4861,6 +4872,22 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     r.why={text:vmPlanCopyText(plan)+' and uses the session open here. You can still read '+(v.server||'the same server')+' again to refresh it, browse everything below, write reports and use This server. Reading another vCenter or Hyper-V host, opening a saved inventory and Forget would replace that session, so they are available again when this copy round ends.',label:'Open Migration plans',open:function(){showTool('plans');}};
     return r;
   }
+  // Once an inventory is open, the read sections fold into one line so the
+  // inventory starts near the top (owner, 2026-11-27); they open again for
+  // Change or read again, a running read, a certificate to trust or a
+  // failed read.
+  var vmReadOpen=false,vmReadInvKey='';
+  function syncVmReadPanels(v){
+    var bar=byId('vmReadBar'),panels=byId('vmReadPanels'),inv=vmInventory,key=inv?vmInvKeyOf(inv):'';
+    if(key!==vmReadInvKey){vmReadInvKey=key;vmReadOpen=false;}
+    var must=!inv||!!v.running&&vmReadActions[v.action]||!!v.certificate||v.status==='connectfailed';
+    var open=must||vmReadOpen;
+    bar.classList.toggle('hidden',!inv||must);panels.classList.toggle('hidden',!open);
+    var t=byId('vmReadBarToggle');t.textContent=vmReadOpen?'Hide':'Change or read again';t.setAttribute('aria-expanded',open?'true':'false');
+    if(inv){var hv=inv.serverType==='Hyper-V host',s=v.summary||{},when=s.collectedAt||inv.collectedAt;
+      var txt=(hv?'Hyper-V host ':'')+inv.server+(v.account&&!hv?' as '+v.account:'')+(when?', read '+vmWhen(when):'')+'. Reports are saved in '+(byId('vmOutputRoot').value||'the output folder')+'.';
+      byId('vmReadBarText').textContent=txt;}
+  }
   function syncVmButtons(){
     var v=vmwareState()||{},locked=vmLocked(),running=!!v.running,admin=!!(latestState&&latestState.isAdministrator);
     // Discovery reads only read, so they run beside collections, restores,
@@ -4872,11 +4899,11 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     byId('vmConnect').disabled=read.busy||read.vc||!trimText(byId('vmServer').value)||!trimText(byId('vmUser').value);
     byId('vmOpenInventory').disabled=read.busy||read.keep;byId('vmCertTrust').disabled=read.busy||read.vc;
     byId('vmReset').classList.toggle('hidden',!v.server&&!v.summary);byId('vmReset').disabled=read.busy||read.keep;
-    renderBusyNotice('vmReadNotice','vmReadNoticeText','vmReadNoticeOpen',read.why,read.tone);
+    renderBusyNotice('vmReadNotice','vmReadNoticeText','vmReadNoticeOpen',read.why,read.tone);syncVmReadPanels(v);
     var stop=byId('vmStop');stop.classList.toggle('hidden',!(running&&(v.action==='connect'||v.action==='hyperv'||v.action==='compare'||v.action==='move'||v.action==='hvconnect'||v.action==='hvmove'||v.action==='media'||v.action==='upload'||v.action==='target-create'||v.action==='send')));stop.disabled=!!v.cancelRequested;stop.textContent=v.cancelRequested?'Stopping...':'Stop';
     byId('vmTargetSelect').disabled=vmBusy||running;
     var hasPlan=!!(vmInventory&&vmPlan);
-    byId('vmSavePlan').disabled=locked||!hasPlan;byId('vmSuggest').disabled=locked||!hasPlan;byId('vmWriteRunbook').disabled=locked||!hasPlan;
+    byId('vmSavePlan').disabled=vmPlanLocked()||!hasPlan;byId('vmSuggest').disabled=vmPlanLocked()||!hasPlan;byId('vmWriteRunbook').disabled=vmBusy||running||vmOtherBusy()||!hasPlan;
     byId('vmPlanDirtyNote').textContent=vmPlanDirty?'Unsaved changes.':'';
     ['vmGuestCapture','vmGuestStatus'].forEach(function(id){byId(id).disabled=locked||(vmGuestNeedsAdmin()&&!admin);});byId('vmGuestLoad').disabled=locked;
     byId('vmGuestUse').disabled=locked;byId('vmGuestForget').disabled=locked;byId('vmGuestVcenter').disabled=locked||!byId('vmGuestVcVm').value;
@@ -5896,7 +5923,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     if(lines.length===1){cell.appendChild(document.createTextNode(lines[0]));}
     else{var ul=el('ul','vm-reason-list');lines.forEach(function(t){ul.appendChild(el('li','',t));});cell.appendChild(ul);}
     if(vm&&vmPlan&&(r.status==='review'||r.acknowledged)){
-      var b=el('button','link-button vm-ack',r.acknowledged?'Open again':'Acknowledge');b.type='button';b.setAttribute('data-vm-ack',vm.id);b.disabled=vmLocked();
+      var b=el('button','link-button vm-ack',r.acknowledged?'Open again':'Acknowledge');b.type='button';b.setAttribute('data-vm-ack',vm.id);b.disabled=vmPlanLocked();
       b.title=r.acknowledged?'Put '+vm.name+' back in Review first':'I have reviewed these items for '+vm.name+': count it as ready';
       b.addEventListener('click',function(e){e.stopPropagation();vmAcknowledge([vm],!r.acknowledged);});
       b.addEventListener('keydown',function(e){e.stopPropagation();});
@@ -5928,7 +5955,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     all.title=pickable.length<vmTableShown.length?'Select the '+vmPlural(pickable.length,'VM')+' shown (VMs already moved and VMware system VMs are left out)':'Select the '+vmPlural(pickable.length,'VM')+' shown';
     renderVmBulk();
     var toReview=vmArr(vmInventory.vms).filter(function(vm){return vmReadiness(vm).status==='review';}),ackAll=byId('vmAckAll');
-    ackAll.classList.toggle('hidden',!toReview.length||!vmPlan);ackAll.disabled=vmLocked();ackAll.textContent='Acknowledge all '+formatCount(toReview.length)+' to review';
+    ackAll.classList.toggle('hidden',!toReview.length||!vmPlan);ackAll.disabled=vmPlanLocked();ackAll.textContent='Acknowledge all '+formatCount(toReview.length)+' to review';
     byId('vmTableNote').textContent=total>shown?'Showing '+shown+' of '+formatCount(total)+'. Search to narrow the list.':vmPlural(total,'VM')+(vmFilter==='all'&&!query?'':' shown');
   }
   function renderVmDetail(){renderVmDrawer(false,false);}
@@ -5957,18 +5984,22 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     prefix=prefix||'vmGa';
     var v=vmwareState()||{},ga=v.guestAuto||{},wrap=el('div','vm-ga');wrap.id=prefix+'Panel';wrap.setAttribute('data-ga-prefix',prefix);
     if(ga.hasPassword){
-      var line=el('div','migrate-detail good','Fix-ups sign in to the new VMs as '+ga.user+'. The password is held in memory only, until Forget or you close the application.');wrap.appendChild(line);
-      var f=el('button','link-button','Forget');f.type='button';f.id=prefix+'Forget';f.addEventListener('click',function(){vmPost('/api/vmware/guest-auto/forget',{},prefix+'Status',function(err){if(!err){v.guestAuto={user:ga.user,hasPassword:false};vmGaRefresh(wrap);}});});line.appendChild(document.createTextNode(' '));line.appendChild(f);
+      var line=el('div','migrate-detail good','Fix-ups sign in to the new VMs as '+ga.user+'. '+(ga.remembered?'The password is kept encrypted for your Windows account on this computer (Remember sign-ins in Help > Settings) and used again after a restart, until Forget.':'The password is held in memory only, until Forget or you close the application.'));wrap.appendChild(line);
+      var f=el('button','link-button','Forget');f.type='button';f.id=prefix+'Forget';f.addEventListener('click',function(){vmPost('/api/vmware/guest-auto/forget',{},prefix+'Status',function(err){if(!err){vmGaHeld({user:ga.user,hasPassword:false});vmGaRefresh(wrap);}});});line.appendChild(document.createTextNode(' '));line.appendChild(f);
     } else {
-      wrap.appendChild(el('div','migrate-help','The guest administrator account of the VMs being moved (a domain admin, or .\\Administrator). It is used only through PowerShell Direct from the Hyper-V host, held in memory and never saved.'));
-      wrap.appendChild(el('div','migrate-help sign-in-why','Your current sign-in cannot be used here: PowerShell Direct signs in to Windows inside each new VM, which needs the account\'s password. Windows cannot pass your sign-in into a VM.'));
-      [['user','Guest administrator account','text','EXAMPLE\\admin or .\\Administrator'],['password','Password','password','']].forEach(function(x){var label=el('label','vm-field'),input=document.createElement('input');input.type=x[2];input.maxLength=256;input.autocomplete='off';input.spellcheck=false;input.id=prefix+x[0].charAt(0).toUpperCase()+x[0].slice(1);if(x[3]){input.placeholder=x[3];}input.value=vmGaForm[x[0]]||(x[0]==='user'?ga.user||'':'');input.addEventListener('input',function(){vmGaForm[x[0]]=input.value;var st=byId(prefix+'Status');if(st&&/error/.test(st.className)){st.textContent='';st.className='migrate-inline-status';}});label.appendChild(el('span','',x[1]));label.appendChild(input);
-        // The signed-in account fills the name only: PowerShell Direct needs
-        // an account and its password for the guest and cannot reuse this
-        // Windows sign-in.
-        var me=latestState&&latestState.signedInAccount,mineRow=null;
-        if(x[0]==='user'&&me){var mine=el('button','link-button','Use the account I\'m signed in with ('+me+')');mine.type='button';mine.id=prefix+'Mine';mine.title='Fills in '+me+'. Type its password below: PowerShell Direct needs the password and cannot reuse your Windows sign-in. The account must be an administrator inside the new VMs (a domain account works once they are on the domain network).';mine.addEventListener('click',function(){input.value=me;vmGaForm.user=me;var pw=byId(prefix+'Password');if(pw){pw.focus();}});mineRow=el('div','vm-ga-mine');mineRow.appendChild(mine);mineRow.appendChild(el('span','vm-note','Fills in the name only. Type its password below: PowerShell Direct needs it and cannot reuse your Windows sign-in.'));}
-        wrap.appendChild(label);if(mineRow){wrap.appendChild(mineRow);}});
+      var remember=!!ga.rememberOn;
+      wrap.appendChild(el('div','migrate-help','The guest administrator account of the VMs being moved (a domain admin, or .\\Administrator), used only through PowerShell Direct from the Hyper-V host. '+(remember?'Remember sign-ins is on, so it is kept encrypted for your Windows account and filled in by itself after a restart.':'It is held in memory only unless you tick Remember below.')));
+      wrap.appendChild(el('div','migrate-help sign-in-why','Your account name is filled in, but its password is still needed: PowerShell Direct signs in to Windows inside each new VM, and Windows cannot pass your sign-in into a VM.'));
+      if(ga.notice){wrap.appendChild(el('div','migrate-inline-status error',ga.notice));}
+      // The signed-in account is filled in by itself; PowerShell Direct
+      // needs its password and cannot reuse this Windows sign-in.
+      var me=(latestState&&latestState.signedInAccount)||'';
+      [['user','Guest administrator account','text','EXAMPLE\\admin or .\\Administrator'],['password','Password','password','']].forEach(function(x){var label=el('label','vm-field'),input=document.createElement('input');input.type=x[2];input.maxLength=256;input.autocomplete='off';input.spellcheck=false;input.id=prefix+x[0].charAt(0).toUpperCase()+x[0].slice(1);if(x[3]){input.placeholder=x[3];}
+        if(x[0]==='user'&&!vmGaForm.user&&!ga.user&&me){vmGaForm.user=me;}
+        input.value=vmGaForm[x[0]]||(x[0]==='user'?ga.user||'':'');input.addEventListener('input',function(){vmGaForm[x[0]]=input.value;var st=byId(prefix+'Status');if(st&&/error/.test(st.className)){st.textContent='';st.className='migrate-inline-status';}});
+        if(x[0]==='password'){input.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();var u=byId(prefix+'Use');if(u){u.click();}}});}
+        label.appendChild(el('span','',x[1]));label.appendChild(input);wrap.appendChild(label);});
+      if(!remember){var rl=el('label','vm-check vm-ga-remember'),rb=document.createElement('input');rb.type='checkbox';rb.id=prefix+'Remember';rb.checked=!!vmGaForm.remember;rb.addEventListener('change',function(){vmGaForm.remember=rb.checked;});rl.appendChild(rb);rl.appendChild(el('span','','Remember sign-ins on this computer (encrypted for your Windows account; turns on the setting in Help > Settings for vCenter sign-ins too)'));wrap.appendChild(rl);}
       var row=el('div','vm-move-actions'),use=el('button','secondary-button','Use this account');use.type='button';use.id=prefix+'Use';use.addEventListener('click',function(){
         // Read the boxes as they are now (the remembered form can lag behind
         // a value the browser filled in without an input event).
@@ -5976,11 +6007,16 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
         var user=trimText(vmGaForm.user||ga.user||''),st=byId(prefix+'Status');
         if(!user){if(st){st.textContent='Type the guest administrator account, for example .\\Administrator or EXAMPLE\\admin.';st.className='migrate-inline-status error';}if(ub){ub.focus();}return;}
         if(!vmGaForm.password){if(st){st.textContent='Type the password of '+user+'.';st.className='migrate-inline-status error';}if(pb){pb.focus();}return;}
-        vmPost('/api/vmware/guest-auto',{user:user,password:vmGaForm.password||''},prefix+'Status',function(err){if(!err){vmGaForm.password='';if(pb){pb.value='';}v.guestAuto={user:user,hasPassword:true};vmGaRefresh(wrap);}});});row.appendChild(use);wrap.appendChild(row);
+        if(vmBusy){if(st){st.textContent='Another step is being sent. Try again in a moment.';st.className='migrate-inline-status error';}return;}
+        var rmb=byId(prefix+'Remember'),body={user:user,password:vmGaForm.password||''};if(rmb&&rmb.checked){body.remember=true;}
+        vmPost('/api/vmware/guest-auto',body,prefix+'Status',function(err){if(!err){vmGaForm.password='';vmGaForm.remember=false;if(pb){pb.value='';}vmGaHeld({user:user,hasPassword:true,remembered:!!(body.remember||remember),rememberOn:!!(body.remember||remember)});vmGaRefresh(wrap);}});});row.appendChild(use);wrap.appendChild(row);
     }
     var st=el('div','migrate-inline-status');st.id=prefix+'Status';wrap.appendChild(st);box.appendChild(wrap);
   }
-  function vmGaRefresh(wrap){var parent=wrap.parentNode;if(!parent){return;}var holder=document.createElement('div');vmGuestAutoPanel(holder,wrap.getAttribute('data-ga-prefix'));parent.replaceChild(holder.firstChild,wrap);var note=byId('vmAfterNote');if(note&&note.parentNode){var v=vmwareState()||{};if(v.guestAuto&&v.guestAuto.hasPassword&&note.classList.contains('warning')&&/guest account/.test(note.textContent)){note.textContent='Nothing is installed in the old or the new VM: the settings were recorded from vCenter, and the fix-up runs through PowerShell Direct from the Hyper-V host.';note.className='migrate-detail';}}}
+  // The state the page draws from now (a poll may have replaced it since the
+  // panel was drawn), so the panel shows the held account at once.
+  function vmGaHeld(ga){var v=vmwareState();if(v){v.guestAuto=ga;}}
+  function vmGaRefresh(wrap){if(!wrap.parentNode&&wrap.id){wrap=byId(wrap.id)||wrap;}var parent=wrap.parentNode;if(!parent){return;}var holder=document.createElement('div');vmGuestAutoPanel(holder,wrap.getAttribute('data-ga-prefix'));parent.replaceChild(holder.firstChild,wrap);var note=byId('vmAfterNote');if(note&&note.parentNode){var v=vmwareState()||{};if(v.guestAuto&&v.guestAuto.hasPassword&&note.classList.contains('warning')&&/guest account/.test(note.textContent)){note.textContent='Nothing is installed in the old or the new VM: the settings were recorded from vCenter, and the fix-up runs through PowerShell Direct from the Hyper-V host.';note.className='migrate-detail';}}}
   // Optional domain controller and SQL Server checks (preflight.go): read
   // only, run from this computer over PowerShell remoting (or PowerShell
   // Direct on this Hyper-V host). Nothing is installed on the servers.
@@ -6505,7 +6541,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   var vmScenarioFallback=[{id:'new',name:'New hardware',when:'The new platform runs on servers that are not running the source today. Describe them in New cluster size.',kinds:['cluster','cloud','physical']},{id:'rolling',name:'Reuse the existing hosts (rolling, one host at a time)',when:'The source hosts themselves become the new platform. Each stage empties one host onto the others, rebuilds it and moves a wave of VMs onto the hosts rebuilt so far.',kinds:['cluster']}];
   function vmPlanRolling(){return !!(vmPlan&&vmPlan.scenario==='rolling');}
   function vmSetScenario(id){
-    if(!vmPlan||vmLocked()||(vmPlan.scenario||'new')===id){return;}
+    if(!vmPlan||vmPlanLocked()||(vmPlan.scenario||'new')===id){return;}
     vmCollectStages();vmPlan.scenario=id;
     if(id==='rolling'&&!vmPlan.rolling){vmPlan.rolling={autoCapacity:true,stages:[],sourceCluster:''};}
     saveVmPlan(id==='rolling'&&!vmArr(vmPlan.rolling.stages).length?{suggestStages:true,keepWaves:true}:null,id==='rolling'?'Reusing the existing hosts: the new cluster is filled from them and one stage per host is suggested. Change anything you like.':'New hardware: describe the new servers in New cluster size.');
@@ -6728,7 +6764,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     if(!names.length){return {why:'Nothing to do with the steps ticked.'};}
     return {steps:steps,names:names};
   }
-  function vmBulkSave(message){if(vmLocked()){vmBulkMsg.list='Wait for the current step to finish.';renderVmBulk();return;}saveVmPlan(null,message,function(err){vmBulkMsg.list=err||message;vmBulkMsg.listError=!!err;renderVmBulk();});}
+  function vmBulkSave(message){if(vmPlanLocked()){vmBulkMsg.list='Wait for the current step to finish.';renderVmBulk();return;}saveVmPlan(null,message,function(err){vmBulkMsg.list=err||message;vmBulkMsg.listError=!!err;renderVmBulk();});}
   function vmPickByOptions(select){
     var add=function(group,label,value){var o=new Option(label,value);group.appendChild(o);};
     select.appendChild(new Option('Select by…',''));
@@ -6752,7 +6788,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   function renderVmBulkInto(box,where){
     box.textContent='';if(!vmInventory){return;}
     vmPickReset();
-    var v=vmwareState()||{},ids=vmPickedIds(),n=ids.length,locked=vmLocked(),row=el('div','vm-bulk-row');
+    var v=vmwareState()||{},ids=vmPickedIds(),n=ids.length,locked=vmPlanLocked(),row=el('div','vm-bulk-row');
     var hidden=where==='list'?ids.filter(function(id){return vmTableShown.indexOf(id)<0;}):[],moved=ids.filter(function(id){return !!vmMovedReason(vmFind(id));});
     row.appendChild(el('strong','vm-bulk-count',n?vmPlural(n,'VM')+' selected'+(hidden.length?' ('+formatCount(hidden.length)+' hidden by the filter)':''):'No VMs selected'));
     var by=document.createElement('select');by.setAttribute('aria-label','Select VMs by host, cluster, folder, wave, readiness or power');by.setAttribute('data-vm-pickby',where);vmPickByOptions(by);
@@ -6830,7 +6866,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
       tr.appendChild(vmCellInput('text',nm.targetVlan,'New VLAN for '+nm.source+' (selected VMs)',function(value){nm.targetVlan=value;},{maxlength:'4',inputmode:'numeric'}));tbody.appendChild(tr);});
     if(!tbody.childNodes.length){var r=el('tr',''),c=el('td','','The selected VMs have no network adapters on a known network.');c.colSpan=4;r.appendChild(c);tbody.appendChild(r);}
     table.appendChild(tbody);var wrap=el('div','vm-table-wrap');wrap.appendChild(table);panel.appendChild(wrap);
-    var save=el('button','primary-button','Save the network map');save.type='button';save.id='vmBulkNetSave';save.disabled=vmLocked();save.addEventListener('click',function(){vmBulkSave('Network map saved.');});panel.appendChild(save);
+    var save=el('button','primary-button','Save the network map');save.type='button';save.id='vmBulkNetSave';save.disabled=vmPlanLocked();save.addEventListener('click',function(){vmBulkSave('Network map saved.');});panel.appendChild(save);
     box.appendChild(panel);
   }
   var vmBatchStateLabels={waiting:'Waiting',running:'Running',done:'Done',failed:'Failed',stopped:'Not started'};
@@ -6856,7 +6892,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     vmCapacityFields.forEach(function(f){var n=Number(byId(f.id).value);if(isNaN(n)||n<0){n=0;}capacity[f.key]=f.whole?Math.round(n):n;});
   }
   function saveVmPlan(extra,status,done){
-    if(!vmPlan||vmLocked()){return;}
+    if(!vmPlan||vmPlanLocked()){return;}
     vmCollectCapacity();var body={plan:vmPlan};if(extra){for(var k in extra){if(extra.hasOwnProperty(k)){body[k]=extra[k];}}}
     vmPost('/api/vmware/plan',body,'vmPlanStatus',function(err,data){
       if(err){if(done){done(err);}return;}
@@ -7151,6 +7187,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   byId('vmAddStage').addEventListener('click',function(){if(!vmPlan||!vmPlan.rolling){return;}var st=vmArr(vmPlan.rolling.stages),wave=0;st.forEach(function(x){if(x.wave>wave){wave=x.wave;}});vmPlan.rolling.stages=st.concat([{host:'',wave:wave+1,moveFirst:true,notes:''}]);vmMarkPlanDirty();renderVmStages();});
   byId('vmWaveSearch').addEventListener('input',renderVmWaves);
   byId('vmSavePlan').addEventListener('click',function(){saveVmPlan(null,'Plan saved.');});
+  byId('vmReadBarToggle').addEventListener('click',function(){vmReadOpen=!vmReadOpen;syncVmReadPanels(vmwareState()||{});if(vmReadOpen){var s=byId('vmServer');if(s&&!s.disabled){s.focus();}}});
   byId('vmSuggest').addEventListener('click',function(){var size=parseInt(byId('vmWaveSize').value,10);size=isNaN(size)||size<1?0:Math.min(200,size);var reset=byId('vmWaveReset').checked;
     saveVmPlan({suggest:true,waveSize:size,resetManual:reset},'',function(err){if(err){return;}var waves=vmArr(vmPlan.waves).length;
       vmSetStatus('vmPlanStatus','Suggested '+vmPlural(waves,'wave')+(size?'':' of up to '+(vmPlan.waveSize||0)+' VMs (Auto)')+' and saved the plan.'+(reset?'':' VMs you placed by hand were kept.')+' Change anything before writing the runbook.');byId('vmWaveReset').checked=false;});});
@@ -8539,7 +8576,8 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   }
   function nwSignature(){
     var v=vmwareState()||{};
-    var base=[nw.step,vmInvKeyOf(vmInventory),!!v.running,v.status,!!v.canPrepare,!!v.hyperVHere,nwSwitches?nwSwitches.length:-1,mpState?vmArr(mpState.plans).length:-1].join('|');
+    var used=nwInPlans(),ga=v.guestAuto||{};
+    var base=[nw.step,vmInvKeyOf(vmInventory),!!v.running,v.status,!!v.canPrepare,!!v.hyperVHere,nwSwitches?nwSwitches.length:-1,mpState?vmArr(mpState.plans).length:-1,Object.keys(used).sort().join(','),ga.user||'',!!ga.hasPassword].join('|');
     if(nw.step===1){base+='|'+JSON.stringify(v.hostStorage||null)+'|'+(v.hvRemote?[v.hvRemote.connected,v.hvRemote.serial,v.hvRemote.failed,v.hvRemote.message].join(','):'');}
     if(nw.step===4&&v.hvRemote){base+='|'+v.hvRemote.serial;}
     if((nw.step===1||nw.step===2)&&v.target){base+='|t'+v.target.serial+(v.target.connected?'c':'')+(v.target.certificate?'x':'')+'|'+(v.move?v.move.vm+(v.move.error||''):'');}
@@ -8552,11 +8590,17 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     var pgs=pgSettings();if(pgs&&!nw.srv.bwFilled){var gb=pgs.bandwidth||{};nw.srv.bwFilled=true;nw.srv.limit=String(gb.limitMbps||0);nw.srv.biz=String(gb.businessMbps||0);nw.srv.bizStart=gb.businessStart||0;nw.srv.bizEnd=gb.businessEnd||0;}
     // The step scrolls inside the window; a refresh of the same step keeps
     // its scroll position, a new step starts at the top.
-    var box=byId('nwStep'),keep=box.getAttribute('data-step')===String(nw.step)?box.scrollTop:0;box.textContent='';box.setAttribute('data-step',String(nw.step));nw.error=nw.error||'';
+    var box=byId('nwStep'),same=box.getAttribute('data-step')===String(nw.step),keep=same?box.scrollTop:0;
+    // A section the person opened or closed stays that way when the step is
+    // drawn again (a refresh must never fold what they are reading).
+    if(same){Array.prototype.forEach.call(box.querySelectorAll('details[id]'),function(d){nwOpenDetails[d.id]=d.open;});}
+    box.textContent='';box.setAttribute('data-step',String(nw.step));nw.error=nw.error||'';
     if(nw.source==='vms'&&nw.step>=1){nwFillDefaults();}
     [renderNwWhat,renderNwWhere,renderNwHow,renderNwWhen,renderNwReview,renderNwStatus][nw.step](box);
+    Array.prototype.forEach.call(box.querySelectorAll('details[id]'),function(d){if(nwOpenDetails.hasOwnProperty(d.id)){d.open=nwOpenDetails[d.id];}});
     nwSig=nwSignature();renderNwStepper();renderNwNav();box.scrollTop=keep;
   }
+  var nwOpenDetails={};
   function nwTick(){
     if(activeTab!=='wizard'){return;}
     if(!nwSwitchesAsked&&(vmwareState()||{}).hyperVHere){nwLoadPlans(true);}
@@ -8569,7 +8613,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   function nwTyping(){var a=document.activeElement;return !!(a&&byId('nwStep').contains(a)&&(a.type==='text'||a.type==='password'||a.type==='search'||a.type==='datetime-local'||a.tagName==='SELECT'));}
   function nwLoadPlans(withSwitches){
     if(withSwitches){nwSwitchesAsked=true;}nwLastPoll=Date.now();
-    request('GET','/api/plans'+(withSwitches?'?switches=1':''),null,function(err,data){if(err){return;}mpState=data||{};if(withSwitches&&mpState.switches){nwSwitches=vmArr(mpState.switches);}if(activeTab==='wizard'){if(nw.step===5){renderNwStatusBody();renderNwNav();}else if(!nwTyping()){renderNw();}}});
+    request('GET','/api/plans'+(withSwitches?'?switches=1':''),null,function(err,data){if(err){return;}mpState=data||{};if(withSwitches&&mpState.switches){nwSwitches=vmArr(mpState.switches);}if(activeTab==='wizard'){if(nw.step===5){renderNwStatusBody();renderNwNav();}else if(!nwTyping()&&nwSignature()!==nwSig){renderNw();}else{renderNwNav();}}});
   }
   function nwOpen(){
     if(!vmInventory&&!vmInvLoading&&(vmwareState()||{}).inventorySerial){loadVmInventory(0);}
@@ -9518,8 +9562,8 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     if(view){vcRememberView=view;}
     var v=vcRememberView||{enabled:false,entries:[]},list=byId('vcRememberList'),st=byId('vcRememberStatus');
     byId('vcRememberOn').checked=!!v.enabled;list.textContent='';
-    vmArr(v.entries).forEach(function(e){var row=el('div','vc-remember-row');row.appendChild(el('span','selectable',e.user+' on '+e.server+(mpTime(e.saved)?' (saved '+mpTime(e.saved)+')':'')));var b=el('button','secondary-button','Forget');b.type='button';b.setAttribute('data-vc-forget',e.server);row.appendChild(b);list.appendChild(row);});
-    var text=err||(v.notice||'');if(!text){text=v.enabled?(vmArr(v.entries).length?'Plans sign in with these after a restart.':'The next sign-in that reads vCenter or ESXi is remembered.'):'Not remembered: passwords are kept in memory only.';}
+    vmArr(v.entries).forEach(function(e){var row=el('div','vc-remember-row');row.appendChild(el('span','selectable',e.user+(e.kind==='guest'?' (guest administrator account for fix-ups)':' on '+e.server)+(mpTime(e.saved)?' (saved '+mpTime(e.saved)+')':'')));var b=el('button','secondary-button','Forget');b.type='button';b.setAttribute('data-vc-forget',e.server);row.appendChild(b);list.appendChild(row);});
+    var text=err||(v.notice||'');if(!text){text=v.enabled?(vmArr(v.entries).length?'These are used again by themselves after a restart.':'The next sign-in that reads vCenter or ESXi, and the next guest administrator account, are remembered.'):'Not remembered: passwords are kept in memory only.';}
     st.textContent=text;st.className='helper'+(err?' error':'');
   }
   function vcRememberLoad(done){request('GET','/api/vmware/remember',null,function(err,data){vcRememberRender(err?null:data.remember,err);if(done){done();}});}

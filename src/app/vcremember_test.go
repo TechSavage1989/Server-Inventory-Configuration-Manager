@@ -121,3 +121,28 @@ func TestPlansListTheServersTheyWaitFor(t *testing.T) {
 		t.Fatalf("waiting servers = %s", got)
 	}
 }
+
+// The guest administrator account is remembered under its own key with the
+// same opt-in, shown as a guest account, and never offered as a server.
+func TestTheGuestAdministratorAccountIsRememberedWithTheSameOptIn(t *testing.T) {
+	seal := func(b []byte) ([]byte, error) { return append([]byte("sealed:"), b...), nil }
+	unseal := func(b []byte) ([]byte, error) { return b[len("sealed:"):], nil }
+	store := newVCRemember(filepath.Join(t.TempDir(), "signins.json"), seal, unseal)
+	if err := store.Remember(vcRememberGuestKey, `.\Administrator`, "Synthetic-Guest", "", time.Now()); err != nil || store.Has(vcRememberGuestKey) {
+		t.Fatal("remembered while the setting is off", err)
+	}
+	if err := store.SetEnabled(true); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Remember(vcRememberGuestKey, `.\Administrator`, "Synthetic-Guest", "", time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	user, password, _, ok := store.Get(vcRememberGuestKey)
+	if !ok || user != `.\Administrator` || password != "Synthetic-Guest" {
+		t.Fatal("the guest account did not come back", user, ok)
+	}
+	view := store.View()
+	if len(view.Entries) != 1 || view.Entries[0].Kind != "guest" {
+		t.Fatalf("the guest account is not listed as one: %+v", view.Entries)
+	}
+}
