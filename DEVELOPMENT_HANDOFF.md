@@ -1,3 +1,9 @@
+## 3.3.0-test.1 (first test build) — 2026-11-27
+
+- Owner approved the first signed test build after 3.2.39. `test` holds 3.2.39 (#186), VM consoles (#179, AGENTS rule 68) and the migration UX work (#175, rule 69). `appVersion` 3.3.0-test.1, `collectorVersion` and the collector's `$scriptVersion` 3.3.0 (rule 61), notes in `docs/release-notes/3.3.0-test.1.md`, `release/VERSION` 3.3.0-test.1 on `test` only.
+- Also carries the Build Hyper-V hosts stale-editor fix (#187 into release/next), because the same low-resolution workspace check runs in the release job.
+- Publication runs from `test` as a signed prerelease with `--latest=false`; the stable feed must stay on 3.2.39.
+
 ## Unreleased (test branch): migration UX — 2026-11-27
 
 - The owner asked for the migration UI to be more intuitive and for the work to go to the opt-in `test` branch so normal installs never update to it. All 12 ideas (AGENTS rule 69): compact tool lists with **About this tool**, no collection banner on Migration and replication, empty screens that start New migration, a sortable VM table and step summaries in New migration, Migrate from Discovery, a status track with the next step per plan VM and All servers row (`mbVM.TestedAt`, row `tested`), plain-language error help with fix buttons (`errorCatalog`), and the activity strip under the top tabs.
