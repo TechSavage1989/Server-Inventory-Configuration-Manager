@@ -1,3 +1,11 @@
+## Unreleased: visible changed-block reads, 5-minute syncs, VDDK-aware retries — 2026-11-27
+
+- Owner on 3.3.0-test.3: "i can't even tell if VDDK changed block sync is even working"; MATCHC-DC02's last round read all 90 GB. Cause: a round that stopped part way left the copy record unfinished, and the next round silently read the whole disk. `vmReplicaPlanDisk` now reads everything changed since the last whole copy's change ID instead, and every full read gives its reason (AGENTS rule 70). Hyper-V RCT accepts an unfinished copy the same way.
+- Each round records how each disk was read (VDDK, datastore, export, RCT, file), what change tracking reported and why it read more; Migration plans and All jobs and servers show it under Last sync with a ✓ or ! and a folded **Why:**, and the plan log has one summary line per round.
+- Near-real-time replication: plans sync every 5 or 10 minutes as well (`mbMinSyncMinutes`), with at least 2 minutes after a long round ends (`mbRoundGap`). Short intervals only read changes cheaply through VDDK (VMware) or RCT (Hyper-V); through vSphere's export every round streams the whole used disk.
+- With VDDK set up, a vTPM VM's failure ends with `vmEncryptedHomeVDDKHint` and offers Retry with VDDK and Open the VDDK log instead of Set up VDDK.
+- Not field-validated: a real stopped round followed by a changed-block round on vCenter, and 5-minute rounds on a busy host.
+
 ## Unreleased: VDDK start-up diagnosis and one-line errors — 2026-11-27
 
 - Owner on 3.3.0-test.3: DESK21-CPA01/CPA02 rounds failed with VDDK error 16053 (VIX_E_DISK_SUBSYSTEM_INIT_FAIL) after the folder check passed. The owner's VixDiskLib log showed the cause: `Failed to load vddkVimAccess.dll : ErrorCode = 0x7e` and diskLibPlugin.dll not found, because VixDiskLib loads its plugins itself and their dependencies were searched for outside the VDDK folder. `vddkLoad` now calls `SetDllDirectory(bin)` before loading vixDiskLib.dll.

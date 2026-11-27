@@ -110,6 +110,9 @@ type asRow struct {
 	SecondsLeft    int64     `json:"secondsLeft,omitempty"`
 	LastSync       time.Time `json:"lastSync,omitempty"`
 	NextSync       time.Time `json:"nextSync,omitempty"`
+	// LastRound says how a plan VM's last round read its disks (the
+	// method, what change tracking reported, and why it read more).
+	LastRound *asLastRound `json:"lastRound,omitempty"`
 	// LagSeconds is the age of the newest whole copy (-1 when none).
 	LagSeconds int64     `json:"lagSeconds"`
 	LimitMins  int       `json:"limitMinutes,omitempty"`
@@ -292,10 +295,24 @@ func asJobRow(agent replAgentRow, job replJobView, in asInput) asRow {
 	return row
 }
 
+// asLastRound is mbVM's last-round fields, under the same JSON names.
+type asLastRound struct {
+	Mode    string `json:"lastMode"`
+	Via     string `json:"lastVia,omitempty"`
+	Tracked int64  `json:"lastTracked,omitempty"`
+	Read    int64  `json:"lastRead"`
+	Written int64  `json:"lastWritten"`
+	Seconds int64  `json:"lastSeconds"`
+	Why     string `json:"lastWhy,omitempty"`
+}
+
 // asPlanRow is one VM of a Migration plan.
 func asPlanRow(plan mbPlanView, vm mbVMView, now time.Time) asRow {
 	row := asRow{Key: asKey(asKindPlan, plan.ID, vm.ID), Kind: asKindPlan, Name: vm.Name, Detail: "Plan " + plan.Name, Plan: plan.ID, VM: vm.ID,
 		Percent: -1, LagSeconds: -1, Wave: vm.Wave, CutoverAt: vm.CutoverAt, NextSync: vm.NextSync, LastSync: vm.LastSync, LimitMins: plan.Settings.SyncMinutes}
+	if vm.LastMode != "" {
+		row.LastRound = &asLastRound{Mode: vm.LastMode, Via: vm.LastVia, Tracked: vm.LastTracked, Read: vm.LastRead, Written: vm.LastWritten, Seconds: vm.LastSeconds, Why: vm.LastWhy}
+	}
 	if vm.Seeded && !vm.LastSync.IsZero() {
 		row.LagSeconds = int64(now.Sub(vm.LastSync).Seconds())
 	}
