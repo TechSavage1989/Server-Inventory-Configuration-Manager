@@ -468,6 +468,8 @@ func (a *application) handleVMTargetMove(response http.ResponseWriter, request *
 		Action  string `json:"action"`
 		Confirm string `json:"confirm"`
 		Quiesce bool   `json:"quiesce"`
+		// EjectMedia: see vmReplicaOptions.EjectMedia.
+		EjectMedia bool `json:"ejectMedia"`
 	}
 	if !decodeVMwareRequest(response, request, &input) {
 		return
@@ -525,7 +527,7 @@ func (a *application) handleVMTargetMove(response http.ResponseWriter, request *
 		a.mu.Unlock()
 		progress, prefix := a.moveProgress(*vm, "the receiver at "+receiver.Link.Address)
 		result, err := a.runMoveRound(ctx, inventory, *vm, vmConnectOptions{Server: server, User: user, Password: password, Thumbprint: thumbprint, UserAgent: displayName + " " + appVersion, AppVersion: appVersion},
-			vmMoveRequest{VMID: vm.ID, Name: vm.Name, Datacenter: vm.Datacenter, Quiesce: input.Quiesce, Cutover: input.Action == "cutover", RecordFolder: records, NewSink: receiver.Link.sinkFactory(ctx, receiver.Mapping), Progress: progress, Stage: a.moveStage}, log)
+			vmMoveRequest{VMID: vm.ID, Name: vm.Name, Datacenter: vm.Datacenter, Quiesce: input.Quiesce, Cutover: input.Action == "cutover", EjectMedia: input.EjectMedia, RecordFolder: records, NewSink: receiver.Link.sinkFactory(ctx, receiver.Mapping), Progress: progress, Stage: a.moveStage}, log)
 		a.copyTransfers().EndRunning(prefix, err, errors.Is(err, context.Canceled), err == nil && input.Action == "cutover")
 		password = ""
 		finished := ""

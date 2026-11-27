@@ -110,6 +110,7 @@ var vmReportIssueTitles = map[string]string{
 	"snapshots":        "Snapshots or checkpoints to remove",
 	"serial":           "Serial or parallel ports",
 	"media":            "Connected CD/DVD media",
+	"media-image":      "CD/DVD or floppy drive names an image file that is not connected",
 	"static-ip":        "Static IP configuration to carry over",
 	"hardware-old":     "Very old virtual hardware version",
 	"hardware-drivers": "Windows needs the new server's storage driver",
