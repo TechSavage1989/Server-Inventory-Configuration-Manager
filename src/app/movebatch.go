@@ -760,6 +760,31 @@ func (r *mbRunner) SetWave(id string, ids []string, wave int) error {
 	return r.saveLocked()
 }
 
+// WaitingServers lists, in plan order and once each, the servers of plans
+// that are not paused, still have VMs to move and cannot run now (most
+// often because the vCenter sign-in is gone after a restart).
+func (r *mbRunner) WaitingServers() []string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	seen, list := map[string]bool{}, []string{}
+	for _, plan := range r.plans {
+		if plan.Paused || seen[strings.ToLower(plan.Server)] || r.ready == nil || r.ready(plan) == "" {
+			continue
+		}
+		open := false
+		for _, vm := range plan.VMs {
+			if vm.State != mbDone {
+				open = true
+			}
+		}
+		if open {
+			seen[strings.ToLower(plan.Server)] = true
+			list = append(list, plan.Server)
+		}
+	}
+	return list
+}
+
 // mbSyncAnswer says what a Sync now press did: how many VMs were asked
 // for, why the others were not, and why the plan cannot copy right now.
 type mbSyncAnswer struct {
