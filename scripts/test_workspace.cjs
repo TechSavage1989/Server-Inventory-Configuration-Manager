@@ -74,7 +74,7 @@ const hvBuildStepCount=hvBuildFixture.steps.length;
 async function fixture(browser,old=false){
  let saved=null,started=[],saveCalls=0,rejectStart=false,skipRequests=[],opens=[],restoreReject=null,migrateReject={},vmwareReject={};const receiverPair={allowed:false};
  const logs=[],dialogs=[],errors=[],restoreCalls={browse:0,scan:[],start:[],cancel:0,tokens:[]},migrateCalls=[],vmwareCalls=[],convertCalls=[],replCalls=[],planCalls=[],serverCalls=[];const servers={rows:[],summary:{total:0,states:{},scheduled:0,methods:{}},bulk:{running:false,action:'',total:0,results:[]},hyperVHere:true,isAdministrator:true,local:{hyperV:true,computer:'HV01',running:false,folder:'',defaultFolder:'C:\\ClusterStorage\\Volume1\\Hyper-V\\Received',port:44380,addresses:['192.0.2.40']}};const plans={plans:[],inventory:{open:true,server:'vc01.example.com',serverType:'vCenter Server',live:true}};let convertReject={},convertSize=0;const pickCalls=[],outputRootCalls=[];let pickReject='';
- const uiCalls=[],vddkCalls=[],channelCalls=[];let vddk={folder:'',ready:false,loaded:false,message:'Off. Copies of running VMware VMs read whole disks through vSphere\'s export when the datastore refuses them.'};const state={ui:{schema:1,confirmStyle:'typed'},status:'idle',phase:'Ready',running:false,computerName:'SRV-DEMO-01',signedInAccount:'EXAMPLE\\operator',isAdministrator:true,powerShellVersion:'5.1',defaultOutputRoot:'C:\\Reports',update:{status:'current',title:'Up to date',message:'Installed v3.2.10. Latest v3.2.10.',canCheck:true},
+ const uiCalls=[],vddkCalls=[],channelCalls=[],productionCalls=[];let vddk={folder:'',ready:false,loaded:false,message:'Off. Copies of running VMware VMs read whole disks through vSphere\'s export when the datastore refuses them.'};const state={ui:{schema:1,confirmStyle:'typed'},status:'idle',phase:'Ready',running:false,computerName:'SRV-DEMO-01',signedInAccount:'EXAMPLE\\operator',isAdministrator:true,powerShellVersion:'5.1',defaultOutputRoot:'C:\\Reports',update:{status:'current',title:'Up to date',message:'Installed v3.2.10. Latest v3.2.10.',canCheck:true},
   restore:{status:'idle',packages:{lastCollection:'',loadedReport:''},items:[],logs:[]},migrate:migrateIdle(),vmware:vmwareIdle(),convert:convertIdle()};
  const vm={inventory:null,plan:null,sizing:null,guest:null,compare:null};
  const rollbackCalls=[];
@@ -101,6 +101,12 @@ async function fixture(browser,old=false){
    if(data.folder==='C:\\Bad'){send(400,{ok:false,error:'Not saved: zlib1.dll: its signature is not valid.'});return;}
    vddk=data.folder?{folder:data.folder,ready:true,version:'8.0.3 build 23950268',signer:'Broadcom Inc',loaded:false,message:'VDDK 8.0.3 build 23950268 (signed by Broadcom Inc) is ready. Copies of running VMware VMs read only changed blocks through it.'}:{folder:'',ready:false,loaded:false,message:'Off.'};
    send(200,{ok:true,vddk});return;
+  }
+  if(url.pathname==='/api/production'){
+   if(req.headers['x-app-token']!=='workspace-test'){send(403,{});return;}
+   let body='';for await(const chunk of req)body+=chunk;const data=JSON.parse(body);productionCalls.push(data);
+   if(data.stopPercent>data.reservePercent){send(400,{ok:false,error:'The stop level must not be above the free space kept for production.'});return;}
+   state.production=Object.assign({},state.production||{},{settings:data,limit:'set'});send(200,{ok:true,production:state.production});return;
   }
   if(url.pathname==='/api/ui-settings'){
    let body='';for await(const chunk of req)body+=chunk;
@@ -284,7 +290,7 @@ async function fixture(browser,old=false){
  const url='http://127.0.0.1:'+server.address().port+'/';
  // A fixture that fails to load closes its own server and context; otherwise Node never exits and the job hangs until its timeout.
  try{await page.goto(url);await page.waitForFunction(()=>document.querySelector('#serverName').textContent==='SRV-DEMO-01');}catch(e){await context.close().catch(()=>{});server.close();throw new Error('Fixture page did not load ('+errors.concat(dialogs).join('; ')+'): '+e.message);}
- return {page,context,state,rollbackCalls,uiCalls,vddkCalls,channelCalls,pickCalls,outputRootCalls,rejectPick(message){pickReject=message},vm,repl,plans,planCalls,servers,serverCalls,failover,receiverPair,targetTest,replCalls,vmwareCalls,convertCalls,rejectConvert(action,message){convertReject[action]=message},setConvertSize(size){convertSize=size},rejectVmware(action,message){vmwareReject[action]=message},logs,dialogs,errors,started,skipRequests,opens,restoreCalls,migrateCalls,rejectMigrate(action,message){migrateReject[action]=message},rejectRestore(message){restoreReject=message},get saved(){return saved},get saveCalls(){return saveCalls},reject(){rejectStart=true},async close(){assert.deepEqual(errors,[]);await context.close();await new Promise(r=>server.close(r));}};
+ return {page,context,state,rollbackCalls,uiCalls,vddkCalls,channelCalls,productionCalls,pickCalls,outputRootCalls,rejectPick(message){pickReject=message},vm,repl,plans,planCalls,servers,serverCalls,failover,receiverPair,targetTest,replCalls,vmwareCalls,convertCalls,rejectConvert(action,message){convertReject[action]=message},setConvertSize(size){convertSize=size},rejectVmware(action,message){vmwareReject[action]=message},logs,dialogs,errors,started,skipRequests,opens,restoreCalls,migrateCalls,rejectMigrate(action,message){migrateReject[action]=message},rejectRestore(message){restoreReject=message},get saved(){return saved},get saveCalls(){return saveCalls},reject(){rejectStart=true},async close(){assert.deepEqual(errors,[]);await context.close();await new Promise(r=>server.close(r));}};
 }
 // Tools live in two tabs: Discovery (Alt+1) and Migration and replication (Alt+5).
 const discoveryTools=['server','environment'];
@@ -1914,7 +1920,7 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   await f.page.locator('#rpInterval').selectOption('5');await f.page.locator('#rpLimit').fill('100');await f.page.locator('#rpBusinessLimit').fill('20');await f.page.locator('#rpBusinessStart').fill('8');await f.page.locator('#rpBusinessEnd').fill('18');
   await f.page.locator('#rpServices').fill('MSSQLSERVER, W3SVC');await f.page.locator('#rpJobSave').click();
   await f.page.waitForFunction(()=>!document.querySelector('#rpDetails').classList.contains('hidden'));
-  assert.deepEqual(f.replCalls.filter(c=>c.action==='job'&&c.body.action==='save').map(c=>c.body),[{agent:'ag1',action:'save',spec:{id:'',name:'APP01',disks:[{source:'0',target:'disk-0'},{source:'1',target:'disk-1'}],receiver:{address:'198.51.100.9:44380',alternates:['10.10.100.11:44380'],thumbprint:'3F9A6C0E1B7D4A25C8E0F13B6A9D2C4E7F0A1B3C5D7E9F2A4C6E8B0D1F3A5C7E',code:'K7QMZ-2RT4X-9WBNP-H3VDA'},intervalMinutes:5,rpoMinutes:15,compress:true,throttle:{limitMbps:100,businessMbps:20,businessStart:8,businessEnd:18},stopServices:['MSSQLSERVER','W3SVC'],shutdownAfterCutover:true,fullReadAtCutover:false,rescanFirst:false,allowLive:false}}]);
+  assert.deepEqual(f.replCalls.filter(c=>c.action==='job'&&c.body.action==='save').map(c=>c.body),[{agent:'ag1',action:'save',spec:{id:'',name:'APP01',disks:[{source:'0',target:'disk-0'},{source:'1',target:'disk-1'}],receiver:{address:'198.51.100.9:44380',alternates:['10.10.100.11:44380'],thumbprint:'3F9A6C0E1B7D4A25C8E0F13B6A9D2C4E7F0A1B3C5D7E9F2A4C6E8B0D1F3A5C7E',code:'K7QMZ-2RT4X-9WBNP-H3VDA'},intervalMinutes:5,rpoMinutes:15,compress:true,throttle:{limitMbps:100,businessMbps:20,businessStart:8,businessEnd:18},stopServices:['MSSQLSERVER','W3SVC'],shutdownAfterCutover:true,fullReadAtCutover:false,rescanFirst:false,allowLive:false,space:{reservePercent:10,reserveGB:20}}}]);
   assert(await f.page.locator('#rpEditor').isHidden());assert.equal(await f.page.locator('#rpRecvCode').inputValue(),'','the pairing code is cleared');
   await f.page.waitForFunction(()=>document.querySelector('#rpDetailsFacts').textContent.includes('Every 5 minutes'));
   assert((await f.page.locator('#rpAgents').textContent()).includes('Up to date'));
@@ -2294,6 +2300,36 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   await f.page.setViewportSize({width:1008,height:690});
   assert(await f.page.evaluate(()=>{const d=document.querySelector('#settingsDialog');const r=d.getBoundingClientRect();return r.bottom<=innerHeight&&d.scrollHeight<=d.clientHeight+2||getComputedStyle(d).overflowY!=='visible';}),'Settings scrolls instead of clipping at 1024x768');
   await f.page.locator('#settingsClose').click();assert.deepEqual(f.dialogs,[]);
+ }finally{await f.close();}});
+ await check('Help > Settings protects production: free space kept, the stop level, copy caps and this computer\'s bandwidth; a copy that waits says why in a banner and in its plan row',async()=>{const f=await fixture(browser);try{
+  const defaults={schema:1,reservePercent:10,reserveGB:50,stopPercent:5,stopGB:20,growthPercent:10,growthMinGB:4,maxCopies:4,maxPerDatastore:2,maxPerSourceHost:2,maxPerTarget:2,bandwidth:{limitMbps:0,businessMbps:0,businessStart:0,businessEnd:0}};
+  f.state.production={settings:defaults,defaults:defaults,holds:[],active:[],running:0,limit:'no limit'};
+  await f.page.locator('#helpMenuButton').click();await f.page.locator('#helpSettings').click();
+  await f.page.waitForFunction(()=>document.querySelector('#pgReserveGB').value==='50');
+  assert.equal(await f.page.locator('#pgMaxCopies').inputValue(),'4');assert.equal(await f.page.locator('#pgPerDs').inputValue(),'2');
+  assert(/Nothing is waiting/.test(await f.page.locator('#pgHolds').textContent()));
+  // A stop level above the reserve is refused inline and nothing changes.
+  await f.page.locator('#pgStopPct').fill('20');await f.page.locator('#pgSave').click();
+  await f.page.waitForFunction(()=>/must not be above/.test(document.querySelector('#pgStatus').textContent));assert(await f.page.locator('#pgStatus.error').isVisible());
+  await f.page.locator('#pgDefaultsButton').click();assert.equal(await f.page.locator('#pgStopPct').inputValue(),'5');
+  await f.page.locator('#pgReserveGB').fill('100');await f.page.locator('#pgPerHost').selectOption('1');await f.page.locator('#pgBizMbps').fill('200');await f.page.locator('#pgOffMbps').fill('800');await f.page.locator('#pgBizStart').selectOption('8');await f.page.locator('#pgBizEnd').selectOption('18');
+  await f.page.locator('#pgSave').click();await f.page.waitForFunction(()=>/^Saved\./.test(document.querySelector('#pgStatus').textContent));
+  const saved=f.productionCalls[f.productionCalls.length-1];
+  assert.equal(saved.reserveGB,100);assert.equal(saved.maxPerSourceHost,1);assert.deepEqual(saved.bandwidth,{businessMbps:200,limitMbps:800,businessStart:8,businessEnd:18});
+  await f.page.locator('#pgOffMbps').fill('fast');await f.page.locator('#pgSave').click();assert(/whole numbers/.test(await f.page.locator('#pgStatus').textContent()));
+  await f.page.locator('#settingsClose').click();
+  // A copy waits for space: the banner over the tools says why and opens the settings.
+  f.state.production=Object.assign({},f.state.production,{holds:[{owner:'SQL01',kind:'space',reason:'Waiting for space on datastore DS-SQL: 80 GB of 1 TB is free, and 102 GB is kept free for production (Help > Settings). It tries again when space allows.',since:new Date().toISOString()}]});
+  await goTool(f,'plans');await f.page.waitForFunction(()=>!document.querySelector('#pgBanner').classList.contains('hidden'),null,{timeout:15000});
+  const banner=await f.page.locator('#pgBannerText').textContent();assert(/1 copy waits for free space/.test(banner)&&/DS-SQL/.test(banner),banner);
+  await f.page.locator('#pgBannerOpen').click();assert(await f.page.locator('#settingsDialog').isVisible());
+  await f.page.waitForFunction(()=>/Waiting for space: SQL01/.test(document.querySelector('#pgHolds').textContent));
+  await f.page.locator('#settingsClose').click();
+  // A plan VM held for space shows the reason, not an error.
+  f.plans.plans=[{id:'p1',name:'Wave 1',server:'vc01.example.com',created:new Date().toISOString(),paused:false,settings:{syncMinutes:60,concurrency:2,throttle:{},waves:[{wave:1,concurrency:1,throttle:{limitMbps:100,businessMbps:0,businessStart:8,businessEnd:18}}]},throttle:'no limit',summary:{total:1,waiting:0,copying:0,ready:1,testing:0,scheduled:0,done:0,failed:0},vms:[{id:'vm-sql01',name:'SQL01',wave:1,state:'ready',seeded:true,failures:0,held:'Waiting for space on datastore DS-SQL.'}]}];
+  await f.page.waitForFunction(()=>/Waiting for space on datastore DS-SQL/.test((document.querySelector('#mpRows')||{}).textContent||''),null,{timeout:15000});
+  assert(!/mp-err/.test(await f.page.locator('#mpRows').innerHTML()),'a held VM is not shown as an error');
+  assert.deepEqual(f.dialogs,[]);
  }finally{await f.close();}});
  await check('Help > Settings opts in to the Test update channel: Stable by default, ticking offers the test build, unticking goes back to Stable',async()=>{const f=await fixture(browser);try{
   await f.page.locator('#helpMenuButton').click();await f.page.locator('#helpSettings').click();

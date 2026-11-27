@@ -524,7 +524,13 @@ func (a *application) hvRemoteRound(ctx context.Context, hv hvRemoteRuntime, vm 
 	if !cutover {
 		a.saveVCenterCapture(vm, log)
 	}
+	release, err := a.protectMove(ctx, vm, &request, node, log)
+	if err != nil {
+		a.copyTransfers().EndRunning(prefix, err, errors.Is(err, context.Canceled), false)
+		return nil, err
+	}
 	result, err := vmMoveRound(ctx, options, request, log)
+	release()
 	a.copyTransfers().EndRunning(prefix, err, errors.Is(err, context.Canceled), err == nil && cutover)
 	if err == nil && result != nil {
 		// The VM is created from the paths the node sees.

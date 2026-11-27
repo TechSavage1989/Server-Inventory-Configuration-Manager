@@ -223,6 +223,14 @@ type hypervMoveRequest struct {
 	Progress func(disk string, p vmCopyProgress)
 	// Throttle limits how fast the disks are read; nil is no limit.
 	Throttle *vmThrottle
+	// Space checks the volumes the checkpoint grows on (Volumes gives them
+	// for the VM's disk files) and TargetVolume, the copy's destination,
+	// before a running VM's checkpoint and watches them while the round
+	// runs (prodguard.go).
+	Space        *pgGuard
+	SpaceOwner   string
+	Volumes      func(paths []string) []pgVolume
+	TargetVolume func() (pgVolume, bool)
 	// TrackFolder keeps the change tracking record between rounds; empty
 	// turns Hyper-V change tracking off.
 	TrackFolder string
@@ -245,7 +253,7 @@ func hypervSourceID(vmID, key string) string {
 }
 
 // hypervMoveRound runs one copy round, or the cutover, for one VM.
-func hypervMoveRound(ctx context.Context, host hypervHost, request hypervMoveRequest, log func(string)) (*vmMoveResult, error) {
+func hypervMoveRound(ctx context.Context, host hypervHost, request hypervMoveRequest, log func(string)) (_ *vmMoveResult, err error) {
 	if log == nil {
 		log = func(string) {}
 	}
@@ -302,6 +310,35 @@ func hypervMoveRound(ctx context.Context, host hypervHost, request hypervMoveReq
 		tracking.offTag()
 	} else if state.PowerState != "poweredOff" {
 		round.PowerState = state.PowerState
+		if request.Space != nil {
+			paths := []string{}
+			for _, disk := range state.Disks {
+				paths = append(paths, disk.Reach)
+			}
+			read := func(context.Context) ([]pgVolume, error) {
+				volumes := []pgVolume{}
+				if request.Volumes != nil {
+					volumes = request.Volumes(paths)
+				}
+				if request.TargetVolume != nil {
+					if target, ok := request.TargetVolume(); ok {
+						volumes = append(volumes, target)
+					}
+				}
+				return volumes, nil
+			}
+			volumes, _ := read(ctx)
+			claim, err := request.Space.Admit(request.SpaceOwner, volumes)
+			if err != nil {
+				return result, err
+			}
+			defer claim.Release()
+			guarded, cancel := context.WithCancel(ctx)
+			defer cancel()
+			claim.Watch(guarded, cancel, read, log)
+			ctx = guarded
+			defer func() { err = claim.Wrap(err) }()
+		}
 		log("Creating checkpoint \"" + hypervCheckpointName + "\" on " + request.Name + ".")
 		var checkpoint *hypervCheckpoint
 		if tracking.tracker != nil {

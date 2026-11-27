@@ -58,6 +58,9 @@ type mbSettings struct {
 	// Concurrency is how many VMs of this plan copy at once.
 	Concurrency int                `json:"concurrency"`
 	Throttle    vmThrottleSchedule `json:"throttle"`
+	// Waves optionally limit one wave further: fewer VMs at once and its own
+	// bandwidth schedule, on top of the plan's and this computer's limits.
+	Waves []mbWaveLimit `json:"waves,omitempty"`
 	// CopyRoot holds one folder of copied disks per VM; empty is the
 	// host's virtual hard disk folder.
 	CopyRoot string `json:"copyRoot"`
@@ -87,6 +90,24 @@ type mbSettings struct {
 	// Node is the node of RemoteHost that runs the new VMs; empty is the
 	// connected host itself.
 	Node string `json:"node,omitempty"`
+}
+
+// mbWaveLimit limits one wave of a plan. Concurrency 0 keeps the plan's;
+// a zero throttle adds no limit of its own.
+type mbWaveLimit struct {
+	Wave        int                `json:"wave"`
+	Concurrency int                `json:"concurrency"`
+	Throttle    vmThrottleSchedule `json:"throttle"`
+}
+
+// mbWaveLimitFor returns the wave's limit, if the plan sets one.
+func mbWaveLimitFor(plan *mbPlan, wave int) *mbWaveLimit {
+	for index := range plan.Settings.Waves {
+		if plan.Settings.Waves[index].Wave == wave {
+			return &plan.Settings.Waves[index]
+		}
+	}
+	return nil
 }
 
 type mbTest struct {
@@ -124,6 +145,14 @@ type mbVM struct {
 	Notes []string `json:"notes,omitempty"`
 	// SyncNow asks for a round at the next sweep.
 	SyncNow bool `json:"syncNow,omitempty"`
+	// Held says why the last round waited for space instead of copying
+	// (prodguard.go); it tries again pgRetryAfter after HeldAt. Held rounds
+	// are not failures.
+	Held   string    `json:"held,omitempty"`
+	HeldAt time.Time `json:"heldAt,omitempty"`
+	// Waiting says why a due round did not start at the last sweep (a copy
+	// cap); it starts as soon as a slot is free.
+	Waiting string `json:"waiting,omitempty"`
 	// Method is how this VM is copied: "" (live: rounds while it runs,
 	// through VDDK when its folder is set) or mbMethodOffline (no rounds
 	// before cutover; the cutover shuts the guest down and copies the
@@ -174,6 +203,22 @@ func mbValidateSettings(s *mbSettings) error {
 	}
 	if err := s.Throttle.Validate(); err != nil {
 		return err
+	}
+	seen := map[int]bool{}
+	for _, wave := range s.Waves {
+		if wave.Wave < 0 || wave.Wave > 999 || seen[wave.Wave] {
+			return errors.New("each wave limit names a different wave from 0 to 999")
+		}
+		seen[wave.Wave] = true
+		if wave.Concurrency < 0 || wave.Concurrency > mbMaxConcurrency {
+			return fmt.Errorf("a wave copies 0 (the plan's number) to %d VMs at once", mbMaxConcurrency)
+		}
+		if err := wave.Throttle.Validate(); err != nil {
+			return fmt.Errorf("wave %d: %w", wave.Wave, err)
+		}
+	}
+	if len(s.Waves) > 100 {
+		return errors.New("a plan holds at most 100 wave limits")
 	}
 	s.CopyRoot, s.VMFolder, s.TestSwitch = strings.TrimSpace(s.CopyRoot), strings.TrimSpace(s.VMFolder), strings.TrimSpace(s.TestSwitch)
 	s.RemoteHost, s.Node = strings.TrimSpace(s.RemoteHost), strings.TrimSpace(s.Node)
@@ -227,6 +272,9 @@ func mbNextSync(plan *mbPlan, vm *mbVM) time.Time {
 	switch vm.State {
 	case mbDone, mbTesting, mbCutting, mbCopying:
 		return time.Time{}
+	}
+	if vm.Held != "" && !vm.SyncNow {
+		return vm.HeldAt.Add(pgRetryAfter)
 	}
 	if vm.SyncNow || vm.LastAttempt.IsZero() {
 		return plan.Settings.StartAt
@@ -285,8 +333,11 @@ func mbClaimFor(work []mbWork) mbClaim {
 }
 
 // mbDue picks the work for one sweep: due cutovers first, then due copies
-// by wave and name, at most each plan's concurrency and limit in all.
-func mbDue(plans []*mbPlan, now time.Time, limit int) []mbWork {
+// by wave and name, at most each plan's and each wave's concurrency and
+// limit in all. gate, when set, says why a due copy cannot start now (the
+// production guard's caps); it is not asked about cutovers, whose source is
+// shut down.
+func mbDue(plans []*mbPlan, now time.Time, limit int, gate func(mbWork) string) []mbWork {
 	work := []mbWork{}
 	for _, plan := range plans {
 		if plan.Paused {
@@ -294,10 +345,12 @@ func mbDue(plans []*mbPlan, now time.Time, limit int) []mbWork {
 		}
 		cutovers, copies := []mbWork{}, []mbWork{}
 		busy := 0
+		waveBusy := map[int]int{}
 		for _, vm := range plan.VMs {
 			switch vm.State {
 			case mbCopying, mbCutting:
 				busy++
+				waveBusy[vm.Wave]++
 				continue
 			case mbDone, mbTesting:
 				continue
@@ -333,7 +386,21 @@ func mbDue(plans []*mbPlan, now time.Time, limit int) []mbWork {
 			if room <= 0 || len(work) >= limit {
 				break
 			}
+			if wave := mbWaveLimitFor(plan, item.VM.Wave); wave != nil && wave.Concurrency > 0 && waveBusy[item.VM.Wave] >= wave.Concurrency {
+				if !item.Cutover {
+					item.VM.Waiting = fmt.Sprintf("Waiting: wave %d copies at most %d VM%s at once.", item.VM.Wave, wave.Concurrency, map[bool]string{true: "", false: "s"}[wave.Concurrency == 1])
+				}
+				continue
+			}
+			if !item.Cutover && gate != nil {
+				if why := gate(item); why != "" {
+					item.VM.Waiting = why
+					continue
+				}
+			}
+			item.VM.Waiting = ""
 			work = append(work, item)
+			waveBusy[item.VM.Wave]++
 			room--
 		}
 	}
@@ -466,6 +533,10 @@ type mbRunner struct {
 	// ready reports whether the target can run work now (a live session
 	// for the plan's server); "" means yes.
 	ready func(plan *mbPlan) string
+	// guard is the production guard (copy caps, global bandwidth); locate
+	// names where a VM is read and written for its caps. Both may be nil.
+	guard  *pgGuard
+	locate func(plan *mbPlan, vm *mbVM) pgSlotKeys
 }
 
 func newMBRunner(path string, target mbTarget) *mbRunner {
@@ -866,6 +937,48 @@ func (r *mbRunner) throttleLocked(plan *mbPlan) *vmThrottle {
 	return t
 }
 
+// waveThrottleLocked is the throttle of the VM's wave on top of the plan's
+// (one per wave, shared by the wave's VMs), or the plan's alone.
+func (r *mbRunner) waveThrottleLocked(plan *mbPlan, wave int) *vmThrottle {
+	planThrottle := r.throttleLocked(plan)
+	limit := mbWaveLimitFor(plan, wave)
+	if limit == nil {
+		return planThrottle
+	}
+	key := fmt.Sprintf("%s|wave%d", plan.ID, wave)
+	t := r.throttles[key]
+	if t == nil {
+		t = newVMThrottle(limit.Throttle)
+		r.throttles[key] = t
+	} else {
+		t.SetSchedule(limit.Throttle)
+	}
+	return vmThrottleAll(planThrottle, t)
+}
+
+// maxCopiesLocked is how many copies the sweep may start in all.
+func (r *mbRunner) maxCopies() int {
+	if r.guard == nil {
+		return mbMaxConcurrency
+	}
+	return r.guard.Settings().MaxCopies
+}
+
+// gate asks the production guard's caps about one due copy.
+func (r *mbRunner) gate() func(mbWork) string {
+	if r.guard == nil {
+		return nil
+	}
+	planner := r.guard.Planner()
+	return func(item mbWork) string {
+		keys := pgSlotKeys{}
+		if r.locate != nil {
+			keys = r.locate(item.Plan, item.VM)
+		}
+		return planner.Try(keys)
+	}
+}
+
 // Sweep runs the work due now and returns when it has finished. Only one
 // sweep runs at a time.
 func (r *mbRunner) Sweep() {
@@ -882,14 +995,14 @@ func (r *mbRunner) Sweep() {
 	r.blocked = ""
 	for _, plan := range r.plans {
 		if why := r.ready(plan); why != "" {
-			if !plan.Paused && len(mbDue([]*mbPlan{plan}, now, mbMaxConcurrency)) > 0 {
+			if !plan.Paused && len(mbDue([]*mbPlan{plan}, now, mbMaxConcurrency, nil)) > 0 {
 				r.blocked = why
 			}
 			continue
 		}
 		ready = append(ready, plan)
 	}
-	work := mbDue(ready, now, mbMaxConcurrency)
+	work := mbDue(ready, now, r.maxCopies(), r.gate())
 	if len(work) == 0 {
 		r.mu.Unlock()
 		return
@@ -946,7 +1059,7 @@ func (r *mbRunner) run(ctx context.Context, item mbWork) {
 	plan, vm := item.Plan, item.VM
 	key := plan.ID + "|" + vm.ID
 	r.mu.Lock()
-	throttle := r.throttleLocked(plan)
+	throttle := r.waveThrottleLocked(plan, vm.Wave)
 	snapshot := *plan
 	vmCopy := *vm
 	r.mu.Unlock()
@@ -1017,6 +1130,15 @@ func (r *mbRunner) run(ctx context.Context, item mbWork) {
 		vm.State, vm.Seeded, vm.Failures, vm.LastSync = mbReady, true, 0, finished.UTC()
 		vm.Disks = result.Disks
 		vm.Rounds++
+		vm.Held = ""
+	case !item.Cutover && pgHeld(err):
+		// Waiting for space: not a failure. It asks again in a while.
+		vm.State = mbWaiting
+		if vm.Seeded {
+			vm.State = mbReady
+		}
+		vm.Held, vm.HeldAt, vm.SyncNow = err.Error(), finished.UTC(), false
+		r.log(vm.Name + ": " + err.Error())
 	case errors.Is(err, context.Canceled):
 		// Paused: not a failure; the next round resumes.
 		vm.State = mbWaiting

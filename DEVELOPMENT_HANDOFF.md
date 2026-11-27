@@ -1,11 +1,20 @@
-<<<<<<< HEAD
+## Unreleased: protect production space and bandwidth while copying — 2026-11-27
+
+- Owner: "there should always be a way to safely migrate and control the migration to preserve functional space for the production environment and bandwidth for the production network". AGENTS rule 67.
+- Space: before every VMware snapshot and Hyper-V checkpoint of a running VM, the datastores or volumes it grows on and the copy's destination must keep the reserve (default 10% and 50 GB) after the expected growth of every copy holding a snapshot there (default 10% of the VM's disks, at least 4 GB). Otherwise the copy waits (not a failure) with the reason in a banner over the migration tools, in plan rows and in Help > Settings. A running copy is stopped at the stop level (default 5% or 20 GB), which removes its snapshot. Windows replication agents check their own volumes before shadow copies (default 10% and 20 GB, per job).
+- Load: copies at once in all (default 4), per source datastore, source host and destination host (default 2 each).
+- Bandwidth: a global limit with business hours for every agentless copy on top of plan and new per-wave limits (wave concurrency too); agent jobs start with it; file share copies use Robocopy `/IPG` (not the final pass at cutover).
+- Files: `prodguard.go`, `prodguard_windows.go`, `prodguard_unix.go`, `prodguard_test.go`; hooks in `vmware_replicate.go`, `vmware_move.go`, `hyperv_move.go`, `hyperv_move_windows.go`, `hyperv_remote_windows.go`, `movebatch*.go`, `repl_job.go`, `repl_throttle.go`, `migrate.go`, `Migrate-FileShares.ps1`, `index.html`, `scripts/test_workspace.cjs`.
+- The Hyper-V checkpoint hook is a small block in `hypervMoveRound`'s running-VM branch, so it merges with the RCT work in PR #173.
+- Not field-validated: real datastore free space during concurrent snapshots, CSV free space through administrative shares, Robocopy's `/IPG` rate.
+
 ## Unreleased: virtual TPM VMs copy through VDDK or at their cutover; one migration mixes copy methods — 2026-11-27
 
 - Field report on 3.2.38: running VMs with a virtual TPM (DESK21-CPA01, CPA02) failed every round. vSphere refuses to export a VM whose own files are encrypted (Broadcom KB 431565, every vTPM VM) and the host locks the running disk, so only VDDK or a copy while the VM is off can read them. The round now says so in plain words (`vmEncryptedHomeError`) instead of the raw fault.
 - Migration plan VMs have a copy method (`mbVM.Method`): live (default; VDDK when set) or copy at cutover while shut down. One plan mixes them with the same waves, cutover, fix-up and rollback. Plan rows offer Set up VDDK and Copy at cutover for these VMs; All jobs and servers shows Copies at cutover.
 - New migration's Review blocks a running vTPM VM until VDDK is set up (inline, same check as Help > Settings) or the VM is set to copy at cutover; the other VMs are unaffected. AGENTS rule 64.
 - Validation here: `go test ./...` and vet on Linux, a Windows cross-build, and `scripts/test_workspace.cjs` in Linux Chromium. Not field-validated: VDDK reads of a real vTPM VM, and an offline cutover of one.
-=======
+
 ## 3.2.38 published and verified — 2026-11-27
 
 - [Release v3.2.38](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.38) ("Server Inventory and Migration Manager 3.2.38"), tag and target commit `f26e245f8f951018343a5fcced439a214446e373`. Source: #164, #165, #167, #168 and #169 through the batch #166 (merged into `main` with a merge commit, `34377a3`), prepared by #171 and published by #172. The owner asked to publish on 2026-11-27.
@@ -14,7 +23,6 @@
 - Stable EXE: 28,542,256 bytes; SHA-256 `287349f46a752fb5d33971668e917ddf02b3b0dc696e9444dd21d5f12265b5cc` (matches the public feed). Linux agent `simm-agent-linux-amd64`: 13,672,448 bytes; SHA-256 `c4309a058d37f2cd3e955be7a17f8191186f4e76f9e2f732df295334046269f1`. All 14 assets are published.
 
 Limits: VDDK reads against a real ESXi host and vCenter, ejecting images on a real vCenter, and file share moves between two real servers over remoting have not been field-tested. The limits under 3.2.37 still apply. CI artifacts were not downloaded, and no client data was used.
->>>>>>> origin/release/next
 
 ## Unreleased: opt-in Test update channel and the test branch — 2026-11-27
 
