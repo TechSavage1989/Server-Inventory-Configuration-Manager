@@ -1876,6 +1876,10 @@ body.on-migration .hero{display:none}
       <label class="cfm-style"><input type="radio" name="cfmStyle" value="none" id="cfmStyleNone"><span><strong>Don't ask</strong><small>Actions run as soon as you press their button. Only for a test lab.</small></span></label>
     </fieldset>
     <div class="helper" id="settingsStatus" role="status" aria-live="polite">Saved for your Windows account on this computer.</div>
+    <fieldset class="cfm-styles" id="updateChannelSettings"><legend>Updates</legend>
+      <label class="cfm-style"><input type="checkbox" id="updateTestChannel"><span><strong>Also offer test builds (Test channel)</strong><small>Test builds hold new features before they reach a stable release. They are signed like stable releases but are tried by fewer people. With this ticked, the update bar offers whichever is newer: the newest test build or the newest stable release. Untick it to go back to stable releases only; if a test build is installed, the newest stable release is offered in its place. Nothing downloads or installs until you choose to.</small></span></label>
+      <div class="helper" id="updateChannelStatus" role="status" aria-live="polite"></div>
+    </fieldset>
     <fieldset class="cfm-styles" id="vddkSettings"><legend>VMware VDDK, for faster copies of running VMs</legend>
       <div class="helper">With VMware's Virtual Disk Development Kit, each copy round of a running VMware VM reads only the blocks that changed, straight from the ESXi host (NBDSSL, port 902). Without it, the round streams the whole disk through vSphere's export. VMware's license does not let this application include VDDK: download VDDK 7.0.3, 8 or 9 for Windows from Broadcom, extract it, and choose its folder here. Every DLL in it must carry VMware's or Broadcom's signature.</div>
       <label class="vm-field">VDDK folder (blank turns it off)<input id="vddkFolder" type="text" spellcheck="false" autocomplete="off" placeholder="C:\VDDK\VMware-vix-disklib-8.0.3" data-browse="folder" data-browse-title="Choose the folder you extracted the Windows VDDK download into (it holds bin\vixDiskLib.dll)."></label>
@@ -1891,6 +1895,7 @@ body.on-migration .hero{display:none}
     <div class="about-versions">Interface v__APP_VERSION__ · Collector v__COLLECTOR_VERSION__</div>
     <div class="about-update" id="aboutUpdate" role="status" aria-live="polite"><div class="update-title" id="aboutUpdateTitle">Update status</div><div class="update-status" id="aboutUpdateStatus">Installed v__APP_VERSION__.</div></div>
     <div class="about-actions"><button class="secondary-button" id="updateCheckButton" type="button">Check for updates</button><button class="primary-button hidden" id="aboutShowUpdate" type="button">Show update</button></div>
+    <div class="helper" id="aboutChannel">Update channel: Stable. Change it in Help, Settings.</div>
     <div class="helper">Updates are checked automatically while the application is open. Nothing is downloaded or installed until you choose to.</div>
   </div>
 </dialog>
@@ -2429,6 +2434,9 @@ body.on-migration .hero{display:none}
     byId('updateCheckButton').disabled=uiLifecycle!=='active'||!update.canCheck||!!update.checking||!!update.downloading;
     byId('updateCheckButton').textContent=update.checking?'Checking…':'Check for updates';
     byId('aboutShowUpdate').classList.toggle('hidden',!updateExists(update));
+    var test=update.channel==='test';
+    byId('aboutChannel').textContent='Update channel: '+(test?'Test (test builds and stable releases)':'Stable')+'. Change it in Help, Settings.'+(test&&update.testVersion?' Newest test build: '+update.testVersion+'.':'');
+    if(!updateChannelBusy){byId('updateTestChannel').checked=test;}
   }
   function renderUpdate(update, running){
     if(!update){return;}
@@ -3731,6 +3739,7 @@ body.on-migration .hero{display:none}
     var d=byId('settingsDialog'),s=cfmStyle();Array.prototype.forEach.call(document.querySelectorAll('input[name="cfmStyle"]'),function(r){r.checked=r.value===s;});
     byId('settingsStatus').textContent='Saved for your Windows account on this computer.';byId('settingsStatus').className='helper';
     if(!d.open){if(d.showModal){d.showModal();}else{d.setAttribute('open','');}}byId('settingsClose').focus();
+    byId('updateTestChannel').checked=!!(latestUpdateState&&latestUpdateState.channel==='test');byId('updateChannelStatus').textContent=channelText(latestUpdateState);byId('updateChannelStatus').className='helper';
     vddkShow(null,'Checking the VDDK folder\u2026');
     request('GET','/api/vddk',null,function(err,data){if(err){vddkShow(null,err,true);return;}byId('vddkFolder').value=(data.vddk&&data.vddk.folder)||'';vddkShow(data.vddk);});
   }
@@ -3739,6 +3748,22 @@ body.on-migration .hero{display:none}
     request('POST','/api/vddk',{folder:folder},function(err,data){save.disabled=off.disabled=false;if(err){vddkShow(null,err,true);return;}byId('vddkFolder').value=(data.vddk&&data.vddk.folder)||'';vddkShow(data.vddk,(folder?'Saved. ':'')+((data.vddk&&data.vddk.message)||''));});}
   byId('vddkSave').addEventListener('click',function(){vddkSave(trimText(byId('vddkFolder').value));});
   byId('vddkOff').addEventListener('click',function(){vddkSave('');});
+  var updateChannelBusy=false;
+  function channelText(u){
+    if(!u){return '';}
+    if(u.channel==='test'){return 'Test channel: you are offered the newer of the newest test build'+(u.testVersion?' ('+u.testVersion+')':'')+' and the newest stable release'+(u.stableVersion?' ('+u.stableVersion+')':'')+'.';}
+    return 'Stable channel: only stable releases are offered.'+(u.toStable?' A test build is installed, so stable '+(u.latestVersion||'')+' is offered in its place.':'');
+  }
+  byId('updateTestChannel').addEventListener('change',function(){
+    var box=this,want=box.checked?'test':'stable',status=byId('updateChannelStatus');
+    updateChannelBusy=true;box.disabled=true;status.textContent=want==='test'?'Switching to the Test channel and checking for test builds\u2026':'Switching to the Stable channel and checking\u2026';status.className='helper';
+    request('POST','/api/update/channel',{channel:want},function(err,data){
+      updateChannelBusy=false;box.disabled=false;
+      if(err){box.checked=!box.checked;status.textContent=err;status.className='helper error';return;}
+      if(data&&data.update){renderUpdate(data.update,latestState&&latestState.running);}
+      status.textContent='Saved. '+channelText(data&&data.update);status.className='helper';
+    });
+  });
   function closeSettings(){var d=byId('settingsDialog');if(d.close){d.close();}else{d.removeAttribute('open');}}
   byId('settingsClose').addEventListener('click',closeSettings);
   byId('settingsDialog').addEventListener('click',function(e){if(e.target===this){closeSettings();}});

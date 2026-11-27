@@ -84,7 +84,7 @@ func TestManifestEncodingNegativeControl(t *testing.T) {
 func TestCachedSameVersionIsNeverCurrentBeforeNetworkSuccess(t *testing.T) {
 	a := testApp(t)
 	m := testManifest(appVersion)
-	a.applyManifestState(&m, false)
+	a.applyManifestState(&m, nil, false)
 	if a.updateSnapshot().Status == "current" {
 		t.Fatal("cached state incorrectly claims up to date")
 	}
@@ -472,5 +472,63 @@ func TestNativeRollbackRestorationAndTampering(t *testing.T) {
 	entries, _ := os.ReadDir(dir)
 	if len(entries) != 1 {
 		t.Fatal("native rollback left target-volume temporary files")
+	}
+}
+
+// The Test channel reads the stable feed, the releases list and the newest
+// test build's manifest; the Stable channel never asks for the list, and
+// choosing Stable again offers the stable build.
+func TestTestChannelOffersTestBuildsOnlyAfterOptIn(t *testing.T) {
+	a := testApp(t)
+	stable, _ := json.Marshal(testManifest(appVersion))
+	newer := "99.0.0-test.3"
+	test, _ := json.Marshal(testManifest(newer))
+	listing := []byte(`[{"tag_name":"v` + newer + `","draft":false,"prerelease":true,"assets":[{"name":"update-manifest.json"}]},{"tag_name":"v99.0.0-test.9","draft":true,"prerelease":true,"assets":[{"name":"update-manifest.json"}]}]`)
+	var listed int32
+	setTransport(a, func(r *http.Request) (*http.Response, error) {
+		switch r.URL.String() {
+		case updateFeedURL:
+			return response(200, stable, nil), nil
+		case testReleasesURL:
+			atomic.AddInt32(&listed, 1)
+			return response(200, listing, http.Header{"Etag": []string{"list1"}}), nil
+		case testManifestURL("v" + newer):
+			return response(200, test, nil), nil
+		}
+		t.Errorf("unexpected request %s", r.URL)
+		return response(404, nil, nil), nil
+	})
+	if a.updateSnapshot().Channel != updateChannelStable {
+		t.Fatal("the default channel is not Stable")
+	}
+	_ = a.beginUpdateCheck(true, false)
+	waitCheck(t, a)
+	if state := a.updateSnapshot(); state.Available || atomic.LoadInt32(&listed) != 0 {
+		t.Fatalf("the Stable channel looked at test builds: %+v", state)
+	}
+	if err := a.setUpdateChannel(updateChannelTest); err != nil {
+		t.Fatal(err)
+	}
+	waitCheck(t, a)
+	state := a.updateSnapshot()
+	if !state.Available || state.LatestVersion != newer || state.TestVersion != newer || state.Channel != updateChannelTest {
+		t.Fatalf("the Test channel did not offer the test build: %+v", state)
+	}
+	if loadUpdateChannel(a.update.settingsDir) != updateChannelTest {
+		t.Fatal("the channel was not saved")
+	}
+	cache, _ := a.readUpdateCache()
+	if cache.TestTag != "v"+newer || cache.TestManifest == nil {
+		t.Fatalf("the test build was not cached: %+v", cache)
+	}
+	if err := a.setUpdateChannel(updateChannelStable); err != nil {
+		t.Fatal(err)
+	}
+	waitCheck(t, a)
+	if state := a.updateSnapshot(); state.Available || state.LatestVersion != appVersion {
+		t.Fatalf("Stable again still offers the test build: %+v", state)
+	}
+	if err := a.setUpdateChannel("beta"); err == nil {
+		t.Fatal("an unknown channel was accepted")
 	}
 }
