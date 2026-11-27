@@ -285,6 +285,19 @@ func TestReplicationReadsTheSnapshotExportWhenTheDatastoreRefusesTheDisk(t *test
 		t.Fatalf("a failed fallback did not give both reasons: %v", err)
 	}
 
+	// A VM with a virtual TPM has its own files encrypted: vSphere refuses
+	// the export ("The operation is not supported on the object",
+	// DESK21-CPA01, 2026-11-27). The round says so in plain words and names
+	// both ways that work, instead of the raw fault.
+	simVM.Config.KeyId = &types.CryptoKeyId{KeyId: "key-1", ProviderId: &types.KeyProviderId{Id: "nkp"}}
+	vmOpenSnapshotExport = func(ctx context.Context, client *vim25.Client, snapshot types.ManagedObjectReference, total int64, log func(string)) (vmSnapshotExport, error) {
+		return nil, errors.New("vSphere did not start the export of the snapshot: ServerFaultCode: The operation is not supported on the object.")
+	}
+	if _, err := vmReplicateRound(ctx, client, ref, options); err == nil || !strings.Contains(err.Error(), "virtual TPM") || !strings.HasSuffix(err.Error(), vmEncryptedHomeHint) || strings.Contains(err.Error(), "ServerFaultCode") {
+		t.Fatalf("an encrypted VM's refused export was not explained: %v", err)
+	}
+	simVM.Config.KeyId = nil
+
 	// A CD/DVD drive naming an ISO that no longer exists makes vSphere's
 	// export fail (EPICHyperspaceLocal, 2026-11-26). Without the tick the
 	// error says how to fix it; with it the round sets the drive to a client

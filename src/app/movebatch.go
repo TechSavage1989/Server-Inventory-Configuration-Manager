@@ -124,6 +124,29 @@ type mbVM struct {
 	Notes []string `json:"notes,omitempty"`
 	// SyncNow asks for a round at the next sweep.
 	SyncNow bool `json:"syncNow,omitempty"`
+	// Method is how this VM is copied: "" (live: rounds while it runs,
+	// through VDDK when its folder is set) or mbMethodOffline (no rounds
+	// before cutover; the cutover shuts the guest down and copies the
+	// whole VM while it is off). One plan can mix them.
+	Method string `json:"method,omitempty"`
+}
+
+// mbMethodOffline copies a VM only at its cutover, while it is shut down.
+// It is the way to move a VM that vSphere will not let anything read while
+// it runs: a VM with a virtual TPM (its own files are encrypted, so the
+// export is refused, and the host locks the running disk) when VDDK is not
+// set up.
+const mbMethodOffline = "offline"
+
+// mbOffline is true for a VM copied only at cutover.
+func mbOffline(vm *mbVM) bool { return vm.Method == mbMethodOffline }
+
+// mbCheckMethod refuses a method this application does not know.
+func mbCheckMethod(method string) error {
+	if method != "" && method != mbMethodOffline {
+		return errors.New("choose live or offline copying")
+	}
+	return nil
 }
 
 type mbPlan struct {
@@ -251,8 +274,12 @@ func mbDue(plans []*mbPlan, now time.Time, limit int) []mbWork {
 			case mbDone, mbTesting:
 				continue
 			}
-			if !vm.CutoverAt.IsZero() && !now.Before(vm.CutoverAt) && vm.Seeded {
+			if !vm.CutoverAt.IsZero() && !now.Before(vm.CutoverAt) && (vm.Seeded || mbOffline(vm)) {
 				cutovers = append(cutovers, mbWork{Plan: plan, VM: vm, Cutover: true})
+				continue
+			}
+			if mbOffline(vm) {
+				// Copied only at its cutover, while shut down.
 				continue
 			}
 			if next := mbNextSync(plan, vm); !now.Before(next) {
@@ -293,7 +320,7 @@ func mbMissedCutovers(plans []*mbPlan, now time.Time) bool {
 	changed := false
 	for _, plan := range plans {
 		for _, vm := range plan.VMs {
-			if vm.CutoverAt.IsZero() || now.Before(vm.CutoverAt) || vm.Seeded || vm.State == mbDone || vm.State == mbCutting {
+			if vm.CutoverAt.IsZero() || now.Before(vm.CutoverAt) || vm.Seeded || mbOffline(vm) || vm.State == mbDone || vm.State == mbCutting {
 				continue
 			}
 			vm.Notes = append(vm.Notes, vm.CutoverAt.Local().Format("2006-01-02 15:04")+": the scheduled cutover did not run because the first copy had not finished. Schedule it again.")
@@ -540,7 +567,10 @@ func (r *mbRunner) Create(name, server string, settings mbSettings, vms []mbVM) 
 		if owner, ok := inPlan[item.ID]; ok {
 			return nil, fmt.Errorf("%s is already in the plan %s", item.Name, owner)
 		}
-		vm := &mbVM{ID: item.ID, Name: item.Name, Wave: item.Wave, State: mbWaiting}
+		if err := mbCheckMethod(item.Method); err != nil {
+			return nil, fmt.Errorf("%s: %v", item.Name, err)
+		}
+		vm := &mbVM{ID: item.ID, Name: item.Name, Wave: item.Wave, State: mbWaiting, Method: item.Method}
 		if err := r.target.Check(plan, vm); err != nil {
 			return nil, fmt.Errorf("%s: %v", item.Name, err)
 		}
@@ -637,7 +667,7 @@ func (r *mbRunner) SyncNow(id string, ids []string) error {
 		want[v] = true
 	}
 	for _, vm := range plan.VMs {
-		if (len(want) == 0 || want[vm.ID]) && (vm.State == mbWaiting || vm.State == mbReady || vm.State == mbFailed) {
+		if (len(want) == 0 || want[vm.ID]) && (vm.State == mbWaiting || vm.State == mbReady || vm.State == mbFailed) && !mbOffline(vm) {
 			vm.SyncNow = true
 		}
 	}
@@ -653,10 +683,67 @@ func mbCanCutOver(vm *mbVM) string {
 		return vm.Name + " has a test VM running; end the test first"
 	case vm.State == mbCutting:
 		return vm.Name + " is being cut over"
-	case !vm.Seeded:
+	case !vm.Seeded && !mbOffline(vm):
 		return vm.Name + " has not finished its first copy yet"
 	}
 	return ""
+}
+
+// SetMethod chooses how the given VMs are copied (mbCheckMethod). A VM
+// being copied, cut over or tested keeps its method until that ends.
+// Switching to offline clears a failed round (nothing more is copied until
+// the cutover); switching back to live asks for a round at once.
+func (r *mbRunner) SetMethod(id string, ids []string, method string) error {
+	if err := mbCheckMethod(method); err != nil {
+		return err
+	}
+	if len(ids) == 0 {
+		return errors.New("choose the VMs")
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	plan, err := r.planLocked(id)
+	if err != nil {
+		return err
+	}
+	chosen := []*mbVM{}
+	for _, vmID := range ids {
+		vm := mbFindVM(plan, vmID)
+		if vm == nil {
+			return errors.New("a chosen VM is no longer in the plan")
+		}
+		switch vm.State {
+		case mbDone:
+			return errors.New(vm.Name + " is already cut over")
+		case mbCutting:
+			return errors.New(vm.Name + " is being cut over")
+		case mbCopying:
+			return errors.New(vm.Name + " is being copied; change it when the round ends")
+		case mbTesting:
+			return errors.New(vm.Name + " has a test VM running; end the test first")
+		}
+		chosen = append(chosen, vm)
+	}
+	for _, vm := range chosen {
+		if vm.Method == method {
+			continue
+		}
+		vm.Method = method
+		if method == mbMethodOffline {
+			vm.SyncNow, vm.Error, vm.Failures = false, "", 0
+			if vm.State == mbFailed {
+				vm.State = mbWaiting
+				if vm.Seeded {
+					vm.State = mbReady
+				}
+			}
+			r.log(fmt.Sprintf("%s: %s is now copied at its cutover, while shut down.", plan.Name, vm.Name))
+		} else {
+			vm.SyncNow = true
+			r.log(fmt.Sprintf("%s: %s is now copied while it runs.", plan.Name, vm.Name))
+		}
+	}
+	return r.saveLocked()
 }
 
 // ScheduleCutover sets (or with a zero time clears) the cutover time of the

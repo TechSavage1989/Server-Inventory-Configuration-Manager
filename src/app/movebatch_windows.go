@@ -351,8 +351,12 @@ func (a *application) handlePlans(response http.ResponseWriter, request *http.Re
 		Name     string     `json:"name"`
 		Settings mbSettings `json:"settings"`
 		VMIDs    []string   `json:"vmIds"`
-		At       string     `json:"at"`
-		Confirm  string     `json:"confirm"`
+		// Methods gives a VM's copy method on create (mbVM.Method);
+		// Method is the one the "method" action sets.
+		Methods map[string]string `json:"methods"`
+		Method  string            `json:"method"`
+		At      string            `json:"at"`
+		Confirm string            `json:"confirm"`
 	}
 	if !decodeVMwareRequest(response, request, &input) {
 		return
@@ -419,7 +423,7 @@ func (a *application) handlePlans(response http.ResponseWriter, request *http.Re
 				fail(http.StatusBadRequest, "A chosen VM is no longer in the inventory. Read it again.")
 				return
 			}
-			vms = append(vms, mbVM{ID: m.ID, Name: m.Name, Wave: waves[m.ID]})
+			vms = append(vms, mbVM{ID: m.ID, Name: m.Name, Wave: waves[m.ID], Method: input.Methods[m.ID]})
 		}
 		var plan *mbPlan
 		plan, err = runner.Create(input.Name, inventory.Server, input.Settings, vms)
@@ -457,6 +461,11 @@ func (a *application) handlePlans(response http.ResponseWriter, request *http.Re
 			}
 		}
 		err = runner.ScheduleCutover(input.ID, input.VMIDs, at)
+		if err == nil {
+			go runner.Sweep()
+		}
+	case "method":
+		err = runner.SetMethod(input.ID, input.VMIDs, input.Method)
 		if err == nil {
 			go runner.Sweep()
 		}

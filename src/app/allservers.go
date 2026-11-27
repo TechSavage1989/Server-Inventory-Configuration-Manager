@@ -29,6 +29,7 @@ const (
 	asAgent         = "agent"         // agent installed, no job yet
 	asUnreachable   = "unreachable"   // the agent does not answer
 	asSeeding       = "seeding"       // the first full copy is not finished
+	asAtCutover     = "atcutover"     // copied only at its cutover, while shut down
 	asInSync        = "insync"        // a whole copy exists and is current
 	asBehind        = "behind"        // a whole copy exists but is older than its limit
 	asPaused        = "paused"
@@ -69,6 +70,7 @@ var asStateText = map[string]string{
 	asAgent:         "Agent installed, no job",
 	asUnreachable:   "Agent not answering",
 	asSeeding:       "Initial copy",
+	asAtCutover:     "Copies at cutover",
 	asInSync:        "In sync, ready to cut over",
 	asBehind:        "Behind",
 	asPaused:        "Paused",
@@ -258,7 +260,7 @@ func asJobRow(agent replAgentRow, job replJobView, in asInput) asRow {
 	case asUnreachable:
 		acts = append(acts, asActWave)
 	default:
-		if row.State != asTesting {
+		if row.State != asTesting && row.State != asAtCutover {
 			acts = append(acts, asActSync)
 		}
 		if st.State == replStatePaused {
@@ -308,6 +310,8 @@ func asPlanRow(plan mbPlanView, vm mbVMView, now time.Time) asRow {
 			row.Reason += ": " + vm.Error
 		}
 		row.Reason += ". It is retried on its own."
+	case !vm.Seeded && mbOffline(&vm.mbVM):
+		row.State, row.Reason = asAtCutover, "Copied at its cutover, while shut down: vSphere cannot read it while it runs. Schedule or start the cutover when downtime suits."
 	case !vm.Seeded:
 		row.State, row.Reason = asSeeding, "The first full copy has not finished yet."
 		if plan.Blocked != "" {
@@ -324,7 +328,7 @@ func asPlanRow(plan mbPlanView, vm mbVMView, now time.Time) asRow {
 	row.StateText = asStateText[row.State]
 	acts := []string{}
 	if row.State != asCutOver && row.State != asCuttingOver {
-		if row.State != asTesting {
+		if row.State != asTesting && row.State != asAtCutover {
 			acts = append(acts, asActSync)
 		}
 		if plan.Paused {
