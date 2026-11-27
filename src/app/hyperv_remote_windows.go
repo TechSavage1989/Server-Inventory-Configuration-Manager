@@ -169,7 +169,7 @@ func (a *application) handleHVRemoteConnect(response http.ResponseWriter, reques
 	}
 	a.mu.Unlock()
 	if user != "" && (!vmwareUserPattern.MatchString(user) || password == "" || len(password) > 256 || strings.ContainsRune(password, 0)) {
-		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "Type the password for " + user + ", or leave the account empty to use your own Windows account."})
+		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "Type the password for " + user + ", or choose your current sign-in."})
 		return
 	}
 	if status, message := a.startVMwareAction("hvconnect"); status != 0 {

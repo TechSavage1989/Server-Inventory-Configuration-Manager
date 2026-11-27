@@ -416,6 +416,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
 .migrate-account-fields .migrate-row{margin-top:calc(8*var(--sp))}
 .migrate-target-how{margin-top:calc(8*var(--sp));padding:calc(8*var(--sp)) calc(10*var(--sp));border:1px solid #c9d6ea;border-radius:8px;background:#f5f8fd;font-size:max(10.5px,calc(12*var(--fz)));color:#334156;line-height:1.45}
 .migrate-account label.disabled{opacity:.55;cursor:default}
+.sign-in-choice .migrate-account{margin-top:calc(4*var(--sp))}.sign-in-choice .sign-in-why{color:#8a4b08}
 .migrate-auto-row select{height:calc(32*var(--fz));border:1px solid #bcc9d9;border-radius:7px;padding:0 calc(8*var(--sp));font:inherit;font-size:max(10.5px,calc(12*var(--fz)))}
 .migrate-auto{display:inline-flex;align-items:center;gap:calc(7*var(--sp));font-size:max(10.5px,calc(12*var(--fz)));font-weight:650;color:#334156;cursor:pointer}.migrate-auto input{width:16px;height:16px;margin:0;accent-color:#2563eb}
 .migrate-inline-status{margin-top:calc(8*var(--sp));font-size:max(10.5px,calc(12*var(--fz)));color:#52647c}.migrate-inline-status:empty{display:none}.migrate-inline-status.error{color:#a33b3b;font-weight:600}
@@ -1039,10 +1040,11 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
             <div class="migrate-account" id="migrateTargetMode" role="radiogroup" aria-labelledby="migrateTargetLabel"><span class="migrate-account-label" id="migrateTargetLabel">New server</span><label><input type="radio" name="migrateTargetMode" id="migrateTargetHere" value="here" checked><span id="migrateTargetHereText">This computer</span></label><label><input type="radio" name="migrateTargetMode" id="migrateTargetOther" value="other">Another server</label></div>
             <div class="migrate-account-fields hidden" id="migrateTargetFields"><div class="migrate-row"><input type="text" id="migrateTarget" aria-label="New server name" placeholder="New server name, for example FS02" autocomplete="off" spellcheck="false" maxlength="253"></div>
               <div class="migrate-target-how" id="migrateTargetHow"><strong>How this works:</strong> this computer only directs the move. The new server copies straight from the old one with Robocopy through PowerShell remoting, so files cross the network once, old server to new server, and never pass through this computer. Nothing is installed on either server: copy logs and the saved old share permissions are kept as data in ProgramData on the new server. Needs PowerShell remoting on the new server (on by default on Windows Server 2012 and later). Keep this application open here while copies run.</div>
-              <div class="migrate-account" id="migrateTargetAccount" role="radiogroup" aria-labelledby="migrateTargetAccountLabel"><span class="migrate-account-label" id="migrateTargetAccountLabel">New server account</span><label><input type="radio" name="migrateTargetAccountMode" id="migrateTargetAccountSame" value="same" checked>The same as the old server's</label><label><input type="radio" name="migrateTargetAccountMode" id="migrateTargetAccountCurrent" value="current">This Windows account</label><label><input type="radio" name="migrateTargetAccountMode" id="migrateTargetAccountOther" value="other">Another account</label></div>
+              <div class="migrate-account" id="migrateTargetAccount" role="radiogroup" aria-labelledby="migrateTargetAccountLabel"><span class="migrate-account-label" id="migrateTargetAccountLabel">New server account</span><label><input type="radio" name="migrateTargetAccountMode" id="migrateTargetAccountSame" value="same" checked>The same as the old server's</label><label><input type="radio" name="migrateTargetAccountMode" id="migrateTargetAccountCurrent" value="current"><span data-signin-name>My current sign-in</span></label><label><input type="radio" name="migrateTargetAccountMode" id="migrateTargetAccountOther" value="other">A different account</label></div>
               <div class="migrate-account-fields hidden" id="migrateTargetAccountFields"><div class="migrate-row"><input type="text" id="migrateTargetUser" aria-label="User name for the new server" placeholder="User name, for example DOMAIN\admin" autocomplete="off" spellcheck="false" maxlength="256"><input type="password" id="migrateTargetPassword" aria-label="Password for the new server" placeholder="Password" autocomplete="new-password" maxlength="256"></div></div>
               <div class="migrate-detail">An administrator on the new server. Passwords are kept in memory until you close the application or start over, and are never saved.</div></div>
-            <div class="migrate-account" id="migrateAccount" role="radiogroup" aria-labelledby="migrateAccountLabel"><span class="migrate-account-label" id="migrateAccountLabel">Connect to the old server as</span><label id="migrateAccountCurrentLabel"><input type="radio" name="migrateAccountMode" id="migrateAccountCurrent" value="current" checked>This Windows account</label><label><input type="radio" name="migrateAccountMode" id="migrateAccountOther" value="other">Another account</label></div>
+            <div class="migrate-account" id="migrateAccount" role="radiogroup" aria-labelledby="migrateAccountLabel"><span class="migrate-account-label" id="migrateAccountLabel">Connect to the old server as</span><label id="migrateAccountCurrentLabel"><input type="radio" name="migrateAccountMode" id="migrateAccountCurrent" value="current" checked><span data-signin-name>My current sign-in</span></label><label><input type="radio" name="migrateAccountMode" id="migrateAccountOther" value="other">A different account</label></div>
+            <div class="migrate-help sign-in-why hidden" id="migrateAccountWhy">Your current sign-in cannot be used here: the new server reads the old one, and Windows cannot pass your sign-in on from one server to another without CredSSP, which this application never uses because security software flags it. Type an administrator of the old server.</div>
             <div class="migrate-account-fields hidden" id="migrateAccountFields"><div class="migrate-row"><input type="text" id="migrateUser" aria-label="User name for the old server" placeholder="User name, for example DOMAIN\admin" autocomplete="off" spellcheck="false" maxlength="256"><input type="password" id="migratePassword" aria-label="Password for the old server" placeholder="Password" autocomplete="new-password" maxlength="256"></div><div class="migrate-detail" id="migrateAccountDetail">An administrator on the old server. Used only to reach the old server, for every step. The password is kept in memory until you close the application or start over, and is never saved.</div></div>
             <div class="migrate-inline-status" id="migrateConnectStatus" role="status" aria-live="polite"></div>
             <div class="restore-facts hidden" id="migrateFacts"><div><span class="restore-fact-label">Old server</span><span class="restore-fact-value" id="migrateFactSource"></span></div><div><span class="restore-fact-label">New server</span><span class="restore-fact-value" id="migrateFactTarget"></span></div><div><span class="restore-fact-label">Shares found</span><span class="restore-fact-value" id="migrateFactShares"></span></div><div><span class="restore-fact-label">Shares copied</span><span class="restore-fact-value" id="migrateFactCopies"></span></div></div>
@@ -1105,6 +1107,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
             <section class="migrate-section vm-read-section" aria-labelledby="vmConnectTitle">
               <h3 class="migrate-section-title" id="vmConnectTitle">Read a vCenter or ESXi host</h3>
               <p class="migrate-help">Use a read-only account. The password is kept in memory until you close the application or choose Forget, and is never saved.</p>
+              <p class="migrate-help sign-in-why" id="vmSignInWhy">vCenter and ESXi sign in with their own accounts (vCenter Single Sign-On, or the host&#39;s root account), so your Windows sign-in cannot be passed through. A domain account works when vCenter has the domain as an identity source: type it as user@domain with its password.</p>
               <div class="migrate-row"><input type="text" id="vmServer" aria-label="vCenter or ESXi host name" placeholder="vCenter or ESXi host, for example vc01.example.com" autocomplete="off" spellcheck="false" maxlength="260"></div>
               <div class="migrate-row"><input type="text" id="vmUser" aria-label="vCenter or ESXi user name" placeholder="User, for example readonly@vsphere.local" autocomplete="off" spellcheck="false" maxlength="256"><input type="password" id="vmPassword" aria-label="vCenter or ESXi password" placeholder="Password" autocomplete="new-password" maxlength="256"><button class="primary-button" id="vmConnect" type="button" disabled>Read inventory</button></div>
               <div class="migrate-row"><button class="secondary-button" id="vmOpenInventory" type="button">Open a saved inventory&hellip;</button><button class="secondary-button hidden" id="vmReset" type="button">Forget</button></div>
@@ -1113,9 +1116,11 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
             </section>
             <section class="migrate-section vm-read-section" aria-labelledby="vmHvTitle">
               <h3 class="migrate-section-title" id="vmHvTitle">Or read a Hyper-V host</h3>
-              <p class="migrate-help">Leave the host empty to read this computer. The account is optional (yours is used otherwise), is used only for this read and is never saved. Nothing on the host is changed by reading it; to move a VM, select it and use Move VMs in Migration and replication.</p>
+              <p class="migrate-help">Leave the host empty to read this computer. Your current sign-in is used unless you choose a different account, which is used only for this read and never saved. Nothing on the host is changed by reading it; to move a VM, select it and use Move VMs in Migration and replication.</p>
               <div class="migrate-row"><input type="text" id="vmHvHost" aria-label="Hyper-V host name" placeholder="Hyper-V host, for example hv01.example.com (empty: this computer)" autocomplete="off" spellcheck="false" maxlength="253"></div>
-              <div class="migrate-row"><input type="text" id="vmHvUser" aria-label="Hyper-V host account (optional)" placeholder="Account (optional), for example EXAMPLE\admin" autocomplete="off" spellcheck="false" maxlength="256"><input type="password" id="vmHvPassword" aria-label="Hyper-V host password" placeholder="Password" autocomplete="new-password" maxlength="256"><button class="primary-button" id="vmHvRead" type="button">Read Hyper-V host</button></div>
+              <div id="vmHvSignIn"></div>
+              <div class="migrate-row" id="vmHvAccountRow"><input type="text" id="vmHvUser" aria-label="Hyper-V host account" placeholder="Account, for example EXAMPLE\admin" autocomplete="off" spellcheck="false" maxlength="256"><input type="password" id="vmHvPassword" aria-label="Hyper-V host password" placeholder="Password" autocomplete="new-password" maxlength="256"></div>
+              <div class="migrate-row"><button class="primary-button" id="vmHvRead" type="button">Read Hyper-V host</button></div>
               <div class="migrate-inline-status" id="vmHvStatus" role="status" aria-live="polite"></div>
             </section>
             </div>
@@ -1225,6 +1230,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
                 <label class="vm-field hidden" data-guest-field="user">Administrator account of the machine<input id="vmGuestUser" type="text" spellcheck="false" autocomplete="off" maxlength="256" placeholder=".\Administrator or DOMAIN\admin"></label>
                 <label class="vm-field hidden" data-guest-field="password">Password (kept in memory only)<input id="vmGuestPassword" type="password" autocomplete="off" maxlength="1024"></label>
               </div>
+              <div id="vmGuestSignIn" class="hidden"></div>
               <div class="migrate-row"><button class="primary-button" id="vmGuestUse" type="button">Use this machine</button><button class="secondary-button hidden" id="vmGuestForget" type="button">Forget the account</button><span class="vm-note" id="vmGuestTargetNote"></span></div>
               <div class="restore-alert danger hidden" id="vmGuestAdmin"><strong>Run the application as administrator</strong> to check this computer or a VM on this Hyper-V host.</div>
               <details class="vm-guest-vcenter" id="vmGuestVcenterBox">
@@ -1572,7 +1578,8 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
             <h4 id="asInstTitle">Install the agent on the selected servers</h4>
             <p class="migrate-help">Runs on this computer and installs the replication agent on each server: Windows through its administrative share (a signed service, no PowerShell on the server), Linux over SSH. Edit the list if a VM's name in the guest differs. Linux servers whose SSH key is new are shown in Replicate servers to check and trust.</p>
             <label class="vm-field">Servers (one per line)<textarea id="asInstHosts" rows="4" spellcheck="false" autocomplete="off"></textarea></label>
-            <div class="as-three"><label class="vm-field">The servers run<select id="asInstPlatform"><option value="windows">Windows</option><option value="linux">Linux (SSH port 22)</option></select></label><label class="vm-field">Account (blank for your own sign-in on Windows)<input id="asInstUser" type="text" spellcheck="false" autocomplete="off" placeholder="EXAMPLE\admin"></label><label class="vm-field">Password<input id="asInstPassword" type="password" autocomplete="off"></label></div>
+            <div class="as-three"><label class="vm-field">The servers run<select id="asInstPlatform"><option value="windows">Windows</option><option value="linux">Linux (SSH port 22)</option></select></label><label class="vm-field" id="asInstUserField">Account<input id="asInstUser" type="text" spellcheck="false" autocomplete="off" placeholder="EXAMPLE\admin"></label><label class="vm-field" id="asInstPasswordField">Password<input id="asInstPassword" type="password" autocomplete="off"></label></div>
+            <div id="asInstSignIn"></div>
             <label class="vm-field as-narrow">Agent port<input id="asInstPort" type="text" inputmode="numeric" maxlength="5" value="44390"></label>
             <div class="migrate-row"><button class="primary-button" id="asInstRun" type="button">Install agents</button><button class="secondary-button" data-as-cancel type="button">Cancel</button></div>
           </section>
@@ -1661,7 +1668,8 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
               <p class="migrate-help" id="rpPushHelp">Runs on this computer and installs the agent as a Windows service on each server through its administrative share. You need administrator rights there and File and Printer Sharing allowed. To install it by hand instead, run <span class="vm-mono">SIMM-Agent.exe --agent-install</span> as administrator on the server and add it below.</p>
               <p class="migrate-help hidden" id="rpPushHelpLinux">Runs on this computer and installs the agent as a systemd service on each server over SSH, using <span class="vm-mono">simm-agent-linux-amd64</span> from the folder this program is in (download it from the same release). Use root or an account that may use sudo. The first time, the server's SSH key is shown so you can check and trust it. Logical volumes on LVM are copied from LVM snapshots; other mounted partitions are copied as they are. To install by hand, run <span class="vm-mono">sudo ./simm-agent-linux-amd64 --agent-install</span> on the server and add it below.</p>
               <label class="vm-field">Servers (names or addresses, one per line or separated by commas)<textarea id="rpHosts" rows="3" spellcheck="false" autocomplete="off" placeholder="app01.example.com&#10;sql01.example.com"></textarea></label>
-              <div class="rp-two"><label class="vm-field">Account (blank to use your own sign-in)<input id="rpUser" type="text" spellcheck="false" autocomplete="off" placeholder="EXAMPLE\admin"></label><label class="vm-field">Password<input id="rpPassword" type="password" autocomplete="off"></label></div>
+              <div id="rpSignIn"></div>
+              <div class="rp-two" id="rpAccountRow"><label class="vm-field">Account<input id="rpUser" type="text" spellcheck="false" autocomplete="off" placeholder="EXAMPLE\admin"></label><label class="vm-field">Password<input id="rpPassword" type="password" autocomplete="off"></label></div>
               <div class="rp-two"><label class="vm-field">Agent port<input id="rpPort" type="text" inputmode="numeric" maxlength="5" value="44390"></label><label class="vm-field hidden" id="rpSshPortField">SSH port<input id="rpSshPort" type="text" inputmode="numeric" maxlength="5" value="22"></label></div>
               <div class="migrate-row"><button class="primary-button" id="rpPush" type="button">Install agents</button><button class="secondary-button hidden" id="rpPushStop" type="button">Stop after this server</button></div>
               <div class="migrate-inline-status" id="rpPushStatus" role="status" aria-live="polite"></div>
@@ -2501,11 +2509,13 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
         list.appendChild(facts);}});
     nodes.appendChild(list);
     var nrow=el('div','hb-actions');if(plan.nodes.length<16){nrow.appendChild(hbButton('Add node','hbAddNode',function(){var n={name:'',esxi:'',switches:{},hostIps:{},storage:[]};plan.switches.forEach(function(sw){n.switches[sw.name]=[];});plan.nodes.push(n);if(plan.nodes.length>1){plan.cluster.enabled=true;}hbTouch();hbRenderEditor();}));}nodes.appendChild(nrow);
-    var acct=el('div','hb-account');acct.appendChild(el('div','migrate-help','Account for the nodes: leave it empty to use your own Windows account, or type one that is an administrator on every node. The password stays in memory only, until you choose Use my Windows account or close the application.'));
-    acct.appendChild(hbInput(hbForm,'user','Account (optional)',{id:'hbUser',placeholder:s.user||'EXAMPLE\\admin'}));acct.appendChild(hbInput(hbForm,'password','Password',{id:'hbPassword',type:'password',max:256}));
+    var acct=el('div','hb-account');acct.appendChild(el('div','migrate-help','Account for the nodes: an administrator on every node. Cluster steps (validate, create the cluster, CSVs, quorum, cluster networks) always run as your current sign-in on this computer, because a remote session cannot pass an account on to the other nodes. A different account stays in memory only, until you choose your current sign-in or close the application.'));
+    var hbFields=el('div','hb-account-fields');
+    acct.appendChild(signInChoice({key:'hvbuild',held:function(){return !!s.user;},fields:[hbFields],clear:function(){hbForm.user='';hbForm.password='';Array.prototype.forEach.call(hbFields.querySelectorAll('input'),function(i){i.value='';});},focus:function(){return byId('hbUser');},
+      onCurrent:function(){if(!s.user){return;}vmPost('/api/hvbuild/account',{forget:true},'hbSaveStatus',function(err){if(!err){hbStatus('The nodes will be reached with your current sign-in.',false);}});}}).el);
+    hbFields.appendChild(hbInput(hbForm,'user','Account',{id:'hbUser',placeholder:s.user||'EXAMPLE\\admin'}));hbFields.appendChild(hbInput(hbForm,'password','Password',{id:'hbPassword',type:'password',max:256}));
     var arow=el('div','hb-actions');arow.appendChild(hbButton('Use this account','hbUseAccount',function(){var body={user:trimText(hbForm.user),password:hbForm.password||''};if(!body.user){hbStatus('Type the account first.',true);return;}vmPost('/api/hvbuild/account',body,'hbSaveStatus',function(err){if(!err){hbForm.password='';hbStatus('The nodes will be reached as '+body.user+'.',false);hbRenderEditor();}});}));
-    arow.appendChild(hbButton('Use my Windows account','hbForget',function(){vmPost('/api/hvbuild/account',{forget:true},'hbSaveStatus',function(err){if(!err){hbForm.user='';hbForm.password='';hbStatus('The nodes will be reached with your own Windows account.',false);}});}));
-    acct.appendChild(arow);acct.appendChild(el('div','migrate-detail',s.user?'Reaching the nodes as '+s.user+'.':'Reaching the nodes with your own Windows account.'));nodes.appendChild(acct);
+    hbFields.appendChild(arow);acct.appendChild(hbFields);acct.appendChild(el('div','migrate-detail',s.user?'Reaching the nodes as '+s.user+'.':'Reaching the nodes with your current sign-in'+(latestState&&latestState.signedInAccount?' ('+latestState.signedInAccount+')':'')+'.'));nodes.appendChild(acct);
     // 3. Network
     var net=hbSection(root,'3. Networks','On each node','Each VMware switch that carries VMs, management or vMotion becomes a Hyper-V switch (Switch Embedded Teaming on Windows Server 2016 and later, a NIC team on 2012 R2). Choose each node\'s physical adapters for it.');
     plan.switches.forEach(function(sw,index){var card=el('div','hb-card');var head=el('div','hb-card-head');head.appendChild(el('strong','',sw.name||'New switch'));if(vmArr(sw.from).length){head.appendChild(el('span','hb-from','replaces '+vmArr(sw.from).join(', ')));}card.appendChild(head);
@@ -3277,6 +3287,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     renderConvert(state);
     renderHvBuild(state);
     renderToolBadges(state);
+    signInRefreshAll();
     if(activeTab==='wizard'){renderGuide(false);nwTick();}
     markIdleBadges();
     if(!preferencesLoaded){
@@ -3536,6 +3547,46 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     if(any){restoreSelection[component.id]=map;}else{delete restoreSelection[component.id];}
   }
   function el(tag,className,text){var node=document.createElement(tag);if(className){node.className=className;}if(text!==undefined&&text!==null){node.textContent=text;}return node;}
+  // Account choice (2026-11-27, owner: "pass through the currently logged
+  // account ... anywhere in the app where an account might need to be
+  // entered"). signInChoice puts "Connect as: My current sign-in
+  // (DOMAIN\user) / A different account" above a user and password pair. The
+  // current sign-in is the default; it hides and empties the fields, so the
+  // request carries no account and the server uses the Windows account
+  // running this application (never a password). o.cant() returns why the
+  // sign-in cannot work there (shown under the choice, which then needs an
+  // account). Choices are kept per key for the session, so re-rendered panels
+  // keep them; o.held() starts a key on A different account when an account
+  // is already held for it.
+  var signInChoices={},signInStatic=[];
+  // Fixed panels register with o.keep and are refreshed on every state.
+  function signInRefreshAll(){signInStatic.forEach(function(c){c.refresh();});Array.prototype.forEach.call(document.querySelectorAll('[data-signin-name]'),function(n){n.textContent=signInLabel();});}
+  function signInLabel(){var me=latestState&&latestState.signedInAccount;return me?'My current sign-in ('+me+')':'My current sign-in';}
+  function signInChoice(o){
+    // An account the server already holds is never shown as the sign-in.
+    if(o.held&&o.held()){signInChoices[o.key]='other';}else if(!signInChoices[o.key]){signInChoices[o.key]='current';}
+    var idp=o.idPrefix||o.key,wrap=el('div','sign-in-choice'),group=el('div','migrate-account'),lab=el('span','migrate-account-label',o.label||'Connect as');
+    wrap.setAttribute('data-signin',o.key);lab.id=idp+'SignInLabel';group.setAttribute('role','radiogroup');group.setAttribute('aria-labelledby',lab.id);group.appendChild(lab);
+    function radio(value,text){var l=document.createElement('label'),i=document.createElement('input'),t=el('span','',text);i.type='radio';i.name=idp+'SignIn';i.value=value;i.id=idp+(value==='current'?'SignInCurrent':'SignInOther');l.appendChild(i);l.appendChild(t);group.appendChild(l);return {label:l,input:i,text:t};}
+    var cur=radio('current',signInLabel()),oth=radio('other','A different account'),why=el('div','migrate-help sign-in-why hidden'),note=el('div','migrate-help sign-in-note hidden');
+    why.id=idp+'SignInWhy';wrap.appendChild(group);wrap.appendChild(why);wrap.appendChild(note);
+    function reason(){return o.cant?(o.cant()||''):'';}
+    function isCurrent(){return signInChoices[o.key]==='current'&&!reason();}
+    function apply(){
+      var r=reason(),c=isCurrent(),locked=!!(o.locked&&o.locked());
+      cur.input.checked=c;oth.input.checked=!c;cur.input.disabled=locked||!!r;oth.input.disabled=locked;
+      cur.label.classList.toggle('disabled',!!r);cur.text.textContent=signInLabel();
+      why.textContent=r?'Your current sign-in cannot be used here: '+r:'';why.classList.toggle('hidden',!r);
+      var n=c&&o.note?o.note():'';note.textContent=n||'';note.classList.toggle('hidden',!n);
+      (o.fields||[]).forEach(function(f){if(f){f.classList.toggle('hidden',c);}});
+      if(c&&o.clear){o.clear();}
+    }
+    cur.input.addEventListener('change',function(){if(!cur.input.checked){return;}signInChoices[o.key]='current';apply();if(o.onCurrent){o.onCurrent();}});
+    oth.input.addEventListener('change',function(){if(!oth.input.checked){return;}signInChoices[o.key]='other';apply();if(o.onOther){o.onOther();}var f=o.focus&&o.focus();if(f&&f.focus){f.focus();}});
+    apply();
+    var api={el:wrap,refresh:apply,current:isCurrent};if(o.keep){signInStatic.push(api);}
+    return api;
+  }
   // Confirmations (rule 55, 2026-11-26, owner: "instead of having to type
   // system names and plan names for confirmations, just have a check tick box
   // or something or possibly a prompt to verify that can be configured").
@@ -3947,7 +3998,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     // From an admin computer the new server reads the old one, and Windows
     // cannot pass this computer's sign-in on: the old server's account is typed.
     if(remote&&byId('migrateAccountCurrent').checked){byId('migrateAccountOther').checked=true;}
-    byId('migrateAccountCurrentLabel').classList.toggle('disabled',remote);
+    byId('migrateAccountCurrentLabel').classList.toggle('disabled',remote);byId('migrateAccountWhy').classList.toggle('hidden',!remote);
     byId('migrateAccountDetail').textContent=remote?'An administrator on the old server. The new server uses it to read the old server, because Windows cannot pass your sign-in on from one server to another. The password is kept in memory until you close the application or start over, and is never saved.':'An administrator on the old server. Used only to reach the old server, for every step. The password is kept in memory until you close the application or start over, and is never saved.';
     ['migrateAccountCurrent','migrateAccountOther','migrateUser','migratePassword'].forEach(function(id){byId(id).disabled=locked;});
     byId('migrateAccountCurrent').disabled=locked||remote;
@@ -5553,6 +5604,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
       var f=el('button','link-button','Forget');f.type='button';f.id=prefix+'Forget';f.addEventListener('click',function(){vmPost('/api/vmware/guest-auto/forget',{},prefix+'Status',function(err){if(!err){v.guestAuto={user:ga.user,hasPassword:false};vmGaRefresh(wrap);}});});line.appendChild(document.createTextNode(' '));line.appendChild(f);
     } else {
       wrap.appendChild(el('div','migrate-help','The guest administrator account of the VMs being moved (a domain admin, or .\\Administrator). It is used only through PowerShell Direct from the Hyper-V host, held in memory and never saved.'));
+      wrap.appendChild(el('div','migrate-help sign-in-why','Your current sign-in cannot be used here: PowerShell Direct signs in to Windows inside each new VM, which needs the account\'s password. Windows cannot pass your sign-in into a VM.'));
       [['user','Guest administrator account','text','EXAMPLE\\admin or .\\Administrator'],['password','Password','password','']].forEach(function(x){var label=el('label','vm-field'),input=document.createElement('input');input.type=x[2];input.maxLength=256;input.autocomplete='off';input.spellcheck=false;input.id=prefix+x[0].charAt(0).toUpperCase()+x[0].slice(1);if(x[3]){input.placeholder=x[3];}input.value=vmGaForm[x[0]]||(x[0]==='user'?ga.user||'':'');input.addEventListener('input',function(){vmGaForm[x[0]]=input.value;var st=byId(prefix+'Status');if(st&&/error/.test(st.className)){st.textContent='';st.className='migrate-inline-status';}});label.appendChild(el('span','',x[1]));label.appendChild(input);
         // The signed-in account fills the name only: PowerShell Direct needs
         // an account and its password for the guest and cannot reuse this
@@ -5627,12 +5679,17 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   }
   function pfRenderAccount(acct,prefix){
     var st=pfState();acct.textContent='';acct.setAttribute('data-pf-has',st.hasPassword?st.user:'');
-    if(st.hasPassword){
-      var line=el('div','migrate-detail good','Checks sign in as '+st.user+'. The password is held in memory only, until you use your own account or close the application. ');
-      var own=el('button','link-button','Use my Windows account');own.type='button';own.id=prefix+'Own';own.addEventListener('click',function(){request('POST','/api/vmware/preflight/forget',{},function(err){if(err){pfMsg[prefix]={text:err,error:true};}else{var p=pfState();p.user='';p.hasPassword=false;pfRefreshAccounts();}pfUpdate();});});line.appendChild(own);acct.appendChild(line);return;
-    }
-    acct.appendChild(el('div','migrate-help','Leave the account empty to use the Windows account running this application'+(latestState&&latestState.signedInAccount?' ('+latestState.signedInAccount+')':'')+'. Otherwise type an administrator of the servers (a domain admin for domain controllers; for SQL Server, a login with sysadmin or VIEW SERVER STATE). It is held in memory only and never saved.'));
-    [['user','Account (optional)','text','EXAMPLE\\admin'],['password','Password','password','']].forEach(function(x){var label=el('label','vm-field'),input=document.createElement('input');input.type=x[2];input.maxLength=256;input.autocomplete='off';input.spellcheck=false;input.id=prefix+(x[0]==='user'?'User':'Password');if(x[3]){input.placeholder=x[3];}input.value=pfForm[x[0]]||'';input.addEventListener('input',function(){pfForm[x[0]]=input.value;pfUpdate();});label.appendChild(el('span','',x[1]));label.appendChild(input);acct.appendChild(label);});
+    acct.appendChild(el('div','migrate-help','The checks need an administrator of the servers (a domain admin for domain controllers; for SQL Server, a login with sysadmin or VIEW SERVER STATE). A different account is held in memory only and never saved.'));
+    var fields=el('div','pf-account-fields');
+    var choice=signInChoice({key:'preflight',idPrefix:prefix,held:function(){return !!pfState().hasPassword;},fields:[fields],
+      clear:function(){pfForm.user='';pfForm.password='';Array.prototype.forEach.call(fields.querySelectorAll('input'),function(i){i.value='';});},
+      locked:function(){return !!pfState().running;},focus:function(){return byId(prefix+'User');},
+      note:function(){return 'PowerShell remoting signs in to the servers as you. A VM reached through PowerShell Direct needs a different account: Windows inside the VM signs it in and needs its password.';},
+      onCurrent:function(){if(!pfState().hasPassword){pfUpdate();return;}request('POST','/api/vmware/preflight/forget',{},function(err){if(err){pfMsg[prefix]={text:err,error:true};}else{var p=pfState();p.user='';p.hasPassword=false;pfRefreshAccounts();}pfUpdate();});},
+      onOther:function(){pfUpdate();}});
+    acct.appendChild(choice.el);acct.appendChild(fields);
+    if(st.hasPassword){fields.appendChild(el('div','migrate-detail good','Checks sign in as '+st.user+'. The password is held in memory only, until you choose your current sign-in or close the application.'));return;}
+    [['user','Account','text','EXAMPLE\\admin'],['password','Password','password','']].forEach(function(x){var label=el('label','vm-field'),input=document.createElement('input');input.type=x[2];input.maxLength=256;input.autocomplete='off';input.spellcheck=false;input.id=prefix+(x[0]==='user'?'User':'Password');if(x[3]){input.placeholder=x[3];}input.value=pfForm[x[0]]||'';input.addEventListener('input',function(){pfForm[x[0]]=input.value;pfUpdate();});label.appendChild(el('span','',x[1]));label.appendChild(input);fields.appendChild(label);});
   }
   function pfRefreshAccounts(){document.querySelectorAll('[data-pf-panel]').forEach(function(w){var a=w.querySelector('[data-pf-account]');if(a){pfRenderAccount(a,w.getAttribute('data-pf-panel'));}});}
   function pfRun(vms,prefix){
@@ -5655,16 +5712,16 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     for(var i=0;i<panels.length;i++){
       var w=panels[i],prefix=w.getAttribute('data-pf-panel'),acct=w.querySelector('[data-pf-account]');
       if(acct&&acct.getAttribute('data-pf-has')!==(st.hasPassword?st.user:'')&&!acct.contains(document.activeElement)){pfRenderAccount(acct,prefix);}
-      var rows=w.querySelectorAll('[data-pf-vm]'),missing=0;
+      var rows=w.querySelectorAll('[data-pf-vm]'),missing=0,direct=0;
       for(var r=0;r<rows.length;r++){
         var id=rows[r].getAttribute('data-pf-vm'),vm=vmFindVm(id),item=pfItemOf(id),cell=rows[r].querySelector('[data-pf-last]'),input=rows[r].querySelector('[data-pf-computer]'),sel=rows[r].querySelector('[data-pf-via]');
-        if(input){input.disabled=!!st.running||(sel&&sel.value==='direct');if(!(sel&&sel.value==='direct')&&!trimText(input.value)){missing++;}}if(sel){sel.disabled=!!st.running;}
+        if(input){input.disabled=!!st.running||(sel&&sel.value==='direct');if(!(sel&&sel.value==='direct')&&!trimText(input.value)){missing++;}}if(sel){sel.disabled=!!st.running;if(sel.value==='direct'){direct++;}}
         var text=item&&(item.state==='waiting'||item.state==='running')?(item.state==='running'?'Checking now…':'Waiting…'):(vm?pfLast(vm):'');
         if(cell&&cell.textContent!==text){cell.textContent=text;}
         if(cell){cell.className='pf-last'+(item&&item.state==='running'?' running':'')+(vm&&vm.preflight&&vm.preflight.error?' failed':'');}
       }
       var run=byId(prefix+'Run'),stop=byId(prefix+'Stop'),why='';
-      if(st.running){why='';}else if(!pfForm.dc&&!pfForm.sql){why='Tick domain controller, SQL Server or both.';}else if(missing){why='Type the computer name or IP address of '+vmPlural(missing,'VM')+'.';}else if(!st.hasPassword&&trimText(pfForm.user)&&!pfForm.password){why='Type the password, or clear the account to use your own.';}
+      if(st.running){why='';}else if(!pfForm.dc&&!pfForm.sql){why='Tick domain controller, SQL Server or both.';}else if(missing){why='Type the computer name or IP address of '+vmPlural(missing,'VM')+'.';}else if(!st.hasPassword&&trimText(pfForm.user)&&!pfForm.password){why='Type the password, or choose your current sign-in.';}else if(direct&&!st.hasPassword&&!trimText(pfForm.user)){why='PowerShell Direct cannot use your current sign-in: choose A different account and type an administrator of the VM and its password.';}
       if(run){run.disabled=!!st.running||!!why;run.textContent=st.running?'Checking…':'Run the checks on '+vmPlural(rows.length,'server');run.title=why;}
       if(stop){stop.classList.toggle('hidden',!st.running);stop.disabled=!!st.stopping;}
       w.querySelectorAll('.pf-checks input').forEach(function(cb){cb.disabled=!!st.running;});
@@ -5809,13 +5866,15 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     if(!v.canPrepare){section.appendChild(el('div','migrate-help','Read the inventory from vCenter or ESXi in this session first (Discovery): copying needs the live vSphere session.'));}
     var status=el('div','migrate-inline-status'+(h.failed?' error':''),h.message||'');status.id='vmHvrStatus';
     // 1. Connect
-    var c=vmTargetStep(section,'1. Connect to the Hyper-V host or cluster','Type the host\'s or the failover cluster\'s DNS name. Leave the account empty to use your own Windows account; otherwise use an account that is an administrator on the hosts. The password stays in memory only, until Forget or you close the application.','On this computer');
+    var c=vmTargetStep(section,'1. Connect to the Hyper-V host or cluster','Type the host\'s or the failover cluster\'s DNS name. Your current sign-in is used unless you choose a different account; either must be an administrator on the hosts. A different account\'s password stays in memory only, until Forget or you close the application.','On this computer');
     if(!info){vmHvrForm.host=vmHvrForm.host||h.host||'';vmHvrForm.user=vmHvrForm.user||h.user||'';
-      c.appendChild(vmHvrInput('host','Hyper-V host or cluster name',{placeholder:'hvclu01.example.com'}));c.appendChild(vmHvrInput('user','Account (optional)',{placeholder:'EXAMPLE\\admin'}));c.appendChild(vmHvrInput('password','Password',{type:'password',max:256}));
+      c.appendChild(vmHvrInput('host','Hyper-V host or cluster name',{placeholder:'hvclu01.example.com'}));
+      var hvrFields=el('div','vm-two');c.appendChild(signInChoice({key:'hvremote',idPrefix:'vmHvr',held:function(){return !!h.user;},fields:[hvrFields],clear:function(){vmHvrForm.user='';vmHvrForm.password='';Array.prototype.forEach.call(hvrFields.querySelectorAll('input'),function(i){i.value='';});},locked:vmLocked,focus:function(){return hvrFields.querySelector('input');}}).el);
+      hvrFields.appendChild(vmHvrInput('user','Account',{placeholder:'EXAMPLE\\admin'}));hvrFields.appendChild(vmHvrInput('password','Password',{type:'password',max:256}));c.appendChild(hvrFields);
       var go=el('button','secondary-button','Connect');go.type='button';go.id='vmHvrConnect';go.disabled=vmLocked();go.addEventListener('click',function(){var body={host:trimText(vmHvrForm.host),user:trimText(vmHvrForm.user),password:vmHvrForm.password||''};vmPost('/api/hvremote/connect',body,'vmHvrStatus',function(err){if(!err){vmHvrForm.password='';vmMarkRunning('hvconnect','hvconnecting','Connecting to Hyper-V host '+body.host+'.');}});});
       var row=el('div','vm-move-actions');row.appendChild(go);c.appendChild(row);c.appendChild(status);return;}
     var facts=el('ul','vm-findings');facts.id='vmHvrFacts';
-    facts.appendChild(el('li',info.supported?'good':'warning',(info.supported?'Connected to ':'Connected, but this host cannot receive the VM: ')+info.computer+(info.cluster?' in failover cluster '+info.cluster:'')+(h.user?' as '+h.user:' with your Windows account')+'. '+(info.support||'')));
+    facts.appendChild(el('li',info.supported?'good':'warning',(info.supported?'Connected to ':'Connected, but this host cannot receive the VM: ')+info.computer+(info.cluster?' in failover cluster '+info.cluster:'')+(h.user?' as '+h.user:' with your current sign-in'+(latestState&&latestState.signedInAccount?' ('+latestState.signedInAccount+')':''))+'. '+(info.support||'')));
     vmArr(info.warnings).forEach(function(w){facts.appendChild(el('li','warning',w));});
     c.appendChild(facts);
     var crow=el('div','vm-move-actions'),forget=el('button','secondary-button','Forget');forget.type='button';forget.id='vmHvrForget';forget.disabled=vmLocked();forget.addEventListener('click',function(){vmPost('/api/hvremote/forget',{},'vmHvrStatus',function(){vmHvrForm.password='';vmHvrForm.code='';});});
@@ -6054,7 +6113,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   function readHyperV(){
     if(vmLocked()){return;}
     var host=trimText(byId('vmHvHost').value),user=trimText(byId('vmHvUser').value),password=byId('vmHvPassword').value;
-    if(user&&!password){vmSetStatus('vmHvStatus','Type the password for '+user+', or clear the account to use your own.',true);byId('vmHvPassword').focus();return;}
+    if(user&&!password){vmSetStatus('vmHvStatus','Type the password for '+user+', or choose your current sign-in.',true);byId('vmHvPassword').focus();return;}
     var label=host||'this computer';
     vmPost('/api/vmware/hyperv',{host:host,user:user,password:password},'vmHvStatus',function(err){if(!err){byId('vmHvPassword').value='';vmMarkRunning('hyperv','connecting','Reading Hyper-V host '+label+'.');}});
   }
@@ -6481,12 +6540,15 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   function renderVmGuestTarget(fill){
     var t=vmGuestTargetState(),v=vmwareState()||{},admin=!!(latestState&&latestState.isAdministrator),hosts=vmGuestHosts();
     if(!vmGuestForm||(!vmGuestFormTouched&&fill!==false)){vmGuestForm={mode:t.mode||'local',vm:t.vm||'',computer:t.computer||'',host:t.host||'',user:t.user||''};fill=true;}
+    if(fill&&vmGuestForm.user){signInChoices.vmGuest='other';}
     var f=vmGuestForm,radios=document.querySelectorAll('input[name="vmGuestMode"]');
     Array.prototype.forEach.call(radios,function(r){r.checked=r.value===f.mode;var off=(r.value==='hostdirect'&&!hosts.length),why=off?'Connect to the Hyper-V host or cluster first: Move VMs, select the VM, Another Hyper-V host or cluster.':(r.value==='direct'&&!v.hyperVHere?'This computer is not a Hyper-V host; this works only when this application runs on the host that runs the VM.':'');r.disabled=off;r.parentNode.title=why;});
-    Array.prototype.forEach.call(document.querySelectorAll('[data-guest-field]'),function(n){var k=n.getAttribute('data-guest-field'),show=(k==='vm'&&(f.mode==='direct'||f.mode==='hostdirect'))||(k==='host'&&f.mode==='hostdirect')||(k==='computer'&&f.mode==='winrm')||((k==='user'||k==='password')&&f.mode!=='local');n.classList.toggle('hidden',!show);});
+    Array.prototype.forEach.call(document.querySelectorAll('[data-guest-field]'),function(n){var k=n.getAttribute('data-guest-field'),show=(k==='vm'&&(f.mode==='direct'||f.mode==='hostdirect'))||(k==='host'&&f.mode==='hostdirect')||(k==='computer'&&f.mode==='winrm')||((k==='user'||k==='password')&&f.mode!=='local'&&!vmGuestSignIn.current());n.classList.toggle('hidden',!show);});
+    byId('vmGuestSignIn').classList.toggle('hidden',f.mode==='local');
     var hostSel=byId('vmGuestHost'),hostNow=f.host||hostSel.value;hostSel.textContent='';hosts.forEach(function(h){var o=document.createElement('option');o.value=h;o.textContent=h;hostSel.appendChild(o);});if(hostNow&&hosts.indexOf(hostNow)>=0){hostSel.value=hostNow;}
     if(fill){byId('vmGuestVmName').value=f.vm||'';byId('vmGuestComputerName').value=f.computer||'';byId('vmGuestUser').value=f.user||'';}
-    byId('vmGuestUser').placeholder=f.mode==='winrm'?'Leave empty to use your own account':'.\\Administrator or DOMAIN\\admin';
+    vmGuestSignIn.refresh();
+    byId('vmGuestUser').placeholder='.\\Administrator or DOMAIN\\admin';
     var note=t.mode&&t.mode!=='local'?'Checks run on '+t.label+' ('+(t.modeName||t.mode)+')'+(t.user?' as '+t.user:'')+'.':'Checks run on this computer'+(vmComputer()?' ('+vmComputer()+')':'')+'.';
     if(t.kept){note+=' Recording kept here: from '+t.keptSource+(t.keptAt?', '+String(t.keptAt).replace('T',' ').slice(0,16):'')+'.';}
     else if(t.mode&&t.mode!=='local'){note+=' No recording kept here for it yet.';}
@@ -6497,6 +6559,16 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     if(vc.getAttribute('data-serial')!==String(v.inventorySerial||0)){vc.setAttribute('data-serial',String(v.inventorySerial||0));vc.textContent='';vms.slice(0,2000).forEach(function(m){var o=document.createElement('option');o.value=m.id;o.textContent=m.name+(vmArr(m.nics).some(function(n){return n.guestKnown;})?'':' (VMware Tools did not report its network)');vc.appendChild(o);});if(keep){vc.value=keep;}}
     byId('vmGuestVcenterBox').classList.toggle('hidden',!vms.length);
   }
+  // The machine's account: the current sign-in reaches it over PowerShell
+  // remoting; PowerShell Direct signs in to Windows inside the VM and always
+  // needs an account of the VM and its password.
+  var vmGuestSignIn=signInChoice({key:'vmGuest',fields:[],
+    cant:function(){var m=(vmGuestForm||{}).mode;return m==='direct'||m==='hostdirect'?'PowerShell Direct signs in to Windows inside the VM, which needs an administrator account of the VM and its password. Windows cannot pass your sign-in into a VM.':'';},
+    clear:function(){byId('vmGuestUser').value='';byId('vmGuestPassword').value='';if(vmGuestForm){vmGuestForm.user='';}},
+    locked:function(){return byId('vmGuestUse').disabled;},focus:function(){return byId('vmGuestUser');},
+    note:function(){return 'Your account needs administrator rights on that computer.';},
+    onCurrent:function(){renderVmGuestTarget(false);},onOther:function(){renderVmGuestTarget(false);}});
+  byId('vmGuestSignIn').appendChild(vmGuestSignIn.el);
   function vmGuestUse(){
     var f=vmGuestForm||{},body={mode:f.mode,vm:trimText(byId('vmGuestVmName').value),computer:trimText(byId('vmGuestComputerName').value),host:byId('vmGuestHost').value,user:trimText(byId('vmGuestUser').value),password:byId('vmGuestPassword').value,keepPassword:true};
     if(f.mode==='winrm'&&!body.vm&&vmGuestForm.vm){body.vm=vmGuestForm.vm;}
@@ -6657,6 +6729,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   byId('vmHvRead').addEventListener('click',function(){readHyperV();});
   pathBrowse(byId('vmOutputRoot'),{title:'Choose the folder for VMware and Hyper-V discovery reports. Each read makes a new folder inside it.',start:function(){return vmOutputShown;}});
   byId('vmOutputRoot').addEventListener('change',saveVmOutputRoot);byId('vmOutputRoot').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();saveVmOutputRoot();}else if(e.key==='Escape'){byId('vmOutputRoot').value=vmOutputShown;}});
+  byId('vmHvSignIn').appendChild(signInChoice({key:'vmHv',keep:true,fields:[byId('vmHvAccountRow')],clear:function(){byId('vmHvUser').value='';byId('vmHvPassword').value='';},locked:function(){return byId('vmHvHost').disabled;},focus:function(){return byId('vmHvUser');}}).el);
   ['vmHvHost','vmHvUser','vmHvPassword'].forEach(function(id){byId(id).addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();readHyperV();}});});
   byId('vmCertTrust').addEventListener('click',function(){var v=vmwareState()||{};if(v.certificate){connectVmware(v.certificate.thumbprint);}});
   byId('vmOpenInventory').addEventListener('click',function(){vmPost('/api/vmware/open-inventory',{},'vmConnectStatus');});
@@ -7461,15 +7534,18 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     var linux=rpLinux();
     byId('rpPushHelp').classList.toggle('hidden',linux);byId('rpPushHelpLinux').classList.toggle('hidden',!linux);byId('rpSshPortField').classList.toggle('hidden',!linux);
     byId('rpUser').placeholder=linux?'root':'EXAMPLE\\admin';
-    byId('rpUser').parentNode.firstChild.nodeValue=linux?'Account (root or a sudo account)':'Account (blank to use your own sign-in)';
+    byId('rpUser').parentNode.firstChild.nodeValue=linux?'Account (root or a sudo account)':'Account';
+    rpSignIn.refresh();
   }
+  var rpSignIn=signInChoice({key:'rpPush',keep:true,fields:[byId('rpAccountRow')],clear:function(){byId('rpUser').value='';byId('rpPassword').value='';},cant:function(){return rpLinux()?'Linux servers are reached over SSH, which needs a Linux account (root or a sudo account) and its password.':'';},locked:function(){return byId('rpHosts').disabled;},focus:function(){return byId('rpUser');},note:function(){return 'Your account needs administrator rights on each server (the administrative share and the service manager are opened as you).';}});
+  byId('rpSignIn').appendChild(rpSignIn.el);
   byId('rpPlatform').addEventListener('change',syncRpPlatform);
   function rpStartPush(hosts){
     var port=trimText(byId('rpPort').value)||'44390',linux=rpLinux(),sshPort=trimText(byId('rpSshPort').value)||'22';
     if(!/^[0-9]{4,5}$/.test(port)){vmSetStatus('rpPushStatus','Type the agent port as a number from 1024 to 65535.',true);return;}
     if(linux&&(!trimText(byId('rpUser').value)||!byId('rpPassword').value)){vmSetStatus('rpPushStatus','Type the Linux account and its password.',true);return;}
     if(linux&&!/^[0-9]{1,5}$/.test(sshPort)){vmSetStatus('rpPushStatus','Type the SSH port as a number.',true);return;}
-    if(!linux&&trimText(byId('rpUser').value)&&!byId('rpPassword').value){vmSetStatus('rpPushStatus','Type the account\'s password, or leave the account blank to use your own sign-in.',true);return;}
+    if(!linux&&trimText(byId('rpUser').value)&&!byId('rpPassword').value){vmSetStatus('rpPushStatus','Type the account\'s password, or choose your current sign-in.',true);return;}
     var body={hosts:hosts,user:trimText(byId('rpUser').value),password:byId('rpPassword').value,port:Number(port)};
     if(linux){body.platform='linux';body.sshPort=Number(sshPort);body.hostKeys=rpTrusted;}
     rpPost('/api/repl/push',body,'rpPushStatus',function(err){if(!err){byId('rpPassword').value='';if(rpState){rpState.pushing=true;}renderRp();}});
@@ -7793,6 +7869,8 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   cfmBox(byId('asTestConfirm'),{what:function(n){return asForm==='endtest'?'I understand the test VMs of '+vmPlural(Number(n),'server')+' are removed':'I understand '+vmPlural(Number(n),'test VM')+' will be started';}});
   ['asInstHosts','asInstUser','asJobAddress','asJobThumb','asJobCode','asWaveNumber','asCutAt','asCutConfirm','asTestConfirm'].forEach(function(id){byId(id).addEventListener('input',asFormSync);});
   ['asInstPlatform','asCutWhen','asCutStagger','asCutAt'].forEach(function(id){byId(id).addEventListener('change',asFormSync);});
+  var asInstSignIn=signInChoice({key:'asInstall',keep:true,fields:[byId('asInstUserField'),byId('asInstPasswordField')],clear:function(){byId('asInstUser').value='';byId('asInstPassword').value='';},cant:function(){return byId('asInstPlatform').value==='linux'?'Linux servers are reached over SSH, which needs a Linux account (root or a sudo account) and its password.':'';},focus:function(){return byId('asInstUser');},note:function(){return 'Your account needs administrator rights on each server.';}});
+  byId('asInstSignIn').appendChild(asInstSignIn.el);byId('asInstPlatform').addEventListener('change',function(){asInstSignIn.refresh();});
   byId('asInstRun').addEventListener('click',function(){
     var hosts=trimText(byId('asInstHosts').value),port;
     try{port=asNumber('asInstPort',1024,65535,'Choose an agent port from 1024 to 65535.');}catch(err){vmSetStatus('asStatus',err.message,true);return;}
@@ -7968,7 +8046,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     var picked=nwPickedVMs(),used=nwInPlans();
     if(nwRemote()){var hvr=nwHvr();
       if(!hvr){add('block','Connect to the Hyper-V host or cluster (in Where).','where');}
-      else{add(hvr.info.supported?'ok':'block',hvr.info.supported?'This computer ('+vmComputer()+') runs the migration and is connected to '+nwHvrName()+(hvr.user?' as '+hvr.user:' with your Windows account')+'. The VMs are created on '+(nw.node||hvr.info.computer)+'. Keep this application open here.':(hvr.info.support||'That host cannot receive the VMs.'),hvr.info.supported?'':'where');
+      else{add(hvr.info.supported?'ok':'block',hvr.info.supported?'This computer ('+vmComputer()+') runs the migration and is connected to '+nwHvrName()+(hvr.user?' as '+hvr.user:' with your current sign-in'+(latestState&&latestState.signedInAccount?' ('+latestState.signedInAccount+')':''))+'. The VMs are created on '+(nw.node||hvr.info.computer)+'. Keep this application open here.':(hvr.info.support||'That host cannot receive the VMs.'),hvr.info.supported?'':'where');
         var used={};vmArr(hvr.info.vms).forEach(function(n){used[String(n).toLowerCase()]=1;});var taken=picked.filter(function(vm){return used[String(vm.name).toLowerCase()];});
         if(taken.length){add('block',taken.map(function(vm){return vm.name;}).join(', ')+' already '+(taken.length===1?'exists':'exist')+' on '+nwHvrName()+'. Rename or remove '+(taken.length===1?'it':'them')+' there, or take '+(taken.length===1?'it':'them')+' out in What.');}
 }
@@ -8150,6 +8228,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     }else{
       panel.appendChild(el('strong','','Read vCenter or ESXi'));
       panel.appendChild(el('p','migrate-help','Reading changes nothing in vSphere. For a Hyper-V host, read it in Discovery (VMware and Hyper-V).'));
+      panel.appendChild(el('p','migrate-help sign-in-why','vCenter and ESXi sign in with their own accounts (vCenter Single Sign-On, or the host\'s root account), so your Windows sign-in cannot be passed through. A domain account works when vCenter has the domain as an identity source: type it as user@domain with its password.'));
     }
     var row=el('div','migrate-row');
     var s=nwInput('nwServer',server,'vcenter.example.com');s.setAttribute('aria-label','vCenter or ESXi server');var u=nwInput('nwUser',user,'administrator@vsphere.local');u.setAttribute('aria-label','User name');
@@ -8310,13 +8389,15 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     if(v.running&&v.action==='hvconnect'){panel.appendChild(el('div','migrate-inline-status',v.message||'Connecting to the Hyper-V host.'));box.appendChild(panel);return false;}
     if(!hvr){
       panel.appendChild(el('strong','','Connect to the Hyper-V host or cluster'));
-      panel.appendChild(el('p','migrate-help','Type the host\'s or the failover cluster\'s DNS name. Leave the account empty to use your own Windows account. The password stays in memory only, until Forget or you close the application.'));
-      var row=el('div','migrate-row'),hi=nwInput('nwHvHost',nw.hvHost||h.host||'','hvclu01.example.com'),ui=nwInput('nwHvUser',nw.hvUser||h.user||'','EXAMPLE\\admin (optional)'),pi=document.createElement('input');
-      hi.setAttribute('aria-label','Hyper-V host or cluster name');ui.setAttribute('aria-label','Account (optional)');pi.type='password';pi.id='nwHvPassword';pi.autocomplete='new-password';pi.placeholder='Password';pi.setAttribute('aria-label','Password for the Hyper-V account');
-      row.appendChild(hi);row.appendChild(ui);row.appendChild(pi);var go=el('button','primary-button','Connect');go.type='button';go.id='nwHvConnect';go.disabled=!!v.running;row.appendChild(go);panel.appendChild(row);panel.appendChild(st);box.appendChild(panel);return false;
+      panel.appendChild(el('p','migrate-help','Type the host\'s or the failover cluster\'s DNS name. Your current sign-in is used unless you choose a different account; either must be an administrator on the hosts. A different account\'s password stays in memory only, until Forget or you close the application.'));
+      var row=el('div','migrate-row'),hi=nwInput('nwHvHost',nw.hvHost||h.host||'','hvclu01.example.com'),acctRow=el('div','migrate-row'),ui=nwInput('nwHvUser',nw.hvUser||h.user||'','EXAMPLE\\admin'),pi=document.createElement('input');
+      hi.setAttribute('aria-label','Hyper-V host or cluster name');ui.setAttribute('aria-label','Account');pi.type='password';pi.id='nwHvPassword';pi.autocomplete='new-password';pi.placeholder='Password';pi.setAttribute('aria-label','Password for the Hyper-V account');
+      row.appendChild(hi);acctRow.appendChild(ui);acctRow.appendChild(pi);var go=el('button','primary-button','Connect');go.type='button';go.id='nwHvConnect';go.disabled=!!v.running;
+      panel.appendChild(row);panel.appendChild(signInChoice({key:'hvremote',idPrefix:'nwHv',held:function(){return !!h.user;},fields:[acctRow],clear:function(){nw.hvUser='';ui.value='';pi.value='';},locked:function(){return !!v.running;},focus:function(){return byId('nwHvUser');}}).el);panel.appendChild(acctRow);
+      var goRow=el('div','migrate-row');goRow.appendChild(go);panel.appendChild(goRow);panel.appendChild(st);box.appendChild(panel);return false;
     }
     var info=hvr.info,facts=el('ul','vm-findings');
-    facts.appendChild(el('li',info.supported?'good':'warning',(info.supported?'Connected to ':'Connected, but this host cannot receive the VMs: ')+info.computer+(info.cluster?' in failover cluster '+info.cluster:'')+(hvr.user?' as '+hvr.user:' with your Windows account')+'. '+(info.support||'')));
+    facts.appendChild(el('li',info.supported?'good':'warning',(info.supported?'Connected to ':'Connected, but this host cannot receive the VMs: ')+info.computer+(info.cluster?' in failover cluster '+info.cluster:'')+(hvr.user?' as '+hvr.user:' with your current sign-in'+(latestState&&latestState.signedInAccount?' ('+latestState.signedInAccount+')':''))+'. '+(info.support||'')));
     vmArr(info.warnings).forEach(function(w){facts.appendChild(el('li','warning',w));});panel.appendChild(facts);
     var acts=el('div','migrate-row'),again=el('button','secondary-button','Read again');again.type='button';again.id='nwHvReread';again.disabled=!!v.running;var forget=el('button','secondary-button','Forget');forget.type='button';forget.id='nwHvForget';forget.disabled=!!v.running;acts.appendChild(again);acts.appendChild(forget);panel.appendChild(acts);panel.appendChild(st);
     box.appendChild(panel);
@@ -8330,7 +8411,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     if(reread){body={host:h.host,user:h.user,password:''};}
     else{var host=trimText((byId('nwHvHost')||{}).value),user=trimText((byId('nwHvUser')||{}).value),pass=byId('nwHvPassword');
       if(!host){vmSetStatus('nwHvStatus','Type the Hyper-V host or cluster name.',true);return;}
-      if(user&&!pass.value){vmSetStatus('nwHvStatus','Type the password for '+user+', or leave the account empty to use your Windows account.',true);pass.focus();return;}
+      if(user&&!pass.value){vmSetStatus('nwHvStatus','Type the password for '+user+', or choose your current sign-in.',true);pass.focus();return;}
       nw.hvHost=host;nw.hvUser=user;body={host:host,user:user,password:pass.value};pass.value='';}
     vmPost('/api/hvremote/connect',body,'nwHvStatus',function(err){if(!err){nw.filled='';vmMarkRunning('hvconnect','hvconnecting',(reread?'Reading':'Connecting to')+' Hyper-V host '+body.host+'.');renderNw();}});
   }
@@ -8598,9 +8679,10 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     box.appendChild(el('p','migrate-help','Installs the agent service on each server from here: the program is copied through the administrative share and started by the server\'s service manager, with one firewall rule for the console. It needs an administrator account on the servers.'));
     var two=el('div','rp-two');
     var hosts=nwInput('nwSrvHosts',nw.srv.hosts,'app01, app02.example.com, 10.0.0.15');two.appendChild(nwField('Servers (names or addresses, separated by commas)',hosts));
-    var user=nwInput('nwSrvUser',nw.srv.user,'Empty uses your Windows account');two.appendChild(nwField('Administrator account (DOMAIN\\user)',user));
     box.appendChild(two);
-    var pw=document.createElement('input');pw.type='password';pw.id='nwSrvPassword';pw.autocomplete='off';pw.value=nwSrvPw;box.appendChild(nwField('Password',pw,'Used for this install only; it is not kept.'));
+    var user=nwInput('nwSrvUser',nw.srv.user,'EXAMPLE\\admin'),pw=document.createElement('input');pw.type='password';pw.id='nwSrvPassword';pw.autocomplete='off';pw.value=nwSrvPw;
+    var acct=el('div','rp-two');acct.appendChild(nwField('Administrator account (DOMAIN\\user)',user));acct.appendChild(nwField('Password',pw,'Used for this install only; it is not kept.'));
+    box.appendChild(signInChoice({key:'nwSrv',fields:[acct],clear:function(){nw.srv.user='';nwSrvPw='';user.value='';pw.value='';},locked:function(){return !!(rpState&&rpState.pushing);},focus:function(){return byId('nwSrvUser');},note:function(){return 'Your account needs administrator rights on each server.';}}).el);box.appendChild(acct);
     var row2=el('div','migrate-row'),inst=el('button','secondary-button',(rpState&&rpState.pushing&&nw.srv.watch)?'Installing…':'Install the agent');inst.type='button';inst.id='nwSrvInstall';inst.disabled=!!(rpState&&rpState.pushing)||!trimText(nw.srv.hosts);row2.appendChild(inst);
     var lin=el('button','link-button','Linux servers: install in All jobs and servers');lin.type='button';lin.setAttribute('data-nw-console','');row2.appendChild(lin);box.appendChild(row2);
     var msg=el('div','migrate-inline-status'+(nw.srv.instError?' error':''),nw.srv.instError||'');msg.id='nwSrvInstStatus';msg.setAttribute('role','status');box.appendChild(msg);
