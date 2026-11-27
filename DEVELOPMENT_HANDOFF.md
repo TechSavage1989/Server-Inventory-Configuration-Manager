@@ -1,3 +1,7 @@
+## 3.2.40 release preparation — 2026-11-27
+
+Owner asked to publish now ("publish now"), mainly for the VDDK signature fix #190. Contents, merged into `release/next` after 3.2.39: #190 (VDDK DLL signatures and version read from the files) and #192 (3.2.39 record; the published-upgrade test starts from signed 3.2.39, `4aae60ff...52b8`). Version 3.2.40 in `main.go` and the collector, release notes in `docs/release-notes/3.2.40.md`.
+
 ## 3.2.39 published and verified — 2026-11-27
 
 - [Release v3.2.39](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.39) ("Server Inventory and Migration Manager 3.2.39"), tag and target commit `a4f8f04e09ed0ac496b72a7c49454ca09a13d31d`. Source: #173, #174, #176, #177, #180, #181 and #182 through the batch #183 (merged into `main` with a merge commit), prepared by #184, published by #185, and the release fix #187 through the batch #189. The owner approved publishing on 2026-11-27.
