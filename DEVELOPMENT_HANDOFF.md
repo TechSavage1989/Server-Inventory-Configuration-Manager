@@ -1,3 +1,11 @@
+## Unreleased (test branch): migration UX — 2026-11-27
+
+- The owner asked for the migration UI to be more intuitive and for the work to go to the opt-in `test` branch so normal installs never update to it. All 12 ideas (AGENTS rule 69): compact tool lists with **About this tool**, no collection banner on Migration and replication, empty screens that start New migration, a sortable VM table and step summaries in New migration, Migrate from Discovery, a status track with the next step per plan VM and All servers row (`mbVM.TestedAt`, row `tested`), plain-language error help with fix buttons (`errorCatalog`), and the activity strip under the top tabs.
+- Workspace checks "Migration UX: ..." (two). README `hero.png`, `new-migration.png` and `migration-plans.png` recaptured at 1440x1000 (set `SIMM_README_SHOTS` to a folder to recapture them from those checks).
+- Also: go/no-go per wave in Migration plans, Move VMs pointing Hyper-V moves to New migration (the "When to use this" box removed), saved defaults per customer (`migration_profiles.go`, `/api/profiles`, Go tests `TestMigrationProfiles*`) and the rolling conversion in New migration's When.
+- The header bar and the "Your server, documented" banner are gone from every screen: Help sits beside the tabs, and the icon, name, connection, administrator rights, versions and Keyboard shortcuts are in a slim status bar at the bottom. The Portable EXE badge is gone. `scripts/test_icon_render.cjs` and the published-upgrade test still find `.brand-mark img` (now 16 px in the status bar); run them on Windows CI. README `hero.png`, `new-migration.png` and `migration-plans.png` show it; the other README images still show the old banner until they are next recaptured.
+- Not field-validated: all of it is covered by synthetic workspace checks and Go tests only. The Move VMs by-hand steps for Hyper-V stay (not removed), so nothing that worked before is gone.
+
 ## Unreleased: protect production space and bandwidth while copying — 2026-11-27
 
 - Owner: "there should always be a way to safely migrate and control the migration to preserve functional space for the production environment and bandwidth for the production network". AGENTS rule 67.

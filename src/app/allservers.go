@@ -121,6 +121,8 @@ type asRow struct {
 	Plan    string   `json:"plan,omitempty"`
 	VM      string   `json:"vm,omitempty"`
 	Actions []string `json:"actions"`
+	// Tested is true once a test VM of this VM was ended (plan rows).
+	Tested bool `json:"tested,omitempty"`
 	// Consoles are the VMs of this row whose console can be opened in the
 	// application (rule 68): the source VM, and the new or test Hyper-V VM.
 	Consoles []asConsole `json:"consoles,omitempty"`
@@ -288,7 +290,7 @@ func asJobRow(agent replAgentRow, job replJobView, in asInput) asRow {
 
 // asPlanRow is one VM of a Migration plan.
 func asPlanRow(plan mbPlanView, vm mbVMView, now time.Time) asRow {
-	row := asRow{Key: asKey(asKindPlan, plan.ID, vm.ID), Kind: asKindPlan, Name: vm.Name, Detail: "Plan " + plan.Name, Plan: plan.ID, VM: vm.ID,
+	row := asRow{Key: asKey(asKindPlan, plan.ID, vm.ID), Kind: asKindPlan, Name: vm.Name, Detail: "Plan " + plan.Name, Plan: plan.ID, VM: vm.ID, Tested: !vm.TestedAt.IsZero(),
 		Percent: -1, LagSeconds: -1, Wave: vm.Wave, CutoverAt: vm.CutoverAt, NextSync: vm.NextSync, LastSync: vm.LastSync, LimitMins: plan.Settings.SyncMinutes}
 	if vm.Seeded && !vm.LastSync.IsZero() {
 		row.LagSeconds = int64(now.Sub(vm.LastSync).Seconds())

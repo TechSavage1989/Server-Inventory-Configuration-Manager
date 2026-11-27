@@ -94,10 +94,10 @@ img, svg { -webkit-user-drag: none; }
 .action-bar { display: flex; align-items: center; justify-content: space-between; gap: calc(14*var(--sp)); margin-top: calc(18*var(--sp)); padding-top: calc(18*var(--sp)); border-top: 1px solid #e7ecf2; }
 .scope-note { color: #798699; font-size: max(10.5px,calc(11*var(--fz))); max-width: 590px; }
 .primary-button, .secondary-button { border-radius: 8px; font-weight: 650; }
-.primary-button { min-width: 190px; height: calc(44*var(--fz)); border: 0; background: #2d6cdf; color: #fff; box-shadow: 0 5px 12px rgba(45,108,223,.22); padding: 0 calc(18*var(--sp)); }
+.primary-button { min-width: 190px; height: calc(40*var(--fz)); border: 0; background: #2d6cdf; color: #fff; box-shadow: 0 5px 12px rgba(45,108,223,.22); padding: 0 calc(18*var(--sp)); }
 .primary-button:hover { background: #245fbf; }
 .primary-button:disabled { background: #a6b3c6; box-shadow: none; cursor: default; }
-.secondary-button { min-height: calc(38*var(--fz)); border: 1px solid #cbd5e1; background: #fff; color: #334155; padding: 0 calc(14*var(--sp)); }
+.secondary-button { min-height: calc(40*var(--fz)); border: 1px solid #cbd5e1; background: #fff; color: #334155; padding: 0 calc(14*var(--sp)); }
 .secondary-button:hover:not(:disabled) { background: #f4f7fa; }
 .secondary-button:disabled { opacity: .5; cursor: default; }
 .danger-button { color: #a33b3b; border-color: #e3b7b7; background: #fffafa; }
@@ -145,7 +145,12 @@ img, svg { -webkit-user-drag: none; }
 .report-empty p { margin: 0 0 calc(16*var(--sp)); }
 .report-empty-actions { display: flex; justify-content: center; gap: calc(8*var(--sp)); flex-wrap: wrap; }
 .viewer-note { margin-top: calc(9*var(--sp)); color: #7b8798; font-size: max(10.5px,calc(11*var(--fz))); }
-.footer { margin-top: calc(18*var(--sp)); color: #8490a2; font-size: max(10.5px,calc(11*var(--fz))); text-align: center; }
+.footer { margin-top: calc(18*var(--sp)); color: #8490a2; font-size: max(10.5px,calc(11*var(--fz))); }
+.status-bar { display:flex; align-items:center; gap:calc(14*var(--sp)); padding-top:calc(4*var(--sp)); border-top:1px solid #e3e8ef; white-space:nowrap; overflow:hidden; }
+.status-bar .status-note { min-width:0; overflow:hidden; text-overflow:ellipsis; }
+.status-bar .shortcuts-link { margin-left:auto; }
+.status-bar strong { color:#5d6a7e; font-weight:600; }
+.status-bar .shortcuts-link { font-size:inherit; }
 .locked { opacity: .64; pointer-events: none; }
 @media (max-width: 920px) {
   .setup-layout { display: block; }
@@ -170,7 +175,7 @@ img, svg { -webkit-user-drag: none; }
   .report-frame, .report-empty { min-height: 620px; height: 720px; }
 }
 
-.scope-heading,.scope-panel-head{display:flex;align-items:flex-start;justify-content:space-between;gap:calc(18*var(--sp));flex-wrap:wrap}.scope-buttons{display:flex;gap:calc(8*var(--sp));flex-wrap:wrap}.preset-button{min-height:calc(38*var(--fz))}.scope-panel{margin-top:calc(18*var(--sp));border:1px solid var(--border);border-radius:14px;padding:calc(16*var(--sp));background:rgba(255,255,255,.025)}.scope-title{font-weight:700;font-size:max(10.5px,calc(15*var(--fz)));margin-bottom:calc(4*var(--sp))}.scope-count{font-size:max(10.5px,calc(12*var(--fz)));color:var(--muted);font-weight:700;white-space:nowrap}.category-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:calc(9*var(--sp));margin-top:calc(14*var(--sp))}.category-grid.compact{grid-template-columns:repeat(3,minmax(0,1fr))}.category-check{display:flex;gap:calc(10*var(--sp));align-items:flex-start;border:1px solid var(--border);border-radius:10px;padding:calc(10*var(--sp)) calc(11*var(--sp));background:var(--panel);cursor:pointer;min-width:0}.category-check:has(input:checked){border-color:var(--accent);background:var(--accent-soft)}.category-check input{margin-top:calc(3*var(--sp));flex:0 0 auto}.category-check span{min-width:0}.category-check strong{display:block;font-size:max(10.5px,calc(13*var(--fz)));line-height:1.25}.category-check small{display:block;color:var(--muted);font-size:max(10.5px,calc(11*var(--fz)));line-height:1.35;margin-top:calc(3*var(--sp))}.category-setting{margin-top:calc(13*var(--sp))}.export-panel{border-style:dashed}.sensitive-inline{margin-top:calc(14*var(--sp))}.sensitive-choice{border-color:rgba(235,180,70,.35)}@media(min-width:1800px){.category-grid,.category-grid.compact{grid-template-columns:repeat(4,minmax(0,1fr))}}@media(min-width:2300px){.category-grid,.category-grid.compact{grid-template-columns:repeat(5,minmax(0,1fr))}}@media(max-width:1100px){.category-grid,.category-grid.compact{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:720px){.category-grid,.category-grid.compact{grid-template-columns:1fr}}
+.scope-heading{justify-content:flex-start!important}.scope-heading,.scope-panel-head{display:flex;align-items:flex-start;justify-content:space-between;gap:calc(18*var(--sp));flex-wrap:wrap}.scope-buttons{display:flex;gap:calc(8*var(--sp));flex-wrap:wrap}.preset-button{min-height:calc(38*var(--fz))}.scope-panel{margin-top:calc(18*var(--sp));border:1px solid var(--border);border-radius:14px;padding:calc(16*var(--sp));background:rgba(255,255,255,.025)}.scope-title{font-weight:700;font-size:max(10.5px,calc(15*var(--fz)));margin-bottom:calc(4*var(--sp))}.scope-count{font-size:max(10.5px,calc(12*var(--fz)));color:var(--muted);font-weight:700;white-space:nowrap}.category-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:calc(9*var(--sp));margin-top:calc(14*var(--sp))}.category-grid.compact{grid-template-columns:repeat(3,minmax(0,1fr))}.category-check{display:flex;gap:calc(10*var(--sp));align-items:flex-start;border:1px solid var(--border);border-radius:10px;padding:calc(10*var(--sp)) calc(11*var(--sp));background:var(--panel);cursor:pointer;min-width:0}.category-check:has(input:checked){border-color:var(--accent);background:var(--accent-soft)}.category-check input{margin-top:calc(3*var(--sp));flex:0 0 auto}.category-check span{min-width:0}.category-check strong{display:block;font-size:max(10.5px,calc(13*var(--fz)));line-height:1.25}.category-check small{display:block;color:var(--muted);font-size:max(10.5px,calc(11*var(--fz)));line-height:1.35;margin-top:calc(3*var(--sp))}.category-setting{margin-top:calc(13*var(--sp))}.export-panel{border-style:dashed}.sensitive-inline{margin-top:calc(14*var(--sp))}.sensitive-choice{border-color:rgba(235,180,70,.35)}@media(min-width:1800px){.category-grid,.category-grid.compact{grid-template-columns:repeat(4,minmax(0,1fr))}}@media(min-width:2300px){.category-grid,.category-grid.compact{grid-template-columns:repeat(5,minmax(0,1fr))}}@media(max-width:1100px){.category-grid,.category-grid.compact{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:720px){.category-grid,.category-grid.compact{grid-template-columns:1fr}}
 
 
 /* Executable updater banner. */
@@ -200,7 +205,7 @@ body { height: 100vh; }
 .app-tabs { flex: 0 0 auto; overflow-y: hidden; }
 .tab-panel { min-height: 0; flex: 1 1 auto; overflow: hidden; }
 .tab-panel.active { display: flex; flex-direction: column; min-height: 0; }
-.footer { flex: 0 0 auto; margin-top: calc(9*var(--sp)); }
+.footer { flex: 0 0 auto; margin-top: calc(6*var(--sp)); }
 
 /* Setup: fixed left information rail, independently scrolling configuration, fixed Start button. */
 .setup-layout { width: 100%; height: 100%; min-height: 0; display: flex; align-items: stretch; overflow: hidden; }
@@ -309,11 +314,11 @@ button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visi
  .update-actions { max-width:120px; }.update-actions button { padding:4px 8px; }.update-title { font-size:12px; }.update-status { font-size:11px; }
  .category-grid,.category-grid.compact { grid-template-columns:1fr; }.hero { display:none; }.brand-subtitle { display:none; }.brand-mark,.brand-mark img { width:32px; height:32px; }.brand-mark { flex-basis:32px; margin-right:8px; }
  .topbar,.topbar-inner { height:54px; }.topbar { flex-basis:54px; }.tab-button { min-width:0; padding:0 9px; font-size:12px; }.tab-badge { margin-left:3px; }
- .setup-actions { width:100%; }.setup-actions button { flex:1; }.setup-action-bar .primary-button { width:auto; margin:0; }.footer { display:none; }
+ .setup-actions { width:100%; }.setup-actions button { flex:1; }.setup-action-bar .primary-button { width:auto; margin:0; }.status-note { display:none; }
  .scope-panel { padding:12px; }.report-ident { min-width:0; }.viewer-search input { min-width:100px; }.report-actions button { font-size:12px; }
  .log-tools select { max-width:140px; }.status-header { gap:8px; }.card-header { padding:10px 13px; }.current-step { padding:6px 9px; }
 }
-@media(max-height:650px) { .hero,.footer { display:none; }.page { padding-top:8px; }.card-subtitle { font-size:11px; }.update-notes { max-height:65px; overflow:auto; margin-left:0; padding-left:18px; } }
+@media(max-height:650px) { .hero { display:none; }.page { padding-top:8px; }.card-subtitle { font-size:11px; }.update-notes { max-height:65px; overflow:auto; margin-left:0; padding-left:18px; } }
 @media(prefers-reduced-motion:reduce) { *,*::before,*::after { transition:none !important; } }
 
 /* Workspace polish: grouped categories, quick actions, shortcuts */
@@ -404,7 +409,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
 .restore-confirm-input{display:block;box-sizing:border-box;width:100%;height:calc(34*var(--fz));margin-top:calc(6*var(--sp));border:1px solid #bcc9d9;border-radius:7px;padding:0 calc(10*var(--sp));font:inherit}
 .restore-dialog-actions{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:calc(8*var(--sp));padding:calc(10*var(--sp)) calc(18*var(--sp)) calc(14*var(--sp));border-top:1px solid #e3e8ef}
 .restore-dialog-error{margin-top:calc(8*var(--sp));color:#a33b3b;font-size:max(10.5px,calc(12*var(--fz)));font-weight:600}
-.cfm-tick{display:flex;align-items:flex-start;gap:calc(8*var(--sp));margin-top:calc(8*var(--sp));font-size:max(10.5px,calc(12.5*var(--fz)));font-weight:600;color:#23334b;line-height:1.35;cursor:pointer}.cfm-tick input{margin:2px 0 0;flex:0 0 auto;width:15px;height:15px}
+.cfm-tick{display:flex;align-items:flex-start;gap:calc(8*var(--sp));margin-top:calc(8*var(--sp));font-size:max(10.5px,calc(12.5*var(--fz)));font-weight:600;color:#23334b;line-height:1.35;cursor:pointer}.cfm-tick input[type=checkbox]{margin:2px 0 0!important;flex:0 0 auto!important;width:15px!important;min-width:0!important;max-width:none!important;height:15px!important;display:inline-block!important;padding:0!important}
 .cfm-hint{color:#5b6b80;font-size:max(10.5px,calc(12*var(--fz)))}
 .cfm-styles{border:0;margin:0;padding:0;display:grid;gap:calc(8*var(--sp))}.cfm-styles legend{font-weight:650;color:#23334b;margin-bottom:calc(6*var(--sp));padding:0}
 .cfm-style{display:flex;gap:calc(10*var(--sp));align-items:flex-start;border:1px solid #d6dde8;border-radius:9px;padding:calc(8*var(--sp)) calc(10*var(--sp));cursor:pointer}.cfm-style input{margin-top:calc(3*var(--sp))}.cfm-style span{display:grid;gap:2px}.cfm-style small{color:#5b6b80;font-size:max(10.5px,calc(12*var(--fz)))}.cfm-style:has(input:checked){border-color:#2f6fb5;background:#f2f7fd}
@@ -511,7 +516,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
 .vm-wave-title{flex:1 1 120px;min-width:0;height:calc(28*var(--fz));border:1px solid #bcc9d9;border-radius:6px;padding:0 calc(8*var(--sp));font:inherit;font-size:max(10.5px,calc(12.5*var(--fz)));font-weight:600}
 .vm-wave-when{display:flex;align-items:center;gap:calc(4*var(--sp));font-size:max(10.5px,calc(11.5*var(--fz)));color:#52647c}.vm-wave-when input{height:calc(28*var(--fz));border:1px solid #bcc9d9;border-radius:6px;padding:0 calc(4*var(--sp));font:inherit;font-size:max(10.5px,calc(11.5*var(--fz)));max-width:190px}
 .vm-wave-stats{font-size:max(10.5px,calc(11.5*var(--fz)));color:#52647c}.vm-wave-reason{font-size:max(10.5px,calc(11.5*var(--fz)));color:#334156;background:#f2f6fb;border-radius:6px;padding:calc(5*var(--sp)) calc(7*var(--sp))}
-.vm-wave-vms{display:flex;flex-direction:column;gap:calc(4*var(--sp));max-height:260px;overflow:auto}
+.vm-wave-vms{display:flex;flex-direction:column;gap:max(5px,calc(5*var(--sp)));max-height:260px;overflow:auto}
 .vm-wave-vm{display:flex;align-items:center;gap:calc(7*var(--sp));border:1px solid #e0e6ee;border-radius:7px;padding:calc(4*var(--sp)) calc(6*var(--sp));background:#fff;cursor:grab}.vm-wave-vm.picked{border-color:#8fb0ec;background:#eef4ff}.vm-wave-vm input{width:15px;height:15px;margin:0;flex:none;accent-color:#2563eb}
 .vm-wave-vm-text{flex:1;min-width:0;display:flex;flex-direction:column}.vm-wave-vm-text strong{font-size:max(10.5px,calc(12*var(--fz)));overflow-wrap:anywhere}.vm-wave-vm-text .vm-sub{font-size:max(10.5px,calc(11*var(--fz)));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.vm-wave-vm .run-chip{min-width:0}
 .vm-wave-notes{height:calc(28*var(--fz));border:1px solid #d5dfec;border-radius:6px;padding:0 calc(8*var(--sp));font:inherit;font-size:max(10.5px,calc(11.5*var(--fz)))}
@@ -653,7 +658,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
 .rp-chip{display:inline-block;padding:2px calc(8*var(--sp));border-radius:10px;border:1px solid #d6e0ee;background:#f5f8fd;font-size:max(10.5px,calc(11*var(--fz)));color:#334156;white-space:nowrap}.rp-chip.good{border-color:#a7d8b8;background:#f2fbf5;color:#1f6a3a}.rp-chip.warning{border-color:#f0cf8a;background:#fff9ea;color:#74551f}.rp-chip.danger{border-color:#f1b3ad;background:#fff4f3;color:#9b2c22}
 .rp-jobs{margin-top:calc(8*var(--sp))}.rp-error{margin-top:calc(6*var(--sp));color:#9b2c22}.rp-editor,.rp-details{margin-top:calc(12*var(--sp))}.rp-disk-row{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:calc(4*var(--sp)) calc(12*var(--sp));align-items:end;padding:calc(6*var(--sp)) 0;border-bottom:1px solid #eef2f7}.rp-target select,.rp-target input{width:100%}.rp-disk-table{margin-top:calc(10*var(--sp))}
 @media (max-width:900px){.rp-grid,.rp-two,.rp-disk-row{grid-template-columns:minmax(0,1fr)}}
-.mp-body{display:flex;flex-direction:column;gap:calc(12*var(--sp));overflow-y:auto;overflow-x:hidden;min-height:0;flex:1 1 auto}.mp-plans{display:flex;flex-wrap:wrap;gap:calc(6*var(--sp));align-items:center}.mp-plan-button[aria-pressed="true"]{border-color:#2563eb;box-shadow:inset 0 0 0 1px #2563eb;background:#f7faff}.mp-when{padding:calc(8*var(--sp)) calc(10*var(--sp));border:1px solid #dbe3ed;border-radius:8px;background:#fbfcfe}.mp-when ul{margin:calc(4*var(--sp)) 0 0 calc(18*var(--sp));padding:0}.mp-picker{max-height:260px;overflow:auto;border:1px solid #dbe3ed;border-radius:8px;padding:calc(4*var(--sp)) calc(8*var(--sp));background:#fff}.mp-pick{display:flex;gap:calc(8*var(--sp));align-items:center;padding:calc(3*var(--sp)) 0;border-bottom:1px solid #f0f3f8;font-size:max(10.5px,calc(12.5*var(--fz)))}.mp-pick:last-child{border-bottom:0}.mp-pick .vm-note{margin-left:auto}.mp-pick.disabled{color:#7a8597}.mp-checks{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:calc(4*var(--sp)) calc(14*var(--sp));margin-top:calc(6*var(--sp))}.mp-checks label{font-size:max(10.5px,calc(12.5*var(--fz)));display:flex;gap:calc(6*var(--sp));align-items:flex-start}.mp-three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:calc(8*var(--sp)) calc(12*var(--sp))}.mp-advice{padding:calc(8*var(--sp)) calc(10*var(--sp));border:1px solid #c9d6ea;border-radius:8px;background:#f5f8fd;font-size:max(10.5px,calc(12.5*var(--fz)))}.mp-actions{display:flex;flex-wrap:wrap;gap:calc(6*var(--sp));align-items:center}.mp-actions button{min-height:calc(30*var(--fz));padding:2px calc(12*var(--sp));font-size:max(10.5px,calc(12.5*var(--fz)))}.mp-actions input{max-width:220px}.mp-table td{vertical-align:top}.mp-table .vm-note{display:block}.mp-err{color:#9b2c22;font-size:max(10.5px,calc(12*var(--fz)));overflow-wrap:anywhere}.mp-notes{color:#1f6a3a;font-size:max(10.5px,calc(12*var(--fz)))}
+.mp-body{display:flex;flex-direction:column;gap:calc(12*var(--sp));overflow-y:auto;overflow-x:hidden;min-height:0;flex:1 1 auto}.mp-plans{display:flex;flex-wrap:wrap;gap:calc(6*var(--sp));align-items:center}.mp-plan-button[aria-pressed="true"]{border-color:#2563eb;box-shadow:inset 0 0 0 1px #2563eb;background:#f7faff}.mp-open-note{padding:calc(8*var(--sp)) calc(10*var(--sp));border:1px solid #dbe3ed;border-radius:8px;background:#fbfcfe}.mp-open-note ul{margin:calc(4*var(--sp)) 0 0 calc(18*var(--sp));padding:0}.mp-picker{max-height:260px;overflow:auto;border:1px solid #dbe3ed;border-radius:8px;padding:calc(4*var(--sp)) calc(8*var(--sp));background:#fff}.mp-pick{display:flex;gap:calc(8*var(--sp));align-items:center;padding:calc(3*var(--sp)) 0;border-bottom:1px solid #f0f3f8;font-size:max(10.5px,calc(12.5*var(--fz)))}.mp-pick:last-child{border-bottom:0}.mp-pick .vm-note{margin-left:auto}.mp-pick.disabled{color:#7a8597}.mp-checks{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:calc(4*var(--sp)) calc(14*var(--sp));margin-top:calc(6*var(--sp))}.mp-checks label{font-size:max(10.5px,calc(12.5*var(--fz)));display:flex;gap:calc(6*var(--sp));align-items:flex-start}.mp-three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:calc(8*var(--sp)) calc(12*var(--sp))}.mp-advice{padding:calc(8*var(--sp)) calc(10*var(--sp));border:1px solid #c9d6ea;border-radius:8px;background:#f5f8fd;font-size:max(10.5px,calc(12.5*var(--fz)))}.mp-actions{display:flex;flex-wrap:wrap;gap:calc(10*var(--sp)) calc(12*var(--sp));align-items:flex-end;margin-top:calc(8*var(--sp))}.mp-actions .cfm-tick{margin:0 0 calc(7*var(--sp));align-items:center}.mp-actions .vm-field{margin-top:0}.mp-actions:not(:has(.vm-field)){align-items:center}.mp-actions .vm-field input{height:calc(32*var(--fz));box-sizing:border-box;border:1px solid #bcc9d9;border-radius:7px;padding:0 calc(9*var(--sp));font:inherit;font-size:max(10.5px,calc(13*var(--fz)));background:#fff;color:inherit}:not(.migrate-cards)>.migrate-card+.migrate-card,.mp-actions+.migrate-card{margin-top:max(8px,calc(12*var(--sp)))}.mp-actions button{height:auto;min-width:0;min-height:calc(32*var(--fz));padding:2px calc(12*var(--sp));font-size:max(10.5px,calc(12.5*var(--fz)))}.mp-actions input{max-width:220px}.mp-table td{vertical-align:top}.mp-table .vm-note{display:block}.mp-err{color:#9b2c22;font-size:max(10.5px,calc(12*var(--fz)));overflow-wrap:anywhere}.mp-notes{color:#1f6a3a;font-size:max(10.5px,calc(12*var(--fz)))}
 @media (max-width:900px){.mp-checks,.mp-three{grid-template-columns:minmax(0,1fr)}}
 .vm-flow-arrow{color:#52647c;white-space:nowrap}
 .vm-guest-cards{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -714,6 +719,57 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
 .tool-host{flex:1 1 auto;min-width:0;min-height:0;display:flex;flex-direction:column}
 .tool-pane{display:none;min-height:0;flex:1 1 auto}.tool-pane.active{display:flex;flex-direction:column}.tool-pane.active>*{flex:1 1 auto;min-height:0}
 .tool-current{display:none}
+.tab-row{display:flex;align-items:flex-end;gap:calc(8*var(--sp));flex:0 0 auto}
+.tab-row .app-tabs{flex:1 1 auto;min-width:0}
+.tab-row .help-menu{margin:0 0 calc(14*var(--sp)) 0;align-self:center}
+.tab-row .help-button{height:calc(28*var(--fz));border:1px solid #cfd8e4;background:#fff;color:#34445c;font-weight:600}
+.tab-row .help-button:hover,.tab-row .help-button[aria-expanded="true"]{background:#eef3fa}
+.tab-row .help-button::after{border-top-color:#6b7a90}
+.tab-row .help-list{top:calc(100% + 4px)}
+.status-bar .status-brand{display:inline-flex;align-items:center;gap:6px;color:#52647c}
+.status-bar .brand-mark,.status-bar .brand-mark img{width:16px;height:16px;flex:0 0 16px;margin:0}
+.status-bar .brand-title{font-size:inherit;font-weight:600}
+.status-bar .status-item{display:inline-flex;align-items:center;gap:5px}
+.status-bar .badge-dot{width:7px;height:7px;margin:0;border-radius:50%;background:#42c989}
+.status-bar .status-item.bad{color:#b42318}.status-bar .status-item.bad .badge-dot{background:#d92d20}
+.status-bar .status-item.warn{color:#9a6700;font-weight:600}
+@media(max-width:1400px){.status-bar .status-note{display:none}}
+@media(max-width:1100px){.status-bar .brand-title{display:none}}
+.nw-rolling{margin:0 0 calc(8*var(--sp));padding-left:22px}
+.nw-rolling-stage{margin-bottom:calc(6*var(--sp))}
+.nw-rolling-head{display:flex;gap:calc(8*var(--sp));align-items:center}
+.profile-bar .migrate-row{align-items:flex-end;flex-wrap:wrap;gap:calc(8*var(--sp))}
+.profile-bar .vm-field{min-width:200px;flex:0 1 280px;margin-top:0}.profile-bar{margin-bottom:calc(12*var(--sp))}.profile-bar .migrate-row{align-items:flex-end}.profile-bar select,.profile-bar .vm-field input[type=text]{height:calc(34*var(--fz));box-sizing:border-box;border:1px solid #bcc9d9;border-radius:7px;padding:0 calc(9*var(--sp));font:inherit;font-size:max(10.5px,calc(13*var(--fz)));background:#fff;color:inherit}.profile-bar .link-button{height:calc(34*var(--fz))}.migrate-row .vm-field input[type=text],.migrate-row .vm-field input[type=password],.migrate-row .vm-field select{flex:0 0 auto;max-width:none;width:100%}
+.mp-go-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:calc(8*var(--sp))}
+.mp-go{border:1px solid var(--line);border-radius:8px;padding:calc(8*var(--sp)) calc(10*var(--sp));background:var(--panel)}
+.mp-go-head{display:flex;align-items:center;gap:calc(8*var(--sp));margin-bottom:calc(4*var(--sp))}
+.mp-go-head strong{flex:1}
+.mp-go ul{list-style:none;margin:0 0 calc(6*var(--sp));padding:0}
+.mp-go li{padding:calc(2*var(--sp)) 0 calc(2*var(--sp)) 20px;position:relative;font-size:max(10.5px,calc(12.5*var(--fz)))}
+.mp-go li::before{position:absolute;left:0;font-weight:700}
+.mp-go li.ok::before{content:"\2713";color:var(--success,#1e7b34)}
+.mp-go li.warn::before{content:"!";color:var(--warning,#9a6700)}
+.mp-go li.block::before{content:"\2717";color:var(--danger,#c0392b)}
+.mp-go li.info::before{content:"\2022";color:var(--muted,#667085)}
+.activity-strip{display:flex;flex-wrap:wrap;align-items:center;gap:calc(6*var(--sp));padding:calc(4*var(--sp)) calc(10*var(--sp));margin:0 0 calc(6*var(--sp));border:1px solid var(--line);border-radius:8px;background:var(--panel);font-size:max(10.5px,calc(12.5*var(--fz)))}
+.activity-strip .act-title{font-weight:600;margin-right:calc(4*var(--sp))}
+.activity-strip button{border:1px solid var(--line);background:transparent;color:inherit;border-radius:999px;padding:calc(2*var(--sp)) calc(9*var(--sp));font:inherit;cursor:pointer}
+.activity-strip button:hover,.activity-strip button:focus-visible{border-color:var(--accent)}
+.activity-strip button.bad{border-color:var(--danger,#c0392b);color:var(--danger,#c0392b);font-weight:600}
+.activity-strip .act-open{margin-left:auto}
+/* Compact tool list: each card shows its name, one line and its status; the
+   selected card adds where it runs. Works with, tags and Pick this when are
+   in the tool's own About this tool. */
+.tool-nav .tool-item .tool-works,.tool-nav .tool-item .tool-tags{display:none}.tool-nav .tool-item:not(.active) .tool-runs{display:none}
+.tool-nav .tool-desc{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.tool-nav .tool-item.active .tool-desc{display:block}
+.tool-about{margin-top:calc(4*var(--sp));font-size:max(10.5px,calc(12*var(--fz)))}.tool-about>summary{cursor:pointer;color:#1f4f9d;font-weight:600;width:max-content;max-width:100%}.tool-about[open]>summary{margin-bottom:calc(3*var(--sp))}.tool-about .tool-pane-works{margin-top:0}
+/* An empty screen says what it is for and offers the next step. */
+.err-help{margin:calc(4*var(--sp)) 0 2px;padding:calc(6*var(--sp)) calc(9*var(--sp));border-left:3px solid #c0392b;background:#fff6f5;border-radius:0 6px 6px 0;font-size:max(10.5px,calc(12*var(--fz)));color:#3b2420;line-height:1.4}.err-help strong{color:#8f1d14}.err-help .err-fix{display:block;margin-top:calc(5*var(--sp));min-height:0;padding:calc(3*var(--sp)) calc(10*var(--sp))}
+.mp-err.explained,.xfer-error.explained,.as-reason.explained{font-size:max(10.5px,calc(11*var(--fz)));color:#6b4a46}
+.vm-track{display:flex;flex-wrap:wrap;align-items:center;gap:2px;margin:2px 0 calc(4*var(--sp))}.vm-track-step{position:relative;display:inline-block;padding:1px calc(7*var(--sp)) 1px calc(9*var(--sp));font-size:10.5px;line-height:1.5;background:#eef1f5;color:#7a889b;clip-path:polygon(0 0,calc(100% - 5px) 0,100% 50%,calc(100% - 5px) 100%,0 100%,5px 50%)}.vm-track-step:first-child{clip-path:polygon(0 0,calc(100% - 5px) 0,100% 50%,calc(100% - 5px) 100%,0 100%);padding-left:calc(7*var(--sp))}
+.vm-track-step.done{background:#dcefe3;color:#1d6b43}.vm-track-step.current{background:#2563eb;color:#fff;font-weight:600}.vm-track-step.failed{background:#c0392b;color:#fff;font-weight:600}.vm-track-step.skip{background:#f6f7f9;color:#9aa6b5;text-decoration:line-through}.vm-track-next{margin-left:calc(6*var(--sp));font-size:max(10.5px,calc(11.5*var(--fz)));color:#334156}
+.vm-track+.mp-chip{display:none}.mp-table td:nth-child(2) strong,.mp-table td:nth-child(2){white-space:nowrap}
+.rp-empty-top{margin-bottom:calc(12*var(--sp))}.empty-state{display:flex;flex-direction:column;gap:calc(6*var(--sp));padding:calc(14*var(--sp)) calc(16*var(--sp));border:1px dashed #b9c8dc;border-radius:10px;background:#f8fbff;color:#34465f;font-size:max(10.5px,calc(12.5*var(--fz)))}.empty-state strong{font-size:max(10.5px,calc(14*var(--fz)));color:#1b2942}.empty-state-actions{display:flex;flex-wrap:wrap;gap:calc(8*var(--sp));margin-top:calc(4*var(--sp))}
 .vm-move-intro{display:flex;flex-wrap:wrap;align-items:center;gap:calc(8*var(--sp)) calc(12*var(--sp));margin-bottom:calc(10*var(--sp));padding:calc(9*var(--sp)) calc(12*var(--sp));border:1px solid #c9d6ea;border-radius:8px;background:#f5f8fd;color:#243249;font-size:max(10.5px,calc(12.5*var(--fz)))}.vm-move-intro.hidden{display:none}
 .vm-ctx-move .vm-read-section{display:none}.vm-save-to .vm-field{margin-top:2px}.vm-save-to .path-pick{max-width:720px;margin-top:calc(4*var(--sp))}.vm-save-to .vm-field input{max-width:none;height:calc(34*var(--fz));box-sizing:border-box;border:1px solid #bcc9d9;border-radius:7px;padding:0 calc(10*var(--sp));font:inherit;font-size:max(10.5px,calc(13*var(--fz)))}.vm-save-to .path-pick-button{min-height:calc(34*var(--fz))}.vm-save-to .vm-field input[aria-invalid=true]{border-color:#c0392b}
 /* Wide windows: the two ways to read an inventory sit side by side, so the inventory starts higher. */
@@ -754,7 +810,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
 .gd-step:not(.current){cursor:pointer;padding-top:calc(7*var(--sp));padding-bottom:calc(7*var(--sp))}.gd-step:not(.current) .gd-text,.gd-step:not(.current) .gd-actions,.gd-step:not(.current) .gd-fix,.gd-step:not(.current) .gd-nav{display:none}.gd-step:not(.current) .gd-check{background:none;padding:0}
 .gd-step.current{border-color:#2563eb;box-shadow:0 0 0 2px rgba(37,99,235,.15)}.gd-step.optional:not(.current){opacity:.86}.gd-step.optional:not(.current) .gd-check{display:none}
 .gd-opt{padding:1px calc(8*var(--sp));border-radius:999px;background:#f1f4f8;color:#596b80;font-size:max(10.5px,calc(11*var(--fz)));font-weight:700}
-.gd-fix{display:flex;flex-wrap:wrap;align-items:center;gap:calc(6*var(--sp)) calc(10*var(--sp));padding:calc(8*var(--sp));border:1px dashed #efc2c2;border-radius:8px;background:#fff}.gd-fix input{min-width:200px}
+.gd-fix{display:flex;flex-wrap:wrap;align-items:center;gap:calc(6*var(--sp)) calc(10*var(--sp));padding:calc(8*var(--sp));border:1px dashed #efc2c2;border-radius:8px;background:#fff}.gd-fix input:not([type=checkbox]):not([type=radio]){min-width:200px}
 .gd-nav{display:flex;flex-wrap:wrap;gap:calc(8*var(--sp));justify-content:flex-end;border-top:1px solid #eef2f7;padding-top:calc(8*var(--sp))}
 .gd-optional-toggle{margin:2px 0 0}
 .tool-section-title{margin:calc(10*var(--sp)) calc(4*var(--sp)) 2px;padding-top:calc(8*var(--sp));border-top:1px solid #dbe3ed;font-size:max(10.5px,calc(11*var(--fz)));font-weight:700;letter-spacing:.02em;text-transform:uppercase;color:#596b80}
@@ -763,6 +819,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
 .nw-stepper{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:calc(6*var(--sp))}
 .nw-stepper-button{display:flex;align-items:center;gap:calc(6*var(--sp));padding:calc(5*var(--sp)) calc(11*var(--sp)) calc(5*var(--sp)) calc(6*var(--sp));border:1px solid #cfd8e4;border-radius:999px;background:#fff;color:#334156;font:inherit;font-size:max(10.5px,calc(12.5*var(--fz)));font-weight:650;cursor:pointer}
 .nw-stepper-button:disabled{cursor:default;color:#8494a8;background:#f6f8fb}
+.nw-stepper-words{display:flex;flex-direction:column;align-items:flex-start;line-height:1.2}.nw-stepper-sum{font-size:max(10.5px,calc(11*var(--fz)));color:#1d6b43;font-weight:500;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .nw-stepper-num{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#e8edf4;font-size:max(10.5px,calc(11*var(--fz)))}
 .nw-stepper-item.done .nw-stepper-num{background:#1d6b43;color:#fff}
 .nw-stepper-item.current .nw-stepper-button{border-color:#2563eb;background:#eef4ff;color:#1f4f9d}.nw-stepper-item.current .nw-stepper-num{background:#2563eb;color:#fff}
@@ -774,12 +831,13 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
 .nw-nav .primary-button{margin-left:auto}
 .nw-running{display:flex;flex-wrap:wrap;align-items:center;gap:calc(6*var(--sp)) calc(10*var(--sp));padding:calc(8*var(--sp)) calc(10*var(--sp));border:1px solid #c9d6ea;border-radius:9px;background:#f5f8fd;font-size:max(10.5px,calc(12.5*var(--fz)))}
 .nw-signin{display:flex;flex-direction:column;gap:calc(6*var(--sp));padding:calc(10*var(--sp)) calc(12*var(--sp));border:1px dashed #9db8e6;border-radius:9px;background:#fbfcfe}.nw-signin .migrate-help{margin:0}
-.nw-signin .migrate-row input{min-width:160px;flex:1}
+.nw-signin .migrate-row input:not([type=checkbox]):not([type=radio]){min-width:160px;flex:1}
 .nw-vm-head{display:flex;flex-wrap:wrap;align-items:center;gap:calc(6*var(--sp)) calc(10*var(--sp))}.nw-vm-head input[type=search]{flex:1;min-width:200px}
-.nw-vm-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:calc(4*var(--sp)) calc(10*var(--sp));max-height:52vh;overflow:auto;padding:calc(6*var(--sp));border:1px solid #dbe3ed;border-radius:8px;background:#fff}
-.nw-vm{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:0 calc(8*var(--sp));align-items:center;padding:calc(5*var(--sp)) calc(7*var(--sp));border-radius:6px;font-size:max(10.5px,calc(12.5*var(--fz)));cursor:pointer}
-.nw-vm:hover{background:#f3f6fb}.nw-vm.disabled{cursor:default;opacity:.75}.nw-vm .vm-note,.nw-vm .nw-enc{grid-column:2 / span 2;min-width:0;font-size:max(10.5px,calc(11.5*var(--fz)))}
-.nw-vm strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nw-vm-list{max-height:52vh;overflow:auto;border:1px solid #dbe3ed;border-radius:8px;background:#fff}
+.nw-vm-table{width:100%;border-collapse:collapse;font-size:max(10.5px,calc(12.5*var(--fz)))}.nw-vm-table th{position:sticky;top:0;background:#f5f8fc;z-index:1;text-align:left;padding:calc(4*var(--sp)) calc(8*var(--sp));border-bottom:1px solid #dbe3ed}.nw-vm-table td{padding:calc(4*var(--sp)) calc(8*var(--sp));border-bottom:1px solid #eef2f7;vertical-align:middle}
+.nw-vm-table th:first-child,.nw-vm-table td:first-child{width:24px}.nw-sort{font:inherit;font-weight:700;color:#334156;background:none;border:0;padding:0;cursor:pointer;white-space:nowrap}.nw-sort.on{color:#1f4f9d}
+.nw-vm.chosen{background:#f2f7ff}.nw-vm:hover{background:#f3f6fb}.nw-vm.disabled{opacity:.8}.nw-vm-name strong{white-space:nowrap}.nw-num{white-space:nowrap;text-align:right}.nw-vm-note{min-width:180px;font-size:max(10.5px,calc(11.5*var(--fz)))}
+.nw-vm-off{margin:0;border-top:1px solid #dbe3ed}.nw-vm-off>summary{cursor:pointer;padding:calc(6*var(--sp)) calc(10*var(--sp));color:#52647c;font-size:max(10.5px,calc(12*var(--fz)))}.nw-vm-off th{position:static}
 .nw-net-table select{min-width:200px}.nw-net-table input.nw-vlan{width:80px;max-width:80px}
 .nw-methods{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:calc(8*var(--sp))}
 .nw-method{display:flex;flex-direction:column;gap:calc(5*var(--sp));padding:calc(10*var(--sp)) calc(12*var(--sp));border:1px solid #cfd8e4;border-radius:9px;background:#fff;color:#243249;font:inherit;font-size:max(10.5px,calc(12.5*var(--fz)));text-align:left;cursor:pointer}
@@ -796,10 +854,10 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
 .nw-check-icon{min-width:34px;font-weight:700;font-size:max(10.5px,calc(11*var(--fz)));text-transform:uppercase}
 .nw-status-title{display:flex;flex-wrap:wrap;align-items:baseline;gap:calc(4*var(--sp)) calc(12*var(--sp))}.nw-status-title strong{font-size:max(10.5px,calc(15*var(--fz)))}.nw-status-tools{margin-left:auto;display:flex;flex-wrap:wrap;gap:calc(6*var(--sp)) calc(12*var(--sp));align-items:center}
 .nw-tiles{margin:calc(8*var(--sp)) 0 calc(4*var(--sp))}
-.nw-status-table{table-layout:fixed;width:100%}.nw-status-table td:nth-child(1){width:34px}.nw-status-table td:nth-child(2){width:24%}.nw-status-table td:nth-child(4){width:22%}
+.nw-status-table{table-layout:fixed;width:100%}.nw-status-table td:nth-child(1){width:34px}.nw-status-table td:nth-child(2){width:clamp(140px,15%,260px)}.nw-status-table td:nth-child(4){width:clamp(150px,16%,280px)}
 .nw-wave{margin-top:calc(8*var(--sp))}.nw-wave-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:calc(4*var(--sp)) calc(12*var(--sp));margin-bottom:calc(4*var(--sp))}
-.nw-status-actions{display:flex;flex-wrap:wrap;align-items:center;gap:calc(6*var(--sp)) calc(10*var(--sp));padding-top:calc(8*var(--sp));border-top:1px solid #eef2f7}.nw-status-actions input{min-width:220px}
-@media(max-width:900px){.nw-vm-list{grid-template-columns:1fr}.nw-methods{grid-template-columns:1fr}.nw-summary{grid-template-columns:1fr}}
+.nw-status-actions{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-start;gap:calc(6*var(--sp)) calc(10*var(--sp));padding-top:calc(8*var(--sp));border-top:1px solid #eef2f7}.nw-status-actions>.vm-note{flex:1 0 100%}.nw-status-actions input[type=text]{min-width:220px}.nw-status-actions .cfm-tick{margin-top:0;align-items:center}.nw-status-actions .migrate-inline-status{flex:1 1 220px;margin:0;min-width:0}
+@media(max-width:900px){.nw-methods{grid-template-columns:1fr}.nw-summary{grid-template-columns:1fr}}
 @media(max-width:900px){.gd-choices{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}.gd-choice span{display:none}}
 @media(max-height:720px){.vm-table-wrap{max-height:230px}.vm-bar{padding-top:6px}.vm-counts{margin-top:6px}.vm-count strong{font-size:15px}}
 @media(max-height:720px){.restore-log{max-height:160px;min-height:90px}.restore-facts{margin-top:10px;padding:8px 10px}.restore-components{margin-top:10px}.restore-dialog-body{max-height:calc(100vh - 120px)}}
@@ -814,12 +872,11 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
 @media(max-width:800px){.metric-label{font-size:11px;letter-spacing:0}.brand-subtitle{font-size:11px}}
 @media(min-width:1101px) and (max-width:1439px){.tool-nav{flex-basis:216px;gap:10px}.tool-item{padding:7px 9px}.tool-layout{gap:10px}.sidebar{flex-basis:220px;width:220px;margin-right:12px}}
 @media(max-height:720px){
- .topbar,.topbar-inner{height:46px}.topbar{flex-basis:46px}.brand-subtitle{display:none}.brand-title{font-size:15px}
- .brand-mark,.brand-mark img{width:28px;height:28px}.brand-mark{flex-basis:28px;margin-right:9px}.help-button{height:28px}.help-list{top:33px}
- .hero,.footer{display:none}.page{padding-top:8px;padding-bottom:8px}
+ .help-button{height:28px}.help-list{top:33px}
+ .hero{display:none}.footer{margin-top:4px}.status-note{display:none}.page{padding-top:8px;padding-bottom:6px}
  .app-tabs{margin-bottom:8px}.tab-button{height:34px}.app-notice{margin-bottom:8px;padding:6px 10px}
  .card-header{padding:8px 14px}.card-header .card-subtitle{display:none}.card-body{padding:12px 14px}
- .setup-action-bar{padding:8px 14px}.primary-button{height:36px;box-shadow:none}.secondary-button{min-height:32px}
+ .setup-action-bar{padding:8px 14px}.primary-button{height:34px;box-shadow:none}.secondary-button{min-height:34px}
  .sidebar .card{margin-bottom:8px}.server-panel{padding:10px 14px}.server-label{margin-bottom:6px}.info-row{padding:5px 0}.workflow{padding:3px 0}.workflow-step{padding:7px 12px}.workflow-desc{display:none}
  .status-header{margin-bottom:8px}.status-indicator{box-shadow:none}.current-step{margin-top:8px;padding:5px 10px}
  .metric-row{margin-top:8px}.metric{padding:4px 10px;display:flex;align-items:baseline;justify-content:space-between;gap:8px}.metric-value{font-size:15px;margin:0}
@@ -908,14 +965,8 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
 </head>
 <body>
 <div class="shell">
-  <div class="topbar"><div class="topbar-inner">
-    <div class="brand"><div class="brand-mark" aria-hidden="true"><img src="/app-icon.svg?v=327" alt="" width="42" height="42"></div><div><div class="brand-title">Server Inventory and Migration Manager</div><div class="brand-subtitle">Configuration capture, documentation, and recovery assistance</div></div></div>
-    <div class="top-badges"><div class="badge"><span class="badge-dot"></span>Local interface</div><div class="badge" id="elevationBadge">Checking access</div><div class="badge" id="portableEditionBadge">Portable EXE</div></div>
-    <div class="help-menu" id="helpMenu"><button class="help-button" id="helpMenuButton" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="helpMenuList">Help</button><div class="help-list hidden" id="helpMenuList" role="menu" aria-labelledby="helpMenuButton"><button type="button" role="menuitem" id="helpCheckUpdates">Check for updates…</button><button type="button" role="menuitem" id="helpShortcuts">Keyboard shortcuts</button><button type="button" role="menuitem" id="helpSettings">Settings…</button><button type="button" role="menuitem" id="helpAbout">About</button></div></div>
-  </div></div>
 
   <div class="page">
-    <div class="hero"><div><h1>Your server, documented</h1><p>Choose your scope, capture configuration, and explore a complete local report.</p></div><div class="version-block">Interface <strong>v__APP_VERSION__</strong><br>Collector <strong>v__COLLECTOR_VERSION__</strong><br><button class="link-button shortcuts-link" id="shortcutsButton" type="button" aria-haspopup="dialog">Keyboard shortcuts</button></div></div>
 
     <div class="update-banner hidden" id="updateBanner" role="region" aria-label="Application update">
       <div class="update-copy">
@@ -931,6 +982,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
       <div class="update-progress" id="updateProgress"><div class="update-progress-fill" id="updateProgressFill"></div></div>
     </div>
 
+    <div class="tab-row">
     <div class="app-tabs" role="tablist" aria-label="Application sections">
       <button class="tab-button active" id="tabButtonDiscovery" role="tab" aria-controls="tabDiscovery" aria-selected="true" tabindex="0" type="button" data-tab="discovery">Discovery <span class="tab-badge hidden" id="discoveryTabBadge"></span></button>
       <button class="tab-button" id="tabButtonCollection" role="tab" aria-controls="tabCollection" aria-selected="false" tabindex="-1" type="button" data-tab="collection">Collection <span class="tab-badge" id="collectionTabBadge">Ready</span></button>
@@ -938,7 +990,10 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
       <button class="tab-button" id="tabButtonRestore" role="tab" aria-controls="tabRestore" aria-selected="false" tabindex="-1" type="button" data-tab="restore">Restore <span class="tab-badge" id="restoreTabBadge">Ready</span></button>
       <button class="tab-button" id="tabButtonMigration" role="tab" aria-controls="tabMigration" aria-selected="false" tabindex="-1" type="button" data-tab="migration">Migration and replication <span class="tab-badge" id="migrationTabBadge">Ready</span></button>
     </div>
+    <div class="help-menu" id="helpMenu"><button class="help-button" id="helpMenuButton" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="helpMenuList">Help</button><div class="help-list hidden" id="helpMenuList" role="menu" aria-labelledby="helpMenuButton"><button type="button" role="menuitem" id="helpCheckUpdates">Check for updates…</button><button type="button" role="menuitem" id="helpShortcuts">Keyboard shortcuts</button><button type="button" role="menuitem" id="helpSettings">Settings…</button><button type="button" role="menuitem" id="helpAbout">About</button></div></div>
+    </div>
 
+    <div class="activity-strip hidden" id="activityStrip" role="status" aria-label="What is moving now"></div>
     <div class="app-notice hidden" id="appNotice" role="status"><span id="appNoticeText"></span><button type="button" id="dismissNotice" aria-label="Dismiss message">Dismiss</button></div>
 
     <section class="tab-panel active" id="tabDiscovery" role="tabpanel" aria-labelledby="tabButtonDiscovery">
@@ -1582,14 +1637,15 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
       <div class="restore-wrap"><div class="card">
         <div class="card-header"><div><div class="card-title">Migration plans</div><div class="card-subtitle">Move a group of VMware or Hyper-V VMs to this Hyper-V host together. A plan copies every VM while it runs, keeps the copies in sync on a schedule, lets you test any VM on an isolated copy, and cuts VMs over now or at a time you choose. Nothing is installed in the VMs.</div></div></div>
         <div class="card-body mp-body">
-          <div class="mp-when migrate-help"><strong>When to use this.</strong><ul><li><strong>Migration plans</strong>: many VMs from one vCenter, ESXi or Hyper-V host to this Hyper-V host or its cluster, kept in sync for days and cut over in waves.</li><li><strong>Move VMs</strong>: one VM by hand, or a remote Hyper-V host, HyperCore, Nutanix, Proxmox or a physical server.</li><li><strong>Replicate servers</strong>: physical servers, Linux, or VMs on any other hypervisor (an agent on each server).</li></ul>Plans run while this application is open on this Hyper-V host, signed in to vCenter or ESXi in Discovery. Leave it open for scheduled copies and cutovers.</div>
           <div class="restore-alert warning hidden" id="mpBlocked" role="status"></div>
           <div class="restore-alert danger hidden" id="mpError" role="alert"></div>
+          <p class="vm-note mp-open-note">Plans run while this application is open on this computer, signed in to vCenter or ESXi in Discovery. Leave it open for scheduled copies and cutovers.</p>
           <div class="mp-plans" id="mpPlanList" aria-label="Plans"></div>
           <section class="migrate-card hidden" id="mpNew" aria-labelledby="mpNewTitle">
             <h4 id="mpNewTitle">New migration plan</h4>
             <p class="migrate-help" id="mpNewHelp">Choose the VMs from the inventory read in Discovery. Waves come from Plan and runbook; the network map there names the Hyper-V switch for each network.</p>
             <label class="vm-field">Plan name<input id="mpName" type="text" maxlength="100" spellcheck="false" autocomplete="off" placeholder="Wave 1 - application servers"></label>
+            <div id="mpProfileHost"></div>
             <div id="mpPickBox"><div class="migrate-row"><input id="mpPickFilter" type="search" placeholder="Filter VMs" aria-label="Filter VMs" spellcheck="false" autocomplete="off"><button class="secondary-button" id="mpPickAll" type="button">Select the ready VMs shown</button><select id="mpPickWave" aria-label="Wave or stage from Plan and runbook"></select><button class="secondary-button" id="mpPickWaveGo" type="button">Select this wave</button><span class="vm-note" id="mpPickCount"></span></div>
               <div class="mp-picker" id="mpPicker" aria-label="VMs"></div><div class="vm-note selectable" id="mpPickNames"></div></div>
             <h5 class="mp-heading">Copying</h5>
@@ -1638,6 +1694,11 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
             <div class="mp-filter-bar hidden" id="mpFilterBar"></div>
             <table class="vm-table mp-table"><thead><tr><th><input type="checkbox" id="mpAllRows" aria-label="Select every VM shown"></th><th>VM</th><th>Wave</th><th>State</th><th>Last sync</th><th>Next</th><th>Cutover</th></tr></thead><tbody id="mpRows"></tbody></table>
             <div class="mp-actions"><span class="vm-note" id="mpSelCount">No VMs selected.</span><button class="secondary-button" id="mpSyncSel" type="button">Sync selected now</button><button class="secondary-button" id="mpRemoveSel" type="button">Take out of the plan</button></div>
+            <section class="migrate-card hidden" id="mpGoNoGo" aria-labelledby="mpGoTitle">
+              <h4 id="mpGoTitle">Ready to cut over? Wave by wave</h4>
+              <p class="migrate-help">Each wave still to cut over is checked: every VM copied and in sync, nothing failed or under test, tested once, and no SQL Server or domain controller problem found by the optional checks. Cut over wave selects that wave's VMs for the cutover below.</p>
+              <div class="mp-go-list" id="mpGoRows"></div>
+            </section>
             <section class="migrate-card" aria-labelledby="mpCutTitle">
               <h4 id="mpCutTitle">Cut over the selected VMs</h4>
               <p class="migrate-help">Each VM's guest is shut down through VMware Tools (or the Hyper-V shutdown service), its last changes are copied and verified, and the Hyper-V VM is created on the copies. VMs cut over in wave order, each on its own: one failing never stops the others, and a VM whose final copy fails is never created. Test first: a test VM runs on differencing disks with its network disconnected, so production is untouched, and syncs for that VM wait until you end the test.</p>
@@ -1766,6 +1827,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
         <div class="card-body rp-body">
           <div class="rp-summary" id="rpSummary" aria-label="Replication summary"></div>
           <div class="restore-alert danger hidden" id="rpError"></div>
+          <div class="hidden rp-empty-top" id="rpEmptyTop"></div>
           <div class="rp-grid">
             <section class="migrate-card" aria-labelledby="rpPushTitle">
               <h4 id="rpPushTitle">Install the agent on the servers you are copying</h4>
@@ -1890,7 +1952,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
       </div></div>
     </section>
 
-    <div class="footer">All collection and report viewing remains local to this computer. No server inventory is uploaded by the application.</div>
+    <div class="footer status-bar" role="contentinfo"><span class="brand status-brand"><span class="brand-mark" aria-hidden="true"><img src="/app-icon.svg?v=327" alt="" width="16" height="16"></span><span class="brand-title">Server Inventory and Migration Manager</span></span><span class="status-item" id="statusConnection" title="This window is connected to the application running on this computer. If the application closes, this turns red."><span class="badge-dot"></span>Connected</span><span class="status-item" id="elevationBadge" title="Whether the application runs with administrator rights on this computer">Checking access</span><span class="status-versions">Interface <strong>v__APP_VERSION__</strong> · Collector <strong>v__COLLECTOR_VERSION__</strong></span><span class="status-note">Everything stays on this computer; no server inventory is uploaded.</span><button class="link-button shortcuts-link" id="shortcutsButton" type="button" aria-haspopup="dialog">Keyboard shortcuts</button></div>
   </div>
 </div>
 <dialog class="shortcuts-dialog" id="shortcutsDialog" aria-labelledby="shortcutsTitle">
@@ -2138,7 +2200,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     byId('updateTitle').textContent='Update action unavailable';
     byId('updateStatus').textContent=message;
   }
-  function showConnectionClosed(){
+  function showConnectionClosed(){var sc=byId('statusConnection');if(sc){sc.classList.add('bad');sc.lastChild.textContent='Disconnected';sc.title='The application on this computer stopped answering. Start it again to reconnect.';}
     quiesceInterface('disconnected');
     notice('This application window is no longer connected. Close it and use the restarted application window.',true);
     byId('updateCheckButton').disabled=true;
@@ -2233,11 +2295,96 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     var items=document.querySelectorAll('.tool-item[data-tool]');
     for(var i=0;i<items.length;i++){var info=toolWorksOf(items[i].getAttribute('data-tool'));if(!info){continue;}var runs=items[i].querySelector('.tool-runs');items[i].insertBefore(toolWorksLine(info),runs);items[i].insertBefore(modeTags(info.tags),runs);}
   })();
+  // The tool's header keeps Works with, Pick this when, its tags and where it
+  // runs folded under About this tool, so the tool itself starts higher.
   function renderToolWorks(id){
     var t=tools[id],pane=t&&byId(t.pane),head=pane&&pane.querySelector('.card-header>div');if(!head){return;}
-    var box=head.querySelector('.tool-pane-works');if(!box){box=el('div','tool-pane-works');box.id='toolWorks-'+t.pane;head.appendChild(box);}
-    box.textContent='';var info=toolWorksOf(id);box.classList.toggle('hidden',!info);if(!info){return;}
-    box.appendChild(toolWorksLine(info));if(info.when){box.appendChild(toolWhenLine(info.when));}box.appendChild(modeTags(info.tags));
+    var about=head.querySelector('.tool-about');if(!about){about=el('details','tool-about');about.id='toolAbout-'+t.pane;about.appendChild(el('summary','','About this tool: what it works with, when to pick it and where it runs'));head.appendChild(about);}
+    var box=about.querySelector('.tool-pane-works');if(!box){box=el('div','tool-pane-works');box.id='toolWorks-'+t.pane;about.appendChild(box);}
+    box.textContent='';var info=toolWorksOf(id),item=document.querySelector('.tool-item[data-tool="'+id+'"] .tool-runs');
+    about.classList.toggle('hidden',!info&&!item);
+    if(info){box.appendChild(toolWorksLine(info));if(info.when){box.appendChild(toolWhenLine(info.when));}box.appendChild(modeTags(info.tags));}
+    if(item){var runs=el('span','tool-works');runs.appendChild(el('b','','Runs on'));runs.appendChild(document.createTextNode(' '+item.lastChild.textContent.replace(/^\s+/,'')));box.appendChild(runs);}
+  }
+  // An empty screen: what goes here, and buttons for the next step.
+  function emptyState(title,text,actions){
+    var box=el('div','empty-state');box.appendChild(el('strong','',title));box.appendChild(el('span','',text));
+    var row=el('div','empty-state-actions');(actions||[]).forEach(function(a){var b=el('button',a.primary?'primary-button':'secondary-button',a.label);b.type='button';if(a.id){b.id=a.id;}b.addEventListener('click',a.run);row.appendChild(b);});
+    if(row.childNodes.length){box.appendChild(row);}return box;
+  }
+  // Opens New migration at its first screen with this kind of source chosen.
+  function nwStartWith(source){showTool('wizard');if(source&&nw.source!==source){nw.source=source;nw.target='';nw.method='';nw.filled='';nw.reached=0;if(source==='servers'){nwSrvLoad();}}nw.step=0;renderNw();}
+  // Opens New migration with these VMs ticked (those that can move), so a
+  // migration can start from what Discovery shows.
+  function nwStartWithVMs(ids){
+    nw.source='vms';nw.target='';nw.method='';nw.filled='';nw.reached=0;nw.step=0;nw.picks={};
+    var used=nwInPlans();vmGroupPick(ids).forEach(function(id){var vm=vmFind(id);if(vm&&!nwPickWhy(vm,used)){nw.picks[id]=true;}});
+    showTool('wizard');renderNw();
+  }
+  // Known failures in plain words. Each names what happened, what to do,
+  // and the fix a button can do where the screen offers it (ctx.fixes).
+  // The original message stays under it, so nothing is hidden.
+  var errorCatalog=[
+    {re:/Tick Eject CD\/DVD and floppy images|names an image file/i,title:'A missing CD/DVD image blocked the copy',text:'vSphere could not open an ISO the VM still names, so the snapshot could not be read.',fix:'eject',fixText:'Eject the CD/DVD images and copy again'},
+    {re:/snapshot chain|does not end in the disk the VM ran on|still run on snapshot deltas/i,title:'The VM still runs on snapshot files',text:'Its disks need consolidating before they can be copied.',fix:'consolidate',fixText:'Consolidate the disks'},
+    {re:/snapshot\(s\) not made by this application/i,title:'The VM has its own snapshots',text:'Copies need the VM without snapshots, so the copy is its current state.',fix:'snapshots',fixText:'Remove the snapshots'},
+    {re:/is encrypted; decrypt|encrypted disk/i,title:'The VM\'s disks are encrypted',text:'vSphere encryption must be removed before the disks can be read.',fix:'decrypt',fixText:'Decrypt in New migration'},
+    {re:/answered 5\d\d|refuses \/folder|could not open .*-flat\.vmdk/i,title:'ESXi is holding the disk open',text:'The datastore refused to read a disk the running VM has open. The next round reads its snapshot through vSphere\'s export instead.',fix:'retry',fixText:'Copy this VM again now'},
+    {re:/datastore .*could not be reached|could not reach .* for the export|did not answer within|timeout|timed out|connection (was )?(reset|refused)|no such host/i,title:'A server did not answer',text:'The network or the server was not reachable for a moment. Copies resume from where they stopped.',fix:'retry',fixText:'Copy this VM again now'},
+    {re:/not logged in|session is not authenticated|password .*(missing|needed)|sign in again|NotAuthenticated/i,title:'The vCenter sign-in has ended',text:'Sign in again in Discovery; the plan carries on by itself.',fix:'signin',fixText:'Sign in to vCenter'},
+    {re:/access is denied|access denied|permission/i,title:'The account was refused',text:'The account used here does not have the rights this step needs.',fix:'',fixText:''},
+    {re:/not enough free space/i,title:'Not enough free space',text:'Choose a larger volume for the copies, or free space on this one, then copy again.',fix:'',fixText:''},
+    {re:/no virtual switch named/i,title:'A network goes to a switch the host does not have',text:'Fix the network map so every network goes to a switch on the Hyper-V host.',fix:'netmap',fixText:'Open the network map'},
+    {re:/is now called|more disks .* than the inventory|Read the (inventory|Hyper-V host) again|no longer uses/i,title:'The VM changed since it was read',text:'Read vCenter or the Hyper-V host again in Discovery so the plan has its current disks and name.',fix:'readagain',fixText:'Read the inventory again'},
+    {re:/did not shut down within|could not be shut down|shutdown request failed/i,title:'The guest did not shut down',text:'Nothing was cut over and the old VM was not powered off by force. Check it from its console (VMware Tools must be running), then cut over again.',fix:'',fixText:''},
+    {re:/certificate|thumbprint/i,title:'A certificate did not match',text:'The server presented a certificate that is not the one trusted for it, so nothing was sent.',fix:'',fixText:''},
+    {re:/verification failed|does not match the source/i,title:'The copy did not match the source',text:'A verified read found a difference. The next copy rewrites the chunks that differ.',fix:'retry',fixText:'Copy this VM again now'},
+    {re:/receiver/i,title:'The receiver did not take the copy',text:'Check that the receiver is running on the new host and reachable from the source.',fix:'',fixText:''}
+  ];
+  function errorExplain(text){text=String(text||'');for(var i=0;i<errorCatalog.length;i++){if(errorCatalog[i].re.test(text)){return errorCatalog[i];}}return null;}
+  function errorHelp(text,ctx){
+    var e=errorExplain(text);if(!e){return null;}ctx=ctx||{};
+    var box=el('div','err-help');box.setAttribute('data-err-kind',e.fix||'info');box.appendChild(el('strong','',e.title+'.'));box.appendChild(document.createTextNode(' '+e.text));
+    var run=e.fix&&ctx.fixes&&ctx.fixes[e.fix];if(run){var b=el('button','secondary-button err-fix',e.fixText);b.type='button';b.setAttribute('data-err-fix',e.fix);b.addEventListener('click',function(ev){ev.stopPropagation();run();});box.appendChild(b);}
+    return box;
+  }
+  // The usual way out for a VM a plan could not copy, used by plan rows.
+  function vmErrorFixes(vmId,retry){return {retry:retry,consolidate:function(){nwOpenVmMove(vmId);},snapshots:function(){nwOpenVmMove(vmId);},decrypt:function(){nwStartWithVMs([vmId]);},signin:function(){showTool('environment');},readagain:function(){showTool('environment');},netmap:function(){showTool('plan');}};}
+  function nwOpenVmMove(id){showTool('movevms');vmObjTab['vm-move']='move';vmOpenDrawer({kind:'vm',id:id},{focus:true,reveal:true});}
+  // One track of stages for a VM or server, the same in every list:
+  // done, current (with a pulse), failed, or still to come. next names the
+  // next thing to do, shown beside it.
+  var trackStages=['Copy','In sync','Tested','Cut over','Fixed up'];
+  function statusTrack(states,next){
+    var box=el('div','vm-track');box.setAttribute('role','list');box.setAttribute('aria-label','Progress');
+    trackStages.forEach(function(name,i){var st=states[i]||'todo',s=el('span','vm-track-step '+st,name);s.setAttribute('role','listitem');s.title=name+': '+({done:'done',current:'now',failed:'failed here',todo:'not yet',skip:'optional, not done'}[st]||st);box.appendChild(s);});
+    if(next){box.appendChild(el('span','vm-track-next',next));}
+    return box;
+  }
+  function fixupStateOf(name){var f=vmArr((vmwareState()||{}).fixups).filter(function(x){return String(x.vm).toLowerCase()===String(name).toLowerCase();})[0];return f?f.state:'';}
+  // A migration plan VM's track and next step.
+  function planTrack(v,plan){
+    var fx=fixupStateOf(v.name),done=v.state==='done',failed=v.state==='failed',fixOn=!plan||!plan.settings||plan.settings.fixUp!==false;
+    var st=[v.seeded?'done':(failed?'failed':(v.state==='copying'||v.live?'current':'todo')),
+      done||v.state==='cutting'?'done':(v.seeded?(failed?'failed':'current'):'todo'),
+      v.testedAt?'done':(v.state==='testing'?'current':(done?'skip':'todo')),
+      done?'done':(v.state==='cutting'?'current':'todo'),
+      !done?'todo':({done:'done',warning:'done',running:'current',waiting:'current',failed:'failed',skipped:'skip'}[fx]||(fixOn?'current':'skip'))];
+    var next='';
+    if(failed){next=v.seeded?'Next: it copies again by itself; fix the cause if it keeps failing.':'Next: it retries by itself; fix the cause if it keeps failing.';}
+    else if(v.state==='waiting'){next=mpTime(v.nextSync)?'Next: first copy '+mpTime(v.nextSync)+'.':'Next: its first copy.';}
+    else if(v.state==='copying'){next=v.seeded?'Syncing the changes.':'First copy running.';}
+    else if(v.state==='ready'){next=mpTime(v.cutoverAt)?'Next: cutover '+mpTime(v.cutoverAt)+'.':(v.testedAt?'Next: cut over when you are ready.':'Next: test it, then cut over.');}
+    else if(v.state==='testing'){next='Next: check the test VM, then End test.';}
+    else if(v.state==='cutting'){next='Cutting over now.';}
+    else if(done){next=fx==='failed'?'Next: fix up failed; use Fix up now below.':(fx==='running'||fx==='waiting'?'Fixing up the new VM.':'Done.');}
+    return statusTrack(st,next);
+  }
+  // The same track for a row of All jobs and servers.
+  function rowTrack(r){
+    var m={seeding:['current'],behind:['done','current'],insync:['done','current'],paused:[r.lagSeconds>=0?'done':'current'],testing:['done','done','current'],cuttingover:['done','done',r.tested?'done':'skip','current'],cutover:['done','done',r.tested?'done':'skip','done',fixupStateOf(r.name)==='done'?'done':'todo'],failed:[r.lagSeconds>=0?'done':'failed',r.lagSeconds>=0?'failed':'todo']}[r.state];
+    if(!m){return null;}m=m.slice();if(r.tested&&m.length>=2&&m[2]!=='current'&&m[2]!=='done'){m[2]='done';}
+    return statusTrack(m,'');
   }
   var activeTool={discovery:'server',migration:'wizard'},activeTop='discovery';
   // Old tab names still work: they open the tool that holds that content.
@@ -2245,14 +2392,14 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   function switchTab(name) {
     if(legacyTabs.hasOwnProperty(name)){showTool(name==='vmware'?(tools[activeTool.migration].pane==='tabVmware'&&activeTop==='migration'?activeTool.migration:'environment'):legacyTabs[name]);return;}
     if(tools[name]){showTool(name);return;}
-    activeTop=name;
+    activeTop=name;document.body.classList.toggle('on-migration',name==='migration');
     for (var i=0;i<topTabs.length;i++) {
       var n=topTabs[i];
       byId('tab'+n.charAt(0).toUpperCase()+n.slice(1)).className = 'tab-panel' + (n===name ? ' active' : '');
       var button=byId('tabButton'+n.charAt(0).toUpperCase()+n.slice(1));
       button.className='tab-button'+(n===name?' active':'');button.setAttribute('aria-selected',n===name?'true':'false');button.tabIndex=n===name?0:-1;
     }
-    if(name==='discovery'||name==='migration'){showToolPane(activeTool[name]);}else{activeTab=name;}
+    if(name==='discovery'||name==='migration'){showToolPane(activeTool[name]);}else{activeTab=name;renderActivity();}
   }
   function showTool(id){
     if(id==='guide'){id='wizard';}// Guided migration is now part of New migration.
@@ -2271,6 +2418,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     activeTab=t.legacy;
     if(t.view){setVmView(t.view,id);}
     renderToolWorks(id);
+    renderActivity();
     if(id==='plans'){mpOpen();}
     if(id==='servers'){asOpen();}
     if(id==='rollback'){rbOpen();}
@@ -3626,7 +3774,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
         if(saved){applySavedOptions(saved);byId('preferencesStatus').textContent='Saved choices restored';}
       }
     }
-    byId('serverName').textContent=state.computerName||'This server'; byId('adminState').textContent=state.isAdministrator?'Administrator':'Not elevated';byId('elevationBadge').textContent=state.isAdministrator?'Administrator':'Not elevated'; byId('powerShellState').textContent=state.powerShellVersion||'Available';
+    byId('serverName').textContent=state.computerName||'This server'; byId('adminState').textContent=state.isAdministrator?'Administrator':'Not elevated';byId('elevationBadge').textContent=state.isAdministrator?'Administrator':'Not running as administrator';byId('elevationBadge').classList.toggle('warn',!state.isAdministrator);byId('elevationBadge').title=state.isAdministrator?'The application runs with administrator rights on this computer.':'Some collections, restores and migrations need administrator rights. Start the application with Run as administrator.'; byId('powerShellState').textContent=state.powerShellVersion||'Available';
     setConfigDisabled(!!state.running); updateWorkflow(state);
     byId('statusTitle').textContent=state.phase||'Ready'; byId('statusMessage').textContent=state.message||''; byId('currentStep').textContent=state.currentStep||'No active collector.';
     byId('collectionProgress').setAttribute('aria-valuenow',String(state.progress||0));
@@ -5401,13 +5549,18 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
       vmConsoleButtons(box,vm);
       if(vmToolId==='environment'){
         if(vmObjCurrentTab!=='readiness'){box.appendChild(vmActionButton('Check readiness','Everything to fix before moving '+vm.name+' to '+vmTargetName(vmTarget()),function(){vmShowTab('readiness');}));}
-        if(movable){var go=vmActionButton('Move this VM','Prepare, copy and cut over '+vm.name+' in Migration and replication, Move VMs',function(){showTool('movevms');vmObjTab['vm-move']='move';renderVmDrawer(true,false);});go.id='vmMoveLinkButton';go.className='primary-button';box.appendChild(go);}
+        if(movable){var nwgo=vmActionButton('Migrate in New migration','Open New migration with '+vm.name+' ticked',function(){nwStartWithVMs([vm.id]);});nwgo.id='vmNwVmButton';box.appendChild(nwgo);}
+      if(movable){var go=vmActionButton('Move this VM','Prepare, copy and cut over '+vm.name+' in Migration and replication, Move VMs',function(){showTool('movevms');vmObjTab['vm-move']='move';renderVmDrawer(true,false);});go.id='vmMoveLinkButton';go.className='primary-button';box.appendChild(go);}
       }else if(vmToolId==='movevms'&&movable&&vm.source!=='hyperv'){
         box.appendChild(vmActionButton('Prepare on VMware','Snapshots, virtual TPM and encryption for this VM',function(){vmGoPrepare(vm);}));
       }
       if(vmPlan&&vmArr(vmPlan.vms).some(function(p){return p.id===vm.id;})){box.appendChild(vmActionButton('Set its wave','Open this VM in Plan and runbook',function(){vmOpenPlanRow(vm);}));}
       if(v.reportPath){box.appendChild(vmActionButton('Readiness report','Open the readiness report for every VM',function(){openKind('vmwarereport');}));}
       return;
+    }
+    if(vmToolId==='environment'&&/^(root|datacenter|cluster|host|folder|datastore|network)$/.test(ref.kind)){
+      var usedNow=nwInPlans(),scoped=vmGroupPick(vmArr((vmScope(ref,data)||{}).vms).map(function(x){return x.id;})).filter(function(id){return !nwPickWhy(vmFind(id),usedNow);});
+      if(scoped.length){var many=vmActionButton('Migrate '+vmPlural(scoped.length,'VM')+'…','Open New migration with the VMs here ticked (system VMs and VMs already moved are left out)',function(){nwStartWithVMs(scoped);});many.id='vmNwScopeButton';many.className='primary-button';box.appendChild(many);}
     }
     if(ref.kind==='root'){
       if(v.reportPath){box.appendChild(vmActionButton('Readiness report','Interactive HTML: readiness of every VM for each target, issues with their fixes, and the whole inventory',function(){openKind('vmwarereport');}));}
@@ -6236,6 +6389,8 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     var v=vmwareState()||{};
     if(r.status==='skip'||vm.template||vmTarget()!=='hyperv'){return;}
     var section=el('div','vm-prepare');section.id='vmMove';section.appendChild(el('strong','','Move this VM to Hyper-V'));
+    if(!v.move||v.move.vm!==vm.name){var tip=el('div','vm-move-plan migrate-help');tip.appendChild(el('strong','','Usually: '));tip.appendChild(document.createTextNode('move it with New migration. It makes a migration plan of this one VM that keeps the copy in sync on a schedule, lets you test it isolated and cuts over when you choose, here or on another Hyper-V host. Use the steps below only to copy and cut over by hand, one step at a time. '));
+      var go=el('button','secondary-button','Move it with New migration');go.type='button';go.id='vmMovePlanButton';go.addEventListener('click',function(){nwStartWithVMs([vm.id]);});tip.appendChild(go);section.appendChild(tip);}
     var last=v.move&&v.move.vm===vm.name?v.move:null,hv=vm.source==='hyperv';
     if(last){var ul=el('ul','vm-findings');
       if(last&&last.round){vmArr(last.round.disks).forEach(function(d){ul.appendChild(el('li','good',d.label+': '+(vmCopyModeLabels[d.mode]||d.mode)+', '+formatBytesShort(d.bytesWritten)+' written'+(d.verified?', verified':'')+'.'));});}
@@ -6859,6 +7014,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     var by=document.createElement('select');by.setAttribute('aria-label','Select VMs by host, cluster, folder, wave, readiness or power');by.setAttribute('data-vm-pickby',where);vmPickByOptions(by);
     by.addEventListener('change',function(){if(by.value){vmPickBy(by.value);}});row.appendChild(by);
     if(where==='list'){var all=el('button','secondary-button','Select every VM that matches');all.type='button';all.setAttribute('data-bulk','all');all.disabled=!vmTableMatches.length;all.addEventListener('click',function(){vmSetPicked(vmGroupPick(vmTableMatches),true);});row.appendChild(all);}
+    if(where==='list'){var mig=el('button',n?'primary-button':'secondary-button',n?'Migrate '+vmPlural(n,'VM')+'…':'Migrate VMs…');mig.type='button';mig.setAttribute('data-bulk','migrate');mig.disabled=!n;mig.title=n?'Open New migration with these VMs ticked':'Tick the VMs to migrate';mig.addEventListener('click',function(){nwStartWithVMs(vmPickedIds());});row.appendChild(mig);}
     if(where==='list'){var pfb=el('button','secondary-button','SQL and DC checks…');pfb.type='button';pfb.setAttribute('data-bulk','preflight');pfb.title=n?'Check the selected VMs for domain controller and SQL Server health, read only':'Select the VMs named like domain controllers or SQL Servers and check them, read only';
       pfb.addEventListener('click',function(){if(!n){var likely=vmArr(vmInventory.vms).filter(function(vm){return pfLikely(vm);}).map(function(vm){return vm.id;});if(!likely.length){vmBulkMsg.list='No VM is named like a domain controller or SQL Server. Tick the VMs to check, then press SQL and DC checks again.';vmBulkMsg.listError=false;renderVmBulk();return;}vmBulkOpen='preflight';vmSetPicked(likely,true);return;}vmBulkOpen=vmBulkOpen==='preflight'?'':'preflight';renderVmBulk();});row.appendChild(pfb);}
     if(n){var clear=el('button','secondary-button','Clear selection');clear.type='button';clear.setAttribute('data-bulk','clear');clear.addEventListener('click',function(){vmPicked={};vmBulkOpen='';vmPickChanged();});row.appendChild(clear);}
@@ -7614,10 +7770,12 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     var box=byId('rpAgents');if(box.scrollIntoView){box.scrollIntoView({block:'start'});}
   }
   function renderRp(){
-    var s=rpState||{},sum=s.summary||{},box=byId('rpSummary');box.textContent='';
+    var s=rpState||{},sum=s.summary||{},box=byId('rpSummary');box.textContent='';box.classList.toggle('hidden',!sum.agents&&!sum.jobs);
     [['agents','Servers',sum.agents,'','Show every server and its jobs'],['unreachable','Not answering',sum.unreachable,sum.unreachable?'warning':'','Show servers whose agent does not answer'],['jobs','Jobs',sum.jobs,'','Show every job'],['healthy','Up to date',sum.healthy,sum.healthy?'good':'','Show jobs whose initial copy is complete and within their RPO: ready for a test failover or cutover'],['behind','Behind',sum.behind,sum.behind?'warning':'','Show jobs behind their RPO, with the reason'],['failing','Failing',sum.failing,sum.failing?'danger':'','Show failing jobs, with the error'],['paused','Paused',sum.paused,'','Show paused jobs'],['cutover','Cut over',sum.cutOver,'','Show jobs that are cut over'],['alerts','Alerts',sum.alerts,sum.alerts?'danger':'','Go to the open alerts']].forEach(function(item){var c=el('button','rp-stat'+(item[3]?' '+item[3]:''));c.type='button';c.setAttribute('data-rp-filter',item[0]);c.title=item[4];c.setAttribute('aria-pressed',rpFilter===item[0]?'true':'false');c.appendChild(el('strong','',formatCount(item[2]||0)));c.appendChild(el('span','',item[1]));box.appendChild(c);});
     byId('rpError').textContent=s.error?'The console\'s records could not be opened: '+s.error:'';byId('rpError').classList.toggle('hidden',!s.error);
     byId('replicationTabBadge').textContent=s.pushing?'Installing':(sum.alerts?vmPlural(sum.alerts,'alert'):(sum.jobs?'Replicating':'Ready'));if(latestState){renderToolBadges(latestState);markIdleBadges();}
+    var top=byId('rpEmptyTop'),noServers=!rpAgents().length;top.classList.toggle('hidden',!noServers);
+    if(noServers&&!top.childNodes.length){top.appendChild(emptyState('No servers yet','Replicate servers keeps whole servers, physical or virtual, copied to their new home until you cut over. New migration installs the agent, starts the jobs and shows their status for you; or install the agents below and create each job yourself.',[{label:'Start in New migration',primary:true,id:'rpEmptyWizard',run:function(){nwStartWith('servers');}},{label:'Install agents here',run:function(){byId('rpHosts').focus();byId('rpHosts').scrollIntoView({block:'center'});}}]));}
     renderRpPush(s);renderRpAlerts();renderRpAgents();
     if(rpDetail){renderRpDetails();}
     syncRpButtons();
@@ -8120,7 +8278,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   function asSelected(){return asRows().filter(function(r){return asChosen[r.key];});}
   function asApplies(action,list){return (list||asSelected()).filter(function(r){return vmArr(r.actions).indexOf(action)>=0;});}
   function asBulkRunning(){return !!(asState&&asState.bulk&&asState.bulk.running);}
-  function asLoad(){asLastPoll=Date.now();request('GET','/api/servers',null,function(err,data){if(err){return;}asState=data||{};renderAs();});if(asPushWatch){rpRefresh();}}
+  function asLoad(){asLastPoll=Date.now();request('GET','/api/servers',null,function(err,data){if(err){return;}asState=data||{};renderAs();renderActivity();});if(asPushWatch){rpRefresh();}}
   function asOpen(){asLoad();if(!rpState){rpRefresh();}if(!mpState){mpLoad();}}
   function asPost(body,done){
     if(asBusy){return;}asBusy=true;syncAs();vmSetStatus('asStatus','',false);
@@ -8161,7 +8319,9 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     var body=byId('asRows');body.textContent='';
     shown.forEach(function(r){body.appendChild(asRowElement(r));});
     var empty=byId('asEmpty');
-    empty.textContent=!rows.length?'Nothing to show yet. Install the replication agent on the servers you are moving (Replicate servers), create a Migration plan, or read vCenter, ESXi or a Hyper-V host in Discovery to list its VMs here.':(!shown.length?'Nothing matches. Show all to see every server.':'');
+    empty.textContent='';
+    if(!rows.length){empty.appendChild(emptyState('Nothing to show yet','Nothing to show yet. Install the replication agent on the servers you are moving (Replicate servers), create a Migration plan, or read vCenter, ESXi or a Hyper-V host in Discovery to list its VMs here.',[{label:'Start in New migration',primary:true,id:'asEmptyWizard',run:function(){nwStartWith('');}},{label:'Read VMware or Hyper-V in Discovery',run:function(){showTool('environment');}}]));}
+    else if(!shown.length){empty.textContent='Nothing matches. Show all to see every server.';}
     empty.classList.toggle('hidden',!!shown.length);
     var allBox=byId('asAllRows');allBox.checked=!!shown.length&&shown.every(function(r){return asChosen[r.key];});allBox.indeterminate=!allBox.checked&&shown.some(function(r){return asChosen[r.key];});
     renderAsResults();
@@ -8171,7 +8331,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     var tr=el('tr',asChosen[r.key]?'chosen':'');tr.setAttribute('data-as-key',r.key);
     var c=el('td'),box=document.createElement('input');box.type='checkbox';box.setAttribute('data-as-row',r.key);box.checked=!!asChosen[r.key];box.setAttribute('aria-label','Select '+r.name);c.appendChild(box);tr.appendChild(c);
     var name=el('td');name.appendChild(el('span','as-name',r.name));if(r.detail){name.appendChild(el('span','as-sub',r.detail));}name.appendChild(el('span','as-method',r.method));tr.appendChild(name);
-    var st=el('td');st.appendChild(el('span','as-chip '+(asStateClass[r.state]||''),r.stateText));if(r.reason){st.appendChild(el('span','as-reason',r.reason));}tr.appendChild(st);
+    var st=el('td');st.appendChild(el('span','as-chip '+(asStateClass[r.state]||''),r.stateText));var rtk=rowTrack(r);if(rtk){st.appendChild(rtk);}if(r.reason){var ah=r.state==='failed'||r.state==='unreachable'?errorHelp(r.reason,{fixes:r.kind==='plan'?{signin:function(){showTool('environment');},readagain:function(){showTool('environment');},netmap:function(){showTool('plan');}}:{}}):null;if(ah){st.appendChild(ah);}st.appendChild(el('span','as-reason'+(ah?' explained':''),r.reason));}tr.appendChild(st);
     var pg=el('td','as-progress');
     if(r.percent>=0){
       var pct=Math.max(0,Math.min(100,Number(r.percent)||0)),bar=el('div','as-bar '+(r.state==='failed'?'danger':'active'));bar.setAttribute('role','progressbar');bar.setAttribute('aria-valuemin','0');bar.setAttribute('aria-valuemax','100');bar.setAttribute('aria-valuenow',String(pct));bar.setAttribute('aria-label',r.name+' progress');
@@ -8286,6 +8446,46 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   }
   // asOpenFor opens the console on one row (opts.key) or on a plan's or a
   // server's rows (opts.plan, opts.agent), for other tools that start jobs.
+  // The activity strip under the top tabs: what moves now, on every screen.
+  // Each count opens All jobs and servers filtered to it.
+  function activityCounts(){
+    var c={copying:0,insync:0,testing:0,cuttingover:0,failed:0,behind:0,next:null};
+    asRows().forEach(function(r){
+      if(r.state==='seeding'||r.state==='running'){c.copying++;}
+      else if(r.state==='insync'){c.insync++;}
+      else if(r.state==='testing'){c.testing++;}
+      else if(r.state==='cuttingover'){c.cuttingover++;}
+      else if(r.state==='failed'||r.state==='unreachable'){c.failed++;}
+      else if(r.state==='behind'){c.behind++;}
+      if(asScheduled(r)){var t=Date.parse(rpTime(r.cutoverAt));if(!isNaN(t)&&(!c.next||t<c.next.t)){c.next={t:t,at:r.cutoverAt,name:r.name};}}
+    });
+    return c;
+  }
+  function renderActivity(){
+    var box=byId('activityStrip');if(!box){return;}
+    var c=activityCounts();
+    var any=c.copying+c.insync+c.testing+c.cuttingover+c.failed+c.behind>0||!!c.next;
+    var here=activeTab==='servers';
+    box.classList.toggle('hidden',!any||here);
+    if(!any||here){box.textContent='';return;}
+    box.textContent='';
+    box.appendChild(el('span','act-title','Moving now'));
+    var add=function(n,filter,text,bad,title){if(!n){return;}var b=el('button',bad?'bad':'',text);b.type='button';b.setAttribute('data-act-filter',filter);b.title=title;box.appendChild(b);};
+    add(c.failed,'failed',vmPlural(c.failed,'server')+(c.failed===1?' needs':' need')+' attention',true,'Open All jobs and servers with the servers that failed or do not answer');
+    add(c.cuttingover,'cuttingover',c.cuttingover+' cutting over',false,'Open the servers cutting over now');
+    add(c.copying,'seeding',c.copying+' copying',false,'Open the servers still copying');
+    add(c.behind,'behind',c.behind+' behind',true,'Open the servers whose copy is older than its limit');
+    add(c.testing,'testing',c.testing+' in test',false,'Open the servers with a test VM running');
+    add(c.insync,'insync',c.insync+' in sync, ready to cut over',false,'Open the servers whose copy is current');
+    if(c.next){var b=el('button','','Next cutover '+mpTime(c.next.at)+' ('+c.next.name+')');b.type='button';b.setAttribute('data-act-filter','scheduled');b.title='Open the scheduled cutovers';box.appendChild(b);}
+    var o=el('button','act-open','Open All jobs and servers');o.type='button';o.setAttribute('data-act-filter','all');box.appendChild(o);
+  }
+  byId('activityStrip').addEventListener('click',function(e){
+    var b=e.target.closest('[data-act-filter]');if(!b){return;}
+    var f=b.getAttribute('data-act-filter');
+    asOpenFor({});
+    asFilter=f==='all'?'':(f==='failed'?'failed':f);renderAs();renderActivity();
+  });
   function asOpenFor(opts){
     opts=opts||{};asFilter='';asMethodFilter='';byId('asMethod').value='';asText='';byId('asSearch').value='';
     var focus=opts.key||'';
@@ -8514,7 +8714,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   function nwMissingSwitches(){var list=nwSwitchList();if(!list.length){return [];}var names={};list.forEach(function(x){names[String(x.name).toLowerCase()]=1;});return nwNetworks().filter(function(n){var m=nwMap(n);return m.sw&&!names[String(m.sw).toLowerCase()];});}
   function nwHostName(){return nwRemote()?nwHvrName():'this host';}
   function nwMap(net){if(!nw.net[net.name]){var d=nwMapDefault(net);if(d.sw===null){return {sw:null,vlan:d.vlan};}nw.net[net.name]=d;}return nw.net[net.name];}
-  function nwWaveOf(id){if(nw.waves[id]){return nw.waves[id];}var p=vmPlanEntry(id);return nw.waveMode==='plan'&&p&&p.wave>0&&!p.hold&&!p.exclude?p.wave:1;}
+  function nwWaveOf(id){if(nw.waves[id]){return nw.waves[id];}var p=vmPlanEntry(id);return (nw.waveMode==='plan'||nw.waveMode==='rolling')&&p&&p.wave>0&&!p.hold&&!p.exclude?p.wave:1;}
   function nwWaveList(){var w={};nwPickedVMs().forEach(function(vm){w[nwWaveOf(vm.id)]=1;});return Object.keys(w).map(Number).sort(function(a,b){return a-b;});}
   function nwUsedBytes(){var n=0;nwPickedVMs().forEach(function(vm){n+=vm.usedBytes||0;});return n;}
   function nwFreeFor(path){
@@ -8628,9 +8828,20 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     nwStepNames.forEach(function(name,i){
       if(i>=count){return;}
       var li=el('li','nw-stepper-item'+(i===nw.step?' current':'')+(i<nw.reached||i<nw.step?' done':'')),b=el('button','nw-stepper-button');b.type='button';b.setAttribute('data-nw-step',String(i));
-      b.appendChild(el('span','nw-stepper-num',String(i+1)));b.appendChild(el('span','',name));b.disabled=i>nw.reached||(nw.planId&&i<5&&nw.step===5);
+      b.appendChild(el('span','nw-stepper-num',String(i+1)));var words=el('span','nw-stepper-words');words.appendChild(el('span','',name));var sum=i<5&&i!==nw.step&&(i<nw.reached||i<nw.step)?nwStepSummary(i):'';if(sum){words.appendChild(el('span','nw-stepper-sum',sum));b.title=name+': '+sum+'. Go back to change it.';}b.appendChild(words);b.disabled=i>nw.reached||(nw.planId&&i<5&&nw.step===5);
       if(i===nw.step){b.setAttribute('aria-current','step');}li.appendChild(b);box.appendChild(li);
     });
+  }
+  // A finished step's choice in a few words, shown under its name in the step bar.
+  function nwStepSummary(i){
+    try{
+      if(i===0){if(nw.source==='vms'){return vmPlural(nwPickedVMs().length,'VM');}if(nwSrvMode()){return vmPlural(nwSrvPicked().length,'server');}var src=nwSources.filter(function(x){return x.id===nw.source;})[0];return src?src.name:'';}
+      if(i===1){var t=nwTargetInfo[nw.target];return t?t.name:'';}
+      if(i===2){var m=nwMode(nw.method);return m?m.name:'';}
+      if(i===3){var w={};nwPickedVMs().forEach(function(vm){w[nwWaveOf(vm.id)]=true;});var n=Object.keys(w).length;return (nw.startMode==='at'?'Starts '+nw.startAt.replace('T',' '):'Starts now')+(n?', '+vmPlural(n,'wave'):'');}
+      if(i===4){return nw.planId?'Started':'';}
+    }catch(e){}
+    return '';
   }
   function renderNwNav(){
     var why=nwWhyNot(nw.step),next=byId('nwNext'),back=byId('nwBack'),count=nwStepCount();
@@ -8740,19 +8951,42 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     var body={server:server,user:user,password:pass.value};if(thumbprint){body.thumbprint=thumbprint;}pass.value='';
     vmPost('/api/vmware/connect',body,'nwConnectStatus',function(err){if(!err){vmMarkRunning('connect','connecting','Connecting to '+server+' as '+user+'.');renderNw();}});
   }
+  // The VMs as a sortable table: the ones that can be ticked first, and
+  // the ones that cannot (with the reason) folded underneath.
+  var nwSort={key:'name',dir:1},nwSortCols=[['name','VM'],['host','Host'],['power','Power'],['size','Used'],['ready','Readiness'],['note','Notes']];
+  function nwSortValue(vm,key){
+    if(key==='size'){return Number(vm.usedBytes)||0;}if(key==='power'){return vmPower(vm);}if(key==='ready'){var rank={ready:1,review:2,blocked:3}[nwHyperVReadiness(vm).status];return rank||4;}
+    if(key==='note'){return nwEncryptionNote(vm)||'';}return String(vm[key]||'').toLowerCase();
+  }
+  function nwVmTable(rows,picker){
+    var table=el('table','vm-table nw-vm-table'),head=el('tr');
+    var th0=el('th');th0.scope='col';if(picker){var all=document.createElement('input');all.type='checkbox';all.id='nwPickShown';all.setAttribute('aria-label','Tick every VM shown');var free=rows.filter(function(r){return !r.why;});all.checked=!!free.length&&free.every(function(r){return nw.picks[r.vm.id];});all.indeterminate=!all.checked&&free.some(function(r){return nw.picks[r.vm.id];});all.disabled=!free.length;th0.appendChild(all);}head.appendChild(th0);
+    nwSortCols.forEach(function(c){var th=el('th',c[0]==='size'?'nw-num':'');th.scope='col';var b=el('button','nw-sort'+(nwSort.key===c[0]?' on':''),c[1]+(nwSort.key===c[0]?(nwSort.dir>0?' \u25B2':' \u25BC'):''));b.type='button';b.setAttribute('data-nw-sort',c[0]);th.setAttribute('aria-sort',nwSort.key===c[0]?(nwSort.dir>0?'ascending':'descending'):'none');th.appendChild(b);head.appendChild(th);});
+    var thead=el('thead');thead.appendChild(head);table.appendChild(thead);var body=el('tbody');
+    rows.forEach(function(r){var vm=r.vm,tr=el('tr','nw-vm'+(r.why?' disabled':'')+(nw.picks[vm.id]?' chosen':''));
+      var c=el('td'),cb=document.createElement('input');cb.type='checkbox';cb.setAttribute('data-nw-pick',vm.id);cb.checked=!!nw.picks[vm.id];cb.disabled=!!r.why;cb.setAttribute('aria-label','Move '+vm.name);c.appendChild(cb);tr.appendChild(c);
+      var nm=el('td','nw-vm-name');nm.appendChild(el('strong','',vm.name));tr.appendChild(nm);
+      tr.appendChild(el('td','',vm.host||''));tr.appendChild(el('td','',vmPower(vm)));tr.appendChild(el('td','nw-num',vm.usedBytes?formatBytesShort(vm.usedBytes):''));
+      var rd=el('td');rd.appendChild(vmChip(nwHyperVReadiness(vm).status));tr.appendChild(rd);
+      var note=el('td','nw-vm-note');if(r.why){note.appendChild(el('span','vm-note',r.why));}else{var enc=nwEncryptionNote(vm);if(enc){note.appendChild(el('span','nw-enc'+(nwDecryptable(vm)?' need':''),enc));}else{var rr=nwHyperVReadiness(vm),warn=rr.status==='review'?vmArr(rr.findings).filter(function(x){return x.severity==='warning';})[0]:null;if(warn){note.appendChild(el('span','vm-note',warn.message));}}}tr.appendChild(note);
+      body.appendChild(tr);});
+    table.appendChild(body);return table;
+  }
   function renderNwVmList(){
-    var list=byId('nwVmList');if(!list||!vmInventory){return;}list.textContent='';
-    var used=nwInPlans(),f=nw.filter.toLowerCase(),shown=0;
+    var list=byId('nwVmList');if(!list||!vmInventory){return;}
+    var keepOpen=!!(list.querySelector('.nw-vm-off')&&list.querySelector('.nw-vm-off').open);list.textContent='';
+    var used=nwInPlans(),f=nw.filter.toLowerCase(),shown=0,free=[],off=[];
     vmArr(vmInventory.vms).forEach(function(vm){
       var why=nwPickWhy(vm,used);if(why&&nw.picks[vm.id]){delete nw.picks[vm.id];}
       if(f&&[vm.name,vm.host,vm.cluster,vm.folder].join(' ').toLowerCase().indexOf(f)<0){return;}
       if(++shown>vmRowLimit){return;}
-      var row=el('label','nw-vm'+(why?' disabled':'')),cb=document.createElement('input');cb.type='checkbox';cb.setAttribute('data-nw-pick',vm.id);cb.checked=!!nw.picks[vm.id];cb.disabled=!!why;cb.setAttribute('aria-label','Move '+vm.name);
-      row.appendChild(cb);row.appendChild(el('strong','',vm.name));row.appendChild(vmChip(nwHyperVReadiness(vm).status));
-      row.appendChild(el('span','vm-note',why||[vm.host,vmPower(vm),vm.usedBytes?formatBytesShort(vm.usedBytes)+' used':''].filter(function(x){return x;}).join(' · ')));
-      var enc=why?'':nwEncryptionNote(vm);if(enc){row.appendChild(el('span','nw-enc'+(nwDecryptable(vm)?' need':''),enc));}
-      list.appendChild(row);
+      (why?off:free).push({vm:vm,why:why});
     });
+    var cmp=function(a,b){var x=nwSortValue(a.vm,nwSort.key),y=nwSortValue(b.vm,nwSort.key);return (x<y?-1:x>y?1:String(a.vm.name).localeCompare(String(b.vm.name)))*nwSort.dir;};
+    free.sort(cmp);off.sort(cmp);
+    if(free.length){list.appendChild(nwVmTable(free,true));}
+    else if(shown){list.appendChild(el('div','vm-note','None of these VMs can be moved here. The reasons are below.'));}
+    if(off.length){var d=el('details','nw-vm-off');d.open=keepOpen||!free.length;d.appendChild(el('summary','',vmPlural(off.length,'VM')+' cannot be ticked (already in a plan, blocked or not moved). Show why'));d.appendChild(nwVmTable(off,false));list.appendChild(d);}
     if(shown>vmRowLimit){list.appendChild(el('div','vm-note','Showing the first '+vmRowLimit+' of '+shown+'. Search to narrow the list.'));}
     if(!shown){list.appendChild(el('div','vm-note','No VM matches.'));}
     var picked=nwPickedVMs(),count=document.querySelector('[data-nw="count"]');
@@ -8789,6 +9023,9 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     if(nwSrvMode()&&nw.target==='here'){renderNwSrvWhere(box);return;}
     if(nw.source!=='vms'||(nw.target!=='here'&&!remote)){if(nw.target){box.appendChild(el('p','migrate-help','Next: how to move. The tool for it is filled in from your choices.'));}return;}
     if(remote){if(!renderNwHvConnect(box)){return;}}
+    box.appendChild(nwHeading('Saved defaults'));
+    box.appendChild(el('p','migrate-help','Fill the folders, network map, sync interval, bandwidth and options from a customer\u2019s saved defaults, or save what you set here (on this screen and When) for next time. Nothing is saved with a password.'));
+    box.appendChild(profileBar('nwProfile',nwProfileCurrent,function(p){nwUseProfile(p);renderNw();}));
     var hs=nwStorage();
     box.appendChild(nwHeading(remote?'Folders on '+(nw.node||nwHvrName())+' (paths as the host sees them)':'Folders on this host'));
     var two=el('div','rp-two');
@@ -8964,14 +9201,17 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     box.appendChild(el('p','vm-note','Copies run while the VMs keep running. Each VM is then kept in sync every '+mpDuration(nw.opts.syncMinutes*60)+' until it is cut over.'));
     box.appendChild(nwHeading('Waves'));
     var modes=el('div','nw-radios');
-    [['one','All in one wave'],['plan','The waves in the plan'+(planWaves?' ('+vmPlural(planWaves,'VM')+' placed)':' (none yet)')],['suggest','Suggest waves for me']].forEach(function(x){var l=el('label',''),r=document.createElement('input');r.type='radio';r.name='nwWaveMode';r.value=x[0];r.checked=nw.waveMode===x[0];r.setAttribute('data-nw-wavemode',x[0]);if(x[0]==='plan'&&!planWaves){r.disabled=true;}l.appendChild(r);l.appendChild(document.createTextNode(' '+x[1]));modes.appendChild(l);});
+    var modeList=[['one','All in one wave'],['plan','The waves in the plan'+(planWaves?' ('+vmPlural(planWaves,'VM')+' placed)':' (none yet)')],['suggest','Suggest waves for me']];
+    if(nwRollingOffered()){modeList.push(['rolling','Rolling conversion: reuse these ESXi hosts, one at a time'+(vmPlanRolling()?' ('+vmPlural(vmArr(vmPlan.rolling.stages).length,'stage')+')':'')]);}
+    modeList.forEach(function(x){var l=el('label',''),r=document.createElement('input');r.type='radio';r.name='nwWaveMode';r.value=x[0];r.checked=nw.waveMode===x[0];r.setAttribute('data-nw-wavemode',x[0]);if(x[0]==='plan'&&!planWaves){r.disabled=true;}l.appendChild(r);l.appendChild(document.createTextNode(' '+x[1]));modes.appendChild(l);});
     box.appendChild(modes);
     box.appendChild(el('p','vm-note','A suggestion puts domain controllers, databases and application servers in sensible waves, with a reason for each. Change any VM\'s wave below.'));
+    if(nw.waveMode==='rolling'){renderNwRolling(box);}
     var waves=nwWaveList(),max=Math.max.apply(null,waves.concat([1]));
     var table=el('table','vm-table nw-wave-table'),thead=document.createElement('thead'),hr=el('tr');['Wave','VMs','Cut over'].forEach(function(t){hr.appendChild(el('th','',t));});thead.appendChild(hr);table.appendChild(thead);
     var tbody=document.createElement('tbody');
     waves.forEach(function(w){
-      var tr=el('tr');tr.appendChild(el('td','',vmPlan&&nw.waveMode==='plan'?vmWaveTitle(w):'Wave '+w));
+      var tr=el('tr');tr.appendChild(el('td','',vmPlan&&(nw.waveMode==='plan'||nw.waveMode==='rolling')?vmWaveTitle(w):'Wave '+w));
       var vmsTd=el('td','nw-wave-vms');nwPickedVMs().filter(function(vm){return nwWaveOf(vm.id)===w;}).forEach(function(vm){var chip=el('span','nw-wave-vm'),sel=document.createElement('select');sel.setAttribute('data-nw-wave',vm.id);sel.setAttribute('aria-label','Wave of '+vm.name);for(var i=1;i<=max+1;i++){sel.appendChild(new Option(i>max?'New wave '+i:'Wave '+i,String(i)));}sel.value=String(w);chip.appendChild(el('span','',vm.name));chip.appendChild(sel);vmsTd.appendChild(chip);});
       tr.appendChild(vmsTd);
       var c=nw.cut[w]||(nw.cut[w]={mode:'manual',at:''}),ct=el('td'),cs=document.createElement('select');cs.setAttribute('data-nw-cutmode',String(w));cs.setAttribute('aria-label','Cutover of wave '+w);cs.appendChild(new Option('When I press Cut over','manual'));cs.appendChild(new Option('At a time','at'));cs.value=c.mode;ct.appendChild(cs);
@@ -8980,6 +9220,36 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     });
     table.appendChild(tbody);var wrap=el('div','vm-table-wrap');wrap.appendChild(table);box.appendChild(wrap);
     box.appendChild(el('p','vm-note','A cutover shuts each guest down through its tools, copies the last changes, checks them and creates the new VM. A timed cutover whose VM has not finished its first copy by then does not run, and the status says so. Leave this application open on '+(nwRemote()?'this computer':'this host')+'.'));
+  }
+  // Rolling conversion (rule 46) inside New migration: the same hardware is
+  // reused, one ESXi host at a time. Stages come from Plan and runbook's
+  // rolling scenario; each stage's wave is moved here, and the emptied host
+  // is rebuilt in Build Hyper-V hosts. Nothing changes on any host here.
+  function nwRollingOffered(){return !!(vmPlan&&nwInvType()==='vmware'&&(nw.target==='here'||nw.target==='hvremote'));}
+  function nwUseRolling(){
+    if(!vmPlan){return;}if(vmPlanRolling()&&vmArr(vmPlan.rolling.stages).length){nw.waves={};renderNw();return;}
+    vmPlan.scenario='rolling';if(!vmPlan.rolling){vmPlan.rolling={autoCapacity:true,stages:[],sourceCluster:''};}
+    nw.busy=true;renderNwNav();
+    saveVmPlan({suggestStages:true,keepWaves:true},'Reusing the existing hosts: one stage per host is suggested.',function(err){nw.busy=false;nw.error=err?'The stages were not drafted: '+err:'';nw.waves={};renderNw();});
+  }
+  function renderNwRolling(box){
+    box.appendChild(nwHeading('Stages'));
+    var stages=vmPlanRolling()?vmArr(vmPlan.rolling.stages):[];
+    if(!stages.length){box.appendChild(el('p','migrate-help',nw.busy?'Drafting one stage per host\u2026':'No stages yet.'));return;}
+    box.appendChild(el('p','migrate-help','Each stage moves one wave and frees one ESXi host, which you then rebuild as a Hyper-V node and add to the cluster. Cut each wave over below when its stage comes; the next stage\u2019s VMs can move once the rebuilt node is in the cluster.'));
+    var ol=el('ol','nw-rolling');
+    stages.forEach(function(st,i){var rep=vmStageReport(i),li=el('li','nw-rolling-stage');li.setAttribute('data-nw-stage',String(i+1));
+      var head=el('div','nw-rolling-head');head.appendChild(el('strong','','Stage '+(i+1)+(st.host?': '+st.host:'')));
+      if(rep){var bad=[rep.source&&rep.source.status,rep.target&&rep.target.status];var worst=bad.indexOf('over')>=0?'over':(bad.indexOf('tight')>=0?'tight':'ok');head.appendChild(vmStatusChip(worst));}
+      li.appendChild(head);
+      var n=st.wave?nwPickedVMs().filter(function(vm){return nwWaveOf(vm.id)===st.wave;}).length:0;
+      var text=(st.wave?(st.moveFirst?'Move wave '+st.wave+' ('+vmPlural(n,'chosen VM')+') onto the Hyper-V nodes built so far':'Move wave '+st.wave+' ('+vmPlural(n,'chosen VM')+') off '+(st.host||'the hosts')):'No VMs move in this stage')+(st.host?', then rebuild '+st.host+' as a Hyper-V node in Build Hyper-V hosts and add it to the cluster.':'.');
+      li.appendChild(el('div','',text));
+      if(rep&&vmArr(rep.localVms).length){li.appendChild(el('div','vm-note warning','On storage only this host has: '+vmArr(rep.localVms).join(', ')+'. Move them first, or they go when the host is rebuilt.'));}
+      ol.appendChild(li);});
+    box.appendChild(ol);
+    var row=el('div','migrate-row'),ed=el('button','secondary-button','Change the stages');ed.type='button';ed.setAttribute('data-nw-tool','plan');row.appendChild(ed);
+    var hb=el('button','secondary-button','Build Hyper-V hosts');hb.type='button';hb.setAttribute('data-nw-tool','hvbuild');hb.title='Draft the Hyper-V nodes from these ESXi hosts, in stage order';row.appendChild(hb);box.appendChild(row);
   }
   function nwSuggestWaves(){
     if(!vmPlan){return;}nw.busy=true;renderNwNav();
@@ -9467,6 +9737,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   byId('nwStepper').addEventListener('click',function(e){var b=e.target.closest('[data-nw-step]');if(b&&!b.disabled){nwGo(Number(b.getAttribute('data-nw-step')));}});
   byId('tabWizard').addEventListener('click',function(e){
     var t=e.target.closest('button');if(!t||!byId('nwStep').contains(t)){return;}
+    if(t.hasAttribute('data-nw-sort')){var k=t.getAttribute('data-nw-sort');nwSort=nwSort.key===k?{key:k,dir:-nwSort.dir}:{key:k,dir:1};renderNwVmList();return;}
     if(t.hasAttribute('data-nw-drophidden')){var f=nw.filter.toLowerCase();nwPickedVMs().forEach(function(vm){if(f&&[vm.name,vm.host,vm.cluster,vm.folder].join(' ').toLowerCase().indexOf(f)<0){delete nw.picks[vm.id];}});renderNwVmList();return;}
     if(t.hasAttribute('data-nw-source')){var s=t.getAttribute('data-nw-source');if(s!==nw.source){nw.source=s;nw.target='';nw.method='';nw.filled='';nw.reached=0;}if(s==='servers'){nwSrvLoad();}renderNw();return;}
     if(t.id==='nwSrvOpenStatus'){nw.statusKind='servers';nw.source='servers';nw.step=5;nw.reached=5;nwSrvChosen={};nwSrvLoad();renderNw();return;}
@@ -9479,6 +9750,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     if(t.hasAttribute('data-nw-target')){var tg=t.getAttribute('data-nw-target');if(tg!==nw.target){nw.target=tg;nw.method='';nw.filled='';nw.reached=1;}renderNw();return;}
     if(t.hasAttribute('data-nw-method')){nw.method=t.getAttribute('data-nw-method');nw.reached=2;renderNw();return;}
     if(t.hasAttribute('data-nw-step')){nwGo(Number(t.getAttribute('data-nw-step')));return;}
+    if(t.hasAttribute('data-nw-tool')){showTool(t.getAttribute('data-nw-tool'));return;}
     if(t.hasAttribute('data-nw-open')){nw.planId=t.getAttribute('data-nw-open');nwStorePlan(nw.planId);nw.statusKind='plan';nw.step=5;nw.reached=5;nwRowsChosen={};nwLoadPlans(false);renderNw();return;}
     if(t.hasAttribute('data-nw-console')){if(typeof asOpenFor==='function'){asOpenFor(nw.planId&&nw.step===5&&nw.statusKind!=='servers'?{plan:nw.planId}:{});}return;}
     if(t.hasAttribute('data-nw-tool')){if(t.getAttribute('data-nw-tool')==='plans'){mpSelected=nw.planId||mpSelected;}showTool(t.getAttribute('data-nw-tool'));return;}
@@ -9511,11 +9783,12 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   });
   byId('tabWizard').addEventListener('change',function(e){
     var t=e.target;
+    if(t.id==='nwPickShown'){var boxes=byId('nwVmList').querySelectorAll('.nw-vm-table [data-nw-pick]:not(:disabled)');for(var bi=0;bi<boxes.length;bi++){if(t.checked){nw.picks[boxes[bi].getAttribute('data-nw-pick')]=true;}else{delete nw.picks[boxes[bi].getAttribute('data-nw-pick')];}}renderNwVmList();return;}
     if(t.hasAttribute('data-nw-pick')){if(t.checked){nw.picks[t.getAttribute('data-nw-pick')]=true;}else{delete nw.picks[t.getAttribute('data-nw-pick')];}renderNwVmList();return;}
     if(t.id==='nwPickBy'){if(t.value){nwPickBy(t.value);}t.value='';return;}
     if(t.hasAttribute('data-nw-switch')){var name=t.getAttribute('data-nw-switch'),vl=t.closest('tr').querySelector('[data-nw-vlan]'),cur=nw.net[name]||{vlan:vl?vl.value:''},val=t.value;cur.sw=val==='\u0000'?null:(val==='\u0001'?'':val);if(cur.sw===null){delete nw.net[name];}else{nw.net[name]=cur;}renderNwNav();return;}
     if(t.hasAttribute('data-nw-startmode')){nw.startMode=t.value;renderNw();return;}
-    if(t.hasAttribute('data-nw-wavemode')){nw.waveMode=t.value;nw.waves={};if(t.value==='suggest'){nwSuggestWaves();return;}renderNw();return;}
+    if(t.hasAttribute('data-nw-wavemode')){nw.waveMode=t.value;nw.waves={};if(t.value==='suggest'){nwSuggestWaves();return;}if(t.value==='rolling'){nwUseRolling();return;}renderNw();return;}
     if(t.hasAttribute('data-nw-wave')){nw.waves[t.getAttribute('data-nw-wave')]=Number(t.value);renderNw();return;}
     if(t.hasAttribute('data-nw-cutmode')){var w=t.getAttribute('data-nw-cutmode');nw.cut[w]=nw.cut[w]||{at:''};nw.cut[w].mode=t.value;renderNw();return;}
     if(t.hasAttribute('data-nw-cutat')){nw.cut[t.getAttribute('data-nw-cutat')].at=t.value;renderNwNav();return;}
@@ -9568,7 +9841,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     var list=byId('mpPlanList');list.textContent='';
     vmArr(mpState.plans).forEach(function(p){var b=el('button','secondary-button mp-plan-button',p.name+' ('+p.summary.done+'/'+p.summary.total+' cut over)');b.type='button';b.setAttribute('data-mp-plan',p.id);b.setAttribute('aria-pressed',p.id===mpSelected&&!mpEditing?'true':'false');list.appendChild(b);});
     var add=el('button','primary-button','New plan');add.type='button';add.id='mpNewButton';list.appendChild(add);
-    if(!vmArr(mpState.plans).length&&!mpEditing){list.appendChild(el('span','vm-note','No plans yet. Read vCenter, ESXi or a Hyper-V host in Discovery, then choose New plan.'));}
+    if(!vmArr(mpState.plans).length&&!mpEditing){list.appendChild(emptyState('No plans yet','No plans yet. Read vCenter, ESXi or a Hyper-V host in Discovery, then choose New plan, or let New migration build the plan with you.',[{label:'Start in New migration',id:'mpEmptyWizard',run:function(){nwStartWith('vms');}},{label:'Read VMware or Hyper-V in Discovery',run:function(){showTool('environment');}}]));}
     byId('mpNew').classList.toggle('hidden',!mpEditing);
     byId('mpDetail').classList.toggle('hidden',!plan||!!mpEditing);
     if(mpEditing){renderMpPicker();}
@@ -9610,6 +9883,51 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   function mpPickWave(){var w=Number(byId('mpPickWave').value),waves=(mpState&&mpState.waves)||{};if(!w){return;}var used=mpInPlans();
     vmArr(vmInventory&&vmInventory.vms).forEach(function(vm){if(waves[vm.id]===w&&!used[vm.id]&&!vm.template&&!vmCutOverBy(vm)&&mpReadiness(vm).status!=='blocked'&&mpReadiness(vm).status!=='skip'){mpPicks[vm.id]=true;}});
     if(!trimText(byId('mpName').value)){byId('mpName').value=mpWaveLabel(w).replace(':',' -');}renderMpPicker();}
+  // Saved defaults per customer (migration_profiles.go, /api/profiles): a
+  // named set of folders, network map, sync interval, bandwidth and options
+  // that fills New migration and Migration plans. It never starts anything.
+  var profiles=null,profilesAsked=false;
+  function profilesLoad(done){profilesAsked=true;request('GET','/api/profiles',null,function(err,data){if(!err){profiles=vmArr(data&&data.profiles);}if(done){done(err);}});}
+  function profileFromSettings(s,netmap){var t=s.throttle||{};return {copyRoot:s.copyRoot||'',vmFolder:s.vmFolder||'',testSwitch:s.testSwitch||'',syncMinutes:Number(s.syncMinutes)||60,concurrency:Number(s.concurrency)||2,
+    throttle:{businessMbps:Number(t.businessMbps)||0,limitMbps:Number(t.limitMbps)||0,businessStart:Number(t.businessStart)||0,businessEnd:Number(t.businessEnd)||0},
+    options:{keepMac:!!s.keepMac,startVms:!!s.startVms,cluster:!!s.cluster,quiesce:!!s.quiesce,ejectMedia:!!s.ejectMedia,disconnectSource:!!s.disconnectSource,fixUp:!!s.fixUp},networkMap:netmap||[]};}
+  function profileSummary(p){var bits=[];if(p.copyRoot){bits.push('copies in '+p.copyRoot);}bits.push('sync every '+mpDuration(p.syncMinutes*60));bits.push(p.concurrency+' at once');var t=p.throttle||{};if(t.businessMbps||t.limitMbps){bits.push('bandwidth '+(t.businessMbps?t.businessMbps+' Mbps '+t.businessStart+':00 to '+t.businessEnd+':00':'')+(t.limitMbps?(t.businessMbps?', ':'')+t.limitMbps+' Mbps otherwise':''));}if(vmArr(p.networkMap).length){bits.push(vmPlural(p.networkMap.length,'network')+' mapped');}return bits.join(' · ');}
+  // profileBar(id, current, use): current() gives the settings shown now as
+  // a profile (without a name); use(profile) fills the screen from one.
+  var profileKeep={};
+  function profileBar(id,current,use){
+    var box=el('div','profile-bar');box.id=id;var keep=profileKeep[id]=profileKeep[id]||{pick:'',name:'',msg:'',err:false};
+    if(!profilesAsked){profilesLoad(function(){var b=byId(id);if(b&&b.parentNode){b.parentNode.replaceChild(profileBar(id,current,use),b);}});}
+    var list=profiles||[];
+    var row=el('div','migrate-row'),lab=el('label','vm-field','Saved defaults'),sel=document.createElement('select');sel.id=id+'Pick';
+    sel.appendChild(new Option(list.length?'Choose a customer\u2019s defaults\u2026':'None saved yet',''));list.forEach(function(p){sel.appendChild(new Option(p.name,p.name));});lab.appendChild(sel);row.appendChild(lab);
+    var useB=el('button','secondary-button','Use these defaults');useB.type='button';useB.id=id+'Use';row.appendChild(useB);
+    var del=el('button','link-button','Delete');del.type='button';del.id=id+'Delete';row.appendChild(del);
+    var nameL=el('label','vm-field','Save what is set here as'),name=document.createElement('input');name.type='text';name.id=id+'Name';name.maxLength=64;name.placeholder='Customer name';name.spellcheck=false;name.autocomplete='off';name.value=keep.name;nameL.appendChild(name);row.appendChild(nameL);
+    var save=el('button','secondary-button','Save as defaults');save.type='button';save.id=id+'Save';row.appendChild(save);
+    box.appendChild(row);var note=el('div','vm-note');note.id=id+'Note';box.appendChild(note);
+    var status=el('div','migrate-inline-status'+(keep.err?' error':''),keep.msg);status.id=id+'Status';status.setAttribute('role','status');box.appendChild(status);
+    var chosen=function(){return list.filter(function(p){return p.name===sel.value;})[0]||null;};
+    var say=function(msg,err){keep.msg=msg;keep.err=!!err;var st=byId(id+'Status');if(st){st.className='migrate-inline-status'+(err?' error':'');st.textContent=msg;}};
+    var sync=function(){var p=chosen();useB.disabled=!p;del.disabled=!p;note.textContent=p?profileSummary(p)+'.':'';};
+    var redraw=function(){var b=byId(id);if(b&&b.parentNode){b.parentNode.replaceChild(profileBar(id,current,use),b);}};
+    if(keep.pick&&list.some(function(p){return p.name===keep.pick;})){sel.value=keep.pick;}sync();
+    sel.addEventListener('change',function(){keep.pick=sel.value;keep.msg='';sync();say('',false);});
+    name.addEventListener('input',function(){keep.name=name.value;});
+    useB.addEventListener('click',function(){var p=chosen();if(!p){return;}keep.pick=p.name;keep.msg='Filled in from '+p.name+'. Change anything before you go on.';keep.err=false;use(p);redraw();});
+    save.addEventListener('click',function(){var n=trimText(name.value);if(!n){say('Name the defaults, for example the customer\u2019s name.',true);name.focus();return;}
+      var prof=current();prof.name=n;request('POST','/api/profiles',{action:'save',profile:prof},function(err,data){if(err){say(err,true);return;}profiles=vmArr(data&&data.profiles);keep.pick=n;keep.name='';keep.msg='Saved as '+n+'. No password or account is saved.';keep.err=false;redraw();});});
+    del.addEventListener('click',function(){var p=chosen();if(!p){return;}cfmAsk({title:'Delete saved defaults',names:[p.name],text:['The saved defaults '+p.name+' are deleted. Plans already made from them do not change.'],button:'Delete'},function(){request('POST','/api/profiles',{action:'delete',name:p.name},function(err,data){if(err){say(err,true);return;}profiles=vmArr(data&&data.profiles);keep.pick='';keep.msg='Deleted '+p.name+'.';keep.err=false;redraw();});});});
+    return box;
+  }
+  function mpNetmapFromPlan(){return vmArr(vmPlan&&vmPlan.networks).filter(function(n){return n.targetName||n.targetVlan;}).map(function(n){return {source:n.source,sourceVlan:n.sourceVlan||'',targetName:n.targetName||'',targetVlan:n.targetVlan||''};});}
+  function mpUseProfile(p){var s={syncMinutes:p.syncMinutes,concurrency:p.concurrency,copyRoot:p.copyRoot,vmFolder:p.vmFolder,testSwitch:p.testSwitch,throttle:p.throttle};var o=p.options||{};['keepMac','startVms','cluster','quiesce','ejectMedia','disconnectSource','fixUp'].forEach(function(k){s[k]=!!o[k];});
+    var name=byId('mpName').value;mpFillForm({name:name,settings:s,vms:[]});byId('mpName').value=name;}
+  function nwUseProfile(p){var o=p.options||{};nw.copyRoot=p.copyRoot||'';nw.vmFolder=p.vmFolder||'';nw.cluster=!!o.cluster;
+    var t=p.throttle||{};nw.opts=Object.assign({},nw.opts,{syncMinutes:p.syncMinutes,concurrency:p.concurrency,testSwitch:p.testSwitch||'',keepMac:!!o.keepMac,startVms:!!o.startVms,quiesce:!!o.quiesce,ejectMedia:!!o.ejectMedia,disconnectSource:!!o.disconnectSource,fixUp:!!o.fixUp,bizMbps:String(t.businessMbps||0),offMbps:String(t.limitMbps||0),bizStart:t.businessStart||0,bizEnd:t.businessEnd||0});
+    vmArr(p.networkMap).forEach(function(m){nw.net[m.source]={sw:m.targetName||'',vlan:m.targetVlan||''};});nw.profile=p.name;}
+  function nwProfileCurrent(){var o=nw.opts,map=[];nwNetworks().forEach(function(n){var m=nwMap(n);if(m.sw!==null){map.push({source:n.name,sourceVlan:n.vlan||'',targetName:m.sw||'',targetVlan:m.vlan||''});}});
+    return profileFromSettings({copyRoot:trimText(nw.copyRoot),vmFolder:trimText(nw.vmFolder),testSwitch:o.testSwitch,syncMinutes:o.syncMinutes,concurrency:o.concurrency,keepMac:o.keepMac,startVms:o.startVms,cluster:nw.cluster,quiesce:o.quiesce,ejectMedia:o.ejectMedia,disconnectSource:o.disconnectSource,fixUp:o.fixUp,throttle:{businessMbps:Number(o.bizMbps)||0,limitMbps:Number(o.offMbps)||0,businessStart:o.bizStart,businessEnd:o.bizEnd}},map);}
   function mpSettingsFromForm(){
     var s={syncMinutes:Number(byId('mpSync').value),concurrency:Number(byId('mpConcurrency').value),copyRoot:trimText(byId('mpCopyRoot').value),vmFolder:trimText(byId('mpVMFolder').value),testSwitch:byId('mpTestSwitch').value,keepMac:byId('mpKeepMac').checked,startVms:byId('mpStartVMs').checked,cluster:byId('mpCluster').checked,quiesce:byId('mpQuiesce').checked,disconnectSource:byId('mpDisconnect').checked,ejectMedia:byId('mpEject').checked,fixUp:byId('mpFixUp').checked,
       throttle:{businessMbps:Number(trimText(byId('mpBizMbps').value)||0),limitMbps:Number(trimText(byId('mpOffMbps').value)||0),businessStart:Number(byId('mpBizStart').value),businessEnd:Number(byId('mpBizEnd').value)},
@@ -9622,7 +9940,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   function mpFillForm(p){
     var s=(p&&p.settings)||{};byId('mpName').value=p?p.name:'';
     byId('mpSync').value=String(s.syncMinutes||60);byId('mpConcurrency').value=String(s.concurrency||2);byId('mpCopyRoot').value=s.copyRoot||'';byId('mpVMFolder').value=s.vmFolder||'';byId('mpTestSwitch').value=s.testSwitch||'';
-    byId('mpKeepMac').checked=p?!!s.keepMac:true;byId('mpStartVMs').checked=p?!!s.startVms:true;byId('mpCluster').checked=!!s.cluster;byId('mpQuiesce').checked=!!s.quiesce;byId('mpDisconnect').checked=p?!!s.disconnectSource:true;byId('mpEject').checked=p?!!s.ejectMedia:true;byId('mpFixUp').checked=p?!!s.fixUp:true;var gaHost=byId('mpGaHost');gaHost.textContent='';vmGuestAutoPanel(gaHost,'mpGa');
+    byId('mpKeepMac').checked=p?!!s.keepMac:true;byId('mpStartVMs').checked=p?!!s.startVms:true;byId('mpCluster').checked=!!s.cluster;byId('mpQuiesce').checked=!!s.quiesce;byId('mpDisconnect').checked=p?!!s.disconnectSource:true;byId('mpEject').checked=p?!!s.ejectMedia:true;byId('mpFixUp').checked=p?!!s.fixUp:true;var gaHost=byId('mpGaHost');gaHost.textContent='';vmGuestAutoPanel(gaHost,'mpGa');var ph=byId('mpProfileHost');ph.textContent='';if(!p||!p.id){ph.appendChild(profileBar('mpProfile',function(){return profileFromSettings(mpSettingsFromForm(),mpNetmapFromPlan());},mpUseProfile));}
     mpRenderWaveLimits(vmArr(s.waves));byId('mpWaveLimits').open=vmArr(s.waves).length>0;
     var g=pgSettings();byId('mpGlobalNote').textContent=g&&g.bandwidth&&(g.bandwidth.limitMbps||g.bandwidth.businessMbps)?'This computer\'s own limit also applies to every plan (Help > Settings): '+pgDescribe(g.bandwidth)+'. Copies use the lower of the two.':'This computer has no bandwidth limit of its own (Help > Settings); only the plan\'s limit applies.';
     var t=s.throttle||{};byId('mpBizMbps').value=String(t.businessMbps||0);byId('mpOffMbps').value=String(t.limitMbps||0);byId('mpBizStart').value=String(p?t.businessStart||0:8);byId('mpBizEnd').value=String(p?t.businessEnd||0:18);
@@ -9630,6 +9948,8 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     byId('mpCopyRoot').disabled=!!(p&&vmArr(p.vms).some(function(v){return v.state!=='waiting';}));
     vmSetStatus('mpNewStatus','',false);
   }
+  // Copy one VM of a plan again now: from Migration plans or New migration's status.
+  function mpRetryVM(plan,vmId){if(!plan){return;}var body={action:'sync',id:plan.id,vmIds:[vmId]};if(activeTab==='wizard'){nwPlanAction(body);}else{mpPost(body,'mpStatus');}}
   // Wave limits: one row per wave, read back into settings.waves.
   function mpWaveRow(w){var row=el('div','mp-wave-row');
     var wave=document.createElement('input');wave.type='text';wave.inputMode='numeric';wave.maxLength=3;wave.className='mp-wave-n';wave.value=String(w.wave||1);wave.setAttribute('aria-label','Wave');
@@ -9658,17 +9978,20 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     cfmAsk({title:'Copy '+name+' at cutover',names:[name],text:[name+' is no longer copied while it runs. At its cutover the guest is shut down through VMware Tools, the whole VM is copied and checked while it is off, and the Hyper-V VM is created. It stays off for that whole copy. Nothing changes until the cutover, and you can switch back.'],button:'Copy at cutover'},function(){post({action:'method',id:plan.id,vmIds:[id],method:'offline'});});
   }
   function mpStateCell(v){
-    var td=el('td'),label=v.method==='offline'&&(v.state==='waiting'||v.state==='ready')?'Copies at cutover':(mpStateNames[v.state]||v.state);
+    var td=el('td'),label=v.method==='offline'&&(v.state==='waiting'||v.state==='ready')?'Copies at cutover':(mpStateNames[v.state]||v.state);td.appendChild(planTrack(v,mpPlanOfVM(v)));
     if(v.live){var pct=v.live.percent||0,box=el('div','mp-progress'),bar=el('div','mp-bar active'),fill=el('span','mp-bar-fill');fill.style.width=pct+'%';bar.appendChild(fill);box.appendChild(el('div','',(v.live.cutover?'Cutting over':(v.seeded?'Syncing':'Seeding'))+' '+pct+'%'));box.appendChild(bar);
       var bits=[formatBytesShort(v.live.bytesRead)+' read'];if(v.live.bytesPerSecond){bits.push(formatBytesShort(v.live.bytesPerSecond)+'/s');}if(v.live.secondsLeft){bits.push(mpDuration(v.live.secondsLeft)+' left');}box.appendChild(el('div','mp-progress-text',bits.join(' · ')));td.appendChild(box);}
     else{td.appendChild(el('span','mp-chip '+({ready:'good',done:'good',failed:'danger',testing:'warning'}[v.state]||''),label));}
     if(!v.live&&(v.held||v.waiting)){var hd=el('div','mp-held',v.held||v.waiting);td.appendChild(hd);if(v.held){var po=el('button','link-button','Production protection settings');po.type='button';po.setAttribute('data-pg-open','1');hd.appendChild(document.createTextNode(' '));hd.appendChild(po);}}
     if(v.method==='offline'&&v.state!=='done'){var on=el('div','vm-note','Copied at its cutover, while shut down: vSphere cannot read it while it runs, so it is off for its whole copy. ');if(v.state!=='cutting'){var lv=el('button','link-button','Copy it while it runs instead');lv.type='button';lv.setAttribute('data-mp-live',v.id);lv.title='Needs VDDK for a VM with a virtual TPM';on.appendChild(lv);}td.appendChild(on);}
     if(v.test){td.appendChild(el('span','vm-note','Test VM '+v.test.name+(v.test.vmId?'':' (not finished: end the test to clean up)')+'. Syncs wait until the test ends.'));}
-    if(v.error){td.appendChild(el('div','mp-err',v.error));
+    if(v.error){var owner=mpPlanOfVM(v),canEject=owner&&!(owner.settings||{}).ejectMedia&&v.state!=='done'&&/Tick Eject CD\/DVD and floppy images/.test(v.error);
+      var fx=vmErrorFixes(v.id,v.state==='failed'&&!v.test&&v.method!=='offline'?function(){mpRetryVM(owner,v.id);}:null);delete fx.eject;
+      var help=errorHelp(v.error,{fixes:fx});if(help){td.appendChild(help);}
+      td.appendChild(el('div','mp-err'+(help?' explained':''),v.error));
       if(v.state!=='done'&&v.method!=='offline'&&mpEncHomeRe.test(v.error)){var vd=el('button','secondary-button','Set up VDDK\u2026');vd.type='button';vd.setAttribute('data-mp-vddk',v.id);vd.title='Opens Help > Settings at the VDDK folder. Then Sync copies '+v.name+' while it runs.';td.appendChild(vd);
         var of=el('button','secondary-button','Copy at cutover, while shut down');of.type='button';of.setAttribute('data-mp-offline',v.id);of.title=v.name+' is copied only when it is cut over, while it is off';td.appendChild(of);}
-      var owner=mpPlanOfVM(v);if(owner&&!(owner.settings||{}).ejectMedia&&v.state!=='done'&&/Tick Eject CD\/DVD and floppy images/.test(v.error)){var ej=el('button','secondary-button','Eject the CD/DVD images and copy again');ej.type='button';ej.setAttribute('data-mp-eject',v.id);ej.title='Turns on Eject CD/DVD and floppy images for this plan and copies '+v.name+' now';td.appendChild(ej);}}
+      if(canEject){var ej=el('button','secondary-button','Eject the CD/DVD images and copy again');ej.type='button';ej.setAttribute('data-mp-eject',v.id);ej.title='Turns on Eject CD/DVD and floppy images for this plan and copies '+v.name+' now';td.appendChild(ej);}}
     vmArr(v.notes).slice(-2).forEach(function(n){td.appendChild(el('div','mp-notes',n));});
     if(v.state==='done'){vmFixupStatus(td,v.name);td.appendChild(rbSlot(v.name));}
     var actions=el('div','mp-row-actions');
@@ -9694,6 +10017,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     var sum=byId('mpSummary');sum.textContent='';
     mpTiles.forEach(function(t){var n=p.summary[t[0]]||0;var b=el('button','mp-stat'+(n&&t[2]?' '+t[2]:''));b.type='button';b.setAttribute('data-mp-filter',t[0]);b.setAttribute('aria-pressed',mpFilter===t[0]&&t[0]!=='total'?'true':'false');b.appendChild(el('strong','',formatCount(n)));b.appendChild(el('span','',t[1]));b.title='Show '+(t[0]==='total'?'every VM':t[1].toLowerCase()+' VMs');sum.appendChild(b);});
     byId('mpAdvice').textContent=mpAdvice(p);
+    renderMpGoNoGo(p);
     byId('mpPause').textContent=p.paused?'Resume':'Pause';
     var bar=byId('mpFilterBar');bar.textContent='';bar.classList.toggle('hidden',!mpFilter||mpFilter==='total');
     if(mpFilter&&mpFilter!=='total'){bar.appendChild(document.createTextNode('Showing '+(mpTiles.filter(function(t){return t[0]===mpFilter;})[0]||['','',''])[1].toLowerCase()+' VMs. '));var clr=el('button','link-button','Show all');clr.type='button';clr.setAttribute('data-mp-filter','total');bar.appendChild(clr);}
@@ -9710,6 +10034,45 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
       rows.appendChild(tr);
     });
     if(!rows.childNodes.length){var tr=el('tr'),td=el('td','vm-note','No VMs in this view.');td.colSpan=7;tr.appendChild(td);rows.appendChild(tr);}
+  }
+  // Go/no-go per wave: what still stands between each wave and its cutover.
+  function mpInvVM(id){var list=vmArr(vmInventory&&vmInventory.vms);for(var i=0;i<list.length;i++){if(list[i].id===id){return list[i];}}return null;}
+  function mpRoleFindings(id){var vm=mpInvVM(id),out=[];if(!vm){return out;}vmArr(vm.readiness).forEach(function(r){if(r.target!=='hyperv'){return;}vmArr(r.findings).forEach(function(f){if(/^(dc-|sql-|preflight-)/.test(f.code)&&f.severity!=='info'){out.push(f);}});});return out;}
+  function mpGoChecks(p,vms){
+    var list=[],names=function(a){return a.slice(0,4).map(function(v){return v.name;}).join(', ')+(a.length>4?' and '+(a.length-4)+' more':'');};
+    var add=function(kind,text){list.push({kind:kind,text:text});};
+    var unseeded=vms.filter(function(v){return !v.seeded;}),failed=vms.filter(function(v){return v.state==='failed';}),testing=vms.filter(function(v){return v.state==='testing'||v.test;}),cutting=vms.filter(function(v){return v.state==='cutting';});
+    if(unseeded.length){add('block',vmPlural(unseeded.length,'VM')+' still on the first copy: '+names(unseeded)+'.');}else{add('ok','Every VM has a whole copy.');}
+    if(failed.length){add('block',vmPlural(failed.length,'VM')+' failed: '+names(failed)+'. Read the message in the list.');}
+    if(testing.length){add('block',vmPlural(testing.length,'VM')+' with a test VM running: '+names(testing)+'. End the test first.');}
+    if(cutting.length){add('info',vmPlural(cutting.length,'VM')+' cutting over now.');}
+    var limit=Math.max(2*(p.settings.syncMinutes||60),30)*60000,now=Date.now();
+    var stale=vms.filter(function(v){var t=Date.parse(mpTime(v.lastSync)?v.lastSync:'');return v.seeded&&(isNaN(t)||now-t>limit);});
+    if(stale.length){add('warn',vmPlural(stale.length,'VM')+' not synced in the last '+mpDuration(limit/1000)+': '+names(stale)+'. Sync now to shorten the final copy.');}else if(!unseeded.length){add('ok','Every copy synced recently.');}
+    var untested=vms.filter(function(v){return !mpTime(v.testedAt);});
+    if(untested.length){add('warn',vmPlural(untested.length,'VM')+' not tested yet: '+names(untested)+'. Test starts an isolated copy; production is untouched.');}else{add('ok','Every VM was tested.');}
+    var blockers=[],warns=[];vms.forEach(function(v){mpRoleFindings(v.id).forEach(function(f){(f.severity==='blocker'?blockers:warns).push(v.name+': '+f.message);});});
+    if(blockers.length){add('block','SQL Server or domain controller check: '+blockers.slice(0,3).join(' ')+(blockers.length>3?' And '+(blockers.length-3)+' more.':''));}
+    if(warns.length){add('warn','SQL Server or domain controller check: '+warns.slice(0,3).join(' ')+(warns.length>3?' And '+(warns.length-3)+' more.':''));}
+    if(!blockers.length&&!warns.length&&vmInventory){add('ok','No SQL Server or domain controller problem found (the checks are optional: SQL and DC checks in Discovery).');}
+    var at=vms.map(function(v){return mpTime(v.cutoverAt);}).filter(Boolean).sort();
+    if(at.length){add('info','Cutover scheduled for '+at[0]+(at.length<vms.length?' ('+at.length+' of '+vms.length+' VMs)':'')+'.');}
+    return list;
+  }
+  function renderMpGoNoGo(p){
+    var box=byId('mpGoNoGo'),rows=byId('mpGoRows');rows.textContent='';
+    var waves={};vmArr(p.vms).forEach(function(v){if(v.state==='done'){return;}(waves[v.wave||0]=waves[v.wave||0]||[]).push(v);});
+    var keys=Object.keys(waves).map(Number).sort(function(a,b){return a-b;});
+    box.classList.toggle('hidden',!keys.length);
+    keys.forEach(function(w){
+      var vms=waves[w],checks=mpGoChecks(p,vms),block=checks.some(function(c){return c.kind==='block';}),warn=checks.some(function(c){return c.kind==='warn';});
+      var card=el('div','mp-go');card.setAttribute('data-mp-go',String(w));
+      var head=el('div','mp-go-head');head.appendChild(el('strong','',(w?'Wave '+w:'No wave')+' · '+vmPlural(vms.length,'VM')));
+      head.appendChild(el('span','mp-chip '+(block?'danger':(warn?'warning':'good')),block?'Not yet':(warn?'Check first':'Go')));card.appendChild(head);
+      var ul=el('ul');checks.forEach(function(c){ul.appendChild(el('li',c.kind,c.text));});card.appendChild(ul);
+      var b=el('button',block?'secondary-button':'primary-button','Cut over '+(w?'wave '+w:'these VMs')+'…');b.type='button';b.setAttribute('data-mp-gowave',String(w));b.disabled=block||mpBusy;b.title=block?'Fix the items marked with a cross first.':'Selects the '+vmPlural(vms.length,'VM')+' of this wave for the cutover below';card.appendChild(b);
+      rows.appendChild(card);
+    });
   }
   function mpAdvice(p){
     var s=p.summary,start=mpTime(p.settings.startAt);
@@ -9747,6 +10110,9 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   byId('mpPickFilter').addEventListener('input',function(){mpPickText=byId('mpPickFilter').value;renderMpPicker();});
   byId('mpPicker').addEventListener('change',function(e){var cb=e.target.closest('[data-mp-pick]');if(cb){mpPicks[cb.getAttribute('data-mp-pick')]=cb.checked;renderMpPicker();}});
   byId('mpPickWaveGo').addEventListener('click',mpPickWave);
+  byId('mpGoRows').addEventListener('click',function(e){var b=e.target.closest('[data-mp-gowave]');if(!b||b.disabled){return;}var p=mpPlan();if(!p){return;}var w=Number(b.getAttribute('data-mp-gowave'));
+    mpRowsChosen={};vmArr(p.vms).forEach(function(v){if(v.state!=='done'&&(v.wave||0)===w){mpRowsChosen[v.id]=true;}});mpFilter='';renderMp();
+    var card=byId('mpCutTitle');if(card&&card.scrollIntoView){card.scrollIntoView({block:'start'});}var c=byId('mpConfirmTick')||byId('mpConfirm');if(c){c.focus();}});
   byId('mpPickAll').addEventListener('click',function(){Array.prototype.forEach.call(document.querySelectorAll('#mpPicker input[data-mp-pick]'),function(cb){if(!cb.disabled&&cb.parentNode.querySelector('.run-ready')){mpPicks[cb.getAttribute('data-mp-pick')]=true;}});renderMpPicker();});
   byId('mpCancelNew').addEventListener('click',function(){mpEditing=null;mpPickText='';byId('mpPickFilter').value='';renderMp();});
   byId('mpCreate').addEventListener('click',function(){

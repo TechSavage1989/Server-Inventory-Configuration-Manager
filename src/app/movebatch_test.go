@@ -256,6 +256,9 @@ func TestPlanTestHoldsSyncsAndBlocksCutover(t *testing.T) {
 	if err := runner.EndTest(context.Background(), plan.ID, "vm-app01"); err != nil {
 		t.Fatal(err)
 	}
+	if got := mbFindVM(runner.plans[0], "vm-app01").TestedAt; !got.Equal(*now) {
+		t.Fatalf("ending a test records when the VM was tested, got %v", got)
+	}
 	runner.Sweep()
 	if len(target.rounds) != 2 || len(target.ended) != 1 {
 		t.Fatalf("rounds %v ended %v", target.rounds, target.ended)
