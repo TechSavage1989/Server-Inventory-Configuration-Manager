@@ -544,7 +544,7 @@ func vmReplicateRound(ctx context.Context, client *vim25.Client, ref types.Manag
 			if err == nil || !vmFolderRefused(err) {
 				return source, err
 			}
-			log(fmt.Sprintf("%s: the datastore would not open %s while the VM runs (%v); reading this round's snapshot through vSphere's export instead.", disk.label, disk.file, err))
+			log(fmt.Sprintf("%s: the datastore would not open %s while the VM runs (%v); reading this round's snapshot through vSphere's export instead. The export streams all of the disk's used data, so only changed chunks are written but every used block is read; a VDDK folder chosen in Help > Settings reads only changed blocks.", disk.label, disk.file, err))
 			total := int64(0)
 			for _, item := range disks {
 				total += item.capacity

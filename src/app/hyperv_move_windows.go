@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 )
 
 //go:embed Move-HyperVVM.ps1
@@ -37,7 +38,7 @@ func (a *application) hypervHostFor(server string, log func(string)) *hypervScri
 	return &hypervScriptHost{app: a, host: host, local: local, log: log}
 }
 
-func (h *hypervScriptHost) run(ctx context.Context, mode, vmID, checkpoint string, out any) error {
+func (h *hypervScriptHost) run(ctx context.Context, mode, vmID string, extra []string, out any) error {
 	runtimeRoot := filepath.Join(h.app.update.appDataRoot, "Runtime")
 	if err := os.MkdirAll(runtimeRoot, 0700); err != nil {
 		return err
@@ -56,9 +57,7 @@ func (h *hypervScriptHost) run(ctx context.Context, mode, vmID, checkpoint strin
 	if h.host != "" {
 		arguments = append(arguments, "-ComputerName", h.host)
 	}
-	if checkpoint != "" {
-		arguments = append(arguments, "-CheckpointId", checkpoint)
-	}
+	arguments = append(arguments, extra...)
 	command := exec.CommandContext(ctx, h.app.powerShellPath, arguments...)
 	waitErr := h.app.runEngineProcess(command, func(line string) {
 		if h.log != nil {
@@ -100,7 +99,7 @@ func (h *hypervScriptHost) reach(disks []hypervDiskRef) {
 
 func (h *hypervScriptHost) State(ctx context.Context, vmID string) (*hypervVMState, error) {
 	var state hypervVMState
-	if err := h.run(ctx, "State", vmID, "", &state); err != nil {
+	if err := h.run(ctx, "State", vmID, nil, &state); err != nil {
 		return nil, err
 	}
 	h.reach(state.Disks)
@@ -109,7 +108,7 @@ func (h *hypervScriptHost) State(ctx context.Context, vmID string) (*hypervVMSta
 
 func (h *hypervScriptHost) Checkpoint(ctx context.Context, vmID string) (*hypervCheckpoint, error) {
 	var checkpoint hypervCheckpoint
-	if err := h.run(ctx, "Checkpoint", vmID, "", &checkpoint); err != nil {
+	if err := h.run(ctx, "Checkpoint", vmID, nil, &checkpoint); err != nil {
 		return nil, err
 	}
 	if checkpoint.ID == "" {
@@ -120,17 +119,53 @@ func (h *hypervScriptHost) Checkpoint(ctx context.Context, vmID string) (*hyperv
 }
 
 func (h *hypervScriptHost) RemoveCheckpoint(ctx context.Context, vmID, checkpointID string) error {
-	return h.run(ctx, "RemoveCheckpoint", vmID, checkpointID, nil)
+	return h.run(ctx, "RemoveCheckpoint", vmID, []string{"-CheckpointId", checkpointID}, nil)
 }
 
 func (h *hypervScriptHost) Shutdown(ctx context.Context, vmID string) (string, error) {
 	var result struct {
 		PowerState string `json:"powerState"`
 	}
-	if err := h.run(ctx, "Shutdown", vmID, "", &result); err != nil {
+	if err := h.run(ctx, "Shutdown", vmID, nil, &result); err != nil {
 		return "", err
 	}
 	return result.PowerState, nil
+}
+
+func (h *hypervScriptHost) TrackingCheckpoint(ctx context.Context, vmID string) (*hypervCheckpoint, error) {
+	var checkpoint hypervCheckpoint
+	if err := h.run(ctx, "TrackingCheckpoint", vmID, nil, &checkpoint); err != nil {
+		return nil, err
+	}
+	if checkpoint.ID == "" {
+		return nil, errors.New("Hyper-V did not return the checkpoint")
+	}
+	h.reach(checkpoint.Disks)
+	return &checkpoint, nil
+}
+
+func (h *hypervScriptHost) KeepReferencePoint(ctx context.Context, vmID, checkpointID, previous string) (*hypervReferencePoint, error) {
+	extra := []string{"-CheckpointId", checkpointID}
+	if previous != "" {
+		extra = append(extra, "-ReferencePointId", previous)
+	}
+	var point hypervReferencePoint
+	if err := h.run(ctx, "KeepReferencePoint", vmID, extra, &point); err != nil {
+		return nil, err
+	}
+	return &point, nil
+}
+
+func (h *hypervScriptHost) DiskChanges(ctx context.Context, vmID, path, limit string, size int64) ([]vmCopyRange, error) {
+	var changes hypervDiskChanges
+	if err := h.run(ctx, "DiskChanges", vmID, []string{"-DiskPath", path, "-LimitId", limit, "-DiskSize", strconv.FormatInt(size, 10)}, &changes); err != nil {
+		return nil, err
+	}
+	return changes.ranges()
+}
+
+func (h *hypervScriptHost) RemoveReferencePoint(ctx context.Context, vmID, id string) error {
+	return h.run(ctx, "RemoveReferencePoint", vmID, []string{"-ReferencePointId", id}, nil)
 }
 
 // runMoveRound runs a copy round or cutover for a VM from either source:
@@ -153,5 +188,6 @@ func (a *application) runMoveRound(ctx context.Context, inventory *vmInventory, 
 	}
 	return hypervMoveRound(ctx, a.hypervHostFor(inventory.Server, log), hypervMoveRequest{
 		VMID: vm.ID, Name: vm.Name, CopyFolder: request.CopyFolder, Cutover: request.Cutover, DiskOrder: order, NewSink: request.NewSink, Progress: request.Progress, Throttle: request.Throttle,
+		TrackFolder: request.RecordFolder,
 	}, log)
 }

@@ -206,6 +206,14 @@ service and no program on the source VMs or hosts.
 | `New-VM`, `Add-VMHardDiskDrive`, `Add-VMNetworkAdapter`, optionally `Add-ClusterVirtualMachineRole` | Hyper-V host | Cutover, now or at the time the operator scheduled |
 | A vSphere reconfigure of the old VM's network adapters (not connected), with a JSON record saved first | vCenter/ESXi | Only when **After cutover, set the old VMware VM's adapters to not connect** is ticked |
 
+### Copying running Hyper-V VMs (Move VMs and Migration plans)
+
+| Behaviour | Where | Why |
+| --- | --- | --- |
+| `powershell.exe -ExecutionPolicy Bypass -File Move-HyperVVM.ps1` (signed script, process scope), WMI `root\virtualization\v2` with this computer's account, locally or to the source host over DCOM | Computer running the move, against the source Hyper-V host | One checkpoint named "Server Inventory and Migration Manager copy" per round. On Windows Server 2016 and later it is a recovery checkpoint (the kind backup software takes) that is kept as a change tracking reference point after a successful copy (`ConvertToReferencePoint`), replacing the previous one this application kept; otherwise it is removed again |
+| `Msvm_ImageManagementService.GetVirtualDiskChanges` (read only) | Source Hyper-V host | Lists the blocks written since the last copy (Hyper-V resilient change tracking), so only those are read |
+| Reads of the source VM's virtual hard disks through the host's administrative shares | Computer running the move | The copy itself. The guest is shut down only at cutover, through its shutdown integration service, and the last reference point is removed after the cutover |
+
 ## Exclusions
 
 Use the narrowest form your product allows. Prefer the signer (certificate)
