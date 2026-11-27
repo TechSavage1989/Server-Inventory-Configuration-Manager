@@ -174,7 +174,7 @@ Every migration and replication tool lives in one **Migration and replication** 
 | Move servers | **Replicate servers** | Keep any Windows or Linux server copied until cutover, through an agent on the source. | Your admin computer; the agent on each source |
 | Disks | **Receive and send disks** | The receiver every copy goes to, receiver media, and Send by hand. | The receiving computer; Send inside the source |
 | Disks | **Start VMs from copies** | Test failover and the production VM on Hyper-V. | The Hyper-V host receiving the copies |
-| Disks | **Move file shares** | Shares, files and permissions to a new file server. | The new file server |
+| Disks | **Move file shares** | Shares, files and permissions to a new file server: this computer or another server. | The new file server, or any admin computer |
 | Disks | **Convert disk images** | VMDK, VHD, VHDX, qcow2 and raw, with Windows fix-ups and Send to a host. | Any computer that reaches the files |
 | Any computer, nothing installed in the machine | **Prepare and fix up**, **Compare before and after** | Record settings, fix up the new machine (from vCenter, PowerShell Direct or PowerShell remoting; inside the machine as a fallback), and compare two inventories. | The Hyper-V host or your admin computer; any computer |
 
@@ -221,7 +221,7 @@ Device drivers other than print drivers, Active Directory, SQL Server, RRAS, AD 
 
 ## Move file shares to a new server
 
-**Move file shares** (in **Migration and replication**) moves file shares from an old server to the server you run the application on. Run it as administrator on the **new** server. The old server is reached with the account you are signed in with, or with another account you enter under **Connect as**. Either way, that account must be an administrator on the old server, normally a domain account. A local account with the same name and password is not enough, because Windows removes administrator rights from local accounts over the network. If the old server refuses access, it opens the **Connect as** fields for you. The password is kept in memory only, until you close the application or choose Start over, and is never saved or written to a log. The old server must allow remote management: WinRM (on by default since Windows Server 2012) or the Windows Management Instrumentation firewall rules.
+**Move file shares** (in **Migration and replication**) moves file shares from an old server to a new one: the server you run the application on, or another server (see [Between two other servers](#between-two-other-servers-from-an-admin-computer)). To move them to this computer, run it as administrator on the **new** server. The old server is reached with the account you are signed in with, or with another account you enter under **Connect as**. Either way, that account must be an administrator on the old server, normally a domain account. A local account with the same name and password is not enough, because Windows removes administrator rights from local accounts over the network. If the old server refuses access, it opens the **Connect as** fields for you. The password is kept in memory only, until you close the application or choose Start over, and is never saved or written to a log. The old server must allow remote management: WinRM (on by default since Windows Server 2012) or the Windows Management Instrumentation firewall rules.
 
 1. **Connect:** type the old server's name and, if needed, choose **Another account** under Connect as and enter a user name (DOMAIN\admin or admin@domain) and password. Every share except administrative shares (C$, ADMIN$, IPC$) is listed with its folder and permissions. System shares such as NETLOGON or print$ are shown but not ticked.
 2. **Choose shares:** tick the shares to move and choose the new folder and share name for each (defaults: `D:\Shares\<name>` on the drive with the most free space, same share name). **Browse** opens the Windows folder picker for one share (with Make New Folder), and **Choose a folder for all** puts every selected share in its own folder inside the folder you pick. Folders that don't exist yet are created when copying starts; Windows, Program Files, ProgramData and user profile folders are refused. **Check plan** measures each share and checks that the old folder can be read, the new folder is empty, there is enough free space for the estimated changed files, and which permissions name accounts that won't exist here. Existing destinations are blocked unless you tick **Allow overwrite of an existing destination** for that share. The choice is per share and stays with its saved plan.
@@ -234,7 +234,21 @@ After cutover, three optional steps help users find the new shares:
 - **Find DFS links** that point at the old server, with the new path for each (domain servers with the DFS Management tools).
 - **Give this server the old server's name**, so existing mapped drives and shortcuts keep working. This is only offered once the old server no longer answers on the network. It adds the name with `netdom` (DNS and Active Directory), needs Domain Admin rights and a restart, and can be undone with the command saved in the logs folder.
 
-Logs and the saved plan are kept under `%LOCALAPPDATA%\Server Inventory Configuration Manager\Migrations\<old server>\`, so a migration can continue after the application is closed. The old server is never changed except by the optional read-only step. Collection, restore, updates and closing the application wait while a migration step runs.
+**Keep copying until cutover** (shown once the plan is checked) runs a copy every 15 minutes to 24 hours while the application stays open, so the cutover's final copy is short. It says why it waits (for example the plan needs checking again, or a password after a restart), asks you to confirm once when overwrite is allowed for a share, and turns itself off after a successful cutover.
+
+Logs and the saved plan are kept under `%LOCALAPPDATA%\Server Inventory Configuration Manager\Migrations\<old server>\` (`<old server>_TO_<new server>` for a move to another server), so a migration can continue after the application is closed. The old server is never changed except by the optional read-only step. Collection, restore, updates and closing the application wait while a migration step runs.
+
+### Between two other servers, from an admin computer
+
+Choose **New server: Another server** in step 1 and type the new server's name. This computer then only directs the move; it does not need to be a file server or run as administrator.
+
+- **Files go straight from the old server to the new one.** The application runs its copy engine inside the new server through PowerShell remoting (WinRM), and the new server copies from the old one with Robocopy. Files cross the network once and never pass through this computer, so a slow link to your admin computer does not slow the copy.
+- **Nothing is installed on either server.** No program, service or scheduled task is copied or created. Copy logs and the saved old share permissions are kept as data in `%ProgramData%\Server Inventory and Migration Manager\File-Share-Migration\<old server>` on the new server, readable only by administrators and SYSTEM.
+- **Type the old server's account.** Windows does not pass your sign-in on from one server to another (the double hop), so the new server needs an administrator account for the old server to read it. The new server is reached with the same account, your own Windows account, or another account you type. Passwords stay in memory only until you close the application or choose Start over.
+- **Browse** opens the new server's drives through its administrative shares (`\\<new server>\D$`) with your Windows account; typing a path works too.
+- **Needs:** PowerShell remoting on the new server (on by default since Windows Server 2012; `Enable-PSRemoting` otherwise) and the application left open here while copies run. **Find DFS links** and **Give the new server the old server's name** run from this computer.
+
+Run one move at a time per application window; start the next pair of servers after the cutover, or run the application on another admin computer.
 
 ## Move VMs off VMware
 
@@ -413,6 +427,8 @@ Reports stay in the selected output folder. Updates preserve your executable pat
 - **Don't ask:** actions run as soon as you press their button. Only for a test lab.
 
 The choice is saved for your Windows account in `Settings\interface.json`. Whichever you choose, every request still names the VM, plan, job or number of servers it applies to and the application checks it, so a stale page can never act on the wrong one. Wherever this README says an action asks you to confirm, it uses this setting.
+
+**Faster copies of running VMware VMs (optional).** Copies of a running VMware VM normally stream the whole disk through vSphere's export each round, because ESXi locks the disk. If you download VMware's Virtual Disk Development Kit (VDDK 7.0.3, 8 or 9 for Windows) from Broadcom and choose its folder under **Help → Settings…**, each round reads only the blocks that changed, straight from the ESXi host (NBDSSL, TCP 902). VMware's license does not allow VDDK to be included in this application. Every DLL in the folder must carry VMware's or Broadcom's signature, nothing is installed, and when VDDK cannot connect a round reads the disk the usual way. The folder is saved in `Settings\vddk.json`.
 
 The application was renamed from Server Inventory Configuration Manager to **Server Inventory and Migration Manager** in 3.2.20. The executable (`Server-Inventory-Configuration-Manager.exe`), the settings folder above and the download address keep their original names, so existing copies keep updating themselves and keep their settings and shortcuts.
 

@@ -77,6 +77,9 @@ type mbSettings struct {
 	// IP settings, hidden adapters, disks, VMware Tools and activation,
 	// with the guest account typed once in Move VMs or the plan.
 	FixUp bool `json:"fixUp"`
+	// EjectMedia sets CD/DVD and floppy drives that name an image file to
+	// a client device before a copy round (vmware_media.go).
+	EjectMedia bool `json:"ejectMedia"`
 	// RemoteHost runs the plan from an admin computer against the Hyper-V
 	// host or failover cluster connected in Move VMs (rule 39), instead of
 	// this computer. CopyRoot and VMFolder are then paths on that host.

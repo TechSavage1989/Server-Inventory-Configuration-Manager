@@ -1,6 +1,47 @@
+## 3.2.38 release preparation — 2026-11-27
+
+Owner asked to publish ("publish"). Contents, merged into `release/next`: #164 (VM names on New migration tiles with an encryption note), #165 (eject CD/DVD images before copies), #167 (VDDK changed-block reads, operator-supplied), #168 (fluid density), #169 (file shares between two other servers) and #170 (rule numbering). Version 3.2.38 in `main.go` and the collector, release notes in `docs/release-notes/3.2.38.md`, and the published-upgrade test now starts from signed 3.2.37 (`323f7f7b...8545`).
+
+## Unreleased: fluid density, so 1080p and smaller windows fit more — 2026-11-27
+
+- The owner found the interface crowded at 1080p and below and asked for it to scale like it does on a 1440p screen, as long as it stays legible. Every font size and control height (`--fz`) and every padding, margin and gap (`--sp`) in the top-level CSS of `src/app/index.html` now scales with two tokens, `--fz` and `--sp` (AGENTS rule 60): full size at 2560x1369, linearly smaller to 0.82 (text) and 0.7 (spacing) at 1920x1050 and below, by whichever of width and height is smaller. Every font size is floored at 10.5 px. The old `max-width:1439px` and `max-width:1100px` font and padding tiers are gone; the small-window `@media` rules keep plain px.
+- New workspace check "Fluid density". Before and after captures at 2400x1300, 1920x1080, 1366x768 and 1024x768 are in the project files under `density/`. README `hero.png`, `new-migration.png` and `migration-plans.png` were recaptured at 1440x1000; the other README images still show the earlier, larger text (same layout).
+- Not field-validated: Edge 109 on Windows Server 2012 R2 (`clamp()`, `min()` and `max()` inside `calc()` are supported there since Chrome 79), and Windows display scaling above 100 %, which makes the CSS viewport smaller and so the interface denser.
+
+## Unreleased: VMware VDDK reads of running VMs (changed blocks only) — 2026-11-27
+
+- Owner request: explore VDDK so pre-cutover syncs of running VMs read only the CBT changed blocks instead of streaming the whole disk through the export. Rule 58.
+- Licensing: the owner's VDDK 8.0.3 download carries only the VMware General Terms (2023-11-22, section 1.3: internal use only, no sublicensing), so VDDK is not shipped. Operators choose their own extracted VDDK folder in Help > Settings (`/api/vddk`, `Settings\vddk.json`).
+- `vddk.go` (sector source, settings, connection), `vddk_windows.go` (signature check with WinVerifyTrust and Broadcom/VMware signer, version 7.0.3+, LoadLibraryEx, VixDiskLib through syscalls with the header's pack-4 offsets, NBDSSL only, read only, no PrepareForAccess), `vddk_other.go`. Rounds try VDDK first, then the datastore read, then the export.
+- Tests: `vddk_test.go` (vcsim with a fake session: seed, a changed-block round reading one chunk, fallback when VDDK cannot connect), `vddk_windows_test.go` (unsigned and Microsoft-signed DLLs refused), workspace check for the setting.
+- Not field-validated: real VixDiskLib calls (struct offsets, UID login, SHA-1 thumbprint, nbdssl to port 902) against vCenter and ESXi with VDDK 7.0.3, 8.0.3 and 9.
+
+## Unreleased: a missing CD/DVD image no longer stops copies of running VMware VMs — 2026-11-26
+
+- Field report on 3.2.37: EPICHyperspaceLocal's migration plan failed. The datastore refused the running disk (500), and the snapshot export fallback failed with "File ds:///vmfs/volumes/.../ISO Files/SW_DVD9_Win_Server_STD_CORE_2022....ISO was not found": vSphere's export opens every file the snapshot's devices name, and the VM's CD/DVD drive still named a deleted ISO (shown as not connected, because a missing file cannot connect). The export cannot leave a device out.
+- Fix (`vmware_media.go`, AGENTS.md rule 25): with **Eject CD/DVD and floppy images** ticked, a round sets such drives to a client device, not connected, before its snapshot, after recording each ISO path (`-media.json`). It is ticked by default in New migration (shown only for VMs whose drives name an image), Migration plans, Move VMs and the platform move. Without it, the error ends with how to fix it, and a plan row offers **Eject the CD/DVD images and copy again**, which turns it on for the plan and copies the VM at once.
+- Readiness: the inventory now keeps every image a drive names (`mediaImages`), and a drive naming an image that is not connected is flagged (`media-image`), because the file may be gone.
+- Continuous sync on the export path: each sync is a new snapshot and writes only the blocks changed block tracking reports, but the export streams the disk's used data each time (it cannot seek). The cutover round runs with the VM off, when ESXi allows ranged datastore reads again, so it reads only changed blocks.
+- Tests: the export test now adds a CD/DVD drive with a missing ISO in vcsim (hint without the tick; with it the drive becomes a client device, not connected, and the record keeps the ISO), `TestReadinessFlagsADriveNamingAnImageThatIsNotConnected`, and two workspace checks (New migration offers and sends the tick; the plan row's button updates the plan and syncs the VM). Not field-validated: the reconfigure on a real running VM (a guest that locked the CD-ROM door makes vSphere ask a question on the console; the round then fails after 3 minutes and says so).
+
+## 3.2.37 published and verified — 2026-11-26
+
+- [Release v3.2.37](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.37) ("Server Inventory and Migration Manager 3.2.37"), tag and target commit `b0708c3d90053133584a107862bf6f85ad7028a5`. Source: #149, #152, #153, #154, #155, #156, #158, #159 and #160, prepared by #157 and published by #161. The owner asked to release everything together on 2026-11-26.
+- The [publish run](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/45889099318) passed first time: publish job 20:10–20:32 UTC, embedded scripts and EXE signed through Azure Artifact Signing over OIDC before the tests and checksum; public feed and downloads verified.
+- The actual 3.2.36-to-3.2.37 upgrade (published signed 3.2.36 EXE through Download and Install, restart into 3.2.37, native health, settings, shortcut, timers, cleanup and rollback) passed in one run, 20:32–20:44 UTC.
+- Stable EXE: 28,341,040 bytes; SHA-256 `323f7f7b86dc5863f88bf7e300e66d54ec1cf617ddb92661891cf53dbb478545`. Linux agent `simm-agent-linux-amd64`: 13,672,448 bytes; SHA-256 `98ab81faa4ac41380e8e1f9b8b3246b2f14f75126f792c8732cb0b1fdf497d1a`. All 14 assets are published.
+
+Limits: reading a running VM through the snapshot export on a real ESXi host and through vCenter, the receiver service across a real reboot, cluster switch checks across real nodes, and SQL and DC checks on a real domain controller and SQL Server have not been field-tested. The limits under 3.2.36 still apply. CI artifacts were not downloaded, and no client data was used.
+
 ## 3.2.37 release preparation — 2026-11-26
 
-Owner asked to publish ("publish") after the MATCHC-DC01 fix. Contents: #149 (receiver as a local Windows service), #152 (VMware Tools removed by hand when its uninstaller refuses), #153 (Guided migration folded into New migration, nothing clips, network map and guest account fixes), #154 (discovery chooses where reports are saved) and #155 (running VMware VMs read through the snapshot export when the datastore refuses the disk). Version 3.2.37 in `main.go` and the collector, release notes in `docs/release-notes/3.2.37.md`, and the published-upgrade test now starts from signed 3.2.36 (`9b2511f0...0801`).
+Owner asked to publish ("publish") after the MATCHC-DC01 fix, then to release everything together. Contents: #149 (receiver as a local Windows service), #152 (VMware Tools removed by hand when its uninstaller refuses), #153 (Guided migration folded into New migration, nothing clips, network map and guest account fixes), #154 (discovery chooses where reports are saved) #155 (running VMware VMs read through the snapshot export when the datastore refuses the disk), #156, #158 (confirmation styles), #159 and #160 (hidden selections counted in Move VMs). Version 3.2.37 in `main.go` and the collector, release notes in `docs/release-notes/3.2.37.md`, and the published-upgrade test now starts from signed 3.2.36 (`9b2511f0...0801`).
+
+## Unreleased: move file shares between two other servers from an admin computer — 2026-11-27
+
+- Owner asked whether file shares can move from one remote machine to another without running the application on the new server. Move file shares now has **New server: Another server** (AGENTS rule 59). The admin computer runs the signed `Invoke-ShareMigrationRemote.ps1` (RemoteSigned), which runs the existing engine inside the new server through PowerShell remoting, so the new server copies straight from the old one with Robocopy: files cross the network once, nothing is installed, and the old server's account is typed because of the double hop.
+- **Keep copying until cutover** (15 minutes to 24 hours, while the application is open) works for both targets. New migration has the target **Another file server** with its own steps.
+- Validation: Linux `go vet`, the platform-independent Go tests, a Windows cross-build and test compile, the workspace checks (new "Migrate from an admin computer" check and the fileremote hand-off). `scripts/Test-Migration.ps1` and `TestMigrateToAnotherServerFromAnAdminComputer` run through the remote runner to localhost on the Windows runner. Not field-validated: two real servers across a domain, a new server in another domain or workgroup.
 
 ## Batched merges through release/next — 2026-11-26
 

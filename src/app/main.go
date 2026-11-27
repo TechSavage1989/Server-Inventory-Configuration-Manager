@@ -35,8 +35,8 @@ const (
 	// displayName is the name people see.
 	appName            = "Server Inventory Configuration Manager"
 	displayName        = "Server Inventory and Migration Manager"
-	appVersion         = "3.2.37"
-	collectorVersion   = "3.2.37"
+	appVersion         = "3.2.38"
+	collectorVersion   = "3.2.38"
 	applicationPageCSP = "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; frame-src 'self'"
 	maximumCollectors  = 49
 
@@ -67,7 +67,7 @@ const (
 	lrLoadFromFile = 0x0010
 )
 
-//go:embed Export-ServerInventory.ps1 Run-Inventory.ps1 Restore-ServerConfiguration.ps1 Migrate-FileShares.ps1 Migrate-VmGuest.ps1 Build-ReceiverMedia.ps1 index.html favicon.ico app-icon.png assets/icons/server-inventory.svg
+//go:embed Export-ServerInventory.ps1 Run-Inventory.ps1 Restore-ServerConfiguration.ps1 Migrate-FileShares.ps1 Invoke-ShareMigrationRemote.ps1 Migrate-VmGuest.ps1 Build-ReceiverMedia.ps1 index.html favicon.ico app-icon.png assets/icons/server-inventory.svg
 var embeddedPayloads embed.FS
 
 var (
@@ -1195,6 +1195,7 @@ func newApplication() (*application, error) {
 	}
 	app.loadCollectionPreferences()
 	app.uiSettings = loadUISettings(app.update.settingsDir)
+	setVDDKFolder(loadVDDKSettings(app.update.settingsDir).Folder)
 	return app, nil
 }
 
@@ -1716,7 +1717,7 @@ func (a *application) handleOpen(response http.ResponseWriter, request *http.Req
 	loadedReportDocxPath := a.loadedReportDocxPath
 	loadedReportSummaryPath := a.loadedReportSummaryPath
 	restoreRollbackPath := a.restore.rollbackPath
-	migrateWorkPath := a.migrateWorkPath(a.migrate.source)
+	migrateWorkPath := a.migrateWorkPath(a.migrate.source, a.migrate.target)
 	a.mu.Unlock()
 	var target string
 	var urlTarget string
@@ -2352,6 +2353,7 @@ func (a *application) serve(listener net.Listener) error {
 	mux.HandleFunc("/api/start", a.handleStart)
 	mux.HandleFunc("/api/preferences", a.handlePreferences)
 	mux.HandleFunc("/api/ui-settings", a.handleUISettings)
+	mux.HandleFunc("/api/vddk", a.handleVDDK)
 	mux.HandleFunc("/api/cancel", a.handleCancel)
 	mux.HandleFunc("/api/skip-acl-export", a.handleSkipACLExport)
 	mux.HandleFunc("/api/open", a.handleOpen)
@@ -2372,6 +2374,7 @@ func (a *application) serve(listener net.Listener) error {
 	mux.HandleFunc("/api/migrate/alias", a.handleMigrateAlias)
 	mux.HandleFunc("/api/migrate/cancel", a.handleMigrateCancel)
 	mux.HandleFunc("/api/migrate/reset", a.handleMigrateReset)
+	mux.HandleFunc("/api/migrate/autosync", a.handleMigrateAutoSync)
 	mux.HandleFunc("/api/vmware/connect", a.handleVMwareConnect)
 	mux.HandleFunc("/api/output-root", a.handleOutputRoot)
 	mux.HandleFunc("/api/vmware/cancel", a.handleVMwareCancel)
@@ -2386,6 +2389,7 @@ func (a *application) serve(listener net.Listener) error {
 	mux.HandleFunc("/api/plans", a.handlePlans)
 	mux.HandleFunc("/api/servers", a.handleServers)
 	go a.startPlans()
+	go a.runMigrateScheduler()
 	go a.resumeVMReceiver()
 	mux.HandleFunc("/api/hvremote/", a.handleHVRemote)
 	mux.HandleFunc("/api/hvbuild/", a.handleHVBuild)

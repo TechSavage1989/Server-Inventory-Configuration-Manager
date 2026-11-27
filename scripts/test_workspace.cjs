@@ -74,7 +74,7 @@ const hvBuildStepCount=hvBuildFixture.steps.length;
 async function fixture(browser,old=false){
  let saved=null,started=[],saveCalls=0,rejectStart=false,skipRequests=[],opens=[],restoreReject=null,migrateReject={},vmwareReject={};const receiverPair={allowed:false};
  const logs=[],dialogs=[],errors=[],restoreCalls={browse:0,scan:[],start:[],cancel:0,tokens:[]},migrateCalls=[],vmwareCalls=[],convertCalls=[],replCalls=[],planCalls=[],serverCalls=[];const servers={rows:[],summary:{total:0,states:{},scheduled:0,methods:{}},bulk:{running:false,action:'',total:0,results:[]},hyperVHere:true,isAdministrator:true,local:{hyperV:true,computer:'HV01',running:false,folder:'',defaultFolder:'C:\\ClusterStorage\\Volume1\\Hyper-V\\Received',port:44380,addresses:['192.0.2.40']}};const plans={plans:[],inventory:{open:true,server:'vc01.example.com',serverType:'vCenter Server',live:true}};let convertReject={},convertSize=0;const pickCalls=[],outputRootCalls=[];let pickReject='';
- const uiCalls=[];const state={ui:{schema:1,confirmStyle:'typed'},status:'idle',phase:'Ready',running:false,computerName:'SRV-DEMO-01',signedInAccount:'EXAMPLE\\operator',isAdministrator:true,powerShellVersion:'5.1',defaultOutputRoot:'C:\\Reports',update:{status:'current',title:'Up to date',message:'Installed v3.2.10. Latest v3.2.10.',canCheck:true},
+ const uiCalls=[],vddkCalls=[];let vddk={folder:'',ready:false,loaded:false,message:'Off. Copies of running VMware VMs read whole disks through vSphere\'s export when the datastore refuses them.'};const state={ui:{schema:1,confirmStyle:'typed'},status:'idle',phase:'Ready',running:false,computerName:'SRV-DEMO-01',signedInAccount:'EXAMPLE\\operator',isAdministrator:true,powerShellVersion:'5.1',defaultOutputRoot:'C:\\Reports',update:{status:'current',title:'Up to date',message:'Installed v3.2.10. Latest v3.2.10.',canCheck:true},
   restore:{status:'idle',packages:{lastCollection:'',loadedReport:''},items:[],logs:[]},migrate:migrateIdle(),vmware:vmwareIdle(),convert:convertIdle()};
  const vm={inventory:null,plan:null,sizing:null,guest:null,compare:null};
  const failover={failovers:[],copies:[{name:'APP01-disk0.vhdx',size:107374182400,complete:true,verified:false,round:'a1@2026-11-25T14:19:23Z',job:'a1',recoveryPoint:'2026-11-25T14:19:23Z',updated:'2026-11-25T14:20:00Z',busy:false,generation:2,machine:{name:'APP01',cpus:6,memoryMB:12288,firmware:'uefi',adapters:2}},{name:'APP01-disk1.vhdx',size:536870912000,complete:true,verified:false,round:'a1@2026-11-25T14:19:23Z',job:'a1',recoveryPoint:'2026-11-25T14:19:23Z',updated:'2026-11-25T14:20:00Z',busy:false,generation:1},{name:'SQL01-disk0.vhdx',size:107374182400,complete:false,verified:false,updated:'2026-11-25T14:20:00Z',busy:true,generation:1}]};
@@ -86,6 +86,14 @@ async function fixture(browser,old=false){
   if(url.pathname==='/'){res.writeHead(200,{'Content-Type':'text/html','Content-Security-Policy':policy});res.end(html);return;}
   const send=(code,data)=>{res.writeHead(code,{'Content-Type':'application/json'});res.end(JSON.stringify(data));};
   if(url.pathname==='/api/state'){const since=Number(url.searchParams.get('since')||0);send(200,{...state,collectionPreferences:saved,logs:logs.slice(since).map((text,i)=>({index:since+i,text})),nextLogIndex:logs.length});return;}
+  if(url.pathname==='/api/vddk'){
+   if(req.headers['x-app-token']!=='workspace-test'){send(403,{});return;}
+   if(req.method==='GET'){send(200,{ok:true,vddk});return;}
+   let body='';for await(const chunk of req)body+=chunk;const data=JSON.parse(body);vddkCalls.push(data);
+   if(data.folder==='C:\\Bad'){send(400,{ok:false,error:'Not saved: zlib1.dll: its signature is not valid.'});return;}
+   vddk=data.folder?{folder:data.folder,ready:true,version:'8.0.3 build 23950268',signer:'Broadcom Inc',loaded:false,message:'VDDK 8.0.3 build 23950268 (signed by Broadcom Inc) is ready. Copies of running VMware VMs read only changed blocks through it.'}:{folder:'',ready:false,loaded:false,message:'Off.'};
+   send(200,{ok:true,vddk});return;
+  }
   if(url.pathname==='/api/ui-settings'){
    let body='';for await(const chunk of req)body+=chunk;
    if(req.headers['x-app-token']!=='workspace-test'){send(403,{});return;}
@@ -113,7 +121,8 @@ async function fixture(browser,old=false){
    let body='';for await(const chunk of req)body+=chunk;const data=body?JSON.parse(body):{},action=url.pathname.slice(13);migrateCalls.push({action,body:data,token:req.headers['x-app-token']});
    if(migrateReject[action]){send(400,{error:migrateReject[action]});return;}
    const m=state.migrate;
-   if(action==='discover'){Object.assign(m,{running:true,action:'discover',status:'discovering',message:'Connecting to '+data.source+'.',source:data.source,account:data.user||''});send(202,{ok:true});return;}
+   if(action==='discover'){Object.assign(m,{running:true,action:'discover',status:'discovering',message:'Connecting to '+data.source+'.',source:data.source,account:data.user||'',target:data.target||'',targetName:data.target?String(data.target).split('.')[0].toUpperCase():'',targetAccount:data.targetUser||''});send(202,{ok:true});return;}
+   if(action==='autosync'){m.autoSyncMinutes=data.minutes;m.nextAutoSyncUnixMs=data.minutes?Date.now()+data.minutes*60000:0;send(200,{ok:true});return;}
    if(action==='plan'){m.plan=data.shares.map(s=>({...s,status:'planned',message:'',percent:0,processed:0,expected:0,precheck:null,previouslySynced:false,lastSyncUnixMs:0,createdShare:false,verified:false}));m.prechecked=false;m.canCopy=false;m.canCutover=false;send(200,{ok:true});return;}
    if(action==='precheck'){Object.assign(m,{running:true,action:'precheck',status:'checking'});send(202,{ok:true});return;}
    if(action==='sync'){Object.assign(m,{running:true,action:'sync',status:'copying'});send(202,{ok:true});return;}
@@ -259,7 +268,7 @@ async function fixture(browser,old=false){
  const url='http://127.0.0.1:'+server.address().port+'/';
  // A fixture that fails to load closes its own server and context; otherwise Node never exits and the job hangs until its timeout.
  try{await page.goto(url);await page.waitForFunction(()=>document.querySelector('#serverName').textContent==='SRV-DEMO-01');}catch(e){await context.close().catch(()=>{});server.close();throw new Error('Fixture page did not load ('+errors.concat(dialogs).join('; ')+'): '+e.message);}
- return {page,context,state,uiCalls,pickCalls,outputRootCalls,rejectPick(message){pickReject=message},vm,repl,plans,planCalls,servers,serverCalls,failover,receiverPair,targetTest,replCalls,vmwareCalls,convertCalls,rejectConvert(action,message){convertReject[action]=message},setConvertSize(size){convertSize=size},rejectVmware(action,message){vmwareReject[action]=message},logs,dialogs,errors,started,skipRequests,opens,restoreCalls,migrateCalls,rejectMigrate(action,message){migrateReject[action]=message},rejectRestore(message){restoreReject=message},get saved(){return saved},get saveCalls(){return saveCalls},reject(){rejectStart=true},async close(){assert.deepEqual(errors,[]);await context.close();await new Promise(r=>server.close(r));}};
+ return {page,context,state,uiCalls,vddkCalls,pickCalls,outputRootCalls,rejectPick(message){pickReject=message},vm,repl,plans,planCalls,servers,serverCalls,failover,receiverPair,targetTest,replCalls,vmwareCalls,convertCalls,rejectConvert(action,message){convertReject[action]=message},setConvertSize(size){convertSize=size},rejectVmware(action,message){vmwareReject[action]=message},logs,dialogs,errors,started,skipRequests,opens,restoreCalls,migrateCalls,rejectMigrate(action,message){migrateReject[action]=message},rejectRestore(message){restoreReject=message},get saved(){return saved},get saveCalls(){return saveCalls},reject(){rejectStart=true},async close(){assert.deepEqual(errors,[]);await context.close();await new Promise(r=>server.close(r));}};
 }
 // Tools live in two tabs: Discovery (Alt+1) and Migration and replication (Alt+5).
 const discoveryTools=['server','environment'];
@@ -421,6 +430,16 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   assert(await f.page.locator('#updateBanner').isVisible());assert((await f.page.locator('#updateBanner').getAttribute('class')).includes('warning'));assert.equal(await f.page.locator('#updateTitle').textContent(),'Update not installed');assert(/could not be replaced.*To install it by hand/.test(await f.page.locator('#updateStatus').textContent()));assert.equal(await f.page.locator('#updateInstallButton').textContent(),'Try again');
   f.state.update={...f.state.update,installFailed:false,notice:''};await f.page.waitForTimeout(1100);assert.equal(await f.page.locator('#updateInstallButton').textContent(),'Install and restart');assert.equal(await f.page.locator('#updateTitle').textContent(),'Update ready');
   f.state.update={status:'current',title:'Up to date',message:'Installed.',canCheck:true};await f.page.waitForTimeout(1100);assert(!await f.page.locator('#updateBanner').isVisible());assert.deepEqual(f.dialogs,[]);
+ }finally{await f.close();}});
+ await check('Fluid density: text and spacing are full size on a 1440p screen, smaller at 1080p and smaller windows, and never below 10.5 px',async()=>{const f=await fixture(browser);try{
+  const read=()=>f.page.evaluate(()=>{const cs=s=>getComputedStyle(document.querySelector(s));return {body:parseFloat(cs('body').fontSize),pad:parseFloat(cs('.card-body').paddingTop),tab:document.querySelector('.tab-button').getBoundingClientRect().height,small:Array.from(document.querySelectorAll('body *')).filter(e=>e.offsetParent&&Array.from(e.childNodes).some(x=>x.nodeType===3&&x.nodeValue.trim())&&parseFloat(getComputedStyle(e).fontSize)<10.5).length};});
+  await f.page.setViewportSize({width:2560,height:1369});await f.page.waitForTimeout(100);const big=await read();
+  assert(Math.abs(big.body-14)<0.05,'body text is 14 px on a 1440p screen, got '+big.body);
+  await f.page.setViewportSize({width:1904,height:1000});await f.page.waitForTimeout(100);const hd=await read();
+  assert(hd.body<12&&hd.body>=11,'body text shrinks at 1080p, got '+hd.body);assert(hd.pad<big.pad*0.8,'padding shrinks at 1080p: '+hd.pad+' vs '+big.pad);assert(hd.tab<big.tab,'tabs get shorter at 1080p');
+  await f.page.setViewportSize({width:2384,height:1000});await f.page.waitForTimeout(100);const wideShort=await read();assert(wideShort.body<=hd.body+0.01,'a short window scales by its height');
+  await f.page.setViewportSize({width:2240,height:1300});await f.page.waitForTimeout(100);const mid=await read();assert(mid.body>hd.body&&mid.body<big.body,'the scale is fluid between 1080p and 1440p, got '+mid.body);
+  for(const size of [{width:1904,height:1000},{width:1350,height:690},{width:1008,height:690},{width:784,height:522}]){await f.page.setViewportSize(size);await f.page.waitForTimeout(100);assert.equal((await read()).small,0,'text below 10.5 px at '+size.width+'x'+size.height);}
  }finally{await f.close();}});
  await check('Nothing is cut off: every tool and every New migration screen at 1024x768, 1366x768 and 1920x1080 scrolls instead of clipping, and Back and Next stay in view',async()=>{const f=await fixture(browser);try{
   f.vm.inventory=vmwareInventoryFixture();f.vm.plan=vmwarePlanFixture();
@@ -692,6 +711,38 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   Object.assign(f.state.migrate,{running:false,action:'',status:'checked'});await f.page.waitForTimeout(1100);
   await f.page.locator('button[data-migrate-browse="Finance"]').click();await f.page.waitForFunction(()=>/inside the Windows folder/.test(document.querySelector('#migrateCheckStatus').textContent));
   assert.equal(await f.page.locator('input[data-migrate-dest="Finance"]').inputValue(),'E:\\Finance','a refused folder changes nothing');assert.deepEqual(f.dialogs,[]);
+ }finally{await f.close();}});
+ await check('Migrate from an admin computer: Another server needs no administrator rights here, sends both accounts only to Connect, browses the new server and keeps copying until cutover',async()=>{const f=await fixture(browser);try{
+  f.state.isAdministrator=false;await goTool(f,'shares');await f.page.waitForTimeout(1100);
+  assert(await f.page.locator('#migrateAdminNotice').isVisible(),'moving to this computer needs administrator rights');assert(/choose Another server/.test(await f.page.locator('#migrateAdminNotice').textContent()));
+  assert(!await f.page.locator('#migrateTargetFields').isVisible(),'the new server fields start hidden');
+  await f.page.locator('#migrateTargetOther').check();await f.page.waitForTimeout(100);
+  assert(!await f.page.locator('#migrateAdminNotice').isVisible(),'another server needs no administrator rights here');
+  assert(await f.page.locator('#migrateTargetFields').isVisible());assert(/never pass through this computer/.test(await f.page.locator('#migrateTargetHow').textContent()));
+  assert(await f.page.locator('#migrateAccountOther').isChecked()&&await f.page.locator('#migrateAccountCurrent').isDisabled(),'the old server account must be typed from an admin computer');
+  assert(/cannot pass your sign-in on/.test(await f.page.locator('#migrateAccountDetail').textContent()));
+  await f.page.locator('#migrateSource').fill('FS-OLD-07');assert(await f.page.locator('#migrateConnect').isDisabled(),'Connect needs the new server too');
+  await f.page.locator('#migrateTarget').fill('fs-new-02.example.com');await f.page.locator('#migrateUser').fill('EXAMPLE\\admin');await f.page.locator('#migratePassword').fill('Synthetic-Pa55');
+  await f.page.locator('#migrateConnect').click();await f.page.waitForFunction(()=>document.querySelector('#migrateTabBadge').textContent==='Connecting');
+  assert.deepEqual(migrateCalls(f,'discover')[0].body,{source:'FS-OLD-07',target:'fs-new-02.example.com',user:'EXAMPLE\\admin',password:'Synthetic-Pa55',targetUser:'EXAMPLE\\admin',targetPassword:'Synthetic-Pa55'},'the same account reaches both servers by default');
+  assert.equal(await f.page.locator('#migratePassword').inputValue(),'','the password leaves the page after Connect');
+  assert(await f.page.locator('#migrateTarget').isDisabled()&&await f.page.locator('#migrateTargetHere').isDisabled(),'the new server is fixed once connected');
+  Object.assign(f.state.migrate,{running:false,action:'',status:'discovered',message:'Found 3 share(s) on FS-OLD-07.',discovery:migrateDiscoveryFixture()});
+  await f.page.waitForFunction(()=>document.querySelectorAll('.migrate-share').length===3);
+  assert(await f.page.locator('#migrateCheck').isEnabled(),'Check plan works without administrator rights here');
+  f.pickCalls.length=0;await f.page.locator('[data-migrate-row="Finance"] [data-migrate-browse]').click();await f.page.waitForTimeout(200);
+  assert.equal(f.pickCalls.length,1);assert.equal(f.pickCalls[0].kind,'remote');assert.equal(f.pickCalls[0].host,'fs-new-02.example.com');assert(/on FS-NEW-02/.test(f.pickCalls[0].title));
+  assert.equal(migrateCalls(f,'browse').length,0,'never this computer\'s own folder picker');
+  await f.page.locator('#migrateCheck').click();await f.page.waitForFunction(()=>document.querySelector('#migrateTabBadge').textContent==='Checking');
+  migrateChecked(f);await f.page.waitForTimeout(1100);
+  assert(await f.page.locator('#migrateAutoRow').isVisible());assert(!await f.page.locator('#migrateAuto').isChecked());
+  await f.page.locator('#migrateAutoMinutes').selectOption('30');await f.page.locator('#migrateAuto').check();await f.page.waitForTimeout(200);
+  assert.deepEqual(migrateCalls(f,'autosync').map(c=>c.body),[{minutes:30}]);await f.page.waitForTimeout(1100);
+  assert(/Runs while this application stays open/.test(await f.page.locator('#migrateAutoNote').textContent()));
+  await f.page.locator('#migrateAuto').uncheck();await f.page.waitForTimeout(200);assert.deepEqual(migrateCalls(f,'autosync')[1].body,{minutes:0});
+  await f.page.locator('#migrateCopy').click();await f.page.waitForTimeout(200);
+  if(await f.page.locator('#migrateDialog').isVisible()){assert(/FS-NEW-02/.test(await f.page.locator('#migrateDialog').textContent()),'the confirmation names the new server');}
+  assert.deepEqual(f.dialogs,[]);
  }finally{await f.close();}});
  await check('Migrate Connect as offers another account, sends it only to Connect and asks for it after access is denied',async()=>{const f=await fixture(browser);try{
   await goTool(f,'shares');await f.page.locator('#migrateSource').fill('FS-OLD-07');
@@ -1128,6 +1179,14 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   await f.page.locator('[data-nw-step="0"]').click();await f.page.locator('[data-nw-source="shares"]').click();await f.page.locator('#nwNext').click();await f.page.locator('[data-nw-target="fileserver"]').click();await f.page.locator('#nwNext').click();
   assert.deepEqual(await methods(),['shares']);assert.equal(await f.page.locator('#gdPlanTitle').textContent(),'Moving file shares to a new file server: the steps, in order');
   assert((await f.page.locator('#gdSteps').textContent()).includes('Connect to the old server and choose shares'));
+  // Between two other servers, from an admin computer: its own steps, and the hand-off presets Another server.
+  await f.page.locator('[data-nw-step="1"]').click();await f.page.locator('[data-nw-target="fileremote"]').click();await f.page.locator('#nwNext').click();
+  assert.deepEqual(await methods(),['shares']);assert.equal(await f.page.locator('#gdPlanTitle').textContent(),'Moving file shares between two other servers: the steps, in order');
+  {const t=await f.page.locator('#gdSteps').textContent();assert(t.includes('Choose the old and new servers')&&t.includes('Check, copy and keep copying'),t);}
+  await f.page.locator('#nwNext').click();await f.page.waitForTimeout(200);
+  assert(await f.page.locator('#tabMigrate').isVisible(),'Continue in opens Move file shares');assert(await f.page.locator('#migrateTargetOther').isChecked(),'Another server is preset');
+  assert(await f.page.locator('#migrateTargetFields').isVisible(),'the new server fields show');
+  await goTool(f,'wizard');
   f.state.vmware.hyperVHere=false;
   await f.page.locator('[data-nw-step="0"]').click();await f.page.locator('[data-nw-source="images"]').click();await f.page.locator('#nwNext').click();await f.page.locator('[data-nw-target="here"]').click();await f.page.locator('#nwNext').click();
   assert.deepEqual(await methods(),['convert']);assert((await f.page.locator('#gdSteps').textContent()).includes('Check the disk'));
@@ -1840,6 +1899,7 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
  }finally{await f.close();}});
  await check('New migration: one sequence of screens picks VMs, fills the target, maps networks, recommends the way, sets waves and timed cutovers, checks, and starts a migration plan with one tick box (the default confirmation)',async()=>{const f=await fixture(browser);try{f.state.ui={schema:1,confirmStyle:'tick'};
   f.vm.inventory=vmwareInventoryFixture();f.vm.plan=vmwarePlanFixture();f.vm.inventory.vms[1].snapshots=[{name:'before patch',created:'2026-10-06T00:00:00Z'}];
+  f.vm.inventory.vms.find(v=>v.id==='vm-app01').mediaImages=['[DS-SSD-01] ISO Files/en_windows_server_2022.iso'];
   f.state.vmware=Object.assign(vmwareIdle(),{status:'connected',server:'vc01.example.com',account:'administrator@vsphere.local',summary:vmwareSummaryFixture(),inventorySerial:1,canPrepare:true,hyperVHere:true,hostStorage:{known:true,vhdPath:'D:\\Hyper-V\\Disks',vmPath:'D:\\Hyper-V',clustered:false,volumes:[{path:'D:\\',freeBytes:1099511627776,totalBytes:2199023255552,csv:false}]}});
   await f.page.keyboard.press('Alt+5');assert.equal(await f.page.locator('[data-tool="wizard"]').getAttribute('aria-pressed'),'true','New migration is the first thing in Migration and replication');
   assert(await f.page.locator('#toolsAdvancedTitle').isVisible(),'the separate tools are listed under Tools (advanced)');
@@ -1863,7 +1923,8 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   assert((await f.page.locator('[data-nw-method="plans"]').textContent()).includes('Recommended'));assert((await f.page.locator('[data-nw-method="plans"]').textContent()).includes('Pick this when'));
   assert(await f.page.locator('#nwAdvanced').isVisible());assert(await f.page.locator('#nwSync').isHidden(),'advanced options stay folded');
   await f.page.locator('[data-nw-method="movevms"]').click();assert.equal((await f.page.locator('#nwNext').textContent()),'Continue in Move VMs','another way hands off, and says so');assert(!(await f.page.locator('#nwStep').textContent()).includes('Options for a migration plan'),'only the chosen way\'s options are shown');
-  await f.page.locator('[data-nw-method="plans"]').click();await f.page.screenshot({path:out+'/new-migration-how-1440x1000.png'});await f.page.locator('#nwAdvanced summary').click();await f.page.locator('#nwSync').selectOption('30');
+  await f.page.locator('[data-nw-method="plans"]').click();await f.page.screenshot({path:out+'/new-migration-how-1440x1000.png'});
+  {assert(await f.page.locator('#nwEject').isChecked(),'ejecting CD/DVD images is offered, ticked, for a VM whose drive names an ISO');const t=await f.page.locator('label:has(#nwEject)').textContent();assert(t.includes('APP01: en_windows_server_2022.iso')&&t.includes('no longer exists'),t);}await f.page.locator('#nwAdvanced summary').click();await f.page.locator('#nwSync').selectOption('30');
   await f.page.locator('#nwNext').click();
   const at=new Date(Date.now()+48*3600000),pad=n=>String(n).padStart(2,'0'),local=at.getFullYear()+'-'+pad(at.getMonth()+1)+'-'+pad(at.getDate())+'T22:00';
   const waves=await f.page.locator('[data-nw-cutmode]').evaluateAll(n=>n.map(x=>x.getAttribute('data-nw-cutmode')));assert(waves.length>=1);
@@ -1884,7 +1945,7 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   await f.page.waitForFunction(()=>document.querySelector('.nw-stepper-item.current')&&document.querySelector('.nw-stepper-item.current').textContent==='6Status',null,{timeout:15000});
   const saved=f.vmwareCalls.filter(c=>c.action==='plan'&&c.method==='POST').pop();const net=saved.body.plan.networks.find(n=>n.source==='VM-Servers');assert.equal(net.targetName,'Isolated');assert.equal(net.targetVlan,'20');
   assert(saved.body.plan.vms.find(v=>v.id==='vm-sql01').manual,'a wave changed here is kept by later suggestions');
-  const created=f.planCalls.find(c=>c.body.action==='create');assert.deepEqual(created.body.vmIds.sort(),['vm-app01','vm-sql01']);assert.equal(created.body.settings.copyRoot,'D:\\Hyper-V\\Disks');assert.equal(created.body.settings.syncMinutes,30);assert.equal(created.body.settings.disconnectSource,true);
+  const created=f.planCalls.find(c=>c.body.action==='create');assert.deepEqual(created.body.vmIds.sort(),['vm-app01','vm-sql01']);assert.equal(created.body.settings.copyRoot,'D:\\Hyper-V\\Disks');assert.equal(created.body.settings.syncMinutes,30);assert.equal(created.body.settings.disconnectSource,true);assert.equal(created.body.settings.ejectMedia,true,'the Eject tick reaches the plan');
   const cut=f.planCalls.find(c=>c.body.action==='cutover');assert(cut,'the timed cutover is scheduled at Start');assert.equal(cut.body.confirm,name);assert.equal(cut.body.vmIds.length,1);assert.equal(new Date(cut.body.at).getHours(),22);
   await f.page.waitForSelector('[data-nw-filter="total"]');assert((await f.page.locator('#nwStatusHead').textContent()).includes(name));
   assert(await f.page.locator('#nwCutNow').isDisabled());
@@ -1908,6 +1969,10 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   assert(!(await f.page.locator('[data-nw-pick="vm-desk21"]').isDisabled()),'a VM blocked only by encrypted disks can be ticked, because it is decrypted here');
   assert(await f.page.locator('[data-nw-pick="vm-legacy03"]').isDisabled(),'other blockers still stop a VM');
   const list=await f.page.locator('#nwVmList').textContent();assert(list.includes('Encrypted disks: tick it and decrypt it in Review'),list);assert(list.includes('the disks copy as they are'),'a VM encrypted only for its virtual TPM needs nothing');
+  for(const w of [1440,1008]){await f.page.setViewportSize({width:w,height:w===1440?1000:690});
+   const tiles=await f.page.evaluate(()=>['vm-desk21','vm-desk22'].map(id=>{const row=document.querySelector('[data-nw-pick="'+id+'"]').closest('.nw-vm'),r=row.getBoundingClientRect(),cb=row.querySelector('input').getBoundingClientRect(),name=row.querySelector('strong').getBoundingClientRect(),chip=row.querySelector('strong').nextElementSibling.getBoundingClientRect(),note=row.querySelector('.nw-enc').getBoundingClientRect(),info=row.querySelector('.vm-note').getBoundingClientRect();return{id,nameW:name.width,rowW:r.width,cbTop:cb.top,nameTop:name.top,chipTop:chip.top,infoBottom:info.bottom,noteTop:note.top,noteLeft:note.left,nameLeft:name.left};}));
+   for(const t of tiles){assert(t.nameW>t.rowW*0.3,w+': '+t.id+' shows its name beside the tick box ('+JSON.stringify(t)+')');assert(Math.abs(t.cbTop-t.nameTop)<12&&Math.abs(t.chipTop-t.nameTop)<12,w+': '+t.id+' tick box, name and status share the first line');assert(t.noteTop>=t.infoBottom-1&&Math.abs(t.noteLeft-t.nameLeft)<2,w+': '+t.id+' encryption note sits on its own line under the host and size');}}
+  await f.page.setViewportSize({width:1440,height:1000});
   await f.page.locator('[data-nw-pick="vm-desk21"]').check();await f.page.locator('[data-nw-pick="vm-desk22"]').check();
   assert((await f.page.locator('[data-nw="count"]').textContent()).includes('1 VM has encrypted disks: Review decrypts it'),'encryption is flagged on the first screen');
   await f.page.locator('#nwNext').click();await f.page.locator('[data-nw-target="here"]').click();await f.page.locator('[data-nw-switch="VM-Servers"]').selectOption('Isolated');
@@ -2090,8 +2155,32 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
    assert(await f.page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'plans overflow at '+size.width);
    await f.page.locator('#mpCutNow').scrollIntoViewIfNeeded();assert(await f.page.locator('#mpCutNow').isVisible());}
   f.plans.plans[0].vms[2].error='Datastore DS-NL-02 could not be reached; the next round retries in 10 minutes.';await f.page.waitForFunction(()=>document.querySelector('#mpRows .mp-err').textContent.startsWith('Datastore'),null,{timeout:15000});
+  assert.equal(await f.page.locator('[data-mp-eject]').count(),0,'no eject button for an unrelated failure');
+  // A missing ISO stopped vSphere's export: one button turns Eject on for the plan and copies the VM again.
+  f.plans.plans[0].settings=Object.assign({},f.plans.plans[0].settings,{ejectMedia:false});
+  f.plans.plans[0].vms[2].error='Hard disk 1: the server answered 500 Internal Server Error; reading the snapshot through vSphere\'s export also failed: File [DS-NL-02] ISO Files/old.iso was not found. The VM\'s CD/DVD drive 1 ([DS-NL-02] ISO Files/old.iso) names an image file, and vSphere\'s export fails when that file no longer exists. Tick Eject CD/DVD and floppy images (New migration\'s Review, the migration plan\'s settings or Move VMs), then copy again.';
+  await f.page.waitForSelector('[data-mp-eject="vm-web01"]',{timeout:15000});const before=f.planCalls.length;await f.page.locator('[data-mp-eject="vm-web01"]').click();
+  for(let i=0;i<100&&f.planCalls.slice(before).filter(c=>c.body.action==='update'||c.body.action==='sync').length<2;i++){await new Promise(r=>setTimeout(r,50));}
+  {const calls=f.planCalls.slice(before);const up=calls.find(c=>c.body.action==='update'),sy=calls.find(c=>c.body.action==='sync');assert(up&&up.body.settings.ejectMedia===true,'the plan turns Eject on');assert(sy&&sy.body.vmIds.join()==='vm-web01','and copies the VM again');}
+  f.plans.plans[0].vms[2].error='Datastore DS-NL-02 could not be reached; the next round retries in 10 minutes.';
   if(!f.errors.length&&!f.dialogs.length){await f.page.setViewportSize({width:1440,height:1000});await f.page.locator('.mp-body').evaluate(e=>e.scrollTop=0);await f.page.screenshot({path:out+'/migration-plans.png'});}
   assert.deepEqual(f.errors,[]);assert.deepEqual(f.dialogs,[]);
+ }finally{await f.close();}});
+ await check('Help > Settings chooses the VDDK folder: Browse, a refused folder stays unsaved with the reason, a signed one is saved, and Turn off clears it',async()=>{const f=await fixture(browser);try{
+  await f.page.locator('#helpMenuButton').click();await f.page.locator('#helpSettings').click();
+  await f.page.waitForFunction(()=>/^Off\./.test(document.querySelector('#vddkStatus').textContent));
+  assert(await f.page.locator('#vddkSettings button.path-pick-button').isVisible(),'the folder has a Browse button');
+  assert(/license does not let this application include VDDK/.test(await f.page.locator('#vddkSettings').textContent()));
+  await f.page.locator('#vddkFolder').fill('C:\\Bad');await f.page.locator('#vddkSave').click();
+  await f.page.waitForFunction(()=>/signature is not valid/.test(document.querySelector('#vddkStatus').textContent));
+  assert(await f.page.locator('#vddkStatus.error').isVisible());
+  await f.page.locator('#vddkFolder').fill('C:\\VDDK\\vix-disklib-8.0.3');await f.page.locator('#vddkSave').click();
+  await f.page.waitForFunction(()=>/^Saved\. VDDK 8\.0\.3/.test(document.querySelector('#vddkStatus').textContent));
+  await f.page.locator('#vddkOff').click();await f.page.waitForFunction(()=>document.querySelector('#vddkFolder').value==='');
+  assert.deepEqual(f.vddkCalls,[{folder:'C:\\Bad'},{folder:'C:\\VDDK\\vix-disklib-8.0.3'},{folder:''}]);
+  await f.page.setViewportSize({width:1008,height:690});
+  assert(await f.page.evaluate(()=>{const d=document.querySelector('#settingsDialog');const r=d.getBoundingClientRect();return r.bottom<=innerHeight&&d.scrollHeight<=d.clientHeight+2||getComputedStyle(d).overflowY!=='visible';}),'Settings scrolls instead of clipping at 1024x768');
+  await f.page.locator('#settingsClose').click();assert.deepEqual(f.dialogs,[]);
  }finally{await f.close();}});
  await check('Confirmations follow Help > Settings: a tick box by default, a dialog, the typed name, or none, and every request still carries the name it confirms',async()=>{const f=await fixture(browser);try{
   f.vm.inventory=vmwareInventoryFixture();f.vm.plan=vmwarePlanFixture();f.state.vmware=Object.assign(vmwareIdle(),{status:'connected',server:'vc01.example.com',summary:vmwareSummaryFixture(),inventorySerial:1});

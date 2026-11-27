@@ -1,3 +1,12 @@
+## 3.2.37 published and verified — 2026-11-26
+
+- [Release v3.2.37](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.37) ("Server Inventory and Migration Manager 3.2.37"), tag and target commit `b0708c3d90053133584a107862bf6f85ad7028a5`. Source: #149, #152, #153, #154, #155, #156, #158, #159 and #160, prepared by #157 and published by #161. The owner asked to release everything together on 2026-11-26.
+- The [publish run](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/45889099318) passed first time: publish job 20:10–20:32 UTC, embedded scripts and EXE signed through Azure Artifact Signing over OIDC before the tests and checksum; public feed and downloads verified.
+- The actual 3.2.36-to-3.2.37 upgrade (published signed 3.2.36 EXE through Download and Install, restart into 3.2.37, native health, settings, shortcut, timers, cleanup and rollback) passed in one run, 20:32–20:44 UTC.
+- Stable EXE: 28,341,040 bytes; SHA-256 `323f7f7b86dc5863f88bf7e300e66d54ec1cf617ddb92661891cf53dbb478545`. Linux agent `simm-agent-linux-amd64`: 13,672,448 bytes; SHA-256 `98ab81faa4ac41380e8e1f9b8b3246b2f14f75126f792c8732cb0b1fdf497d1a`. All 14 assets are published.
+
+Limits: reading a running VM through the snapshot export on a real ESXi host and through vCenter, the receiver service across a real reboot, cluster switch checks across real nodes, and SQL and DC checks on a real domain controller and SQL Server have not been field-tested. The limits under 3.2.36 still apply. CI artifacts were not downloaded, and no client data was used.
+
 ## 3.2.36 published and verified — 2026-11-26
 
 - [Release v3.2.36](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.36) ("Server Inventory and Migration Manager 3.2.36"), tag and target commit `353e424d5cf4145cd5dd171bda8f839781f1f157`. Source: the combined release of #131 to #147 listed under the 3.2.36 preparation below, prepared and published by #150, with the release blocker fixed in #151. The owner asked for it on 2026-11-26 ("publish and release as soon as complete").

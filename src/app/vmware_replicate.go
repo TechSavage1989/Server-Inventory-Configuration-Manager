@@ -57,6 +57,14 @@ type vmReplicaOptions struct {
 	// Stage reports the step the round is on (snapshot, copy, cleanup) for
 	// the live progress panel; detail names the disk being copied.
 	Stage func(stage, detail string)
+	// VDDK, when set with VDDKFolder, reads this round's snapshot through
+	// VixDiskLib (vddk.go) first; the round fills in the VM and snapshot.
+	VDDK       *vddkConnect
+	VDDKFolder string
+	// EjectMedia sets CD/DVD and floppy drives that name an image file to a
+	// client device, not connected, before the snapshot (vmware_media.go),
+	// so a missing ISO cannot stop vSphere's export of the snapshot.
+	EjectMedia bool
 }
 
 // vmThrottledSource paces reads through a throttle.
@@ -109,12 +117,14 @@ type vmReplicaDiskResult struct {
 }
 
 type vmReplicaResult struct {
-	VM         string                `json:"vm"`
-	PowerState string                `json:"powerState"`
-	EnabledCBT bool                  `json:"enabledCbt"`
-	Disks      []vmReplicaDiskResult `json:"disks"`
-	Started    time.Time             `json:"started"`
-	Finished   time.Time             `json:"finished"`
+	VM         string `json:"vm"`
+	PowerState string `json:"powerState"`
+	EnabledCBT bool   `json:"enabledCbt"`
+	// EjectedMedia names the drives set to a client device by this round.
+	EjectedMedia []string              `json:"ejectedMedia,omitempty"`
+	Disks        []vmReplicaDiskResult `json:"disks"`
+	Started      time.Time             `json:"started"`
+	Finished     time.Time             `json:"finished"`
 }
 
 // vmChangedAreas is QueryChangedDiskAreas; tests replace it because the
@@ -301,6 +311,13 @@ func vmFindSnapshots(tree []types.VirtualMachineSnapshotTree, ours *[]types.Mana
 }
 
 func vmReplicaRecord(folder string, machine mo.VirtualMachine, action string) error {
+	return vmReplicaRecordAs(folder, machine, action, "replication")
+}
+
+// vmReplicaRecordAs writes the record under its own suffix, so two records
+// written in the same second do not replace each other. Image-backed drives
+// are listed so an ejected ISO can be put back by hand.
+func vmReplicaRecordAs(folder string, machine mo.VirtualMachine, action, suffix string) error {
 	if folder == "" {
 		return nil
 	}
@@ -314,8 +331,15 @@ func vmReplicaRecord(folder string, machine mo.VirtualMachine, action string) er
 		"powerState":            machine.Runtime.PowerState,
 		"changeTrackingEnabled": machine.Config.ChangeTrackingEnabled != nil && *machine.Config.ChangeTrackingEnabled,
 	}
+	if images := vmImageMedia(machine.Config.Hardware.Device); len(images) > 0 {
+		media := []map[string]interface{}{}
+		for _, image := range images {
+			media = append(media, map[string]interface{}{"drive": image.Label, "file": image.File, "connected": image.Connected})
+		}
+		record["media"] = media
+	}
 	raw, _ := json.MarshalIndent(record, "", "  ")
-	name := filepath.Join(folder, vmUnsafeFileName.ReplaceAllString(machine.Name, "-")+"-"+time.Now().UTC().Format("20060102-150405")+"-replication.json")
+	name := filepath.Join(folder, vmUnsafeFileName.ReplaceAllString(machine.Name, "-")+"-"+time.Now().UTC().Format("20060102-150405")+"-"+suffix+".json")
 	return os.WriteFile(name, raw, 0600)
 }
 
@@ -376,6 +400,31 @@ func vmReplicateRound(ctx context.Context, client *vim25.Client, ref types.Manag
 	}
 	if _, err := vmReplicaDisks(machine.Config.Hardware.Device); err != nil {
 		return nil, err
+	}
+
+	images := vmImageMedia(machine.Config.Hardware.Device)
+	if len(images) > 0 && options.EjectMedia {
+		if err := vmReplicaRecordAs(options.RecordFolder, machine, "set CD/DVD and floppy drives that name an image file to a client device", "media"); err != nil {
+			return nil, err
+		}
+		log("Setting " + vmMediaNames(images) + " to a client device, not connected, so vSphere can export the snapshot.")
+		spec, _ := vmEjectMediaSpec(machine.Config.Hardware.Device)
+		ejectCtx, cancel := context.WithTimeout(ctx, 3*time.Minute)
+		task, err := vmObject.Reconfigure(ejectCtx, spec)
+		if err == nil {
+			err = task.Wait(ejectCtx)
+		}
+		cancel()
+		if err != nil {
+			return nil, fmt.Errorf("could not eject %s: %w. If vSphere shows a question on the VM's console (the guest locked the CD-ROM door), answer it there and copy again", vmMediaNames(images), err)
+		}
+		for _, image := range images {
+			result.EjectedMedia = append(result.EjectedMedia, image.Label+" ("+image.File+")")
+		}
+		if err := collector.RetrieveOne(ctx, ref, []string{"name", "config", "runtime.powerState", "snapshot"}, &machine); err != nil {
+			return nil, err
+		}
+		images = nil
 	}
 
 	cbt := machine.Config.ChangeTrackingEnabled != nil && *machine.Config.ChangeTrackingEnabled
@@ -461,7 +510,35 @@ func vmReplicateRound(ctx context.Context, client *vim25.Client, ref types.Manag
 			export.End(roundOK)
 		}
 	}()
+	var vddk vddkSession
+	vddkFailed := options.VDDK == nil || options.VDDKFolder == ""
+	defer func() {
+		if vddk != nil {
+			vddk.Close()
+		}
+	}()
 	openSource := func(disk vmReplicaDisk) (vmCopySource, error) {
+		if !vddkFailed {
+			if vddk == nil {
+				params := *options.VDDK
+				params.VMRef, params.Snapshot = ref.Value, snapshot.Value
+				opened, err := vddkOpenSession(ctx, options.VDDKFolder, params)
+				if err != nil {
+					vddkFailed = true
+					log(fmt.Sprintf("VDDK could not connect to this round's snapshot (%v); reading the disks without it.", err))
+				} else {
+					vddk = opened
+				}
+			}
+			if vddk != nil {
+				opened, err := vddk.Open(disk.file)
+				if err == nil {
+					log(fmt.Sprintf("%s: reading %s through VDDK (%s), only the blocks this round needs.", disk.label, disk.file, opened.Transport()))
+					return newVDDKSource(disk.file, opened), nil
+				}
+				log(fmt.Sprintf("%s: VDDK could not open %s (%v); reading it without VDDK.", disk.label, disk.file, err))
+			}
+		}
 		if export == nil {
 			source, err := openDatastoreVMDK(ctx, client, options.Datacenter, disk.file)
 			if err == nil || !vmFolderRefused(err) {
@@ -474,6 +551,9 @@ func vmReplicateRound(ctx context.Context, client *vim25.Client, ref types.Manag
 			}
 			opened, exportErr := vmOpenSnapshotExport(ctx, client, snapshot, total, log)
 			if exportErr != nil {
+				if len(images) > 0 {
+					return nil, fmt.Errorf("%w; reading the snapshot through vSphere's export also failed: %v. The VM's %s names an image file, and vSphere's export fails when that file no longer exists. %s", err, exportErr, vmMediaNames(images), vmEjectMediaHint)
+				}
 				return nil, fmt.Errorf("%w; reading the snapshot through vSphere's export also failed: %v", err, exportErr)
 			}
 			export = opened
