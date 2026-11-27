@@ -276,6 +276,7 @@ func (a *application) runPreflight(items []preflightItemState, checks []string, 
 		facts, err := a.runPreflightScript(item, checks, user, password)
 		if err != nil {
 			check.Error = err.Error()
+			check.ErrorSummary = preflightErrorSummary(check.Computer, check.Via, check.Error)
 		} else {
 			check.Facts = facts
 		}
@@ -344,7 +345,7 @@ func (a *application) runPreflight(items []preflightItemState, checks []string, 
 // preflightItemSummary is one line for the run list: the worst findings.
 func preflightItemSummary(check *vmPreflight) string {
 	if check.Error != "" {
-		return "Not reached: " + check.Error
+		return "Not reached: " + preflightErrorSummary(check.Computer, check.Via, check.Error)
 	}
 	parts := []string{}
 	if check.domainController() {
