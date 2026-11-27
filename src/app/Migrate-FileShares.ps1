@@ -8,7 +8,18 @@ param(
     [string]$CancelPath,
     # Reads one JSON line {"user":..,"password":..} from standard input: the
     # account used for the old server. Never passed on the command line.
-    [switch]$CredentialFromInput
+    [switch]$CredentialFromInput,
+    # The new server when it is not the computer running this engine. Only
+    # DfsReport, AliasCheck and Alias use it: they run on the admin computer
+    # and name the new server in their suggestions and checks.
+    [string]$TargetName,
+    # Embedded: the engine runs inside the new server through PowerShell
+    # remoting (Invoke-ShareMigrationRemote.ps1). It never calls exit then,
+    # writes its lines to -LogPath for the console to read, and gets the old
+    # server's account as a credential object instead of standard input.
+    [switch]$Embedded,
+    [string]$LogPath,
+    [System.Management.Automation.PSCredential]$SourceCredentialObject
 )
 
 # Moves file shares from an old server to this server. Runs on the new server.
@@ -21,12 +32,30 @@ param(
 # With -CredentialFromInput, the old server is reached with that account for
 # remote management (CIM) and for files (an SMB connection made for this run
 # and removed when it ends); otherwise with the account running this engine.
+# From an admin computer, Invoke-ShareMigrationRemote.ps1 runs this engine
+# inside the new server (-Embedded), so the new server copies straight from
+# the old one: files cross the network once, and nothing is installed on
+# either server.
 # Compatible with Windows PowerShell 3.0 (Windows Server 2012) and later.
 
 $ErrorActionPreference = 'Stop'
 try { [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false) } catch { }
+$script:ExitCode = 0
+$script:LineWriter = $null
+$script:EngineLock = $null
+if ($LogPath) {
+    $logParent = Split-Path -Path $LogPath -Parent
+    if ($logParent -and -not (Test-Path -LiteralPath $logParent)) { New-Item -Path $logParent -ItemType Directory -Force | Out-Null }
+    # Shared for reading, so the console can follow the log while it grows.
+    $script:LineWriter = New-Object System.IO.StreamWriter((New-Object System.IO.FileStream($LogPath, [System.IO.FileMode]::Append, [System.IO.FileAccess]::Write, [System.IO.FileShare]::ReadWrite)), (New-Object System.Text.UTF8Encoding($false)))
+    $script:LineWriter.AutoFlush = $true
+}
 
-function Write-Line { param([string]$Text) [Console]::Out.WriteLine($Text); [Console]::Out.Flush() }
+function Write-Line {
+    param([string]$Text)
+    if ($script:LineWriter) { $script:LineWriter.WriteLine($Text); return }
+    [Console]::Out.WriteLine($Text); [Console]::Out.Flush()
+}
 function Write-Log { param([string]$Level, [string]$Message) Write-Line ('{0} [{1}] {2}' -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $Level, $Message) }
 function Write-MigrateEvent { param([hashtable]$Event) Write-Line ('@@MIGRATE@@' + (ConvertTo-Json -InputObject $Event -Compress -Depth 6)) }
 function Write-Utf8File {
@@ -43,6 +72,7 @@ function Test-Administrator {
 function Test-CancelRequested { return [bool]($CancelPath -and (Test-Path -LiteralPath $CancelPath)) }
 
 $script:ComputerName = [string]$env:COMPUTERNAME
+if ($TargetName) { $script:ComputerName = ([string]$TargetName).Split('.')[0].ToUpperInvariant() }
 $script:Robocopy = Join-Path $env:SystemRoot 'System32\robocopy.exe'
 $script:SystemShares = @('NETLOGON', 'SYSVOL', 'PRINT$', 'FAX$', 'CERTENROLL', 'REMINST', 'WSUSCONTENT', 'WSUSTEMP', 'UPDATESERVICESPACKAGES')
 $script:ExcludedFolders = @('System Volume Information', '$RECYCLE.BIN', 'DfsrPrivate')
@@ -66,6 +96,11 @@ $script:SourceAccount = ''
 $script:SourceConnection = $null
 
 function Read-SourceCredential {
+    if ($SourceCredentialObject) {
+        $script:SourceAccount = [string]$SourceCredentialObject.UserName
+        $script:SourceCredential = $SourceCredentialObject
+        return
+    }
     if (-not $CredentialFromInput) { return }
     $line = [Console]::In.ReadLine()
     $data = $null
@@ -555,8 +590,8 @@ function Invoke-Sync {
     $plan = Read-Plan
     $result = Invoke-SyncShares -Plan $plan -Label 'Copy'
     Write-Result $result
-    if ($result.failed) { exit 1 }
-    if ($result.canceled) { exit 2 }
+    if ($result.failed) { $script:ExitCode = 1 }
+    elseif ($result.canceled) { $script:ExitCode = 2 }
 }
 
 # ------------------------------------------------------------------ cutover ----
@@ -676,7 +711,7 @@ function Invoke-Cutover {
     Write-Log 'INFO' 'Final copy before creating the shares.'
     $sync = Invoke-SyncShares -Plan $plan -Label 'Final'
     $result = @{ shares = $sync.shares; failed = $sync.failed; canceled = $sync.canceled; created = @(); verification = @() }
-    if ($sync.failed -or $sync.canceled) { Write-Result $result; if ($sync.failed) { exit 1 } else { exit 2 } }
+    if ($sync.failed -or $sync.canceled) { Write-Result $result; if ($sync.failed) { $script:ExitCode = 1 } else { $script:ExitCode = 2 }; return }
     foreach ($share in @($plan.shares)) {
         $name = [string]$share.name
         Write-MigrateEvent @{ event = 'share'; share = $name; status = 'sharing'; message = 'Creating the share and its permissions.' }
@@ -690,7 +725,8 @@ function Invoke-Cutover {
             Write-Log 'ERROR' ($name + ': ' + $_.Exception.Message)
             Write-MigrateEvent @{ event = 'share'; share = $name; status = 'failed'; message = $_.Exception.Message }
             Write-Result $result
-            exit 1
+            $script:ExitCode = 1
+            return
         }
         # Verify: a listing pass must find nothing left to copy or remove.
         Write-MigrateEvent @{ event = 'share'; share = $name; status = 'verifying'; message = 'Comparing the old and new folders.' }
@@ -810,9 +846,15 @@ function Get-AliasStatus {
     $status.oldName = ([string]$Plan.source).Split('.')[0]
     try { $status.thisFqdn = [System.Net.Dns]::GetHostEntry($script:ComputerName).HostName } catch { $status.thisFqdn = $script:ComputerName }
     if (Test-IsThisServer $Plan.source) { $status.reasons += 'The old server is this server.' }
-    $domainRole = [int](Get-WmiObject -Class Win32_ComputerSystem).DomainRole
-    if ($domainRole -eq 0 -or $domainRole -eq 2) { $status.reasons += 'This server is not in a domain. The alias needs Active Directory and DNS.' }
-    if (-not (Get-Command netdom.exe -ErrorAction SilentlyContinue)) { $status.reasons += 'netdom.exe is not installed. Install it with: Install-WindowsFeature RSAT-AD-Tools' }
+    $domainRole = -1
+    if ($TargetName) {
+        # Run from the admin computer: ask the new server (read only).
+        try { $domainRole = [int](Get-CimInstance -ClassName Win32_ComputerSystem -ComputerName $TargetName -ErrorAction Stop).DomainRole }
+        catch { $status.reasons += ('Could not read whether ' + $script:ComputerName + ' is in a domain with this Windows account: ' + $_.Exception.Message) }
+    }
+    else { $domainRole = [int](Get-WmiObject -Class Win32_ComputerSystem).DomainRole }
+    if ($domainRole -eq 0 -or $domainRole -eq 2) { $status.reasons += ('The new server ' + $script:ComputerName + ' is not in a domain. The alias needs Active Directory and DNS.') }
+    if (-not (Get-Command netdom.exe -ErrorAction SilentlyContinue)) { $status.reasons += ('netdom.exe is not installed on ' + [string]$env:COMPUTERNAME + '. Install it with: Install-WindowsFeature RSAT-AD-Tools') }
     $answers = $false
     try { $answers = Test-Connection -ComputerName $status.oldName -Count 1 -Quiet -ErrorAction SilentlyContinue } catch { }
     if (-not $answers) { try { $answers = Test-Path -LiteralPath ('\\' + $status.oldName + '\IPC$') } catch { } }
@@ -845,8 +887,18 @@ function Invoke-Alias {
 
 # ------------------------------------------------------------------ main -------
 
+function Enter-EngineLock {
+    # One copy at a time per migration: a copy left running (for example
+    # when the console lost its connection to the new server) must finish
+    # or be stopped before another starts on the same folders.
+    if (-not $WorkPath -or @('Precheck', 'Sync', 'Cutover') -notcontains $Mode) { return }
+    try { $script:EngineLock = New-Object System.IO.FileStream((Join-Path $WorkPath 'Engine.lock'), [System.IO.FileMode]::OpenOrCreate, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None) }
+    catch { throw ('A previous copy for this migration is still running on ' + $script:ComputerName + '. Wait for it to finish (it stops by itself when it is done), then run this step again.') }
+}
+
 try {
     if ($WorkPath -and -not (Test-Path -LiteralPath $WorkPath)) { New-Item -Path $WorkPath -ItemType Directory -Force | Out-Null }
+    Enter-EngineLock
     Read-SourceCredential
     switch ($Mode) {
         'Discover' { Invoke-Discover }
@@ -859,11 +911,16 @@ try {
         'AliasCheck' { Invoke-AliasCheck }
         'Alias' { Invoke-Alias }
     }
-    exit 0
 }
 catch {
     Write-Log 'ERROR' $_.Exception.Message
     Write-MigrateEvent @{ event = 'error'; message = $_.Exception.Message }
-    exit 3
+    $script:ExitCode = 3
 }
-finally { Disconnect-SourceFiles }
+finally {
+    Disconnect-SourceFiles
+    if ($script:EngineLock) { $script:EngineLock.Dispose(); $script:EngineLock = $null }
+    if ($script:LineWriter) { $script:LineWriter.Dispose(); $script:LineWriter = $null }
+}
+if ($Embedded) { return $script:ExitCode }
+exit $script:ExitCode

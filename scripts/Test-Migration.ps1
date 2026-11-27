@@ -237,6 +237,59 @@ $denied = Invoke-Engine 'Discover' @{ Source = $address } 'discover-wrong-passwo
 Assert ($denied.code -ne 0 -and $denied.log -match ('refused access on ' + [regex]::Escape($address) + ' for ' + [regex]::Escape($account)) -and $denied.log -match '"event":"accessDenied"') ('A wrong password is reported as refused access and asks for the account: ' + (($denied.log -split "`n" | Where-Object { $_ -match 'ERROR' }) -join ' '))
 $deniedFiles = Invoke-Engine 'Precheck' @{ PlanPath = $accountPlan } 'precheck-wrong-password' $wrongLine
 Assert ($deniedFiles.code -ne 0 -and $deniedFiles.log -match ('did not accept ' + [regex]::Escape($account) + ' for file access') -and $deniedFiles.log -match '"event":"accessDenied"') ('A wrong password for file access is reported plainly: ' + (($deniedFiles.log -split "`n" | Where-Object { $_ -match 'ERROR' }) -join ' '))
+
+# --- From an admin computer: the new server pulls from the old one -------------
+# Invoke-ShareMigrationRemote.ps1 runs the engine inside the "new server"
+# through PowerShell remoting (here localhost), and the new server reaches the
+# "old server" (this runner's network address) with the old server's account.
+$remoteRunner = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\src\app\Invoke-ShareMigrationRemote.ps1'))
+$tokens = $null; $errors = $null
+[Management.Automation.Language.Parser]::ParseFile($remoteRunner, [ref]$tokens, [ref]$errors) | Out-Null
+Assert ($errors.Count -eq 0) 'The remote share migration runner parses without errors'
+$remoteWork = 'SICM-REMOTE-TEST'
+function Invoke-Remote([string]$Mode, [hashtable]$Arguments, [string]$Name, [string]$InputLine) {
+    $log = Join-Path $OutputDirectory ($Name + '.log')
+    $result = Join-Path $OutputDirectory ($Name + '.json')
+    if (Test-Path -LiteralPath $result) { Remove-Item -LiteralPath $result -Force }
+    $list = @('-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'RemoteSigned', '-File', $remoteRunner, '-Target', 'localhost', '-Mode', $Mode, '-EnginePath', $engine, '-ResultPath', $result, '-WorkName', $remoteWork, '-CredentialFromInput')
+    foreach ($key in $Arguments.Keys) { $list += @(('-' + $key), $Arguments[$key]) }
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try { $InputLine | & $powerShell @list *> $log; $code = $LASTEXITCODE } finally { $ErrorActionPreference = $previous }
+    Get-Content -LiteralPath $log | Where-Object { $_ -notmatch '"event":"progress"' } | ForEach-Object { Write-Host ('  ' + $_) }
+    $json = $null
+    if (Test-Path -LiteralPath $result) { $json = Get-Content -LiteralPath $result -Raw | ConvertFrom-Json }
+    return @{ code = $code; log = (Get-Content -LiteralPath $log -Raw); result = $json }
+}
+$remoteLine = ConvertTo-Json -InputObject @{ targetUser = ''; targetPassword = ''; sourceUser = $account; sourcePassword = $secret } -Compress
+$remoteDiscover = Invoke-Remote 'Discover' @{ Source = $address } 'remote-discover' $remoteLine
+$remoteShareFound = @($remoteDiscover.result.shares | Where-Object { $_.name -eq $oldName })[0]
+Assert ($remoteDiscover.code -eq 0 -and [bool]$remoteShareFound -and $remoteDiscover.log -match 'Connecting to the new server localhost through PowerShell remoting') ('From an admin computer, the new server reads the old server''s shares: ' + (($remoteDiscover.log -split "`n" | Where-Object { $_ -match 'Connect|ERROR' }) -join ' '))
+Assert ($remoteDiscover.log -match ('Connected to ' + [regex]::Escape($address) + ' over (WinRM|DCOM) as ' + [regex]::Escape($account))) 'Inside the new server the engine reaches the old server with the old server''s account'
+$remotePlan = Join-Path $OutputDirectory 'plan-remote.json'
+$remoteFolder = Join-Path $root 'New\Remote'
+$item = @{}
+foreach ($property in $remoteShareFound.PSObject.Properties) { $item[$property.Name] = $property.Value }
+$item['destName'] = 'SICMRemote'; $item['destPath'] = $remoteFolder; $item['previouslySynced'] = $false; $item['createdShare'] = $false; $item['allowOverwrite'] = $false; $item['expectedFiles'] = 43
+ConvertTo-Json -InputObject @{ source = $address; sourceFqdn = $address; shares = @($item) } -Depth 6 | Set-Content -LiteralPath $remotePlan -Encoding UTF8
+$remoteCheck = Invoke-Remote 'Precheck' @{ PlanPath = $remotePlan } 'remote-precheck' $remoteLine
+Assert ($remoteCheck.code -eq 0 -and $remoteCheck.result.shares[0].ok -and [int]$remoteCheck.result.shares[0].files -eq 43) 'The remote check measures the old share from the new server'
+Assert ($remoteCheck.log -match '"event":"share"') 'The engine''s progress events come back live from the new server'
+$remoteSync = Invoke-Remote 'Sync' @{ PlanPath = $remotePlan } 'remote-sync' $remoteLine
+Assert ($remoteSync.code -eq 0 -and $remoteSync.result.shares[0].status -eq 'succeeded' -and @(Get-ChildItem -LiteralPath $remoteFolder -Recurse -File -Force).Count -eq 43) 'The new server copies every file straight from the old one'
+$item['previouslySynced'] = $true
+ConvertTo-Json -InputObject @{ source = $address; sourceFqdn = $address; shares = @($item) } -Depth 6 | Set-Content -LiteralPath $remotePlan -Encoding UTF8
+$remoteCut = Invoke-Remote 'Cutover' @{ PlanPath = $remotePlan } 'remote-cutover' $remoteLine
+$remoteCreated = Get-SmbShare -Name 'SICMRemote' -ErrorAction SilentlyContinue
+Assert ($remoteCut.code -eq 0 -and [bool]$remoteCreated -and $remoteCreated.Path -eq $remoteFolder -and $remoteCut.result.verification[0].verified) 'The remote cutover creates the share on the new server and verifies it'
+$remoteBase = Join-Path $env:ProgramData ('Server Inventory and Migration Manager\File-Share-Migration\' + $remoteWork)
+Assert ((Test-Path -LiteralPath $remoteBase) -and @(Get-ChildItem -LiteralPath (Join-Path $remoteBase 'Runs') -Force -ErrorAction SilentlyContinue).Count -eq 0) 'The new server keeps only data in its migration folder and every run folder is removed'
+$baseAcl = Get-Acl -LiteralPath (Split-Path -Path $remoteBase -Parent)
+$baseSids = @($baseAcl.GetAccessRules($true, $true, [Security.Principal.SecurityIdentifier]) | ForEach-Object { $_.IdentityReference.Value } | Sort-Object -Unique)
+Assert ($baseAcl.AreAccessRulesProtected -and (($baseSids -join ',') -eq 'S-1-5-18,S-1-5-32-544')) ('The migration folder on the new server is protected to SYSTEM and Administrators: ' + ($baseSids -join ','))
+Assert (-not (((& net.exe use) -join ' ') -match [regex]::Escape('\\' + $address))) 'No file connection to the old server is left behind'
+Remove-SmbShare -Name 'SICMRemote' -Force -ErrorAction SilentlyContinue
+Remove-Item -LiteralPath $remoteBase -Recurse -Force -ErrorAction SilentlyContinue
 $leaked = @(Get-ChildItem -LiteralPath $OutputDirectory -Recurse -File | Where-Object { $_.Name -notmatch '^plan' } | Where-Object { $text = [IO.File]::ReadAllText($_.FullName); $text.Contains($secret) -or $text.Contains($wrongSecret) })
 Assert ($leaked.Count -eq 0) ('No log, result or work file contains the password: ' + (($leaked | ForEach-Object { $_.Name }) -join ', '))
 Remove-LocalUser -Name $accountName -ErrorAction SilentlyContinue

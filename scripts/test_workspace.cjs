@@ -121,7 +121,8 @@ async function fixture(browser,old=false){
    let body='';for await(const chunk of req)body+=chunk;const data=body?JSON.parse(body):{},action=url.pathname.slice(13);migrateCalls.push({action,body:data,token:req.headers['x-app-token']});
    if(migrateReject[action]){send(400,{error:migrateReject[action]});return;}
    const m=state.migrate;
-   if(action==='discover'){Object.assign(m,{running:true,action:'discover',status:'discovering',message:'Connecting to '+data.source+'.',source:data.source,account:data.user||''});send(202,{ok:true});return;}
+   if(action==='discover'){Object.assign(m,{running:true,action:'discover',status:'discovering',message:'Connecting to '+data.source+'.',source:data.source,account:data.user||'',target:data.target||'',targetName:data.target?String(data.target).split('.')[0].toUpperCase():'',targetAccount:data.targetUser||''});send(202,{ok:true});return;}
+   if(action==='autosync'){m.autoSyncMinutes=data.minutes;m.nextAutoSyncUnixMs=data.minutes?Date.now()+data.minutes*60000:0;send(200,{ok:true});return;}
    if(action==='plan'){m.plan=data.shares.map(s=>({...s,status:'planned',message:'',percent:0,processed:0,expected:0,precheck:null,previouslySynced:false,lastSyncUnixMs:0,createdShare:false,verified:false}));m.prechecked=false;m.canCopy=false;m.canCutover=false;send(200,{ok:true});return;}
    if(action==='precheck'){Object.assign(m,{running:true,action:'precheck',status:'checking'});send(202,{ok:true});return;}
    if(action==='sync'){Object.assign(m,{running:true,action:'sync',status:'copying'});send(202,{ok:true});return;}
@@ -711,6 +712,38 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   await f.page.locator('button[data-migrate-browse="Finance"]').click();await f.page.waitForFunction(()=>/inside the Windows folder/.test(document.querySelector('#migrateCheckStatus').textContent));
   assert.equal(await f.page.locator('input[data-migrate-dest="Finance"]').inputValue(),'E:\\Finance','a refused folder changes nothing');assert.deepEqual(f.dialogs,[]);
  }finally{await f.close();}});
+ await check('Migrate from an admin computer: Another server needs no administrator rights here, sends both accounts only to Connect, browses the new server and keeps copying until cutover',async()=>{const f=await fixture(browser);try{
+  f.state.isAdministrator=false;await goTool(f,'shares');await f.page.waitForTimeout(1100);
+  assert(await f.page.locator('#migrateAdminNotice').isVisible(),'moving to this computer needs administrator rights');assert(/choose Another server/.test(await f.page.locator('#migrateAdminNotice').textContent()));
+  assert(!await f.page.locator('#migrateTargetFields').isVisible(),'the new server fields start hidden');
+  await f.page.locator('#migrateTargetOther').check();await f.page.waitForTimeout(100);
+  assert(!await f.page.locator('#migrateAdminNotice').isVisible(),'another server needs no administrator rights here');
+  assert(await f.page.locator('#migrateTargetFields').isVisible());assert(/never pass through this computer/.test(await f.page.locator('#migrateTargetHow').textContent()));
+  assert(await f.page.locator('#migrateAccountOther').isChecked()&&await f.page.locator('#migrateAccountCurrent').isDisabled(),'the old server account must be typed from an admin computer');
+  assert(/cannot pass your sign-in on/.test(await f.page.locator('#migrateAccountDetail').textContent()));
+  await f.page.locator('#migrateSource').fill('FS-OLD-07');assert(await f.page.locator('#migrateConnect').isDisabled(),'Connect needs the new server too');
+  await f.page.locator('#migrateTarget').fill('fs-new-02.example.com');await f.page.locator('#migrateUser').fill('EXAMPLE\\admin');await f.page.locator('#migratePassword').fill('Synthetic-Pa55');
+  await f.page.locator('#migrateConnect').click();await f.page.waitForFunction(()=>document.querySelector('#migrateTabBadge').textContent==='Connecting');
+  assert.deepEqual(migrateCalls(f,'discover')[0].body,{source:'FS-OLD-07',target:'fs-new-02.example.com',user:'EXAMPLE\\admin',password:'Synthetic-Pa55',targetUser:'EXAMPLE\\admin',targetPassword:'Synthetic-Pa55'},'the same account reaches both servers by default');
+  assert.equal(await f.page.locator('#migratePassword').inputValue(),'','the password leaves the page after Connect');
+  assert(await f.page.locator('#migrateTarget').isDisabled()&&await f.page.locator('#migrateTargetHere').isDisabled(),'the new server is fixed once connected');
+  Object.assign(f.state.migrate,{running:false,action:'',status:'discovered',message:'Found 3 share(s) on FS-OLD-07.',discovery:migrateDiscoveryFixture()});
+  await f.page.waitForFunction(()=>document.querySelectorAll('.migrate-share').length===3);
+  assert(await f.page.locator('#migrateCheck').isEnabled(),'Check plan works without administrator rights here');
+  f.pickCalls.length=0;await f.page.locator('[data-migrate-row="Finance"] [data-migrate-browse]').click();await f.page.waitForTimeout(200);
+  assert.equal(f.pickCalls.length,1);assert.equal(f.pickCalls[0].kind,'remote');assert.equal(f.pickCalls[0].host,'fs-new-02.example.com');assert(/on FS-NEW-02/.test(f.pickCalls[0].title));
+  assert.equal(migrateCalls(f,'browse').length,0,'never this computer\'s own folder picker');
+  await f.page.locator('#migrateCheck').click();await f.page.waitForFunction(()=>document.querySelector('#migrateTabBadge').textContent==='Checking');
+  migrateChecked(f);await f.page.waitForTimeout(1100);
+  assert(await f.page.locator('#migrateAutoRow').isVisible());assert(!await f.page.locator('#migrateAuto').isChecked());
+  await f.page.locator('#migrateAutoMinutes').selectOption('30');await f.page.locator('#migrateAuto').check();await f.page.waitForTimeout(200);
+  assert.deepEqual(migrateCalls(f,'autosync').map(c=>c.body),[{minutes:30}]);await f.page.waitForTimeout(1100);
+  assert(/Runs while this application stays open/.test(await f.page.locator('#migrateAutoNote').textContent()));
+  await f.page.locator('#migrateAuto').uncheck();await f.page.waitForTimeout(200);assert.deepEqual(migrateCalls(f,'autosync')[1].body,{minutes:0});
+  await f.page.locator('#migrateCopy').click();await f.page.waitForTimeout(200);
+  if(await f.page.locator('#migrateDialog').isVisible()){assert(/FS-NEW-02/.test(await f.page.locator('#migrateDialog').textContent()),'the confirmation names the new server');}
+  assert.deepEqual(f.dialogs,[]);
+ }finally{await f.close();}});
  await check('Migrate Connect as offers another account, sends it only to Connect and asks for it after access is denied',async()=>{const f=await fixture(browser);try{
   await goTool(f,'shares');await f.page.locator('#migrateSource').fill('FS-OLD-07');
   assert(await f.page.locator('#migrateAccountCurrent').isChecked());assert(!await f.page.locator('#migrateAccountFields').isVisible(),'account fields start hidden');
@@ -1146,6 +1179,14 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   await f.page.locator('[data-nw-step="0"]').click();await f.page.locator('[data-nw-source="shares"]').click();await f.page.locator('#nwNext').click();await f.page.locator('[data-nw-target="fileserver"]').click();await f.page.locator('#nwNext').click();
   assert.deepEqual(await methods(),['shares']);assert.equal(await f.page.locator('#gdPlanTitle').textContent(),'Moving file shares to a new file server: the steps, in order');
   assert((await f.page.locator('#gdSteps').textContent()).includes('Connect to the old server and choose shares'));
+  // Between two other servers, from an admin computer: its own steps, and the hand-off presets Another server.
+  await f.page.locator('[data-nw-step="1"]').click();await f.page.locator('[data-nw-target="fileremote"]').click();await f.page.locator('#nwNext').click();
+  assert.deepEqual(await methods(),['shares']);assert.equal(await f.page.locator('#gdPlanTitle').textContent(),'Moving file shares between two other servers: the steps, in order');
+  {const t=await f.page.locator('#gdSteps').textContent();assert(t.includes('Choose the old and new servers')&&t.includes('Check, copy and keep copying'),t);}
+  await f.page.locator('#nwNext').click();await f.page.waitForTimeout(200);
+  assert(await f.page.locator('#tabMigrate').isVisible(),'Continue in opens Move file shares');assert(await f.page.locator('#migrateTargetOther').isChecked(),'Another server is preset');
+  assert(await f.page.locator('#migrateTargetFields').isVisible(),'the new server fields show');
+  await goTool(f,'wizard');
   f.state.vmware.hyperVHere=false;
   await f.page.locator('[data-nw-step="0"]').click();await f.page.locator('[data-nw-source="images"]').click();await f.page.locator('#nwNext').click();await f.page.locator('[data-nw-target="here"]').click();await f.page.locator('#nwNext').click();
   assert.deepEqual(await methods(),['convert']);assert((await f.page.locator('#gdSteps').textContent()).includes('Check the disk'));

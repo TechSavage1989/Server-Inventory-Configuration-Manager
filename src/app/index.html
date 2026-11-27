@@ -414,6 +414,10 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
 .migrate-account{display:flex;flex-wrap:wrap;align-items:center;gap:calc(6*var(--sp)) calc(16*var(--sp));margin-top:calc(10*var(--sp));font-size:max(10.5px,calc(12*var(--fz)));color:#334156}.migrate-account-label{font-weight:650}
 .migrate-account label{display:inline-flex;align-items:center;gap:calc(6*var(--sp));cursor:pointer}.migrate-account input{width:15px;height:15px;margin:0;accent-color:#2563eb}
 .migrate-account-fields .migrate-row{margin-top:calc(8*var(--sp))}
+.migrate-target-how{margin-top:calc(8*var(--sp));padding:calc(8*var(--sp)) calc(10*var(--sp));border:1px solid #c9d6ea;border-radius:8px;background:#f5f8fd;font-size:max(10.5px,calc(12*var(--fz)));color:#334156;line-height:1.45}
+.migrate-account label.disabled{opacity:.55;cursor:default}
+.migrate-auto-row select{height:calc(32*var(--fz));border:1px solid #bcc9d9;border-radius:7px;padding:0 calc(8*var(--sp));font:inherit;font-size:max(10.5px,calc(12*var(--fz)))}
+.migrate-auto{display:inline-flex;align-items:center;gap:calc(7*var(--sp));font-size:max(10.5px,calc(12*var(--fz)));font-weight:650;color:#334156;cursor:pointer}.migrate-auto input{width:16px;height:16px;margin:0;accent-color:#2563eb}
 .migrate-inline-status{margin-top:calc(8*var(--sp));font-size:max(10.5px,calc(12*var(--fz)));color:#52647c}.migrate-inline-status:empty{display:none}.migrate-inline-status.error{color:#a33b3b;font-weight:600}
 .migrate-shares{margin-top:calc(10*var(--sp));border:1px solid #e0e6ee;border-radius:9px;overflow:hidden}
 .migrate-share{padding:calc(9*var(--sp)) calc(12*var(--sp));border-top:1px solid #edf1f6}.migrate-share:first-child{border-top:0}.migrate-share.selected{background:#f7faff}
@@ -1009,7 +1013,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     </section>
 
     <section class="tab-panel" id="tabMigration" role="tabpanel" aria-labelledby="tabButtonMigration">
-      <div class="tool-layout"><nav class="tool-nav" id="migrationNav" aria-label="Migration and replication tools"><div class="tool-group"><div class="tool-group-title">Start here</div><button class="tool-item tool-guide tool-wizard" type="button" data-tool="wizard" aria-pressed="false"><span class="tool-name">New migration</span><span class="tool-desc">Pick what you are moving, where it goes and when, on one set of screens. Start it and watch it here, or follow the steps for any other way.</span><span class="tool-runs"><b>Runs on</b> the Hyper-V host that will run the VMs</span></button><button class="tool-item" type="button" data-tool="servers" aria-pressed="false"><span class="tool-name">All jobs and servers<span class="tab-badge tool-badge hidden" id="serversBadge"></span></span><span class="tool-desc">Every server, VM and job being moved, replicated, converted or restored, with live status. Act on many at once.</span><span class="tool-runs"><b>Runs on</b> your admin computer, or the Hyper-V host for plans and tests</span></button></div><div class="tool-section-title" id="toolsAdvancedTitle">Tools (advanced): each part on its own</div><div class="tool-group"><div class="tool-group-title">Plan</div><button class="tool-item" type="button" data-tool="plan" aria-pressed="false"><span class="tool-name">Plan and runbook</span><span class="tool-desc">Waves, network map and the runbook (HTML and Word).</span><span class="tool-runs"><b>Runs on</b> your admin computer</span></button><button class="tool-item" type="button" data-tool="hvbuild" aria-pressed="false"><span class="tool-name">Build Hyper-V hosts<span class="tab-badge tool-badge hidden" id="hvbuildBadge"></span></span><span class="tool-desc">Set up Hyper-V, switches, storage and a failover cluster from the VMware data.</span><span class="tool-runs"><b>Runs on</b> your admin computer, changing the new Hyper-V nodes</span></button></div><div class="tool-group"><div class="tool-group-title">Move servers</div><button class="tool-item" type="button" data-tool="movevms" aria-pressed="false"><span class="tool-name">Move VMs<span class="tab-badge tool-badge" id="movevmsBadge">Ready</span></span><span class="tool-desc">VMware or Hyper-V VMs, nothing installed in them. Copy, then cut over.</span><span class="tool-runs"><b>Runs on</b> the Hyper-V host or your admin computer</span></button><button class="tool-item" type="button" data-tool="plans" aria-pressed="false"><span class="tool-name">Migration plans<span class="tab-badge tool-badge hidden" id="plansBadge"></span></span><span class="tool-desc">Many VMs at once: scheduled seeding, automatic syncs, test and scheduled cutover.</span><span class="tool-runs"><b>Runs on</b> the Hyper-V host that will run the VMs</span></button><button class="tool-item" type="button" data-tool="replicate" aria-pressed="false"><span class="tool-name">Replicate servers<span class="tab-badge tool-badge" id="replicationTabBadge">Ready</span></span><span class="tool-desc">Any Windows or Linux server, physical or virtual, kept in sync by an agent until cutover.</span><span class="tool-runs"><b>Runs on</b> your admin computer; agent on each source server</span></button><button class="tool-item" type="button" data-tool="diskcopy" aria-pressed="false"><span class="tool-name">Receive and send disks<span class="tab-badge tool-badge" id="diskcopyBadge">Ready</span></span><span class="tool-desc">The receiver every copy goes to, and Send by hand without the agent.</span><span class="tool-runs"><b>Runs on</b> the receiving computer; Send inside the source</span></button><button class="tool-item" type="button" data-tool="failover" aria-pressed="false"><span class="tool-name">Start VMs from copies</span><span class="tool-desc">Test failover or the production VM on Hyper-V.</span><span class="tool-runs"><b>Runs on</b> the Hyper-V host receiving the copies</span></button><button class="tool-item" type="button" data-tool="shares" aria-pressed="false"><span class="tool-name">Move file shares<span class="tab-badge tool-badge" id="migrateTabBadge">Ready</span></span><span class="tool-desc">Shares, files and permissions from an old file server.</span><span class="tool-runs"><b>Runs on</b> the new file server</span></button></div><div class="tool-group"><div class="tool-group-title">Disks</div><button class="tool-item" type="button" data-tool="convert" aria-pressed="false"><span class="tool-name">Convert disk images<span class="tab-badge tool-badge" id="convertTabBadge">Ready</span></span><span class="tool-desc">VMDK, VHD(X), qcow2, raw: convert, fix up drivers, send to a host, P2V.</span><span class="tool-runs"><b>Runs on</b> any Windows computer that reaches the files</span></button></div><div class="tool-group"><div class="tool-group-title">Inside the machine</div><button class="tool-item" type="button" data-tool="guest" aria-pressed="false"><span class="tool-name">Prepare and fix up</span><span class="tool-desc">Record settings before the move; fix the machine up after it, from outside.</span><span class="tool-runs"><b>Runs on</b> the Hyper-V host or admin computer; nothing in the machine</span></button><button class="tool-item" type="button" data-tool="compare" aria-pressed="false"><span class="tool-name">Compare before and after</span><span class="tool-desc">What changed between two inventories.</span><span class="tool-runs"><b>Runs on</b> any computer</span></button></div></nav>
+      <div class="tool-layout"><nav class="tool-nav" id="migrationNav" aria-label="Migration and replication tools"><div class="tool-group"><div class="tool-group-title">Start here</div><button class="tool-item tool-guide tool-wizard" type="button" data-tool="wizard" aria-pressed="false"><span class="tool-name">New migration</span><span class="tool-desc">Pick what you are moving, where it goes and when, on one set of screens. Start it and watch it here, or follow the steps for any other way.</span><span class="tool-runs"><b>Runs on</b> the Hyper-V host that will run the VMs</span></button><button class="tool-item" type="button" data-tool="servers" aria-pressed="false"><span class="tool-name">All jobs and servers<span class="tab-badge tool-badge hidden" id="serversBadge"></span></span><span class="tool-desc">Every server, VM and job being moved, replicated, converted or restored, with live status. Act on many at once.</span><span class="tool-runs"><b>Runs on</b> your admin computer, or the Hyper-V host for plans and tests</span></button></div><div class="tool-section-title" id="toolsAdvancedTitle">Tools (advanced): each part on its own</div><div class="tool-group"><div class="tool-group-title">Plan</div><button class="tool-item" type="button" data-tool="plan" aria-pressed="false"><span class="tool-name">Plan and runbook</span><span class="tool-desc">Waves, network map and the runbook (HTML and Word).</span><span class="tool-runs"><b>Runs on</b> your admin computer</span></button><button class="tool-item" type="button" data-tool="hvbuild" aria-pressed="false"><span class="tool-name">Build Hyper-V hosts<span class="tab-badge tool-badge hidden" id="hvbuildBadge"></span></span><span class="tool-desc">Set up Hyper-V, switches, storage and a failover cluster from the VMware data.</span><span class="tool-runs"><b>Runs on</b> your admin computer, changing the new Hyper-V nodes</span></button></div><div class="tool-group"><div class="tool-group-title">Move servers</div><button class="tool-item" type="button" data-tool="movevms" aria-pressed="false"><span class="tool-name">Move VMs<span class="tab-badge tool-badge" id="movevmsBadge">Ready</span></span><span class="tool-desc">VMware or Hyper-V VMs, nothing installed in them. Copy, then cut over.</span><span class="tool-runs"><b>Runs on</b> the Hyper-V host or your admin computer</span></button><button class="tool-item" type="button" data-tool="plans" aria-pressed="false"><span class="tool-name">Migration plans<span class="tab-badge tool-badge hidden" id="plansBadge"></span></span><span class="tool-desc">Many VMs at once: scheduled seeding, automatic syncs, test and scheduled cutover.</span><span class="tool-runs"><b>Runs on</b> the Hyper-V host that will run the VMs</span></button><button class="tool-item" type="button" data-tool="replicate" aria-pressed="false"><span class="tool-name">Replicate servers<span class="tab-badge tool-badge" id="replicationTabBadge">Ready</span></span><span class="tool-desc">Any Windows or Linux server, physical or virtual, kept in sync by an agent until cutover.</span><span class="tool-runs"><b>Runs on</b> your admin computer; agent on each source server</span></button><button class="tool-item" type="button" data-tool="diskcopy" aria-pressed="false"><span class="tool-name">Receive and send disks<span class="tab-badge tool-badge" id="diskcopyBadge">Ready</span></span><span class="tool-desc">The receiver every copy goes to, and Send by hand without the agent.</span><span class="tool-runs"><b>Runs on</b> the receiving computer; Send inside the source</span></button><button class="tool-item" type="button" data-tool="failover" aria-pressed="false"><span class="tool-name">Start VMs from copies</span><span class="tool-desc">Test failover or the production VM on Hyper-V.</span><span class="tool-runs"><b>Runs on</b> the Hyper-V host receiving the copies</span></button><button class="tool-item" type="button" data-tool="shares" aria-pressed="false"><span class="tool-name">Move file shares<span class="tab-badge tool-badge" id="migrateTabBadge">Ready</span></span><span class="tool-desc">Shares, files and permissions from an old file server.</span><span class="tool-runs"><b>Runs on</b> the new file server, or any admin computer</span></button></div><div class="tool-group"><div class="tool-group-title">Disks</div><button class="tool-item" type="button" data-tool="convert" aria-pressed="false"><span class="tool-name">Convert disk images<span class="tab-badge tool-badge" id="convertTabBadge">Ready</span></span><span class="tool-desc">VMDK, VHD(X), qcow2, raw: convert, fix up drivers, send to a host, P2V.</span><span class="tool-runs"><b>Runs on</b> any Windows computer that reaches the files</span></button></div><div class="tool-group"><div class="tool-group-title">Inside the machine</div><button class="tool-item" type="button" data-tool="guest" aria-pressed="false"><span class="tool-name">Prepare and fix up</span><span class="tool-desc">Record settings before the move; fix the machine up after it, from outside.</span><span class="tool-runs"><b>Runs on</b> the Hyper-V host or admin computer; nothing in the machine</span></button><button class="tool-item" type="button" data-tool="compare" aria-pressed="false"><span class="tool-name">Compare before and after</span><span class="tool-desc">What changed between two inventories.</span><span class="tool-runs"><b>Runs on</b> any computer</span></button></div></nav>
       <div class="tool-host" id="migrationHost"><div class="tool-current" id="migrationCurrent"></div>
     <section class="tool-pane" id="tabWizard" aria-labelledby="nwTitle">
       <div class="restore-wrap"><div class="card">
@@ -1023,24 +1027,30 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     </section>
     <section class="tool-pane" id="tabMigrate" aria-label="Move file shares">
       <div class="restore-wrap"><div class="card">
-        <div class="card-header"><div><div class="card-title">Move file shares to this server</div><div class="card-subtitle">Copy shares, files and permissions from an old server, then switch users over. The old server is not changed unless you choose an optional step at the end.</div></div></div>
+        <div class="card-header"><div><div class="card-title">Move file shares</div><div class="card-subtitle">Copy shares, files and permissions from an old server to this computer or to another server, then switch users over. The old server is not changed unless you choose an optional step at the end.</div></div></div>
         <div class="card-body" id="migrateBody">
           <ol class="migrate-steps" id="migrateSteps" aria-label="Migration steps"><li data-step="1"><span class="step-num">1</span>Connect</li><li data-step="2"><span class="step-num">2</span>Choose shares</li><li data-step="3"><span class="step-num">3</span>Copy</li><li data-step="4"><span class="step-num">4</span>Cut over</li></ol>
-          <div class="restore-alert danger hidden" id="migrateAdminNotice"><strong>Run the application as administrator to move shares.</strong> Every step needs administrator rights on this server and on the old server.</div>
+          <div class="restore-alert danger hidden" id="migrateAdminNotice"><strong>Run the application as administrator to move shares to this computer.</strong> Every step needs administrator rights here and on the old server. To move them to another server instead, choose Another server below: then this computer only directs the move.</div>
           <div class="restore-status" id="migrateMessage" role="status" aria-live="polite"></div>
           <section class="migrate-section" id="migrateStepConnect" aria-labelledby="migrateConnectTitle">
-            <h3 class="migrate-section-title" id="migrateConnectTitle">1. Connect to the old server</h3>
-            <p class="migrate-help">Type the name of the server the shares are on now. This server is the new one.</p>
+            <h3 class="migrate-section-title" id="migrateConnectTitle">1. Connect to the old and new servers</h3>
+            <p class="migrate-help">Type the name of the server the shares are on now, and choose the new server they go to.</p>
             <div class="migrate-row"><input type="text" id="migrateSource" aria-label="Old server name" placeholder="Old server name, for example FS01" autocomplete="off" spellcheck="false"><button class="primary-button" id="migrateConnect" type="button" disabled>Connect</button><button class="secondary-button hidden" id="migrateReset" type="button">Start over</button></div>
-            <div class="migrate-account" id="migrateAccount" role="radiogroup" aria-labelledby="migrateAccountLabel"><span class="migrate-account-label" id="migrateAccountLabel">Connect as</span><label><input type="radio" name="migrateAccountMode" id="migrateAccountCurrent" value="current" checked>This Windows account</label><label><input type="radio" name="migrateAccountMode" id="migrateAccountOther" value="other">Another account</label></div>
-            <div class="migrate-account-fields hidden" id="migrateAccountFields"><div class="migrate-row"><input type="text" id="migrateUser" aria-label="User name for the old server" placeholder="User name, for example DOMAIN\admin" autocomplete="off" spellcheck="false" maxlength="256"><input type="password" id="migratePassword" aria-label="Password for the old server" placeholder="Password" autocomplete="new-password" maxlength="256"></div><div class="migrate-detail">An administrator on the old server. Used only to reach the old server, for every step. The password is kept in memory until you close the application or start over, and is never saved.</div></div>
+            <div class="migrate-account" id="migrateTargetMode" role="radiogroup" aria-labelledby="migrateTargetLabel"><span class="migrate-account-label" id="migrateTargetLabel">New server</span><label><input type="radio" name="migrateTargetMode" id="migrateTargetHere" value="here" checked><span id="migrateTargetHereText">This computer</span></label><label><input type="radio" name="migrateTargetMode" id="migrateTargetOther" value="other">Another server</label></div>
+            <div class="migrate-account-fields hidden" id="migrateTargetFields"><div class="migrate-row"><input type="text" id="migrateTarget" aria-label="New server name" placeholder="New server name, for example FS02" autocomplete="off" spellcheck="false" maxlength="253"></div>
+              <div class="migrate-target-how" id="migrateTargetHow"><strong>How this works:</strong> this computer only directs the move. The new server copies straight from the old one with Robocopy through PowerShell remoting, so files cross the network once, old server to new server, and never pass through this computer. Nothing is installed on either server: copy logs and the saved old share permissions are kept as data in ProgramData on the new server. Needs PowerShell remoting on the new server (on by default on Windows Server 2012 and later). Keep this application open here while copies run.</div>
+              <div class="migrate-account" id="migrateTargetAccount" role="radiogroup" aria-labelledby="migrateTargetAccountLabel"><span class="migrate-account-label" id="migrateTargetAccountLabel">New server account</span><label><input type="radio" name="migrateTargetAccountMode" id="migrateTargetAccountSame" value="same" checked>The same as the old server's</label><label><input type="radio" name="migrateTargetAccountMode" id="migrateTargetAccountCurrent" value="current">This Windows account</label><label><input type="radio" name="migrateTargetAccountMode" id="migrateTargetAccountOther" value="other">Another account</label></div>
+              <div class="migrate-account-fields hidden" id="migrateTargetAccountFields"><div class="migrate-row"><input type="text" id="migrateTargetUser" aria-label="User name for the new server" placeholder="User name, for example DOMAIN\admin" autocomplete="off" spellcheck="false" maxlength="256"><input type="password" id="migrateTargetPassword" aria-label="Password for the new server" placeholder="Password" autocomplete="new-password" maxlength="256"></div></div>
+              <div class="migrate-detail">An administrator on the new server. Passwords are kept in memory until you close the application or start over, and are never saved.</div></div>
+            <div class="migrate-account" id="migrateAccount" role="radiogroup" aria-labelledby="migrateAccountLabel"><span class="migrate-account-label" id="migrateAccountLabel">Connect to the old server as</span><label id="migrateAccountCurrentLabel"><input type="radio" name="migrateAccountMode" id="migrateAccountCurrent" value="current" checked>This Windows account</label><label><input type="radio" name="migrateAccountMode" id="migrateAccountOther" value="other">Another account</label></div>
+            <div class="migrate-account-fields hidden" id="migrateAccountFields"><div class="migrate-row"><input type="text" id="migrateUser" aria-label="User name for the old server" placeholder="User name, for example DOMAIN\admin" autocomplete="off" spellcheck="false" maxlength="256"><input type="password" id="migratePassword" aria-label="Password for the old server" placeholder="Password" autocomplete="new-password" maxlength="256"></div><div class="migrate-detail" id="migrateAccountDetail">An administrator on the old server. Used only to reach the old server, for every step. The password is kept in memory until you close the application or start over, and is never saved.</div></div>
             <div class="migrate-inline-status" id="migrateConnectStatus" role="status" aria-live="polite"></div>
-            <div class="restore-facts hidden" id="migrateFacts"><div><span class="restore-fact-label">Old server</span><span class="restore-fact-value" id="migrateFactSource"></span></div><div><span class="restore-fact-label">New server (this one)</span><span class="restore-fact-value" id="migrateFactTarget"></span></div><div><span class="restore-fact-label">Shares found</span><span class="restore-fact-value" id="migrateFactShares"></span></div><div><span class="restore-fact-label">Shares copied</span><span class="restore-fact-value" id="migrateFactCopies"></span></div></div>
+            <div class="restore-facts hidden" id="migrateFacts"><div><span class="restore-fact-label">Old server</span><span class="restore-fact-value" id="migrateFactSource"></span></div><div><span class="restore-fact-label">New server</span><span class="restore-fact-value" id="migrateFactTarget"></span></div><div><span class="restore-fact-label">Shares found</span><span class="restore-fact-value" id="migrateFactShares"></span></div><div><span class="restore-fact-label">Shares copied</span><span class="restore-fact-value" id="migrateFactCopies"></span></div></div>
             <ul class="restore-warnings hidden" id="migrateSourceWarnings"></ul>
           </section>
           <section class="migrate-section inactive" id="migrateStepChoose" aria-labelledby="migrateChooseTitle">
             <h3 class="migrate-section-title" id="migrateChooseTitle">2. Choose shares</h3>
-            <p class="migrate-help">Tick the shares to move and choose where each one goes on this server. Then check the plan: it measures each share and checks free space and permissions. Nothing is copied yet.</p>
+            <p class="migrate-help" id="migrateChooseHelp">Tick the shares to move and choose where each one goes on the new server. Then check the plan: it measures each share and checks free space and permissions. Nothing is copied yet.</p>
             <div class="migrate-row hidden" id="migrateParentRow"><button class="secondary-button" id="migrateParent" type="button">Choose a folder for all&hellip;</button><span class="migrate-help">Puts each selected share in its own folder inside the folder you choose. Or use Browse on a share. New folders are created when copying starts.</span></div>
             <div class="migrate-shares hidden" id="migrateShares"></div>
             <div class="migrate-space hidden" id="migrateSpace"></div>
@@ -1052,11 +1062,12 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
             <p class="migrate-help">Users can keep working on the old server while you copy. Each copy after the first brings over only what changed, so copy again as often as you like.</p>
             <div class="migrate-run hidden" id="migrateRun"></div>
             <div class="migrate-row"><button class="primary-button" id="migrateCopy" type="button" disabled>Copy now</button></div>
-            <div class="migrate-detail">Copies files, folders, timestamps and NTFS permissions with Robocopy. Files removed from the old share are also removed from the copy.</div>
+            <div class="migrate-row migrate-auto-row" id="migrateAutoRow"><label class="migrate-auto"><input type="checkbox" id="migrateAuto">Keep copying until cutover, every</label><select id="migrateAutoMinutes" aria-label="Time between automatic copies"><option value="15">15 minutes</option><option value="30">30 minutes</option><option value="60" selected>hour</option><option value="120">2 hours</option><option value="240">4 hours</option><option value="480">8 hours</option><option value="1440">day</option></select><span class="migrate-help" id="migrateAutoNote"></span></div>
+            <div class="migrate-detail">Copies files, folders, timestamps and NTFS permissions with Robocopy. Files removed from the old share are also removed from the copy. Automatic copies keep the new server minutes behind the old one, so the cutover's final copy is short; they run while this application stays open.</div>
           </section>
           <section class="migrate-section inactive" id="migrateStepCutover" aria-labelledby="migrateCutoverTitle">
             <h3 class="migrate-section-title" id="migrateCutoverTitle">4. Cut over</h3>
-            <p class="migrate-help">Ask users to stop using the old shares first. Cutover makes a final copy, creates the shares on this server with the old share settings and permissions, and compares the old and new files.</p>
+            <p class="migrate-help">Ask users to stop using the old shares first. Cutover makes a final copy, creates the shares on the new server with the old share settings and permissions, and compares the old and new files.</p>
             <div class="migrate-run hidden" id="migrateCutoverRun"></div>
             <div class="migrate-row"><button class="primary-button danger-primary" id="migrateCutover" type="button" disabled>Cut over&hellip;</button></div>
           </section>
@@ -1065,9 +1076,9 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
             <div class="migrate-cards">
               <div class="migrate-card"><h4>Make the old shares read-only</h4><div id="migrateReadOnlyText">Stops anyone saving new files on the old server by mistake. The old permissions are saved so you can undo this.</div><div class="migrate-row"><button class="secondary-button" id="migrateReadOnly" type="button">Make read-only&hellip;</button><button class="secondary-button hidden" id="migrateReadOnlyUndo" type="button">Undo</button></div></div>
               <div class="migrate-card"><h4>Find DFS links to update</h4><div>Lists DFS namespace links that still point at the old server, with the new path to use.</div><div class="migrate-row"><button class="secondary-button" id="migrateDfs" type="button">Find DFS links</button></div><div id="migrateDfsResult"></div></div>
-              <div class="migrate-card"><h4>Give this server the old server's name</h4><div>Lets old paths that use the old server's name keep working. Only after the old server is shut down.</div><div class="migrate-row"><button class="secondary-button" id="migrateAliasCheck" type="button">Check</button><button class="secondary-button hidden" id="migrateAlias" type="button">Add name&hellip;</button></div><div id="migrateAliasResult"></div></div>
+              <div class="migrate-card"><h4>Give the new server the old server's name</h4><div>Lets old paths that use the old server's name keep working. Only after the old server is shut down.</div><div class="migrate-row"><button class="secondary-button" id="migrateAliasCheck" type="button">Check</button><button class="secondary-button hidden" id="migrateAlias" type="button">Add name&hellip;</button></div><div id="migrateAliasResult"></div></div>
             </div>
-            <div class="migrate-guidance">Then update mapped drives, logon scripts, Group Policy drive maps and shortcuts that use the old server's name, unless you gave this server that name.</div>
+            <div class="migrate-guidance">Then update mapped drives, logon scripts, Group Policy drive maps and shortcuts that use the old server's name, unless you gave the new server that name.</div>
           </details>
           <details class="migrate-log-block" id="migrateLogBlock">
             <summary>Migration log</summary>
@@ -1986,7 +1997,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     {id:'replicate',when:'the source is a physical server, a VM on another hypervisor or a VM with encrypted disks, or the copy must stay minutes behind for days until a scheduled cutover.',tool:'replicate',card:true,name:'Replicate servers',flow:'server',from:['server','vmware','hyperv'],to:['hyperv','scale','nutanix','proxmox','physical'],agent:'agent',live:'live',fromText:'Any running Windows Server or Linux server, physical or a VM on any hypervisor',note:'An agent on the source keeps the copy minutes behind until a cutover you schedule.'},
     {id:'sendbyhand',when:'you want a one-off copy of a running Windows computer without installing a service: run this application inside it and send.',tool:'diskcopy',card:true,name:'Send disks by hand',from:['server','vmware','hyperv'],to:['hyperv','scale','nutanix','proxmox','physical'],agent:'inguest',live:'live',fromText:'A running Windows computer, physical or virtual',note:'Run this application inside the source and send; send again for the changes. No service installed.'},
     {id:'convert',when:'the VM is shut down or exported and you have its disk files, or to copy this computer\'s own disks (P2V).',tool:'convert',card:true,name:'Convert disk images',flow:'image',from:['image','vmware','hyperv','server'],to:['hyperv','vsphere','scale','nutanix','proxmox'],agent:'agentless',live:'offline',fromText:'VMDK, VHD, VHDX, qcow2 or raw files from a VM that is shut down or exported, or this computer\'s own disks (P2V)',note:'Reads the files only. The source must not change while it is read.'},
-    {id:'shares',when:'only the file shares, files and permissions move to a new file server, not the whole server.',tool:'shares',card:true,name:'Move file shares',from:['shares'],to:['fileserver'],agent:'agentless',live:'live',fromText:'Windows file server shares, files and permissions',toText:'a new Windows file server',note:'Copies while users keep working; the shares move at cutover.'}
+    {id:'shares',when:'only the file shares, files and permissions move to a new file server, not the whole server. Run it on the new file server, or on any admin computer: the new server then copies straight from the old one through PowerShell remoting.',tool:'shares',card:true,name:'Move file shares',from:['shares'],to:['fileserver','fileremote'],agent:'agentless',live:'live',fromText:'Windows file server shares, files and permissions (Windows Server 2012 or later)',toText:'a new Windows file server (Windows Server 2012 or later): this computer or another server',note:'Copies while users keep working, again and again until cutover; the shares move at cutover. Nothing is installed on either server.'}
   ];
   var toolSupport={
     wizard:{works:'VMware (vCenter or ESXi 6.5 to 8.0) or Hyper-V VMs to this Hyper-V host or its failover cluster, start to finish; every other source and target gets its steps in order, each with the computer it runs on, a live check and its tool',when:'you start any migration and want only the choices it needs, in order',tags:['agentless','live']},
@@ -1998,7 +2009,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     guest:{works:'Windows Server 2008 R2 and later, and Windows clients, on any platform: from vCenter, PowerShell Direct, PowerShell remoting, or inside the machine as a fallback',tags:['agentless']},
     compare:{works:'Two inventories collected by this application',tags:['readonly']}
   };
-  var modeTargetNames={hyperv:'Hyper-V',scale:'Scale HyperCore',nutanix:'Nutanix AHV',proxmox:'Proxmox VE',physical:'a physical server',vsphere:'VMware ESXi or vCenter',fileserver:'a new Windows file server'};
+  var modeTargetNames={hyperv:'Hyper-V',scale:'Scale HyperCore',nutanix:'Nutanix AHV',proxmox:'Proxmox VE',physical:'a physical server',vsphere:'VMware ESXi or vCenter',fileserver:'a new Windows file server',fileremote:'another Windows file server'};
   var modeTagNames={agentless:'Agentless',agent:'Agent on the source',inguest:'Run inside the source',live:'Live, source keeps running',offline:'Offline, source shut down',readonly:'Read only',hyperv:'Hyper-V only'};
   function modeList(names){if(names.length<2){return names.join('');}return names.slice(0,-1).join(', ')+' or '+names[names.length-1];}
   function modeWorksText(mode){return (mode.fromText||mode.from.join(', '))+' to '+(mode.toText||modeList(mode.to.map(function(t){return modeTargetNames[t]||t;})));}
@@ -2963,7 +2974,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   var gdTargetNames={hyperv:'Hyper-V',scale:'Scale Computing HyperCore',nutanix:'Nutanix AHV',proxmox:'Proxmox VE',physical:'A physical server',vsphere:'VMware ESXi or vCenter'};
   var gdTargetDetail={hyperv:'VHDX disks and a new Hyper-V VM.',scale:'A new HyperCore VM.',nutanix:'A new AHV VM.',proxmox:'A new Proxmox VE VM.',physical:'Copied straight onto a server\'s own disks (V2P or P2P).',vsphere:'A new VM imported into vSphere.'};
   var gdTargetsFor={vmware:['hyperv','scale','nutanix','proxmox','physical'],hyperv:['hyperv','scale','nutanix','proxmox','physical'],server:['hyperv','scale','nutanix','proxmox','physical'],image:['hyperv','vsphere','scale','nutanix','proxmox'],shares:[]};
-  var gdWhereNames={admin:'Your admin computer',hvhost:'The new Hyper-V host',inside:'Inside the machine being moved',newinside:'Inside the new machine',console:'The new machine\'s console',platform:'The platform\'s own console',fileserver:'The new file server',any:'Any computer with this application',source:'The server being moved'};
+  var gdWhereNames={admin:'Your admin computer',hvhost:'The new Hyper-V host',inside:'Inside the machine being moved',newinside:'Inside the new machine',console:'The new machine\'s console',platform:'The platform\'s own console',fileserver:'The new file server',adminfs:'Any admin computer (directs the move)',any:'Any computer with this application',source:'The server being moved'};
   var gdSource='',gdTarget='',gdFlowKey='',gdTicks={},gdStepsNow=[];
   function gdStore(key,value){try{if(value===undefined){return window.localStorage.getItem(key);}window.localStorage.setItem(key,value);}catch(e){}return null;}
   function gdCtx(){
@@ -3035,7 +3046,8 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   function gdAdminCheck(c,where){return c.admin?gdInfo('Run it '+where+', as administrator. This computer is '+c.computer+'.'):gdWarn('This application is not running as administrator here ('+c.computer+'). Run it '+where+' as administrator.');}
   function gdConvertCheck(c){var info=c.conv.info;return info?gdOk('Checked '+String(info.path||'').split('\\').pop()+': '+(info.formatName||info.format)+', '+formatBytesShort(info.virtualSize||0)+'.'):gdInfo('Choose the disk in Convert disk images and Check disk.');}
   function gdConvertDone(c){return c.conv.status==='success'&&!c.conv.running?gdOk(c.conv.message||'The last conversion finished.'):gdInfo('Not converted in this session yet.');}
-  function gdSharesCheck(c){var m=c.mig;if(!c.admin){return gdBlock('Run this application as administrator on the new file server. This computer is '+c.computer+'.');}return m.discovery?gdOk('Connected to '+(m.source||'the old server')+': '+vmArr(m.discovery.shares).length+' share(s).'):gdInfo('This computer ('+c.computer+') must be the new file server.');}
+  function gdSharesRemoteCheck(c){var m=c.mig;if(m.target){return gdOk('The new server is '+m.target+'; this computer ('+c.computer+') directs the move.');}return m.source?gdWarn('This migration moves shares to this computer. Choose Start over in Move file shares, then New server: Another server.'):gdInfo('Open Move file shares and choose New server: Another server.');}
+  function gdSharesCheck(c){var m=c.mig;if(!c.admin&&!m.target&&gdTarget!=='fileremote'){return gdBlock('Run this application as administrator on the new file server. This computer is '+c.computer+'.');}return m.discovery?gdOk('Connected to '+(m.source||'the old server')+': '+vmArr(m.discovery.shares).length+' share(s).'):gdInfo('This computer ('+c.computer+') must be the new file server.');}
   function gdSharesCopy(c){var m=c.mig;return m.canCutover?gdOk('Copied; ready to cut over.'):(m.prechecked?gdInfo('Checked; copy next.'):gdInfo('Connect and choose shares first.'));}
   function gdSteps(src,tgt){
     var T=gdTargetNames[tgt]||'',steps=[],kvm=tgt==='scale'||tgt==='nutanix'||tgt==='proxmox',c0=gdCtx();
@@ -3092,6 +3104,12 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
       if(tgt!=='vsphere'&&tgt!=='hyperv'){S('Fix up Windows for '+T,'any','For a Windows disk, convert to VHDX first, then Prepare a Windows disk for its new platform: add the VirtIO drivers and make them start at boot. Undo puts every value back.',null,'convert',{manual:true,focus:'fix'});}
       S('Send it to '+T+' and create the VM',tgt==='hyperv'?'hvhost':'any','Send to a host and create the VM converts the disk to '+T+'\'s format, uploads it and creates a new VM (an image or VM name already used stops it first).'+(tgt==='hyperv'?' For Hyper-V this runs on the Hyper-V host itself.':'')+' Or Convert only, and import the file yourself.',function(c){if(tgt==='hyperv'&&!c.hv){return gdBlock('This computer ('+c.computer+') is not a Hyper-V host. Do this step on the Hyper-V host, or Convert only and copy the VHDX there.');}return gdConvertDone(c);},'convert',{focus:'send',manual:true});
       fixup(tgt==='hyperv');
+    } else if(src==='shares'&&tgt==='fileremote'){
+      S('Choose the old and new servers','adminfs','Run this application on any admin computer (no administrator rights needed here). In Move file shares choose New server: Another server, type both names and the old server\'s administrator account. The new server copies straight from the old one through PowerShell remoting, so the files never pass through this computer and nothing is installed on either server.',gdSharesRemoteCheck,'shares');
+      S('Choose shares and folders','adminfs','Every share is listed with its permissions; system shares start unticked. Choose where each one goes on the new server: Browse opens its drives through its administrative shares.',gdSharesCheck,'shares');
+      S('Check, copy and keep copying','adminfs','Check finds problems before anything is copied. Copy brings over files and NTFS permissions; tick Keep copying until cutover so the new server stays minutes behind while users keep working. Keep this application open while copies run.',gdSharesCopy,'shares');
+      S('Cut over','adminfs','Cut over (confirm when asked): a last copy, then the shares are created on the new server with their settings and share permissions. Then the optional steps: make the old shares read-only, find DFS links, and give the new server the old name.',null,'shares',{manual:true});
+      S('Update drive mappings','admin','Update mapped drives, logon scripts, Group Policy drive maps and shortcuts that use the old server\'s name, unless the new server took over that name.',null,null,{manual:true});
     } else if(src==='shares'){
       S('Run this on the new file server','fileserver','Copy this application to the new Windows file server and run it as administrator. The old server is only read until you choose an optional step at the end.',function(c){return c.admin?gdInfo('This computer is '+c.computer+'. It must be the new file server.'):gdBlock('Not running as administrator here ('+c.computer+').');},'shares');
       S('Connect to the old server and choose shares','fileserver','Type the old server\'s name and Connect. Every share is listed with its permissions; system shares start unticked. Choose where each one goes on this server.',gdSharesCheck,'shares');
@@ -3106,6 +3124,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     if(src==='vmware'||src==='hyperv'){return tgt==='hyperv'?'Everything runs on the new Hyper-V host: it reads the source, copies each disk while the VM runs, and at cutover shuts the VM down, copies the last changes and builds the Hyper-V VM. Nothing is installed in the VM.':'Your admin computer reads the source, creates the new '+(tgt==='physical'?'server\'s receiver media':'VM on '+T)+' and copies each disk while the VM runs to a receiver running on the new machine; at cutover the VM is shut down and the last changes copied. Nothing is installed in the VM.';}
     if(src==='server'){return 'An agent on the server copies every disk from shadow copies (or LVM snapshots on Linux) to a receiver on the new machine, again and again, so the copy stays minutes behind. You test, then cut over at a time you choose.';}
     if(src==='image'){return 'Convert disk images reads the image (merging snapshots and differencing disks), converts it to '+T+'\'s format and can upload it and create the VM. The source file is only read.';}
+    if(tgt==='fileremote'){return 'Your admin computer directs the move: the new file server copies shares, files and permissions straight from the old one through PowerShell remoting while users keep working, then creates the shares at cutover. Files cross the network once and nothing is installed on either server.';}
     return 'The new file server copies shares, files and permissions from the old one while users keep working, then creates the shares at cutover.';
   }
   function gdComputers(steps){var seen={},list=[];steps.forEach(function(s){if(!seen[s.where]){seen[s.where]=1;list.push(s.where);}});return list;}
@@ -3124,7 +3143,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     var sum=el('div','gd-summary');var t=el('div','gd-pick-title');t.id='gdPlanTitle';sum.appendChild(t);var how=el('p','migrate-help');how.id='gdHow';sum.appendChild(how);var comps=el('div','gd-computers');comps.id='gdComputers';sum.appendChild(comps);box.appendChild(sum);
     var prog=el('div','gd-progress');var pt=el('span','');pt.id='gdProgress';prog.appendChild(pt);var reset=el('button','link-button','Clear ticks');reset.type='button';reset.id='gdReset';reset.addEventListener('click',function(){gdTicks={};gdCurrent=-1;gdStore('simm.guide.ticks.'+gdFlowKey,'{}');renderGuide(true);});prog.appendChild(reset);box.appendChild(prog);
     var list=el('ol','gd-steps');list.id='gdSteps';box.appendChild(list);
-    gdSource=src;gdTarget=src==='shares'?'fileserver':tgt;
+    gdSource=src;gdTarget=src==='shares'?(tgt==='fileremote'?'fileremote':'fileserver'):tgt;
     return box;
   }
   function renderGuide(full){
@@ -3136,7 +3155,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
       try{gdTicks=JSON.parse(gdStore('simm.guide.ticks.'+gdFlowKey)||'{}')||{};}catch(e){gdTicks={};}
       gdStepsNow=gdSteps(gdSource,gdTarget);
       var srcName=gdSourceList.filter(function(o){return o.id===gdSource;})[0].name;
-      byId('gdPlanTitle').textContent=(gdSource==='shares'?'Moving file shares to a new file server':'Moving '+srcName.replace(/^A /,'a ')+' to '+gdTargetNames[gdTarget])+': the steps, in order';
+      byId('gdPlanTitle').textContent=(gdSource==='shares'?(gdTarget==='fileremote'?'Moving file shares between two other servers':'Moving file shares to a new file server'):'Moving '+srcName.replace(/^A /,'a ')+' to '+gdTargetNames[gdTarget])+': the steps, in order';
       byId('gdHow').textContent=gdHow(gdSource,gdTarget);
       var comps=byId('gdComputers');comps.textContent='';comps.appendChild(el('span','gd-pick-title','Computers involved: '));
       gdComputers(gdStepsNow).forEach(function(w){var chip=el('span','gd-computer');chip.appendChild(el('b','',gdWhereNames[w]));comps.appendChild(chip);});
@@ -3790,14 +3809,23 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   // ---- Migrate tab ---------------------------------------------------------
   // The server owns migration state (state.migrate). This view keeps only the
   // operator's share choices, rebuilt when a different old server is read.
-  var migrateDiscoveryKey='',migrateSelection={},migrateOrder=[],migrateBusy=false,migrateLogKey='',migrateRunKey='',migrateCutKey='',migrateDialogAction=null,migrateAccessKey='';
+  var migrateWantRemote=false,migrateDiscoveryKey='',migrateSelection={},migrateOrder=[],migrateBusy=false,migrateLogKey='',migrateRunKey='',migrateCutKey='',migrateDialogAction=null,migrateAccessKey='';
   var migrateCancelable={discover:true,precheck:true,sync:true,cutover:true,dfs:true,aliascheck:true};
   var migrateStatusLabels={planned:'Not copied',checking:'Checking',ready:'Ready',blocked:'Needs attention',copying:'Copying',succeeded:'Copied',failed:'Failed',skipped:'Skipped',canceled:'Stopped',sharing:'Creating share',verifying:'Comparing',done:'Live',attention:'Check again',readonly:'Read-only',restored:'Restored'};
   function migrateState(){return (latestState&&latestState.migrate)||null;}
   function migrateIsRunning(){var m=migrateState();return !!(m&&m.running);}
   function migrateDiscovery(){var m=migrateState();return m&&m.discovery&&m.action!=='discover'?m.discovery:null;}
   function migrateAdmin(){return !!(latestState&&latestState.isAdministrator);}
-  function migrateLocked(){return migrateBusy||migrateIsRunning()||!!(latestState&&latestState.running)||restoreIsRunning(latestState&&latestState.restore)||vmwareIsRunning()||convertIsRunning()||!migrateAdmin();}
+  function migrateBusyNow(){return migrateBusy||migrateIsRunning()||!!(latestState&&latestState.running)||restoreIsRunning(latestState&&latestState.restore)||vmwareIsRunning()||convertIsRunning();}
+  // Another server: this computer directs the move and the new server copies
+  // straight from the old one (PowerShell remoting), so this computer's own
+  // administrator rights are not needed.
+  function migrateRemoteChosen(){return byId('migrateTargetOther').checked;}
+  function migrateRemote(){var m=migrateState();return !!(m&&m.target);}
+  function migrateLocked(){return migrateBusyNow()||(!migrateAdmin()&&!migrateRemoteChosen()&&!migrateRemote());}
+  // The new server's name for labels and confirmations.
+  function migrateTargetName(){var m=migrateState();return (m&&m.targetName)||(latestState&&latestState.computerName)||'this server';}
+  function migrateTargetLabel(){return migrateRemote()?migrateTargetName():'this server';}
   function formatBytesShort(value){var n=Number(value)||0,units=['bytes','KB','MB','GB','TB','PB'],i=0;while(n>=1024&&i<units.length-1){n=n/1024;i++;}return (i===0?String(n):(n>=100?n.toFixed(0):n.toFixed(1)))+' '+units[i];}
   function formatCount(value){var n=Math.round(Number(value)||0),s=String(n);return s.replace(/\B(?=(\d{3})+(?!\d))/g,',');}
   function migrateDefaultDrive(discovery){
@@ -3828,7 +3856,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
       main.appendChild(el('span','migrate-share-path','Old folder: '+(share.path||'unknown')));
       head.appendChild(box);head.appendChild(main);row.appendChild(head);
       var dest=el('div','migrate-dest');dest.setAttribute('data-migrate-dest-block',name);
-      var pathLabel=el('label','','New folder on this server'),pathInput=document.createElement('input');pathInput.type='text';pathInput.setAttribute('data-migrate-dest',name);pathInput.spellcheck=false;pathInput.autocomplete='off';pathInput.value=migrateSelection[name].destPath;
+      var pathLabel=el('label','','New folder on '+migrateTargetLabel()),pathInput=document.createElement('input');pathInput.type='text';pathInput.setAttribute('data-migrate-dest',name);pathInput.spellcheck=false;pathInput.autocomplete='off';pathInput.value=migrateSelection[name].destPath;
       pathInput.addEventListener('input',function(){migrateSelection[name].destPath=this.value;syncMigrateButtons();});
       var pathRow=el('span','migrate-dest-path'),browse=el('button','secondary-button','Browse\u2026');browse.type='button';browse.setAttribute('data-migrate-browse',name);browse.setAttribute('aria-label','Browse for the new folder of '+name);
       browse.addEventListener('click',function(e){e.preventDefault();browseMigrateFolder(name);});
@@ -3883,8 +3911,21 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   function syncMigrateButtons(){
     var m=migrateState()||{},locked=migrateLocked(),discovery=migrateDiscovery(),dirty=migratePlanDirty(),chosen=migrateSelectedShares(),anySynced=false,anyCreated=false;
     ((m.plan)||[]).forEach(function(p){if(p.previouslySynced){anySynced=true;}if(p.createdShare){anyCreated=true;}});
-    byId('migrateSource').disabled=locked;byId('migrateConnect').disabled=locked||!trimText(byId('migrateSource').value);
+    var remote=migrateRemoteChosen(),busy=migrateBusyNow(),connected=!!(m.source||discovery);
+    byId('migrateSource').disabled=locked;byId('migrateConnect').disabled=locked||!trimText(byId('migrateSource').value)||(remote&&!trimText(byId('migrateTarget').value));
+    // The new server is chosen before connecting; Start over changes it.
+    ['migrateTargetHere','migrateTargetOther'].forEach(function(id){byId(id).disabled=busy||connected;});
+    byId('migrateTarget').disabled=busy||connected;
+    byId('migrateTargetFields').classList.toggle('hidden',!remote);
+    ['migrateTargetAccountSame','migrateTargetAccountCurrent','migrateTargetAccountOther','migrateTargetUser','migrateTargetPassword'].forEach(function(id){byId(id).disabled=locked;});
+    byId('migrateTargetAccountFields').classList.toggle('hidden',!byId('migrateTargetAccountOther').checked);
+    // From an admin computer the new server reads the old one, and Windows
+    // cannot pass this computer's sign-in on: the old server's account is typed.
+    if(remote&&byId('migrateAccountCurrent').checked){byId('migrateAccountOther').checked=true;}
+    byId('migrateAccountCurrentLabel').classList.toggle('disabled',remote);
+    byId('migrateAccountDetail').textContent=remote?'An administrator on the old server. The new server uses it to read the old server, because Windows cannot pass your sign-in on from one server to another. The password is kept in memory until you close the application or start over, and is never saved.':'An administrator on the old server. Used only to reach the old server, for every step. The password is kept in memory until you close the application or start over, and is never saved.';
     ['migrateAccountCurrent','migrateAccountOther','migrateUser','migratePassword'].forEach(function(id){byId(id).disabled=locked;});
+    byId('migrateAccountCurrent').disabled=locked||remote;
     var other=byId('migrateAccountOther').checked;byId('migrateAccountFields').classList.toggle('hidden',!other);
     var held=!!(m.account&&other&&trimText(byId('migrateUser').value).toLowerCase()===String(m.account).toLowerCase());
     byId('migratePassword').placeholder=held?'Password (kept for this session)':'Password';
@@ -3894,6 +3935,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     var copy=byId('migrateCopy');copy.disabled=locked||!m.canCopy||dirty;copy.textContent=anySynced?'Copy again':'Copy now';
     copy.title=dirty&&discovery?'Check the plan after changing it.':(!m.canCopy?'Check the plan, and fix any problem it finds, first.':'');
     var cut=byId('migrateCutover');cut.disabled=locked||!m.canCutover||dirty;cut.title=!m.canCutover?'Copy every selected share at least once first.':'';
+    syncMigrateAuto(m,locked,dirty);
     var stop=byId('migrateStop');stop.classList.toggle('hidden',!(m.running&&migrateCancelable[m.action]));stop.disabled=!!m.cancelRequested;stop.textContent=m.cancelRequested?'Stopping…':'Stop';
     byId('migrateOpenLogs').disabled=!m.workPath;
     byId('migrateAfter').classList.toggle('hidden',!anyCreated);
@@ -3906,6 +3948,34 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     for(var j=0;j<items.length;j++){items[j].className=steps[j]&&(current<0||j<current)?'done':(j===current?'current':'');if(j===current){items[j].setAttribute('aria-current','step');}else{items[j].removeAttribute('aria-current');}}
     ['migrateStepChoose','migrateStepCopy','migrateStepCutover'].forEach(function(id,index){byId(id).className='migrate-section'+((index===0?!!discovery:(index===1?!!m.canCopy:!!m.canCutover))?'':' inactive');});
     byId('migrateBody').className='card-body'+(locked&&!migrateIsRunning()&&migrateAdmin()?' locked':'');
+  }
+  // Keep copying until cutover: the server runs a copy every N minutes while
+  // this application is open, and says why when it waits.
+  function syncMigrateAuto(m,locked,dirty){
+    var box=byId('migrateAuto'),sel=byId('migrateAutoMinutes'),note=byId('migrateAutoNote'),on=Number(m.autoSyncMinutes)>0,plan=(m.plan||[]).length>0,anyCreated=(m.plan||[]).some(function(p){return p.createdShare;});
+    byId('migrateAutoRow').classList.toggle('hidden',!plan);
+    if(document.activeElement!==box){box.checked=on;}
+    if(on&&document.activeElement!==sel){sel.value=String(m.autoSyncMinutes);}
+    box.disabled=locked&&!migrateIsRunning()||migrateBusy||!plan||(dirty&&!on);sel.disabled=box.disabled;
+    var text='';
+    if(on){text=m.autoSyncWaiting||(m.nextAutoSyncUnixMs?'Next copy about '+new Date(m.nextAutoSyncUnixMs).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})+'. ':'')+'Runs while this application stays open on '+((latestState&&latestState.computerName)||'this computer')+'.';}
+    else if(anyCreated){text='';}
+    else if(dirty){text='Check the plan first.';}
+    note.textContent=text;note.className='migrate-help'+(on&&m.autoSyncWaiting?' migrate-auto-wait':'');
+  }
+  function setMigrateAuto(){
+    var box=byId('migrateAuto'),minutes=box.checked?Number(byId('migrateAutoMinutes').value):0,m=migrateState()||{};
+    var overwrites=(m.plan||[]).filter(function(p){return !!p.allowOverwrite;});
+    if(minutes&&overwrites.length){
+      box.checked=false;
+      openMigrateDialog({title:'Keep copying with overwrite',understand:'I understand each automatic copy deletes files that exist only at the destination',path:'/api/migrate/autosync',body:{minutes:minutes},field:'confirmComputerName',expected:migrateTargetName(),label:migrateRemote()?"Type the new server's name to confirm":"Type this server's name to confirm",button:'Keep copying',
+        alert:'Each automatic copy is an exact mirror: files that exist only at the destination are permanently deleted. There is no automatic file rollback.',
+        paragraphs:['Overwrite is allowed for these shares. Automatic copies mirror every change and deletion from the old server until you cut over.'],
+        list:overwrites.map(function(p){return p.destName+' - '+p.destPath;}),
+        after:function(){var st=migrateState();if(st){st.autoSyncMinutes=minutes;}syncMigrateButtons();}});
+      return;
+    }
+    migratePost('/api/migrate/autosync',{minutes:minutes},null,function(err){if(err){box.checked=!box.checked;return;}var st=migrateState();if(st){st.autoSyncMinutes=minutes;st.autoSyncWaiting='';}});
   }
   function renderMigrateRun(m){
     var plan=m.plan||[],key=JSON.stringify(plan.map(function(p){return [p.name,p.destPath,p.status,p.message,p.percent,p.processed,p.expected,p.lastSyncUnixMs,p.previouslySynced];}));
@@ -3926,7 +3996,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
         host.appendChild(row);
       });
     }
-    var created=plan.filter(function(p){return p.createdShare;}),cut=byId('migrateCutoverRun'),computer=(latestState&&latestState.computerName)||'this server',ckey=JSON.stringify(created.map(function(p){return [p.name,p.destName,p.status,p.verified,p.message];}))+computer;
+    var created=plan.filter(function(p){return p.createdShare;}),cut=byId('migrateCutoverRun'),computer=migrateTargetName(),ckey=JSON.stringify(created.map(function(p){return [p.name,p.destName,p.status,p.verified,p.message];}))+computer;
     cut.classList.toggle('hidden',!created.length);
     if(ckey!==migrateCutKey){
       migrateCutKey=ckey;cut.textContent='';
@@ -3968,7 +4038,12 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     var m=state.migrate||{status:'idle',plan:[],logs:[]};
     var badges={discovering:'Connecting',checking:'Checking',copying:'Copying',cuttingover:'Cutting over',working:'Working',failed:'Failed',discoverfailed:'Failed',canceled:'Stopped',copied:'Copied',cutover:'Done',checked:'Checked',discovered:'Connected'};
     byId('migrateTabBadge').textContent=badges[m.status]||(m.running?'Working':'Ready');
-    byId('migrateAdminNotice').classList.toggle('hidden',!!state.isAdministrator);
+    byId('migrateAdminNotice').classList.toggle('hidden',!!state.isAdministrator||migrateRemoteChosen()||!!m.target);
+    byId('migrateTargetHereText').textContent='This computer ('+(state.computerName||'this computer')+')';
+    var tgt=byId('migrateTarget');
+    if(m.target&&document.activeElement!==tgt&&!tgt.value){tgt.value=m.target;byId('migrateTargetOther').checked=true;}
+    if(m.target&&m.targetAccount&&!byId('migrateTargetUser').value){byId('migrateTargetUser').value=m.targetAccount;if(String(m.targetAccount).toLowerCase()!==String(m.account||'').toLowerCase()){byId('migrateTargetAccountOther').checked=true;}}
+    if(migrateWantRemote&&!m.source&&!m.running){migrateWantRemote=false;byId('migrateTargetOther').checked=true;}
     var message=byId('migrateMessage');message.textContent=m.message||'';message.className='restore-status'+(m.status==='failed'||m.status==='discoverfailed'?' error':'');
     var source=byId('migrateSource');if(m.source&&document.activeElement!==source&&!source.value){source.value=m.source;}
     var user=byId('migrateUser');
@@ -3983,7 +4058,8 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
       var key=JSON.stringify([discovery.source,(discovery.shares||[]).map(function(s){return [s.name,s.path,s.system,s.remotePath,s.warnings];})]);
       if(key!==migrateDiscoveryKey){migrateDiscoveryKey=key;buildMigrateShares(discovery);}
       byId('migrateFactSource').textContent=discovery.source+(discovery.sourceFqdn&&discovery.sourceFqdn!==discovery.source?' ('+discovery.sourceFqdn+')':'');
-      byId('migrateFactTarget').textContent=discovery.currentComputer||state.computerName||'This server';
+      byId('migrateFactTarget').textContent=(discovery.currentComputer||state.computerName||'This server')+(m.target?' (copies straight from the old server)':' (this computer)');
+      byId('migrateChooseHelp').textContent='Tick the shares to move and choose where each one goes on '+migrateTargetLabel()+'. Then check the plan: it measures each share and checks free space and permissions. Nothing is copied yet.';
       byId('migrateFactShares').textContent=String((discovery.shares||[]).length);
       byId('migrateFactCopies').textContent=String(((m.plan)||[]).filter(function(p){return p.previouslySynced;}).length)+' of '+String(((m.plan)||[]).length);
       var warn=byId('migrateSourceWarnings');warn.textContent='';(discovery.warnings||[]).forEach(function(w){warn.appendChild(el('li','',w));});warn.classList.toggle('hidden',!(discovery.warnings||[]).length);
@@ -4005,7 +4081,12 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   function migrateMarkRunning(action,status,message){var m=migrateState();if(m){m.running=true;m.action=action;m.status=status;m.message=message;m.cancelRequested=false;}if(latestState){renderMigrate(latestState);setConfigDisabled(!!latestState.running);}}
   function connectMigrate(){
     var source=trimText(byId('migrateSource').value);if(!source||migrateLocked()){return;}
-    var body={source:source},m=migrateState()||{},label=source;
+    var body={source:source},m=migrateState()||{},label=source,remote=migrateRemoteChosen();
+    if(remote){
+      var target=trimText(byId('migrateTarget').value);
+      if(!target){migrateSetStatus('migrateConnectStatus','Type the new server\'s name.',true);byId('migrateTarget').focus();return;}
+      body.target=target;byId('migrateAccountOther').checked=true;
+    }
     if(byId('migrateAccountOther').checked){
       var user=trimText(byId('migrateUser').value),password=byId('migratePassword').value;
       if(!user){migrateSetStatus('migrateConnectStatus','Type the user name of an administrator on '+source+', for example DOMAIN\\admin.',true);byId('migrateUser').focus();return;}
@@ -4013,12 +4094,30 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
       if(!password&&!held){migrateSetStatus('migrateConnectStatus','Type the password for '+user+'.',true);byId('migratePassword').focus();return;}
       body.user=user;body.password=password;label=source+' as '+user;
     }
-    migratePost('/api/migrate/discover',body,'migrateConnectStatus',function(err){byId('migratePassword').value='';if(!err){migrateMarkRunning('discover','discovering','Connecting to '+label+'.');}});
+    if(remote){
+      if(byId('migrateTargetAccountSame').checked){body.targetUser=body.user;body.targetPassword=body.password;}
+      else if(byId('migrateTargetAccountOther').checked){
+        var tu=trimText(byId('migrateTargetUser').value),tp=byId('migrateTargetPassword').value,theld=m.targetAccount&&String(m.targetAccount).toLowerCase()===tu.toLowerCase()&&String(m.target||'').toLowerCase()===body.target.toLowerCase();
+        if(!tu){migrateSetStatus('migrateConnectStatus','Type the user name of an administrator on '+body.target+'.',true);byId('migrateTargetUser').focus();return;}
+        if(!tp&&!theld){migrateSetStatus('migrateConnectStatus','Type the password for '+tu+'.',true);byId('migrateTargetPassword').focus();return;}
+        body.targetUser=tu;body.targetPassword=tp;
+      }
+      label='the new server '+body.target+', which reads '+source;
+    }
+    migratePost('/api/migrate/discover',body,'migrateConnectStatus',function(err){byId('migratePassword').value='';byId('migrateTargetPassword').value='';if(!err){migrateMarkRunning('discover','discovering','Connecting to '+label+'.');}});
   }
   function migrateFolderName(name){return String(name).replace(/\$$/,'').replace(/[\\\/:*?"<>|]/g,'_').replace(/[. ]+$/,'')||'Share';}
+  // A folder on another new server opens its drives through its
+  // administrative shares (C$, D$) with this computer's Windows account.
+  function migratePick(body,remoteTitle,current,done){
+    var m=migrateState()||{};
+    if(!m.target){migratePost('/api/migrate/browse',body,'migrateCheckStatus',done);return;}
+    migratePost('/api/pick',{kind:'remote',host:m.target,current:current||'',title:remoteTitle},'migrateCheckStatus',done);
+  }
   function browseMigrateFolder(name){
     if(migrateLocked()){return;}
-    migratePost('/api/migrate/browse',{share:name},'migrateCheckStatus',function(err,data){
+    var current=migrateSelection[name]?migrateSelection[name].destPath:'';
+    migratePick({share:name},'Choose the folder on '+migrateTargetName()+' for the share '+name+'. It must be empty or new.',current,function(err,data){
       if(err||!data||!data.selected||!migrateSelection[name]){return;}
       migrateSelection[name].destPath=data.path;var input=document.querySelector('input[data-migrate-dest="'+name.replace(/"/g,'\\"')+'"]');if(input){input.value=data.path;}
       syncMigrateShares();
@@ -4026,7 +4125,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   }
   function chooseMigrateParent(){
     if(migrateLocked()||!migrateSelectedShares().length){return;}
-    migratePost('/api/migrate/browse',{parent:true},'migrateCheckStatus',function(err,data){
+    migratePick({parent:true},'Choose the parent folder on '+migrateTargetName()+' for the new shares. Each share gets its own folder inside it.','',function(err,data){
       if(err||!data||!data.selected){return;}
       var base=String(data.path).replace(/\\+$/,''),count=0;
       migrateOrder.forEach(function(name){
@@ -4078,31 +4177,38 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   }
   function migrateShortName(name){return String(name||'').split('.')[0];}
   byId('migrateSource').addEventListener('input',syncMigrateButtons);
+  byId('migrateTarget').addEventListener('input',syncMigrateButtons);
+  byId('migrateTarget').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();connectMigrate();}});
+  ['migrateTargetHere','migrateTargetOther'].forEach(function(id){byId(id).addEventListener('change',function(){if(latestState){renderMigrate(latestState);}else{syncMigrateButtons();}if(migrateRemoteChosen()){byId('migrateTarget').focus();}});});
+  ['migrateTargetAccountSame','migrateTargetAccountCurrent','migrateTargetAccountOther'].forEach(function(id){byId(id).addEventListener('change',function(){syncMigrateButtons();if(byId('migrateTargetAccountOther').checked){byId('migrateTargetUser').focus();}});});
+  ['migrateTargetUser','migrateTargetPassword'].forEach(function(id){byId(id).addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();connectMigrate();}});});
+  byId('migrateAuto').addEventListener('change',setMigrateAuto);
+  byId('migrateAutoMinutes').addEventListener('change',function(){if(byId('migrateAuto').checked){setMigrateAuto();}});
   byId('migrateSource').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();connectMigrate();}});
   byId('migrateConnect').addEventListener('click',connectMigrate);
   byId('migrateParent').addEventListener('click',chooseMigrateParent);
   ['migrateAccountCurrent','migrateAccountOther'].forEach(function(id){byId(id).addEventListener('change',function(){syncMigrateButtons();if(byId('migrateAccountOther').checked){byId('migrateUser').focus();}});});
   byId('migrateUser').addEventListener('input',syncMigrateButtons);
   ['migrateUser','migratePassword'].forEach(function(id){byId(id).addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();connectMigrate();}});});
-  byId('migrateReset').addEventListener('click',function(){migratePost('/api/migrate/reset',{},'migrateConnectStatus',function(err){if(err){return;}byId('migrateSource').value='';byId('migrateUser').value='';byId('migratePassword').value='';byId('migrateAccountCurrent').checked=true;migrateAccessKey='';migrateDiscoveryKey='';migrateRunKey='';migrateCutKey='';if(latestState){latestState.migrate={status:'idle',plan:[],logs:[],space:[]};renderMigrate(latestState);}byId('migrateSource').focus();});});
+  byId('migrateReset').addEventListener('click',function(){migratePost('/api/migrate/reset',{},'migrateConnectStatus',function(err){if(err){return;}byId('migrateSource').value='';byId('migrateUser').value='';byId('migratePassword').value='';byId('migrateTargetUser').value='';byId('migrateTargetPassword').value='';if(!migrateRemoteChosen()){byId('migrateAccountCurrent').checked=true;}migrateAccessKey='';migrateDiscoveryKey='';migrateRunKey='';migrateCutKey='';if(latestState){latestState.migrate={status:'idle',plan:[],logs:[],space:[]};renderMigrate(latestState);}byId('migrateSource').focus();});});
   byId('migrateCheck').addEventListener('click',checkMigratePlan);
   byId('migrateCopy').addEventListener('click',function(){
     if(this.disabled){return;}
-    var m=migrateState()||{},overwrites=(m.plan||[]).filter(function(p){return !!p.allowOverwrite;}),computer=(latestState&&latestState.computerName)||'';
+    var m=migrateState()||{},overwrites=(m.plan||[]).filter(function(p){return !!p.allowOverwrite;}),computer=migrateTargetName();
     if(!overwrites.length){migratePost('/api/migrate/sync',{},null,function(err){if(!err){migrateMarkRunning('sync','copying','Copying.');}});return;}
-    openMigrateDialog({title:'Confirm overwrite and copy',understand:'I understand files that exist only at the destination will be deleted',path:'/api/migrate/sync',field:'confirmComputerName',expected:computer,label:"Type this server's name to confirm",button:'Overwrite and copy',
+    openMigrateDialog({title:'Confirm overwrite and copy',understand:'I understand files that exist only at the destination will be deleted',path:'/api/migrate/sync',field:'confirmComputerName',expected:computer,label:migrateRemote()?"Type the new server's name to confirm":"Type this server's name to confirm",button:'Overwrite and copy',
       alert:'This is an exact mirror: files that exist only at the destination will be permanently deleted. There is no automatic file rollback.',
       paragraphs:['You selected overwrite for the following shares. Existing destination files may be replaced. Repeat copies will mirror future changes and deletions. Existing share names can also be replaced when you cut over.'],
       list:overwrites.map(function(p){return p.destName+' - '+p.destPath;}),
       after:function(){migrateMarkRunning('sync','copying','Copying with approved overwrite.');}});
   });
   byId('migrateCutover').addEventListener('click',function(){
-    if(this.disabled){return;}var m=migrateState()||{},computer=(latestState&&latestState.computerName)||'';
-    openMigrateDialog({title:'Cut over to this server',understand:'I understand the shares are created on this server now',path:'/api/migrate/cutover',field:'confirmComputerName',expected:computer,label:"Type this server's name to confirm",button:'Cut over now',
+    if(this.disabled){return;}var m=migrateState()||{},computer=migrateTargetName(),where=m.target?computer:'this server';
+    openMigrateDialog({title:'Cut over to '+where,understand:'I understand the shares are created on '+where+' now',path:'/api/migrate/cutover',field:'confirmComputerName',expected:computer,label:migrateRemote()?"Type the new server's name to confirm":"Type this server's name to confirm",button:'Cut over now',
       alert:(m.plan||[]).some(function(p){return !!p.allowOverwrite;})?
         'Overwrite is enabled: the final mirror may delete destination-only files, and an existing share name may be replaced, disconnecting its users. System shares may affect Windows roles.':
         'Ask users to stop using the old shares now. Files they change during cutover may need another pass.',
-      paragraphs:['This makes a final copy, then creates these shares on this server with the old share settings and permissions, and compares the old and new files. The old server is not changed.'],
+      paragraphs:['This makes a final copy, then creates these shares on '+where+' with the old share settings and permissions, and compares the old and new files. The old server is not changed.'+(Number(m.autoSyncMinutes)>0?' Automatic copies stop once the shares are live.':'')],
       list:(m.plan||[]).map(function(p){return p.name+' → \\\\'+computer+'\\'+p.destName+' ('+p.destPath+')';}),
       after:function(){migrateMarkRunning('cutover','cuttingover','Final copy, then creating the shares here and comparing.');}});
   });
@@ -4117,9 +4223,10 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   byId('migrateAliasCheck').addEventListener('click',function(){migratePost('/api/migrate/alias-check',{},null,function(err){if(!err){migrateMarkRunning('aliascheck','working','Checking whether this server can take over the old server\'s name.');}});});
   byId('migrateAlias').addEventListener('click',function(){
     var m=migrateState()||{},alias=m.alias||{},old=alias.oldName||migrateShortName(m.source);
-    openMigrateDialog({title:"Give this server the old server's name",understand:'I understand this changes DNS and Active Directory',path:'/api/migrate/alias',field:'confirmOldName',expected:old,label:"Type the old server's name to confirm",button:'Add name',
-      alert:'This changes DNS and Active Directory. It needs Domain Admin rights, and this server must be restarted afterwards.',
-      paragraphs:['Only do this after '+old+' is shut down for good and removed from DNS. Old paths such as \\\\'+old+'\\Share will then open the shares on this server.'],
+    var where=m.target?migrateTargetName():'this server';
+    openMigrateDialog({title:"Give "+where+" the old server's name",understand:'I understand this changes DNS and Active Directory',path:'/api/migrate/alias',field:'confirmOldName',expected:old,label:"Type the old server's name to confirm",button:'Add name',
+      alert:'This changes DNS and Active Directory. It needs Domain Admin rights (your Windows account on this computer), and '+where+' must be restarted afterwards.',
+      paragraphs:['Only do this after '+old+' is shut down for good and removed from DNS. Old paths such as \\\\'+old+'\\Share will then open the shares on '+where+'.'],
       after:function(){migrateMarkRunning('alias','working','Adding the old server\'s name to this server.');}});
   });
   byId('migrateStop').addEventListener('click',function(){var button=this;button.disabled=true;request('POST','/api/migrate/cancel',{},function(err){if(err){button.disabled=false;notice(err,true);return;}var m=migrateState();if(m){m.cancelRequested=true;}syncMigrateButtons();});});
@@ -7721,9 +7828,10 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     proxmox:{name:'Proxmox VE',detail:'An API token creates the VM; the copy goes straight onto its disks.'},
     physical:{name:'A physical server',detail:'The server boots receiver media and gets the copy (V2P).'},
     vsphere:{name:'VMware ESXi or vCenter',detail:'The converted disk is imported as a new VM.'},
-    fileserver:{name:'This file server',detail:'The shares are recreated on the computer running this application.'}
+    fileserver:{name:'This file server',detail:'The shares are recreated on the computer running this application. Run it there as administrator.'},
+    fileremote:{name:'Another file server',detail:'Run from any admin computer: the new server copies straight from the old one through PowerShell remoting, so files never pass through this computer. Nothing is installed on either server.'}
   };
-  function nwTargetsFor(src){return {vms:['here','hvremote','scale','nutanix','proxmox','physical'],servers:['here','scale','nutanix','proxmox','physical'],shares:['fileserver'],images:['here','vsphere','scale','nutanix','proxmox']}[src]||[];}
+  function nwTargetsFor(src){return {vms:['here','hvremote','scale','nutanix','proxmox','physical'],servers:['here','scale','nutanix','proxmox','physical'],shares:['fileserver','fileremote'],images:['here','vsphere','scale','nutanix','proxmox']}[src]||[];}
   function nwMode(id){return migrationModes.filter(function(m){return m.id===id;})[0]||null;}
   function nwInvType(){return vmInventory?(vmInventory.serverType==='Hyper-V host'?'hyperv':'vmware'):'';}
   // The ways that fit, recommended first.
@@ -7745,7 +7853,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   function nwGuideFlow(){
     var m=nwMode(nw.method);if(!m||!nw.source||!nw.target){return null;}
     var src=m.flow||{vms:nwInvType()||'vmware',servers:'server',shares:'shares',images:'image'}[nw.source];
-    var tgt=src==='shares'?'fileserver':({here:'hyperv',hvremote:'hyperv'}[nw.target]||nw.target);
+    var tgt=src==='shares'?(nw.target==='fileremote'?'fileremote':'fileserver'):({here:'hyperv',hvremote:'hyperv'}[nw.target]||nw.target);
     if(!gdTargetsFor[src]||(src!=='shares'&&gdTargetsFor[src].indexOf(tgt)<0)){return null;}
     return {src:src,tgt:tgt};
   }
@@ -8670,7 +8778,9 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     var ids=nwPickedVMs().map(function(vm){return vm.id;});
     if(nw.source==='vms'&&ids.length){vmPicked={};ids.forEach(function(id){vmPicked[id]=true;});}
     if(nw.source==='vms'&&(m.tool==='movevms')){var tgt={here:'hyperv',hvremote:'hyperv'}[nw.target]||nw.target;if(vmTargetList.some(function(x){return x.id===tgt;})&&vmTargetLocal!==tgt){changeVmTarget(tgt);}}
+    if(m.tool==='shares'){var ms=migrateState()||{};if(!ms.source&&!ms.running){byId(nw.target==='fileremote'?'migrateTargetOther':'migrateTargetHere').checked=true;migrateWantRemote=nw.target==='fileremote';}}
     showTool(m.tool);
+    if(m.tool==='shares'&&latestState){renderMigrate(latestState);(nw.target==='fileremote'&&!byId('migrateTarget').disabled?byId('migrateTarget'):byId('migrateSource')).focus();}
     if(nw.source==='vms'&&m.tool==='movevms'&&ids.length){vmObjTab['vm-move']='move';vmOpenDrawer({kind:'vm',id:ids[0]},{focus:true,reveal:true});}
   }
   // Step 6: status.
@@ -8748,7 +8858,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   byId('tabWizard').addEventListener('click',function(e){
     var t=e.target.closest('button');if(!t||!byId('nwStep').contains(t)){return;}
     if(t.hasAttribute('data-nw-drophidden')){var f=nw.filter.toLowerCase();nwPickedVMs().forEach(function(vm){if(f&&[vm.name,vm.host,vm.cluster,vm.folder].join(' ').toLowerCase().indexOf(f)<0){delete nw.picks[vm.id];}});renderNwVmList();return;}
-    if(t.hasAttribute('data-nw-source')){var s=t.getAttribute('data-nw-source');if(s!==nw.source){nw.source=s;nw.target=s==='shares'?'fileserver':'';nw.method='';nw.filled='';nw.reached=0;}if(s==='servers'){nwSrvLoad();}renderNw();return;}
+    if(t.hasAttribute('data-nw-source')){var s=t.getAttribute('data-nw-source');if(s!==nw.source){nw.source=s;nw.target='';nw.method='';nw.filled='';nw.reached=0;}if(s==='servers'){nwSrvLoad();}renderNw();return;}
     if(t.id==='nwSrvOpenStatus'){nw.statusKind='servers';nw.source='servers';nw.step=5;nw.reached=5;nwSrvChosen={};nwSrvLoad();renderNw();return;}
     if(t.id==='nwSrvInstall'){nwSrvInstall();return;}
     if(t.id==='nwSrvAll'){nwSrvCandidates().forEach(function(r){if(!nwSrvPickWhy(r)){nw.srv.picks[r.key]=true;}});renderNw();return;}
