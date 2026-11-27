@@ -175,7 +175,7 @@ func (a *application) handlePreflight(response http.ResponseWriter, request *htt
 		}
 		user := strings.TrimSpace(input.User)
 		if user != "" && !validGuestAccountName(strings.ReplaceAll(user, `\`, "")) {
-			fail(http.StatusBadRequest, `Type the account as DOMAIN\user or user@domain, or leave it empty to use your own Windows account.`)
+			fail(http.StatusBadRequest, `Type the account as DOMAIN\user or user@domain, or choose your current sign-in.`)
 			return
 		}
 		direct := vmHyperVHere()
@@ -238,7 +238,7 @@ func (a *application) handlePreflight(response http.ResponseWriter, request *htt
 				password = a.preflight.password
 			}
 			if password == "" || len(password) > 256 {
-				fail(http.StatusBadRequest, "Type the account's password, or leave the account empty to use your own Windows account.")
+				fail(http.StatusBadRequest, "Type the account's password, or choose your current sign-in.")
 				return
 			}
 			a.preflight.user, a.preflight.password = user, password

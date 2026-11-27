@@ -64,7 +64,7 @@ func (a *application) handleVMwareHyperV(response http.ResponseWriter, request *
 		host, user, password = "", "", ""
 	}
 	if user != "" && (!vmwareUserPattern.MatchString(user) || password == "" || len(password) > 256 || strings.ContainsRune(password, 0)) {
-		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "Type the password for " + user + ", or leave the account empty to use your own."})
+		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "Type the password for " + user + ", or choose your current sign-in."})
 		return
 	}
 	// Reading the Hyper-V host already open refreshes it; anything else

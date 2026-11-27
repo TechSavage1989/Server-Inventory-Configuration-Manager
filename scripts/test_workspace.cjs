@@ -800,7 +800,8 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   const panel=await f.page.locator('#pfBulkPanel').textContent();assert(panel.includes('nothing is installed, copied or changed')&&panel.includes('Named like a SQL Server'),panel);
   assert.equal(await f.page.locator('[data-pf-computer="vm-sql01"]').inputValue(),'192.0.2.10','the guest address is filled in');
   assert(await f.page.locator('#pfBulkRun').isEnabled());assert.equal(await f.page.locator('#pfBulkRun').textContent(),'Run the checks on 1 server');
-  await f.page.locator('#pfBulkUser').fill('EXAMPLE\\admin');assert(await f.page.locator('#pfBulkRun').isDisabled());assert.equal(await f.page.locator('#pfBulkStatus').textContent(),'Type the password, or clear the account to use your own.');
+  assert(await f.page.locator('#pfBulkSignInCurrent').isChecked(),'checks start on the current sign-in');assert(!await f.page.locator('#pfBulkUser').isVisible(),'the account fields are hidden while the current sign-in is chosen');
+  await f.page.locator('#pfBulkSignInOther').check();await f.page.locator('#pfBulkUser').fill('EXAMPLE\\admin');assert(await f.page.locator('#pfBulkRun').isDisabled());assert.equal(await f.page.locator('#pfBulkStatus').textContent(),'Type the password, or choose your current sign-in.');
   await f.page.locator('#pfBulkPassword').fill('Synthetic-Pa55');await f.page.locator('[data-pf-computer="vm-sql01"]').fill('sql01.example.com');
   await f.page.locator('#pfBulkDc').uncheck();await f.page.locator('#pfBulkSql').uncheck();assert(await f.page.locator('#pfBulkRun').isDisabled());await f.page.locator('#pfBulkSql').check();
   await f.page.locator('#pfBulkRun').click();await f.page.waitForFunction(()=>document.querySelector('#pfBulkRun').textContent==='Checking…');
@@ -817,14 +818,15 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   await openVm(f,'vm-sql01');await f.page.locator('#vmObjTab-readiness').click();
   const section=await f.page.locator('#pfVmSection').textContent();assert(section.includes('SQL Server MSSQLSERVER')&&section.includes('Standard Edition (64-bit)'),section);
   assert((await f.page.locator('#vmDetail').textContent()).includes('no full backup in the last 7 days for Sales'),'the finding is in readiness');
-  await f.page.locator('#pfVmOwn').click();await f.page.waitForFunction(()=>!!document.querySelector('#pfVmUser'));assert.equal(vmwareCalls(f,'preflight/forget').length,1);
+  assert(await f.page.locator('#pfVmSignInOther').isChecked(),'a held account shows as a different account');await f.page.locator('#pfVmSignInCurrent').check();await f.page.waitForFunction(()=>!!document.querySelector('#pfVmUser'));assert.equal(vmwareCalls(f,'preflight/forget').length,1);
   await f.page.setViewportSize({width:1008,height:690});assert(await f.page.locator('#pfVmRun').isVisible());assert.equal(await f.page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true,'no horizontal scroll at 1024x768');
   assert.deepEqual(f.dialogs,[]);
  }finally{await f.close();}});
  await check('VMware tab: Read Hyper-V host reads this computer or a remote host, sends the optional account once, opens a VM disk in the Disk converter, and copies a running Hyper-V VM through checkpoints without a vSphere session',async()=>{const f=await fixture(browser);try{
   await goTool(f,'environment');
+  assert(await f.page.locator('#vmHvSignInCurrent').isChecked());assert(!await f.page.locator('#vmHvUser').isVisible());await f.page.locator('#vmHvSignInOther').check();
   await f.page.locator('#vmHvUser').fill('EXAMPLE\\admin');await f.page.locator('#vmHvRead').click();
-  assert.equal(await f.page.locator('#vmHvStatus').textContent(),'Type the password for EXAMPLE\\admin, or clear the account to use your own.');assert.equal(vmwareCalls(f,'hyperv').length,0);
+  assert.equal(await f.page.locator('#vmHvStatus').textContent(),'Type the password for EXAMPLE\\admin, or choose your current sign-in.');assert.equal(vmwareCalls(f,'hyperv').length,0);
   await f.page.locator('#vmHvUser').fill('');await f.page.locator('#vmHvRead').click();await f.page.waitForFunction(()=>document.querySelector('#vmwareTabBadge').textContent==='Reading');
   assert.deepEqual(vmwareCalls(f,'hyperv').map(c=>c.body),[{host:'',user:'',password:''}],'an empty host reads this computer as the current user');
   assert(await f.page.locator('#vmStop').isVisible());assert(await f.page.locator('#vmHvHost').isDisabled());
@@ -872,7 +874,7 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   await f.page.locator('#vmPassword').fill('Synthetic-Pa55');await f.page.locator('#vmPassword').press('Enter');await f.page.waitForFunction(()=>document.querySelector('#vmwareTabBadge').textContent==='Reading');
   assert.deepEqual(vmwareCalls(f,'connect').map(c=>c.body),[{server:'vc01.example.com',user:'readonly@vsphere.local',password:'Synthetic-Pa55'}]);assert.equal(await f.page.locator('#vmPassword').inputValue(),'','the password leaves the page');
   assert(await f.page.locator('#vmStop').isVisible());assert(await f.page.locator('#vmServer').isDisabled());
-  await f.page.keyboard.press('Alt+1');assert(await f.page.locator('#startButton').isEnabled(),'a Discovery read only reads, so collection stays available (rule 63)');await goTool(f,'environment');
+  await f.page.keyboard.press('Alt+1');assert(await f.page.locator('#startButton').isEnabled(),'a Discovery read only reads, so collection stays available (rule 65)');await goTool(f,'environment');
   Object.assign(f.state.vmware,{running:false,action:'',status:'connectfailed',message:'vc01.example.com presented a certificate Windows does not trust.',certificate:{thumbprint:'AA:BB:CC:<b>',subject:'CN=vc01.example.com',issuer:'CN=CA <b>not markup</b>',notAfter:'2027-01-01',reason:'x509: certificate signed by unknown authority',mismatch:false}});
   await f.page.waitForFunction(()=>!document.querySelector('#vmCert').classList.contains('hidden'));assert.equal(await f.page.locator('#vmwareTabBadge').textContent(),'Failed');
   assert.equal(await f.page.locator('#vmCertIssuer').textContent(),'CN=CA <b>not markup</b>');assert.equal(await f.page.locator('#vmCert b').count(),0);
@@ -1028,7 +1030,7 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   const works=await f.page.locator('#vmHvrWorks').textContent();
   assert(works.includes('ESXi 6.5, 6.7, 7.0 or 8.0')&&works.includes('Windows Server 2012 R2, 2016, 2019, 2022 or 2025')&&works.includes('failover cluster with Cluster Shared Volumes')&&works.includes('free ESXi'),works);
   assert((await f.page.locator('#vmMove .vm-runs-on').textContent()).includes('Runs on this computer, your admin computer'));
-  await f.page.locator('[data-hvr="host"]').fill('hvclu01.example.com');await f.page.locator('[data-hvr="user"]').fill('EXAMPLE\\admin');await f.page.locator('[data-hvr="password"]').fill('Synthetic-Pass-1');
+  await f.page.locator('[data-hvr="host"]').fill('hvclu01.example.com');await f.page.locator('#vmHvrSignInOther').check();await f.page.locator('[data-hvr="user"]').fill('EXAMPLE\\admin');await f.page.locator('[data-hvr="password"]').fill('Synthetic-Pass-1');
   await f.page.locator('#vmHvrConnect').click();
   await f.page.waitForFunction(()=>document.querySelector('#vmwareTabBadge').textContent==='Working');
   assert.deepEqual(vmwareCalls(f,'hvremote/connect').map(c=>c.body),[{host:'hvclu01.example.com',user:'EXAMPLE\\admin',password:'Synthetic-Pass-1'}]);
@@ -1174,6 +1176,7 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   assert(await f.page.locator('input[name="vmGuestMode"][value="direct"]').isChecked(),'after a cutover on the host the steps pick PowerShell Direct');
   assert.equal(await f.page.locator('#vmGuestVmName').inputValue(),'APP01','the new VM is filled in');
   assert(await f.page.locator('input[name="vmGuestMode"][value="hostdirect"]').isDisabled(),'the connected-host option needs a connection');
+  assert(await f.page.locator('#vmGuestSignInCurrent').isDisabled()&&(await f.page.locator('#vmGuestSignInWhy').textContent()).includes('PowerShell Direct'),'PowerShell Direct says why the current sign-in cannot be used');
   await f.page.locator('#vmGuestUser').fill('.\\Administrator');await f.page.locator('#vmGuestPassword').fill('Synthetic-Guest-1');await f.page.locator('#vmGuestUse').click();
   await f.page.waitForFunction(()=>document.querySelector('#vmGuestPassword').value==='');
   assert.deepEqual(vmwareCalls(f,'guest-target').at(-1).body,{mode:'direct',vm:'APP01',computer:'',host:'',user:'.\\Administrator',password:'Synthetic-Guest-1',keepPassword:true});
@@ -1862,7 +1865,8 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
  await check('Replication tab: Linux servers install over SSH, a new host key is shown and trusted only after the password is typed again',async()=>{const f=await fixture(browser);try{
   await goTool(f,'replicate');
   assert(await f.page.locator('#rpSshPortField').isHidden());await f.page.locator('#rpPlatform').selectOption('linux');
-  assert(await f.page.locator('#rpSshPortField').isVisible());assert(await f.page.locator('#rpPushHelpLinux').isVisible());assert(await f.page.locator('#rpPushHelp').isHidden());
+  assert(await f.page.locator('#rpSshPortField').isVisible());assert(await f.page.locator('#rpPushHelpLinux').isVisible());
+  assert(await f.page.locator('#rpPushSignInCurrent').isDisabled()&&await f.page.locator('#rpPushSignInOther').isChecked(),'Linux installs need a typed account');assert((await f.page.locator('#rpPushSignInWhy').textContent()).includes('SSH'));assert(await f.page.locator('#rpPushHelp').isHidden());
   await f.page.locator('#rpHosts').fill('web01.example.com');await f.page.locator('#rpPassword').fill('Fict1onal!');await f.page.locator('#rpPush').click();
   assert((await f.page.locator('#rpPushStatus').textContent()).includes('Linux account'));assert.equal(f.replCalls.filter(c=>c.action==='push').length,0);
   await f.page.locator('#rpUser').fill('root');await f.page.locator('#rpSshPort').fill('2222');await f.page.locator('#rpPush').click();
@@ -1882,7 +1886,7 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   await goTool(f,'replicate');assert.equal(await f.page.locator('[data-tool="replicate"]').getAttribute('aria-pressed'),'true');assert((await f.page.locator('#rpPushTitle').textContent()).includes('servers you are copying'));
   await f.page.waitForFunction(()=>document.querySelector('#rpAgents').textContent.includes('No servers yet'));
   assert(await f.page.locator('#rpPush').isDisabled(),'nothing to install yet');
-  await f.page.locator('#rpHosts').fill('app01.example.com, sql01.example.com');await f.page.locator('#rpUser').fill('EXAMPLE\\admin');
+  await f.page.locator('#rpHosts').fill('app01.example.com, sql01.example.com');await f.page.locator('#rpPushSignInOther').check();await f.page.locator('#rpUser').fill('EXAMPLE\\admin');
   await f.page.locator('#rpPush').click();assert((await f.page.locator('#rpPushStatus').textContent()).includes('password'));assert.equal(f.replCalls.filter(c=>c.action==='push').length,0);
   await f.page.locator('#rpPassword').fill('Fict1onal!');await f.page.locator('#rpPush').click();
   await f.page.waitForFunction(()=>!document.querySelector('#rpPushStop').classList.contains('hidden'));
@@ -2075,8 +2079,8 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   await f.page.locator('[data-nw-target="hvremote"]').click();await f.page.locator('#nwHvConnect').waitFor();
   assert((await f.page.locator('#nwHvPanel .vm-runs-on').textContent()).includes('Runs on this computer, your admin computer'));
   assert.equal(await f.page.locator('#nwWhy').textContent(),'Connect to the Hyper-V host or cluster (above).');assert(await f.page.locator('#nwNext').isDisabled());
-  await f.page.locator('#nwHvHost').fill('hvclu01.example.com');await f.page.locator('#nwHvUser').fill('EXAMPLE\\admin');await f.page.locator('#nwHvConnect').click();
-  assert.equal(await f.page.locator('#nwHvStatus').textContent(),'Type the password for EXAMPLE\\admin, or leave the account empty to use your Windows account.');
+  await f.page.locator('#nwHvHost').fill('hvclu01.example.com');await f.page.locator('#nwHvSignInOther').check();await f.page.locator('#nwHvUser').fill('EXAMPLE\\admin');await f.page.locator('#nwHvConnect').click();
+  assert.equal(await f.page.locator('#nwHvStatus').textContent(),'Type the password for EXAMPLE\\admin, or choose your current sign-in.');
   await f.page.locator('#nwHvPassword').fill('Synthetic-Pass-1');await f.page.locator('#nwHvPassword').press('Enter');
   for(let i=0;i<100&&!f.vmwareCalls.some(c=>c.action==='hvremote/connect');i++){await new Promise(r=>setTimeout(r,50));}
   assert.deepEqual(f.vmwareCalls.filter(c=>c.action==='hvremote/connect').map(c=>c.body),[{host:'hvclu01.example.com',user:'EXAMPLE\\admin',password:'Synthetic-Pass-1'}]);
@@ -2121,7 +2125,7 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   assert.deepEqual(await f.page.locator('#nwSrvList [data-nw-srv]').evaluateAll(l=>l.map(x=>x.getAttribute('data-nw-srv')+(x.disabled?' off':''))),['agent:a1','agent:a2 off','job:a3|j3 off'],'agents and jobs are listed; only an answering agent without a job can be ticked');
   assert((await f.page.locator('#nwSrvList').textContent()).includes('Already replicating (In sync)'));
   assert.equal(await f.page.locator('#nwWhy').textContent(),'Tick the servers to replicate, or add servers below.');assert(await f.page.locator('#nwNext').isDisabled());
-  await f.page.locator('#nwSrvHosts').fill('app02.example.com');await f.page.locator('#nwSrvUser').fill('EXAMPLE\\admin');await f.page.locator('#nwSrvPassword').fill('Synthetic-Pass-2');await f.page.locator('#nwSrvInstall').click();
+  await f.page.locator('#nwSrvHosts').fill('app02.example.com');await f.page.locator('#nwSrvSignInOther').check();await f.page.locator('#nwSrvUser').fill('EXAMPLE\\admin');await f.page.locator('#nwSrvPassword').fill('Synthetic-Pass-2');await f.page.locator('#nwSrvInstall').click();
   for(let i=0;i<100&&!f.replCalls.some(c=>c.action==='push');i++){await new Promise(r=>setTimeout(r,50));}
   assert.deepEqual(f.replCalls.filter(c=>c.action==='push').map(c=>c.body),[{hosts:'app02.example.com',user:'EXAMPLE\\admin',password:'Synthetic-Pass-2',platform:'windows'}]);
   await f.page.waitForSelector('.nw-push-log');assert.equal(await f.page.locator('#nwSrvPassword').inputValue(),'','the password is cleared after the install starts');
@@ -2384,9 +2388,9 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   // Install agents on a VM nothing moves yet: the guest name is filled in.
   await f.page.locator('[data-as-row="agent:a4"]').uncheck();await f.page.locator('[data-as-row="vm:vm-31"]').check();
   await f.page.locator('[data-as-act="install"]').click();await f.page.waitForSelector('#asFormInstall:not(.hidden)');
-  assert.equal(await f.page.locator('#asInstHosts').inputValue(),'new01.example.com');await f.page.locator('#asInstPassword').fill('synthetic-password');
-  await f.page.locator('#asInstRun').click();await f.page.waitForFunction(()=>document.querySelector('#asInstPassword').value==='',null,{timeout:15000});
-  const push=f.replCalls.find(c=>c.action==='push');assert.equal(push.body.hosts,'new01.example.com');assert.equal(push.body.platform,'windows');
+  assert.equal(await f.page.locator('#asInstHosts').inputValue(),'new01.example.com');assert(await f.page.locator('#asInstallSignInCurrent').isChecked()&&await f.page.locator('#asInstPassword').isHidden(),'installs start on the current sign-in');
+  await f.page.locator('#asInstRun').click();await f.page.waitForFunction(()=>document.querySelector('#asFormInstall').classList.contains('hidden')&&/Installing the agent/.test(document.querySelector('#asStatus').textContent),null,{timeout:15000});
+  const push=f.replCalls.find(c=>c.action==='push');assert.equal(push.body.hosts,'new01.example.com');assert.equal(push.body.user,'');assert.equal(push.body.password,'','the current sign-in sends no account');assert.equal(push.body.platform,'windows');
   for(const size of [{width:784,height:522},{width:1008,height:690}]){await f.page.setViewportSize(size);
    const small=await f.page.evaluate(()=>Array.from(document.querySelectorAll('#tabServers *')).filter(e=>e.offsetParent&&e.childNodes.length&&Array.from(e.childNodes).some(n=>n.nodeType===3&&n.nodeValue.trim())&&parseFloat(getComputedStyle(e).fontSize)<10.5).map(e=>e.className+':'+e.textContent.slice(0,30)));assert.deepEqual(small,[],'text below 10.5px at '+size.width);
    assert(await f.page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'overflow at '+size.width);

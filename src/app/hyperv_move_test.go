@@ -316,3 +316,242 @@ func TestHyperVDisksFollowTheInventoryOrder(t *testing.T) {
 		t.Fatalf("a disk replaced since the read: %v", err)
 	}
 }
+
+// fakeRCTHost adds Hyper-V change tracking to fakeHyperVHost: the test says
+// which areas were written since each reference point.
+type fakeRCTHost struct {
+	*fakeHyperVHost
+	noRecovery bool
+	kept       []string
+	removedRP  []string
+	changes    []vmCopyRange
+	changesErr error
+	queries    []string
+	keepErr    error
+	extraIDs   []string
+}
+
+func (h *fakeRCTHost) TrackingCheckpoint(ctx context.Context, vmID string) (*hypervCheckpoint, error) {
+	checkpoint, err := h.Checkpoint(ctx, vmID)
+	if err != nil {
+		return nil, err
+	}
+	if h.noRecovery {
+		checkpoint.Note = "configuration version 5.0"
+	} else {
+		checkpoint.Recovery = true
+	}
+	return checkpoint, nil
+}
+
+func (h *fakeRCTHost) KeepReferencePoint(ctx context.Context, vmID, checkpointID, previous string) (*hypervReferencePoint, error) {
+	if h.keepErr != nil {
+		return nil, h.keepErr
+	}
+	id := "rp-" + checkpointID
+	h.kept = append(h.kept, id)
+	if previous != "" {
+		h.removedRP = append(h.removedRP, previous)
+	}
+	point := &hypervReferencePoint{ID: id, Unmatched: h.extraIDs}
+	for _, disk := range h.state.Disks {
+		point.Disks = append(point.Disks, hypervRCTDisk{Key: strings.ToUpper(disk.Key), RCT: "rct:" + id + ":" + disk.Key})
+	}
+	return point, nil
+}
+
+func (h *fakeRCTHost) DiskChanges(ctx context.Context, vmID, path, limit string, size int64) ([]vmCopyRange, error) {
+	h.queries = append(h.queries, path+"|"+limit)
+	if h.changesErr != nil {
+		return nil, h.changesErr
+	}
+	return h.changes, nil
+}
+
+func (h *fakeRCTHost) RemoveReferencePoint(ctx context.Context, vmID, id string) error {
+	h.removedRP = append(h.removedRP, id)
+	return nil
+}
+
+func newRCTFixture(t *testing.T) (*hypervMoveFixture, *fakeRCTHost, func(bool) hypervMoveRequest) {
+	f := newHyperVMoveFixture(t)
+	host := &fakeRCTHost{fakeHyperVHost: f.host}
+	track := t.TempDir()
+	return f, host, func(cutover bool) hypervMoveRequest {
+		request := f.request(cutover)
+		request.TrackFolder = track
+		return request
+	}
+}
+
+func TestHyperVChangeTrackingReadsOnlyChangedAreas(t *testing.T) {
+	f, host, request := newRCTFixture(t)
+	logs := []string{}
+	log := func(text string) { logs = append(logs, text) }
+
+	// First round: no reference point yet, so every disk is read; the
+	// recovery checkpoint is kept as a reference point, not removed.
+	result, err := hypervMoveRound(context.Background(), host, request(false), log)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(host.kept) != 1 || len(host.removed) != 0 || len(host.queries) != 0 {
+		t.Fatalf("kept %v removed %v queries %v", host.kept, host.removed, host.queries)
+	}
+	record := loadHypervRCTRecord(request(false).TrackFolder, request(false).VMID)
+	if record == nil || record.ReferencePoint != host.kept[0] || record.Checkpoint != host.created[0] || len(record.Disks) != 2 {
+		t.Fatalf("record %+v", record)
+	}
+	if !strings.Contains(strings.Join(logs, "\n"), "no change tracking reference point is kept yet") {
+		t.Fatalf("the log does not say why the first round reads everything: %v", logs)
+	}
+
+	// The guest writes; Hyper-V reports that area. Only it is read, and the
+	// copy matches the disk.
+	patch := make([]byte, 64<<10)
+	rand.Read(patch)
+	hypervTestPatch(t, f.paths[0], patch, 40<<20)
+	copy(f.data[0][40<<20:], patch)
+	host.changes = []vmCopyRange{{Start: 40 << 20, Length: 64 << 10}}
+	logs = nil
+	result, err = hypervMoveRound(context.Background(), host, request(false), log)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(host.queries) != 2 || !strings.Contains(host.queries[0], "|rct:"+host.kept[0]+":") {
+		t.Fatalf("queries %v", host.queries)
+	}
+	disk0 := result.Round.Disks[0]
+	if disk0.Mode != "changed" || disk0.BytesRead != 1<<20 || disk0.Changed != 1 {
+		t.Fatalf("changed round %+v", disk0)
+	}
+	if !bytes.Equal(hypervReadAll(t, result.Disks[0]), f.data[0]) {
+		t.Fatal("the changed-area round did not bring the copy up to date")
+	}
+	if len(host.kept) != 2 || len(host.removedRP) != 1 || host.removedRP[0] != host.kept[0] {
+		t.Fatalf("the previous reference point was not replaced: kept %v removed %v", host.kept, host.removedRP)
+	}
+	if !strings.Contains(strings.Join(logs, "\n"), "Hyper-V change tracking (RCT) reports") {
+		t.Fatalf("the log does not name the read method: %v", logs)
+	}
+
+	// Cutover: VM off, changed areas only, verified, then the last
+	// reference point and the record are removed.
+	hypervTestPatch(t, f.paths[1], patch, 2<<20)
+	copy(f.data[1][2<<20:], patch)
+	host.changes = []vmCopyRange{{Start: 2 << 20, Length: 64 << 10}}
+	result, err = hypervMoveRound(context.Background(), host, request(true), log)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for index, disk := range result.Round.Disks {
+		if disk.Mode != "changed" || !disk.Verified || !bytes.Equal(hypervReadAll(t, result.Disks[index]), f.data[index]) {
+			t.Fatalf("cutover disk %d %+v", index, disk)
+		}
+	}
+	if last := host.removedRP[len(host.removedRP)-1]; last != host.kept[1] {
+		t.Fatalf("the last reference point %s was not removed (%v)", host.kept[1], host.removedRP)
+	}
+	if loadHypervRCTRecord(request(false).TrackFolder, request(false).VMID) != nil {
+		t.Fatal("the record outlived the cutover")
+	}
+}
+
+func TestHyperVChangeTrackingFallsBackToFullReads(t *testing.T) {
+	f, host, request := newRCTFixture(t)
+	if _, err := hypervMoveRound(context.Background(), host, request(false), nil); err != nil {
+		t.Fatal(err)
+	}
+	// Hyper-V cannot answer: the disks are read in full and stay correct.
+	patch := make([]byte, 64<<10)
+	rand.Read(patch)
+	hypervTestPatch(t, f.paths[0], patch, 20<<20)
+	copy(f.data[0][20<<20:], patch)
+	host.changesErr = errors.New("tracking was reset")
+	logs := []string{}
+	result, err := hypervMoveRound(context.Background(), host, request(false), func(s string) { logs = append(logs, s) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Round.Disks[0].Mode != "delta" || !bytes.Equal(hypervReadAll(t, result.Disks[0]), f.data[0]) {
+		t.Fatalf("fallback %+v", result.Round.Disks[0])
+	}
+	if !strings.Contains(strings.Join(logs, "\n"), "could not answer (tracking was reset)") {
+		t.Fatalf("logs %v", logs)
+	}
+	// An answer outside the disk is not trusted either.
+	host.changesErr = nil
+	host.changes = []vmCopyRange{{Start: 1 << 40, Length: 1 << 20}}
+	if result, err = hypervMoveRound(context.Background(), host, request(false), nil); err != nil || result.Round.Disks[0].Mode != "delta" {
+		t.Fatalf("an impossible area was trusted: %v %+v", err, result.Round.Disks)
+	}
+	// A copy made somewhere else is not followed by RCT.
+	other := request(false)
+	other.CopyFolder = filepath.Join(t.TempDir(), "Elsewhere")
+	host.changes = nil
+	if result, err = hypervMoveRound(context.Background(), host, other, nil); err != nil || result.Round.Disks[0].Mode != "full" {
+		t.Fatalf("a new copy target used change tracking: %v %+v", err, result.Round.Disks)
+	}
+	// A failed keep leaves the checkpoint to be removed as before.
+	host.keepErr = errors.New("busy")
+	removed := len(host.removed)
+	if _, err := hypervMoveRound(context.Background(), host, request(false), nil); err != nil {
+		t.Fatal(err)
+	}
+	if len(host.removed) != removed+1 {
+		t.Fatal("the checkpoint was not removed after it could not be kept")
+	}
+}
+
+func TestHyperVWithoutRecoveryCheckpointsReadsInFull(t *testing.T) {
+	_, host, request := newRCTFixture(t)
+	host.noRecovery = true
+	logs := []string{}
+	for round := 0; round < 2; round++ {
+		result, err := hypervMoveRound(context.Background(), host, request(false), func(s string) { logs = append(logs, s) })
+		if err != nil {
+			t.Fatal(err)
+		}
+		if result.Round.Disks[0].Mode == "changed" {
+			t.Fatal("a standard checkpoint was followed by change tracking")
+		}
+	}
+	if len(host.kept) != 0 || len(host.removed) != 2 || len(host.queries) != 0 {
+		t.Fatalf("kept %v removed %v queries %v", host.kept, host.removed, host.queries)
+	}
+	if !strings.Contains(strings.Join(logs, "\n"), "configuration version 5.0") {
+		t.Fatalf("logs %v", logs)
+	}
+	// Without a record folder the host's tracking is not used at all.
+	plain := request(false)
+	plain.TrackFolder = ""
+	host.noRecovery = false
+	if _, err := hypervMoveRound(context.Background(), host, plain, nil); err != nil || len(host.kept) != 0 {
+		t.Fatalf("tracking used without a record folder: %v %v", err, host.kept)
+	}
+}
+
+func TestHyperVOffVMFollowsTheKeptReferencePoint(t *testing.T) {
+	f, host, request := newRCTFixture(t)
+	if _, err := hypervMoveRound(context.Background(), host, request(false), nil); err != nil {
+		t.Fatal(err)
+	}
+	host.state.PowerState = "poweredOff"
+	patch := make([]byte, 4096)
+	rand.Read(patch)
+	hypervTestPatch(t, f.paths[1], patch, 5<<20)
+	copy(f.data[1][5<<20:], patch)
+	host.changes = []vmCopyRange{{Start: 5 << 20, Length: 4096}}
+	for round := 0; round < 2; round++ {
+		result, err := hypervMoveRound(context.Background(), host, request(false), nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if result.Round.Disks[1].Mode != "changed" || !bytes.Equal(hypervReadAll(t, result.Disks[1]), f.data[1]) {
+			t.Fatalf("round %d off-VM disk %+v", round, result.Round.Disks[1])
+		}
+	}
+	if len(host.created) != 1 || len(host.kept) != 1 {
+		t.Fatalf("an off VM made checkpoints %v or reference points %v", host.created, host.kept)
+	}
+}

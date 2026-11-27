@@ -435,7 +435,7 @@ func (a *application) handleHVBuildAccount(response http.ResponseWriter, request
 			password = a.hvBuild.password
 		}
 		if password == "" {
-			hvBuildFail(response, http.StatusBadRequest, "Type the password for "+user+", or leave the account empty to use your own Windows account.")
+			hvBuildFail(response, http.StatusBadRequest, "Type the password for "+user+", or choose your current sign-in.")
 			return
 		}
 		a.hvBuild.user, a.hvBuild.password = user, password
