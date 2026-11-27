@@ -1,6 +1,6 @@
 ## Unreleased: VDDK start-up diagnosis and one-line errors — 2026-11-27
 
-- Owner on 3.3.0-test.3: DESK21-CPA01/CPA02 rounds failed with VDDK error 16053 (VIX_E_DISK_SUBSYSTEM_INIT_FAIL) after the folder check passed. The Visual C++ runtime DLLs are present on that host, so the cause is still open; the owner was asked for the VDDK temp folder.
+- Owner on 3.3.0-test.3: DESK21-CPA01/CPA02 rounds failed with VDDK error 16053 (VIX_E_DISK_SUBSYSTEM_INIT_FAIL) after the folder check passed. The owner's VixDiskLib log showed the cause: `Failed to load vddkVimAccess.dll : ErrorCode = 0x7e` and diskLibPlugin.dll not found, because VixDiskLib loads its plugins itself and their dependencies were searched for outside the VDDK folder. `vddkLoad` now calls `SetDllDirectory(bin)` before loading vixDiskLib.dll.
 - Check and save names DLLs the VDDK DLLs import that the computer lacks (`peImports`, `vddkMissingDependencies`). VixDiskLib's log functions now write `VMware\VDDK\Temp\vddk.log`; start, connect and open failures name the step and that log. `tmpDirectory` in `vixDiskLib.conf` is written with single backslashes.
 - Long errors in Migration plans, All jobs and servers and the transfer list show one line with Details (`errLine`, open state kept across refreshes in `errOpen`).
 - Tests: `TestVDDKNamesMissingVisualCRuntime`; the workspace check for virtual TPM VMs checks the folded error. Not field-validated: the log callbacks on a real VDDK.
