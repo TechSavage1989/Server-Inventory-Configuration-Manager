@@ -1,3 +1,13 @@
+## 3.2.39 published and verified — 2026-11-27
+
+- [Release v3.2.39](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.39) ("Server Inventory and Migration Manager 3.2.39"), tag and target commit `a4f8f04e09ed0ac496b72a7c49454ca09a13d31d`. Source: #173, #174, #176, #177, #180, #181 and #182 through the batch #183 (merged into `main` with a merge commit), prepared by #184, published by #185, and the release fix #187 through the batch #189. The owner approved publishing on 2026-11-27.
+- The first two release runs ([46007364948](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/46007364948)) stopped before publishing at the workspace low-resolution check: Build Hyper-V hosts drew a stale editor only at the next state poll (`#hbBlank` missing at 784x522). No tag or release was created. Fixed by #187, which draws the editor when the tool opens.
+- The [publish run](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/46015346544) (workflow_dispatch from `main`) passed: publish job 14:22–14:47 UTC, embedded scripts and EXE signed through Azure Artifact Signing over OIDC before the tests and checksum (Valid, timestamped); public feed and downloads verified.
+- The actual 3.2.38-to-3.2.39 upgrade (published signed 3.2.38 EXE through Download and Install, restart into 3.2.39, native health, settings, shortcut, timers, cleanup and rollback) passed in one run, 14:47–15:00 UTC.
+- Stable EXE: 28,938,032 bytes; SHA-256 `4aae60ffb28771f6f391025f37302db710d0b9e186700203605df3214eeb52b8` (matches the public feed). Linux agent `simm-agent-linux-amd64`: 13,717,504 bytes; SHA-256 `8a6699df145a0cc0781b413fc1e4f51735579e7af1a4184a3a61e0767705fc5f`. All 14 assets are published.
+
+Limits: Roll back on a real vCenter and Hyper-V cluster node, Hyper-V RCT reference points on a real host, VDDK reads of a real vTPM VM, production-guard free space on real datastores and CSVs, and a real return from a test build to stable have not been field-tested. The limits under 3.2.38 still apply. CI artifacts were not downloaded, and no client data was used.
+
 ## 3.2.38 published and verified — 2026-11-27
 
 - [Release v3.2.38](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.38) ("Server Inventory and Migration Manager 3.2.38"), tag and target commit `f26e245f8f951018343a5fcced439a214446e373`. Source: #164, #165, #167, #168 and #169 through the batch #166 (merged into `main` with a merge commit, `34377a3`), prepared by #171 and published by #172. The owner asked to publish on 2026-11-27.
