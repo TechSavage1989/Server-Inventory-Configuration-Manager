@@ -1,3 +1,7 @@
+## 3.3.0-test.3 preparation — 2026-11-27
+
+- 3.3.0-test.2 published 17:44 UTC (run 46041811614, tag commit `a230ea6`, signed prerelease, EXE SHA-256 `a73324111f45e514ce734d694ba0191a4cc7b213442ca358ca6fb94e19c44c8b`, 29,406,000 bytes; stable feed unchanged at 3.2.40). The owner then approved 3.3.0-test.3 with #201 (Sync now feedback, Syncing state, opt-in remembered vCenter sign-in). Version 3.3.0-test.3 (collector 3.3.0), notes in `docs/release-notes/3.3.0-test.3.md`.
+
 ## 3.3.0-test.2 preparation — 2026-11-27
 
 - Owner approved a second signed test build carrying 3.2.40's VDDK fix (#190) after learning 3.3.0-test.1 lacked it. `test` now holds `main` at 3.2.40 (#197) and `release/next` (#196, rows ticked without moving the layout). The test branch's VM list Migrate button changed label and class with the selection, which wrapped the bulk row at 1350 px and failed #196's "Selecting rows keeps the layout still" check; it now always reads Migrate selected VMs… and only turns on or off (rule 51). Version 3.3.0-test.2 (collector 3.3.0), notes in `docs/release-notes/3.3.0-test.2.md`.
