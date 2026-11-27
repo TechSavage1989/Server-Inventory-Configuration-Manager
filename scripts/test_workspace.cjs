@@ -2350,6 +2350,13 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   // A copy that fails for this reason offers both fixes on its row.
   const desk=f.plans.plans[0].vms.find(v=>v.id==='vm-desk23');Object.assign(desk,{name:'DESK23',state:'failed',failures:1,error:'Hard disk 1: vSphere will not let this VM be read while it runs. Its own files are encrypted (every VM with a virtual TPM has them encrypted; the disks themselves are plain), vSphere refuses to export an encrypted VM, and the ESXi host locks the running disk. Choose the VDDK folder in Help > Settings to copy it while it runs, or copy it at its cutover while it is shut down.'});
   await f.page.waitForSelector('#nwStatusBody [data-mp-offline="vm-desk23"]',{timeout:15000});assert(await f.page.locator('#nwStatusBody [data-mp-vddk="vm-desk23"]').isVisible());
+  // A long error is one line in the state column, with the whole text behind Details, kept open across refreshes.
+  const errBox=f.page.locator('#nwStatusBody details.mp-err');assert.equal(await errBox.count(),1,'a long error is folded');
+  assert(!(await errBox.locator('.err-more').isVisible()),'the full error starts hidden');
+  const head=await errBox.locator('summary').textContent();assert(head.length<140&&head.endsWith('Details'),head);
+  await errBox.locator('summary').click();await new Promise(r=>setTimeout(r,4500));
+  assert(await f.page.locator('#nwStatusBody details.mp-err .err-more').isVisible(),'Details stays open after a refresh');
+  assert((await f.page.locator('#nwStatusBody details.mp-err .err-more').textContent()).startsWith('Hard disk 1: vSphere will not let'));
   await f.page.locator('#nwStatusBody [data-mp-offline="vm-desk23"]').click();
   for(let i=0;i<100&&!f.planCalls.some(c=>c.body.action==='method');i++){await new Promise(r=>setTimeout(r,50));}
   const m=f.planCalls.find(c=>c.body.action==='method');assert.deepEqual({vmIds:m.body.vmIds,method:m.body.method},{vmIds:['vm-desk23'],method:'offline'});

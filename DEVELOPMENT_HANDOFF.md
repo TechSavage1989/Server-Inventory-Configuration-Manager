@@ -1,3 +1,10 @@
+## Unreleased: VDDK start-up diagnosis and one-line errors — 2026-11-27
+
+- Owner on 3.3.0-test.3: DESK21-CPA01/CPA02 rounds failed with VDDK error 16053 (VIX_E_DISK_SUBSYSTEM_INIT_FAIL) after the folder check passed. The Visual C++ runtime DLLs are present on that host, so the cause is still open; the owner was asked for the VDDK temp folder.
+- Check and save names DLLs the VDDK DLLs import that the computer lacks (`peImports`, `vddkMissingDependencies`). VixDiskLib's log functions now write `VMware\VDDK\Temp\vddk.log`; start, connect and open failures name the step and that log. `tmpDirectory` in `vixDiskLib.conf` is written with single backslashes.
+- Long errors in Migration plans, All jobs and servers and the transfer list show one line with Details (`errLine`, open state kept across refreshes in `errOpen`).
+- Tests: `TestVDDKNamesMissingVisualCRuntime`; the workspace check for virtual TPM VMs checks the folded error. Not field-validated: the log callbacks on a real VDDK.
+
 ## Unreleased (test branch): Ctrl+V in the VM console — 2026-11-27
 
 Owner on 3.3.0-test.2: Ctrl+V should paste into a VM console. Pressing Ctrl+V (or Shift+Insert) with the console focused now types this computer's clipboard into the VM through the existing Paste as typing path (`/api/console/type`), using the browser's paste event on the canvas, with `navigator.clipboard.readText` as a fallback. Ctrl and Shift are let go in the VM first and no V is sent; Ctrl+Shift+V sends a plain Ctrl+V. Page-only change; the workspace check "VM console" covers both keys. Not field-validated on a real console.

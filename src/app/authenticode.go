@@ -391,3 +391,61 @@ func peVersion(data []byte) (major, minor, patch, build uint16, err error) {
 	ls := binary.LittleEndian.Uint32(block[at+12:])
 	return uint16(ms >> 16), uint16(ms), uint16(ls >> 16), uint16(ls), nil
 }
+
+// peImports lists the DLL names a PE file imports (its import directory, not
+// delay loads). The VDDK folder check uses it to name a dependency this
+// computer lacks before VixDiskLib fails to start with a bare error 16053.
+func peImports(data []byte) ([]string, error) {
+	layout, err := parsePELayout(data)
+	if err != nil {
+		return nil, err
+	}
+	pe := int(binary.LittleEndian.Uint32(data[0x3c:]))
+	opt := pe + 24
+	dirs := opt + 96
+	if binary.LittleEndian.Uint16(data[opt:]) == 0x20b {
+		dirs = opt + 112
+	}
+	importRVA := binary.LittleEndian.Uint32(data[dirs+8:])
+	if importRVA == 0 {
+		return nil, nil
+	}
+	toOffset := func(rva uint32) (int, bool) {
+		for _, s := range layout.sections {
+			size := s.size
+			if s.rawSize > size {
+				size = s.rawSize
+			}
+			if rva >= s.va && rva < s.va+size {
+				off := int(rva - s.va + s.raw)
+				return off, off < len(data)
+			}
+		}
+		return 0, false
+	}
+	at, ok := toOffset(importRVA)
+	if !ok {
+		return nil, errors.New("its import table is outside the file")
+	}
+	var names []string
+	for i := 0; i < 4096; i++ {
+		entry := at + i*20
+		if entry+20 > len(data) {
+			return nil, errors.New("its import table is damaged")
+		}
+		nameRVA := binary.LittleEndian.Uint32(data[entry+12:])
+		if nameRVA == 0 {
+			return names, nil
+		}
+		start, ok := toOffset(nameRVA)
+		if !ok {
+			return nil, errors.New("its import table is damaged")
+		}
+		end := bytes.IndexByte(data[start:], 0)
+		if end < 0 || end > 260 {
+			return nil, errors.New("its import table is damaged")
+		}
+		names = append(names, string(data[start:start+end]))
+	}
+	return nil, errors.New("its import table is damaged")
+}
