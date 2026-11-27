@@ -109,8 +109,11 @@ func (a *application) handleVMwareHyperV(response http.ResponseWriter, request *
 		}
 		inventory := hypervInventoryFromReport(*report, local, time.Now(), appVersion)
 		a.applySavedPreflight(inventory)
-		folder := a.vmwareOutputFolder("HyperV_" + safeName(inventory.Server))
-		reportPath, writeErr := writeVMwareInventoryOutputs(folder, inventory)
+		root := a.vmwareOutputRoot()
+		a.mu.Lock()
+		folder := a.vmwareDiscoveryFolderLocked(root, "HyperV", inventory.Server)
+		a.mu.Unlock()
+		reportPath, writeErr := writeDiscoveryOutputs(folder, inventory)
 		plan := a.loadVMwarePlan(inventory)
 		a.mu.Lock()
 		a.vmware.server, a.vmware.account, a.vmware.password, a.vmware.thumbprint, a.vmware.certificate = inventory.Server, user, "", "", nil
