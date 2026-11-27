@@ -37,6 +37,16 @@ func testApp(t *testing.T) *application {
 func testManifest(version string) updateManifest {
 	return updateManifest{SchemaVersion: 1, AppID: applicationID, Version: version, ReleaseURL: repositoryURL + "/releases/tag/v" + version, Asset: updateAsset{Name: stableExecutableName, URL: repositoryURL + "/releases/download/v" + version + "/" + stableExecutableName, SHA256: strings.Repeat("a", 64), Size: 2048}}
 }
+
+// feedVersion is what the stable feed names in these tests: this build's own
+// version, or an older stable version when this is a test build, because the
+// stable feed never names a test build (the check refuses one).
+func feedVersion() string {
+	if isTestVersion(appVersion) {
+		return "1.0.0"
+	}
+	return appVersion
+}
 func response(code int, body []byte, headers http.Header) *http.Response {
 	if headers == nil {
 		headers = make(http.Header)
@@ -192,7 +202,7 @@ func TestCheckSingleFlightAndCooldown(t *testing.T) {
 }
 func TestNativeSchedulerAndFocusGate(t *testing.T) {
 	a := testApp(t)
-	m := testManifest(appVersion)
+	m := testManifest(feedVersion())
 	body, _ := json.Marshal(m)
 	calls := make(chan struct{}, 5)
 	setTransport(a, func(r *http.Request) (*http.Response, error) {
@@ -296,13 +306,19 @@ func TestBinaryVersionBoundaryAndMalformedPE(t *testing.T) {
 	}
 	// Derive mismatches from the built version so a future release cannot
 	// accidentally become its own negative control (as 3.2.10 once did).
-	parts := strings.Split(appVersion, ".")
+	// A test build (3.3.0-test.1) is checked against its base version too.
+	core := strings.SplitN(appVersion, "-", 2)[0]
+	parts := strings.Split(core, ".")
 	patch, err := strconv.Atoi(parts[2])
 	if err != nil {
 		t.Fatal(err)
 	}
 	nextVersion := strings.Join(parts[:2], ".") + "." + strconv.Itoa(patch+1)
-	for _, v := range []string{"0.0.0", appVersion + "0", nextVersion} {
+	wrong := []string{"0.0.0", appVersion + "0", nextVersion}
+	if core != appVersion {
+		wrong = append(wrong, core)
+	}
+	for _, v := range wrong {
 		if validateDownloadedExecutable(path, v) == nil {
 			t.Fatal("wrong exact version accepted", v)
 		}
@@ -480,7 +496,11 @@ func TestNativeRollbackRestorationAndTampering(t *testing.T) {
 // choosing Stable again offers the stable build.
 func TestTestChannelOffersTestBuildsOnlyAfterOptIn(t *testing.T) {
 	a := testApp(t)
-	stable, _ := json.Marshal(testManifest(appVersion))
+	stableVersion := feedVersion()
+	stable, _ := json.Marshal(testManifest(stableVersion))
+	// A test build on the Stable channel is offered the stable build even
+	// though its number is lower; a stable build is up to date.
+	onTest := isTestVersion(appVersion)
 	newer := "99.0.0-test.3"
 	test, _ := json.Marshal(testManifest(newer))
 	listing := []byte(`[{"tag_name":"v` + newer + `","draft":false,"prerelease":true,"assets":[{"name":"update-manifest.json"}]},{"tag_name":"v99.0.0-test.9","draft":true,"prerelease":true,"assets":[{"name":"update-manifest.json"}]}]`)
@@ -503,7 +523,7 @@ func TestTestChannelOffersTestBuildsOnlyAfterOptIn(t *testing.T) {
 	}
 	_ = a.beginUpdateCheck(true, false)
 	waitCheck(t, a)
-	if state := a.updateSnapshot(); state.Available || atomic.LoadInt32(&listed) != 0 {
+	if state := a.updateSnapshot(); state.Available != onTest || state.ToStable != onTest || atomic.LoadInt32(&listed) != 0 {
 		t.Fatalf("the Stable channel looked at test builds: %+v", state)
 	}
 	if err := a.setUpdateChannel(updateChannelTest); err != nil {
@@ -525,7 +545,7 @@ func TestTestChannelOffersTestBuildsOnlyAfterOptIn(t *testing.T) {
 		t.Fatal(err)
 	}
 	waitCheck(t, a)
-	if state := a.updateSnapshot(); state.Available || state.LatestVersion != appVersion {
+	if state := a.updateSnapshot(); state.Available != onTest || state.LatestVersion != stableVersion {
 		t.Fatalf("Stable again still offers the test build: %+v", state)
 	}
 	if err := a.setUpdateChannel("beta"); err == nil {
