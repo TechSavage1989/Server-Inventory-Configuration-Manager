@@ -200,6 +200,18 @@ Every migration and replication tool lives in one **Migration and replication** 
 
 **Live progress.** The receiver lists the senders connected to it and every copy arriving, and Send and each VM's Move section list the disks going out: where each comes from and goes to, percent done, data read, written and on the network, speed, time left, and whether it finished, was verified or failed. Replication job details show the same per disk for the running round. Summary tiles, such as the replication counts (Behind, Failing, Not answering and so on), are buttons: each filters the list to what it counts and says why and what to do next.
 
+### VM consoles
+
+Open the console of a source, replicated, test or migrated VM without leaving the application: **Console** on a VM's page, a migration plan row, an **All jobs and servers** row, New migration's platform list or **Start VMs from copies**. Every platform opens in the same window, with tabs for up to eight consoles:
+
+- **VMware** (vCenter or ESXi), **Proxmox VE**, **Nutanix AHV** and **Scale HyperCore** through each platform's own console, and **Hyper-V** through its screen and keyboard interfaces, which work before the VM has a network.
+- **Ctrl+Alt+Del**, a **Keys** menu (Win+R, Alt+Tab, Ctrl+Shift+Esc, F8, F12 and more) and sticky **Ctrl**, **Alt** and **Win** for keys Windows keeps for itself.
+- **Paste as typing** types text one key at a time, so passwords and commands go into sign-in, setup and recovery screens. The text is not saved or logged.
+- **Files** copies one file in or out through VMware Tools, the QEMU guest agent (Proxmox VE) or PowerShell Direct (on the Hyper-V host). An existing file is never replaced.
+- **What works here** says what each platform supports and why. The platform's own console (VMware Remote Console, Virtual Machine Connection, Hyper-V Enhanced session) opens from the toolbar when you want clipboard and drive sharing.
+
+Nothing is installed in the VM, and the console uses the connections you already made in the application. It has no power buttons. This feature is in test builds first and has not yet been tried against every platform.
+
 ## Restore configuration
 
 The **Restore** tab puts configuration from an inventory package back onto a server: after a failed change, or onto a rebuilt or replacement server. Choose the package folder (your last collection or the loaded report's package are one click away), and the app checks it against its `SHA256-Manifest.csv` and against this server. Each component then shows what it would restore, or exactly why it cannot (for example, the role is not installed, the export was not selected when the package was collected, or a file changed after collection).

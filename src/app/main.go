@@ -278,7 +278,9 @@ type application struct {
 	convert                 convertRuntime
 	convertSend             convertSendRuntime
 	hvRemote                hvRemoteRuntime
-	hvBuild                 hvBuildRuntime
+	// consoles are the open VM consoles (console_windows.go, rule 68).
+	consoles *consoleManager
+	hvBuild  hvBuildRuntime
 	// guestRemote is where Prepare and fix up runs (guest_remote_windows.go);
 	// its password stays in memory until Forget or exit.
 	guestRemote guestTarget
@@ -2275,6 +2277,7 @@ func (a *application) stopServer() {
 		// closes during one, ask it to stop after the current item and wait.
 		a.stopRestoreAndWait()
 		a.stopMigrateAndWait()
+		a.consoleMgr().closeAll()
 		a.handOffVMReceiverToService()
 		a.stopVMReceiver("")
 		a.stopWindowPersistence()
@@ -2427,6 +2430,7 @@ func (a *application) serve(listener net.Listener) error {
 	go a.runMigrateScheduler()
 	go a.resumeVMReceiver()
 	mux.HandleFunc("/api/hvremote/", a.handleHVRemote)
+	mux.HandleFunc("/api/console/", a.handleConsole)
 	mux.HandleFunc("/api/hvbuild/", a.handleHVBuild)
 	mux.HandleFunc("/api/vmware/target/", a.handleVMwareTarget)
 	mux.HandleFunc("/api/vmware/receiver", a.handleVMwareReceiver)
