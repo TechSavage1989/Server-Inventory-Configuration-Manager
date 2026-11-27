@@ -1,3 +1,12 @@
+## Unreleased: visible changed-block reads, 5-minute syncs, VDDK-aware retries — 2026-11-27
+
+- Owner on 3.3.0-test.3: "i can't even tell if VDDK changed block sync is even working"; MATCHC-DC02's last round read all 90 GB. Cause: a round that stopped part way left the copy record unfinished, and the next round silently read the whole disk. `vmReplicaPlanDisk` now reads everything changed since the last whole copy's change ID instead, and every full read gives its reason (AGENTS rule 70). Hyper-V RCT accepts an unfinished copy the same way.
+- Each round records how each disk was read (VDDK, datastore, export, RCT, file), what change tracking reported and why it read more; Migration plans and All jobs and servers show it under Last sync with a ✓ or ! and a folded **Why:**, and the plan log has one summary line per round.
+- Near-real-time replication: plans sync every 5 or 10 minutes as well (`mbMinSyncMinutes`), with at least 2 minutes after a long round ends (`mbRoundGap`). Short intervals only read changes cheaply through VDDK (VMware) or RCT (Hyper-V); through vSphere's export every round streams the whole used disk.
+- With VDDK set up, a vTPM VM's failure ends with `vmEncryptedHomeVDDKHint` and offers Retry with VDDK and Open the VDDK log instead of Set up VDDK.
+- Saving migration plans keeps fields this version does not know (`mbKeepUnknownFields`), so a stable build no longer drops the test channel's `testedAt` when the owner switches channels.
+- Not field-validated: a real stopped round followed by a changed-block round on vCenter, and 5-minute rounds on a busy host.
+
 ## 3.2.41 release preparation — 2026-11-27
 
 Owner asked to ship all of today's requested changes in the next releases ("make all the current requested changes go out in the next releases"). Contents, merged into `release/next` after 3.2.40: #196 (fewer obvious hints, layout stays still when rows are ticked), #198 (3.2.40 record; the published-upgrade test starts from signed 3.2.40, `45026e53...d7d6`), #202 (Sync now answers, inline plan sign-in, Syncing state, opt-in remembered sign-ins) #206 (save plans during copies, folded Discovery read sections, steadier New migration and guest account) and #208 (VDDK start-up diagnosis: missing imports named, vddk.log, one-line errors with Details). Version 3.2.41 in `main.go` and the collector, release notes in `docs/release-notes/3.2.41.md`.

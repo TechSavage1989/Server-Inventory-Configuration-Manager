@@ -2119,6 +2119,14 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   await errBox.locator('summary').click();await new Promise(r=>setTimeout(r,4500));
   assert(await f.page.locator('#nwStatusBody details.mp-err .err-more').isVisible(),'Details stays open after a refresh');
   assert((await f.page.locator('#nwStatusBody details.mp-err .err-more').textContent()).startsWith('Hard disk 1: vSphere will not let'));
+  // With VDDK set up, the same failure offers a retry and VDDK's log, never setup again.
+  desk.error='Hard disk 1: vSphere will not let this VM be read while it runs. VDDK could not read it either (could not open [ds] desk23.vmdk: no permission). If the vCenter account is not an administrator, give its role Cryptographic operations > Direct Access. Fix that and sync again to copy it through VDDK while it runs (VDDK\'s own log says more), or copy it at its cutover while it is shut down.';
+  await f.page.waitForSelector('#nwStatusBody [data-mp-retry="vm-desk23"]',{timeout:15000});
+  assert.equal(await f.page.locator('#nwStatusBody [data-mp-vddk="vm-desk23"]').count(),0,'no Set up VDDK once VDDK is set up');
+  assert(await f.page.locator('#nwStatusBody [data-mp-vddklog="vm-desk23"]').isVisible());
+  await f.page.locator('#nwStatusBody [data-mp-retry="vm-desk23"]').click();
+  for(let i=0;i<100&&!f.planCalls.some(c=>c.body.action==='sync');i++){await new Promise(r=>setTimeout(r,50));}
+  assert.deepEqual(f.planCalls.find(c=>c.body.action==='sync').body.vmIds,['vm-desk23'],'Retry with VDDK syncs that VM');
   await f.page.locator('#nwStatusBody [data-mp-offline="vm-desk23"]').click();
   for(let i=0;i<100&&!f.planCalls.some(c=>c.body.action==='method');i++){await new Promise(r=>setTimeout(r,50));}
   const m=f.planCalls.find(c=>c.body.action==='method');assert.deepEqual({vmIds:m.body.vmIds,method:m.body.method},{vmIds:['vm-desk23'],method:'offline'});
@@ -2349,12 +2357,18 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   const created=f.planCalls.find(c=>c.body.action==='create');assert.deepEqual(created.body.vmIds,[enabled[0]]);assert.equal(created.body.settings.throttle.businessMbps,200);assert.equal(created.body.settings.throttle.businessStart,8);assert.equal(created.body.settings.testSwitch,'Isolated');assert.equal(created.body.settings.disconnectSource,true,'disconnecting the old VM is ticked by default');assert(created.body.settings.startAt.startsWith('2026-12-0'));assert.equal(created.token,'workspace-test');
   const now=new Date().toISOString();
   f.plans.plans[0]=Object.assign(f.plans.plans[0],{summary:{total:3,waiting:0,copying:1,ready:1,testing:0,scheduled:0,done:0,failed:1},vms:[
-   {id:'vm-app01',name:'APP01',wave:1,state:'ready',seeded:true,lastSync:now,lastMode:'changed',lastRead:1073741824,lastWritten:268435456,lastSeconds:95,nextSync:now,failures:0},
+   {id:'vm-app01',name:'APP01',wave:1,state:'ready',seeded:true,lastSync:now,lastMode:'changed',lastVia:'vddk',lastTracked:1073741824,lastRead:1073741824,lastWritten:268435456,lastSeconds:95,nextSync:now,failures:0},
    {id:'vm-sql01',name:'SQL01',wave:1,state:'copying',seeded:false,live:{percent:40,bytesRead:42949672960,bytesPerSecond:104857600,secondsLeft:600,elapsed:400},failures:0},
-   {id:'vm-web01',name:'WEB01',wave:2,state:'failed',seeded:true,error:'<b>datastore unreachable</b>',failures:2}]});
+   {id:'vm-web01',name:'WEB01',wave:2,state:'failed',seeded:true,error:'<b>datastore unreachable</b>',failures:2,lastMode:'full',lastVia:'export',lastRead:96636764160,lastWritten:4294967296,lastSeconds:2040,lastWhy:'Hard disk 1: changed block tracking could not answer (FileFault); this usually means vSphere reset tracking (a storage move, a restore, or tracking turned off and on), so the disk is read in full once'}]});
   await f.page.waitForFunction(()=>document.querySelectorAll('#mpRows tr').length===3,null,{timeout:15000});
   assert((await f.page.locator('#mpRows').textContent()).includes('Seeding 40%'));assert((await f.page.locator('#mpRows .mp-progress-text').textContent()).includes('100 MB/s · 10 min left'));
   assert.equal(await f.page.locator('#mpRows .mp-err').textContent(),'<b>datastore unreachable</b>','errors are text, not markup');
+  // Each row says how its last round read the disks, and why a full read happened.
+  const reads=await f.page.locator('#mpRows .mp-read').allTextContents();
+  assert(reads[0].startsWith('Changed blocks through VDDK')&&reads[0].includes('1.0 GB changed, 1.0 GB read, 256 MB written in 2 min'),reads[0]);
+  assert.equal(await f.page.locator('#mpRows .mp-read.good').count(),1);assert.equal(await f.page.locator('#mpRows .mp-read.warning').count(),1);
+  assert(reads[1].startsWith('Full read')&&!reads[1].includes('changed,'),reads[1]);
+  assert((await f.page.locator('#mpRows .mp-why').textContent()).includes('reset tracking'),'a full read says why');
   assert((await f.page.locator('#mpAdvice').textContent()).startsWith('1 VM(s) failed'));
   await f.page.locator('#mpSummary [data-mp-filter="failed"]').click();await f.page.waitForFunction(()=>document.querySelectorAll('#mpRows tr').length===1);assert.equal(await f.page.locator('#mpSummary [data-mp-filter="failed"]').getAttribute('aria-pressed'),'true');
   await f.page.locator('#mpFilterBar [data-mp-filter]').click();await f.page.waitForFunction(()=>document.querySelectorAll('#mpRows tr').length===3);

@@ -242,7 +242,7 @@ func TestReplicationReadsChangedBlocksThroughVDDK(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if second.Disks[0].Mode != "changed" || second.Disks[0].Changed != 1 || !bytes.Equal(vmReadVHDX(t, second.Disks[0].Target), data) {
+	if second.Disks[0].Mode != "changed" || second.Disks[0].Read != "vddk" || second.Disks[0].Why != "" || second.Disks[0].Changed != 1 || !bytes.Equal(vmReadVHDX(t, second.Disks[0].Target), data) {
 		t.Fatalf("the VDDK delta round was wrong: %+v", second.Disks[0])
 	}
 	if read > vmCopyChunkSize {
