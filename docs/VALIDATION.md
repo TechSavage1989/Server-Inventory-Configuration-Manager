@@ -1,3 +1,11 @@
+## 3.3.0 published and verified — 2026-11-27
+
+- [Release v3.3.0](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.3.0) ("Server Inventory and Migration Manager 3.3.0"), tag and target commit `70454b04fe7302bf9b1e7bad9a728bd189b2a323`. It promotes the test line (3.3.0-test.5) to stable: #221 merged `test` into `release/next` with a merge commit and prepared 3.3.0, #220 recorded 3.2.41, the batch #222 reached `main` with a merge commit (`613ac94`) and #223 published. The owner asked for it on 2026-11-27 ("The next round I want the test moved to the stable release").
+- The [release run](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/46079644283) passed: publish job 22:56–23:20 UTC, embedded scripts and EXE signed through Azure Artifact Signing over OIDC before the tests and checksum (Valid, timestamped); public feed and downloads verified.
+- The actual 3.2.41-to-3.3.0 upgrade (published signed 3.2.41 EXE through Download and Install, restart into 3.3.0, native health, settings, shortcut, timers, cleanup and rollback) passed in the same run, 23:20–23:32 UTC.
+- Stable EXE: 29,575,984 bytes; SHA-256 `b57abc646245da9cb79f85e2b3d42f94d90d9994ff28a4dd2498fdd93289816d` (matches the public feed). Linux agent `simm-agent-linux-amd64`: 13,725,696 bytes; SHA-256 `0e5bbac44859197354c6c351622c72a4ed859a1cfa8b85dc9b66a36665c2a773`. All 14 assets are published.
+- Not field-tested: the VM consoles, console paste and Copy out against real vCenter, Hyper-V, Proxmox VE, Prism and HyperCore hosts, plus the 3.2.41 limits.
+
 ## 3.2.41 published and verified — 2026-11-27
 
 - [Release v3.2.41](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.41) ("Server Inventory and Migration Manager 3.2.41"), tag and target commit `4edd878b3114aa856603d6ad374d1d1a6e601c29`. Source: #196, #198, #202, #206, #208, #213 and #215 through the batch #200 (merged into `main` with a merge commit, `391fa5f`), prepared by #211 and #217, published by #219. The owner approved publishing on 2026-11-27 ("make all the current requested changes go out in the next releases").
