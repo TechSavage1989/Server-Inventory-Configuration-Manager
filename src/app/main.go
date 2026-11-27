@@ -35,8 +35,8 @@ const (
 	// displayName is the name people see.
 	appName            = "Server Inventory Configuration Manager"
 	displayName        = "Server Inventory and Migration Manager"
-	appVersion         = "3.2.41"
-	collectorVersion   = "3.2.41"
+	appVersion         = "3.3.0"
+	collectorVersion   = "3.3.0"
 	applicationPageCSP = "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; frame-src 'self'"
 	maximumCollectors  = 49
 
@@ -280,7 +280,9 @@ type application struct {
 	convert                 convertRuntime
 	convertSend             convertSendRuntime
 	hvRemote                hvRemoteRuntime
-	hvBuild                 hvBuildRuntime
+	// consoles are the open VM consoles (console_windows.go, rule 68).
+	consoles *consoleManager
+	hvBuild  hvBuildRuntime
 	// guestRemote is where Prepare and fix up runs (guest_remote_windows.go);
 	// its password stays in memory until Forget or exit.
 	guestRemote guestTarget
@@ -2278,6 +2280,7 @@ func (a *application) stopServer() {
 		// closes during one, ask it to stop after the current item and wait.
 		a.stopRestoreAndWait()
 		a.stopMigrateAndWait()
+		a.consoleMgr().closeAll()
 		a.handOffVMReceiverToService()
 		a.stopVMReceiver("")
 		a.stopWindowPersistence()
@@ -2389,6 +2392,7 @@ func (a *application) serve(listener net.Listener) error {
 	mux.HandleFunc("/api/start", a.handleStart)
 	mux.HandleFunc("/api/preferences", a.handlePreferences)
 	mux.HandleFunc("/api/ui-settings", a.handleUISettings)
+	mux.HandleFunc("/api/profiles", a.handleMigrationProfiles)
 	mux.HandleFunc("/api/vddk", a.handleVDDK)
 	mux.HandleFunc("/api/production", a.handleProduction)
 	mux.HandleFunc("/api/cancel", a.handleCancel)
@@ -2431,6 +2435,7 @@ func (a *application) serve(listener net.Listener) error {
 	go a.runMigrateScheduler()
 	go a.resumeVMReceiver()
 	mux.HandleFunc("/api/hvremote/", a.handleHVRemote)
+	mux.HandleFunc("/api/console/", a.handleConsole)
 	mux.HandleFunc("/api/hvbuild/", a.handleHVBuild)
 	mux.HandleFunc("/api/vmware/target/", a.handleVMwareTarget)
 	mux.HandleFunc("/api/vmware/receiver", a.handleVMwareReceiver)

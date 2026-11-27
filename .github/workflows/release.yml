@@ -142,7 +142,7 @@ jobs:
           # Every script the application writes to disk and runs, except the
           # baseline-protected collector and its wrapper, whose exact bytes are
           # pinned (docs/verification). Signing appends a signature block.
-          $names='Restore-ServerConfiguration.ps1','Migrate-FileShares.ps1','Invoke-ShareMigrationRemote.ps1','Migrate-VmGuest.ps1','Build-ReceiverMedia.ps1','Move-HyperVVM.ps1','Read-HyperVHost.ps1','Repair-ConvertedDisk.ps1','Connect-HyperVTarget.ps1','Invoke-GuestRemote.ps1','Build-HyperVHost.ps1','Test-RolePreflight.ps1'
+          $names='Restore-ServerConfiguration.ps1','Migrate-FileShares.ps1','Invoke-ShareMigrationRemote.ps1','Migrate-VmGuest.ps1','Build-ReceiverMedia.ps1','Move-HyperVVM.ps1','Read-HyperVHost.ps1','Repair-ConvertedDisk.ps1','Connect-HyperVTarget.ps1','Invoke-GuestRemote.ps1','Build-HyperVHost.ps1','Test-RolePreflight.ps1','Connect-HyperVConsole.ps1','Read-ScreenText.ps1'
           $files=@($names|ForEach-Object{(Resolve-Path (Join-Path .\src\app $_)).Path})
           sign code artifact-signing --artifact-signing-endpoint $env:SIGN_ENDPOINT --artifact-signing-account $env:SIGN_ACCOUNT --artifact-signing-certificate-profile $env:SIGN_PROFILE --azure-credential-type azure-cli --timestamp-url $env:SIGN_TIMESTAMP_URL --timestamp-digest SHA256 --file-digest SHA256 --description 'Server Inventory and Migration Manager' --description-url 'https://github.com/${{ github.repository }}' @files
           if($LASTEXITCODE -ne 0){throw 'Script signing failed'}

@@ -6,6 +6,13 @@ const out='build/workspace-validation';fs.mkdirSync(out,{recursive:true});
 const report={status:'running',checks:[]};
 const policy=fs.readFileSync('src/app/main.go','utf8').match(/applicationPageCSP\s*=\s*"([^"]+)"/)[1];
 const args=process.argv.slice(2),executable=args.includes('--executable')?args[args.indexOf('--executable')+1]:null;
+// A tiny solid-colour PNG for the fake console stream.
+function solidPNG(w,h,rgb){const zlib=require('zlib'),crcTable=[];for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xedb88320^(c>>>1):c>>>1;crcTable[n]=c>>>0;}
+ const crc=b=>{let c=0xffffffff;for(const x of b)c=crcTable[(c^x)&255]^(c>>>8);return (c^0xffffffff)>>>0;};
+ const chunk=(type,data)=>{const len=Buffer.alloc(4);len.writeUInt32BE(data.length);const td=Buffer.concat([Buffer.from(type),data]);const c=Buffer.alloc(4);c.writeUInt32BE(crc(td));return Buffer.concat([len,td,c]);};
+ const ihdr=Buffer.alloc(13);ihdr.writeUInt32BE(w,0);ihdr.writeUInt32BE(h,4);ihdr[8]=8;ihdr[9]=2;
+ const rows=[];for(let y=0;y<h;y++){rows.push(0);for(let x=0;x<w;x++)rows.push(...rgb);}
+ return Buffer.concat([Buffer.from([137,80,78,71,13,10,26,10]),chunk('IHDR',ihdr),chunk('IDAT',zlib.deflateSync(Buffer.from(rows))),chunk('IEND',Buffer.alloc(0))]).toString('base64');}
 // Synthetic restore scan: a different source server, one unavailable role, high-impact and domain-wide components and a multi-item registry export.
 function restoreScanFixture(){return {sourceComputer:'FS-OLD-07',currentComputer:'SRV-DEMO-01',collectedAt:'2026-11-01 09:14',sameComputer:false,isAdministrator:true,manifestVerified:true,manifestMessage:'All 14 export files match the package manifest.',components:[
  {id:'DHCP',title:'DHCP Server',description:'Scopes, reservations, options and failover settings.',impact:'high',available:true,blockedReason:'',warnings:['Existing scopes with the same ID are replaced.'],items:[{id:'DHCP-config',title:'DHCP configuration',detail:'',available:true,blockedReason:'',defaultSelected:true}]},
@@ -73,8 +80,8 @@ const hvBuildFixture={"plan":{"schema":1,"name":"Prod","source":"vcenter.example
 const hvBuildStepCount=hvBuildFixture.steps.length;
 async function fixture(browser,old=false){
  let saved=null,started=[],saveCalls=0,rejectStart=false,skipRequests=[],opens=[],restoreReject=null,migrateReject={},vmwareReject={};const receiverPair={allowed:false};
- const logs=[],dialogs=[],errors=[],restoreCalls={browse:0,scan:[],start:[],cancel:0,tokens:[]},migrateCalls=[],vmwareCalls=[],convertCalls=[],replCalls=[],planCalls=[],serverCalls=[];const servers={rows:[],summary:{total:0,states:{},scheduled:0,methods:{}},bulk:{running:false,action:'',total:0,results:[]},hyperVHere:true,isAdministrator:true,local:{hyperV:true,computer:'HV01',running:false,folder:'',defaultFolder:'C:\\ClusterStorage\\Volume1\\Hyper-V\\Received',port:44380,addresses:['192.0.2.40']}};const plans={plans:[],inventory:{open:true,server:'vc01.example.com',serverType:'vCenter Server',live:true}};let convertReject={},convertSize=0;const pickCalls=[],outputRootCalls=[];let pickReject='';
- const uiCalls=[],vddkCalls=[],channelCalls=[],productionCalls=[];let vddk={folder:'',ready:false,loaded:false,message:'Off. Copies of running VMware VMs read whole disks through vSphere\'s export when the datastore refuses them.'};const state={ui:{schema:1,confirmStyle:'typed'},status:'idle',phase:'Ready',running:false,computerName:'SRV-DEMO-01',signedInAccount:'EXAMPLE\\operator',isAdministrator:true,powerShellVersion:'5.1',defaultOutputRoot:'C:\\Reports',update:{status:'current',title:'Up to date',message:'Installed v3.2.10. Latest v3.2.10.',canCheck:true},
+ const logs=[],dialogs=[],errors=[],restoreCalls={browse:0,scan:[],start:[],cancel:0,tokens:[]},migrateCalls=[],vmwareCalls=[],convertCalls=[],replCalls=[],planCalls=[],serverCalls=[];const servers={rows:[],summary:{total:0,states:{},scheduled:0,methods:{}},bulk:{running:false,action:'',total:0,results:[]},hyperVHere:true,isAdministrator:true,local:{hyperV:true,computer:'HV01',running:false,folder:'',defaultFolder:'C:\\ClusterStorage\\Volume1\\Hyper-V\\Received',port:44380,addresses:['192.0.2.40']}};const plans={plans:[],inventory:{open:true,server:'vc01.example.com',serverType:'vCenter Server',live:true}};let convertReject={},convertSize=0;const pickCalls=[],outputRootCalls=[],profileCalls=[],profiles=[];let pickReject='';
+ const consoleCalls=[],consoleStreams=[],consoleOpt={needSignIn:'',caps:null};const uiCalls=[],vddkCalls=[],channelCalls=[],productionCalls=[];let vddk={folder:'',ready:false,loaded:false,message:'Off. Copies of running VMware VMs read whole disks through vSphere\'s export when the datastore refuses them.'};const state={ui:{schema:1,confirmStyle:'typed'},status:'idle',phase:'Ready',running:false,computerName:'SRV-DEMO-01',signedInAccount:'EXAMPLE\\operator',isAdministrator:true,powerShellVersion:'5.1',defaultOutputRoot:'C:\\Reports',update:{status:'current',title:'Up to date',message:'Installed v3.2.10. Latest v3.2.10.',canCheck:true},
   restore:{status:'idle',packages:{lastCollection:'',loadedReport:''},items:[],logs:[]},migrate:migrateIdle(),vmware:vmwareIdle(),convert:convertIdle()};
  const vm={inventory:null,plan:null,sizing:null,guest:null,compare:null};
  const rollbackCalls=[];
@@ -256,12 +263,42 @@ async function fixture(browser,old=false){
    if(action==='repair'){Object.assign(c,{running:true,status:'running',task:'repair',repairTarget:data.target,message:'Fixing up '+data.path.split('\\').pop()+'.',serial:c.serial+1,log:['Opening '+data.path+' for changes.']});send(200,{ok:true});return;}
    send(200,{ok:true});return;
   }
+  if(url.pathname.startsWith('/api/console/')){
+   const action=url.pathname.slice(13);
+   if(action==='stream'){
+    if(url.searchParams.get('token')!=='workspace-test'){send(403,{});return;}
+    res.writeHead(200,{'Content-Type':'text/event-stream','Cache-Control':'no-store'});
+    const ev=(name,data)=>res.write('event: '+name+'\ndata: '+JSON.stringify(data)+'\n\n');
+    ev('size',{w:640,h:480});ev('tiles',[{x:0,y:0,png:solidPNG(64,64,[30,200,90])}]);ev('state',consoleStreams.view);
+    const entry={id:url.searchParams.get('id'),ev};consoleStreams.push(entry);req.on('close',()=>{const i=consoleStreams.indexOf(entry);if(i>=0)consoleStreams.splice(i,1);});return;
+   }
+   let body='';for await(const chunk of req)body+=chunk;const data=body?JSON.parse(body):{};consoleCalls.push({action,body:data,token:req.headers['x-app-token']});
+   if(req.headers['x-app-token']!=='workspace-test'){send(403,{});return;}
+   if(action==='open'){
+    if(consoleOpt.needSignIn){send(400,{ok:false,needSignIn:consoleOpt.needSignIn,error:'Sign in to vCenter or ESXi in Discovery first; the console uses that session.'});return;}
+    const caps=consoleOpt.caps||{display:'live',keyboard:true,mouse:true,typeText:true,clipToGuest:true,clipFrom:true,clipFromWhy:'Text the VM copies arrives here when VMware Tools passes it on.',filesTo:true,filesFrom:true,filesHow:'Through VMware Tools, with an account in the VM.',native:['vmrc'],notes:['Nothing is installed in the VM.']};
+    consoleStreams.view={id:'cn1',target:data,platform:'VMware',where:'esx01.example.com (WebMKS)',caps,status:'connected',message:'',typing:false};
+    send(200,{ok:true,session:consoleStreams.view});return;
+   }
+   if(action==='file'){send(202,{ok:true});const view=Object.assign({},consoleStreams.view,{file:{direction:data.direction,status:'done',bytes:2048,message:'Copied 2 KB.'}});consoleStreams.view=view;consoleStreams.forEach(e=>e.ev('state',view));return;}
+   if(action==='ocr'){const png=Buffer.from(data.png||'','base64');const ok=png.length>24&&png.readUInt32BE(0)===0x89504e47;send(200,ok?{ok:true,text:'Setup log: '+png.readUInt32BE(16)+'x'+png.readUInt32BE(20),language:'en-US'}:{ok:false,error:'The picture of the screen is not a PNG.'});return;}
+   if(action==='text'){send(200,data.guest?{ok:true,text:'C:\\> ipconfig\nIPv4 Address. . . : 192.0.2.25'}:{ok:false,error:'Type the path of the text file in the VM.'});return;}
+   if(action==='close'){const view=Object.assign({},consoleStreams.view,{status:'closed',message:'The console was closed.'});consoleStreams.forEach(e=>e.ev('state',view));send(200,{ok:true});return;}
+   send(200,{ok:true});return;
+  }
   if(url.pathname==='/api/servers'){
    let body='';for await(const chunk of req)body+=chunk;const data=body?JSON.parse(body):{};serverCalls.push({method:req.method,body:data,token:req.headers['x-app-token']});
    if(req.headers['x-app-token']!=='workspace-test'){send(403,{});return;}
    if(req.method==='GET'){send(200,Object.assign({ok:true},servers));return;}
    if(data.action==='cutover'&&data.confirm!==String(data.keys.length)){send(400,{ok:false,error:'Type '+data.keys.length+' to confirm.'});return;}
    servers.bulk={running:false,action:data.action,total:data.keys.length,results:data.keys.map(k=>({key:k,name:(servers.rows.find(r=>r.key===k)||{}).name,ok:true,text:'Done.'}))};send(202,{ok:true,count:data.keys.length});return;
+  }
+  if(url.pathname==='/api/profiles'){
+   let body='';for await(const chunk of req)body+=chunk;const data=body?JSON.parse(body):{};profileCalls.push({method:req.method,body:data});
+   if(req.method==='GET'){send(200,{ok:true,profiles});return;}
+   if(data.action==='save'){if(!data.profile.name){send(400,{ok:false,error:'Name the defaults.'});return;}const i=profiles.findIndex(p=>p.name.toLowerCase()===data.profile.name.toLowerCase());if(i>=0){profiles.splice(i,1);}profiles.push(data.profile);profiles.sort((x,y)=>x.name.localeCompare(y.name));send(200,{ok:true,profiles});return;}
+   if(data.action==='delete'){const i=profiles.findIndex(p=>p.name===data.name);if(i<0){send(404,{ok:false,error:'Those defaults no longer exist.'});return;}profiles.splice(i,1);send(200,{ok:true,profiles});return;}
+   send(400,{ok:false,error:'Unknown action.'});return;
   }
   if(url.pathname==='/api/plans'){
    let body='';for await(const chunk of req)body+=chunk;const data=body?JSON.parse(body):{};planCalls.push({method:req.method,body:data,token:req.headers['x-app-token']});
@@ -292,10 +329,55 @@ async function fixture(browser,old=false){
  const url='http://127.0.0.1:'+server.address().port+'/';
  // A fixture that fails to load closes its own server and context; otherwise Node never exits and the job hangs until its timeout.
  try{await page.goto(url);await page.waitForFunction(()=>document.querySelector('#serverName').textContent==='SRV-DEMO-01');}catch(e){await context.close().catch(()=>{});server.close();throw new Error('Fixture page did not load ('+errors.concat(dialogs).join('; ')+'): '+e.message);}
- return {page,context,state,rollbackCalls,uiCalls,vddkCalls,channelCalls,productionCalls,pickCalls,outputRootCalls,rejectPick(message){pickReject=message},vm,repl,plans,planCalls,servers,serverCalls,failover,receiverPair,targetTest,replCalls,vmwareCalls,convertCalls,rejectConvert(action,message){convertReject[action]=message},setConvertSize(size){convertSize=size},rejectVmware(action,message){vmwareReject[action]=message},logs,dialogs,errors,started,skipRequests,opens,restoreCalls,migrateCalls,rejectMigrate(action,message){migrateReject[action]=message},rejectRestore(message){restoreReject=message},get saved(){return saved},get saveCalls(){return saveCalls},reject(){rejectStart=true},async close(){assert.deepEqual(errors,[]);await context.close();await new Promise(r=>server.close(r));}};
+ return {consoleCalls,consoleStreams,consoleOpt,page,context,state,profiles,profileCalls,rollbackCalls,uiCalls,vddkCalls,channelCalls,productionCalls,pickCalls,outputRootCalls,rejectPick(message){pickReject=message},vm,repl,plans,planCalls,servers,serverCalls,failover,receiverPair,targetTest,replCalls,vmwareCalls,convertCalls,rejectConvert(action,message){convertReject[action]=message},setConvertSize(size){convertSize=size},rejectVmware(action,message){vmwareReject[action]=message},logs,dialogs,errors,started,skipRequests,opens,restoreCalls,migrateCalls,rejectMigrate(action,message){migrateReject[action]=message},rejectRestore(message){restoreReject=message},get saved(){return saved},get saveCalls(){return saveCalls},reject(){rejectStart=true},async close(){assert.deepEqual(errors,[]);await context.close();await new Promise(r=>server.close(r));}};
 }
 // Tools live in two tabs: Discovery (Alt+1) and Migration and replication (Alt+5).
 const discoveryTools=['server','environment'];
+// apartControls finds controls pulled apart on wide windows: a tick box or
+// radio stretched wider than itself, or one standing far from its own text.
+function apartControls(page){return page.evaluate(()=>{
+ const bad=[],root=document.querySelector('.tab-panel.active');if(!root){return ['no active tab'];}
+ const name=e=>e.tagName.toLowerCase()+(e.id?'#'+e.id:'')+(e.getAttribute('data-cfm-tick')!==null?'[tick '+e.getAttribute('data-cfm-tick')+']':'')+(e.parentElement&&typeof e.parentElement.className==='string'&&e.parentElement.className?' in .'+e.parentElement.className.trim().split(/\s+/)[0]:'');
+ for(const i of root.querySelectorAll('input[type=checkbox],input[type=radio]')){
+  if(!i.getClientRects().length||getComputedStyle(i).visibility==='hidden'||getComputedStyle(i).opacity==='0'||i.closest('.toggle')){continue;}
+  const r=i.getBoundingClientRect();if(r.width>24){bad.push(name(i)+' is '+Math.round(r.width)+' px wide');}
+  const lab=i.closest('label');if(!lab){continue;}
+  const w=document.createTreeWalker(lab,NodeFilter.SHOW_TEXT);let t,gap=null;
+  while((t=w.nextNode())){if(!t.textContent.trim()){continue;}if(!(i.compareDocumentPosition(t)&Node.DOCUMENT_POSITION_FOLLOWING)){continue;}const rg=document.createRange();rg.selectNodeContents(t);const rr=rg.getClientRects()[0];if(!rr){continue;}if(Math.abs((rr.top+rr.bottom)/2-(r.top+r.bottom)/2)<rr.height){gap=rr.left-r.right;}break;}
+  if(gap!==null&&gap>32){bad.push(name(i)+' stands '+Math.round(gap)+' px from its label');}
+ }
+ // Controls that touch: side by side on one line with less than 4 px
+ // between them (an input joined to its Browse button is one control).
+ const vis=e=>{if(!e.getClientRects().length){return false;}const d=e.closest('details:not([open])');if(d&&!e.closest('summary')){return false;}const cs=getComputedStyle(e);return cs.visibility!=='hidden'&&cs.display!=='none'&&cs.opacity!=='0';};
+ const ctl='button,select,input:not([type=checkbox]):not([type=radio]):not([type=hidden]),textarea,label.cfm-tick,label.vm-check,label.vm-field';
+ const items=[...root.querySelectorAll(ctl)].filter(e=>vis(e)&&!e.closest('.toggle,.path-pick,.path-row,.tool-nav,.nw-stepper,[role=tablist],.vm-inv-views,.seg,.btn-group,.mp-summary,.nw-tiles,.vm-tiles,.status-track,.gd-choices,.nw-choices')&&!(e.matches('label.vm-field')&&e.querySelector(ctl))).filter(e=>!(e.matches('input,select,textarea')&&e.closest('label.vm-field,label.vm-check,label.cfm-tick')));
+ const shown=e=>{let r=e.getBoundingClientRect(),L=r.left,T=r.top,R=r.right,B=r.bottom;for(let p=e.parentElement;p&&p!==document.documentElement;p=p.parentElement){const cs=getComputedStyle(p);if(cs.overflowX!=='visible'||cs.overflowY!=='visible'){const q=p.getBoundingClientRect();L=Math.max(L,q.left);T=Math.max(T,q.top);R=Math.min(R,q.right);B=Math.min(B,q.bottom);}}return {left:L,top:T,right:R,bottom:B,width:R-L,height:B-T};};
+ const boxes=items.map(e=>({e,r:shown(e)})).filter(b=>b.r.width>4&&b.r.height>4);
+ for(let a=0;a<boxes.length;a++){for(let b=0;b<boxes.length;b++){if(a===b){continue;}const A=boxes[a].r,B=boxes[b].r;
+  const overlapY=Math.min(A.bottom,B.bottom)-Math.max(A.top,B.top);if(overlapY<Math.min(A.height,B.height)*0.5){continue;}
+  const gap=B.left-A.right;if(gap>=-1&&gap<4&&!boxes[a].e.contains(boxes[b].e)&&!boxes[b].e.contains(boxes[a].e)){bad.push(name(boxes[a].e)+' touches '+name(boxes[b].e)+' ('+Math.round(gap)+' px)');}
+  const overlapX=Math.min(A.right,B.right)-Math.max(A.left,B.left);if(overlapX>2&&overlapY>2&&a<b&&!boxes[a].e.contains(boxes[b].e)&&!boxes[b].e.contains(boxes[a].e)){bad.push(name(boxes[a].e)+' overlaps '+name(boxes[b].e));}
+ }}
+ // Bordered boxes stacked with no space between them.
+ const boxed=e=>{const cs=getComputedStyle(e);return parseFloat(cs.borderTopWidth)>0&&cs.borderTopStyle!=='none'&&parseFloat(cs.borderBottomWidth)>0&&cs.borderBottomStyle!=='none'&&parseFloat(cs.borderLeftWidth)>0;};
+ for(const e of root.querySelectorAll('section,div,details,fieldset')){
+  if(!vis(e)||!boxed(e)){continue;}let n=e.nextElementSibling;while(n&&!vis(n)){n=n.nextElementSibling;}
+  if(!n||!boxed(n)){continue;}const A=shown(e),B=shown(n);if(A.height<4||B.height<4){continue;}
+  const gap=B.top-A.bottom,ox=Math.min(A.right,B.right)-Math.max(A.left,B.left);
+  if(ox>20&&gap>=-1&&gap<4&&getComputedStyle(e.parentElement).display!=='grid'||ox>20&&gap>=-1&&gap<4&&getComputedStyle(e.parentElement).rowGap==='normal'&&getComputedStyle(e.parentElement).display==='grid'){bad.push(name(e)+' touches '+name(n)+' below it ('+Math.round(gap)+' px)');}
+ }
+ // Buttons side by side in one row are the same height.
+ for(const row of new Set(boxes.filter(b=>b.e.tagName==='BUTTON').map(b=>b.e.parentElement))){
+  const bs=[...row.children].filter(c=>c.tagName==='BUTTON'&&vis(c)&&!c.classList.contains('link-button')).map(c=>c.getBoundingClientRect());
+  for(let k=1;k<bs.length;k++){if(Math.abs(bs[k].top-bs[k-1].top)<bs[k].height/2&&Math.abs(bs[k].height-bs[k-1].height)>4){bad.push(name(row)+' has buttons of '+Math.round(bs[k-1].height)+' and '+Math.round(bs[k].height)+' px');break;}}
+ }
+ // Text cut off at the side.
+ for(const e of root.querySelectorAll('p,div,span,label,h3,h4,li')){
+  if(!vis(e)){continue;}const cs=getComputedStyle(e);if(cs.whiteSpace==='nowrap'||cs.textOverflow==='ellipsis'){continue;}
+  if(/hidden|clip/.test(cs.overflowX)&&e.scrollWidth-e.clientWidth>2){bad.push(name(e)+' hides '+(e.scrollWidth-e.clientWidth)+' px at the side');}
+ }
+ return [...new Set(bad)];
+});}
 async function openReads(f){const t=f.page.locator('#vmReadBarToggle');if(await t.isVisible()&&await f.page.locator('#vmReadPanels').isHidden()){await t.click();}}
 async function goTool(f,id){await f.page.keyboard.press(discoveryTools.includes(id)?'Alt+1':'Alt+5');await f.page.locator('[data-tool="'+id+'"]').click();}
 // The VMware and Hyper-V inventory: open an item from the tree, and read the tree as 'level label' lines.
@@ -304,6 +386,7 @@ async function dragTo(f,from,to){const a=await f.page.locator(from).boundingBox(
 async function openVm(f,id){await f.page.locator('#vmInvTree li[data-inv-id="vm:'+id+'"] > .vm-inv-row').click();}
 async function openTree(f,label){await f.page.locator('#vmInvTree li.vm-inv-item > .vm-inv-row').filter({has:f.page.locator('.vm-inv-label',{hasText:new RegExp('^'+label.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'$')})}).first().click();}
 async function treeLines(f){return f.page.locator('#vmInvTree li.vm-inv-item').evaluateAll(list=>list.map(li=>li.getAttribute('aria-level')+' '+li.querySelector('.vm-inv-label').textContent));}
+const readmeShot=async(f,name)=>{if(!process.env.SIMM_README_SHOTS){return;}const v=f.page.viewportSize();await f.page.setViewportSize({width:1440,height:1000});await f.page.evaluate(()=>document.activeElement&&document.activeElement.blur());await f.page.waitForTimeout(200);await f.page.screenshot({path:process.env.SIMM_README_SHOTS+'/'+name});await f.page.setViewportSize(v);};
 async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.env.SIMM_CHECK)){return;}await fn();report.checks.push({name,result:'passed'});console.log('PASS: '+name);}
 (async()=>{const browser=await chromium.launch(executable?{executablePath:executable,headless:true,args:['--no-sandbox']}:{channel:'msedge',headless:true});try{
  await check('Published 3.2.9 reproduces unstyled cards and an inventory checkbox that cannot be deselected',async()=>{const f=await fixture(browser,true);try{
@@ -491,12 +574,12 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   const migration=await f.page.locator('#migrationNav [data-tool]').evaluateAll(n=>n.map(x=>x.getAttribute('data-tool')));
   const all=['server','environment',...migration];
   for(const size of sizes){await f.page.setViewportSize(size);
-   for(const id of all){await goTool(f,id);await f.page.waitForTimeout(150);const bad=await clipped();assert.deepEqual(bad,[],id+' at '+size.width+'x'+size.height+': '+bad.join('; '));}
+   for(const id of all){await goTool(f,id);await f.page.waitForTimeout(150);const bad=await clipped();assert.deepEqual(bad,[],id+' at '+size.width+'x'+size.height+': '+bad.join('; '));const apart=await apartControls(f.page);if(process.env.SIMM_SWEEP){if(size.width>1900){await f.page.screenshot({path:process.env.SIMM_SWEEP+'/'+id+'.png'});}if(apart.length){console.log('APART',id,size.width,apart.join('; '));}}else{assert.deepEqual(apart,[],'controls apart in '+id+' at '+size.width+'x'+size.height+': '+apart.join('; '));}}
    for(const tab of ['Collection','Report','Restore']){const b=f.page.locator('#tabButton'+tab);if(await b.count()){await b.click();await f.page.waitForTimeout(100);const bad=await clipped();assert.deepEqual(bad,[],tab+' at '+size.width+'x'+size.height+': '+bad.join('; '));}}
   }
   // Every New migration screen, including the tallest: Where with a cluster
   // and the steps of a way that continues in its own tool.
-  const screens=async label=>{for(const size of sizes){await f.page.setViewportSize(size);await f.page.waitForTimeout(150);const bad=await clipped();assert.deepEqual(bad,[],'New migration '+label+' at '+size.width+'x'+size.height+': '+bad.join('; '));assert(await inView('#nwNext'),'Next is in view on '+label+' at '+size.width+'x'+size.height);if(await f.page.locator('#nwBack').isVisible()){assert(await inView('#nwBack'),'Back is in view on '+label);}}};
+  const screens=async label=>{for(const size of sizes){await f.page.setViewportSize(size);await f.page.waitForTimeout(150);const bad=await clipped();assert.deepEqual(bad,[],'New migration '+label+' at '+size.width+'x'+size.height+': '+bad.join('; '));const apart=await apartControls(f.page);if(process.env.SIMM_SWEEP){if(size.width>1900){await f.page.screenshot({path:process.env.SIMM_SWEEP+'/nw-'+label.replace(/\W+/g,'-')+'.png'});}if(apart.length){console.log('APART nw',label,size.width,apart.join('; '));}}else{assert.deepEqual(apart,[],'controls apart on New migration '+label+' at '+size.width+'x'+size.height+': '+apart.join('; '));}assert(await inView('#nwNext'),'Next is in view on '+label+' at '+size.width+'x'+size.height);if(await f.page.locator('#nwBack').isVisible()){assert(await inView('#nwBack'),'Back is in view on '+label);}}};
   await goTool(f,'wizard');await f.page.locator('[data-nw-source="vms"]').click();await f.page.waitForSelector('#nwVmList [data-nw-pick]');
   await f.page.locator('[data-nw-pick="vm-app01"]').check();await f.page.locator('[data-nw-pick="vm-sql01"]').check();await screens('What');
   await f.page.locator('#nwNext').click();await f.page.locator('[data-nw-target="here"]').click();await f.page.locator('[data-nw-switch="VM-Servers"]').selectOption('Isolated');await screens('Where');
@@ -802,6 +885,83 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   await f.page.waitForFunction(()=>document.querySelectorAll('#vmTableBody tr.vm-row').length===4);
  };
  const vmwareCalls=(f,action)=>f.vmwareCalls.filter(c=>c.action===action&&c.method==='POST');
+ await check('VM console: opens from a VM page in the app\'s own window, sends keys, special keys, sticky modifiers, paste as typing and files, shows the VM clipboard, and asks to sign in when the session is missing',async()=>{const f=await fixture(browser);try{
+  await vmwareConnected(f);await openVm(f,'vm-app01');
+  f.consoleOpt.needSignIn='vmware';await f.page.locator('#vmConsoleButton').click();
+  await f.page.waitForFunction(()=>/could not open/.test(document.querySelector('#cnOverlayBox').textContent));
+  assert((await f.page.locator('#cnOverlayBox').textContent()).includes('Sign in to vCenter or ESXi'));
+  f.consoleOpt.needSignIn='';await f.page.locator('#cnOverlayBox button',{hasText:'Try again'}).click();
+  await f.page.waitForFunction(()=>document.querySelector('#cnOverlay').classList.contains('hidden'));
+  const open=f.consoleCalls.filter(c=>c.action==='open').at(-1);assert.deepEqual({p:open.body.platform,id:open.body.id,name:open.body.name},{p:'vmware',id:'vm-app01',name:'APP01'});
+  await f.page.waitForFunction(()=>{const c=document.querySelector('#cnScreen canvas');if(!c||c.width!==640)return false;const d=c.getContext('2d').getImageData(10,10,1,1).data;return d[1]===200&&d[0]===30;});
+  assert((await f.page.locator('#cnStatus').textContent()).includes('APP01 on VMware'));
+  await f.page.locator('#cnScreen canvas').click({position:{x:20,y:20}});await f.page.keyboard.type('ab');await f.page.keyboard.press('Alt+2');
+  await f.page.waitForFunction(()=>true);await new Promise(r=>setTimeout(r,300));
+  const events=f.consoleCalls.filter(c=>c.action==='input').flatMap(c=>c.body.events);
+  assert(events.some(e=>e.t==='k'&&e.s===0x61&&e.d),'a is sent as a keysym');assert(events.some(e=>e.t==='k'&&e.s===0xffe9&&e.d),'Alt goes to the VM');assert(events.some(e=>e.t==='p'),'the click goes to the VM');
+  assert(await f.page.locator('#consoleDialog').evaluate(d=>d.open),'Alt+2 does not switch tabs while the console is open');
+  await f.page.locator('#cnCad').click();await f.page.locator('#cnKeysMenu summary').click();await f.page.locator('#cnKeysList button',{hasText:'Task Manager'}).click();
+  await f.page.waitForFunction(()=>true);await new Promise(r=>setTimeout(r,200));
+  assert.deepEqual(f.consoleCalls.filter(c=>c.action==='keys').map(c=>c.body.combo),['ctrlaltdel','ctrlshiftesc']);
+  await f.page.locator('#cnStickyCtrl').click();assert.equal(await f.page.locator('#cnStickyCtrl').getAttribute('aria-pressed'),'true');
+  await f.page.locator('#cnScreen canvas').focus();await f.page.keyboard.press('c');await new Promise(r=>setTimeout(r,300));
+  const after=f.consoleCalls.filter(c=>c.action==='input').flatMap(c=>c.body.events);const ci=after.findIndex(e=>e.s===0x63&&e.d);
+  assert(ci>0&&after.slice(0,ci).some(e=>e.s===0xffe3&&e.d),'sticky Ctrl is held for the next key');assert.equal(await f.page.locator('#cnStickyCtrl').getAttribute('aria-pressed'),'false','sticky Ctrl lets go after one key');
+  await f.page.locator('#cnPasteButton').click();await f.page.locator('#cnPasteText').fill('P@ssw0rd!');await f.page.locator('#cnPasteSpeed').selectOption('60');await f.page.locator('#cnPasteEnter').check();await f.page.locator('#cnPasteGo').click();
+  await f.page.waitForFunction(()=>document.querySelector('#cnPasteText')&&document.querySelector('#cnPasteText').value==='');
+  assert.deepEqual(f.consoleCalls.filter(c=>c.action==='type').at(-1).body,{id:'cn1',text:'P@ssw0rd!\n',delayMs:60});
+  // Ctrl+V on the screen types this computer's clipboard into the VM (no
+  // panel), with Ctrl released in the VM first and no V sent; Ctrl+Shift+V
+  // sends a plain Ctrl+V to the VM instead.
+  await f.context.grantPermissions(['clipboard-read','clipboard-write']);await f.page.evaluate(()=>navigator.clipboard.writeText('admin\r\nS3cret!'));
+  const typedBefore=f.consoleCalls.filter(c=>c.action==='type').length,inputBefore=f.consoleCalls.filter(c=>c.action==='input').flatMap(c=>c.body.events).length;
+  await f.page.locator('#cnScreen canvas').focus();await f.page.keyboard.press('Control+V');
+  for(let i=0;i<40&&f.consoleCalls.filter(c=>c.action==='type').length===typedBefore;i++){await new Promise(r=>setTimeout(r,50));}
+  assert.deepEqual(f.consoleCalls.filter(c=>c.action==='type').at(-1).body,{id:'cn1',text:'admin\r\nS3cret!',delayMs:60},'Ctrl+V types the clipboard into the VM');
+  await new Promise(r=>setTimeout(r,200));
+  const pasteEvents=f.consoleCalls.filter(c=>c.action==='input').flatMap(c=>c.body.events).slice(inputBefore);
+  assert(!pasteEvents.some(e=>e.t==='k'&&e.s===0x76),'Ctrl+V sends no V key to the VM');
+  const ctrlDown=pasteEvents.findIndex(e=>e.s===0xffe3&&e.d);assert(ctrlDown>=0&&pasteEvents.slice(ctrlDown+1).some(e=>e.s===0xffe3&&!e.d),'Ctrl is let go in the VM before the text is typed');
+  assert((await f.page.locator('#cnHint').textContent()).includes('Ctrl+V types your clipboard'));
+  const typedAfter=f.consoleCalls.filter(c=>c.action==='type').length;await f.page.keyboard.press('Control+Shift+V');await new Promise(r=>setTimeout(r,500));
+  assert.equal(f.consoleCalls.filter(c=>c.action==='type').length,typedAfter,'Ctrl+Shift+V does not type the clipboard');
+  const rawEvents=f.consoleCalls.filter(c=>c.action==='input').flatMap(c=>c.body.events);const vi=rawEvents.findIndex(e=>e.s===0x76&&e.d);
+  assert(vi>0&&rawEvents.slice(0,vi).some(e=>e.s===0xffe3&&e.d),'Ctrl+Shift+V sends Ctrl+V to the VM');
+  f.consoleStreams.forEach(e=>e.ev('clip',{text:'copied in the VM'}));await f.page.waitForFunction(()=>/new/.test(document.querySelector('#cnClipButton').textContent));
+  await f.page.locator('#cnClipButton').click();assert.equal(await f.page.locator('#cnSide .cn-clip').textContent(),'copied in the VM');
+  // Copy out: text from the screen (a dragged area and the whole screen,
+  // sent as PNG crops and read by Windows on this computer) and from a file
+  // in the VM, with the save command typed into the VM.
+  const inputsBeforeSel=f.consoleCalls.filter(c=>c.action==='input').length;
+  await f.page.locator('#cnOcrArea').click();const cbox=await f.page.locator('#cnScreen canvas').boundingBox();
+  await f.page.mouse.move(cbox.x+cbox.width*0.1,cbox.y+cbox.height*0.1);await f.page.mouse.down();await f.page.mouse.move(cbox.x+cbox.width*0.35,cbox.y+cbox.height*0.3,{steps:4});
+  assert(await f.page.locator('#cnSelBox').isVisible(),'the chosen area is outlined');await f.page.mouse.up();
+  await f.page.waitForFunction(()=>/Setup log/.test(document.querySelector('#cnOutText').value));
+  const ocr=f.consoleCalls.filter(c=>c.action==='ocr').at(-1).body,png=Buffer.from(ocr.png,'base64'),ow=png.readUInt32BE(16),oh=png.readUInt32BE(20);
+  assert.equal(ocr.id,'cn1');assert(ow>=0.25*640*0.9&&oh>=0.2*480*0.9&&ow<640*3,'the crop covers the dragged area: '+ow+'x'+oh);
+  assert.equal(f.consoleCalls.filter(c=>c.action==='input').length,inputsBeforeSel,'dragging an area sends no mouse events to the VM');
+  assert(await f.page.locator('#cnSelBox').isHidden());assert((await f.page.locator('#cnOutMsg').textContent()).includes('Check it'));
+  await f.page.locator('#cnOcrWhole').click();await f.page.waitForFunction(()=>/Setup log: (1280|1920|640)x/.test(document.querySelector('#cnOutText').value));
+  await f.page.locator('#cnTextGuest').fill("C:\\Users\\Public\\it's.txt");await f.page.locator('#cnTextSave').click();
+  await f.page.waitForFunction(()=>/Press Enter/.test(document.querySelector('#cnOutMsg').textContent));
+  assert.equal(f.consoleCalls.filter(c=>c.action==='type').at(-1).body.text,"Get-Clipboard | Set-Content -Encoding UTF8 -LiteralPath 'C:\\Users\\Public\\it''s.txt'",'the save command quotes the path');
+  await f.page.locator('#cnTextUser').fill('Administrator');await f.page.locator('#cnTextPass').fill('Synthetic-Pa55');await f.page.locator('#cnTextRead').click();
+  await f.page.waitForFunction(()=>/192\.0\.2\.25/.test(document.querySelector('#cnOutText').value));
+  assert.deepEqual(f.consoleCalls.filter(c=>c.action==='text').at(-1).body,{id:'cn1',guest:"C:\\Users\\Public\\it's.txt",user:'Administrator',password:'Synthetic-Pa55'});
+  assert.equal(await f.page.locator('#cnTextPass').inputValue(),'','the guest password leaves the page');
+  await f.page.locator('#cnOutCopy').click();await f.page.waitForFunction(()=>/Copied/.test(document.querySelector('#cnOutMsg').textContent));
+  assert.equal((await f.page.evaluate(()=>navigator.clipboard.readText())).replace(/\r\n/g,'\n'),'C:\\> ipconfig\nIPv4 Address. . . : 192.0.2.25','Copy puts the text on this computer\'s clipboard');
+  await f.page.locator('#cnFilesButton').click();await f.page.locator('#cnFileLocal').fill('C:\\Transfer\\setup.log');await f.page.locator('#cnFileGuest').fill('C:\\Temp\\setup.log');await f.page.locator('#cnFileUser').fill('Administrator');await f.page.locator('#cnFilePass').fill('Synthetic-Pa55');await f.page.locator('#cnFileGo').click();
+  await f.page.waitForFunction(()=>/Copied 2 KB/.test(document.querySelector('#cnFileStatus').textContent));assert.equal(await f.page.locator('#cnFilePass').inputValue(),'','the guest password leaves the page');
+  assert.deepEqual(f.consoleCalls.filter(c=>c.action==='file').at(-1).body,{id:'cn1',direction:'to',local:'C:\\Transfer\\setup.log',guest:'C:\\Temp\\setup.log',user:'Administrator',password:'Synthetic-Pa55'});
+  await f.page.locator('#cnInfoButton').click();assert((await f.page.locator('#cnSide').textContent()).includes('Nothing is installed in the VM'));
+  await f.page.locator('#cnNative button',{hasText:'VMware Remote Console'}).click();await f.page.waitForFunction(()=>/Opened in its own window/.test(document.querySelector('#cnStatus').textContent));
+  await f.page.setViewportSize({width:1008,height:690});assert(await f.page.locator('#cnCad').isVisible());assert(await f.page.locator('#cnInfoButton').isVisible(),'the toolbar fits at 1024x768');
+  await f.page.locator('#cnHide').click();assert(await f.page.locator('#cnReopen').isVisible());assert.equal(await f.page.locator('#cnReopen').textContent(),'Consoles (1)');
+  await f.page.locator('#cnReopen').click();await f.page.locator('#cnTabs .cn-tab button[aria-label^="Close"]').click();
+  await f.page.waitForFunction(()=>!document.querySelector('#consoleDialog').open);assert.equal(f.consoleCalls.filter(c=>c.action==='close').length,1);
+  assert(f.consoleCalls.every(c=>c.token==='workspace-test'));assert.deepEqual(f.dialogs,[]);assert.deepEqual(f.errors,[]);
+ }finally{await f.close();}});
  await check('SQL and DC checks: optional, read only, run on chosen VMs with this or another account and shown in readiness',async()=>{const f=await fixture(browser);try{
   await vmwareConnected(f);await f.page.locator('[data-vmfilter="all"]').click();
   await f.page.locator('#vmListBulk [data-bulk="preflight"]').click();
@@ -1097,6 +1257,123 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   await goTool(f,'movevms');await openVm(f,'vm-app01');await f.page.locator('#vmHvrForget').click();
   await f.page.waitForFunction(()=>!!document.querySelector('#vmHvrConnect'));
   assert.deepEqual(f.dialogs,[]);
+ }finally{await f.close();}});
+ await check('Migration UX: compact tool list with About this tool, empty screens that start New migration, a sortable VM table with step summaries, and Migrate from Discovery',async()=>{const f=await fixture(browser);try{
+  f.vm.inventory=vmwareInventoryFixture();f.vm.plan=vmwarePlanFixture();
+  f.state.vmware=Object.assign(vmwareIdle(),{status:'connected',server:'vc01.example.com',account:'administrator@vsphere.local',summary:vmwareSummaryFixture(),inventorySerial:1,canPrepare:true,hyperVHere:true,hostStorage:{known:true,vhdPath:'D:\\Hyper-V\\Disks',vmPath:'D:\\Hyper-V',clustered:false,volumes:[{path:'D:\\',freeBytes:1099511627776,totalBytes:2199023255552,csv:false}]}});
+  await f.page.keyboard.press('Alt+1');await readmeShot(f,'hero.png');
+  await goTool(f,'plans');
+  // The list shows each tool's name and one line; Works with and its tags are folded into the tool's About this tool.
+  assert(!await f.page.locator('[data-tool="plans"] .tool-works').isVisible(),'Works with is not on the card');assert(!await f.page.locator('[data-tool="replicate"] .tool-runs').isVisible(),'only the selected card says where it runs');assert(await f.page.locator('[data-tool="plans"] .tool-runs').isVisible());
+  assert(!await f.page.locator('#toolWorks-tabPlans').isVisible(),'About this tool starts folded');await f.page.locator('#toolAbout-tabPlans summary').click();
+  const about=await f.page.locator('#toolWorks-tabPlans').textContent();assert(about.includes('Works with')&&about.includes('Pick this when')&&about.includes('Runs on the Hyper-V host'),about);
+  assert.equal(await f.page.locator('.hero').count(),0,'no banner above the tabs on any screen');
+  for(const size of [{width:1440,height:1000},{width:1008,height:690},{width:784,height:522}]){await f.page.setViewportSize(size);await f.page.keyboard.press('Alt+3');
+   const bar=f.page.locator('.status-bar');assert(await bar.isVisible(),'the status bar shows at '+size.width);assert((await bar.textContent()).includes('Interface v'),'with the version');
+   const box=await bar.boundingBox();assert(box.y+box.height<=size.height&&box.height<=30,'a slim bar at the bottom: '+JSON.stringify(box));}
+  assert.equal(await f.page.locator('.topbar').count(),0,'no header bar');assert(!(await f.page.locator('body').textContent()).includes('Portable EXE'));
+  assert((await f.page.locator('#statusConnection').getAttribute('title')).includes('connected to the application'));assert(await f.page.locator('#helpMenuButton').isVisible(),'Help sits beside the tabs');
+  await f.page.setViewportSize({width:1440,height:1000});
+  // Empty screens offer New migration.
+  await goTool(f,'plans');await f.page.locator('#mpEmptyWizard').click();assert.equal(await f.page.locator('[data-tool="wizard"]').getAttribute('aria-pressed'),'true');assert.equal(await f.page.locator('[data-nw-source="vms"]').getAttribute('aria-pressed'),'true','it opens with VMs chosen');
+  await goTool(f,'replicate');await f.page.waitForSelector('#rpEmptyWizard');assert(await f.page.locator('#rpSummary').isHidden(),'no row of zero tiles');
+  await f.page.locator('#rpEmptyWizard').click();assert.equal(await f.page.locator('[data-nw-source="servers"]').getAttribute('aria-pressed'),'true','Replicate servers starts New migration with servers chosen');
+  // The VM table sorts, ticks every VM shown and folds the VMs that cannot move.
+  await f.page.locator('[data-nw-source="vms"]').click();await f.page.waitForSelector('#nwVmList [data-nw-pick]');
+  const order=()=>f.page.locator('#nwVmList table').first().locator('tbody strong').allTextContents();
+  assert.deepEqual(await order(),['APP01','SQL01','WEB02']);await f.page.locator('[data-nw-sort="ready"]').first().click();{const o=await order();assert.deepEqual(o,['APP01','WEB02','SQL01'],'Readiness sorts ready first: '+o);}
+  await f.page.locator('[data-nw-sort="ready"]').first().click();assert.equal(await f.page.locator('#nwVmList table').first().locator('th[aria-sort="descending"]').count(),1);
+  assert(!await f.page.locator('[data-nw-pick="vm-legacy03"]').isVisible(),'a VM that cannot move is folded away');await f.page.locator('.nw-vm-off summary').click();assert(await f.page.locator('[data-nw-pick="vm-legacy03"]').isVisible());
+  // A redraw from the live refresh keeps it open (owner, 2026-11-27: it folded by itself after a few seconds).
+  await f.page.evaluate(()=>{window.__nwBefore=document.querySelector('#nwVmOff');});f.state.vmware.canPrepare=!f.state.vmware.canPrepare;
+  await f.page.waitForFunction(()=>document.querySelector('#nwVmOff')!==window.__nwBefore,null,{timeout:10000});assert(await f.page.locator('#nwVmOff').evaluate(d=>d.open),'Show why stays open through a redraw');
+  assert((await f.page.locator('[data-nw-pick="vm-sql01"]').locator('xpath=ancestor::tr').textContent()).includes('1 snapshot'),'a Review first VM says why');
+  await f.page.locator('#nwPickShown').check();assert((await f.page.locator('[data-nw="count"]').textContent()).startsWith('3 VMs ticked'));await readmeShot(f,'new-migration.png');
+  await f.page.locator('#nwNext').click();const done=await f.page.locator('.nw-stepper-item.done').first().textContent();assert(done.includes('3 VMs'),'the step bar sums up a finished step: '+done);
+  await f.page.locator('[data-nw-target="here"]').click();await f.page.locator('[data-nw-step="0"]').click();assert.equal(await f.page.locator('.nw-stepper-item.current').textContent(),'1What','a finished step can be opened again');
+  // Discovery starts a migration with the VMs it shows.
+  await goTool(f,'environment');await f.page.locator('#vmNwScopeButton').waitFor();assert.equal(await f.page.locator('#vmNwScopeButton').textContent(),'Migrate 3 VMs…','the blocked VM is not counted');
+  await f.page.locator('#vmNwScopeButton').click();assert.equal(await f.page.locator('[data-tool="wizard"]').getAttribute('aria-pressed'),'true');assert((await f.page.locator('[data-nw="count"]').textContent()).startsWith('3 VMs ticked'));
+  // Move VMs points a Hyper-V move to New migration first.
+  await goTool(f,'movevms');await openVm(f,'vm-app01');await f.page.locator('#vmMovePlanButton').click();assert.equal(await f.page.locator('[data-tool="wizard"]').getAttribute('aria-pressed'),'true');assert((await f.page.locator('[data-nw="count"]').textContent()).startsWith('1 VM ticked'));
+  await goTool(f,'environment');await openVm(f,'vm-web02');await f.page.locator('#vmNwVmButton').click();assert((await f.page.locator('[data-nw="count"]').textContent()).startsWith('1 VM ticked'));assert(await f.page.locator('[data-nw-pick="vm-web02"]').isChecked());
+  assert.deepEqual(f.errors,[]);assert.deepEqual(f.dialogs,[]);
+ }finally{await f.close();}});
+ await check('Migration UX: a status track with the next step, plain-language errors with a fix button, and an activity strip on every screen',async()=>{const f=await fixture(browser);try{
+  const row=(o)=>Object.assign({percent:-1,lagSeconds:-1,wave:0,actions:[],detail:'',reason:''},o);
+  f.servers.rows=[
+   row({key:'plan:p1|vm-a',kind:'plan',method:'Migration plan',name:'APP01',plan:'p1',vm:'vm-a',state:'insync',stateText:'In sync',lagSeconds:300,actions:['sync','test','cutover']}),
+   row({key:'plan:p1|vm-b',kind:'plan',method:'Migration plan',name:'WEB01',plan:'p1',vm:'vm-b',state:'seeding',stateText:'Initial copy',percent:30,actions:['sync']}),
+   row({key:'job:a1|j1',kind:'job',method:'Agent replication',name:'SQL01',agent:'a1',job:'j1',state:'failed',stateText:'Failed',reason:'The last round failed: The receiver did not answer (timeout).',actions:['sync']})];
+  f.servers.summary={total:3,states:{insync:1,seeding:1,failed:1},scheduled:0,methods:{}};
+  await f.page.waitForSelector('#activityStrip:not(.hidden)',{timeout:15000});
+  const strip=await f.page.locator('#activityStrip').textContent();assert(strip.includes('1 server needs attention')&&strip.includes('1 copying')&&strip.includes('1 in sync'),strip);
+  await f.page.locator('#activityStrip [data-act-filter="failed"]').click();
+  assert.equal(await f.page.locator('[data-tool="servers"]').getAttribute('aria-pressed'),'true','the strip opens All jobs and servers');
+  await f.page.waitForFunction(()=>document.querySelectorAll('#asRows tr').length===1);
+  assert(await f.page.locator('#activityStrip').isHidden(),'the strip is not shown over the list it summarises');
+  assert((await f.page.locator('#asRows .err-help').textContent()).length>10,'a failure is explained in plain words');
+  // A plan VM shows where it is on the way and what comes next; a known error gets its fix.
+  f.plans.plans=[{id:'p1',name:'Wave 1',server:'vc01.example.com',paused:false,settings:{syncMinutes:60,concurrency:2},throttle:'no limit',summary:{total:2,waiting:0,copying:0,ready:1,testing:0,scheduled:0,done:0,failed:1},vms:[
+   {id:'vm-a',name:'APP01',wave:1,state:'ready',seeded:true,failures:0,testedAt:'0001-01-01T00:00:00Z'},
+   {id:'vm-b',name:'WEB01',wave:1,state:'failed',seeded:false,failures:2,error:'[DS1] WEB01/WEB01-flat.vmdk: the server answered 500 Internal Server Error'},
+   {id:'vm-c',name:'FILE01',wave:2,state:'ready',seeded:true,failures:0,lastSync:new Date().toISOString(),testedAt:new Date(Date.now()-3600000).toISOString()}]}];
+  await goTool(f,'plans');await f.page.waitForSelector('#mpRows .vm-track');
+  const track=await f.page.locator('#mpRows tr').filter({hasText:'APP01'}).locator('.vm-track').textContent();assert(track.includes('Copy')&&track.includes('Cut over'),track);
+  assert((await f.page.locator('#mpRows tr').filter({hasText:'APP01'}).textContent()).includes('Next: test it'),'the next step is named');
+  await readmeShot(f,'migration-plans.png');
+  // Go/no-go per wave: wave 1 is not ready (a failed first copy), wave 2 is.
+  const w1=f.page.locator('[data-mp-go="1"]'),w2=f.page.locator('[data-mp-go="2"]');
+  assert.equal(await w1.locator('.mp-chip').textContent(),'Not yet');assert((await w1.textContent()).includes('WEB01 failed')||(await w1.textContent()).includes('1 VM failed'),await w1.textContent());
+  assert((await w1.textContent()).includes('not tested yet: APP01'),'an untested VM is named');
+  // Go's zero time is not a test: the track agrees with the wave check (3.3.0-test.3 showed Tested done beside "not tested yet").
+  assert(!(await f.page.locator('#mpRows tr').filter({hasText:'APP01'}).locator('.vm-track .done').allTextContents()).some(t=>t.includes('Tested')),'an untested VM is not shown as tested');
+  await w1.locator('[data-mp-marktested]').click();for(let i=0;i<50&&!f.planCalls.some(c=>c.body.action==='markTested');i++){await f.page.waitForTimeout(100);}
+  assert.deepEqual(f.planCalls.find(c=>c.body.action==='markTested').body.vmIds,['vm-a','vm-b'],'a test run another way can be recorded for the wave');assert(await w1.locator('[data-mp-gowave]').isDisabled());
+  assert.equal(await w2.locator('.mp-chip').textContent(),'Go',await w2.textContent());
+  await w2.locator('[data-mp-gowave]').click();assert.equal(await f.page.locator('#mpSelCount').textContent(),'1 VM(s) selected.');assert(await f.page.locator('[data-mp-row="vm-c"]').isChecked(),'the wave is selected for the cutover');
+  const help=f.page.locator('#mpRows tr').filter({hasText:'WEB01'}).locator('.err-help');assert((await help.textContent()).includes('ESXi'),await help.textContent());
+  await help.locator('[data-err-fix]').click();for(let i=0;i<50&&!f.planCalls.some(c=>c.body.action==='sync');i++){await f.page.waitForTimeout(100);}
+  const sync=f.planCalls.filter(c=>c.body.action==='sync').at(-1);assert(sync&&sync.body.vmIds[0]==='vm-b','the fix copies that VM again');
+  // A SQL and DC check that could not reach its server is one line per server, with the remote error under Details.
+  const raw='Connecting to remote server sql01.example.com failed with the following error message : The client cannot connect to the destination specified in the request. Verify that the service on the destination is running and is accepting requests.\nFor more information, see the about_Remote_Troubleshooting Help topic.';
+  await vmwareConnected(f);const sqlVm=f.vm.inventory.vms.find(v=>v.id==='vm-sql01');
+  sqlVm.readiness.forEach(r=>r.findings.push({severity:'warning',code:'preflight-failed',message:'SQL and DC checks: couldn\'t reach sql01.example.com over WinRM (TCP 5985). (2026-11-27 06:33)',action:'Check the computer name.',detail:raw}));
+  f.state.vmware.inventorySerial++;await f.page.waitForTimeout(1500);
+  f.plans.plans[0].vms.push({id:'vm-sql01',name:'SQL01',wave:3,state:'ready',seeded:true,failures:0,lastSync:new Date().toISOString(),testedAt:new Date().toISOString()});
+  await goTool(f,'plans');const w3=f.page.locator('[data-mp-go="3"]');await w3.waitFor();
+  const item=w3.locator('.mp-go-items li');assert.equal(await item.count(),1);
+  assert.equal(await item.evaluate(li=>li.firstChild.textContent),'SQL01: SQL and DC checks: couldn\'t reach sql01.example.com over WinRM (TCP 5985). (2026-11-27 06:33)');
+  assert(!await item.locator('pre').isVisible(),'the raw error is folded');await item.locator('summary').click();assert.equal(await item.locator('pre').textContent(),raw,'Details shows the full error');
+  assert.equal(await w3.locator('.mp-chip').textContent(),'Check first');
+  assert.deepEqual(f.errors,[]);assert.deepEqual(f.dialogs,[]);
+ }finally{await f.close();}});
+ await check('Migration UX: saved defaults per customer fill New migration and Migration plans, without any password, and a rolling conversion runs stage by stage',async()=>{const f=await fixture(browser);try{
+  f.vm.inventory=vmwareInventoryFixture();f.vm.plan=vmwarePlanFixture();
+  f.state.vmware=Object.assign(vmwareIdle(),{status:'connected',server:'vc01.example.com',account:'administrator@vsphere.local',summary:vmwareSummaryFixture(),inventorySerial:1,canPrepare:true,hyperVHere:true,hostStorage:{known:true,vhdPath:'D:\\Hyper-V\\Disks',vmPath:'D:\\Hyper-V',clustered:false,volumes:[{path:'D:\\',freeBytes:1099511627776,totalBytes:2199023255552,csv:false}]}});
+  f.profiles.push({name:'Contoso',copyRoot:'E:\\Contoso\\Copies',vmFolder:'E:\\Contoso\\VMs',testSwitch:'',syncMinutes:30,concurrency:3,throttle:{businessMbps:200,limitMbps:0,businessStart:8,businessEnd:18},options:{keepMac:true,startVms:true,cluster:false,quiesce:false,ejectMedia:true,disconnectSource:true,fixUp:false},networkMap:[]});
+  await goTool(f,'wizard');await f.page.locator('[data-nw-source="vms"]').click();await f.page.waitForSelector('#nwVmList [data-nw-pick]');
+  await f.page.locator('#nwPickShown').check();await f.page.locator('#nwNext').click();await f.page.locator('[data-nw-target="here"]').click();
+  await f.page.waitForSelector('#nwProfilePick option[value="Contoso"]',{state:'attached'});
+  assert(await f.page.locator('#nwProfileUse').isDisabled(),'nothing to use until a customer is chosen');
+  await f.page.locator('#nwProfilePick').selectOption('Contoso');assert((await f.page.locator('#nwProfileNote').textContent()).includes('sync every 30'),await f.page.locator('#nwProfileNote').textContent());
+  await f.page.locator('#nwProfileUse').click();assert.equal(await f.page.locator('#nwCopyRoot').inputValue(),'E:\\Contoso\\Copies');assert.equal(await f.page.locator('#nwVMFolder').inputValue(),'E:\\Contoso\\VMs');
+  assert((await f.page.locator('#nwProfileStatus').textContent()).startsWith('Filled in from Contoso'));
+  await f.page.locator('#nwProfileName').fill('Fabrikam');await f.page.locator('#nwProfileSave').click();await f.page.waitForFunction(()=>document.querySelector('#nwProfileStatus').textContent.startsWith('Saved as Fabrikam'));
+  const saved=f.profileCalls.filter(c=>c.body.action==='save').at(-1).body.profile;assert.equal(saved.copyRoot,'E:\\Contoso\\Copies');assert.equal(saved.syncMinutes,30);assert(!JSON.stringify(saved).toLowerCase().includes('password'),'no password is saved');
+  // Rolling conversion inside New migration: the stages come from the plan, one ESXi host at a time.
+  for(const sel of await f.page.locator('[data-nw-switch]').all()){await sel.selectOption('Isolated');}
+  await f.page.locator('#nwNext').click();await f.page.locator('#nwNext').click();
+  await f.page.locator('input[data-nw-wavemode="rolling"]').check();await f.page.waitForFunction(()=>document.querySelectorAll('[data-nw-stage]').length===3);
+  const plan=vmwareCalls(f,'plan').at(-1).body;assert.equal(plan.plan.scenario,'rolling');assert.equal(plan.suggestStages,true);
+  const st=await f.page.locator('[data-nw-stage="1"]').textContent();assert(st.includes('esx03.example.com')&&st.includes('Build Hyper-V hosts'),st);
+  assert((await f.page.locator('[data-nw-stage="3"]').textContent()).includes('onto the Hyper-V nodes built so far'),'the last host moves its wave first');
+  await f.page.locator('[data-nw-tool="hvbuild"]').click();assert.equal(await f.page.locator('[data-tool="hvbuild"]').getAttribute('aria-pressed'),'true');
+  // Migration plans' new plan form fills from the same defaults.
+  await goTool(f,'plans');await f.page.locator('#mpNewButton').click();await f.page.waitForSelector('#mpProfilePick option[value="Fabrikam"]',{state:'attached'});
+  await f.page.locator('#mpProfilePick').selectOption('Contoso');await f.page.locator('#mpProfileUse').click();
+  assert.equal(await f.page.locator('#mpSync').inputValue(),'30');assert.equal(await f.page.locator('#mpConcurrency').inputValue(),'3');assert.equal(await f.page.locator('#mpCopyRoot').inputValue(),'E:\\Contoso\\Copies');assert.equal(await f.page.locator('#mpBizMbps').inputValue(),'200');assert(!await f.page.locator('#mpFixUp').isChecked());
+  assert.deepEqual(f.errors,[]);assert.deepEqual(f.dialogs,[]);
  }finally{await f.close();}});
  await check('Build Hyper-V hosts: draft a plan from the VMware inventory, preview a step, and apply only after typing the plan name',async()=>{const f=await fixture(browser);try{
   await vmwareConnected(f);await goTool(f,'hvbuild');
@@ -2032,6 +2309,10 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   await f.page.locator('[data-nw-filter="copying"]').click();assert.equal(await f.page.locator('#nwStatusBody [data-nw-row]').count(),1,'tiles filter the list');await f.page.locator('[data-nw-filter="copying"]').click();
   await f.page.screenshot({path:out+'/new-migration-status-1440x1000.png'});
   await f.page.locator('[data-nw-row="'+f.plans.plans[0].vms[0].id+'"]').check();assert((await f.page.locator('#nwStatusMsg').textContent()).startsWith('Tick "I understand"'));
+  for(const width of [1904,2560]){await f.page.setViewportSize({width,height:1000});await f.page.waitForTimeout(100);await f.page.locator('#nwCutNow').scrollIntoViewIfNeeded();await f.page.screenshot({path:out+'/new-migration-status-'+width+'.png'});const apart=await apartControls(f.page);assert.deepEqual(apart,[],'Status at '+width+': '+apart.join('; '));
+   const g=await f.page.evaluate(()=>{const t=document.querySelector('#nwCutConfirmTick').closest('label').getBoundingClientRect(),b=document.querySelector('#nwCutNow').getBoundingClientRect(),m=document.querySelector('#nwStatusMsg').getBoundingClientRect();return {tickToButton:b.left-t.right,msgLeft:m.left,buttonLeft:b.left,msgTop:m.top,buttonBottom:b.bottom,buttonRight:b.right};});
+   assert(g.tickToButton>=0&&g.tickToButton<=32,'the cutover button sits beside its tick box at '+width+': '+JSON.stringify(g));assert(Math.abs(g.msgLeft-g.buttonLeft)<=2||(g.msgLeft>=g.buttonRight&&g.msgLeft-g.buttonRight<=32),'the reason sits under or beside the button at '+width+': '+JSON.stringify(g));}
+  await f.page.setViewportSize({width:1440,height:1000});
   await f.page.locator('#nwCutConfirmTick').check();await f.page.locator('#nwCutNow').click();
   for(let i=0;i<100&&f.planCalls.filter(c=>c.body.action==='cutover').length<2;i++){await new Promise(r=>setTimeout(r,50));}const now=f.planCalls.filter(c=>c.body.action==='cutover').pop();assert.equal(now.body.at,'now');assert.equal(now.body.confirm,name);
   await f.page.setViewportSize({width:1008,height:690});await f.page.locator('[data-nw-step]').first().waitFor();
@@ -2048,8 +2329,8 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   assert(await f.page.locator('[data-nw-pick="vm-legacy03"]').isDisabled(),'other blockers still stop a VM');
   const list=await f.page.locator('#nwVmList').textContent();assert(list.includes('Encrypted disks: tick it and decrypt it in Review'),list);assert(list.includes('the disks copy as they are'),'a VM encrypted only for its virtual TPM needs nothing');
   for(const w of [1440,1008]){await f.page.setViewportSize({width:w,height:w===1440?1000:690});
-   const tiles=await f.page.evaluate(()=>['vm-desk21','vm-desk22'].map(id=>{const row=document.querySelector('[data-nw-pick="'+id+'"]').closest('.nw-vm'),r=row.getBoundingClientRect(),cb=row.querySelector('input').getBoundingClientRect(),name=row.querySelector('strong').getBoundingClientRect(),chip=row.querySelector('strong').nextElementSibling.getBoundingClientRect(),note=row.querySelector('.nw-enc').getBoundingClientRect(),info=row.querySelector('.vm-note').getBoundingClientRect();return{id,nameW:name.width,rowW:r.width,cbTop:cb.top,nameTop:name.top,chipTop:chip.top,infoBottom:info.bottom,noteTop:note.top,noteLeft:note.left,nameLeft:name.left};}));
-   for(const t of tiles){assert(t.nameW>t.rowW*0.3,w+': '+t.id+' shows its name beside the tick box ('+JSON.stringify(t)+')');assert(Math.abs(t.cbTop-t.nameTop)<12&&Math.abs(t.chipTop-t.nameTop)<12,w+': '+t.id+' tick box, name and status share the first line');assert(t.noteTop>=t.infoBottom-1&&Math.abs(t.noteLeft-t.nameLeft)<2,w+': '+t.id+' encryption note sits on its own line under the host and size');}}
+   const tiles=await f.page.evaluate(()=>['vm-desk21','vm-desk22'].map(id=>{const row=document.querySelector('[data-nw-pick="'+id+'"]').closest('.nw-vm'),cb=row.querySelector('input').getBoundingClientRect(),name=row.querySelector('strong').getBoundingClientRect(),chip=row.querySelector('.run-chip').getBoundingClientRect(),note=row.querySelector('.nw-enc').getBoundingClientRect(),list=document.querySelector('#nwVmList').getBoundingClientRect();return{id,tag:row.tagName,nameW:name.width,cbMid:cb.top+cb.height/2,nameMid:name.top+name.height/2,chipMid:chip.top+chip.height/2,noteLeft:note.left,chipRight:chip.right,noteRight:note.right,listRight:list.right};}));
+   for(const t of tiles){assert.equal(t.tag,'TR',w+': '+t.id+' is a table row');assert(t.nameW>20,w+': '+t.id+' shows its name');assert(Math.abs(t.cbMid-t.nameMid)<12&&Math.abs(t.chipMid-t.nameMid)<12,w+': '+t.id+' tick box, name and readiness share the row ('+JSON.stringify(t)+')');assert(t.noteLeft>=t.chipRight-1,w+': '+t.id+' encryption note is in the Notes column');}}
   await f.page.setViewportSize({width:1440,height:1000});
   await f.page.locator('[data-nw-pick="vm-desk21"]').check();await f.page.locator('[data-nw-pick="vm-desk22"]').check();
   assert((await f.page.locator('[data-nw="count"]').textContent()).includes('1 VM has encrypted disks: Review decrypts it'),'encryption is flagged on the first screen');
@@ -2346,7 +2627,7 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   f.vm.inventory=vmwareInventoryFixture();f.vm.plan=vmwarePlanFixture();f.state.vmware=Object.assign(vmwareIdle(),{status:'connected',server:'vc01.example.com',summary:vmwareSummaryFixture(),inventorySerial:1});
   await goTool(f,'plans');await f.page.waitForSelector('#mpNewButton');
   assert((await f.page.locator('[data-tool="plans"] .tool-works').textContent()).includes('this Hyper-V host or its failover cluster'));
-  assert((await f.page.locator('.mp-when').textContent()).includes('Replicate servers'),'the pane says when to use it and when not');
+  assert((await f.page.locator('#toolWorks-tabPlans').textContent()).includes('Pick this when'),'the pane says when to use it');
   await f.page.locator('#mpNewButton').click();await f.page.waitForFunction(()=>document.querySelectorAll('#mpPicker [data-mp-pick]').length>0,null,{timeout:15000});
   await f.page.locator('#mpCreate').click();assert.equal(await f.page.locator('#mpNewStatus').textContent(),'Name the plan.');
   await f.page.locator('#mpName').fill('Wave 1');await f.page.locator('#mpCreate').click();assert.equal(await f.page.locator('#mpNewStatus').textContent(),'Choose the VMs for the plan.');
@@ -2479,6 +2760,8 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   // Tick box: no name to type, the box says what happens and is cleared when the selection changes.
   assert(!await f.page.locator('#mpConfirm').isVisible(),'no plan name to type');assert(await f.page.locator('#mpConfirmTick').isVisible());
   assert((await f.page.locator('label:has(#mpConfirmTick)').textContent()).includes('shut down and cut over'));
+  for(const size of [{width:1008,height:690},{width:1350,height:690},{width:1904,height:1000}]){await f.page.setViewportSize(size);await f.page.waitForTimeout(100);await f.page.locator('#mpCutNow').scrollIntoViewIfNeeded();await f.page.screenshot({path:out+'/plans-cutover-'+size.width+'.png'});const apart=await apartControls(f.page);assert.deepEqual(apart,[],'Migration plans cutover at '+size.width+': '+apart.join('; '));}
+  await f.page.setViewportSize({width:1440,height:1000});
   await f.page.locator('[data-mp-row="vm-app01"]').check();assert.equal(await f.page.locator('#mpCutWhy').textContent(),'Tick "I understand" to cut over the selected VMs.');assert(await f.page.locator('#mpCutNow').isDisabled());
   await f.page.locator('#mpConfirmTick').check();assert(!await f.page.locator('#mpCutNow').isDisabled());
   await f.page.locator('#mpCutNow').scrollIntoViewIfNeeded();await f.page.screenshot({path:out+'/confirm-tick-1440x1000.png'});
