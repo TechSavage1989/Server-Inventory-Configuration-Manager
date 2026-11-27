@@ -2359,7 +2359,7 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   await f.page.locator('[data-as-row="agent:a4"]').uncheck();await f.page.locator('[data-as-row="vm:vm-31"]').check();
   await f.page.locator('[data-as-act="install"]').click();await f.page.waitForSelector('#asFormInstall:not(.hidden)');
   assert.equal(await f.page.locator('#asInstHosts').inputValue(),'new01.example.com');assert(await f.page.locator('#asInstallSignInCurrent').isChecked()&&await f.page.locator('#asInstPassword').isHidden(),'installs start on the current sign-in');
-  await f.page.locator('#asInstRun').click();for(let i=0;i<300&&!f.replCalls.some(c=>c.action==='push');i++){await new Promise(r=>setTimeout(r,50));}
+  await f.page.locator('#asInstRun').click();await f.page.waitForFunction(()=>document.querySelector('#asFormInstall').classList.contains('hidden')&&/Installing the agent/.test(document.querySelector('#asStatus').textContent),null,{timeout:15000});
   const push=f.replCalls.find(c=>c.action==='push');assert.equal(push.body.hosts,'new01.example.com');assert.equal(push.body.user,'');assert.equal(push.body.password,'','the current sign-in sends no account');assert.equal(push.body.platform,'windows');
   for(const size of [{width:784,height:522},{width:1008,height:690}]){await f.page.setViewportSize(size);
    const small=await f.page.evaluate(()=>Array.from(document.querySelectorAll('#tabServers *')).filter(e=>e.offsetParent&&e.childNodes.length&&Array.from(e.childNodes).some(n=>n.nodeType===3&&n.nodeValue.trim())&&parseFloat(getComputedStyle(e).fontSize)<10.5).map(e=>e.className+':'+e.textContent.slice(0,30)));assert.deepEqual(small,[],'text below 10.5px at '+size.width);
