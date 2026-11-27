@@ -1,10 +1,36 @@
 ## Unreleased (test branch): migration UX — 2026-11-27
 
-- The owner asked for the migration UI to be more intuitive and for the work to go to the opt-in `test` branch so normal installs never update to it. All 12 ideas (AGENTS rule 62): compact tool lists with **About this tool**, no collection banner on Migration and replication, empty screens that start New migration, a sortable VM table and step summaries in New migration, Migrate from Discovery, a status track with the next step per plan VM and All servers row (`mbVM.TestedAt`, row `tested`), plain-language error help with fix buttons (`errorCatalog`), and the activity strip under the top tabs.
+- The owner asked for the migration UI to be more intuitive and for the work to go to the opt-in `test` branch so normal installs never update to it. All 12 ideas (AGENTS rule 69): compact tool lists with **About this tool**, no collection banner on Migration and replication, empty screens that start New migration, a sortable VM table and step summaries in New migration, Migrate from Discovery, a status track with the next step per plan VM and All servers row (`mbVM.TestedAt`, row `tested`), plain-language error help with fix buttons (`errorCatalog`), and the activity strip under the top tabs.
 - Workspace checks "Migration UX: ..." (two). README `hero.png`, `new-migration.png` and `migration-plans.png` recaptured at 1440x1000 (set `SIMM_README_SHOTS` to a folder to recapture them from those checks).
 - Also: go/no-go per wave in Migration plans, Move VMs pointing Hyper-V moves to New migration (the "When to use this" box removed), saved defaults per customer (`migration_profiles.go`, `/api/profiles`, Go tests `TestMigrationProfiles*`) and the rolling conversion in New migration's When.
 - The header bar and the "Your server, documented" banner are gone from every screen: Help sits beside the tabs, and the icon, name, connection, administrator rights, versions and Keyboard shortcuts are in a slim status bar at the bottom. The Portable EXE badge is gone. `scripts/test_icon_render.cjs` and the published-upgrade test still find `.brand-mark img` (now 16 px in the status bar); run them on Windows CI. README `hero.png`, `new-migration.png` and `migration-plans.png` show it; the other README images still show the old banner until they are next recaptured.
 - Not field-validated: all of it is covered by synthetic workspace checks and Go tests only. The Move VMs by-hand steps for Hyper-V stay (not removed), so nothing that worked before is gone.
+
+## Unreleased: protect production space and bandwidth while copying — 2026-11-27
+
+- Owner: "there should always be a way to safely migrate and control the migration to preserve functional space for the production environment and bandwidth for the production network". AGENTS rule 67.
+- Space: before every VMware snapshot and Hyper-V checkpoint of a running VM, the datastores or volumes it grows on and the copy's destination must keep the reserve (default 10% and 50 GB) after the expected growth of every copy holding a snapshot there (default 10% of the VM's disks, at least 4 GB). Otherwise the copy waits (not a failure) with the reason in a banner over the migration tools, in plan rows and in Help > Settings. A running copy is stopped at the stop level (default 5% or 20 GB), which removes its snapshot. Windows replication agents check their own volumes before shadow copies (default 10% and 20 GB, per job).
+- Load: copies at once in all (default 4), per source datastore, source host and destination host (default 2 each).
+- Bandwidth: a global limit with business hours for every agentless copy on top of plan and new per-wave limits (wave concurrency too); agent jobs start with it; file share copies use Robocopy `/IPG` (not the final pass at cutover).
+- Files: `prodguard.go`, `prodguard_windows.go`, `prodguard_unix.go`, `prodguard_test.go`; hooks in `vmware_replicate.go`, `vmware_move.go`, `hyperv_move.go`, `hyperv_move_windows.go`, `hyperv_remote_windows.go`, `movebatch*.go`, `repl_job.go`, `repl_throttle.go`, `migrate.go`, `Migrate-FileShares.ps1`, `index.html`, `scripts/test_workspace.cjs`.
+- The Hyper-V checkpoint hook is a small block in `hypervMoveRound`'s running-VM branch, so it merges with the RCT work in PR #173.
+- Not field-validated: real datastore free space during concurrent snapshots, CSV free space through administrative shares, Robocopy's `/IPG` rate.
+
+## Unreleased: virtual TPM VMs copy through VDDK or at their cutover; one migration mixes copy methods — 2026-11-27
+
+- Field report on 3.2.38: running VMs with a virtual TPM (DESK21-CPA01, CPA02) failed every round. vSphere refuses to export a VM whose own files are encrypted (Broadcom KB 431565, every vTPM VM) and the host locks the running disk, so only VDDK or a copy while the VM is off can read them. The round now says so in plain words (`vmEncryptedHomeError`) instead of the raw fault.
+- Migration plan VMs have a copy method (`mbVM.Method`): live (default; VDDK when set) or copy at cutover while shut down. One plan mixes them with the same waves, cutover, fix-up and rollback. Plan rows offer Set up VDDK and Copy at cutover for these VMs; All jobs and servers shows Copies at cutover.
+- New migration's Review blocks a running vTPM VM until VDDK is set up (inline, same check as Help > Settings) or the VM is set to copy at cutover; the other VMs are unaffected. AGENTS rule 65.
+- Validation here: `go test ./...` and vet on Linux, a Windows cross-build, and `scripts/test_workspace.cjs` in Linux Chromium. Not field-validated: VDDK reads of a real vTPM VM, and an offline cutover of one.
+
+## 3.2.38 published and verified — 2026-11-27
+
+- [Release v3.2.38](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.38) ("Server Inventory and Migration Manager 3.2.38"), tag and target commit `f26e245f8f951018343a5fcced439a214446e373`. Source: #164, #165, #167, #168 and #169 through the batch #166 (merged into `main` with a merge commit, `34377a3`), prepared by #171 and published by #172. The owner asked to publish on 2026-11-27.
+- The [publish run](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/45985767353) passed first time: publish job 10:52–11:14 UTC, embedded scripts and EXE signed through Azure Artifact Signing over OIDC before the tests and checksum (Valid, timestamped); public feed and downloads verified.
+- The actual 3.2.37-to-3.2.38 upgrade (published signed 3.2.37 EXE through Download and Install, restart into 3.2.38, native health, settings, shortcut, timers, cleanup and rollback) passed in one run, 11:15–11:27 UTC.
+- Stable EXE: 28,542,256 bytes; SHA-256 `287349f46a752fb5d33971668e917ddf02b3b0dc696e9444dd21d5f12265b5cc` (matches the public feed). Linux agent `simm-agent-linux-amd64`: 13,672,448 bytes; SHA-256 `c4309a058d37f2cd3e955be7a17f8191186f4e76f9e2f732df295334046269f1`. All 14 assets are published.
+
+Limits: VDDK reads against a real ESXi host and vCenter, ejecting images on a real vCenter, and file share moves between two real servers over remoting have not been field-tested. The limits under 3.2.37 still apply. CI artifacts were not downloaded, and no client data was used.
 
 ## Unreleased: opt-in Test update channel and the test branch — 2026-11-27
 
@@ -17,6 +43,20 @@
 ## 3.2.38 release preparation — 2026-11-27
 
 Owner asked to publish ("publish"). Contents, merged into `release/next`: #164 (VM names on New migration tiles with an encryption note), #165 (eject CD/DVD images before copies), #167 (VDDK changed-block reads, operator-supplied), #168 (fluid density), #169 (file shares between two other servers) and #170 (rule numbering). Version 3.2.38 in `main.go` and the collector, release notes in `docs/release-notes/3.2.38.md`, and the published-upgrade test now starts from signed 3.2.37 (`323f7f7b...8545`).
+
+## Unreleased: one-click Roll back after a cutover — 2026-11-27
+
+- New **Roll back** tool (Migration and replication, Start here) and a **Roll back…** button beside every cut-over VM. Every cutover that creates a VM now leaves a record (`rollback.go`, AGENTS rule 62). Rolling back shuts the new VM down and disconnects it, confirms it is off, puts the original VMware VM's adapters back from the record the cutover saved and starts the original (vSphere, or the source Hyper-V host through `Move-HyperVVM.ps1 -Mode Start`), or asks the replication agent to start its stopped services (new agent action `rollback`; older agents get manual steps).
+- Audit of every cutover path: the original is only shut down (VMware Tools / Hyper-V shutdown component), optionally has its adapters set to not connect (recorded) and optionally its CD/DVD images ejected. Nothing renames, annotates, deletes or changes inside the original. The fix-ups (IP settings, VMware Tools removal) run only in the new VM.
+- Domain controllers need their own tick box; the dialog shows the cutover time and the data written since that stays on the new VM. Rolling stages list the VMs whose rollback ends when a host is rebuilt or a LUN reused. Steps for P2V, V2P, conversions, file shares, restore and rebuilt hosts are under Every way of moving.
+- Tests: `go test ./...` (rollback_test.go, rollback_vsphere_test.go against vcsim), the workspace check "Roll back". Not field-validated: real vCenter power-on after cutover, Stop-VM over remoting on a cluster node, the agent action on a real source.
+
+## Unreleased: Hyper-V change tracking (RCT) for copies of running Hyper-V VMs — 2026-11-27
+
+- Owner asked for change tracking in every mode where one exists ("any change tracking backup format possible for any backup mode possible would be most useful"). Copies of running Hyper-V VMs (Move VMs, Migration plans, the platform moves; this host or a remote source host) used to read all used data every round. Rule 61: on Windows Server 2016 and later each running round takes a recovery checkpoint, keeps it as a reference point after a successful copy (`ConvertToReferencePoint`), and the next round, or the cutover, reads only what `GetVirtualDiskChanges` reports since then. Anything it cannot answer reads all used data as before, and the log says which way each disk was read and why.
+- Code: `hyperv_move.go` (`hypervTracker`, `hypervTracking`, `hypervRCTRecord`, `vmCheckRanges`), `hyperv_move_windows.go`, `Move-HyperVVM.ps1` (modes TrackingCheckpoint, KeepReferencePoint, DiskChanges, RemoveReferencePoint). The VMware export fallback's log line now says it streams all used data and points at the VDDK setting.
+- Tests: `go test ./src/app -run HyperV` (seed, changed rounds that read one chunk, reference point replacement, cutover clean-up, off-VM rounds, every fallback); `TestMoveHyperVScriptOnThisComputer` runs the new modes on Windows (no Hyper-V role on runners).
+- Not field-validated: recovery checkpoints, `ConvertToReferencePoint`, `GetVirtualDiskChanges` and matching `VirtualDiskIdentifiers` to the drives on a real Windows Server 2016 to 2025 host, locally and remotely. Other modes checked: VMware reads changed blocks of running VMs only through VDDK; the Windows agent already tracks NTFS changes; ReFS volumes and the Linux agent still read used data each round (Linux thin LVM `thin_delta` is a possible follow-up).
 
 ## Unreleased: fluid density, so 1080p and smaller windows fit more — 2026-11-27
 

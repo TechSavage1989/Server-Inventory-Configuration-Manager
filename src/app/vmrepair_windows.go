@@ -242,7 +242,7 @@ func (a *application) beginConvertTask(task, target string) (int, string) {
 	case a.migrateBusyLocked():
 		refusal = "A file migration step is running. Wait for it to finish first."
 	case a.vmwareBusyLocked():
-		refusal = "A VMware step is running. Wait for it to finish first."
+		refusal = a.vmwareBusyTextLocked() + " Wait for it to finish first."
 	case a.convertBusyLocked():
 		refusal = "A Disk converter step is already running."
 	}

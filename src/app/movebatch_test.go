@@ -481,3 +481,107 @@ func TestPlanAgainstARemoteHostChecksItsPathsAndKeepsItsHost(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// A plan mixes methods: a VM vSphere cannot read while it runs (a virtual
+// TPM without VDDK) is copied only at its cutover, while the rest seed and
+// sync as before, in the same waves.
+func TestPlanMixesLiveAndCopyAtCutoverVMs(t *testing.T) {
+	target := &mbFakeTarget{fail: map[string]error{}}
+	runner, now := mbTestRunner(t, target)
+	vms := mbVMs("app01", "desk01")
+	vms[1].Method = mbMethodOffline
+	if _, err := runner.Create("Bad", "vc.example.com", mbSettings{StartAt: *now, SyncMinutes: 30, Concurrency: 2}, []mbVM{{ID: "x", Name: "x", Method: "agent"}}); err == nil {
+		t.Fatal("an unknown method was accepted")
+	}
+	plan, err := runner.Create("Mixed", "vc.example.com", mbSettings{StartAt: *now, SyncMinutes: 30, Concurrency: 2}, vms)
+	if err != nil {
+		t.Fatal(err)
+	}
+	runner.Sweep()
+	*now = now.Add(time.Hour)
+	runner.SyncNow(plan.ID, nil)
+	runner.Sweep()
+	for _, name := range target.rounds {
+		if name == "desk01" {
+			t.Fatalf("a copy-at-cutover VM was copied while it runs: %v", target.rounds)
+		}
+	}
+	if len(target.rounds) == 0 {
+		t.Fatal("the live VM was not copied")
+	}
+	// Cutover needs no earlier copy for desk01, and runs it.
+	if err := runner.ScheduleCutover(plan.ID, []string{"vm-desk01"}, *now); err != nil {
+		t.Fatalf("cutover of a copy-at-cutover VM refused: %v", err)
+	}
+	runner.Sweep()
+	if strings.Join(target.cutovers, ",") != "desk01" || strings.Join(target.created, ",") != "desk01" {
+		t.Fatalf("cutovers %v, created %v", target.cutovers, target.created)
+	}
+	views, _, _ := runner.View()
+	for _, vm := range views[0].VMs {
+		if vm.Name == "desk01" && vm.State != mbDone {
+			t.Fatalf("desk01 is %s after its cutover", vm.State)
+		}
+	}
+}
+
+// A VM whose live round failed is switched to copy at cutover: its error
+// clears, it is not retried, and switching back asks for a round at once.
+func TestPlanSwitchesAFailedVMToCopyAtCutover(t *testing.T) {
+	target := &mbFakeTarget{fail: map[string]error{"desk01": errors.New("export refused")}}
+	runner, now := mbTestRunner(t, target)
+	plan, err := runner.Create("Switch", "vc.example.com", mbSettings{StartAt: *now, SyncMinutes: 30, Concurrency: 2}, mbVMs("desk01"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	runner.Sweep()
+	views, _, _ := runner.View()
+	if views[0].VMs[0].State != mbFailed {
+		t.Fatalf("state %s", views[0].VMs[0].State)
+	}
+	if err := runner.SetMethod(plan.ID, []string{"vm-desk01"}, "fast"); err == nil {
+		t.Fatal("an unknown method was accepted")
+	}
+	if err := runner.SetMethod(plan.ID, []string{"vm-desk01"}, mbMethodOffline); err != nil {
+		t.Fatal(err)
+	}
+	views, _, _ = runner.View()
+	if v := views[0].VMs[0]; v.State != mbWaiting || v.Error != "" || v.Failures != 0 || v.Method != mbMethodOffline {
+		t.Fatalf("after the switch: %+v", v.mbVM)
+	}
+	rounds := len(target.rounds)
+	*now = now.Add(2 * time.Hour)
+	runner.SyncNow(plan.ID, nil)
+	runner.Sweep()
+	if len(target.rounds) != rounds {
+		t.Fatalf("a copy-at-cutover VM was retried: %v", target.rounds)
+	}
+	row := asPlanRow(views[0], views[0].VMs[0], *now)
+	if row.State != asAtCutover {
+		t.Fatalf("console state %s", row.State)
+	}
+	for _, act := range row.Actions {
+		if act == asActSync {
+			t.Fatal("the console offers Sync for a copy-at-cutover VM")
+		}
+	}
+	if err := runner.SetMethod(plan.ID, []string{"vm-desk01"}, ""); err != nil {
+		t.Fatal(err)
+	}
+	delete(target.fail, "desk01")
+	runner.Sweep()
+	if len(target.rounds) != rounds+1 {
+		t.Fatalf("switching back to live did not copy: %v", target.rounds)
+	}
+}
+
+func TestEncryptedHomeErrorSaysWhatWorks(t *testing.T) {
+	plain := vmEncryptedHomeError(false, "").Error()
+	if !strings.Contains(plain, "virtual TPM") || !strings.HasSuffix(plain, vmEncryptedHomeHint) || strings.Contains(plain, "Direct Access") {
+		t.Fatal(plain)
+	}
+	withVDDK := vmEncryptedHomeError(true, "VixDiskLib_Open failed: no permission.").Error()
+	if !strings.Contains(withVDDK, "Cryptographic operations > Direct Access") || !strings.Contains(withVDDK, "no permission)") || !strings.HasSuffix(withVDDK, vmEncryptedHomeHint) {
+		t.Fatal(withVDDK)
+	}
+}

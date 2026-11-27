@@ -306,10 +306,10 @@ func (a *application) handleHVBuildSuggest(response http.ResponseWriter, request
 		return
 	}
 	a.mu.Lock()
-	inventory, busy, migration := a.vmware.inventory, a.vmwareBusyLocked(), a.vmware.plan
+	inventory, busy, migration, busyText := a.vmware.inventory, a.vmwareBusyLocked(), a.vmware.plan, a.vmwareBusyTextLocked()
 	a.mu.Unlock()
 	if busy {
-		hvBuildFail(response, http.StatusConflict, "Wait for the current step to finish.")
+		hvBuildFail(response, http.StatusConflict, busyText+" Wait for it to finish first.")
 		return
 	}
 	order := []string{}
@@ -342,8 +342,9 @@ func (a *application) handleHVBuildSave(response http.ResponseWriter, request *h
 	}
 	a.mu.Lock()
 	if a.vmwareBusyLocked() {
+		busyText := a.vmwareBusyTextLocked()
 		a.mu.Unlock()
-		hvBuildFail(response, http.StatusConflict, "Wait for the current step to finish.")
+		hvBuildFail(response, http.StatusConflict, busyText+" Wait for it to finish first.")
 		return
 	}
 	previous := a.hvBuild.plan
@@ -390,7 +391,7 @@ func (a *application) handleHVBuildOpen(response http.ResponseWriter, request *h
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	if a.vmwareBusyLocked() {
-		hvBuildFail(response, http.StatusConflict, "Wait for the current step to finish.")
+		hvBuildFail(response, http.StatusConflict, a.vmwareBusyTextLocked()+" Wait for it to finish first.")
 		return
 	}
 	a.hvBuild.plan = &plan
@@ -416,7 +417,7 @@ func (a *application) handleHVBuildAccount(response http.ResponseWriter, request
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	if a.vmwareBusyLocked() {
-		hvBuildFail(response, http.StatusConflict, "Wait for the current step to finish.")
+		hvBuildFail(response, http.StatusConflict, a.vmwareBusyTextLocked()+" Wait for it to finish first.")
 		return
 	}
 	if input.Forget {
@@ -434,7 +435,7 @@ func (a *application) handleHVBuildAccount(response http.ResponseWriter, request
 			password = a.hvBuild.password
 		}
 		if password == "" {
-			hvBuildFail(response, http.StatusBadRequest, "Type the password for "+user+", or leave the account empty to use your own Windows account.")
+			hvBuildFail(response, http.StatusBadRequest, "Type the password for "+user+", or choose your current sign-in.")
 			return
 		}
 		a.hvBuild.user, a.hvBuild.password = user, password
@@ -979,10 +980,10 @@ func (a *application) handleHVBuildNetworkMap(response http.ResponseWriter, requ
 		return
 	}
 	a.mu.Lock()
-	build, inventory, migration, busy := a.hvBuild.plan, a.vmware.inventory, a.vmware.plan, a.vmwareBusyLocked()
+	build, inventory, migration, busy, busyText := a.hvBuild.plan, a.vmware.inventory, a.vmware.plan, a.vmwareBusyLocked(), a.vmwareBusyTextLocked()
 	a.mu.Unlock()
 	if busy {
-		hvBuildFail(response, http.StatusConflict, "Wait for the current step to finish.")
+		hvBuildFail(response, http.StatusConflict, busyText+" Wait for it to finish first.")
 		return
 	}
 	if build == nil {
