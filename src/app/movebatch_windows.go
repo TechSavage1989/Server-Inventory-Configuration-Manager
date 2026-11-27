@@ -20,6 +20,10 @@ type mbRuntime struct {
 	loadErr string
 	// testing is set while a test VM is made or removed.
 	testing bool
+	// copying is what a sweep copies or cuts over now (nil when idle). It
+	// does not hold the VMware action, so Discovery reads and collections
+	// still run; steps that change VMs or the session wait for it.
+	copying *mbClaim
 }
 
 // startPlans loads the plans and starts their scheduler, so scheduled
@@ -33,15 +37,26 @@ func (a *application) startPlans() {
 	runner := newMBRunner(filepath.Join(a.vmwareRoot(), "migration-plans.json"), &mbHostTarget{a: a})
 	runner.log = func(text string) { a.vmwareLog("Plan: %s", text) }
 	runner.ready = a.mbReady
-	runner.claim = func() (func(), string) {
-		if status, message := a.startVMwareAction("plan"); status != 0 {
-			return nil, message
+	runner.claim = func(claim mbClaim) (func(), string) {
+		if !a.beginCriticalOperation() {
+			return nil, "An update is being installed."
 		}
 		a.mu.Lock()
-		a.vmware.cancel = runner.Stop
-		a.vmware.status, a.vmware.message = "moving", "A migration plan is copying VMs."
+		reason := a.planCopyRefusalLocked()
+		if reason == "" {
+			a.plans.copying = &claim
+		}
 		a.mu.Unlock()
-		return func() { a.finishVMwareAction("connected", "") }, ""
+		if reason != "" {
+			a.endCriticalOperation()
+			return nil, reason
+		}
+		return func() {
+			a.mu.Lock()
+			a.plans.copying = nil
+			a.mu.Unlock()
+			a.endCriticalOperation()
+		}, ""
 	}
 	if err := runner.Load(); err != nil {
 		a.plans.loadErr = err.Error()
