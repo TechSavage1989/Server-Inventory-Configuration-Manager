@@ -404,3 +404,14 @@ func replAgentErrorHint(err error) string {
 	}
 	return ""
 }
+
+// Live says whether the agent answered its last poll (ok is false for an
+// agent the console does not know).
+func (c *replConsole) Live(id string) (reachable, ok bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if live := c.live[id]; live != nil {
+		return live.Reachable, true
+	}
+	return false, false
+}
