@@ -1,3 +1,12 @@
+## 3.2.41 published and verified — 2026-11-27
+
+- [Release v3.2.41](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.41) ("Server Inventory and Migration Manager 3.2.41"), tag and target commit `4edd878b3114aa856603d6ad374d1d1a6e601c29`. Source: #196, #198, #202, #206, #208, #213 and #215 through the batch #200 (merged into `main` with a merge commit, `391fa5f`), prepared by #211 and #217, published by #219. The owner approved publishing on 2026-11-27 ("make all the current requested changes go out in the next releases").
+- The [release run](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/46069313015) passed: publish job 21:17–21:41 UTC, embedded scripts and EXE signed through Azure Artifact Signing over OIDC before the tests and checksum (Valid, timestamped); public feed and downloads verified.
+- The actual 3.2.40-to-3.2.41 upgrade (published signed 3.2.40 EXE through Download and Install, restart into 3.2.41, native health, settings, shortcut, timers, cleanup and rollback) passed in the same run, 21:41–21:53 UTC.
+- Stable EXE: 29,063,984 bytes; SHA-256 `9ed8202bbe48732430e424b110c1649281c5d31bd9d1c07ad3a4bf6394322bdb` (matches the public feed). Linux agent `simm-agent-linux-amd64`: 13,717,504 bytes; SHA-256 `709e36c674a14acac8e503649c0056d4bf7f550965eb8f4bb04fc43437f7192b`. All 14 assets are published.
+- Test channel the same day: 3.3.0-test.4 (run 46059649488, test `1c967f3`, EXE SHA-256 `6f0e7f99b2d13dc3841c604836f253ebe0d93e2006e47e67d0f510167f206af7`) and 3.3.0-test.5 (run 46066269602, test `5f7b6ee`, EXE SHA-256 `d76ef8839a5cfd7565182f6329789a15b7dddbc1c3dbc265df03aba0c5ad60fa`), both signed prereleases; the stable feed stayed on its stable version.
+- Not field-tested: VDDK plugin loading and vddk.log against a real VDDK, changed-block rounds after a stopped round on a real vCenter, 5-minute rounds on a busy host, remembered sign-ins after a restart.
+
 ## 3.2.40 published and verified — 2026-11-27
 
 - [Release v3.2.40](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.40) ("Server Inventory and Migration Manager 3.2.40"), tag and target commit `b55347bc7c8b869fe8b49bf8b23f9d790f74df3d`. Source: #190 and #192 through the batch #193 (merged into `main` with a merge commit), prepared by #194, published by #195. The owner approved publishing on 2026-11-27 ("publish now").
