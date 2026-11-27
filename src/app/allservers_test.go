@@ -384,3 +384,20 @@ func TestMigrationPlanSetsWaves(t *testing.T) {
 func (f *asFakeAgent) CheckReceiver(ctx context.Context, link replReceiverLink) (replReceiverCheck, error) {
 	return replReceiverCheck{Address: link.Address}, nil
 }
+
+func TestAllServersRowsOfferTheSourceNewAndTestVMConsoles(t *testing.T) {
+	inventory := &vmInventory{Server: "vc1", VMs: []vmMachine{{ID: "vm-1", Name: "APP01"}, {ID: "4C4D-HV", Name: "HV01VM", Source: "hyperv"}}}
+	plans := []mbPlanView{{ID: "p1", Name: "Wave", Settings: mbSettings{RemoteHost: "hvc", Node: "node2"}, VMs: []mbVMView{{mbVM: mbVM{ID: "vm-1", Name: "APP01", HyperVID: "11111111-2222-3333-4444-555555555555", Test: &mbTest{Name: "APP01-TEST", VMID: "66666666-2222-3333-4444-555555555555"}}}}}}
+	consoles := asConsolesFor(asRow{Kind: asKindPlan, Plan: "p1", VM: "vm-1", State: asTesting}, asInput{Inventory: inventory, Plans: plans})
+	if len(consoles) != 3 || consoles[0].Target.Platform != "vmware" || consoles[1].Target.Host != "node2" || consoles[2].Label != "Test VM" {
+		t.Fatalf("plan row consoles %+v", consoles)
+	}
+	consoles = asConsolesFor(asRow{Kind: asKindPlan, Plan: "p1", VM: "vm-1", State: asCutOver}, asInput{Inventory: inventory, Plans: plans})
+	if len(consoles) != 2 || consoles[0].Label != "New VM" {
+		t.Fatalf("a cut-over VMware VM is off, so only the new VMs are offered: %+v", consoles)
+	}
+	consoles = asConsolesFor(asRow{Kind: asKindVM, VM: "4C4D-HV"}, asInput{Inventory: inventory})
+	if len(consoles) != 1 || consoles[0].Target.Platform != "hyperv" || consoles[0].Target.Host != "vc1" {
+		t.Fatalf("Hyper-V source console %+v", consoles)
+	}
+}

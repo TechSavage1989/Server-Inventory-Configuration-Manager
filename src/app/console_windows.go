@@ -348,10 +348,7 @@ func (a *application) consoleOpenHyperV(target consoleTarget, frame *consoleFram
 	if err != nil {
 		return nil, consoleCaps{}, "", err
 	}
-	if target.Name != "" && info.Name != "" && !strings.EqualFold(info.Name, target.Name) {
-		backend.Close()
-		return nil, consoleCaps{}, "", fmt.Errorf("the VM with this ID is now called %q, not %q", info.Name, target.Name)
-	}
+	// A Hyper-V VM ID is a GUID, so it cannot point at another VM.
 	where := "Hyper-V host " + firstNonEmpty(info.Host, host, "this computer")
 	if local {
 		where = "this Hyper-V host"
