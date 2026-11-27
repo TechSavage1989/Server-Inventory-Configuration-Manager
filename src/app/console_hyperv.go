@@ -340,7 +340,7 @@ func consoleHyperVCaps(info consoleHVInfo, local bool) consoleCaps {
 		Keyboard:    true,
 		Mouse:       info.Mouse,
 		TypeText:    true,
-		ClipFromWhy: "Hyper-V's basic console has no clipboard. Use Enhanced session for copy and paste both ways once Windows in the VM is running.",
+		ClipFromWhy: "Hyper-V's basic console has no clipboard. Use Enhanced session for copy and paste both ways once Windows in the VM is running, read text from the screen, or (on the Hyper-V host) save the text to a file in the VM and read it here.",
 		Native:      []string{"enhanced"},
 		Notes: []string{
 			"Shown through Hyper-V's own screen and keyboard interfaces (WMI), so it works before the VM has a network. The picture refreshes a few times a second.",
