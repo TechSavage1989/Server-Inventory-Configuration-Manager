@@ -527,8 +527,8 @@ func buildRunbook(plan vmPlan, inventory *vmInventory) []vmRunbookWave {
 		if vmHasFinding(readiness, "rdm-virtual") || vmHasFinding(readiness, "independent-disk") {
 			item.Before = append(item.Before, "Convert raw device mappings and independent disks, or plan to copy their data separately.")
 		}
-		if vmHasFinding(readiness, "media") {
-			item.Before = append(item.Before, "Disconnect CD/DVD media.")
+		if vmHasFinding(readiness, "media") || vmHasFinding(readiness, "media-image") {
+			item.Before = append(item.Before, "Disconnect CD/DVD media, or tick Eject CD/DVD and floppy images so the copy sets the drives to a client device.")
 		}
 		if vmHasFinding(readiness, "virtio-drivers") || vmHasFinding(readiness, "aws-drivers") || vmHasFinding(readiness, "hardware-drivers") {
 			item.Before = append(item.Before, "Install "+profile.WindowsDrivers+" in the VM, then check them with the guest pre-flight.")

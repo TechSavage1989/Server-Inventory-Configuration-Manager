@@ -34,6 +34,8 @@ type vmMoveRequest struct {
 	Throttle *vmThrottle
 	// Stage reports the step the move is on for the live progress panel.
 	Stage func(stage, detail string)
+	// EjectMedia: see vmReplicaOptions.EjectMedia.
+	EjectMedia bool
 }
 
 type vmMoveResult struct {
@@ -120,6 +122,7 @@ func vmMoveRound(parent context.Context, options vmConnectOptions, request vmMov
 		NewSink:      request.NewSink,
 		Throttle:     request.Throttle,
 		Stage:        request.Stage,
+		EjectMedia:   request.EjectMedia,
 		Log:          log,
 		Progress: func(disk string, p vmCopyProgress) {
 			if request.Progress != nil {

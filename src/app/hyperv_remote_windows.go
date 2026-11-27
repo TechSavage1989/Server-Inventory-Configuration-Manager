@@ -249,6 +249,7 @@ func (a *application) handleHVRemoteMove(response http.ResponseWriter, request *
 		// DisconnectSource and FixUp: as in handleVMwareMove.
 		DisconnectSource bool `json:"disconnectSource"`
 		FixUp            bool `json:"fixUp"`
+		EjectMedia       bool `json:"ejectMedia"`
 		// Path is "share" (write over the node's administrative share) or
 		// "receiver" (a receiver the operator started on the node).
 		Path       string `json:"path"`
@@ -410,7 +411,7 @@ func (a *application) handleHVRemoteMove(response http.ResponseWriter, request *
 			}
 		}
 		connect := vmConnectOptions{Server: server, User: user, Password: password, Thumbprint: thumbprint, UserAgent: displayName + " " + appVersion, AppVersion: appVersion}
-		result, err := a.hvRemoteMoveRun(ctx, hv, vm, node, copyLocal, copyAdmin, input.Action == "cutover", input.Quiesce && input.Action == "copy", need, useReceiver, link, receiverNames, shown, connect, log)
+		result, err := a.hvRemoteMoveRun(ctx, hv, vm, node, copyLocal, copyAdmin, input.Action == "cutover", input.Quiesce && input.Action == "copy", input.EjectMedia, need, useReceiver, link, receiverNames, shown, connect, log)
 		password = ""
 		if err == nil && input.Action == "cutover" {
 			a.moveStage("create", "")
@@ -464,13 +465,13 @@ func (a *application) handleHVRemoteMove(response http.ResponseWriter, request *
 // hvRemoteMoveRun runs one copy round (or the cutover round) to the node:
 // over its administrative share with the connected account, or through the
 // receiver on the node.
-func (a *application) hvRemoteMoveRun(ctx context.Context, hv hvRemoteRuntime, vm vmMachine, node, copyLocal, copyAdmin string, cutover, quiesce bool, need uint64, useReceiver bool, link vmReceiverLink, receiverNames []string, shown string, options vmConnectOptions, log func(string)) (*vmMoveResult, error) {
-	return a.hvRemoteRound(ctx, hv, vm, node, copyLocal, copyAdmin, cutover, quiesce, need, useReceiver, link, receiverNames, shown, options, nil, nil, log)
+func (a *application) hvRemoteMoveRun(ctx context.Context, hv hvRemoteRuntime, vm vmMachine, node, copyLocal, copyAdmin string, cutover, quiesce, eject bool, need uint64, useReceiver bool, link vmReceiverLink, receiverNames []string, shown string, options vmConnectOptions, log func(string)) (*vmMoveResult, error) {
+	return a.hvRemoteRound(ctx, hv, vm, node, copyLocal, copyAdmin, cutover, quiesce, eject, need, useReceiver, link, receiverNames, shown, options, nil, nil, log)
 }
 
 // hvRemoteRound is hvRemoteMoveRun with a bandwidth limit and a second
 // progress callback, for migration plans run from an admin computer.
-func (a *application) hvRemoteRound(ctx context.Context, hv hvRemoteRuntime, vm vmMachine, node, copyLocal, copyAdmin string, cutover, quiesce bool, need uint64, useReceiver bool, link vmReceiverLink, receiverNames []string, shown string, options vmConnectOptions, throttle *vmThrottle, extra func(string, vmCopyProgress), log func(string)) (*vmMoveResult, error) {
+func (a *application) hvRemoteRound(ctx context.Context, hv hvRemoteRuntime, vm vmMachine, node, copyLocal, copyAdmin string, cutover, quiesce, eject bool, need uint64, useReceiver bool, link vmReceiverLink, receiverNames []string, shown string, options vmConnectOptions, throttle *vmThrottle, extra func(string, vmCopyProgress), log func(string)) (*vmMoveResult, error) {
 	if cutover {
 		// Read the host again before the guest is shut down: a VM made
 		// there since connecting, or a node gone down, stops the cutover
@@ -492,7 +493,7 @@ func (a *application) hvRemoteRound(ctx context.Context, hv hvRemoteRuntime, vm 
 		}
 		a.mu.Unlock()
 	}
-	request := vmMoveRequest{VMID: vm.ID, Name: vm.Name, Datacenter: vm.Datacenter, Quiesce: quiesce, Cutover: cutover, RecordFolder: filepath.Join(a.vmwareRoot(), safeName(strings.ToLower(options.Server)), "Move"), Stage: a.moveStage}
+	request := vmMoveRequest{VMID: vm.ID, Name: vm.Name, Datacenter: vm.Datacenter, Quiesce: quiesce, Cutover: cutover, EjectMedia: eject, RecordFolder: filepath.Join(a.vmwareRoot(), safeName(strings.ToLower(options.Server)), "Move"), Stage: a.moveStage}
 	progress, prefix := a.moveProgress(vm, shown)
 	request.Progress = progress
 	if extra != nil {
