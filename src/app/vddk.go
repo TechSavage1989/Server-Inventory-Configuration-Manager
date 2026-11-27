@@ -31,6 +31,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -301,4 +302,59 @@ func vddkConnectFor(ctx context.Context, options vmConnectOptions) (*vddkConnect
 		return nil, fmt.Errorf("%s sent no certificate", host)
 	}
 	return &vddkConnect{Server: host, Port: port, User: options.User, Password: options.Password, Thumbprint: vmThumbprintSHA1(certificates[0])}, nil
+}
+
+// vddkMissingDependencies names the DLLs that the VDDK DLLs import and that
+// are neither in the VDDK folder nor on this computer (systemHas). VDDK 8
+// needs the Visual C++ 2015-2022 runtime, including msvcp140_atomic_wait.dll
+// and vcruntime140_1.dll that older copies of it lack; without them
+// VixDiskLib loads but fails to start its plugins with error 16053 (owner's
+// Hyper-V host, 2026-11-27). API sets (api-ms-*, ext-ms-*) are resolved by
+// Windows itself and skipped.
+func vddkMissingDependencies(imports map[string][]string, systemHas func(name string) bool) []string {
+	local := map[string]bool{}
+	for name := range imports {
+		local[strings.ToLower(name)] = true
+	}
+	seen := map[string]bool{}
+	var missing []string
+	for _, names := range imports {
+		for _, name := range names {
+			lower := strings.ToLower(name)
+			if local[lower] || seen[lower] || strings.HasPrefix(lower, "api-ms-") || strings.HasPrefix(lower, "ext-ms-") {
+				continue
+			}
+			seen[lower] = true
+			if !systemHas(name) {
+				missing = append(missing, lower)
+			}
+		}
+	}
+	sort.Strings(missing)
+	return missing
+}
+
+// vddkVCRuntimeURL is Microsoft's permanent link to the latest Visual C++
+// 2015-2022 redistributable for x64.
+const vddkVCRuntimeURL = "https://aka.ms/vs/17/release/vc_redist.x64.exe"
+
+// vddkMissingText says what to install for the missing DLLs.
+func vddkMissingText(missing []string) string {
+	runtime := false
+	for _, name := range missing {
+		if strings.HasPrefix(name, "msvcp") || strings.HasPrefix(name, "vcruntime") || strings.HasPrefix(name, "concrt") {
+			runtime = true
+		}
+	}
+	text := "VDDK needs " + strings.Join(missing, ", ") + ", which this computer does not have"
+	if runtime {
+		text += ". Install the latest Microsoft Visual C++ Redistributable for Visual Studio 2015-2022 (x64) from " + vddkVCRuntimeURL + ", then press Check and save again"
+	}
+	return text
+}
+
+// vddkInitHint explains VixDiskLib's start-up failure (16053), which names
+// no subsystem, and that VDDK starts once per run.
+func vddkInitHint(err error) error {
+	return fmt.Errorf("VDDK could not start (%v). Check and save in Help > Settings names any DLL it needs that this computer lacks (usually the Visual C++ 2015-2022 x64 runtime); after fixing it, restart this application, because VDDK starts only once per run", err)
 }
