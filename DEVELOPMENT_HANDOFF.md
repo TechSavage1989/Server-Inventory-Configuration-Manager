@@ -1,11 +1,10 @@
-<<<<<<< HEAD
 ## Unreleased: virtual TPM VMs copy through VDDK or at their cutover; one migration mixes copy methods — 2026-11-27
 
 - Field report on 3.2.38: running VMs with a virtual TPM (DESK21-CPA01, CPA02) failed every round. vSphere refuses to export a VM whose own files are encrypted (Broadcom KB 431565, every vTPM VM) and the host locks the running disk, so only VDDK or a copy while the VM is off can read them. The round now says so in plain words (`vmEncryptedHomeError`) instead of the raw fault.
 - Migration plan VMs have a copy method (`mbVM.Method`): live (default; VDDK when set) or copy at cutover while shut down. One plan mixes them with the same waves, cutover, fix-up and rollback. Plan rows offer Set up VDDK and Copy at cutover for these VMs; All jobs and servers shows Copies at cutover.
-- New migration's Review blocks a running vTPM VM until VDDK is set up (inline, same check as Help > Settings) or the VM is set to copy at cutover; the other VMs are unaffected. AGENTS rule 64.
+- New migration's Review blocks a running vTPM VM until VDDK is set up (inline, same check as Help > Settings) or the VM is set to copy at cutover; the other VMs are unaffected. AGENTS rule 65.
 - Validation here: `go test ./...` and vet on Linux, a Windows cross-build, and `scripts/test_workspace.cjs` in Linux Chromium. Not field-validated: VDDK reads of a real vTPM VM, and an offline cutover of one.
-=======
+
 ## 3.2.38 published and verified — 2026-11-27
 
 - [Release v3.2.38](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.38) ("Server Inventory and Migration Manager 3.2.38"), tag and target commit `f26e245f8f951018343a5fcced439a214446e373`. Source: #164, #165, #167, #168 and #169 through the batch #166 (merged into `main` with a merge commit, `34377a3`), prepared by #171 and published by #172. The owner asked to publish on 2026-11-27.
@@ -14,7 +13,6 @@
 - Stable EXE: 28,542,256 bytes; SHA-256 `287349f46a752fb5d33971668e917ddf02b3b0dc696e9444dd21d5f12265b5cc` (matches the public feed). Linux agent `simm-agent-linux-amd64`: 13,672,448 bytes; SHA-256 `c4309a058d37f2cd3e955be7a17f8191186f4e76f9e2f732df295334046269f1`. All 14 assets are published.
 
 Limits: VDDK reads against a real ESXi host and vCenter, ejecting images on a real vCenter, and file share moves between two real servers over remoting have not been field-tested. The limits under 3.2.37 still apply. CI artifacts were not downloaded, and no client data was used.
->>>>>>> origin/release/next
 
 ## Unreleased: opt-in Test update channel and the test branch — 2026-11-27
 
