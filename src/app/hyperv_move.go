@@ -187,7 +187,10 @@ func (t *hypervTracking) limitFor(disk hypervDiskRef, state *vmCopyState) (strin
 		return "", "no change tracking reference point is kept yet (this round keeps one)"
 	case !strings.HasSuffix(strings.ToLower(disk.Path), ".vhdx"):
 		return "", "it is read through " + filepath.Base(strings.ReplaceAll(disk.Path, `\`, "/")) + ", not a .vhdx file Hyper-V tracks on its own (the VM has other checkpoints, or the disk is a VHD or VHD Set)"
-	case state == nil || !state.Complete || state.ChangeID != hypervRCTTag(t.record.Checkpoint):
+	// An unfinished copy keeps the change ID of its last whole copy, and
+	// everything a stopped round wrote changed since that reference point,
+	// so it is read from there like a finished one.
+	case state == nil || state.ChangeID != hypervRCTTag(t.record.Checkpoint):
 		return "", "its copy was not made from the round the reference point keeps"
 	case t.record.Disks[strings.ToLower(disk.Key)] == "":
 		return "", "Hyper-V gave no change tracking ID for this disk"
@@ -572,10 +575,13 @@ func hypervCopyDisk(ctx context.Context, request hypervMoveRequest, index int, d
 			for _, r := range options.Ranges {
 				total += r.Length
 			}
+			result.Tracked = total
 			log(fmt.Sprintf("%s: reading only the %d areas (%s) Hyper-V change tracking (RCT) reports written since the last copy.", label, len(options.Ranges), vmFormatBytes(total)))
 		}
 	}
+	result.Read = "rct"
 	if !changed {
+		result.Read, result.Why = "file", why
 		log(fmt.Sprintf("%s: reading all used data and sending only changed chunks, because %s.", label, why))
 	}
 	if allocated := image.Allocated(); !changed && allocated != nil {

@@ -292,8 +292,8 @@ func TestPlanPauseStopsRoundsWithoutCountingFailure(t *testing.T) {
 func TestPlanRefusesDuplicatesAndBadSettings(t *testing.T) {
 	target := &mbFakeTarget{checkErr: map[string]error{"vcls-1": errors.New("not moved")}}
 	runner, _ := mbTestRunner(t, target)
-	if _, err := runner.Create("P", "vc", mbSettings{SyncMinutes: 5}, mbVMs("a")); err == nil {
-		t.Fatal("5-minute syncs must be refused")
+	if _, err := runner.Create("P", "vc", mbSettings{SyncMinutes: 4}, mbVMs("a")); err == nil {
+		t.Fatal("4-minute syncs must be refused")
 	}
 	if _, err := runner.Create("P", "vc", mbSettings{Concurrency: 9}, mbVMs("a")); err == nil {
 		t.Fatal("concurrency 9 must be refused")
@@ -578,7 +578,55 @@ func TestEncryptedHomeErrorSaysWhatWorks(t *testing.T) {
 		t.Fatal(plain)
 	}
 	withVDDK := vmEncryptedHomeError(true, "VixDiskLib_Open failed: no permission.").Error()
-	if !strings.Contains(withVDDK, "Cryptographic operations > Direct Access") || !strings.Contains(withVDDK, "no permission)") || !strings.HasSuffix(withVDDK, vmEncryptedHomeHint) {
+	if !strings.Contains(withVDDK, "Cryptographic operations > Direct Access") || !strings.Contains(withVDDK, "no permission)") || !strings.HasSuffix(withVDDK, vmEncryptedHomeVDDKHint) || strings.Contains(withVDDK, "Choose the VDDK folder") {
 		t.Fatal(withVDDK)
+	}
+}
+
+// Sync now always answers: how many VMs it asked for, why the others were
+// left alone, and what keeps the plan from copying (owner, 3.3.0-test.1:
+// "when i click sync all or sync selected, i don't think anything is
+// happening" while the vCenter sign-in was missing after a restart).
+func TestSyncNowSaysWhatItQueuedAndWhyThePlanWaits(t *testing.T) {
+	target := &mbFakeTarget{fail: map[string]error{}}
+	runner, now := mbTestRunner(t, target)
+	signIn := "Sign in to vc.example.com in Discovery again: the password is kept only while the application runs."
+	runner.ready = func(*mbPlan) string { return signIn }
+	vms := mbVMs("app01", "app02", "desk01")
+	vms[2].Method = mbMethodOffline
+	plan, err := runner.Create("Wave 1", "vc.example.com", mbSettings{StartAt: now.Add(time.Hour), SyncMinutes: 30, Concurrency: 2}, vms)
+	if err != nil {
+		t.Fatal(err)
+	}
+	answer, err := runner.SyncRequest(plan.ID, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if answer.Queued != 2 || answer.Waiting != signIn || len(answer.Skipped) != 1 || !strings.Contains(answer.Skipped[0], "desk01 copies at its cutover") {
+		t.Fatalf("answer = %+v", answer)
+	}
+	runner.Sweep()
+	if len(target.rounds) != 0 {
+		t.Fatalf("a plan that waits for a sign-in copied: %v", target.rounds)
+	}
+	// Once signed in, the asked-for VMs copy at the next sweep, before the
+	// plan's start time.
+	runner.ready = func(*mbPlan) string { return "" }
+	runner.Sweep()
+	if len(target.rounds) != 2 {
+		t.Fatalf("rounds after signing in = %v", target.rounds)
+	}
+	if err := runner.SetPaused(plan.ID, true); err != nil {
+		t.Fatal(err)
+	}
+	answer, _ = runner.SyncRequest(plan.ID, []string{"vm-app01"})
+	if !answer.Paused || answer.Waiting != "" || answer.Queued != 1 {
+		t.Fatalf("paused answer = %+v", answer)
+	}
+	if text := asSyncText(answer); !strings.Contains(text, "resumed") {
+		t.Fatalf("paused row text = %q", text)
+	}
+	if text := asSyncText(mbSyncAnswer{Skipped: []string{"app01 is copying now"}}); text != "Not synced: app01 is copying now." {
+		t.Fatalf("skipped row text = %q", text)
 	}
 }

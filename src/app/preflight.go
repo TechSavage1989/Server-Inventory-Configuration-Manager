@@ -68,8 +68,10 @@ type vmPreflight struct {
 	Checks   []string `json:"checks"`
 	// Error is set when the server could not be reached or the checks did
 	// not run; the facts are then empty.
-	Error string            `json:"error,omitempty"`
-	Facts *vmPreflightFacts `json:"facts,omitempty"`
+	Error string `json:"error,omitempty"`
+	// ErrorSummary is Error in one line (preflightErrorSummary).
+	ErrorSummary string            `json:"errorSummary,omitempty"`
+	Facts        *vmPreflightFacts `json:"facts,omitempty"`
 	// Summary is preflightFacts at the time of the check, for the page.
 	Summary [][2]string `json:"summary,omitempty"`
 }
@@ -249,12 +251,9 @@ func preflightFindings(p *vmPreflight) []vmFinding {
 		return nil
 	}
 	findings := []vmFinding{}
-	add := func(severity, code, message, action string) {
-		findings = append(findings, vmFinding{Severity: severity, Code: code, Message: message, Action: action})
-	}
 	when := p.CheckedAt.Local().Format("2006-01-02 15:04")
 	if p.Error != "" || p.Facts == nil {
-		add(vmSeverityWarning, "preflight-failed", "The domain controller and SQL Server checks could not reach "+vmNonEmpty(p.Computer, "the server")+" ("+when+"): "+vmNonEmpty(p.Error, "no facts came back."), "Check the computer name, that PowerShell remoting answers on it (Enable-PSRemoting, TCP 5985) and that the account is an administrator there, then run the checks again. Nothing is installed on the server.")
+		findings = append(findings, vmFinding{Severity: vmSeverityWarning, Code: "preflight-failed", Message: "SQL and DC checks: " + preflightErrorSummary(p.Computer, p.Via, p.Error) + " (" + when + ")", Action: "Check the computer name, that PowerShell remoting answers on it (Enable-PSRemoting, TCP 5985) and that the account is an administrator there, then run the checks again. Nothing is installed on the server.", Detail: strings.TrimSpace(p.Error)})
 		return findings
 	}
 	facts := p.Facts
@@ -459,7 +458,7 @@ func preflightFacts(p *vmPreflight) [][2]string {
 	}
 	rows := [][2]string{{"Checked", p.CheckedAt.Local().Format("2006-01-02 15:04") + " through " + map[string]string{"direct": "PowerShell Direct", "winrm": "PowerShell remoting"}[p.Via] + " to " + p.Computer}}
 	if p.Error != "" || p.Facts == nil {
-		return append(rows, [2]string{"Result", "Not reached: " + p.Error})
+		return append(rows, [2]string{"Result", "Not reached: " + preflightErrorSummary(p.Computer, p.Via, p.Error)})
 	}
 	facts := p.Facts
 	rows = append(rows, [2]string{"Windows", strings.TrimSpace(facts.OS + " " + facts.OSVersion)})
@@ -563,6 +562,9 @@ func applyPreflightResults(inventory *vmInventory, saved map[string]*vmPreflight
 		if check == nil || (vm.Preflight != nil && !check.CheckedAt.After(vm.Preflight.CheckedAt)) {
 			continue
 		}
+		if check.Error != "" && check.ErrorSummary == "" {
+			check.ErrorSummary = preflightErrorSummary(check.Computer, check.Via, check.Error)
+		}
 		vm.Preflight = check
 		vm.Readiness = nil
 		for _, target := range vmTargets {
@@ -617,3 +619,45 @@ var preflightCodes = func() []string {
 	sort.Strings(codes)
 	return codes
 }()
+
+// preflightErrorSummary says in one line why a check could not reach its
+// server. Remote errors (WinRM above all) run to many lines; the full text
+// stays in the finding's Detail.
+func preflightErrorSummary(computer, via, message string) string {
+	name := vmNonEmpty(strings.TrimSpace(computer), "the server")
+	text := strings.ToLower(message)
+	route := "over WinRM (TCP 5985)"
+	if via == "direct" {
+		route = "through PowerShell Direct"
+	}
+	has := func(parts ...string) bool {
+		for _, part := range parts {
+			if strings.Contains(text, part) {
+				return true
+			}
+		}
+		return false
+	}
+	switch {
+	case strings.TrimSpace(message) == "":
+		return "no facts came back from " + name + "."
+	case has("access is denied", "access denied", "logon failure", "user name or password is incorrect", "the user name or password"):
+		return name + " refused the account (access denied)."
+	case has("kerberos", "trustedhosts", "negotiate authentication"):
+		return "couldn't sign in to " + name + " " + route + ": use its domain name (Kerberos) rather than an IP address."
+	case has("could not be resolved", "cannot find the computer", "no such host", "name or service not known", "network path was not found", "the computer name is not valid"):
+		return name + " was not found: check the name and DNS."
+	case has("timed out", "timeout", "did not respond"):
+		return name + " did not answer in time " + route + "."
+	case has("cannot connect to the destination", "winrm cannot complete", "winrm client cannot", "connecting to remote server", "cannot connect", "refused", "unreachable"):
+		return "couldn't reach " + name + " " + route + "."
+	}
+	line := strings.TrimSpace(strings.SplitN(strings.TrimSpace(message), "\n", 2)[0])
+	if cut := strings.Index(line, ". "); cut > 0 {
+		line = line[:cut+1]
+	}
+	if runes := []rune(line); len(runes) > 140 {
+		line = string(runes[:137]) + "..."
+	}
+	return line
+}

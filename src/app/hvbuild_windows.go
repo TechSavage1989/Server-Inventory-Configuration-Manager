@@ -980,10 +980,10 @@ func (a *application) handleHVBuildNetworkMap(response http.ResponseWriter, requ
 		return
 	}
 	a.mu.Lock()
-	build, inventory, migration, busy, busyText := a.hvBuild.plan, a.vmware.inventory, a.vmware.plan, a.vmwareBusyLocked(), a.vmwareBusyTextLocked()
+	build, inventory, migration, refusal := a.hvBuild.plan, a.vmware.inventory, a.vmware.plan, a.vmPlanSaveRefusalLocked()
 	a.mu.Unlock()
-	if busy {
-		hvBuildFail(response, http.StatusConflict, busyText+" Wait for it to finish first.")
+	if refusal != "" {
+		hvBuildFail(response, http.StatusConflict, refusal)
 		return
 	}
 	if build == nil {

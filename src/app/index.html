@@ -318,7 +318,8 @@ button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visi
 
 /* Workspace polish: grouped categories, quick actions, shortcuts */
 .vm-ack{display:inline-block;margin-top:calc(3*var(--sp))}
-.vm-fixup{margin-top:calc(10*var(--sp));padding:calc(8*var(--sp)) calc(10*var(--sp));border:1px solid #dbe3ed;border-radius:8px;background:#fbfcfe}.vm-fixup.failed{border-color:#e7b4ae;background:#fdf6f5}.vm-fixup.done{border-color:#b9dcc4;background:#f5fbf7}.vm-fixup-head{display:flex;flex-wrap:wrap;gap:calc(6*var(--sp));align-items:baseline;font-size:max(10.5px,calc(12.5*var(--fz)))}.vm-ga{margin:calc(6*var(--sp)) 0}
+.vm-fixup{margin-top:calc(10*var(--sp));padding:calc(8*var(--sp)) calc(10*var(--sp));border:1px solid #dbe3ed;border-radius:8px;background:#fbfcfe}.vm-fixup.failed{border-color:#e7b4ae;background:#fdf6f5}.vm-fixup.done{border-color:#b9dcc4;background:#f5fbf7}.vm-fixup-head{display:flex;flex-wrap:wrap;gap:calc(6*var(--sp));align-items:baseline;font-size:max(10.5px,calc(12.5*var(--fz)))}.vm-ga{margin:calc(6*var(--sp)) 0}.vm-ga .vm-move-actions{margin-top:calc(10*var(--sp))}.vm-ga-remember{margin-top:calc(8*var(--sp))}.vm-ga .vm-field input{box-sizing:border-box}
+.mp-signin{display:flex;flex-direction:column;align-items:flex-start;gap:calc(6*var(--sp));margin:calc(8*var(--sp)) 0;padding:calc(10*var(--sp)) calc(12*var(--sp));border:1px solid #e0c98a;border-radius:8px;background:#fffaf0}.mp-signin.hidden{display:none}.mp-signin-remember{display:flex;gap:calc(6*var(--sp));align-items:flex-start;font-size:max(10.5px,calc(12*var(--fz)))}.mp-signin-remember input{flex:none;width:15px;height:15px;margin-top:2px}.vc-remember-list{display:flex;flex-direction:column;gap:calc(4*var(--sp))}.vc-remember-row{display:flex;gap:calc(8*var(--sp));align-items:center;flex-wrap:wrap}.mp-signin-row{display:flex;flex-wrap:wrap;gap:calc(8*var(--sp));align-items:center}.mp-signin-row input{width:16em;max-width:100%}
 .link-button{background:none;border:0;padding:2px calc(4*var(--sp));margin:0;color:#1f5fbf;font-weight:600;font-size:max(10.5px,calc(12*var(--fz)));cursor:pointer;border-radius:5px;text-decoration:underline;text-underline-offset:2px}.link-button:hover{color:#123f85}.link-button:focus-visible{outline:2px solid #2d6fd6;outline-offset:1px}.link-button:disabled{color:#94a0b3;cursor:default;text-decoration:none}
 .category-group{margin-top:calc(14*var(--sp))}.category-group+.category-group{margin-top:calc(16*var(--sp))}.category-group .category-grid{margin-top:calc(8*var(--sp))}.category-group-head{display:flex;align-items:center;gap:calc(10*var(--sp));padding-bottom:calc(6*var(--sp));border-bottom:1px solid #e3e8ef}.category-group-title{font-size:max(10.5px,calc(12*var(--fz)));font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#45526a}.category-group-count{font-size:max(10.5px,calc(12*var(--fz)));color:#6a7790;margin-right:auto}
 .category-check.has-export strong::after{content:"+ export";display:inline-block;margin-left:calc(6*var(--sp));padding:0 calc(6*var(--sp));border-radius:999px;background:#dfeafe;color:#1f4f9c;font-size:10px;font-weight:700;line-height:calc(16*var(--fz));vertical-align:1px}
@@ -499,7 +500,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
 .vm-table-wrap{margin-top:calc(8*var(--sp));border:1px solid #e0e6ee;border-radius:9px;max-height:360px;overflow:auto}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .vm-pick-col{width:26px;text-align:center}.vm-pick-col input{width:15px;height:15px;margin:0;accent-color:#2563eb;cursor:pointer}.vm-table tr.picked{background:#f1f6ff}
-.vm-bulk{display:flex;flex-direction:column;gap:calc(6*var(--sp));margin-top:calc(8*var(--sp))}.vm-bulk:empty{display:none}.vm-bulk-row{display:flex;flex-wrap:wrap;align-items:center;gap:calc(6*var(--sp))}.vm-bulk-row select{height:calc(30*var(--fz));max-width:260px;border:1px solid #bcc9d9;border-radius:7px;padding:0 calc(6*var(--sp));font:inherit;font-size:max(10.5px,calc(12*var(--fz)));background:#fff}.vm-bulk-row .secondary-button{padding:calc(5*var(--sp)) calc(10*var(--sp));font-size:max(10.5px,calc(12*var(--fz)))}.vm-bulk-count{font-size:max(10.5px,calc(12.5*var(--fz)));color:#1b2942;margin-right:calc(4*var(--sp))}
+.vm-bulk{display:flex;flex-direction:column;gap:calc(6*var(--sp));margin-top:calc(8*var(--sp))}.vm-bulk:empty{display:none}.vm-bulk-row{display:flex;flex-wrap:wrap;align-items:center;gap:calc(6*var(--sp))}.vm-bulk-row select{height:calc(30*var(--fz));max-width:260px;border:1px solid #bcc9d9;border-radius:7px;padding:0 calc(6*var(--sp));font:inherit;font-size:max(10.5px,calc(12*var(--fz)));background:#fff}.vm-bulk-row .secondary-button{padding:calc(5*var(--sp)) calc(10*var(--sp));font-size:max(10.5px,calc(12*var(--fz)))}.vm-bulk-count{min-width:9.5em;font-size:max(10.5px,calc(12.5*var(--fz)));color:#1b2942;margin-right:calc(4*var(--sp))}
 .pf-panel{border:1px solid #d5dfec;border-radius:9px;padding:calc(10*var(--sp)) calc(12*var(--sp));background:#f8fbff;margin-top:calc(8*var(--sp))}.pf-title{display:block;font-size:max(10.5px,calc(12.5*var(--fz)))}.pf-checks{display:flex;flex-wrap:wrap;gap:calc(4*var(--sp)) calc(16*var(--sp));margin:calc(6*var(--sp)) 0}.pf-table-wrap{overflow-x:auto;max-height:340px;overflow-y:auto;margin:calc(6*var(--sp)) 0}.pf-table{width:100%;border-collapse:collapse;font-size:max(10.5px,calc(12.5*var(--fz)))}.pf-table th{text-align:left;font-weight:600;color:#52647c;padding:calc(4*var(--sp)) calc(6*var(--sp));border-bottom:1px solid #dbe3ed;white-space:nowrap}.pf-table td{padding:calc(4*var(--sp)) calc(6*var(--sp));border-bottom:1px solid #eef2f7;vertical-align:top}.pf-table input[type=text]{width:100%;min-width:140px;box-sizing:border-box}.pf-table select{max-width:100%}.pf-last{color:#344256;min-width:180px}.pf-last.running{color:#1d4ed8;font-weight:600}.pf-last.failed{color:#b42318}.pf-account{margin:calc(6*var(--sp)) 0}.pf-details>summary{cursor:pointer;font-weight:600;font-size:max(10.5px,calc(13*var(--fz)));padding:calc(6*var(--sp)) 0}
 .nw-enc{display:block;font-size:max(10.5px,calc(11*var(--fz)));color:#475569}.nw-enc.need{color:#9a3412;font-weight:600}.nw-batch{margin:calc(10*var(--sp)) 0}.nw-batch-list{list-style:none;margin:calc(8*var(--sp)) 0 0;padding:0;display:grid;gap:calc(6*var(--sp))}.nw-batch-item{border-top:1px solid #e3e9f2;padding-top:calc(6*var(--sp))}.nw-batch-head{display:flex;gap:calc(10*var(--sp));align-items:baseline;flex-wrap:wrap}.nw-batch-state{font-size:max(10.5px,calc(11*var(--fz)));font-weight:700;color:#475569}.nw-batch-item.running .nw-batch-state{color:#1d4ed8}.nw-batch-item.done .nw-batch-state{color:#15803d}.nw-batch-item.failed .nw-batch-state,.nw-batch-error{color:#b91c1c}.nw-batch-error{font-size:max(10.5px,calc(12*var(--fz)))}
 .vm-bulk-panel{border:1px solid #d5dfec;border-radius:9px;padding:calc(10*var(--sp)) calc(12*var(--sp));background:#f8fbff}.vm-bulk-panel>strong{display:block;font-size:max(10.5px,calc(12.5*var(--fz)))}.vm-bulk-panel .primary-button,.vm-bulk-panel .secondary-button{margin-top:calc(8*var(--sp))}.vm-bulk-skip td{color:#6a7a8f}.vm-bulk-batch:empty{display:none}.vm-bulk-batch{margin-top:calc(8*var(--sp))}.vm-bulk-bar{height:6px;border-radius:3px;background:#e3e9f2;margin-top:calc(6*var(--sp));overflow:hidden}.vm-bulk-bar span{display:block;height:100%;background:#2563eb}
@@ -533,7 +534,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
 .vm-count.hosts{border-color:#c9d6ea;background:#f5f8fd;margin-right:calc(10*var(--sp));position:relative}.vm-count.hosts strong{color:#1d4ed8}.vm-count.hosts:hover{background:#eaf1ff}
 .vm-count.hosts::after{content:"";position:absolute;right:-10px;top:6px;bottom:6px;border-right:1px solid #dbe3ed}
 .vm-count-sub{display:block;font-size:max(10.5px,calc(11*var(--fz)));color:#596b80;white-space:nowrap}.vm-count.skip strong{color:#596b80}.vm-count:hover{border-color:#9fb4d4}.vm-count:focus{outline:2px solid #2563eb;outline-offset:1px}
-.vm-hint{margin-left:auto}
+#vmTableNote{margin-right:auto}#mpPickNames{min-height:1.45em}
 .vm-drawer-head{flex:none;padding:calc(10*var(--sp)) calc(16*var(--sp)) calc(8*var(--sp));border-bottom:1px solid #e3e8f0;background:#f7f9fc}
 .vm-drawer-nav{display:flex;align-items:center;gap:calc(8*var(--sp));min-height:calc(26*var(--fz))}
 .vm-drawer-kind{font-size:max(10.5px,calc(11*var(--fz)));font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#596b80;margin-right:auto}
@@ -606,7 +607,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
 .vm-stat strong{font-size:max(10.5px,calc(18*var(--fz)));color:#1b2942}.vm-stat:hover{border-color:#2f6fd6;background:#eef4fe}.vm-stat:focus{outline:2px solid #2563eb;outline-offset:1px}.vm-stat:disabled{cursor:default}
 .vm-list-panel .vm-toolbar{margin-top:0}
 @media(max-width:900px){.vm-inv{grid-template-columns:1fr}.vm-inv-nav{position:static;max-height:300px;min-height:0;border-right:0;border-bottom:1px solid #e0e6ee;border-radius:10px 10px 0 0}.vm-inv-tree{max-height:200px}}
-@media(max-width:720px){.vm-obj-actions{margin-left:0;width:100%}.vm-hint{display:none}}
+@media(max-width:720px){.vm-obj-actions{margin-left:0;width:100%}#vmTableNote{margin-right:0}}
 .vm-findings{margin:calc(6*var(--sp)) 0 0;padding-left:calc(18*var(--sp));font-size:max(10.5px,calc(12*var(--fz)));color:#334156}.vm-findings li{margin:calc(4*var(--sp)) 0;overflow-wrap:anywhere}
 .vm-findings .blocker{color:#8c2626;font-weight:600}.vm-findings .warning{color:#74551f}.vm-findings .good{color:#1d6b43}
 .vm-finding-action{display:block;font-weight:400;color:#52647c}
@@ -640,7 +641,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
 .vm-flow{display:flex;flex-wrap:wrap;align-items:center;gap:calc(6*var(--sp)) calc(8*var(--sp));margin-top:calc(8*var(--sp));font-size:max(10.5px,calc(12*var(--fz)));color:#334156}
 .vm-flow-box{padding:calc(5*var(--sp)) calc(10*var(--sp));border:1px solid #d6e0ee;border-radius:7px;background:#fff}.vm-flow-box.here{border-color:#2563eb;box-shadow:0 0 0 1px #2563eb}.vm-flow-box b{color:#1b2942}
 .rp-body .vm-field input,.rp-body .vm-field select,.rp-body .vm-field textarea{max-width:520px;box-sizing:border-box;border:1px solid #bcc9d9;border-radius:7px;padding:calc(5*var(--sp)) calc(9*var(--sp));font:inherit;font-size:max(10.5px,calc(13*var(--fz)));min-height:calc(32*var(--fz));background:#fff;color:#1b2942}.rp-body .vm-field textarea{resize:vertical}
-.rp-body{display:flex;flex-direction:column;gap:calc(12*var(--sp));overflow-y:auto;overflow-x:hidden;min-height:0;flex:1 1 auto}.rp-summary{display:flex;flex-wrap:wrap;gap:calc(8*var(--sp))}.rp-stat{min-width:86px;padding:calc(7*var(--sp)) calc(10*var(--sp));border:1px solid #dbe3ed;border-radius:9px;background:#fbfcfe}.rp-stat strong{display:block;font-size:max(10.5px,calc(17*var(--fz)));color:#1b2942}.rp-stat span{font-size:max(10.5px,calc(11*var(--fz)));color:#52647c}.rp-stat.good{border-color:#a7d8b8;background:#f2fbf5}.rp-stat.warning{border-color:#f0cf8a;background:#fff9ea}.rp-stat.danger{border-color:#f1b3ad;background:#fff4f3}.rp-stat{font:inherit;text-align:left;cursor:pointer;transition:border-color .15s,box-shadow .15s}.rp-stat:hover{border-color:#9db8e6;box-shadow:0 1px 4px rgba(31,95,191,.14)}.rp-stat:focus-visible{outline:2px solid #2d6fd6;outline-offset:2px}.rp-stat[aria-pressed="true"]{border-color:#2563eb;box-shadow:inset 0 0 0 1px #2563eb;background:#f7faff}.rp-filter-bar{display:flex;flex-wrap:wrap;align-items:center;gap:calc(6*var(--sp)) calc(10*var(--sp));margin:calc(4*var(--sp)) 0 calc(8*var(--sp));padding:calc(6*var(--sp)) calc(10*var(--sp));border:1px solid #c9d6ea;border-radius:8px;background:#f5f8fd;font-size:max(10.5px,calc(12.5*var(--fz)))}.rp-progress{min-width:190px}.rp-bar{position:relative;height:10px;border-radius:5px;background:#e6ebf2;overflow:hidden}.rp-bar-fill{display:block;height:100%;border-radius:5px;background:#7b8aa0;transition:width .4s}.rp-bar.active .rp-bar-fill{background:#2563eb}.rp-bar.good .rp-bar-fill{background:#1d8a52}.rp-bar.warning .rp-bar-fill{background:#d08a14}.rp-bar.danger .rp-bar-fill{background:#c2413a}.rp-progress-text{margin-top:calc(3*var(--sp));font-size:max(10.5px,calc(11.5*var(--fz)));color:#52647c}.rp-progress-text.rp-stall{color:#7a5410;font-weight:600}.fv-why{color:#7a5410;margin-top:calc(4*var(--sp))}.vm-act.warning{color:#7a5410}.vm-act.danger{color:#9b2c22;font-weight:600}.vm-act.good{color:#1f6a3a}.fv-source{color:#1f6a3a}.fv-checklist{margin:calc(6*var(--sp)) 0 calc(8*var(--sp)) calc(18*var(--sp));padding:0;font-size:max(10.5px,calc(12.5*var(--fz)))}.fv-checklist li{margin:2px 0}.fv-next{margin-top:calc(10*var(--sp));padding:calc(9*var(--sp)) calc(12*var(--sp));border:1px solid #a7d8b8;border-radius:8px;background:#f2fbf5}.fv-next p{margin:calc(4*var(--sp)) 0 calc(8*var(--sp))}.fv-why:empty{display:none}.fv-warn{color:#9b2c22;font-weight:600}.fv-refresh{margin-left:auto}.rp-milestone{margin-top:calc(3*var(--sp));font-size:max(10.5px,calc(11.5*var(--fz)));font-weight:600;color:#1f6a3a}.rp-milestone::before{content:"\2713  "}.rp-row-actions{display:flex;flex-wrap:wrap;gap:calc(6*var(--sp));margin-top:calc(6*var(--sp))}.rp-row-actions button{min-width:0;width:auto;min-height:calc(28*var(--fz));padding:calc(3*var(--sp)) calc(12*var(--sp));font-size:max(10.5px,calc(12*var(--fz)))}.rp-jobs tr.rp-job-row>td:last-child{white-space:nowrap;width:1%}.rp-jobs td,.rp-progress-text,.rp-error{overflow-wrap:anywhere;word-break:break-word}.rp-advice td{white-space:normal}.rp-jobs tr.rp-job-row{cursor:pointer}.rp-jobs tr.rp-job-row:hover,.rp-jobs tr.rp-job-row:hover+.rp-advice{background:#f7faff}.rp-jobs tr.rp-advice{cursor:pointer}.vm-transfers{margin-top:calc(10*var(--sp))}.xfer-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:calc(4*var(--sp)) calc(10*var(--sp));margin-bottom:calc(4*var(--sp))}.xfer-table progress,.rp-disk-table progress{width:90px;height:10px;vertical-align:middle}.xfer-pct{margin-left:calc(6*var(--sp));font-variant-numeric:tabular-nums}.xfer-error{color:#a33b3b}.xfer-table td{vertical-align:top}.xfer-nowrap{white-space:nowrap}.xfer-card{border:1px solid #dbe3ed;border-radius:8px;padding:calc(7*var(--sp)) calc(9*var(--sp));margin-top:calc(6*var(--sp));background:#fbfcfe}.xfer-card-top{display:flex;justify-content:space-between;gap:calc(8*var(--sp));align-items:center}.xfer-card progress{width:100%;height:10px;margin:calc(5*var(--sp)) 0 2px}.xfer-card .vm-note{overflow-wrap:anywhere}.vm-finder{margin-top:calc(6*var(--sp));padding:calc(7*var(--sp)) calc(9*var(--sp));border:1px dashed #c9d6ea;border-radius:8px;background:#fbfcfe}.vm-finder-row{display:flex;flex-wrap:wrap;gap:calc(6*var(--sp));align-items:center}.vm-finder-row input{flex:1 1 160px;min-width:0;max-width:260px}.vm-found{display:flex;flex-direction:column;gap:calc(6*var(--sp));margin-top:calc(6*var(--sp))}.vm-found-item{display:flex;justify-content:space-between;gap:calc(8*var(--sp));align-items:center;flex-wrap:wrap;padding:calc(6*var(--sp)) calc(8*var(--sp));border:1px solid #dbe3ed;border-radius:7px;background:#fff}.vm-found-item.chosen{border-color:#2563eb;box-shadow:inset 0 0 0 1px #2563eb}.vm-found-item .vm-note{overflow-wrap:anywhere}.vm-pair-box{margin-top:calc(6*var(--sp));padding:calc(7*var(--sp)) calc(9*var(--sp));border:1px solid #c9d6ea;border-radius:8px;background:#f5f8fd}.vm-pair-check{font-family:Consolas,monospace;font-size:max(10.5px,calc(18*var(--fz)));font-weight:700;letter-spacing:.08em;color:#1b2942}.vm-pairs{margin-top:calc(8*var(--sp))}.vm-pair-request{margin-top:calc(6*var(--sp));padding:calc(8*var(--sp)) calc(10*var(--sp));border:1px solid #f0cf8a;border-radius:8px;background:#fff9ea}.vm-pair-request .migrate-row{margin-top:calc(6*var(--sp))}.vm-move-progress{margin-top:calc(10*var(--sp));padding:calc(9*var(--sp)) calc(11*var(--sp));border:1px solid #c9d6ea;border-radius:8px;background:#f7faff}.vm-move-progress.done{border-color:#a7d8b8;background:#f2fbf5}.vm-move-progress.failed{border-color:#f1b3ad;background:#fff4f3}.vm-move-progress.stopped{border-color:#f0cf8a;background:#fff9ea}.vm-move-progress progress{width:100%;height:12px;margin:calc(6*var(--sp)) 0 2px}.vm-move-steps{display:flex;flex-wrap:wrap;gap:calc(4*var(--sp)) calc(14*var(--sp));margin:calc(6*var(--sp)) 0 2px;padding:0;list-style:none;font-size:max(10.5px,calc(12.5*var(--fz)));color:#52647c}.vm-move-steps li::before{content:"\25CB  "}.vm-move-steps li.done{color:#1f6a3a}.vm-move-steps li.done::before{content:"\2713  "}.vm-move-steps li.current{color:#1b2942;font-weight:600}.vm-move-steps li.current::before{content:"\25B6  "}.vm-move-steps li.failed{color:#9b2c22;font-weight:600}.vm-move-steps li.failed::before{content:"\2715  "}.vm-move-steps li.stopped{color:#7a5410;font-weight:600}.vm-move-steps li.stopped::before{content:"\25A0  "}.rp-advice td{font-size:max(10.5px,calc(12*var(--fz)));color:#7a5410;background:#fffaf0;border-top:0}
+.rp-body{display:flex;flex-direction:column;gap:calc(12*var(--sp));overflow-y:auto;overflow-x:hidden;min-height:0;flex:1 1 auto}.rp-summary{display:flex;flex-wrap:wrap;gap:calc(8*var(--sp))}.rp-stat{min-width:86px;padding:calc(7*var(--sp)) calc(10*var(--sp));border:1px solid #dbe3ed;border-radius:9px;background:#fbfcfe}.rp-stat strong{display:block;font-size:max(10.5px,calc(17*var(--fz)));color:#1b2942}.rp-stat span{font-size:max(10.5px,calc(11*var(--fz)));color:#52647c}.rp-stat.good{border-color:#a7d8b8;background:#f2fbf5}.rp-stat.warning{border-color:#f0cf8a;background:#fff9ea}.rp-stat.danger{border-color:#f1b3ad;background:#fff4f3}.rp-stat{font:inherit;text-align:left;cursor:pointer;transition:border-color .15s,box-shadow .15s}.rp-stat:hover{border-color:#9db8e6;box-shadow:0 1px 4px rgba(31,95,191,.14)}.rp-stat:focus-visible{outline:2px solid #2d6fd6;outline-offset:2px}.rp-stat[aria-pressed="true"]{border-color:#2563eb;box-shadow:inset 0 0 0 1px #2563eb;background:#f7faff}.rp-filter-bar{display:flex;flex-wrap:wrap;align-items:center;gap:calc(6*var(--sp)) calc(10*var(--sp));margin:calc(4*var(--sp)) 0 calc(8*var(--sp));padding:calc(6*var(--sp)) calc(10*var(--sp));border:1px solid #c9d6ea;border-radius:8px;background:#f5f8fd;font-size:max(10.5px,calc(12.5*var(--fz)))}.rp-progress{min-width:190px}.rp-bar{position:relative;height:10px;border-radius:5px;background:#e6ebf2;overflow:hidden}.rp-bar-fill{display:block;height:100%;border-radius:5px;background:#7b8aa0;transition:width .4s}.rp-bar.active .rp-bar-fill{background:#2563eb}.rp-bar.good .rp-bar-fill{background:#1d8a52}.rp-bar.warning .rp-bar-fill{background:#d08a14}.rp-bar.danger .rp-bar-fill{background:#c2413a}.rp-progress-text{margin-top:calc(3*var(--sp));font-size:max(10.5px,calc(11.5*var(--fz)));color:#52647c}.rp-progress-text.rp-stall{color:#7a5410;font-weight:600}.fv-why{color:#7a5410;margin-top:calc(4*var(--sp))}.vm-act.warning{color:#7a5410}.vm-act.danger{color:#9b2c22;font-weight:600}.vm-act.good{color:#1f6a3a}.fv-source{color:#1f6a3a}.fv-checklist{margin:calc(6*var(--sp)) 0 calc(8*var(--sp)) calc(18*var(--sp));padding:0;font-size:max(10.5px,calc(12.5*var(--fz)))}.fv-checklist li{margin:2px 0}.fv-next{margin-top:calc(10*var(--sp));padding:calc(9*var(--sp)) calc(12*var(--sp));border:1px solid #a7d8b8;border-radius:8px;background:#f2fbf5}.fv-next p{margin:calc(4*var(--sp)) 0 calc(8*var(--sp))}.fv-why{min-height:1.45em}.fv-warn{color:#9b2c22;font-weight:600}.fv-refresh{margin-left:auto}.rp-milestone{margin-top:calc(3*var(--sp));font-size:max(10.5px,calc(11.5*var(--fz)));font-weight:600;color:#1f6a3a}.rp-milestone::before{content:"\2713  "}.rp-row-actions{display:flex;flex-wrap:wrap;gap:calc(6*var(--sp));margin-top:calc(6*var(--sp))}.rp-row-actions button{min-width:0;width:auto;min-height:calc(28*var(--fz));padding:calc(3*var(--sp)) calc(12*var(--sp));font-size:max(10.5px,calc(12*var(--fz)))}.rp-jobs tr.rp-job-row>td:last-child{white-space:nowrap;width:1%}.rp-jobs td,.rp-progress-text,.rp-error{overflow-wrap:anywhere;word-break:break-word}.rp-advice td{white-space:normal}.rp-jobs tr.rp-job-row{cursor:pointer}.rp-jobs tr.rp-job-row:hover,.rp-jobs tr.rp-job-row:hover+.rp-advice{background:#f7faff}.rp-jobs tr.rp-advice{cursor:pointer}.vm-transfers{margin-top:calc(10*var(--sp))}.xfer-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:calc(4*var(--sp)) calc(10*var(--sp));margin-bottom:calc(4*var(--sp))}.xfer-table progress,.rp-disk-table progress{width:90px;height:10px;vertical-align:middle}.xfer-pct{margin-left:calc(6*var(--sp));font-variant-numeric:tabular-nums}.xfer-error{color:#a33b3b}.xfer-table td{vertical-align:top}.xfer-nowrap{white-space:nowrap}.xfer-card{border:1px solid #dbe3ed;border-radius:8px;padding:calc(7*var(--sp)) calc(9*var(--sp));margin-top:calc(6*var(--sp));background:#fbfcfe}.xfer-card-top{display:flex;justify-content:space-between;gap:calc(8*var(--sp));align-items:center}.xfer-card progress{width:100%;height:10px;margin:calc(5*var(--sp)) 0 2px}.xfer-card .vm-note{overflow-wrap:anywhere}.vm-finder{margin-top:calc(6*var(--sp));padding:calc(7*var(--sp)) calc(9*var(--sp));border:1px dashed #c9d6ea;border-radius:8px;background:#fbfcfe}.vm-finder-row{display:flex;flex-wrap:wrap;gap:calc(6*var(--sp));align-items:center}.vm-finder-row input{flex:1 1 160px;min-width:0;max-width:260px}.vm-found{display:flex;flex-direction:column;gap:calc(6*var(--sp));margin-top:calc(6*var(--sp))}.vm-found-item{display:flex;justify-content:space-between;gap:calc(8*var(--sp));align-items:center;flex-wrap:wrap;padding:calc(6*var(--sp)) calc(8*var(--sp));border:1px solid #dbe3ed;border-radius:7px;background:#fff}.vm-found-item.chosen{border-color:#2563eb;box-shadow:inset 0 0 0 1px #2563eb}.vm-found-item .vm-note{overflow-wrap:anywhere}.vm-pair-box{margin-top:calc(6*var(--sp));padding:calc(7*var(--sp)) calc(9*var(--sp));border:1px solid #c9d6ea;border-radius:8px;background:#f5f8fd}.vm-pair-check{font-family:Consolas,monospace;font-size:max(10.5px,calc(18*var(--fz)));font-weight:700;letter-spacing:.08em;color:#1b2942}.vm-pairs{margin-top:calc(8*var(--sp))}.vm-pair-request{margin-top:calc(6*var(--sp));padding:calc(8*var(--sp)) calc(10*var(--sp));border:1px solid #f0cf8a;border-radius:8px;background:#fff9ea}.vm-pair-request .migrate-row{margin-top:calc(6*var(--sp))}.vm-move-progress{margin-top:calc(10*var(--sp));padding:calc(9*var(--sp)) calc(11*var(--sp));border:1px solid #c9d6ea;border-radius:8px;background:#f7faff}.vm-move-progress.done{border-color:#a7d8b8;background:#f2fbf5}.vm-move-progress.failed{border-color:#f1b3ad;background:#fff4f3}.vm-move-progress.stopped{border-color:#f0cf8a;background:#fff9ea}.vm-move-progress progress{width:100%;height:12px;margin:calc(6*var(--sp)) 0 2px}.vm-move-steps{display:flex;flex-wrap:wrap;gap:calc(4*var(--sp)) calc(14*var(--sp));margin:calc(6*var(--sp)) 0 2px;padding:0;list-style:none;font-size:max(10.5px,calc(12.5*var(--fz)));color:#52647c}.vm-move-steps li::before{content:"\25CB  "}.vm-move-steps li.done{color:#1f6a3a}.vm-move-steps li.done::before{content:"\2713  "}.vm-move-steps li.current{color:#1b2942;font-weight:600}.vm-move-steps li.current::before{content:"\25B6  "}.vm-move-steps li.failed{color:#9b2c22;font-weight:600}.vm-move-steps li.failed::before{content:"\2715  "}.vm-move-steps li.stopped{color:#7a5410;font-weight:600}.vm-move-steps li.stopped::before{content:"\25A0  "}.rp-advice td{font-size:max(10.5px,calc(12*var(--fz)));color:#7a5410;background:#fffaf0;border-top:0}
 .mp-wave-rows{display:grid;gap:calc(6*var(--sp));margin:calc(6*var(--sp)) 0}.mp-wave-row{display:grid;grid-template-columns:minmax(4em,.5fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1fr) auto;gap:calc(8*var(--sp));align-items:end}.mp-wave-limits summary{cursor:pointer;font-weight:600;color:#23334b}.pg-note{display:flex;gap:calc(8*var(--sp));align-items:center;flex-wrap:wrap}
 @media (max-width:1100px){.mp-wave-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
 .pg-banner{display:flex;align-items:center;gap:calc(10*var(--sp));flex-wrap:wrap;margin:0 0 calc(8*var(--sp));padding:calc(8*var(--sp)) calc(12*var(--sp));border:1px solid #e3c27a;border-left:4px solid #c98a12;border-radius:6px;background:#fff8e8;color:#5a4108;font-size:max(10.5px,calc(13*var(--fz)))}.pg-banner span{flex:1 1 320px;min-width:0}.pg-banner.hidden{display:none}.pg-holds{display:grid;gap:calc(4*var(--sp));margin-top:calc(6*var(--sp))}.pg-hold{padding:calc(6*var(--sp)) calc(8*var(--sp));border-radius:5px;background:#fff8e8;border:1px solid #ecd49b;font-size:max(10.5px,calc(12.5*var(--fz)))}.pg-hold.pg-stopped{background:#fdeeee;border-color:#e8b4b4}.pg-hold.pg-slot{background:#eef4fc;border-color:#c5d7ef}.mp-held{color:#7a5608}
@@ -653,7 +654,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
 .rp-chip{display:inline-block;padding:2px calc(8*var(--sp));border-radius:10px;border:1px solid #d6e0ee;background:#f5f8fd;font-size:max(10.5px,calc(11*var(--fz)));color:#334156;white-space:nowrap}.rp-chip.good{border-color:#a7d8b8;background:#f2fbf5;color:#1f6a3a}.rp-chip.warning{border-color:#f0cf8a;background:#fff9ea;color:#74551f}.rp-chip.danger{border-color:#f1b3ad;background:#fff4f3;color:#9b2c22}
 .rp-jobs{margin-top:calc(8*var(--sp))}.rp-error{margin-top:calc(6*var(--sp));color:#9b2c22}.rp-editor,.rp-details{margin-top:calc(12*var(--sp))}.rp-disk-row{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:calc(4*var(--sp)) calc(12*var(--sp));align-items:end;padding:calc(6*var(--sp)) 0;border-bottom:1px solid #eef2f7}.rp-target select,.rp-target input{width:100%}.rp-disk-table{margin-top:calc(10*var(--sp))}
 @media (max-width:900px){.rp-grid,.rp-two,.rp-disk-row{grid-template-columns:minmax(0,1fr)}}
-.mp-body{display:flex;flex-direction:column;gap:calc(12*var(--sp));overflow-y:auto;overflow-x:hidden;min-height:0;flex:1 1 auto}.mp-plans{display:flex;flex-wrap:wrap;gap:calc(6*var(--sp));align-items:center}.mp-plan-button[aria-pressed="true"]{border-color:#2563eb;box-shadow:inset 0 0 0 1px #2563eb;background:#f7faff}.mp-when{padding:calc(8*var(--sp)) calc(10*var(--sp));border:1px solid #dbe3ed;border-radius:8px;background:#fbfcfe}.mp-when ul{margin:calc(4*var(--sp)) 0 0 calc(18*var(--sp));padding:0}.mp-picker{max-height:260px;overflow:auto;border:1px solid #dbe3ed;border-radius:8px;padding:calc(4*var(--sp)) calc(8*var(--sp));background:#fff}.mp-pick{display:flex;gap:calc(8*var(--sp));align-items:center;padding:calc(3*var(--sp)) 0;border-bottom:1px solid #f0f3f8;font-size:max(10.5px,calc(12.5*var(--fz)))}.mp-pick:last-child{border-bottom:0}.mp-pick .vm-note{margin-left:auto}.mp-pick.disabled{color:#7a8597}.mp-checks{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:calc(4*var(--sp)) calc(14*var(--sp));margin-top:calc(6*var(--sp))}.mp-checks label{font-size:max(10.5px,calc(12.5*var(--fz)));display:flex;gap:calc(6*var(--sp));align-items:flex-start}.mp-three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:calc(8*var(--sp)) calc(12*var(--sp))}.mp-advice{padding:calc(8*var(--sp)) calc(10*var(--sp));border:1px solid #c9d6ea;border-radius:8px;background:#f5f8fd;font-size:max(10.5px,calc(12.5*var(--fz)))}.mp-actions{display:flex;flex-wrap:wrap;gap:calc(6*var(--sp));align-items:center}.mp-actions button{min-height:calc(30*var(--fz));padding:2px calc(12*var(--sp));font-size:max(10.5px,calc(12.5*var(--fz)))}.mp-actions input{max-width:220px}.mp-table td{vertical-align:top}.mp-table .vm-note{display:block}.mp-err{color:#9b2c22;font-size:max(10.5px,calc(12*var(--fz)));overflow-wrap:anywhere}.mp-notes{color:#1f6a3a;font-size:max(10.5px,calc(12*var(--fz)))}
+.mp-body{display:flex;flex-direction:column;gap:calc(12*var(--sp));overflow-y:auto;overflow-x:hidden;min-height:0;flex:1 1 auto}.mp-plans{display:flex;flex-wrap:wrap;gap:calc(6*var(--sp));align-items:center}.mp-plan-button[aria-pressed="true"]{border-color:#2563eb;box-shadow:inset 0 0 0 1px #2563eb;background:#f7faff}.mp-when{padding:calc(8*var(--sp)) calc(10*var(--sp));border:1px solid #dbe3ed;border-radius:8px;background:#fbfcfe}.mp-when ul{margin:calc(4*var(--sp)) 0 0 calc(18*var(--sp));padding:0}.mp-picker{max-height:260px;overflow:auto;border:1px solid #dbe3ed;border-radius:8px;padding:calc(4*var(--sp)) calc(8*var(--sp));background:#fff}.mp-pick{display:flex;gap:calc(8*var(--sp));align-items:center;padding:calc(3*var(--sp)) 0;border-bottom:1px solid #f0f3f8;font-size:max(10.5px,calc(12.5*var(--fz)))}.mp-pick:last-child{border-bottom:0}.mp-pick .vm-note{margin-left:auto}.mp-pick.disabled{color:#7a8597}.mp-checks{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:calc(4*var(--sp)) calc(14*var(--sp));margin-top:calc(6*var(--sp))}.mp-checks label{font-size:max(10.5px,calc(12.5*var(--fz)));display:flex;gap:calc(6*var(--sp));align-items:flex-start}.mp-three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:calc(8*var(--sp)) calc(12*var(--sp))}.mp-advice{padding:calc(8*var(--sp)) calc(10*var(--sp));border:1px solid #c9d6ea;border-radius:8px;background:#f5f8fd;font-size:max(10.5px,calc(12.5*var(--fz)))}.mp-actions{display:flex;flex-wrap:wrap;gap:calc(6*var(--sp));align-items:center}.mp-actions button{min-height:calc(30*var(--fz));padding:2px calc(12*var(--sp));font-size:max(10.5px,calc(12.5*var(--fz)))}.mp-actions input{max-width:220px}.mp-table td{vertical-align:top}.mp-table .vm-note{display:block}.mp-err{color:#9b2c22;font-size:max(10.5px,calc(12*var(--fz)));overflow-wrap:anywhere}.err-line{display:block}.err-line>summary{cursor:pointer;list-style:none}.err-line>summary::-webkit-details-marker{display:none}.err-toggle{color:#1f5fbf;text-decoration:underline;white-space:nowrap}.err-line[open] .err-toggle{display:none}.err-more{margin-top:calc(3*var(--sp));white-space:pre-wrap;overflow-wrap:anywhere}.mp-notes{color:#1f6a3a;font-size:max(10.5px,calc(12*var(--fz)))}.mp-read{margin-top:calc(2*var(--sp))}.mp-read-how{display:block;font-size:max(10.5px,calc(12*var(--fz)));font-weight:600;color:#33445c}.mp-read.good .mp-read-how{color:#1f6a3a}.mp-read.good .mp-read-how::before{content:"\2713  "}.mp-read.warning .mp-read-how{color:#7a5410}.mp-read.warning .mp-read-how::before{content:"!  "}.mp-why{color:#7a5410;font-size:max(10.5px,calc(11.5*var(--fz)));overflow-wrap:anywhere}
 @media (max-width:900px){.mp-checks,.mp-three{grid-template-columns:minmax(0,1fr)}}
 .vm-flow-arrow{color:#52647c;white-space:nowrap}
 .vm-guest-cards{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -715,7 +716,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
 .tool-pane{display:none;min-height:0;flex:1 1 auto}.tool-pane.active{display:flex;flex-direction:column}.tool-pane.active>*{flex:1 1 auto;min-height:0}
 .tool-current{display:none}
 .vm-move-intro{display:flex;flex-wrap:wrap;align-items:center;gap:calc(8*var(--sp)) calc(12*var(--sp));margin-bottom:calc(10*var(--sp));padding:calc(9*var(--sp)) calc(12*var(--sp));border:1px solid #c9d6ea;border-radius:8px;background:#f5f8fd;color:#243249;font-size:max(10.5px,calc(12.5*var(--fz)))}.vm-move-intro.hidden{display:none}
-.vm-ctx-move .vm-read-section{display:none}.vm-save-to .vm-field{margin-top:2px}.vm-save-to .path-pick{max-width:720px;margin-top:calc(4*var(--sp))}.vm-save-to .vm-field input{max-width:none;height:calc(34*var(--fz));box-sizing:border-box;border:1px solid #bcc9d9;border-radius:7px;padding:0 calc(10*var(--sp));font:inherit;font-size:max(10.5px,calc(13*var(--fz)))}.vm-save-to .path-pick-button{min-height:calc(34*var(--fz))}.vm-save-to .vm-field input[aria-invalid=true]{border-color:#c0392b}
+.vm-ctx-move .vm-read-section{display:none}.vm-ctx-move #vmReadPanels{display:none}.vm-read-bar{display:flex;flex-wrap:wrap;align-items:center;gap:calc(4*var(--sp)) calc(12*var(--sp));padding:calc(6*var(--sp)) calc(10*var(--sp));margin-bottom:calc(8*var(--sp));border:1px solid #dbe3ed;border-radius:8px;background:#f7f9fc}.vm-read-bar-text{flex:1 1 300px;min-width:0;overflow-wrap:anywhere;color:#3d5170;font-size:max(10.5px,calc(12.5*var(--fz)))}.vm-save-to .vm-field{margin-top:2px}.vm-save-to .path-pick{max-width:720px;margin-top:calc(4*var(--sp))}.vm-save-to .vm-field input{max-width:none;height:calc(34*var(--fz));box-sizing:border-box;border:1px solid #bcc9d9;border-radius:7px;padding:0 calc(10*var(--sp));font:inherit;font-size:max(10.5px,calc(13*var(--fz)))}.vm-save-to .path-pick-button{min-height:calc(34*var(--fz))}.vm-save-to .vm-field input[aria-invalid=true]{border-color:#c0392b}
 /* Wide windows: the two ways to read an inventory sit side by side, so the inventory starts higher. */
 @media(min-width:1600px){.vm-read-pair{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0 12px;align-items:start}}.vm-ctx-plain #vmRoles,.vm-ctx-notarget .vm-target{display:none}
 .vm-tool-runs{margin:0;flex:1 1 320px}
@@ -729,7 +730,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
  .tool-current{display:block;flex:0 0 auto;padding:0 2px 6px;font-size:11.5px;color:#3d5170}.vm-tool-runs{display:none}
 }
 @media(max-height:720px){.tool-nav{gap:8px}.tool-item{padding:6px 9px}.tool-desc{display:none}}
-.nw-guide{margin-top:calc(14*var(--sp))}.vm-ga-mine{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px calc(8*var(--sp));margin:-2px 0 calc(6*var(--sp))}
+.nw-guide{margin-top:calc(14*var(--sp))}
 .gd-here{display:flex;flex-wrap:wrap;gap:calc(6*var(--sp)) calc(14*var(--sp));margin-bottom:calc(12*var(--sp));padding:calc(8*var(--sp)) calc(12*var(--sp));border:1px solid #dbe3ed;border-radius:8px;background:#f8fafc;font-size:max(10.5px,calc(12.5*var(--fz)));color:#334156}.gd-here b{color:#1f2a3a}.gd-fact{font:inherit;color:inherit;background:none;border:1px solid transparent;border-radius:6px;padding:2px calc(6*var(--sp));cursor:pointer}.gd-fact:hover{border-color:#9db8e6;background:#fff}.gd-fact:focus-visible{outline:2px solid #2d6fd6}
 .gd-pick{margin-bottom:calc(12*var(--sp))}.gd-pick-title{font-size:max(10.5px,calc(13*var(--fz)));font-weight:700;color:#1f2a3a;margin-bottom:calc(6*var(--sp))}
 .gd-choices{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:calc(8*var(--sp))}
@@ -798,7 +799,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
 .nw-tiles{margin:calc(8*var(--sp)) 0 calc(4*var(--sp))}
 .nw-status-table{table-layout:fixed;width:100%}.nw-status-table td:nth-child(1){width:34px}.nw-status-table td:nth-child(2){width:24%}.nw-status-table td:nth-child(4){width:22%}
 .nw-wave{margin-top:calc(8*var(--sp))}.nw-wave-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:calc(4*var(--sp)) calc(12*var(--sp));margin-bottom:calc(4*var(--sp))}
-.nw-status-actions{display:flex;flex-wrap:wrap;align-items:center;gap:calc(6*var(--sp)) calc(10*var(--sp));padding-top:calc(8*var(--sp));border-top:1px solid #eef2f7}.nw-status-actions input{min-width:220px}
+.nw-status-actions{display:flex;flex-wrap:wrap;align-items:center;gap:calc(6*var(--sp)) calc(10*var(--sp));padding-top:calc(8*var(--sp));border-top:1px solid #eef2f7}.nw-status-actions input{min-width:220px}.nw-status-actions .migrate-inline-status{flex:1 1 220px;margin:0;min-width:0;min-height:1.45em}.nw-status-actions .migrate-inline-status:empty{display:block}
 @media(max-width:900px){.nw-vm-list{grid-template-columns:1fr}.nw-methods{grid-template-columns:1fr}.nw-summary{grid-template-columns:1fr}}
 @media(max-width:900px){.gd-choices{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}.gd-choice span{display:none}}
 @media(max-height:720px){.vm-table-wrap{max-height:230px}.vm-bar{padding-top:6px}.vm-counts{margin-top:6px}.vm-count strong{font-size:15px}}
@@ -836,8 +837,11 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
  .scope-note #scopeHint{display:none}
 }
 
-.rp-target{display:flex;flex-direction:column;gap:calc(4*var(--sp));margin:2px 0 calc(6*var(--sp))}.rp-folder-row{display:flex;gap:calc(6*var(--sp));align-items:center}.rp-folder-row input{flex:1 1 auto;min-width:0}.rp-folder-row button{min-width:0;width:auto;flex:0 0 auto}.as-body{display:flex;flex-direction:column;gap:calc(10*var(--sp));overflow-y:auto;overflow-x:hidden;min-height:0;flex:1 1 auto}.as-help{padding:calc(8*var(--sp)) calc(10*var(--sp));border:1px solid #dbe3ed;border-radius:8px;background:#fbfcfe}.as-summary{display:flex;flex-wrap:wrap;gap:calc(8*var(--sp))}.as-stat{min-width:86px;padding:calc(7*var(--sp)) calc(10*var(--sp));border:1px solid #dbe3ed;border-radius:9px;background:#fbfcfe;font:inherit;text-align:left;cursor:pointer;transition:border-color .15s,box-shadow .15s}.as-stat strong{display:block;font-size:max(10.5px,calc(17*var(--fz)));color:#1b2942}.as-stat span{font-size:max(10.5px,calc(11*var(--fz)));color:#52647c}.as-stat.good{border-color:#a7d8b8;background:#f2fbf5}.as-stat.warning{border-color:#f0cf8a;background:#fff9ea}.as-stat.danger{border-color:#f1b3ad;background:#fff4f3}.as-stat.active{border-color:#b9cdf2;background:#f5f8ff}.as-stat:hover{border-color:#9db8e6;box-shadow:0 1px 4px rgba(31,95,191,.14)}.as-stat:focus-visible{outline:2px solid #2d6fd6;outline-offset:2px}.as-stat[aria-pressed="true"]{border-color:#2563eb;box-shadow:inset 0 0 0 1px #2563eb;background:#f7faff}.as-toolbar{display:flex;flex-wrap:wrap;gap:calc(6*var(--sp)) calc(12*var(--sp));align-items:center}.as-toolbar input[type=search]{flex:1 1 220px;min-width:160px;max-width:420px}.as-inline{display:flex;align-items:center;gap:calc(6*var(--sp));font-size:max(10.5px,calc(12.5*var(--fz)));color:#334156}.as-inline select{width:auto;max-width:220px}.as-filter-bar{display:flex;flex-wrap:wrap;align-items:center;gap:calc(6*var(--sp)) calc(10*var(--sp));padding:calc(6*var(--sp)) calc(10*var(--sp));border:1px solid #c9d6ea;border-radius:8px;background:#f5f8fd;font-size:max(10.5px,calc(12.5*var(--fz)))}.as-actions{display:flex;flex-wrap:wrap;gap:calc(6*var(--sp));align-items:center}.as-actions button{min-width:0;width:auto;min-height:calc(30*var(--fz));padding:2px calc(12*var(--sp));font-size:max(10.5px,calc(12.5*var(--fz)))}.as-why{font-size:max(10.5px,calc(12*var(--fz)));color:#52647c}.as-why:empty{display:none}.as-form h4{margin:0 0 calc(4*var(--sp))}.as-three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:calc(8*var(--sp)) calc(12*var(--sp))}.as-narrow{max-width:260px}.as-preview{margin:calc(4*var(--sp)) 0;padding-left:calc(18*var(--sp));font-size:max(10.5px,calc(12.5*var(--fz)));color:#334156}.as-preview:empty{display:none}.as-results-head{display:flex;flex-wrap:wrap;gap:calc(8*var(--sp));align-items:center}.as-results-head h4{margin:0;flex:1 1 auto}.as-results-head button{min-width:0;width:auto;min-height:calc(28*var(--fz));padding:2px calc(12*var(--sp));font-size:max(10.5px,calc(12.5*var(--fz)))}.as-result-list{margin:calc(6*var(--sp)) 0 0;padding-left:calc(18*var(--sp));font-size:max(10.5px,calc(12.5*var(--fz)))}.as-result-list li.good{color:#1f6a3a}.as-result-list li.danger{color:#9b2c22}.as-log{max-height:160px;overflow:auto;margin:calc(6*var(--sp)) 0 0;padding:calc(6*var(--sp)) calc(8*var(--sp));border:1px solid #dbe3ed;border-radius:6px;background:#f8fafc;font-size:max(10.5px,calc(11.5*var(--fz)));white-space:pre-wrap}.as-table-wrap{overflow-x:auto;border:1px solid #e3e9f2;border-radius:8px;flex:0 0 auto}.as-table{min-width:760px}.as-table td{vertical-align:top}.as-table tr.chosen td{background:#f5f8ff}.as-name{font-weight:600;color:#1b2942}.as-sub{display:block;font-size:max(10.5px,calc(11.5*var(--fz)));color:#52647c;overflow-wrap:anywhere}.as-method{display:inline-block;margin-top:2px;padding:1px calc(7*var(--sp));border-radius:9px;background:#eef2f8;font-size:max(10.5px,calc(11*var(--fz)));color:#334156;white-space:nowrap}.as-chip{display:inline-block;padding:2px calc(8*var(--sp));border-radius:10px;border:1px solid #d6e0ee;background:#f5f8fd;font-size:max(10.5px,calc(11*var(--fz)));color:#334156;white-space:nowrap}.as-chip.good{border-color:#a7d8b8;background:#f2fbf5;color:#1f6a3a}.as-chip.warning{border-color:#f0cf8a;background:#fff9ea;color:#74551f}.as-chip.danger{border-color:#f1b3ad;background:#fff4f3;color:#9b2c22}.as-chip.active{border-color:#b9cdf2;background:#f5f8ff;color:#1f4fa8}.as-reason{display:block;margin-top:calc(3*var(--sp));font-size:max(10.5px,calc(11.5*var(--fz)));color:#52647c;max-width:340px;overflow-wrap:anywhere}.as-progress{min-width:150px}.as-bar{position:relative;height:10px;border-radius:5px;background:#e6ebf2;overflow:hidden}.as-bar-fill{display:block;height:100%;width:0;border-radius:5px;background:#7b8aa0;transition:width .4s}.as-bar.active .as-bar-fill{background:#2563eb}.as-bar.good .as-bar-fill{background:#1d8a52}.as-bar.danger .as-bar-fill{background:#c2413a}.as-progress-text{margin-top:calc(3*var(--sp));font-size:max(10.5px,calc(11.5*var(--fz)));color:#52647c}.as-late{color:#9b5b00}.as-table td button{min-width:0;width:auto;white-space:nowrap;min-height:calc(28*var(--fz));padding:2px calc(12*var(--sp));font-size:max(10.5px,calc(12*var(--fz)))}@media (max-width:900px){.as-three{grid-template-columns:1fr}}
+.rp-target{display:flex;flex-direction:column;gap:calc(4*var(--sp));margin:2px 0 calc(6*var(--sp))}.rp-folder-row{display:flex;gap:calc(6*var(--sp));align-items:center}.rp-folder-row input{flex:1 1 auto;min-width:0}.rp-folder-row button{min-width:0;width:auto;flex:0 0 auto}.as-body{display:flex;flex-direction:column;gap:calc(10*var(--sp));overflow-y:auto;overflow-x:hidden;min-height:0;flex:1 1 auto}.as-help{padding:calc(8*var(--sp)) calc(10*var(--sp));border:1px solid #dbe3ed;border-radius:8px;background:#fbfcfe}.as-summary{display:flex;flex-wrap:wrap;gap:calc(8*var(--sp))}.as-stat{min-width:86px;padding:calc(7*var(--sp)) calc(10*var(--sp));border:1px solid #dbe3ed;border-radius:9px;background:#fbfcfe;font:inherit;text-align:left;cursor:pointer;transition:border-color .15s,box-shadow .15s}.as-stat strong{display:block;font-size:max(10.5px,calc(17*var(--fz)));color:#1b2942}.as-stat span{font-size:max(10.5px,calc(11*var(--fz)));color:#52647c}.as-stat.good{border-color:#a7d8b8;background:#f2fbf5}.as-stat.warning{border-color:#f0cf8a;background:#fff9ea}.as-stat.danger{border-color:#f1b3ad;background:#fff4f3}.as-stat.active{border-color:#b9cdf2;background:#f5f8ff}.as-stat:hover{border-color:#9db8e6;box-shadow:0 1px 4px rgba(31,95,191,.14)}.as-stat:focus-visible{outline:2px solid #2d6fd6;outline-offset:2px}.as-stat[aria-pressed="true"]{border-color:#2563eb;box-shadow:inset 0 0 0 1px #2563eb;background:#f7faff}.as-toolbar{display:flex;flex-wrap:wrap;gap:calc(6*var(--sp)) calc(12*var(--sp));align-items:center}.as-toolbar input[type=search]{flex:1 1 220px;min-width:160px;max-width:420px}.as-inline{display:flex;align-items:center;gap:calc(6*var(--sp));font-size:max(10.5px,calc(12.5*var(--fz)));color:#334156}.as-inline select{width:auto;max-width:220px}.as-filter-bar{display:flex;flex-wrap:wrap;align-items:center;gap:calc(6*var(--sp)) calc(10*var(--sp));padding:calc(6*var(--sp)) calc(10*var(--sp));border:1px solid #c9d6ea;border-radius:8px;background:#f5f8fd;font-size:max(10.5px,calc(12.5*var(--fz)))}.as-actions{display:flex;flex-wrap:wrap;gap:calc(6*var(--sp));align-items:center}.as-actions button{min-width:0;width:auto;height:auto;min-height:calc(30*var(--fz));padding:2px calc(12*var(--sp));font-size:max(10.5px,calc(12.5*var(--fz)))}.as-why{min-height:1.45em;font-size:max(10.5px,calc(12*var(--fz)));color:#52647c}.as-form h4{margin:0 0 calc(4*var(--sp))}.as-three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:calc(8*var(--sp)) calc(12*var(--sp))}.as-narrow{max-width:260px}.as-preview{margin:calc(4*var(--sp)) 0;padding-left:calc(18*var(--sp));font-size:max(10.5px,calc(12.5*var(--fz)));color:#334156}.as-preview:empty{display:none}.as-results-head{display:flex;flex-wrap:wrap;gap:calc(8*var(--sp));align-items:center}.as-results-head h4{margin:0;flex:1 1 auto}.as-results-head button{min-width:0;width:auto;min-height:calc(28*var(--fz));padding:2px calc(12*var(--sp));font-size:max(10.5px,calc(12.5*var(--fz)))}.as-result-list{margin:calc(6*var(--sp)) 0 0;padding-left:calc(18*var(--sp));font-size:max(10.5px,calc(12.5*var(--fz)))}.as-result-list li.good{color:#1f6a3a}.as-result-list li.danger{color:#9b2c22}.as-log{max-height:160px;overflow:auto;margin:calc(6*var(--sp)) 0 0;padding:calc(6*var(--sp)) calc(8*var(--sp));border:1px solid #dbe3ed;border-radius:6px;background:#f8fafc;font-size:max(10.5px,calc(11.5*var(--fz)));white-space:pre-wrap}.as-table-wrap{overflow-x:auto;border:1px solid #e3e9f2;border-radius:8px;flex:0 0 auto}.as-table{min-width:760px}.as-table td{vertical-align:top}.as-table tr.chosen td{background:#f5f8ff}.as-name{font-weight:600;color:#1b2942}.as-sub{display:block;font-size:max(10.5px,calc(11.5*var(--fz)));color:#52647c;overflow-wrap:anywhere}.as-method{display:inline-block;margin-top:2px;padding:1px calc(7*var(--sp));border-radius:9px;background:#eef2f8;font-size:max(10.5px,calc(11*var(--fz)));color:#334156;white-space:nowrap}.as-chip{display:inline-block;padding:2px calc(8*var(--sp));border-radius:10px;border:1px solid #d6e0ee;background:#f5f8fd;font-size:max(10.5px,calc(11*var(--fz)));color:#334156;white-space:nowrap}.as-chip.good{border-color:#a7d8b8;background:#f2fbf5;color:#1f6a3a}.as-chip.warning{border-color:#f0cf8a;background:#fff9ea;color:#74551f}.as-chip.danger{border-color:#f1b3ad;background:#fff4f3;color:#9b2c22}.as-chip.active{border-color:#b9cdf2;background:#f5f8ff;color:#1f4fa8}.as-reason{display:block;margin-top:calc(3*var(--sp));font-size:max(10.5px,calc(11.5*var(--fz)));color:#52647c;max-width:340px;overflow-wrap:anywhere}.as-progress{min-width:150px}.as-bar{position:relative;height:10px;border-radius:5px;background:#e6ebf2;overflow:hidden}.as-bar-fill{display:block;height:100%;width:0;border-radius:5px;background:#7b8aa0;transition:width .4s}.as-bar.active .as-bar-fill{background:#2563eb}.as-bar.good .as-bar-fill{background:#1d8a52}.as-bar.danger .as-bar-fill{background:#c2413a}.as-progress-text{margin-top:calc(3*var(--sp));font-size:max(10.5px,calc(11.5*var(--fz)));color:#52647c}.as-late{color:#9b5b00}.as-table td button{min-width:0;width:auto;white-space:nowrap;min-height:calc(28*var(--fz));padding:2px calc(12*var(--sp));font-size:max(10.5px,calc(12*var(--fz)))}@media (max-width:900px){.as-three{grid-template-columns:1fr}}
 .mp-summary{display:flex;flex-wrap:wrap;gap:calc(8*var(--sp))}.mp-stat{min-width:86px;padding:calc(7*var(--sp)) calc(10*var(--sp));border:1px solid #dbe3ed;border-radius:9px;background:#fbfcfe}.mp-stat strong{display:block;font-size:max(10.5px,calc(17*var(--fz)));color:#1b2942}.mp-stat span{font-size:max(10.5px,calc(11*var(--fz)));color:#52647c}.mp-stat.good{border-color:#a7d8b8;background:#f2fbf5}.mp-stat.warning{border-color:#f0cf8a;background:#fff9ea}.mp-stat.danger{border-color:#f1b3ad;background:#fff4f3}.mp-stat{font:inherit;text-align:left;cursor:pointer;transition:border-color .15s,box-shadow .15s}.mp-stat:hover{border-color:#9db8e6;box-shadow:0 1px 4px rgba(31,95,191,.14)}.mp-stat:focus-visible{outline:2px solid #2d6fd6;outline-offset:2px}.mp-stat[aria-pressed="true"]{border-color:#2563eb;box-shadow:inset 0 0 0 1px #2563eb;background:#f7faff}.mp-filter-bar{display:flex;flex-wrap:wrap;align-items:center;gap:calc(6*var(--sp)) calc(10*var(--sp));margin:calc(4*var(--sp)) 0 calc(8*var(--sp));padding:calc(6*var(--sp)) calc(10*var(--sp));border:1px solid #c9d6ea;border-radius:8px;background:#f5f8fd;font-size:max(10.5px,calc(12.5*var(--fz)))}.mp-progress{min-width:190px}.mp-bar{position:relative;height:10px;border-radius:5px;background:#e6ebf2;overflow:hidden}.mp-bar-fill{display:block;height:100%;border-radius:5px;background:#7b8aa0;transition:width .4s}.mp-bar.active .mp-bar-fill{background:#2563eb}.mp-bar.good .mp-bar-fill{background:#1d8a52}.mp-bar.warning .mp-bar-fill{background:#d08a14}.mp-bar.danger .mp-bar-fill{background:#c2413a}.mp-progress-text{margin-top:calc(3*var(--sp));font-size:max(10.5px,calc(11.5*var(--fz)));color:#52647c}.mp-row-actions{display:flex;flex-wrap:wrap;gap:calc(6*var(--sp));margin-top:calc(6*var(--sp))}.mp-row-actions button{min-width:0;width:auto;min-height:calc(28*var(--fz));padding:calc(3*var(--sp)) calc(12*var(--sp));font-size:max(10.5px,calc(12*var(--fz)))}.mp-heading{margin:calc(4*var(--sp)) 0 0;font-size:max(10.5px,calc(14*var(--fz)));color:#1b2942}.mp-chip{display:inline-block;padding:2px calc(8*var(--sp));border-radius:10px;border:1px solid #d6e0ee;background:#f5f8fd;font-size:max(10.5px,calc(11*var(--fz)));color:#334156;white-space:nowrap}.mp-chip.good{border-color:#a7d8b8;background:#f2fbf5;color:#1f6a3a}.mp-chip.warning{border-color:#f0cf8a;background:#fff9ea;color:#74551f}.mp-chip.danger{border-color:#f1b3ad;background:#fff4f3;color:#9b2c22}
+.err-detail{margin-top:calc(2*var(--sp))}
+.err-detail summary{cursor:pointer;color:var(--accent,#1f5fbf);font-size:max(10.5px,calc(12*var(--fz)))}
+.err-detail pre{white-space:pre-wrap;word-break:break-word;max-height:220px;overflow:auto;margin:calc(4*var(--sp)) 0 0;padding:calc(6*var(--sp));border:1px solid var(--border);border-radius:6px;background:rgba(127,127,127,.08);font-size:max(10.5px,calc(11.5*var(--fz)))}
 </style>
 </head>
 <body>
@@ -1069,7 +1073,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
           </section>
           <section class="migrate-section inactive" id="migrateStepChoose" aria-labelledby="migrateChooseTitle">
             <h3 class="migrate-section-title" id="migrateChooseTitle">2. Choose shares</h3>
-            <p class="migrate-help" id="migrateChooseHelp">Tick the shares to move and choose where each one goes on the new server. Then check the plan: it measures each share and checks free space and permissions. Nothing is copied yet.</p>
+            <p class="migrate-help" id="migrateChooseHelp">Check the plan: it measures each share and checks free space and permissions. Nothing is copied yet.</p>
             <div class="migrate-row hidden" id="migrateParentRow"><button class="secondary-button" id="migrateParent" type="button">Choose a folder for all&hellip;</button><span class="migrate-help">Puts each selected share in its own folder inside the folder you choose. Or use Browse on a share. New folders are created when copying starts.</span></div>
             <div class="migrate-shares hidden" id="migrateShares"></div>
             <div class="migrate-space hidden" id="migrateSpace"></div>
@@ -1123,6 +1127,8 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
           <div id="vmViewEnv">
             <div class="vm-move-intro hidden" id="vmMoveIntro"><span id="vmMoveIntroText"></span> <button class="secondary-button" id="vmMoveIntroDiscover" type="button">Go to Discovery: VMware and Hyper-V</button></div>
             <div class="restore-alert busy-notice vm-read-section hidden" id="vmReadNotice" role="status"><span id="vmReadNoticeText"></span><button class="secondary-button hidden" id="vmReadNoticeOpen" type="button"></button></div>
+            <div class="vm-read-bar vm-read-section hidden" id="vmReadBar"><span class="vm-read-bar-text" id="vmReadBarText"></span><button class="secondary-button" id="vmReadBarToggle" type="button" aria-expanded="false" aria-controls="vmReadPanels">Change or read again</button></div>
+            <div id="vmReadPanels">
             <div class="vm-read-pair">
             <section class="migrate-section vm-read-section" aria-labelledby="vmConnectTitle">
               <h3 class="migrate-section-title" id="vmConnectTitle">Read a vCenter or ESXi host</h3>
@@ -1149,6 +1155,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
               <label class="vm-field vm-save-field"><span class="migrate-help" id="vmOutputHelp">Each read makes a new folder here, such as VMware_vc01_20261126_093000, with the readiness and discovery reports (HTML, Word and PDF). It is the same output folder This server uses for its packages, and it is remembered.</span><input id="vmOutputRoot" type="text" spellcheck="false" autocomplete="off" maxlength="260" aria-label="Folder for discovery reports" aria-describedby="vmOutputHelp" placeholder="C:\Reports"></label>
               <div class="migrate-inline-status" id="vmOutputStatus" role="status" aria-live="polite"></div>
             </section>
+            </div>
             <div class="hidden" id="vmEnvResult">
               <div class="vm-counts-head"><span class="vm-counts-title" id="vmCountsTitle">Readiness</span><span class="vm-note" id="vmCountsNote"></span></div>
               <div class="vm-counts" role="group" aria-label="Hosts, and VMs by readiness"><button class="vm-count hosts" id="vmHostsCard" type="button" title="Open every host with its hardware, licensing, network, storage and VMs"><strong id="vmCountHosts">0</strong>Hosts<span class="vm-count-sub" id="vmCountHostsSub"></span></button><button class="vm-count" type="button" data-vmfilter="all" aria-pressed="true"><strong id="vmCountAll">0</strong>All VMs</button><button class="vm-count blocked" type="button" data-vmfilter="blocked" aria-pressed="false"><strong id="vmCountBlocked">0</strong>Blocked</button><button class="vm-count review" type="button" data-vmfilter="review" aria-pressed="false"><strong id="vmCountReview">0</strong>Review first</button><button class="vm-count ready" type="button" data-vmfilter="ready" aria-pressed="false"><strong id="vmCountReady">0</strong>Ready</button><button class="vm-count skip hidden" id="vmCountSkipCard" type="button" data-vmfilter="skip" aria-pressed="false" title="vCenter, vCLS and other VMware system VMs stay behind"><strong id="vmCountSkip">0</strong>Not moved</button></div>
@@ -1176,7 +1183,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
                 </section>
               </div>
               <div class="hidden" id="vmListHome"><div class="vm-list-panel" id="vmListPanel">
-                <div class="vm-toolbar"><input type="search" id="vmSearch" aria-label="Search VMs" placeholder="Search VMs, guest OS, host or IP" autocomplete="off" spellcheck="false"><span class="vm-note" id="vmTableNote"></span><span class="vm-note vm-hint">Select a VM to open it, or tick VMs to change many at once.</span><button class="secondary-button hidden" id="vmAckAll" type="button" title="Count every Review first VM as ready once you have read its items. Each row has Open again.">Acknowledge all to review</button><button class="secondary-button" id="vmOpenReport" type="button">Open readiness report</button><button class="secondary-button" id="vmOpenFolder" type="button">Open folder</button></div>
+                <div class="vm-toolbar"><input type="search" id="vmSearch" aria-label="Search VMs" placeholder="Search VMs, guest OS, host or IP" autocomplete="off" spellcheck="false"><span class="vm-note" id="vmTableNote"></span><button class="secondary-button hidden" id="vmAckAll" type="button" title="Count every Review first VM as ready once you have read its items. Each row has Open again.">Acknowledge all to review</button><button class="secondary-button" id="vmOpenReport" type="button">Open readiness report</button><button class="secondary-button" id="vmOpenFolder" type="button">Open folder</button></div>
                 <div class="vm-bulk" id="vmListBulk" role="group" aria-label="Selected VMs"></div><div class="vm-bulk-batch" id="vmListBatch" aria-live="polite"></div>
                 <div class="vm-table-wrap"><table class="vm-table"><thead><tr><th class="vm-pick-col"><input type="checkbox" id="vmPickShown" aria-label="Select every VM shown"></th><th>VM</th><th>Power</th><th>Guest OS</th><th>Size</th><th>Disks</th><th>Readiness</th><th>First thing to fix</th></tr></thead><tbody id="vmTableBody"></tbody></table></div>
               </div></div>
@@ -1518,11 +1525,12 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
         <div class="card-body mp-body">
           <div class="mp-when migrate-help"><strong>When to use this.</strong><ul><li><strong>Migration plans</strong>: many VMs from one vCenter, ESXi or Hyper-V host to this Hyper-V host or its cluster, kept in sync for days and cut over in waves.</li><li><strong>Move VMs</strong>: one VM by hand, or a remote Hyper-V host, HyperCore, Nutanix, Proxmox or a physical server.</li><li><strong>Replicate servers</strong>: physical servers, Linux, or VMs on any other hypervisor (an agent on each server).</li></ul>Plans run while this application is open on this Hyper-V host, signed in to vCenter or ESXi in Discovery. Leave it open for scheduled copies and cutovers.</div>
           <div class="restore-alert warning hidden" id="mpBlocked" role="status"></div>
+          <div class="mp-signin hidden" id="mpSignIn"></div>
           <div class="restore-alert danger hidden" id="mpError" role="alert"></div>
           <div class="mp-plans" id="mpPlanList" aria-label="Plans"></div>
           <section class="migrate-card hidden" id="mpNew" aria-labelledby="mpNewTitle">
             <h4 id="mpNewTitle">New migration plan</h4>
-            <p class="migrate-help" id="mpNewHelp">Choose the VMs from the inventory read in Discovery. Waves come from Plan and runbook; the network map there names the Hyper-V switch for each network.</p>
+            <p class="migrate-help" id="mpNewHelp">The VMs come from the inventory read in Discovery. Waves come from Plan and runbook; the network map there names the Hyper-V switch for each network.</p>
             <label class="vm-field">Plan name<input id="mpName" type="text" maxlength="100" spellcheck="false" autocomplete="off" placeholder="Wave 1 - application servers"></label>
             <div id="mpPickBox"><div class="migrate-row"><input id="mpPickFilter" type="search" placeholder="Filter VMs" aria-label="Filter VMs" spellcheck="false" autocomplete="off"><button class="secondary-button" id="mpPickAll" type="button">Select the ready VMs shown</button><select id="mpPickWave" aria-label="Wave or stage from Plan and runbook"></select><button class="secondary-button" id="mpPickWaveGo" type="button">Select this wave</button><span class="vm-note" id="mpPickCount"></span></div>
               <div class="mp-picker" id="mpPicker" aria-label="VMs"></div><div class="vm-note selectable" id="mpPickNames"></div></div>
@@ -1530,7 +1538,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
             <div class="mp-three">
               <label class="vm-field">Start the first copies<select id="mpStartMode"><option value="now">Now</option><option value="at">At a time I choose</option></select></label>
               <label class="vm-field hidden" id="mpStartAtField">Start at (this computer's time)<input id="mpStartAt" type="datetime-local"></label>
-              <label class="vm-field">Sync each VM every<select id="mpSync"><option value="15">15 minutes</option><option value="30">30 minutes</option><option value="60" selected>hour</option><option value="120">2 hours</option><option value="240">4 hours</option><option value="720">12 hours</option><option value="1440">day</option></select></label>
+              <label class="vm-field">Sync each VM every<select id="mpSync"><option value="5">5 minutes (near real time)</option><option value="10">10 minutes</option><option value="15">15 minutes</option><option value="30">30 minutes</option><option value="60" selected>hour</option><option value="120">2 hours</option><option value="240">4 hours</option><option value="720">12 hours</option><option value="1440">day</option></select></label>
               <label class="vm-field">VMs copied at once<select id="mpConcurrency"><option>1</option><option selected>2</option><option>3</option><option>4</option></select></label>
             </div>
             <div class="mp-three">
@@ -1934,6 +1942,11 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     <fieldset class="cfm-styles" id="updateChannelSettings"><legend>Updates</legend>
       <label class="cfm-style"><input type="checkbox" id="updateTestChannel"><span><strong>Also offer test builds (Test channel)</strong><small>Test builds hold new features before they reach a stable release. They are signed like stable releases but are tried by fewer people. With this ticked, the update bar offers whichever is newer: the newest test build or the newest stable release. Untick it to go back to stable releases only; if a test build is installed, the newest stable release is offered in its place. Nothing downloads or installs until you choose to.</small></span></label>
       <div class="helper" id="updateChannelStatus" role="status" aria-live="polite"></div>
+    </fieldset>
+    <fieldset class="cfm-styles" id="vcRememberSettings"><legend>Sign-ins for migration plans and fix-ups</legend>
+      <label class="cfm-style"><input type="checkbox" id="vcRememberOn"><span><strong>Remember sign-ins on this computer, so plans carry on after a restart or update</strong><small>Off: passwords are kept in memory only, and plans wait after every restart until someone signs in again. On: each sign-in that reads vCenter or ESXi, and the guest administrator account that fixes up new VMs after cutover, is kept encrypted by Windows for your account on this computer (DPAPI), never in logs, plans or reports, and is used again by itself. A password the server refuses is forgotten at once. Anyone who can sign in to Windows as you on this computer could use it, so use a dedicated vCenter account with only the permissions migrations need, not an administrator's own account.</small></span></label>
+      <div id="vcRememberList" class="vc-remember-list"></div>
+      <div class="helper" id="vcRememberStatus" role="status" aria-live="polite"></div>
     </fieldset>
     <fieldset class="cfm-styles" id="vddkSettings"><legend>VMware VDDK, for faster copies of running VMs</legend>
       <div class="helper">With VMware's Virtual Disk Development Kit, each copy round of a running VMware VM reads only the blocks that changed, straight from the ESXi host (NBDSSL, port 902). Without it, the round streams the whole disk through vSphere's export. VMware's license does not let this application include VDDK: download VDDK 7.0.3, 8 or 9 for Windows from Broadcom, extract it, and choose its folder here. Every DLL in it must carry VMware's or Broadcom's signature.</div>
@@ -3777,6 +3790,14 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     if(any){restoreSelection[component.id]=map;}else{delete restoreSelection[component.id];}
   }
   function el(tag,className,text){var node=document.createElement(tag);if(className){node.className=className;}if(text!==undefined&&text!==null){node.textContent=text;}return node;}
+  // errLine shows a long error or reason as one line with the full text on
+  // demand (Details), keeping a table's state column short. errOpen keeps a
+  // row's Details open across the page's refreshes.
+  var errOpen={};
+  function errHead(t){var m=/^([\s\S]{20,110}?[.;:])(\s|$)/.exec(t);return m?m[1]:t.slice(0,100).replace(/\s+\S*$/,'')+'\u2026';}
+  function errLine(text,cls,key){text=String(text||'');if(text.length<=120){return el('div',cls,text);}
+    var d=el('details',cls+' err-line');if(key&&errOpen[key]){d.open=true;}var sm=el('summary','',errHead(text)+' ');sm.appendChild(el('span','err-toggle','Details'));d.appendChild(sm);d.appendChild(el('div','err-more selectable',text));
+    d.addEventListener('toggle',function(){if(!key){return;}if(d.open){errOpen[key]=1;}else{delete errOpen[key];}});return d;}
   // Account choice (2026-11-27, owner: "pass through the currently logged
   // account ... anywhere in the app where an account might need to be
   // entered"). signInChoice puts "Connect as: My current sign-in
@@ -3890,6 +3911,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     if(!d.open){if(d.showModal){d.showModal();}else{d.setAttribute('open','');}}byId('settingsClose').focus();
     pgDirty=false;pgFill(pgSettings());pgShow('');renderPgHolds();
     byId('updateTestChannel').checked=!!(latestUpdateState&&latestUpdateState.channel==='test');byId('updateChannelStatus').textContent=channelText(latestUpdateState);byId('updateChannelStatus').className='helper';
+    vcRememberLoad();
     vddkShow(null,'Checking the VDDK folder\u2026');
     request('GET','/api/vddk',null,function(err,data){if(err){vddkShow(null,err,true);return;}byId('vddkFolder').value=(data.vddk&&data.vddk.folder)||'';vddkShow(data.vddk);});
   }
@@ -4424,7 +4446,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
       if(key!==migrateDiscoveryKey){migrateDiscoveryKey=key;buildMigrateShares(discovery);}
       byId('migrateFactSource').textContent=discovery.source+(discovery.sourceFqdn&&discovery.sourceFqdn!==discovery.source?' ('+discovery.sourceFqdn+')':'');
       byId('migrateFactTarget').textContent=(discovery.currentComputer||state.computerName||'This server')+(m.target?' (copies straight from the old server)':' (this computer)');
-      byId('migrateChooseHelp').textContent='Tick the shares to move and choose where each one goes on '+migrateTargetLabel()+'. Then check the plan: it measures each share and checks free space and permissions. Nothing is copied yet.';
+      byId('migrateChooseHelp').textContent='Check the plan: it measures each share on '+migrateTargetLabel()+' and checks free space and permissions. Nothing is copied yet.';
       byId('migrateFactShares').textContent=String((discovery.shares||[]).length);
       byId('migrateFactCopies').textContent=String(((m.plan)||[]).filter(function(p){return p.previouslySynced;}).length)+' of '+String(((m.plan)||[]).length);
       var warn=byId('migrateSourceWarnings');warn.textContent='';(discovery.warnings||[]).forEach(function(w){warn.appendChild(el('li','',w));});warn.classList.toggle('hidden',!(discovery.warnings||[]).length);
@@ -4647,6 +4669,11 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   function vmArr(value){if(value===null||value===undefined||value===''){return [];}return Object.prototype.toString.call(value)==='[object Array]'?value:[value];}
   function vmOtherBusy(){return !!(latestState&&latestState.running)||restoreIsRunning(latestState&&latestState.restore)||migrateIsRunning()||convertIsRunning();}
   function vmLocked(){return vmBusy||vmwareIsRunning()||vmOtherBusy();}
+  // Saving the migration plan (network map, waves, scenario, acknowledgements)
+  // writes only the plan file, so it runs beside every other step; only a
+  // Discovery read, which replaces the inventory the plan belongs to, holds
+  // it back (vmPlanSaveRefusalLocked in vmware.go checks the same).
+  function vmPlanLocked(){var v=vmwareState()||{};return vmBusy||!!(v.running&&vmReadActions[v.action]);}
   function vmTarget(){return vmPlan&&vmPlan.target?vmPlan.target:vmTargetLocal;}
   var vmTargetList=[{id:'hyperv',name:'Hyper-V',kind:'cluster'},{id:'scale',name:'Scale HyperCore',kind:'cluster'},{id:'nutanix',name:'Nutanix AHV',kind:'cluster'},{id:'proxmox',name:'Proxmox VE',kind:'cluster'},{id:'azure',name:'Azure',kind:'cloud'},{id:'aws',name:'AWS EC2',kind:'cloud'},{id:'physical',name:'a physical server',kind:'physical'}];
   function vmTargetInfo(target){for(var i=0;i<vmTargetList.length;i++){if(vmTargetList[i].id===target){return vmTargetList[i];}}return vmTargetList[0];}
@@ -4704,7 +4731,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   // Acknowledges (or, with on false, un-acknowledges) the Review first
   // findings of the given VMs for the current target and saves the plan.
   function vmAcknowledge(vms,on){
-    if(!vmPlan||vmLocked()){return;}
+    if(!vmPlan||vmPlanLocked()){return;}
     var target=vmTarget(),changed=0;
     vms.forEach(function(vm){var p=vmPlanEntry(vm.id);if(!p){return;}var raw=null;vmArr(vm.readiness).forEach(function(x){if(x.target===target){raw=x;}});if(!raw){return;}
       var keys=vmAckNeeded(raw).map(function(f){return target+':'+f.code;}),acks=vmArr(p.acknowledged).filter(function(a){return keys.indexOf(a)<0;});
@@ -4781,7 +4808,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     var on=vmToolId==='movevms',has=!!vmInventory;
     byId('vmMoveIntro').classList.toggle('hidden',!on);
     if(!on){return;}
-    byId('vmMoveIntroText').textContent=has?'Select a VM in the tree, then open its Move tab: Copy disks while it runs, then Cut over. The VMs below were read from '+(vmInventory.server||'the last inventory')+'.':'First read vCenter, ESXi or a Hyper-V host, or open a saved inventory, in Discovery. Its VMs then appear here to move.';
+    byId('vmMoveIntroText').textContent=has?'Each VM\'s Move tab copies its disks while it runs, then cuts it over. The VMs below were read from '+(vmInventory.server||'the last inventory')+'.':'First read vCenter, ESXi or a Hyper-V host, or open a saved inventory, in Discovery. Its VMs then appear here to move.';
     byId('vmMoveIntroDiscover').textContent=has?'Read another environment in Discovery':'Go to Discovery: VMware and Hyper-V';
   }
   var vmOutputSaving=false,vmOutputShown='';
@@ -4820,7 +4847,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     if(v.hvRemote&&v.hvRemote.serial!==vmHvrSerial){vmHvrSerial=v.hvRemote.serial;renderVmDetail();}
     var fixKey=JSON.stringify([v.guestAuto||{},vmArr(v.fixups).map(function(f){return [f.vm,f.state,f.message,vmArr(f.steps).length];})]);if(fixKey!==vmFixKey){vmFixKey=fixKey;renderVmDetail();}
     renderVmDiskCopy(state,v);renderVmRoles();renderVmMedia(v);renderVmMoveIntro();pfUpdate();
-    var batchKey=JSON.stringify(v.prepareBatch||null),lockKey=vmLocked()+'|'+(v.canPrepare?1:0);if(batchKey!==vmBulkPollKey){vmBulkPollKey=batchKey;renderVmBulkBatch(v);}if(lockKey!==vmBulkLockKey){vmBulkLockKey=lockKey;renderVmBulk();}
+    var batchKey=JSON.stringify(v.prepareBatch||null),lockKey=vmLocked()+'|'+vmPlanLocked()+'|'+(v.canPrepare?1:0);if(batchKey!==vmBulkPollKey){vmBulkPollKey=batchKey;renderVmBulkBatch(v);}if(lockKey!==vmBulkLockKey){vmBulkLockKey=lockKey;renderVmBulk();}
     byId('vmGuestHere').textContent=vmComputer()?'This computer: '+vmComputer()+'.':'';
     var guestMessage=byId('vmGuestMessage');guestMessage.textContent=v.guestMessage||'';guestMessage.className='migrate-inline-status'+(v.guestError?' error':'');
     renderVmGuestTarget();
@@ -4836,6 +4863,9 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   function renderVmBusyNotice(v){
     var why=null;
     if(vmToolId!=='environment'&&!vmBusy&&vmLocked()&&!(v.running&&(vmActionTools[v.action]||'environment')===vmToolId)){why=busyWhy();}
+    // Plan and runbook only saves the plan, which a migration plan copy does
+    // not hold back, so that copy needs no notice there.
+    if(why&&vmToolId==='plan'&&!v.running&&!vmOtherBusy()){why=null;}
     renderBusyNotice('vmBusyNotice','vmBusyNoticeText','vmBusyNoticeOpen',why?{text:why.text+' Steps here that change VMs or this computer are available again when it finishes.',label:why.label,open:why.open}:null,'info');
   }
   function vmHostKey(name){name=trimText(name).toLowerCase().replace(/^[a-z]+:\/\//,'').replace(/[\/?#].*$/,'').replace(/:\d+$/,'');return /^[\d.]+$/.test(name)?name:name.split('.')[0];}
@@ -4853,6 +4883,22 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     r.why={text:vmPlanCopyText(plan)+' and uses the session open here. You can still read '+(v.server||'the same server')+' again to refresh it, browse everything below, write reports and use This server. Reading another vCenter or Hyper-V host, opening a saved inventory and Forget would replace that session, so they are available again when this copy round ends.',label:'Open Migration plans',open:function(){showTool('plans');}};
     return r;
   }
+  // Once an inventory is open, the read sections fold into one line so the
+  // inventory starts near the top (owner, 2026-11-27); they open again for
+  // Change or read again, a running read, a certificate to trust or a
+  // failed read.
+  var vmReadOpen=false,vmReadInvKey='';
+  function syncVmReadPanels(v){
+    var bar=byId('vmReadBar'),panels=byId('vmReadPanels'),inv=vmInventory,key=inv?vmInvKeyOf(inv):'';
+    if(key!==vmReadInvKey){vmReadInvKey=key;vmReadOpen=false;}
+    var must=!inv||!!v.running&&vmReadActions[v.action]||!!v.certificate||v.status==='connectfailed';
+    var open=must||vmReadOpen;
+    bar.classList.toggle('hidden',!inv||must);panels.classList.toggle('hidden',!open);
+    var t=byId('vmReadBarToggle');t.textContent=vmReadOpen?'Hide':'Change or read again';t.setAttribute('aria-expanded',open?'true':'false');
+    if(inv){var hv=inv.serverType==='Hyper-V host',s=v.summary||{},when=s.collectedAt||inv.collectedAt;
+      var txt=(hv?'Hyper-V host ':'')+inv.server+(v.account&&!hv?' as '+v.account:'')+(when?', read '+vmWhen(when):'')+'. Reports are saved in '+(byId('vmOutputRoot').value||'the output folder')+'.';
+      byId('vmReadBarText').textContent=txt;}
+  }
   function syncVmButtons(){
     var v=vmwareState()||{},locked=vmLocked(),running=!!v.running,admin=!!(latestState&&latestState.isAdministrator);
     // Discovery reads only read, so they run beside collections, restores,
@@ -4864,11 +4910,11 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     byId('vmConnect').disabled=read.busy||read.vc||!trimText(byId('vmServer').value)||!trimText(byId('vmUser').value);
     byId('vmOpenInventory').disabled=read.busy||read.keep;byId('vmCertTrust').disabled=read.busy||read.vc;
     byId('vmReset').classList.toggle('hidden',!v.server&&!v.summary);byId('vmReset').disabled=read.busy||read.keep;
-    renderBusyNotice('vmReadNotice','vmReadNoticeText','vmReadNoticeOpen',read.why,read.tone);
+    renderBusyNotice('vmReadNotice','vmReadNoticeText','vmReadNoticeOpen',read.why,read.tone);syncVmReadPanels(v);
     var stop=byId('vmStop');stop.classList.toggle('hidden',!(running&&(v.action==='connect'||v.action==='hyperv'||v.action==='compare'||v.action==='move'||v.action==='hvconnect'||v.action==='hvmove'||v.action==='media'||v.action==='upload'||v.action==='target-create'||v.action==='send')));stop.disabled=!!v.cancelRequested;stop.textContent=v.cancelRequested?'Stopping...':'Stop';
     byId('vmTargetSelect').disabled=vmBusy||running;
     var hasPlan=!!(vmInventory&&vmPlan);
-    byId('vmSavePlan').disabled=locked||!hasPlan;byId('vmSuggest').disabled=locked||!hasPlan;byId('vmWriteRunbook').disabled=locked||!hasPlan;
+    byId('vmSavePlan').disabled=vmPlanLocked()||!hasPlan;byId('vmSuggest').disabled=vmPlanLocked()||!hasPlan;byId('vmWriteRunbook').disabled=vmBusy||running||vmOtherBusy()||!hasPlan;
     byId('vmPlanDirtyNote').textContent=vmPlanDirty?'Unsaved changes.':'';
     ['vmGuestCapture','vmGuestStatus'].forEach(function(id){byId(id).disabled=locked||(vmGuestNeedsAdmin()&&!admin);});byId('vmGuestLoad').disabled=locked;
     byId('vmGuestUse').disabled=locked;byId('vmGuestForget').disabled=locked;byId('vmGuestVcenter').disabled=locked||!byId('vmGuestVcVm').value;
@@ -4913,7 +4959,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
         else if(t.state==='done'&&t.verified){parts.push('verified');}
         row.appendChild(el('div','vm-note',parts.join(', ')));
         row.appendChild(el('div','vm-note','to '+(t.target||'')+(t.peer?' ('+t.peer+')':'')));
-        if(t.error){row.appendChild(el('div','vm-note xfer-error',t.error));}
+        if(t.error){row.appendChild(errLine(t.error,'vm-note xfer-error','xf:'+(t.source||'')+'>'+(t.target||'')));}
         box.appendChild(row);
       });
       return;
@@ -4935,7 +4981,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
       var when=t.state==='running'?'Last data '+xferAgo(t.updated):(t.finished?xferAgo(t.finished):'');
       if(t.state==='done'){when=(t.verified?'Verified, ':'')+when;}
       if(when){st.appendChild(el('div','vm-note',when));}
-      if(t.error){st.appendChild(el('div','vm-note xfer-error',t.error));}
+      if(t.error){st.appendChild(errLine(t.error,'vm-note xfer-error','xs:'+(t.source||'')+'>'+(t.target||'')));}
       tr.appendChild(st);tbody.appendChild(tr);
     });
     table.appendChild(tbody);wrap.appendChild(table);box.appendChild(wrap);
@@ -5438,7 +5484,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   }
   function vmFindingsList(vm,r,limit){
     var list=el('ul','vm-findings'),shown=0,findings=vmArr(r.findings).slice().sort(function(a,b){var o={blocker:0,warning:1,info:2};return (o[a.severity]||3)-(o[b.severity]||3);});
-    findings.forEach(function(f){if(limit&&shown>=limit){return;}shown++;var li=el('li',f.severity,f.message);if(f.action){li.appendChild(el('span','vm-finding-action',f.action));}var ways=vmWaysOut(f,vm);if(ways){li.appendChild(ways);}list.appendChild(li);});
+    findings.forEach(function(f){if(limit&&shown>=limit){return;}shown++;var li=el('li',f.severity,f.message);if(f.action){li.appendChild(el('span','vm-finding-action',f.action));}detailFold(li,f.detail);var ways=vmWaysOut(f,vm);if(ways){li.appendChild(ways);}list.appendChild(li);});
     if(!list.childNodes.length){list.appendChild(el('li','good',r.status==='skip'?'This VMware system VM is not moved.':'Nothing to fix before moving to '+vmTargetName(vmTarget())+'.'));}
     return {list:list,more:findings.length-shown};
   }
@@ -5888,7 +5934,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     if(lines.length===1){cell.appendChild(document.createTextNode(lines[0]));}
     else{var ul=el('ul','vm-reason-list');lines.forEach(function(t){ul.appendChild(el('li','',t));});cell.appendChild(ul);}
     if(vm&&vmPlan&&(r.status==='review'||r.acknowledged)){
-      var b=el('button','link-button vm-ack',r.acknowledged?'Open again':'Acknowledge');b.type='button';b.setAttribute('data-vm-ack',vm.id);b.disabled=vmLocked();
+      var b=el('button','link-button vm-ack',r.acknowledged?'Open again':'Acknowledge');b.type='button';b.setAttribute('data-vm-ack',vm.id);b.disabled=vmPlanLocked();
       b.title=r.acknowledged?'Put '+vm.name+' back in Review first':'I have reviewed these items for '+vm.name+': count it as ready';
       b.addEventListener('click',function(e){e.stopPropagation();vmAcknowledge([vm],!r.acknowledged);});
       b.addEventListener('keydown',function(e){e.stopPropagation();});
@@ -5920,7 +5966,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     all.title=pickable.length<vmTableShown.length?'Select the '+vmPlural(pickable.length,'VM')+' shown (VMs already moved and VMware system VMs are left out)':'Select the '+vmPlural(pickable.length,'VM')+' shown';
     renderVmBulk();
     var toReview=vmArr(vmInventory.vms).filter(function(vm){return vmReadiness(vm).status==='review';}),ackAll=byId('vmAckAll');
-    ackAll.classList.toggle('hidden',!toReview.length||!vmPlan);ackAll.disabled=vmLocked();ackAll.textContent='Acknowledge all '+formatCount(toReview.length)+' to review';
+    ackAll.classList.toggle('hidden',!toReview.length||!vmPlan);ackAll.disabled=vmPlanLocked();ackAll.textContent='Acknowledge all '+formatCount(toReview.length)+' to review';
     byId('vmTableNote').textContent=total>shown?'Showing '+shown+' of '+formatCount(total)+'. Search to narrow the list.':vmPlural(total,'VM')+(vmFilter==='all'&&!query?'':' shown');
   }
   function renderVmDetail(){renderVmDrawer(false,false);}
@@ -5949,18 +5995,22 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     prefix=prefix||'vmGa';
     var v=vmwareState()||{},ga=v.guestAuto||{},wrap=el('div','vm-ga');wrap.id=prefix+'Panel';wrap.setAttribute('data-ga-prefix',prefix);
     if(ga.hasPassword){
-      var line=el('div','migrate-detail good','Fix-ups sign in to the new VMs as '+ga.user+'. The password is held in memory only, until Forget or you close the application.');wrap.appendChild(line);
-      var f=el('button','link-button','Forget');f.type='button';f.id=prefix+'Forget';f.addEventListener('click',function(){vmPost('/api/vmware/guest-auto/forget',{},prefix+'Status',function(err){if(!err){v.guestAuto={user:ga.user,hasPassword:false};vmGaRefresh(wrap);}});});line.appendChild(document.createTextNode(' '));line.appendChild(f);
+      var line=el('div','migrate-detail good','Fix-ups sign in to the new VMs as '+ga.user+'. '+(ga.remembered?'The password is kept encrypted for your Windows account on this computer (Remember sign-ins in Help > Settings) and used again after a restart, until Forget.':'The password is held in memory only, until Forget or you close the application.'));wrap.appendChild(line);
+      var f=el('button','link-button','Forget');f.type='button';f.id=prefix+'Forget';f.addEventListener('click',function(){vmPost('/api/vmware/guest-auto/forget',{},prefix+'Status',function(err){if(!err){vmGaHeld({user:ga.user,hasPassword:false});vmGaRefresh(wrap);}});});line.appendChild(document.createTextNode(' '));line.appendChild(f);
     } else {
-      wrap.appendChild(el('div','migrate-help','The guest administrator account of the VMs being moved (a domain admin, or .\\Administrator). It is used only through PowerShell Direct from the Hyper-V host, held in memory and never saved.'));
-      wrap.appendChild(el('div','migrate-help sign-in-why','Your current sign-in cannot be used here: PowerShell Direct signs in to Windows inside each new VM, which needs the account\'s password. Windows cannot pass your sign-in into a VM.'));
-      [['user','Guest administrator account','text','EXAMPLE\\admin or .\\Administrator'],['password','Password','password','']].forEach(function(x){var label=el('label','vm-field'),input=document.createElement('input');input.type=x[2];input.maxLength=256;input.autocomplete='off';input.spellcheck=false;input.id=prefix+x[0].charAt(0).toUpperCase()+x[0].slice(1);if(x[3]){input.placeholder=x[3];}input.value=vmGaForm[x[0]]||(x[0]==='user'?ga.user||'':'');input.addEventListener('input',function(){vmGaForm[x[0]]=input.value;var st=byId(prefix+'Status');if(st&&/error/.test(st.className)){st.textContent='';st.className='migrate-inline-status';}});label.appendChild(el('span','',x[1]));label.appendChild(input);
-        // The signed-in account fills the name only: PowerShell Direct needs
-        // an account and its password for the guest and cannot reuse this
-        // Windows sign-in.
-        var me=latestState&&latestState.signedInAccount,mineRow=null;
-        if(x[0]==='user'&&me){var mine=el('button','link-button','Use the account I\'m signed in with ('+me+')');mine.type='button';mine.id=prefix+'Mine';mine.title='Fills in '+me+'. Type its password below: PowerShell Direct needs the password and cannot reuse your Windows sign-in. The account must be an administrator inside the new VMs (a domain account works once they are on the domain network).';mine.addEventListener('click',function(){input.value=me;vmGaForm.user=me;var pw=byId(prefix+'Password');if(pw){pw.focus();}});mineRow=el('div','vm-ga-mine');mineRow.appendChild(mine);mineRow.appendChild(el('span','vm-note','Fills in the name only. Type its password below: PowerShell Direct needs it and cannot reuse your Windows sign-in.'));}
-        wrap.appendChild(label);if(mineRow){wrap.appendChild(mineRow);}});
+      var remember=!!ga.rememberOn;
+      wrap.appendChild(el('div','migrate-help','The guest administrator account of the VMs being moved (a domain admin, or .\\Administrator), used only through PowerShell Direct from the Hyper-V host. '+(remember?'Remember sign-ins is on, so it is kept encrypted for your Windows account and filled in by itself after a restart.':'It is held in memory only unless you tick Remember below.')));
+      wrap.appendChild(el('div','migrate-help sign-in-why','Your account name is filled in, but its password is still needed: PowerShell Direct signs in to Windows inside each new VM, and Windows cannot pass your sign-in into a VM.'));
+      if(ga.notice){wrap.appendChild(el('div','migrate-inline-status error',ga.notice));}
+      // The signed-in account is filled in by itself; PowerShell Direct
+      // needs its password and cannot reuse this Windows sign-in.
+      var me=(latestState&&latestState.signedInAccount)||'';
+      [['user','Guest administrator account','text','EXAMPLE\\admin or .\\Administrator'],['password','Password','password','']].forEach(function(x){var label=el('label','vm-field'),input=document.createElement('input');input.type=x[2];input.maxLength=256;input.autocomplete='off';input.spellcheck=false;input.id=prefix+x[0].charAt(0).toUpperCase()+x[0].slice(1);if(x[3]){input.placeholder=x[3];}
+        if(x[0]==='user'&&!vmGaForm.user&&!ga.user&&me){vmGaForm.user=me;}
+        input.value=vmGaForm[x[0]]||(x[0]==='user'?ga.user||'':'');input.addEventListener('input',function(){vmGaForm[x[0]]=input.value;var st=byId(prefix+'Status');if(st&&/error/.test(st.className)){st.textContent='';st.className='migrate-inline-status';}});
+        if(x[0]==='password'){input.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();var u=byId(prefix+'Use');if(u){u.click();}}});}
+        label.appendChild(el('span','',x[1]));label.appendChild(input);wrap.appendChild(label);});
+      if(!remember){var rl=el('label','vm-check vm-ga-remember'),rb=document.createElement('input');rb.type='checkbox';rb.id=prefix+'Remember';rb.checked=!!vmGaForm.remember;rb.addEventListener('change',function(){vmGaForm.remember=rb.checked;});rl.appendChild(rb);rl.appendChild(el('span','','Remember sign-ins on this computer (encrypted for your Windows account; turns on the setting in Help > Settings for vCenter sign-ins too)'));wrap.appendChild(rl);}
       var row=el('div','vm-move-actions'),use=el('button','secondary-button','Use this account');use.type='button';use.id=prefix+'Use';use.addEventListener('click',function(){
         // Read the boxes as they are now (the remembered form can lag behind
         // a value the browser filled in without an input event).
@@ -5968,11 +6018,16 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
         var user=trimText(vmGaForm.user||ga.user||''),st=byId(prefix+'Status');
         if(!user){if(st){st.textContent='Type the guest administrator account, for example .\\Administrator or EXAMPLE\\admin.';st.className='migrate-inline-status error';}if(ub){ub.focus();}return;}
         if(!vmGaForm.password){if(st){st.textContent='Type the password of '+user+'.';st.className='migrate-inline-status error';}if(pb){pb.focus();}return;}
-        vmPost('/api/vmware/guest-auto',{user:user,password:vmGaForm.password||''},prefix+'Status',function(err){if(!err){vmGaForm.password='';if(pb){pb.value='';}v.guestAuto={user:user,hasPassword:true};vmGaRefresh(wrap);}});});row.appendChild(use);wrap.appendChild(row);
+        if(vmBusy){if(st){st.textContent='Another step is being sent. Try again in a moment.';st.className='migrate-inline-status error';}return;}
+        var rmb=byId(prefix+'Remember'),body={user:user,password:vmGaForm.password||''};if(rmb&&rmb.checked){body.remember=true;}
+        vmPost('/api/vmware/guest-auto',body,prefix+'Status',function(err){if(!err){vmGaForm.password='';vmGaForm.remember=false;if(pb){pb.value='';}vmGaHeld({user:user,hasPassword:true,remembered:!!(body.remember||remember),rememberOn:!!(body.remember||remember)});vmGaRefresh(wrap);}});});row.appendChild(use);wrap.appendChild(row);
     }
     var st=el('div','migrate-inline-status');st.id=prefix+'Status';wrap.appendChild(st);box.appendChild(wrap);
   }
-  function vmGaRefresh(wrap){var parent=wrap.parentNode;if(!parent){return;}var holder=document.createElement('div');vmGuestAutoPanel(holder,wrap.getAttribute('data-ga-prefix'));parent.replaceChild(holder.firstChild,wrap);var note=byId('vmAfterNote');if(note&&note.parentNode){var v=vmwareState()||{};if(v.guestAuto&&v.guestAuto.hasPassword&&note.classList.contains('warning')&&/guest account/.test(note.textContent)){note.textContent='Nothing is installed in the old or the new VM: the settings were recorded from vCenter, and the fix-up runs through PowerShell Direct from the Hyper-V host.';note.className='migrate-detail';}}}
+  // The state the page draws from now (a poll may have replaced it since the
+  // panel was drawn), so the panel shows the held account at once.
+  function vmGaHeld(ga){var v=vmwareState();if(v){v.guestAuto=ga;}}
+  function vmGaRefresh(wrap){if(!wrap.parentNode&&wrap.id){wrap=byId(wrap.id)||wrap;}var parent=wrap.parentNode;if(!parent){return;}var holder=document.createElement('div');vmGuestAutoPanel(holder,wrap.getAttribute('data-ga-prefix'));parent.replaceChild(holder.firstChild,wrap);var note=byId('vmAfterNote');if(note&&note.parentNode){var v=vmwareState()||{};if(v.guestAuto&&v.guestAuto.hasPassword&&note.classList.contains('warning')&&/guest account/.test(note.textContent)){note.textContent='Nothing is installed in the old or the new VM: the settings were recorded from vCenter, and the fix-up runs through PowerShell Direct from the Hyper-V host.';note.className='migrate-detail';}}}
   // Optional domain controller and SQL Server checks (preflight.go): read
   // only, run from this computer over PowerShell remoting (or PowerShell
   // Direct on this Hyper-V host). Nothing is installed on the servers.
@@ -5984,9 +6039,13 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   function pfComputerOf(vm){return pfForm.computers[vm.id]!==undefined?pfForm.computers[vm.id]:(vm.guestHostName||vm.ipAddress||'');}
   function pfItemOf(id){var list=vmArr(pfState().items);for(var i=0;i<list.length;i++){if(list[i].id===id){return list[i];}}return null;}
   // The last check of a VM in one line.
+  // The full text behind a one-line message (a finding's detail, such as a
+  // remote error), folded under Details so a list stays one line per item.
+  function detailFold(parent,text){text=trimText(text||'');if(!text){return null;}var d=el('details','err-detail'),sm=el('summary','','Details');d.appendChild(sm);d.appendChild(el('pre','selectable',text));parent.appendChild(d);return d;}
+  function oneLine(text){var line=trimText(String(text||'').split('\n')[0]),cut=line.indexOf('. ');if(cut>0){line=line.slice(0,cut+1);}return line.length>140?line.slice(0,137)+'...':line;}
   function pfLast(vm){
     var p=vm.preflight;if(!p){return 'Not checked yet.';}
-    var when=vmWhen(p.checkedAt);if(p.error){return 'Not reached '+when+': '+p.error;}
+    var when=vmWhen(p.checkedAt);if(p.error){return 'Not reached '+when+': '+(p.errorSummary||oneLine(p.error));}
     var f=p.facts||{},parts=[];
     if(f.dc&&f.dc.checked){parts.push(f.dc.isDC?'domain controller'+(vmArr(f.dc.roles).length?' ('+vmArr(f.dc.roles).join(', ')+')':''):'not a domain controller');}
     if(f.sql&&f.sql.checked){var n=vmArr(f.sql.instances).length;parts.push(n?vmPlural(n,'SQL Server instance'):'no SQL Server');}
@@ -6497,7 +6556,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   var vmScenarioFallback=[{id:'new',name:'New hardware',when:'The new platform runs on servers that are not running the source today. Describe them in New cluster size.',kinds:['cluster','cloud','physical']},{id:'rolling',name:'Reuse the existing hosts (rolling, one host at a time)',when:'The source hosts themselves become the new platform. Each stage empties one host onto the others, rebuilds it and moves a wave of VMs onto the hosts rebuilt so far.',kinds:['cluster']}];
   function vmPlanRolling(){return !!(vmPlan&&vmPlan.scenario==='rolling');}
   function vmSetScenario(id){
-    if(!vmPlan||vmLocked()||(vmPlan.scenario||'new')===id){return;}
+    if(!vmPlan||vmPlanLocked()||(vmPlan.scenario||'new')===id){return;}
     vmCollectStages();vmPlan.scenario=id;
     if(id==='rolling'&&!vmPlan.rolling){vmPlan.rolling={autoCapacity:true,stages:[],sourceCluster:''};}
     saveVmPlan(id==='rolling'&&!vmArr(vmPlan.rolling.stages).length?{suggestStages:true,keepWaves:true}:null,id==='rolling'?'Reusing the existing hosts: the new cluster is filled from them and one stage per host is suggested. Change anything you like.':'New hardware: describe the new servers in New cluster size.');
@@ -6720,7 +6779,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     if(!names.length){return {why:'Nothing to do with the steps ticked.'};}
     return {steps:steps,names:names};
   }
-  function vmBulkSave(message){if(vmLocked()){vmBulkMsg.list='Wait for the current step to finish.';renderVmBulk();return;}saveVmPlan(null,message,function(err){vmBulkMsg.list=err||message;vmBulkMsg.listError=!!err;renderVmBulk();});}
+  function vmBulkSave(message){if(vmPlanLocked()){vmBulkMsg.list='Wait for the current step to finish.';renderVmBulk();return;}saveVmPlan(null,message,function(err){vmBulkMsg.list=err||message;vmBulkMsg.listError=!!err;renderVmBulk();});}
   function vmPickByOptions(select){
     var add=function(group,label,value){var o=new Option(label,value);group.appendChild(o);};
     select.appendChild(new Option('Select by…',''));
@@ -6744,15 +6803,15 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   function renderVmBulkInto(box,where){
     box.textContent='';if(!vmInventory){return;}
     vmPickReset();
-    var v=vmwareState()||{},ids=vmPickedIds(),n=ids.length,locked=vmLocked(),row=el('div','vm-bulk-row');
+    var v=vmwareState()||{},ids=vmPickedIds(),n=ids.length,locked=vmPlanLocked(),row=el('div','vm-bulk-row');
     var hidden=where==='list'?ids.filter(function(id){return vmTableShown.indexOf(id)<0;}):[],moved=ids.filter(function(id){return !!vmMovedReason(vmFind(id));});
-    row.appendChild(el('strong','vm-bulk-count',n?vmPlural(n,'VM')+' selected'+(hidden.length?' ('+formatCount(hidden.length)+' hidden by the filter)':''):'Tick VMs to change many at once'));
+    row.appendChild(el('strong','vm-bulk-count',n?vmPlural(n,'VM')+' selected'+(hidden.length?' ('+formatCount(hidden.length)+' hidden by the filter)':''):'No VMs selected'));
     var by=document.createElement('select');by.setAttribute('aria-label','Select VMs by host, cluster, folder, wave, readiness or power');by.setAttribute('data-vm-pickby',where);vmPickByOptions(by);
     by.addEventListener('change',function(){if(by.value){vmPickBy(by.value);}});row.appendChild(by);
     if(where==='list'){var all=el('button','secondary-button','Select every VM that matches');all.type='button';all.setAttribute('data-bulk','all');all.disabled=!vmTableMatches.length;all.addEventListener('click',function(){vmSetPicked(vmGroupPick(vmTableMatches),true);});row.appendChild(all);}
     if(where==='list'){var pfb=el('button','secondary-button','SQL and DC checks…');pfb.type='button';pfb.setAttribute('data-bulk','preflight');pfb.title=n?'Check the selected VMs for domain controller and SQL Server health, read only':'Select the VMs named like domain controllers or SQL Servers and check them, read only';
       pfb.addEventListener('click',function(){if(!n){var likely=vmArr(vmInventory.vms).filter(function(vm){return pfLikely(vm);}).map(function(vm){return vm.id;});if(!likely.length){vmBulkMsg.list='No VM is named like a domain controller or SQL Server. Tick the VMs to check, then press SQL and DC checks again.';vmBulkMsg.listError=false;renderVmBulk();return;}vmBulkOpen='preflight';vmSetPicked(likely,true);return;}vmBulkOpen=vmBulkOpen==='preflight'?'':'preflight';renderVmBulk();});row.appendChild(pfb);}
-    if(n){var clear=el('button','secondary-button','Clear selection');clear.type='button';clear.setAttribute('data-bulk','clear');clear.addEventListener('click',function(){vmPicked={};vmBulkOpen='';vmPickChanged();});row.appendChild(clear);}
+    {var clear=el('button','secondary-button','Clear selection');clear.type='button';clear.disabled=!n;clear.setAttribute('data-bulk','clear');clear.addEventListener('click',function(){vmPicked={};vmBulkOpen='';vmPickChanged();});row.appendChild(clear);}
     box.appendChild(row);
     if(hidden.length){
       var hb=el('div','restore-alert warning vm-bulk-hidden');hb.id='vmBulkHidden';
@@ -6766,11 +6825,11 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     if(moved.length){var mb=el('div','restore-alert warning vm-bulk-moved');mb.id=where==='list'?'vmBulkMoved':'vmWaveBulkMoved';
       mb.appendChild(el('div','',vmPlural(moved.length,'selected VM')+' may already be moved: '+moved.map(function(id){var vm=vmFind(id);return (vm?vm.name:id)+' ('+vmMovedReason(vm).replace(/\.$/,'')+')';}).join('; ')+'.'));
       var mr=el('div','vm-bulk-row'),md=el('button','secondary-button','Unselect them');md.type='button';md.setAttribute('data-bulk','dropmoved');md.addEventListener('click',function(){vmSetPicked(moved,false);});mr.appendChild(md);mb.appendChild(mr);box.appendChild(mb);}
-    if(n&&vmPlan){
-      var act=el('div','vm-bulk-row'),sel=document.createElement('select');sel.setAttribute('aria-label','Wave for the selected VMs');sel.setAttribute('data-bulk','wave');
+    if(vmPlan){
+      var act=el('div','vm-bulk-row'),sel=document.createElement('select');sel.disabled=!n;sel.setAttribute('aria-label','Wave for the selected VMs');sel.setAttribute('data-bulk','wave');
       vmWaveNumbers().forEach(function(k){sel.appendChild(new Option(vmWaveTitle(k),String(k)));});sel.appendChild(new Option('A new wave','new'));sel.appendChild(new Option('No wave','none'));
       act.appendChild(sel);
-      var btn=function(label,attr,fn,title){var b=el('button','secondary-button',label);b.type='button';b.setAttribute('data-bulk',attr);if(title){b.title=title;}b.disabled=where==='list'&&locked;b.addEventListener('click',fn);act.appendChild(b);return b;};
+      var btn=function(label,attr,fn,title){var b=el('button','secondary-button',label);b.type='button';b.setAttribute('data-bulk',attr);if(title){b.title=title;}b.disabled=!n||(where==='list'&&locked);b.addEventListener('click',fn);act.appendChild(b);return b;};
       var apply=function(whereTo,label){var err=vmPlaceVms(ids,whereTo);if(err){vmBulkMsg[where]=err;renderVmBulk();return;}if(where==='plan'){vmWaveChanged(label);}else{vmBulkSave(label);}};
       btn('Put in wave','put',function(){var t=sel.value==='new'||sel.value==='none'?sel.value:Number(sel.value);apply(t,vmPlural(n,'VM')+' put in '+(t==='new'?'a new wave':(t==='none'?'no wave':'wave '+t))+'.');});
       btn('Hold','hold',function(){apply('hold',vmPlural(n,'VM')+' on hold.');},'Keep them out of every wave until they are ready');
@@ -6822,7 +6881,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
       tr.appendChild(vmCellInput('text',nm.targetVlan,'New VLAN for '+nm.source+' (selected VMs)',function(value){nm.targetVlan=value;},{maxlength:'4',inputmode:'numeric'}));tbody.appendChild(tr);});
     if(!tbody.childNodes.length){var r=el('tr',''),c=el('td','','The selected VMs have no network adapters on a known network.');c.colSpan=4;r.appendChild(c);tbody.appendChild(r);}
     table.appendChild(tbody);var wrap=el('div','vm-table-wrap');wrap.appendChild(table);panel.appendChild(wrap);
-    var save=el('button','primary-button','Save the network map');save.type='button';save.id='vmBulkNetSave';save.disabled=vmLocked();save.addEventListener('click',function(){vmBulkSave('Network map saved.');});panel.appendChild(save);
+    var save=el('button','primary-button','Save the network map');save.type='button';save.id='vmBulkNetSave';save.disabled=vmPlanLocked();save.addEventListener('click',function(){vmBulkSave('Network map saved.');});panel.appendChild(save);
     box.appendChild(panel);
   }
   var vmBatchStateLabels={waiting:'Waiting',running:'Running',done:'Done',failed:'Failed',stopped:'Not started'};
@@ -6848,7 +6907,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     vmCapacityFields.forEach(function(f){var n=Number(byId(f.id).value);if(isNaN(n)||n<0){n=0;}capacity[f.key]=f.whole?Math.round(n):n;});
   }
   function saveVmPlan(extra,status,done){
-    if(!vmPlan||vmLocked()){return;}
+    if(!vmPlan||vmPlanLocked()){return;}
     vmCollectCapacity();var body={plan:vmPlan};if(extra){for(var k in extra){if(extra.hasOwnProperty(k)){body[k]=extra[k];}}}
     vmPost('/api/vmware/plan',body,'vmPlanStatus',function(err,data){
       if(err){if(done){done(err);}return;}
@@ -7143,6 +7202,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   byId('vmAddStage').addEventListener('click',function(){if(!vmPlan||!vmPlan.rolling){return;}var st=vmArr(vmPlan.rolling.stages),wave=0;st.forEach(function(x){if(x.wave>wave){wave=x.wave;}});vmPlan.rolling.stages=st.concat([{host:'',wave:wave+1,moveFirst:true,notes:''}]);vmMarkPlanDirty();renderVmStages();});
   byId('vmWaveSearch').addEventListener('input',renderVmWaves);
   byId('vmSavePlan').addEventListener('click',function(){saveVmPlan(null,'Plan saved.');});
+  byId('vmReadBarToggle').addEventListener('click',function(){vmReadOpen=!vmReadOpen;syncVmReadPanels(vmwareState()||{});if(vmReadOpen){var s=byId('vmServer');if(s&&!s.disabled){s.focus();}}});
   byId('vmSuggest').addEventListener('click',function(){var size=parseInt(byId('vmWaveSize').value,10);size=isNaN(size)||size<1?0:Math.min(200,size);var reset=byId('vmWaveReset').checked;
     saveVmPlan({suggest:true,waveSize:size,resetManual:reset},'',function(err){if(err){return;}var waves=vmArr(vmPlan.waves).length;
       vmSetStatus('vmPlanStatus','Suggested '+vmPlural(waves,'wave')+(size?'':' of up to '+(vmPlan.waveSize||0)+' VMs (Auto)')+' and saved the plan.'+(reset?'':' VMs you placed by hand were kept.')+' Change anything before writing the runbook.');byId('vmWaveReset').checked=false;});});
@@ -7991,11 +8051,11 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   // All servers (allservers.go): every server and VM this console moves or
   // replicates, with one state each, and the same action on many at once.
   var asState=null,asLastPoll=0,asFilter='',asText='',asMethodFilter='',asChosen={},asForm='',asBusy=false,asMeters={},asPushWatch=false;
-  var asTiles=[['all','Everything','','Show every server and VM'],['notconfigured','Not configured','','Show VMs of the inventory that nothing moves yet'],['agent','Agent, no job','','Show servers with the agent installed and no replication job'],['unreachable','Not answering','warning','Show servers whose agent does not answer'],['seeding','Initial copy','active','Show servers whose first full copy is running'],['atcutover','Copies at cutover','','Show VMs copied only at their cutover, while shut down (vSphere cannot read them while they run)'],['insync','In sync','good','Show servers with a whole, current copy: ready to test and cut over'],['behind','Behind','warning','Show servers whose newest copy is older than its limit'],['paused','Paused','','Show paused servers'],['testing','Testing','warning','Show servers with a test VM running'],['scheduled','Cutover scheduled','warning','Show servers with a cutover scheduled'],['cuttingover','Cutting over','active','Show servers being cut over'],['cutover','Cut over','good','Show servers that are cut over'],['failed','Failed','danger','Show servers and jobs whose last copy or run failed, with the error'],['running','Running','active','Show conversions, restores and file share moves running on this computer'],['finished','Finished','good','Show conversions, restores and file share moves that finished in the last 12 hours']];
+  var asTiles=[['all','Everything','','Show every server and VM'],['notconfigured','Not configured','','Show VMs of the inventory that nothing moves yet'],['agent','Agent, no job','','Show servers with the agent installed and no replication job'],['unreachable','Not answering','warning','Show servers whose agent does not answer'],['seeding','Initial copy','active','Show servers whose first full copy is running'],['atcutover','Copies at cutover','','Show VMs copied only at their cutover, while shut down (vSphere cannot read them while they run)'],['insync','In sync','good','Show servers with a whole, current copy: ready to test and cut over'],['syncing','Syncing','active','Show servers with a whole copy whose next sync is running now'],['behind','Behind','warning','Show servers whose newest copy is older than its limit'],['paused','Paused','','Show paused servers'],['testing','Testing','warning','Show servers with a test VM running'],['scheduled','Cutover scheduled','warning','Show servers with a cutover scheduled'],['cuttingover','Cutting over','active','Show servers being cut over'],['cutover','Cut over','good','Show servers that are cut over'],['failed','Failed','danger','Show servers and jobs whose last copy or run failed, with the error'],['running','Running','active','Show conversions, restores and file share moves running on this computer'],['finished','Finished','good','Show conversions, restores and file share moves that finished in the last 12 hours']];
   var asActs=[['install','Install agents','Install the replication agent on the selected VMs that nothing moves yet'],['createjob','Create replication jobs','Create one job per selected server with the agent and no job, all to one receiver'],['sync','Sync now','Start a round for each selected server now'],['pause','Pause','Pause the selected jobs (a plan VM pauses its whole plan)'],['resume','Resume','Resume the selected jobs and plans'],['test','Test failover','Start an isolated test VM from each selected server\'s copy'],['endtest','End test','Remove the test VMs of the selected servers'],['wave','Set wave','Put the selected servers in a cutover wave'],['cutover','Cut over','Cut the selected servers over now or at a time, wave by wave'],['cancelcutover','Cancel scheduled cutover','Cancel the scheduled cutover of the selected servers']];
   var asActName={};asActs.forEach(function(a){asActName[a[0]]=a[1];});
   var asForms={install:'asFormInstall',createjob:'asFormJobs',wave:'asFormWave',cutover:'asFormCutover',test:'asFormTest',endtest:'asFormTest'};
-  var asStateClass={insync:'good',cutover:'good',seeding:'active',cuttingover:'active',behind:'warning',testing:'warning',unreachable:'warning',paused:'',failed:'danger'};
+  var asStateClass={insync:'good',syncing:'active',cutover:'good',seeding:'active',cuttingover:'active',behind:'warning',testing:'warning',unreachable:'warning',paused:'',failed:'danger'};
   (function(){var a=byId('asJobBizStart'),b=byId('asJobBizEnd');for(var h=0;h<=24;h++){var label=(h<10?'0':'')+h+':00';a.appendChild(new Option(label,String(h)));b.appendChild(new Option(label,String(h)));}a.value='0';b.value='0';})();
   vmFinder(byId('asJobFinder'),{address:byId('asJobAddress'),thumbprint:byId('asJobThumb'),code:byId('asJobCode')},{disks:true});
   function asRows(){return asState?vmArr(asState.rows):[];}
@@ -8061,7 +8121,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     var tr=el('tr',asChosen[r.key]?'chosen':'');tr.setAttribute('data-as-key',r.key);
     var c=el('td'),box=document.createElement('input');box.type='checkbox';box.setAttribute('data-as-row',r.key);box.checked=!!asChosen[r.key];box.setAttribute('aria-label','Select '+r.name);c.appendChild(box);tr.appendChild(c);
     var name=el('td');name.appendChild(el('span','as-name',r.name));if(r.detail){name.appendChild(el('span','as-sub',r.detail));}name.appendChild(el('span','as-method',r.method));tr.appendChild(name);
-    var st=el('td');st.appendChild(el('span','as-chip '+(asStateClass[r.state]||''),r.stateText));if(r.reason){st.appendChild(el('span','as-reason',r.reason));}tr.appendChild(st);
+    var st=el('td');st.appendChild(el('span','as-chip '+(asStateClass[r.state]||''),r.stateText));if(r.reason){st.appendChild(errLine(r.reason,'as-reason','as:'+r.key));}tr.appendChild(st);
     var pg=el('td','as-progress');
     if(r.percent>=0){
       var pct=Math.max(0,Math.min(100,Number(r.percent)||0)),bar=el('div','as-bar '+(r.state==='failed'?'danger':'active'));bar.setAttribute('role','progressbar');bar.setAttribute('aria-valuemin','0');bar.setAttribute('aria-valuemax','100');bar.setAttribute('aria-valuenow',String(pct));bar.setAttribute('aria-label',r.name+' progress');
@@ -8072,6 +8132,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     }else{delete asMeters[r.key];pg.appendChild(el('span','as-sub',r.state==='insync'||r.state==='behind'?'Idle between syncs':''));}
     tr.appendChild(pg);
     var last=el('td');if(rpTime(r.lastSync)){last.appendChild(el('span','',mpTime(r.lastSync)));}
+    if(r.lastRound){mpReadInfo(last,r.lastRound,'asw:'+r.key);}
     if(r.lagSeconds>=0){var late=r.limitMinutes&&r.lagSeconds>r.limitMinutes*60;last.appendChild(el('span','as-sub'+(late?' as-late':''),asAge(r.lagSeconds)+' old'+(r.limitMinutes?' (limit '+r.limitMinutes+' min)':'')));}
     tr.appendChild(last);
     tr.appendChild(el('td','',rpTime(r.nextSync)?mpTime(r.nextSync):''));
@@ -8096,8 +8157,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
       var n=asApplies(a[0],sel).length,b=el('button',a[0]==='cutover'&&n?'primary-button':'secondary-button',a[1]+(sel.length?' ('+n+')':''));b.type='button';b.setAttribute('data-as-act',a[0]);b.title=a[2];
       b.disabled=!n||asBusy||running;b.setAttribute('aria-pressed',asForm===a[0]?'true':'false');box.appendChild(b);
     });
-    if(!sel.length){why.push('Tick servers in the list, or use Select, to act on many at once. Each button shows how many of the selected servers it applies to.');}
-    else if(running){why.push('A bulk action is running; the buttons come back when it finishes.');}
+    if(running){why.push('A bulk action is running; the buttons come back when it finishes.');}
     else{
       var skipped=sel.filter(function(r){return !vmArr(r.actions).length;});
       if(skipped.length){why.push(skipped.map(function(r){return r.name;}).slice(0,5).join(', ')+(skipped.length>5?' and '+(skipped.length-5)+' more':'')+': nothing can be done from here now (see the state).');}
@@ -8532,7 +8592,8 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   }
   function nwSignature(){
     var v=vmwareState()||{};
-    var base=[nw.step,vmInvKeyOf(vmInventory),!!v.running,v.status,!!v.canPrepare,!!v.hyperVHere,nwSwitches?nwSwitches.length:-1,mpState?vmArr(mpState.plans).length:-1].join('|');
+    var used=nwInPlans(),ga=v.guestAuto||{};
+    var base=[nw.step,vmInvKeyOf(vmInventory),!!v.running,v.status,!!v.canPrepare,!!v.hyperVHere,nwSwitches?nwSwitches.length:-1,mpState?vmArr(mpState.plans).length:-1,Object.keys(used).sort().join(','),ga.user||'',!!ga.hasPassword].join('|');
     if(nw.step===1){base+='|'+JSON.stringify(v.hostStorage||null)+'|'+(v.hvRemote?[v.hvRemote.connected,v.hvRemote.serial,v.hvRemote.failed,v.hvRemote.message].join(','):'');}
     if(nw.step===4&&v.hvRemote){base+='|'+v.hvRemote.serial;}
     if((nw.step===1||nw.step===2)&&v.target){base+='|t'+v.target.serial+(v.target.connected?'c':'')+(v.target.certificate?'x':'')+'|'+(v.move?v.move.vm+(v.move.error||''):'');}
@@ -8545,11 +8606,17 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     var pgs=pgSettings();if(pgs&&!nw.srv.bwFilled){var gb=pgs.bandwidth||{};nw.srv.bwFilled=true;nw.srv.limit=String(gb.limitMbps||0);nw.srv.biz=String(gb.businessMbps||0);nw.srv.bizStart=gb.businessStart||0;nw.srv.bizEnd=gb.businessEnd||0;}
     // The step scrolls inside the window; a refresh of the same step keeps
     // its scroll position, a new step starts at the top.
-    var box=byId('nwStep'),keep=box.getAttribute('data-step')===String(nw.step)?box.scrollTop:0;box.textContent='';box.setAttribute('data-step',String(nw.step));nw.error=nw.error||'';
+    var box=byId('nwStep'),same=box.getAttribute('data-step')===String(nw.step),keep=same?box.scrollTop:0;
+    // A section the person opened or closed stays that way when the step is
+    // drawn again (a refresh must never fold what they are reading).
+    if(same){Array.prototype.forEach.call(box.querySelectorAll('details[id]'),function(d){nwOpenDetails[d.id]=d.open;});}
+    box.textContent='';box.setAttribute('data-step',String(nw.step));nw.error=nw.error||'';
     if(nw.source==='vms'&&nw.step>=1){nwFillDefaults();}
     [renderNwWhat,renderNwWhere,renderNwHow,renderNwWhen,renderNwReview,renderNwStatus][nw.step](box);
+    Array.prototype.forEach.call(box.querySelectorAll('details[id]'),function(d){if(nwOpenDetails.hasOwnProperty(d.id)){d.open=nwOpenDetails[d.id];}});
     nwSig=nwSignature();renderNwStepper();renderNwNav();box.scrollTop=keep;
   }
+  var nwOpenDetails={};
   function nwTick(){
     if(activeTab!=='wizard'){return;}
     if(!nwSwitchesAsked&&(vmwareState()||{}).hyperVHere){nwLoadPlans(true);}
@@ -8562,7 +8629,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   function nwTyping(){var a=document.activeElement;return !!(a&&byId('nwStep').contains(a)&&(a.type==='text'||a.type==='password'||a.type==='search'||a.type==='datetime-local'||a.tagName==='SELECT'));}
   function nwLoadPlans(withSwitches){
     if(withSwitches){nwSwitchesAsked=true;}nwLastPoll=Date.now();
-    request('GET','/api/plans'+(withSwitches?'?switches=1':''),null,function(err,data){if(err){return;}mpState=data||{};if(withSwitches&&mpState.switches){nwSwitches=vmArr(mpState.switches);}if(activeTab==='wizard'){if(nw.step===5){renderNwStatusBody();renderNwNav();}else if(!nwTyping()){renderNw();}}});
+    request('GET','/api/plans'+(withSwitches?'?switches=1':''),null,function(err,data){if(err){return;}mpState=data||{};if(withSwitches&&mpState.switches){nwSwitches=vmArr(mpState.switches);}if(activeTab==='wizard'){if(nw.step===5){renderNwStatusBody();renderNwNav();}else if(!nwTyping()&&nwSignature()!==nwSig){renderNw();}else{renderNwNav();}}});
   }
   function nwOpen(){
     if(!vmInventory&&!vmInvLoading&&(vmwareState()||{}).inventorySerial){loadVmInventory(0);}
@@ -8818,7 +8885,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
       var nwGaShow=function(){gaHost.textContent='';if(o.fixUp){vmGuestAutoPanel(gaHost,'nwGa');}};nwGaShow();}
     var adv=document.createElement('details');adv.className='nw-advanced';adv.id='nwAdvanced';adv.appendChild(el('summary','','Advanced: sync interval, VMs at once, bandwidth, test network'));
     var three=el('div','mp-three');
-    var sync=document.createElement('select');sync.id='nwSync';[[15,'15 minutes'],[30,'30 minutes'],[60,'hour'],[120,'2 hours'],[240,'4 hours'],[720,'12 hours'],[1440,'day']].forEach(function(x){sync.appendChild(new Option(x[1],String(x[0])));});sync.value=String(o.syncMinutes);
+    var sync=document.createElement('select');sync.id='nwSync';[[5,'5 minutes (near real time)'],[10,'10 minutes'],[15,'15 minutes'],[30,'30 minutes'],[60,'hour'],[120,'2 hours'],[240,'4 hours'],[720,'12 hours'],[1440,'day']].forEach(function(x){sync.appendChild(new Option(x[1],String(x[0])));});sync.value=String(o.syncMinutes);
     sync.addEventListener('change',function(){o.syncMinutes=Number(sync.value);});three.appendChild(nwField('Sync each VM every',sync));
     var conc=document.createElement('select');conc.id='nwConcurrency';[1,2,3,4].forEach(function(n){conc.appendChild(new Option(String(n),String(n)));});conc.value=String(o.concurrency);
     conc.addEventListener('change',function(){o.concurrency=Number(conc.value);});three.appendChild(nwField('VMs copied at once',conc));
@@ -9188,7 +9255,6 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     var head=el('div','nw-status-head');head.id='nwStatusHead';box.appendChild(head);
     var body=el('div','nw-status-body');body.id='nwStatusBody';box.appendChild(body);
     var act=el('div','nw-status-actions');
-    act.appendChild(el('span','vm-note','Select servers, then act on them. Test failover, End test and Cut over ask you to confirm first.'));
     var sel=document.createElement('select');sel.id='nwSrvAction';sel.setAttribute('aria-label','Action');[['sync','Sync now'],['test','Test failover'],['endtest','End test'],['cutover','Cut over now'],['cutoverat','Cut over at a time'],['cancelcutover','Cancel scheduled cutover'],['pause','Pause'],['resume','Resume']].forEach(function(x){sel.appendChild(new Option(x[1],x[0]));});sel.value=nw.srv.action||'sync';act.appendChild(sel);
     var at=document.createElement('input');at.type='datetime-local';at.id='nwSrvCutAt';at.setAttribute('aria-label','Cutover time');at.value=nw.srv.cutAt||'';act.appendChild(at);
     var conf=nwInput('nwSrvActConfirm','','Type the number');conf.setAttribute('aria-label','Type the number of servers to confirm');conf.inputMode='numeric';conf.maxLength=4;act.appendChild(conf);cfmBox(conf,{what:function(n){return 'I understand this applies to '+vmPlural(Number(n),'server');}});
@@ -9197,7 +9263,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     box.appendChild(act);
     nwSrvStatusSig='';renderNwSrvStatusBody();
   }
-  var nwSrvTiles=[['total','Servers',''],['seeding','First copy','active'],['insync','In sync','good'],['behind','Behind','warning'],['paused','Paused',''],['testing','Testing','warning'],['cuttingover','Cutting over','active'],['cutover','Cut over','good'],['failed','Failed','danger'],['unreachable','Not answering','danger']];
+  var nwSrvTiles=[['total','Servers',''],['seeding','First copy','active'],['insync','In sync','good'],['syncing','Syncing','active'],['behind','Behind','warning'],['paused','Paused',''],['testing','Testing','warning'],['cuttingover','Cutting over','active'],['cutover','Cut over','good'],['failed','Failed','danger'],['unreachable','Not answering','danger']];
   function nwSrvActionRows(action){var a=action==='cutoverat'?'cutover':action;return nwSrvStatusRows().filter(function(r){return nwSrvChosen[r.key]&&vmArr(r.actions).indexOf(a)>=0;});}
   function nwSrvRunWhy(){
     var action=(byId('nwSrvAction')||{}).value||'sync',rows=nwSrvActionRows(action),picked=nwSrvStatusRows().filter(function(r){return nwSrvChosen[r.key];});
@@ -9260,7 +9326,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     shown.forEach(function(r){
       var tr=el('tr'),c=el('td'),cb=document.createElement('input');cb.type='checkbox';cb.setAttribute('data-nw-srvrow',r.key);cb.checked=!!nwSrvChosen[r.key];cb.setAttribute('aria-label','Select '+r.name);c.appendChild(cb);tr.appendChild(c);
       var n=el('td');n.appendChild(el('strong','',r.name));if(r.detail){n.appendChild(el('span','vm-note',r.detail));}tr.appendChild(n);
-      var st=el('td');st.appendChild(el('span','mp-chip '+({insync:'good',cutover:'good',failed:'danger',unreachable:'danger',behind:'warning',testing:'warning',seeding:'active',cuttingover:'active'}[r.state]||''),r.stateText||r.state));if(r.reason){st.appendChild(el('span','vm-note',r.reason));}tr.appendChild(st);
+      var st=el('td');st.appendChild(el('span','mp-chip '+({insync:'good',cutover:'good',failed:'danger',unreachable:'danger',behind:'warning',testing:'warning',seeding:'active',syncing:'active',cuttingover:'active'}[r.state]||''),r.stateText||r.state));if(r.reason){st.appendChild(el('span','vm-note',r.reason));}tr.appendChild(st);
       var cp=el('td');if(r.percent>=0){cp.appendChild(el('span','',r.percent+'%'+(r.secondsLeft?' · '+mpDuration(r.secondsLeft)+' left':'')));}else if(r.lagSeconds>=0){cp.appendChild(el('span','','Newest copy '+mpDuration(r.lagSeconds)+' old'));}else{cp.appendChild(el('span','vm-note','No whole copy yet'));}tr.appendChild(cp);
       var cu=el('td');if(r.state==='cutover'){cu.appendChild(el('span','','Cut over'));}else if(mpTime(r.cutoverAt)){cu.appendChild(el('span','mp-chip warning','At '+mpTime(r.cutoverAt)));}else{cu.appendChild(el('span','vm-note',vmArr(r.actions).indexOf('cutover')>=0?'Ready when you are':'After its first copy'));}tr.appendChild(cu);
       tb.appendChild(tr);});
@@ -9288,7 +9354,6 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     var head=el('div','nw-status-head');head.id='nwStatusHead';box.appendChild(head);
     var body=el('div','nw-status-body');body.id='nwStatusBody';box.appendChild(body);
     var act=el('div','nw-status-actions');
-    act.appendChild(el('span','vm-note','Select VMs in the list, or use a wave\'s buttons. Cut over now asks you to confirm first.'));
     var conf=nwInput('nwCutConfirm','','Type the name to cut over');conf.setAttribute('aria-label','Type the migration name to cut over');act.appendChild(conf);cfmBox(conf,{what:'I understand the selected VMs are shut down and cut over now'});
     var cut=el('button','primary-button','Cut over selected VMs now');cut.type='button';cut.id='nwCutNow';act.appendChild(cut);
     var msg=el('div','migrate-inline-status');msg.id='nwStatusMsg';msg.setAttribute('role','status');act.appendChild(msg);
@@ -9389,6 +9454,8 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     if(t.id==='nwVtpmLive'){nwPickedVMs().forEach(function(vm){delete nw.methods[vm.id];});renderNw();return;}
     if(t.hasAttribute('data-mp-offline')||t.hasAttribute('data-mp-live')){var mpl=nwPlan();if(mpl){mpMethodSwitch(mpl,t,function(body,done){nwPlanAction(body,done);});}return;}
     if(t.hasAttribute('data-mp-vddk')){openVddkSettings();return;}
+    if(t.hasAttribute('data-mp-vddklog')){mpOpenVddkLog();return;}
+    if(t.hasAttribute('data-mp-retry')){var rpl=nwPlan();if(rpl){nwPlanAction({action:'sync',id:rpl.id,vmIds:[t.getAttribute('data-mp-retry')]});}return;}
     if(t.id==='nwBatchStop'){t.disabled=true;request('POST','/api/vmware/cancel',{},function(err){if(err){t.disabled=false;nw.error=err;renderNwNav();return;}var v=vmwareState();if(v){v.cancelRequested=true;}});return;}
     if(t.hasAttribute('data-nw-filter')){var fl=t.getAttribute('data-nw-filter');nw.statusFilter=(fl===nw.statusFilter||fl==='total')?'':fl;if(nw.statusKind==='servers'){renderNwSrvStatusBody();}else{renderNwStatusBody();}return;}
     if(t.hasAttribute('data-nw-pickwave')){var w=Number(t.getAttribute('data-nw-pickwave')),p=nwPlan();vmArr(p&&p.vms).forEach(function(v){if((v.wave||0)===w&&v.state!=='done'){nwRowsChosen[v.id]=true;}});nwStatusSig='';renderNwStatusBody();return;}
@@ -9445,6 +9512,83 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   function mpFillSwitches(){var sel=byId('mpTestSwitch'),keep=sel.value;while(sel.options.length>1){sel.remove(1);}vmArr(mpState.switches).forEach(function(s){sel.appendChild(new Option(s.name+' ('+s.type+')',s.name));});sel.value=keep;}
   function mpOpen(){mpLoad();if(!vmInventory&&!vmInvLoading){loadVmInventory(0);}}
   function mpPost(body,statusId,done){if(mpBusy){return;}mpBusy=true;syncMpButtons();request('POST','/api/plans',body,function(err,data){mpBusy=false;if(statusId){vmSetStatus(statusId,err||'',!!err);}if(done){done(err,data||{});}mpLoad();});}
+  // The server a plan waits to be signed in to, from its blocked reason.
+  function mpSignInServer(plan){var m=plan&&plan.blocked&&/^(?:Read the inventory of|Sign in to) (.+?) in Discovery/.exec(plan.blocked);return m?m[1]:'';}
+  // Sign in right here when the plan waits for its vCenter or ESXi
+  // password (kept in memory only, so it is asked again after a restart).
+  var mpSignInKey='';
+  function renderMpSignIn(plan){
+    var box=byId('mpSignIn'),server=mpSignInServer(plan),key=server?plan.id+'|'+server:'';
+    box.classList.toggle('hidden',!server);
+    if(key===mpSignInKey){var uf=byId('mpSignInUser');if(uf&&!uf.value&&document.activeElement!==uf){uf.value=(vmwareState()||{}).account||'';}return;}
+    mpSignInKey=key;box.textContent='';if(!server){return;}
+    var v=vmwareState()||{},planId=plan.id;
+    box.appendChild(el('strong','mp-signin-title','Sign in to '+server+' so this plan can copy'));
+    box.appendChild(el('span','vm-note','The password is kept in memory only, so it is asked again after the application restarts. Signing in reads '+server+' again, then the plan syncs.'));
+    var row=el('div','mp-signin-row');
+    var user=document.createElement('input');user.type='text';user.id='mpSignInUser';user.autocomplete='off';user.spellcheck=false;user.maxLength=256;user.setAttribute('aria-label','vCenter or ESXi user name');user.placeholder='User, for example administrator@vsphere.local';user.value=v.account||trimText(byId('vmUser').value)||'';
+    var pass=document.createElement('input');pass.type='password';pass.id='mpSignInPassword';pass.autocomplete='new-password';pass.maxLength=256;pass.setAttribute('aria-label','vCenter or ESXi password');pass.placeholder='Password';
+    var go=el('button','primary-button','Sign in and sync');go.type='button';go.id='mpSignInButton';
+    row.appendChild(user);row.appendChild(pass);row.appendChild(go);box.appendChild(row);
+    var rl=el('label','mp-signin-remember'),rem=document.createElement('input');rem.type='checkbox';rem.id='mpSignInRemember';rl.appendChild(rem);
+    rl.appendChild(el('span','','Remember it on this computer, so the plan carries on after a restart (kept encrypted by Windows for your account; use a dedicated vCenter account). Help, Settings can forget it.'));box.appendChild(rl);
+    vcRememberLoad(function(){if(vcRememberView&&vcRememberView.enabled){rem.checked=true;}});
+    var st=el('div','migrate-inline-status');st.id='mpSignInStatus';st.setAttribute('role','status');st.setAttribute('aria-live','polite');box.appendChild(st);
+    var hv=el('button','link-button','Is '+server+' a Hyper-V host? Read it in Discovery');hv.type='button';hv.addEventListener('click',function(){showTool('environment');});box.appendChild(hv);
+    var say=function(text,bad){st.textContent=text;st.className='migrate-inline-status'+(bad?' error':'');};
+    var run=function(){
+      var u=trimText(user.value);
+      if(!u){say('Type the user name.',true);user.focus();return;}
+      if(!pass.value){say('Type the password.',true);pass.focus();return;}
+      if(vmBusy||(v=vmwareState()||{}).running){say('Another VMware or Hyper-V step is running. Sign in when it finishes.',true);return;}
+      say('Signing in to '+server+'…',false);go.disabled=true;
+      var body={server:server,user:u,password:pass.value};if(rem.checked){body.remember=true;}
+      vmPost('/api/vmware/connect',body,null,function(err){
+        pass.value='';go.disabled=false;
+        if(err){say(err,true);return;}
+        vmMarkRunning('connect','connecting','Connecting to '+server+' as '+u+'.');
+        say('Signed in. Reading '+server+' again; the plan syncs as soon as the read finishes.',false);
+        request('POST','/api/plans',{action:'sync',id:planId,vmIds:[]},function(){mpLoad();});
+      });
+    };
+    go.addEventListener('click',run);
+    [user,pass].forEach(function(f){f.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();run();}});});
+  }
+  // What a Sync now press did, said at once so it never looks like nothing
+  // happened.
+  function mpSyncText(a){
+    var q=Number(a.queued)||0,skipped=vmArr(a.skipped),left=skipped.length?' Left alone: '+skipped.join('; ')+'.':'';
+    if(!q){return {bad:true,text:'Nothing to sync.'+left};}
+    var t=vmPlural(q,'VM')+' asked to sync';
+    if(a.paused){return {bad:true,text:t+', but the plan is paused. Resume it to copy.'+left};}
+    if(a.waiting){return {bad:true,text:t+', but the plan cannot copy yet: '+a.waiting+(/^(Read the inventory of|Sign in to) /.test(a.waiting)?' Sign in above and it syncs.':'')+left};}
+    return {bad:false,text:t+'. Copying starts within 20 seconds; each VM shows its progress below.'+left};
+  }
+  function mpOpenVddkLog(){request('POST','/api/open',{kind:'vddklog'},function(err){vmSetStatus('mpStatus',err?'VDDK\'s log could not be opened: '+err:'VDDK\'s log opened.',!!err);});}
+  function mpSync(ids){
+    var p=mpPlan();if(!p){return;}
+    vmSetStatus('mpStatus',ids.length?'Asking '+vmPlural(ids.length,'VM')+' to sync…':'Asking every VM to sync…',false);
+    mpPost({action:'sync',id:p.id,vmIds:ids},null,function(err,data){
+      if(err){vmSetStatus('mpStatus',err,true);return;}
+      var r=mpSyncText(data.sync||{});vmSetStatus('mpStatus',r.text,r.bad);
+      if(data.sync&&mpSignInServer({blocked:data.sync.waiting})){var f=byId('mpSignInPassword');if(f){f.focus();}}
+    });
+  }
+  // Remembered vCenter sign-ins (Help > Settings): the page sees servers and
+  // user names only, never a password.
+  var vcRememberView=null;
+  function vcRememberRender(view,err){
+    if(view){vcRememberView=view;}
+    var v=vcRememberView||{enabled:false,entries:[]},list=byId('vcRememberList'),st=byId('vcRememberStatus');
+    byId('vcRememberOn').checked=!!v.enabled;list.textContent='';
+    vmArr(v.entries).forEach(function(e){var row=el('div','vc-remember-row');row.appendChild(el('span','selectable',e.user+(e.kind==='guest'?' (guest administrator account for fix-ups)':' on '+e.server)+(mpTime(e.saved)?' (saved '+mpTime(e.saved)+')':'')));var b=el('button','secondary-button','Forget');b.type='button';b.setAttribute('data-vc-forget',e.server);row.appendChild(b);list.appendChild(row);});
+    var text=err||(v.notice||'');if(!text){text=v.enabled?(vmArr(v.entries).length?'These are used again by themselves after a restart.':'The next sign-in that reads vCenter or ESXi, and the next guest administrator account, are remembered.'):'Not remembered: passwords are kept in memory only.';}
+    st.textContent=text;st.className='helper'+(err?' error':'');
+  }
+  function vcRememberLoad(done){request('GET','/api/vmware/remember',null,function(err,data){vcRememberRender(err?null:data.remember,err);if(done){done();}});}
+  function vcRememberPost(body){request('POST','/api/vmware/remember',body,function(err,data){vcRememberRender(err?null:data.remember,err);mpSignInKey='';});}
+  byId('vcRememberOn').addEventListener('change',function(){vcRememberPost({enabled:this.checked});});
+  byId('vcRememberList').addEventListener('click',function(e){var b=e.target.closest('[data-vc-forget]');if(b){vcRememberPost({forget:b.getAttribute('data-vc-forget')});}});
   function mpBadge(){var b=byId('plansBadge'),list=mpState?vmArr(mpState.plans):[],copying=0,failed=0;list.forEach(function(p){copying+=p.summary.copying;failed+=p.summary.failed;});b.classList.toggle('hidden',!copying&&!failed);b.textContent=failed?failed+' failed':copying+' copying';}
   function renderMp(){
     if(!mpState){return;}
@@ -9453,6 +9597,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     var notes=[];if(mpState.hyperVHere===false&&!(mpPlan()&&mpPlan().settings&&mpPlan().settings.remoteHost)){notes.push('This computer is not a Hyper-V host. Run the application on the Hyper-V host that will run the VMs: plans copy the disks and create the VMs on the computer running them.');}
     var plan=mpPlan();if(plan&&plan.blocked){notes.push(plan.blocked);}else if(mpState.blocked){notes.push('Waiting: '+mpState.blocked);}
     byId('mpBlocked').textContent=notes.join(' ');byId('mpBlocked').classList.toggle('hidden',!notes.length);
+    renderMpSignIn(mpEditing?null:plan);
     var list=byId('mpPlanList');list.textContent='';
     vmArr(mpState.plans).forEach(function(p){var b=el('button','secondary-button mp-plan-button',p.name+' ('+p.summary.done+'/'+p.summary.total+' cut over)');b.type='button';b.setAttribute('data-mp-plan',p.id);b.setAttribute('aria-pressed',p.id===mpSelected&&!mpEditing?'true':'false');list.appendChild(b);});
     var add=el('button','primary-button','New plan');add.type='button';add.id='mpNewButton';list.appendChild(add);
@@ -9538,12 +9683,42 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     cfmAsk({title:'Eject CD/DVD images',names:[vm?vm.name:vmId],text:['Every VM in plan '+plan.name+' gets its CD/DVD and floppy drives set to a client device, not connected, before its next copy. Each ISO path is recorded first, so it can be put back by hand. Only the drives change.'],button:'Eject and copy again'},function(){
       post({action:'update',id:plan.id,settings:Object.assign({},plan.settings,{ejectMedia:true})},function(err){if(!err){post({action:'sync',id:plan.id,vmIds:[vmId]});}});});}
   // mpEncHomeRe matches vmEncryptedHomeHint (vmware_replicate.go).
-  var mpEncHomeRe=/Choose the VDDK folder in Help > Settings to copy it while it runs/;
+  var mpEncHomeRe=/Choose the VDDK folder in Help > Settings to copy it while it runs|Fix that and sync again to copy it through VDDK while it runs/;
+  // mpEncHomeVddkRe matches vmEncryptedHomeVDDKHint: VDDK is set up but did
+  // not read the VM, so the row offers a retry and VDDK's log, not setup.
+  var mpEncHomeVddkRe=/Fix that and sync again to copy it through VDDK while it runs/;
   // mpMethodSwitch sets a VM's copy method (movebatch.go SetMethod).
   function mpMethodSwitch(plan,t,post){
     var off=t.hasAttribute('data-mp-offline'),id=t.getAttribute(off?'data-mp-offline':'data-mp-live'),vm=vmArr(plan.vms).filter(function(v){return v.id===id;})[0],name=vm?vm.name:id;
     if(!off){post({action:'method',id:plan.id,vmIds:[id],method:''});return;}
     cfmAsk({title:'Copy '+name+' at cutover',names:[name],text:[name+' is no longer copied while it runs. At its cutover the guest is shut down through VMware Tools, the whole VM is copied and checked while it is off, and the Hyper-V VM is created. It stays off for that whole copy. Nothing changes until the cutover, and you can switch back.'],button:'Copy at cutover'},function(){post({action:'method',id:plan.id,vmIds:[id],method:'offline'});});
+  }
+  // mpViaText matches mbViaText (movebatch.go): how the last round read the
+  // disks, in plain words, and whether that read only the changes.
+  function mpViaText(via,mode){
+    via=via||'';mode=mode||'';
+    if(/full/.test(mode)){return {text:'Full read',kind:'warning'};}
+    if(/seed/.test(mode)){return {text:'First copy of the used data',kind:''};}
+    if(via==='vddk'){return {text:'Changed blocks through VDDK',kind:'good'};}
+    if(via==='rct'){return {text:'Changed blocks through Hyper-V change tracking',kind:'good'};}
+    if(via==='datastore'){return {text:'Changed blocks from the datastore',kind:'good'};}
+    if(via==='export'){return {text:'Changed blocks, read through vSphere\'s export',kind:'warning'};}
+    if(via==='file'){return {text:'Used data read in full, only changes written',kind:'warning'};}
+    return {text:mode?'Changed blocks'+(via?' ('+via+')':''):'',kind:''};
+  }
+  // mpReadInfo shows how the VM's last round read its disks: the method,
+  // what change tracking reported against what was read and written, the
+  // round's length, and why it read more than the changes.
+  function mpReadInfo(td,v,key){
+    var how=mpViaText(v.lastVia,v.lastMode),cut=/cutover/.test(v.lastMode||'');
+    var line=el('div','mp-read'+(how.kind?' '+how.kind:''));
+    line.appendChild(el('span','mp-read-how',(cut?'Cutover: ':'')+how.text));
+    var bits=[];if(v.lastTracked&&!/full/.test(v.lastMode||'')){bits.push(formatBytesShort(v.lastTracked)+(/seed/.test(v.lastMode||'')?' in use':' changed'));}
+    bits.push(formatBytesShort(v.lastRead)+' read');bits.push(formatBytesShort(v.lastWritten)+' written in '+mpDuration(v.lastSeconds));
+    line.appendChild(el('span','vm-note',bits.join(', ')));
+    line.title=how.kind==='good'?'Change tracking worked: only the blocks it reported were read.':(v.lastWhy||'');
+    td.appendChild(line);
+    if(v.lastWhy){td.appendChild(errLine('Why: '+v.lastWhy,'mp-why',key||('mpw:'+v.id)));}
   }
   function mpStateCell(v){
     var td=el('td'),label=v.method==='offline'&&(v.state==='waiting'||v.state==='ready')?'Copies at cutover':(mpStateNames[v.state]||v.state);
@@ -9553,8 +9728,8 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     if(!v.live&&(v.held||v.waiting)){var hd=el('div','mp-held',v.held||v.waiting);td.appendChild(hd);if(v.held){var po=el('button','link-button','Production protection settings');po.type='button';po.setAttribute('data-pg-open','1');hd.appendChild(document.createTextNode(' '));hd.appendChild(po);}}
     if(v.method==='offline'&&v.state!=='done'){var on=el('div','vm-note','Copied at its cutover, while shut down: vSphere cannot read it while it runs, so it is off for its whole copy. ');if(v.state!=='cutting'){var lv=el('button','link-button','Copy it while it runs instead');lv.type='button';lv.setAttribute('data-mp-live',v.id);lv.title='Needs VDDK for a VM with a virtual TPM';on.appendChild(lv);}td.appendChild(on);}
     if(v.test){td.appendChild(el('span','vm-note','Test VM '+v.test.name+(v.test.vmId?'':' (not finished: end the test to clean up)')+'. Syncs wait until the test ends.'));}
-    if(v.error){td.appendChild(el('div','mp-err',v.error));
-      if(v.state!=='done'&&v.method!=='offline'&&mpEncHomeRe.test(v.error)){var vd=el('button','secondary-button','Set up VDDK\u2026');vd.type='button';vd.setAttribute('data-mp-vddk',v.id);vd.title='Opens Help > Settings at the VDDK folder. Then Sync copies '+v.name+' while it runs.';td.appendChild(vd);
+    if(v.error){td.appendChild(errLine(v.error,'mp-err','mp:'+v.id));
+      if(v.state!=='done'&&v.method!=='offline'&&mpEncHomeRe.test(v.error)){if(mpEncHomeVddkRe.test(v.error)){var rv=el('button','secondary-button','Retry with VDDK');rv.type='button';rv.setAttribute('data-mp-retry',v.id);rv.title='Copies '+v.name+' again now through VDDK';td.appendChild(rv);var lg=el('button','secondary-button','Open the VDDK log');lg.type='button';lg.setAttribute('data-mp-vddklog',v.id);lg.title='Opens VixDiskLib\'s own log on this computer';td.appendChild(lg);}else{var vd=el('button','secondary-button','Set up VDDK\u2026');vd.type='button';vd.setAttribute('data-mp-vddk',v.id);vd.title='Opens Help > Settings at the VDDK folder. Then Sync copies '+v.name+' while it runs.';td.appendChild(vd);}
         var of=el('button','secondary-button','Copy at cutover, while shut down');of.type='button';of.setAttribute('data-mp-offline',v.id);of.title=v.name+' is copied only when it is cut over, while it is off';td.appendChild(of);}
       var owner=mpPlanOfVM(v);if(owner&&!(owner.settings||{}).ejectMedia&&v.state!=='done'&&/Tick Eject CD\/DVD and floppy images/.test(v.error)){var ej=el('button','secondary-button','Eject the CD/DVD images and copy again');ej.type='button';ej.setAttribute('data-mp-eject',v.id);ej.title='Turns on Eject CD/DVD and floppy images for this plan and copies '+v.name+' now';td.appendChild(ej);}}
     vmArr(v.notes).slice(-2).forEach(function(n){td.appendChild(el('div','mp-notes',n));});
@@ -9583,7 +9758,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
       var name=el('td');name.appendChild(el('strong','',v.name));if(v.copyFolder){name.appendChild(el('span','vm-note',v.copyFolder));}tr.appendChild(name);
       tr.appendChild(el('td','',String(v.wave||0)));
       tr.appendChild(mpStateCell(v));
-      var last=el('td');last.appendChild(el('span','',mpTime(v.lastSync)||'Never'));if(v.lastMode){last.appendChild(el('span','vm-note',v.lastMode+': '+formatBytesShort(v.lastRead)+' read, '+formatBytesShort(v.lastWritten)+' written in '+mpDuration(v.lastSeconds)));}tr.appendChild(last);
+      var last=el('td');last.appendChild(el('span','',mpTime(v.lastSync)||'Never'));if(v.lastMode){mpReadInfo(last,v);}tr.appendChild(last);
       tr.appendChild(el('td','',v.state==='done'?'':(p.paused?'Paused':(v.state==='testing'?'After the test':(mpTime(v.nextSync)||'')))));
       var cut=el('td');if(v.state==='done'){cut.appendChild(el('span','',mpTime(v.cutOver)));}else if(mpTime(v.cutoverAt)){cut.appendChild(el('span','mp-chip warning','At '+mpTime(v.cutoverAt)));}tr.appendChild(cut);
       rows.appendChild(tr);
@@ -9647,11 +9822,13 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     var t=e.target.closest('[data-mp-test]');if(t){vmSetStatus('mpStatus','Making the test VM...',false);mpPost({action:'test',id:p.id,vmIds:[t.getAttribute('data-mp-test')]},'mpStatus');return;}
     var mm=e.target.closest('[data-mp-offline],[data-mp-live]');if(mm){mpMethodSwitch(p,mm,function(body,done){mpPost(body,'mpStatus',done);});return;}
     if(e.target.closest('[data-mp-vddk]')){openVddkSettings();return;}
+    if(e.target.closest('[data-mp-vddklog]')){mpOpenVddkLog();return;}
+    var rt=e.target.closest('[data-mp-retry]');if(rt){mpSync([rt.getAttribute('data-mp-retry')]);return;}
     var ej=e.target.closest('[data-mp-eject]');if(ej){mpEjectRetry(p,ej.getAttribute('data-mp-eject'),function(body,done){mpPost(body,'mpStatus',done);});return;}
     var x=e.target.closest('[data-mp-endtest]');if(x){vmSetStatus('mpStatus','Removing the test VM...',false);mpPost({action:'endTest',id:p.id,vmIds:[x.getAttribute('data-mp-endtest')]},'mpStatus');}
   });
-  byId('mpSyncAll').addEventListener('click',function(){var p=mpPlan();if(p){mpPost({action:'sync',id:p.id,vmIds:[]},'mpStatus');}});
-  byId('mpSyncSel').addEventListener('click',function(){var p=mpPlan();if(p){mpPost({action:'sync',id:p.id,vmIds:mpChosenIds()},'mpStatus');}});
+  byId('mpSyncAll').addEventListener('click',function(){mpSync([]);});
+  byId('mpSyncSel').addEventListener('click',function(){mpSync(mpChosenIds());});
   byId('mpRemoveSel').addEventListener('click',function(){var p=mpPlan();if(p){mpPost({action:'remove',id:p.id,vmIds:mpChosenIds()},'mpStatus',function(err){if(!err){mpRowsChosen={};}});}});
   byId('mpPause').addEventListener('click',function(){var p=mpPlan();if(p){mpPost({action:p.paused?'resume':'pause',id:p.id},'mpStatus');}});
   byId('mpEdit').addEventListener('click',function(){var p=mpPlan();if(p){mpEditing={id:p.id,name:p.name,remoteHost:(p.settings||{}).remoteHost||'',node:(p.settings||{}).node||''};mpFillForm(p);renderMp();}});

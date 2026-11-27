@@ -242,7 +242,7 @@ func TestReplicationReadsChangedBlocksThroughVDDK(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if second.Disks[0].Mode != "changed" || second.Disks[0].Changed != 1 || !bytes.Equal(vmReadVHDX(t, second.Disks[0].Target), data) {
+	if second.Disks[0].Mode != "changed" || second.Disks[0].Read != "vddk" || second.Disks[0].Why != "" || second.Disks[0].Changed != 1 || !bytes.Equal(vmReadVHDX(t, second.Disks[0].Target), data) {
 		t.Fatalf("the VDDK delta round was wrong: %+v", second.Disks[0])
 	}
 	if read > vmCopyChunkSize {
@@ -265,5 +265,28 @@ func TestReplicationReadsChangedBlocksThroughVDDK(t *testing.T) {
 	}
 	if !strings.Contains(strings.Join(logs, "\n"), "port 902 refused") {
 		t.Fatalf("the log does not give VDDK's reason: %v", logs)
+	}
+}
+
+func TestVDDKNamesMissingVisualCRuntime(t *testing.T) {
+	imports := map[string][]string{
+		"vixDiskLib.dll": {"VCRUNTIME140.dll", "WSOCK32.dll", "vddkVac2.dll"},
+		"vddkVac2.dll":   {"MSVCP140.dll", "MSVCP140_ATOMIC_WAIT.dll", "api-ms-win-crt-heap-l1-1-0.dll", "KERNEL32.dll"},
+	}
+	have := map[string]bool{"vcruntime140.dll": true, "wsock32.dll": true, "msvcp140.dll": true, "kernel32.dll": true}
+	missing := vddkMissingDependencies(imports, func(n string) bool { return have[strings.ToLower(n)] })
+	if strings.Join(missing, ",") != "msvcp140_atomic_wait.dll" {
+		t.Fatalf("missing = %v", missing)
+	}
+	text := vddkMissingText(missing)
+	if !strings.Contains(text, "Visual C++") || !strings.Contains(text, vddkVCRuntimeURL) {
+		t.Fatalf("text = %q", text)
+	}
+	have["msvcp140_atomic_wait.dll"] = true
+	if m := vddkMissingDependencies(imports, func(n string) bool { return have[strings.ToLower(n)] }); len(m) != 0 {
+		t.Fatalf("still missing %v", m)
+	}
+	if !strings.Contains(vddkInitHint(errors.New("x (VDDK error 16053)")).Error(), "restart this application") {
+		t.Fatal("init hint lacks restart")
 	}
 }

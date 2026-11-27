@@ -133,14 +133,24 @@ type mbVM struct {
 	LastRead    int64     `json:"lastRead,omitempty"`
 	LastWritten int64     `json:"lastWritten,omitempty"`
 	LastSeconds int64     `json:"lastSeconds,omitempty"`
-	Failures    int       `json:"failures"`
-	Error       string    `json:"error,omitempty"`
-	CopyFolder  string    `json:"copyFolder"`
-	Disks       []string  `json:"disks,omitempty"`
-	CutoverAt   time.Time `json:"cutoverAt,omitempty"`
-	Test        *mbTest   `json:"test,omitempty"`
-	HyperVID    string    `json:"hyperVId,omitempty"`
-	CutOver     time.Time `json:"cutOver,omitempty"`
+	// LastVia is how the last round read the disks ("vddk", "datastore",
+	// "export", "rct", "file"; joined when disks differ), LastTracked the
+	// size of the areas change tracking reported, and LastWhy why a disk
+	// was read in full or more than its changes ("" when nothing was lost).
+	LastVia     string `json:"lastVia,omitempty"`
+	LastTracked int64  `json:"lastTracked,omitempty"`
+	LastWhy     string `json:"lastWhy,omitempty"`
+	// LastEnded is when the last round ended, whatever its result; the
+	// next round waits at least mbRoundGap after it.
+	LastEnded  time.Time `json:"lastEnded,omitempty"`
+	Failures   int       `json:"failures"`
+	Error      string    `json:"error,omitempty"`
+	CopyFolder string    `json:"copyFolder"`
+	Disks      []string  `json:"disks,omitempty"`
+	CutoverAt  time.Time `json:"cutoverAt,omitempty"`
+	Test       *mbTest   `json:"test,omitempty"`
+	HyperVID   string    `json:"hyperVId,omitempty"`
+	CutOver    time.Time `json:"cutOver,omitempty"`
 	// Notes are results worth keeping (cluster role, source adapters).
 	Notes []string `json:"notes,omitempty"`
 	// SyncNow asks for a round at the next sweep.
@@ -188,12 +198,18 @@ type mbPlan struct {
 	VMs      []*mbVM    `json:"vms"`
 }
 
+// mbMinSyncMinutes is the shortest sync interval: near-real-time copies
+// (owner 2026-11-27) without a snapshot or checkpoint every minute. A round
+// that runs longer than the interval is followed by the next after
+// mbRoundGap, never two at once for one VM.
+const mbMinSyncMinutes = 5
+
 func mbValidateSettings(s *mbSettings) error {
 	if s.SyncMinutes == 0 {
 		s.SyncMinutes = 60
 	}
-	if s.SyncMinutes < 15 || s.SyncMinutes > 1440 {
-		return errors.New("sync every 15 to 1440 minutes")
+	if s.SyncMinutes < mbMinSyncMinutes || s.SyncMinutes > 1440 {
+		return fmt.Errorf("sync every %d to 1440 minutes", mbMinSyncMinutes)
 	}
 	if s.Concurrency == 0 {
 		s.Concurrency = 2
@@ -267,6 +283,10 @@ func mbRemoteCopyFolder(root, hostVHDPath, vmName string) (string, error) {
 	return hvRemoteCheckLocalPath(strings.TrimRight(hvCleanWinPath(root), `\`) + `\` + vmReplicaBaseName(vmName))
 }
 
+// mbDueNow is the next sync of a VM someone asked to sync now: before any
+// sweep's clock, and shown as now.
+var mbDueNow = time.Unix(1, 0).UTC()
+
 // mbNextSync is when the VM's next round is due; zero means not scheduled.
 func mbNextSync(plan *mbPlan, vm *mbVM) time.Time {
 	switch vm.State {
@@ -276,7 +296,11 @@ func mbNextSync(plan *mbPlan, vm *mbVM) time.Time {
 	if vm.Held != "" && !vm.SyncNow {
 		return vm.HeldAt.Add(pgRetryAfter)
 	}
-	if vm.SyncNow || vm.LastAttempt.IsZero() {
+	if vm.SyncNow {
+		// Asked for now: ahead of the interval and of the plan's start.
+		return mbDueNow
+	}
+	if vm.LastAttempt.IsZero() {
 		return plan.Settings.StartAt
 	}
 	interval := time.Duration(plan.Settings.SyncMinutes) * time.Minute
@@ -288,7 +312,53 @@ func mbNextSync(plan *mbPlan, vm *mbVM) time.Time {
 			interval = backoff
 		}
 	}
-	return vm.LastAttempt.Add(interval)
+	next := vm.LastAttempt.Add(interval)
+	if gap := vm.LastEnded.Add(mbRoundGap); vm.Failures == 0 && gap.After(next) {
+		// Short intervals: a round that ran longer than the interval is
+		// followed by the next one after a short gap, not at once.
+		next = gap
+	}
+	return next
+}
+
+// mbRoundGap is the least time between the end of a VM's round and the
+// start of its next scheduled one, so a short interval never runs one
+// snapshot straight after another.
+const mbRoundGap = 2 * time.Minute
+
+// mbRoundSummary says how the VM's last round read its disks, for the log.
+func mbRoundSummary(vm *mbVM) string {
+	text := mbViaText(vm.LastVia, vm.LastMode)
+	if vm.LastTracked > 0 && vm.LastMode != "full" {
+		text += ", " + vmFormatBytes(vm.LastTracked) + " reported by change tracking"
+	}
+	text += fmt.Sprintf(", %s read, %s written in %s.", vmFormatBytes(vm.LastRead), vmFormatBytes(vm.LastWritten), time.Duration(vm.LastSeconds)*time.Second)
+	if vm.LastWhy != "" {
+		text += " " + vm.LastWhy
+	}
+	return text
+}
+
+// mbViaText names a round's read method in plain words.
+func mbViaText(via, mode string) string {
+	full := strings.Contains(mode, "full")
+	switch {
+	case full:
+		return "full read"
+	case strings.Contains(mode, "seed"):
+		return "first copy of the used data"
+	case via == "vddk":
+		return "changed blocks through VDDK"
+	case via == "rct":
+		return "changed blocks through Hyper-V change tracking"
+	case via == "datastore":
+		return "changed blocks from the datastore"
+	case via == "export":
+		return "changed blocks found, read through vSphere's export (streams the whole used disk)"
+	case via == "file":
+		return "used data read in full, only changes written"
+	}
+	return "changed blocks (" + via + ")"
 }
 
 func mbMin(a, b int) int {
@@ -592,6 +662,9 @@ func (r *mbRunner) saveLocked() error {
 	if err != nil {
 		return err
 	}
+	if previous, err := os.ReadFile(r.path); err == nil {
+		raw = mbKeepUnknownFields(raw, previous)
+	}
 	return replWriteFileAtomic(r.path, raw)
 }
 
@@ -752,25 +825,98 @@ func (r *mbRunner) SetWave(id string, ids []string, wave int) error {
 	return r.saveLocked()
 }
 
+// WaitingServers lists, in plan order and once each, the servers of plans
+// that are not paused, still have VMs to move and cannot run now (most
+// often because the vCenter sign-in is gone after a restart).
+func (r *mbRunner) WaitingServers() []string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	seen, list := map[string]bool{}, []string{}
+	for _, plan := range r.plans {
+		if plan.Paused || seen[strings.ToLower(plan.Server)] || r.ready == nil || r.ready(plan) == "" {
+			continue
+		}
+		open := false
+		for _, vm := range plan.VMs {
+			if vm.State != mbDone {
+				open = true
+			}
+		}
+		if open {
+			seen[strings.ToLower(plan.Server)] = true
+			list = append(list, plan.Server)
+		}
+	}
+	return list
+}
+
+// mbSyncAnswer says what a Sync now press did: how many VMs were asked
+// for, why the others were not, and why the plan cannot copy right now.
+type mbSyncAnswer struct {
+	Queued  int      `json:"queued"`
+	Skipped []string `json:"skipped,omitempty"`
+	Waiting string   `json:"waiting,omitempty"`
+	Paused  bool     `json:"paused,omitempty"`
+}
+
+// mbSyncSkipReason says why Sync now leaves a VM alone, or "".
+func mbSyncSkipReason(vm *mbVM) string {
+	if mbOffline(vm) {
+		return vm.Name + " copies at its cutover"
+	}
+	switch vm.State {
+	case mbWaiting, mbReady, mbFailed:
+		return ""
+	case mbCopying:
+		return vm.Name + " is copying now"
+	case mbTesting:
+		return vm.Name + " has a test VM running"
+	case mbCutting:
+		return vm.Name + " is being cut over"
+	case mbDone:
+		return vm.Name + " is already cut over"
+	}
+	return vm.Name + " cannot sync now"
+}
+
 // SyncNow asks for a round of the given VMs (all when empty) at the next
 // sweep, ahead of their interval and the plan's start time.
 func (r *mbRunner) SyncNow(id string, ids []string) error {
+	_, err := r.SyncRequest(id, ids)
+	return err
+}
+
+// SyncRequest is SyncNow with an answer the page shows at once, so a press
+// never looks like it did nothing: the VMs asked for, the ones left alone
+// and why, and what keeps the plan from copying (a missing sign-in).
+func (r *mbRunner) SyncRequest(id string, ids []string) (mbSyncAnswer, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	answer := mbSyncAnswer{}
 	plan, err := r.planLocked(id)
 	if err != nil {
-		return err
+		return answer, err
 	}
 	want := map[string]bool{}
 	for _, v := range ids {
 		want[v] = true
 	}
 	for _, vm := range plan.VMs {
-		if (len(want) == 0 || want[vm.ID]) && (vm.State == mbWaiting || vm.State == mbReady || vm.State == mbFailed) && !mbOffline(vm) {
-			vm.SyncNow = true
+		if len(want) != 0 && !want[vm.ID] {
+			continue
 		}
+		if why := mbSyncSkipReason(vm); why != "" {
+			answer.Skipped = append(answer.Skipped, why)
+			continue
+		}
+		vm.SyncNow = true
+		answer.Queued++
 	}
-	return r.saveLocked()
+	answer.Paused = plan.Paused
+	if !plan.Paused && r.ready != nil {
+		answer.Waiting = r.ready(plan)
+	}
+	return answer, r.saveLocked()
 }
 
 // mbCanCutOver says why a VM cannot be scheduled for cutover, or "".
@@ -1101,15 +1247,23 @@ func (r *mbRunner) run(ctx context.Context, item mbWork) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	delete(r.live, key)
+	vm.LastEnded = finished.UTC()
 	if result != nil && result.Round != nil {
-		vm.LastRead, vm.LastWritten = 0, 0
-		modes := []string{}
+		vm.LastRead, vm.LastWritten, vm.LastTracked = 0, 0, 0
+		modes, via, whys := []string{}, []string{}, []string{}
 		for _, disk := range result.Round.Disks {
 			vm.LastRead += disk.BytesRead
 			vm.LastWritten += disk.BytesWritten
+			vm.LastTracked += disk.Tracked
 			modes = append(modes, disk.Mode)
+			via = append(via, disk.Read)
+			if disk.Why != "" {
+				whys = append(whys, disk.Label+": "+disk.Why)
+			}
 		}
 		vm.LastMode = strings.Join(mbUnique(modes), ", ")
+		vm.LastVia = strings.Join(mbUnique(via), ", ")
+		vm.LastWhy = strings.Join(mbUnique(whys), " ")
 		if item.Cutover {
 			vm.LastMode = "cutover (" + vm.LastMode + ")"
 		}
@@ -1131,6 +1285,9 @@ func (r *mbRunner) run(ctx context.Context, item mbWork) {
 		vm.Disks = result.Disks
 		vm.Rounds++
 		vm.Held = ""
+		if result.Round != nil {
+			r.log(vm.Name + ": " + mbRoundSummary(vm))
+		}
 	case !item.Cutover && pgHeld(err):
 		// Waiting for space: not a failure. It asks again in a while.
 		vm.State = mbWaiting
@@ -1299,7 +1456,7 @@ func (r *mbRunner) View() ([]mbPlanView, bool, string) {
 			item := mbVMView{mbVM: *vm}
 			if !plan.Paused {
 				item.NextSync = mbNextSync(plan, vm)
-				if item.NextSync.IsZero() && (vm.State == mbWaiting || vm.State == mbReady || vm.State == mbFailed) {
+				if item.NextSync.Equal(mbDueNow) || item.NextSync.IsZero() && (vm.State == mbWaiting || vm.State == mbReady || vm.State == mbFailed) {
 					item.NextSync = now
 				}
 			}

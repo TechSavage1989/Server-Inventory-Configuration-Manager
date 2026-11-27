@@ -35,8 +35,8 @@ const (
 	// displayName is the name people see.
 	appName            = "Server Inventory Configuration Manager"
 	displayName        = "Server Inventory and Migration Manager"
-	appVersion         = "3.2.40"
-	collectorVersion   = "3.2.40"
+	appVersion         = "3.2.41"
+	collectorVersion   = "3.2.41"
 	applicationPageCSP = "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; frame-src 'self'"
 	maximumCollectors  = 49
 
@@ -236,7 +236,9 @@ type application struct {
 	uiSettings            uiSettings
 	// prodGuard keeps production's space and bandwidth during copies
 	// (prodguard.go).
-	prodGuard               *pgGuard
+	prodGuard *pgGuard
+	// vcRemember holds the opt-in remembered vCenter sign-ins (vcremember.go).
+	vcRemember              *vcRemember
 	mu                      sync.Mutex
 	update                  updateRuntime
 	windowGeometry          windowGeometryRuntime
@@ -1202,6 +1204,7 @@ func newApplication() (*application, error) {
 	app.loadCollectionPreferences()
 	app.uiSettings = loadUISettings(app.update.settingsDir)
 	app.prodGuard = newPGGuard(loadPGSettings(app.update.settingsDir))
+	app.vcRemember = newVCRemember(filepath.Join(app.update.settingsDir, "vcenter-signins.json"), replSeal, replUnseal)
 	setVDDKFolder(loadVDDKSettings(app.update.settingsDir).Folder)
 	return app, nil
 }
@@ -2411,6 +2414,7 @@ func (a *application) serve(listener net.Listener) error {
 	mux.HandleFunc("/api/migrate/throttle", a.handleMigrateThrottle)
 	mux.HandleFunc("/api/migrate/autosync", a.handleMigrateAutoSync)
 	mux.HandleFunc("/api/vmware/connect", a.handleVMwareConnect)
+	mux.HandleFunc("/api/vmware/remember", a.handleVCRemember)
 	mux.HandleFunc("/api/output-root", a.handleOutputRoot)
 	mux.HandleFunc("/api/vmware/cancel", a.handleVMwareCancel)
 	mux.HandleFunc("/api/vmware/open-inventory", a.handleVMwareOpenInventory)

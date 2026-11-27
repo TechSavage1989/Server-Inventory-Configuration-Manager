@@ -122,6 +122,17 @@ type vmReplicaDiskResult struct {
 	Changed      int    `json:"changed"`
 	ChangeID     string `json:"changeId"`
 	Verified     bool   `json:"verified"`
+	// Read is how the disk was read: "vddk" (only the blocks the round
+	// asks for), "datastore" (ranged reads of the datastore file),
+	// "export" (vSphere's export, which streams all used data whatever
+	// the round asks for) or, for Hyper-V sources, "file".
+	Read string `json:"read,omitempty"`
+	// Tracked is the size of the areas change tracking reported (changed
+	// since the last copy, or allocated for a seed); zero for a full read.
+	Tracked int64 `json:"tracked,omitempty"`
+	// Why says why the disk was read in full, or why a changed-block round
+	// still read more than the changes; empty when nothing was lost.
+	Why string `json:"why,omitempty"`
 }
 
 type vmReplicaResult struct {
@@ -254,6 +265,10 @@ func vmReplicaChainMessage(disk vmReplicaDisk) error {
 // buttons (index.html, mpEncHomeRe).
 const vmEncryptedHomeHint = "Choose the VDDK folder in Help > Settings to copy it while it runs, or copy it at its cutover while it is shut down."
 
+// vmEncryptedHomeVDDKHint ends the same error when a VDDK folder is set
+// but VDDK did not read the VM: setting it up again would not help.
+const vmEncryptedHomeVDDKHint = "Fix that and sync again to copy it through VDDK while it runs (VDDK's own log says more), or copy it at its cutover while it is shut down."
+
 // vmEncryptedHomeError explains, in plain words, why a running VM with
 // encrypted VM files could not be read, and what works instead. vSphere
 // refuses to export an encrypted VM (Broadcom KB 431565) and the host locks
@@ -267,6 +282,7 @@ func vmEncryptedHomeError(vddkSet bool, vddkWhy string) error {
 			reason = "it could not open the disk"
 		}
 		text += " VDDK could not read it either (" + strings.TrimSuffix(reason, ".") + "). If the vCenter account is not an administrator, give its role Cryptographic operations > Direct Access, which vSphere requires to read a VM with a virtual TPM, and check that this computer reaches each ESXi host on port 902."
+		return errors.New(text + " " + vmEncryptedHomeVDDKHint)
 	}
 	return errors.New(text + " " + vmEncryptedHomeHint)
 }
@@ -598,7 +614,10 @@ func vmReplicateRoundGuarded(ctx context.Context, client *vim25.Client, ref type
 			vddk.Close()
 		}
 	}()
+	// readVia is how openSource opened the last disk (vmReplicaDiskResult.Read).
+	readVia := ""
 	openSource := func(disk vmReplicaDisk) (vmCopySource, error) {
+		readVia = ""
 		if !vddkFailed {
 			if vddk == nil {
 				params := *options.VDDK
@@ -615,6 +634,7 @@ func vmReplicateRoundGuarded(ctx context.Context, client *vim25.Client, ref type
 				opened, err := vddk.Open(disk.file)
 				if err == nil {
 					log(fmt.Sprintf("%s: reading %s through VDDK (%s), only the blocks this round needs.", disk.label, disk.file, opened.Transport()))
+					readVia = "vddk"
 					return newVDDKSource(disk.file, opened), nil
 				}
 				vddkWhy = err.Error()
@@ -623,8 +643,12 @@ func vmReplicateRoundGuarded(ctx context.Context, client *vim25.Client, ref type
 		}
 		if export == nil {
 			source, err := openDatastoreVMDK(ctx, client, options.Datacenter, disk.file)
-			if err == nil || !vmFolderRefused(err) {
-				return source, err
+			if err == nil {
+				readVia = "datastore"
+				return source, nil
+			}
+			if !vmFolderRefused(err) {
+				return nil, err
 			}
 			log(fmt.Sprintf("%s: the datastore would not open %s while the VM runs (%v); reading this round's snapshot through vSphere's export instead. The export streams all of the disk's used data, so only changed chunks are written but every used block is read; a VDDK folder chosen in Help > Settings reads only changed blocks.", disk.label, disk.file, err))
 			total := int64(0)
@@ -644,6 +668,7 @@ func vmReplicateRoundGuarded(ctx context.Context, client *vim25.Client, ref type
 			}
 			export = opened
 		}
+		readVia = "export"
 		return openExportedDisk(ctx, export, disk, len(disks))
 	}
 	for index, disk := range disks {
@@ -686,27 +711,13 @@ func vmReplicateRoundGuarded(ctx context.Context, client *vim25.Client, ref type
 		} else {
 			previous, stateErr = loadVMCopyState(target)
 		}
-		switch {
-		case !cbt || disk.changeID == "":
-			item.Mode = "full"
-		case stateErr == nil && previous.Complete && previous.ChangeID != "" && previous.Source == disk.file:
-			ranges, err := vmChangedRanges(ctx, client, ref, snapshot, disk.key, disk.capacity, previous.ChangeID)
-			if err != nil {
-				log(disk.label + ": changed block tracking could not answer (" + err.Error() + "); reading the whole disk.")
-				item.Mode = "full"
-			} else {
-				item.Mode, copyOptions.Ranges = "changed", ranges
+		item.Mode, copyOptions.Ranges, copyOptions.ZeroOutside, item.Why = vmReplicaPlanDisk(disk, cbt, previous, stateErr, func(changeID string) ([]vmCopyRange, error) {
+			return vmChangedRanges(ctx, client, ref, snapshot, disk.key, disk.capacity, changeID)
+		}, log)
+		if copyOptions.Ranges != nil {
+			for _, r := range copyOptions.Ranges {
+				item.Tracked += r.Length
 			}
-		case stateErr != nil:
-			ranges, err := vmChangedRanges(ctx, client, ref, snapshot, disk.key, disk.capacity, "*")
-			if err != nil {
-				log(disk.label + ": could not list the allocated areas (" + err.Error() + "); reading the whole disk.")
-				item.Mode = "full"
-			} else {
-				item.Mode, copyOptions.Ranges, copyOptions.ZeroOutside = "seed", ranges, true
-			}
-		default:
-			item.Mode = "full"
 		}
 		log(fmt.Sprintf("%s: %s copy of %s to %s.", disk.label, item.Mode, disk.file, item.Target))
 		if source == nil {
@@ -714,6 +725,10 @@ func vmReplicateRoundGuarded(ctx context.Context, client *vim25.Client, ref type
 				return nil, fmt.Errorf("%s: %w", disk.label, err)
 			}
 			sink = &vmLocalSink{target: target}
+		}
+		item.Read = readVia
+		if readVia == "export" && item.Mode != "full" && item.Why == "" {
+			item.Why = vmExportReadsAllWhy
 		}
 		if source.Size() != disk.capacity {
 			source.Close()
@@ -789,4 +804,79 @@ func vmDatastoreOfPath(path string) string {
 		return path[1:end]
 	}
 	return ""
+}
+
+// vmExportReadsAllWhy is the Why of a changed-block round read through
+// vSphere's export: the changes were found, but the export streams every
+// used block to reach them.
+const vmExportReadsAllWhy = "vSphere's export streams all of the disk's used data whatever the round needs, so only the changed blocks were copied but the whole used disk was read from the host; a working VDDK folder (Help > Settings) reads only the changes"
+
+// vmReplicaPlanDisk decides how a round reads one disk: "changed" (only the
+// areas changed since the copy's change ID), "seed" (only the allocated
+// areas, plus chunks that held data in the copy) or "full" (every block),
+// with why when the disk is read in full or more than its changes. The
+// copy's change ID is kept while a later round runs, so a round that
+// stopped part way is followed by one that reads everything changed since
+// the last whole copy, which includes whatever the stopped round wrote.
+func vmReplicaPlanDisk(disk vmReplicaDisk, cbt bool, previous *vmCopyState, stateErr error, changed func(changeID string) ([]vmCopyRange, error), log func(string)) (mode string, ranges []vmCopyRange, zeroOutside bool, why string) {
+	switch {
+	case !cbt:
+		why = "changed block tracking is off for this VM; let the copy turn it on (Turn on changed block tracking) or turn it on in vSphere, and later rounds read only changes"
+		log(disk.label + ": reading the whole disk because " + why + ".")
+		return "full", nil, false, why
+	case disk.changeID == "":
+		why = "vSphere gave no change ID for this disk (tracking was just turned on, or the disk cannot be tracked); the next round reads only changes once it has one"
+		log(disk.label + ": reading the whole disk because " + why + ".")
+		return "full", nil, false, why
+	case stateErr != nil || previous == nil:
+		areas, err := changed("*")
+		if err != nil {
+			why = "vSphere could not list the disk's allocated areas (" + err.Error() + ")"
+			log(disk.label + ": reading the whole disk because " + why + ".")
+			return "full", nil, false, why
+		}
+		return "seed", vmReplicaNonNil(areas), true, ""
+	case previous.Source != disk.file:
+		why = "the copy was made from " + previous.Source + " and the disk is now " + disk.file + " (moved or renamed), so it is read in full once"
+		log(disk.label + ": reading the whole disk because " + why + ".")
+		return "full", nil, false, why
+	case previous.ChangeID != "":
+		areas, err := changed(previous.ChangeID)
+		if err != nil {
+			why = "changed block tracking could not answer (" + err.Error() + "); this usually means vSphere reset tracking (a storage move, a restore, or tracking turned off and on), so the disk is read in full once"
+			log(disk.label + ": reading the whole disk because " + why + ".")
+			return "full", nil, false, why
+		}
+		if !previous.Complete {
+			log(disk.label + ": the last round stopped part way; reading everything changed since the last whole copy.")
+		}
+		return "changed", vmReplicaNonNil(areas), false, ""
+	default:
+		// A record with no change ID: a seed that stopped part way, or a
+		// copy made while tracking was off. Read the allocated areas and
+		// every chunk that held data in the copy, so data removed since then
+		// is cleared there too.
+		areas, err := changed("*")
+		if err != nil {
+			why = "vSphere could not list the disk's allocated areas (" + err.Error() + ")"
+			log(disk.label + ": reading the whole disk because " + why + ".")
+			return "full", nil, false, why
+		}
+		all := append([]vmCopyRange(nil), areas...)
+		for i, hash := range previous.Hashes {
+			if hash != "" && hash != vmCopyZeroHash {
+				all = append(all, vmCopyRange{Start: int64(i) * previous.ChunkSize, Length: vmChunkLength(previous, i)})
+			}
+		}
+		why = "the copy has no change ID yet (its first copy stopped part way, or it was made while tracking was off), so this round reads all used data once; later rounds read only changes"
+		log(disk.label + ": " + why + ".")
+		return "seed", vmReplicaNonNil(vmMergeRanges(all)), true, why
+	}
+}
+
+func vmReplicaNonNil(ranges []vmCopyRange) []vmCopyRange {
+	if ranges == nil {
+		return []vmCopyRange{}
+	}
+	return ranges
 }

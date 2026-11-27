@@ -23,13 +23,13 @@ import (
 func (a *application) mbRemoteReadyLocked(plan *mbPlan) string {
 	inventory := a.vmware.inventory
 	if inventory == nil || !strings.EqualFold(inventory.Server, plan.Server) {
-		return "Read the inventory of " + plan.Server + " in Discovery (VMware and Hyper-V) to let this plan copy."
+		return "Read the inventory of " + plan.Server + " in Discovery (VMware and Hyper-V) to let this plan copy." + a.vcRememberHint(plan.Server)
 	}
 	if strings.EqualFold(inventory.ServerType, hypervServerType) {
 		return "A plan run against another Hyper-V host moves VMware VMs only."
 	}
 	if a.vmware.password == "" || !strings.EqualFold(a.vmware.server, plan.Server) {
-		return "Sign in to " + plan.Server + " in Discovery again: the password is kept only while the application runs."
+		return "Sign in to " + plan.Server + " in Discovery again: the password is kept only while the application runs." + a.vcRememberHint(plan.Server)
 	}
 	if a.hvRemote.info == nil || !strings.EqualFold(a.hvRemote.host, plan.Settings.RemoteHost) {
 		return "Connect to " + plan.Settings.RemoteHost + " in New migration or Move VMs again: the Hyper-V account is kept only while the application runs."

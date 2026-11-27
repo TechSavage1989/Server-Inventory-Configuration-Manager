@@ -273,7 +273,7 @@ func TestReplicationReadsTheSnapshotExportWhenTheDatastoreRefusesTheDisk(t *test
 	if err != nil {
 		t.Fatal(err)
 	}
-	if second.Disks[0].Mode != "changed" || second.Disks[0].Changed != 1 || !bytes.Equal(vmReadVHDX(t, second.Disks[0].Target), data) {
+	if second.Disks[0].Mode != "changed" || second.Disks[0].Read != "export" || second.Disks[0].Why != vmExportReadsAllWhy || second.Disks[0].Changed != 1 || !bytes.Equal(vmReadVHDX(t, second.Disks[0].Target), data) {
 		t.Fatalf("the second round through the export was not a correct delta pass: %+v", second.Disks[0])
 	}
 

@@ -1,6 +1,39 @@
-## 3.2.40 release preparation — 2026-11-27
+## Unreleased: visible changed-block reads, 5-minute syncs, VDDK-aware retries — 2026-11-27
 
-Owner asked to publish now ("publish now"), mainly for the VDDK signature fix #190. Contents, merged into `release/next` after 3.2.39: #190 (VDDK DLL signatures and version read from the files) and #192 (3.2.39 record; the published-upgrade test starts from signed 3.2.39, `4aae60ff...52b8`). Version 3.2.40 in `main.go` and the collector, release notes in `docs/release-notes/3.2.40.md`.
+- Owner on 3.3.0-test.3: "i can't even tell if VDDK changed block sync is even working"; MATCHC-DC02's last round read all 90 GB. Cause: a round that stopped part way left the copy record unfinished, and the next round silently read the whole disk. `vmReplicaPlanDisk` now reads everything changed since the last whole copy's change ID instead, and every full read gives its reason (AGENTS rule 70). Hyper-V RCT accepts an unfinished copy the same way.
+- Each round records how each disk was read (VDDK, datastore, export, RCT, file), what change tracking reported and why it read more; Migration plans and All jobs and servers show it under Last sync with a ✓ or ! and a folded **Why:**, and the plan log has one summary line per round.
+- Near-real-time replication: plans sync every 5 or 10 minutes as well (`mbMinSyncMinutes`), with at least 2 minutes after a long round ends (`mbRoundGap`). Short intervals only read changes cheaply through VDDK (VMware) or RCT (Hyper-V); through vSphere's export every round streams the whole used disk.
+- With VDDK set up, a vTPM VM's failure ends with `vmEncryptedHomeVDDKHint` and offers Retry with VDDK and Open the VDDK log instead of Set up VDDK.
+- Saving migration plans keeps fields this version does not know (`mbKeepUnknownFields`), so a stable build no longer drops the test channel's `testedAt` when the owner switches channels.
+- Not field-validated: a real stopped round followed by a changed-block round on vCenter, and 5-minute rounds on a busy host.
+
+## 3.2.41 release preparation — 2026-11-27
+
+Owner asked to ship all of today's requested changes in the next releases ("make all the current requested changes go out in the next releases"). Contents, merged into `release/next` after 3.2.40: #196 (fewer obvious hints, layout stays still when rows are ticked), #198 (3.2.40 record; the published-upgrade test starts from signed 3.2.40, `45026e53...d7d6`), #202 (Sync now answers, inline plan sign-in, Syncing state, opt-in remembered sign-ins) #206 (save plans during copies, folded Discovery read sections, steadier New migration and guest account), #208 (VDDK start-up diagnosis: missing imports named, vddk.log, one-line errors with Details), #213 (SQL and DC check failures on one line per server) and #215 (changed-block reads after a stopped round, read method per disk, 5-minute syncs, VDDK-aware retries). Version 3.2.41 in `main.go` and the collector, release notes in `docs/release-notes/3.2.41.md`.
+
+## Unreleased: VDDK start-up diagnosis and one-line errors — 2026-11-27
+
+- Owner on 3.3.0-test.3: DESK21-CPA01/CPA02 rounds failed with VDDK error 16053 (VIX_E_DISK_SUBSYSTEM_INIT_FAIL) after the folder check passed. The owner's VixDiskLib log showed the cause: `Failed to load vddkVimAccess.dll : ErrorCode = 0x7e` and diskLibPlugin.dll not found, because VixDiskLib loads its plugins itself and their dependencies were searched for outside the VDDK folder. `vddkLoad` now calls `SetDllDirectory(bin)` before loading vixDiskLib.dll.
+- Check and save names DLLs the VDDK DLLs import that the computer lacks (`peImports`, `vddkMissingDependencies`). VixDiskLib's log functions now write `VMware\VDDK\Temp\vddk.log`; start, connect and open failures name the step and that log. `tmpDirectory` in `vixDiskLib.conf` is written with single backslashes.
+- Long errors in Migration plans, All jobs and servers and the transfer list show one line with Details (`errLine`, open state kept across refreshes in `errOpen`).
+- Tests: `TestVDDKNamesMissingVisualCRuntime`; the workspace check for virtual TPM VMs checks the folded error. Not field-validated: the log callbacks on a real VDDK.
+
+## 3.2.40 published and verified — 2026-11-27
+
+- [Release v3.2.40](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.40) ("Server Inventory and Migration Manager 3.2.40"), tag and target commit `b55347bc7c8b869fe8b49bf8b23f9d790f74df3d`. Source: #190 and #192 through the batch #193 (merged into `main` with a merge commit), prepared by #194, published by #195. The owner approved publishing on 2026-11-27 ("publish now").
+- The [release run](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/46032647588) passed: publish job 16:19–16:41 UTC, embedded scripts and EXE signed through Azure Artifact Signing over OIDC before the tests and checksum (Valid, timestamped); public feed and downloads verified.
+- The actual 3.2.39-to-3.2.40 upgrade (published signed 3.2.39 EXE through Download and Install, restart into 3.2.40, native health, settings, shortcut, timers, cleanup and rollback) passed in the same run, 16:41–16:55 UTC.
+- Stable EXE: 28,961,584 bytes; SHA-256 `45026e533f53e61cd2f4521d84d5410105dde8a1aee5612bb381c6fe1b80d7d6` (matches the public feed). Linux agent `simm-agent-linux-amd64`: 13,717,504 bytes; SHA-256 `b15b8bb646cb842aa61eb1072b3bc9b7658bd59a695df6ca00e4a38b329e9fb0`. All 14 assets are published.
+
+Limits: loading VDDK on the owner's Hyper-V host after the new signature check, and why Windows' own APIs refused those DLLs there, have not been field-tested. The limits under 3.2.39 still apply. CI artifacts were not downloaded, and no client data was used.
+
+## 3.3.0-test.1 published as a test prerelease — 2026-11-27
+
+- [Prerelease v3.3.0-test.1](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.3.0-test.1) from the `test` branch (3.2.39 merged in, with #175, #179 and the test-build check fix #191), tag and target commit `75f4e1c7fe50268f78de7d7c70a3a0c39f083c2b`, published 16:00 UTC with `--prerelease --latest=false`.
+- [Release run 46026990217](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/46026990217) (workflow_dispatch from `test`): publish job 15:40–16:01 UTC, signed exactly like stable (Valid, timestamped); the stable feed was checked unchanged (it named 3.2.39 then, 3.2.40 now). The published-upgrade job is skipped for test builds by design. An earlier run (46015438386) stopped in the updater tests before publishing, because those tests assumed a plain X.Y.Z version; #191 fixed them and the CI version check.
+- EXE: 29,383,472 bytes; SHA-256 `fb9bb00ba90d03ab3235420c6c7fc1c9040e37336569544e91494b2341a27048`. Linux agent: 13,725,696 bytes; SHA-256 `d063eafb7e75bb27ce020c5a4ff11590c97e2daca7f64119fadc965d0dc96c01`.
+
+Limits: a real install of the test build through the Test channel, and the return to stable from it, have not been field-tested. 3.3.0-test.1 does not include the 3.2.40 VDDK fix; #197 merges `main` into `test` so the next test build carries it.
 
 ## 3.2.39 published and verified — 2026-11-27
 

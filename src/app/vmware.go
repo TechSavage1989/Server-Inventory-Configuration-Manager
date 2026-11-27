@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -177,6 +178,19 @@ func vmDiscoveryRead(action string) bool {
 	return action == "connect" || action == "hyperv" || action == "open"
 }
 
+// vmPlanSaveRefusalLocked says why the migration plan (network map, waves,
+// scenario, acknowledgements) cannot be saved now, or "". Saving writes
+// only the plan file and replaces a.vmware.plan as a whole, so steps that
+// run (a migration plan copy, Prepare, Move VMs) keep the copy they read and
+// nothing conflicts; only a Discovery read, which replaces the inventory the
+// plan belongs to, holds it back. Caller holds a.mu.
+func (a *application) vmPlanSaveRefusalLocked() string {
+	if vmDiscoveryRead(a.vmware.action) {
+		return "A VMware step is running (" + vmActionName(a.vmware.action) + "). Save the plan when it ends, because it replaces the inventory the plan belongs to."
+	}
+	return ""
+}
+
 // vmwareBlocksCollectionLocked is true while a VMware step that is not a
 // Discovery read runs. A migration plan copy does not block a collection:
 // the collection only reads this computer. Caller holds a.mu.
@@ -257,7 +271,7 @@ func (a *application) vmwareSnapshotLocked() vmwareStateResponse {
 		Server: a.vmware.server, Account: a.vmware.account, Certificate: a.vmware.certificate,
 		InventorySerial: a.vmware.inventorySerial, OutputFolder: a.vmware.outputFolder, ReportPath: a.vmware.reportPath,
 		RunbookPath: a.vmware.runbookPath, RunbookDocxPath: vmRunbookDocxFor(a.vmware.runbookPath), DiscoveryPath: vmDiscoveryReportFor(a.vmware.reportPath), ReportDocxPath: vmReportBeside(a.vmware.reportPath, vmReportDocx), ReportPDFPath: vmReportBeside(a.vmware.reportPath, vmReportPDF), PlanCSVPath: a.vmware.planCSVPath,
-		GuestSerial: a.vmware.guestSerial, GuestMessage: a.vmware.guestMessage, GuestError: a.vmware.guestError, GuestWorkPath: a.guestWorkPath(), GuestTarget: a.guestTargetStateLocked(), GuestAuto: guestAutoState{User: a.guestAuto.user, HasPassword: a.guestAuto.password != ""}, Fixups: a.fixups.List(), Preflight: a.preflightStateLocked(), Rollback: a.rbStateLocked(),
+		GuestSerial: a.vmware.guestSerial, GuestMessage: a.vmware.guestMessage, GuestError: a.vmware.guestError, GuestWorkPath: a.guestWorkPath(), GuestTarget: a.guestTargetStateLocked(), GuestAuto: a.guestAutoStateLocked(), Fixups: a.fixups.List(), Preflight: a.preflightStateLocked(), Rollback: a.rbStateLocked(),
 		CompareSerial: a.vmware.compareSerial, CompareError: a.vmware.compareError,
 		Prepare: a.vmware.prepare, PrepareSerial: a.vmware.prepareSerial, PrepareError: a.vmware.prepareError, PrepareBatch: append([]vmPrepareBatchItem{}, a.vmware.prepareBatch...),
 		Move: a.vmware.move, MoveSerial: a.vmware.moveSerial, MoveError: a.vmware.moveError, MoveStatus: a.vmware.moveStatus, MoveCopyRoot: a.vmwareCopyRootLocked(),
@@ -516,6 +530,9 @@ func (a *application) handleVMwareConnect(response http.ResponseWriter, request 
 		User       string `json:"user"`
 		Password   string `json:"password"`
 		Thumbprint string `json:"thumbprint"`
+		// Remember turns on remembered sign-ins (Help > Settings) and keeps
+		// this one once it works.
+		Remember bool `json:"remember"`
 	}
 	if !decodeVMwareRequest(response, request, &input) {
 		return
@@ -552,6 +569,23 @@ func (a *application) handleVMwareConnect(response http.ResponseWriter, request 
 		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "Type the password for " + user + "."})
 		return
 	}
+	if input.Remember {
+		if err := a.vcRememberStore().SetEnabled(true); err != nil {
+			writeJSON(response, http.StatusInternalServerError, map[string]any{"ok": false, "error": "The sign-in could not be remembered: " + err.Error()})
+			return
+		}
+	}
+	if status, message := a.startVMwareConnect(endpoint, user, password, thumbprint, false); status != 0 {
+		writeJSON(response, status, map[string]any{"ok": false, "error": message})
+		return
+	}
+	writeJSON(response, http.StatusAccepted, map[string]any{"ok": true})
+}
+
+// startVMwareConnect signs in to vCenter or ESXi and reads its inventory in
+// the background. auto is a sign-in from a remembered password: one the
+// server refuses is forgotten at once.
+func (a *application) startVMwareConnect(endpoint *url.URL, user, password, thumbprint string, auto bool) (int, string) {
 	// Reading the server already open refreshes its session; reading
 	// another one replaces it, which waits while a migration plan copies.
 	if status, message := a.startVMwareActionWith("connect", func() string {
@@ -560,8 +594,7 @@ func (a *application) handleVMwareConnect(response http.ResponseWriter, request 
 		}
 		return a.vmSessionSwitchRefusalLocked("Reading " + endpoint.Host)
 	}); status != 0 {
-		writeJSON(response, status, map[string]any{"ok": false, "error": message})
-		return
+		return status, message
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	a.mu.Lock()
@@ -577,6 +610,9 @@ func (a *application) handleVMwareConnect(response http.ResponseWriter, request 
 	a.vmware.cancel = cancel
 	a.vmware.status = "connecting"
 	a.vmware.message = "Connecting to " + endpoint.Host + " as " + user + "."
+	if auto {
+		a.vmware.message = "Signing in to " + endpoint.Host + " as " + user + " with the remembered sign-in, so migration plans can carry on."
+	}
 	a.appendVMwareLogLocked(time.Now().Format("2006-01-02 15:04:05") + " " + a.vmware.message)
 	a.mu.Unlock()
 	go func() {
@@ -596,9 +632,18 @@ func (a *application) handleVMwareConnect(response http.ResponseWriter, request 
 			if canceled {
 				message = "Stopped. Nothing was read."
 			}
+			if auto && vcRememberRefused(message) {
+				a.vcRememberStore().Forget(endpoint.Host, "The remembered password of "+user+" for "+endpoint.Host+" was refused, so it was forgotten. Sign in again.")
+				message += " The remembered sign-in was forgotten; sign in again."
+			}
 			a.vmwareLog("%s", message)
 			a.finishVMwareAction("connectfailed", message)
 			return
+		}
+		if store := a.vcRememberStore(); store.Enabled() {
+			if err := store.Remember(endpoint.Host, user, signIn, thumbprint, time.Now()); err != nil {
+				a.vmwareLog("The sign-in could not be remembered: %s", err.Error())
+			}
 		}
 		a.applySavedPreflight(inventory)
 		folder := a.vmwareOutputFolder("VMware_" + safeName(inventory.Server))
@@ -625,7 +670,7 @@ func (a *application) handleVMwareConnect(response http.ResponseWriter, request 
 		a.vmwareLog("%s", message)
 		a.finishVMwareAction("connected", message)
 	}()
-	writeJSON(response, http.StatusAccepted, map[string]any{"ok": true})
+	return 0, ""
 }
 
 func (a *application) handleVMwareCancel(response http.ResponseWriter, request *http.Request) {
@@ -755,10 +800,10 @@ func (a *application) handleVMwarePlan(response http.ResponseWriter, request *ht
 		return
 	}
 	a.mu.Lock()
-	inventory, busy := a.vmware.inventory, a.vmwareBusyLocked()
+	inventory, refusal := a.vmware.inventory, a.vmPlanSaveRefusalLocked()
 	a.mu.Unlock()
-	if busy {
-		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": a.vmwareBusyTextLocked() + " Wait for it to finish first."})
+	if refusal != "" {
+		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": refusal})
 		return
 	}
 	plan, err := validateVMPlan(input.Plan, inventory)
@@ -1369,6 +1414,12 @@ func (a *application) vmwareOpenTarget(kind string) (target string, folder bool,
 		return a.vmware.outputFolder, true, true
 	case "receiverlog":
 		return a.vmReceiverLogPath(), false, true
+	case "vddklog":
+		// VixDiskLib's own log once VDDK has started, else its folder.
+		if path := vddkLogPath(); path != "" {
+			return path, false, true
+		}
+		return filepath.Join(os.Getenv("LOCALAPPDATA"), appName, "VMware", "VDDK", "Temp"), true, true
 	case "vmwarerunbook":
 		return a.vmware.runbookPath, false, true
 	case "hvbuildreport":
