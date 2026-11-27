@@ -21,6 +21,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
@@ -92,7 +93,7 @@ func vddkCheck(folder string) (vddkStatus, string, error) {
 	}
 	sort.Strings(dlls)
 	for _, name := range dlls {
-		signer, err := vddkVerifySignature(filepath.Join(bin, name))
+		signer, err := vddkFileSigner(filepath.Join(bin, name))
 		if err != nil {
 			status.Problems = append(status.Problems, name+": "+err.Error())
 			continue
@@ -105,11 +106,11 @@ func vddkCheck(folder string) (vddkStatus, string, error) {
 			status.Signer = signer
 		}
 	}
-	major, minor, patch, build, err := vddkFileVersion(filepath.Join(bin, "vixDiskLib.dll"))
+	major, minor, patch, err := vddkLibraryVersion(filepath.Join(bin, "vixDiskLib.dll"))
 	if err != nil {
 		status.Problems = append(status.Problems, "vixDiskLib.dll has no version: "+err.Error())
 	} else {
-		status.Version = fmt.Sprintf("%d.%d.%d build %d", major, minor, patch, build)
+		status.Version = fmt.Sprintf("%d.%d.%d", major, minor, patch)
 		if !vddkSupportedVersion(major, minor, patch) {
 			status.Problems = append(status.Problems, "VDDK "+status.Version+" is older than 7.0.3; download VDDK 7.0.3, 8 or 9")
 		}
@@ -128,6 +129,47 @@ func vddkTrustedSigner(signer string) bool {
 		}
 	}
 	return false
+}
+
+// vddkFileSigner verifies a DLL's embedded Authenticode signature from its
+// own bytes (authenticode.go: file hash, signed attributes, signature and a
+// code-signing chain to this computer's trusted roots) and returns the
+// signer's organisation. Windows' WinVerifyTrust is asked only when that
+// check fails, so a signature Windows accepts in another form still counts.
+// 3.2.38 asked WinVerifyTrust alone, and on the owner's Hyper-V host it
+// answered TRUST_E_SUBJECT_FORM_UNKNOWN for every genuine Broadcom DLL.
+func vddkFileSigner(path string) (string, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	certificate, ownErr := authenticodeVerify(data, nil, time.Now())
+	if ownErr == nil {
+		return authenticodeOrganisation(certificate), nil
+	}
+	signer, windowsErr := vddkVerifySignature(path)
+	if windowsErr == nil {
+		return signer, nil
+	}
+	return "", fmt.Errorf("%v; Windows: %v", ownErr, windowsErr)
+}
+
+// vddkLibraryVersion reads the file version from the DLL's own version
+// resource, then asks Windows.
+func vddkLibraryVersion(path string) (major, minor, patch uint16, err error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return 0, 0, 0, err
+	}
+	major, minor, patch, _, ownErr := peVersion(data)
+	if ownErr == nil {
+		return major, minor, patch, nil
+	}
+	major, minor, patch, _, windowsErr := vddkFileVersion(path)
+	if windowsErr == nil {
+		return major, minor, patch, nil
+	}
+	return 0, 0, 0, fmt.Errorf("%v; Windows: %v", ownErr, windowsErr)
 }
 
 // vddkVerifySignature checks a file's Authenticode signature with Windows
