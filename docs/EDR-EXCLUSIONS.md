@@ -81,6 +81,18 @@ The console itself starts Windows PowerShell with `-ExecutionPolicy Bypass`
 restore, file share migration, guest preparation and Hyper-V steps. These run
 only when an operator starts them, on the computer running the console.
 
+### Move file shares between two other servers
+
+From an admin computer, **Move file shares** with **New server: Another server**
+installs nothing on either server:
+
+| Behaviour | Where | Why |
+| --- | --- | --- |
+| `powershell.exe -ExecutionPolicy RemoteSigned -File Invoke-ShareMigrationRemote.ps1 -CredentialFromInput` (signed script, never Bypass, no hidden-window or encoded-command flags; accounts arrive as one JSON line on standard input) | Admin computer | Opens two PowerShell remoting sessions to the new server: one runs the file share engine's text as a script block, the other reads its log every 2 seconds and passes Stop |
+| `Invoke-Command -ComputerName <new server>` over WinRM (TCP 5985, Kerberos), running in `wsmprovhost.exe` | New file server | The engine reads the old server with CIM and copies with `robocopy.exe` started from `wsmprovhost.exe`; at cutover it creates SMB shares |
+| `WNetAddConnection2` to `\\<old server>\IPC$` with the typed account, removed when the run ends | New file server | Lets Robocopy read the old server's shares, because the admin computer's sign-in cannot be passed on (no CredSSP) |
+| Data files only in `%ProgramData%\Server Inventory and Migration Manager\File-Share-Migration\<old server>` (protected to SYSTEM and Administrators) and a per-run `Runs\<id>` folder that is removed | New file server | Copy logs, the saved old share permissions for Undo, and the run's engine text and result |
+
 ### Prepare and fix up from outside the machine
 
 **Prepare and fix up** needs nothing installed in the machine being moved.

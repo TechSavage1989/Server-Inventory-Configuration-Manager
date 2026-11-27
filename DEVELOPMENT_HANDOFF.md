@@ -11,6 +11,12 @@ Limits: reading a running VM through the snapshot export on a real ESXi host and
 
 Owner asked to publish ("publish") after the MATCHC-DC01 fix, then to release everything together. Contents: #149 (receiver as a local Windows service), #152 (VMware Tools removed by hand when its uninstaller refuses), #153 (Guided migration folded into New migration, nothing clips, network map and guest account fixes), #154 (discovery chooses where reports are saved) #155 (running VMware VMs read through the snapshot export when the datastore refuses the disk), #156, #158 (confirmation styles), #159 and #160 (hidden selections counted in Move VMs). Version 3.2.37 in `main.go` and the collector, release notes in `docs/release-notes/3.2.37.md`, and the published-upgrade test now starts from signed 3.2.36 (`9b2511f0...0801`).
 
+## Unreleased: move file shares between two other servers from an admin computer — 2026-11-27
+
+- Owner asked whether file shares can move from one remote machine to another without running the application on the new server. Move file shares now has **New server: Another server** (AGENTS rule 58). The admin computer runs the signed `Invoke-ShareMigrationRemote.ps1` (RemoteSigned), which runs the existing engine inside the new server through PowerShell remoting, so the new server copies straight from the old one with Robocopy: files cross the network once, nothing is installed, and the old server's account is typed because of the double hop.
+- **Keep copying until cutover** (15 minutes to 24 hours, while the application is open) works for both targets. New migration has the target **Another file server** with its own steps.
+- Validation: Linux `go vet`, the platform-independent Go tests, a Windows cross-build and test compile, the workspace checks (new "Migrate from an admin computer" check and the fileremote hand-off). `scripts/Test-Migration.ps1` and `TestMigrateToAnotherServerFromAnAdminComputer` run through the remote runner to localhost on the Windows runner. Not field-validated: two real servers across a domain, a new server in another domain or workgroup.
+
 ## Batched merges through release/next — 2026-11-26
 
 - Owner chose batch merges: fixes are pull requests into `release/next` and reach `main` in one batch pull request (AGENTS.md rule 57). CI-only and documentation change; no version bump.
