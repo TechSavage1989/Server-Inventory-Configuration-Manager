@@ -1,3 +1,7 @@
+## 3.2.38 release preparation — 2026-11-27
+
+Owner asked to publish ("publish"). Contents, merged into `release/next`: #164 (VM names on New migration tiles with an encryption note), #165 (eject CD/DVD images before copies), #167 (VDDK changed-block reads, operator-supplied), #168 (fluid density), #169 (file shares between two other servers) and #170 (rule numbering). Version 3.2.38 in `main.go` and the collector, release notes in `docs/release-notes/3.2.38.md`, and the published-upgrade test now starts from signed 3.2.37 (`323f7f7b...8545`).
+
 ## Unreleased: fluid density, so 1080p and smaller windows fit more — 2026-11-27
 
 - The owner found the interface crowded at 1080p and below and asked for it to scale like it does on a 1440p screen, as long as it stays legible. Every font size and control height (`--fz`) and every padding, margin and gap (`--sp`) in the top-level CSS of `src/app/index.html` now scales with two tokens, `--fz` and `--sp` (AGENTS rule 60): full size at 2560x1369, linearly smaller to 0.82 (text) and 0.7 (spacing) at 1920x1050 and below, by whichever of width and height is smaller. Every font size is floored at 10.5 px. The old `max-width:1439px` and `max-width:1100px` font and padding tiers are gone; the small-window `@media` rules keep plain px.
