@@ -557,7 +557,7 @@ func (a *application) handleRestoreStart(response http.ResponseWriter, request *
 		return
 	}
 	if a.vmwareBusyLocked() {
-		fail(http.StatusConflict, "A VMware step is running. Wait for it to finish before restoring.")
+		fail(http.StatusConflict, a.vmwareBusyTextLocked()+" Wait for it to finish before restoring.")
 		return
 	}
 	if a.convertBusyLocked() {

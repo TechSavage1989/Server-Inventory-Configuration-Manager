@@ -505,7 +505,7 @@ func (a *application) startMigrateAction(action string) (int, string) {
 	case a.migrateBusyLocked():
 		refusal = "A migration step is already running."
 	case a.vmwareBusyLocked():
-		refusal = "A VMware step is running. Wait for it to finish first."
+		refusal = a.vmwareBusyTextLocked() + " Wait for it to finish first."
 	case a.convertBusyLocked():
 		refusal = "A disk conversion is running. Wait for it to finish first."
 	default:
