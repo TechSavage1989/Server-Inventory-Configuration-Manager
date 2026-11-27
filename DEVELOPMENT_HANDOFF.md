@@ -1,3 +1,9 @@
+## Unreleased: fluid density, so 1080p and smaller windows fit more — 2026-11-27
+
+- The owner found the interface crowded at 1080p and below and asked for it to scale like it does on a 1440p screen, as long as it stays legible. Every font size and control height (`--fz`) and every padding, margin and gap (`--sp`) in the top-level CSS of `src/app/index.html` now scales with two tokens, `--fz` and `--sp` (AGENTS rule 58): full size at 2560x1369, linearly smaller to 0.82 (text) and 0.7 (spacing) at 1920x1050 and below, by whichever of width and height is smaller. Every font size is floored at 10.5 px. The old `max-width:1439px` and `max-width:1100px` font and padding tiers are gone; the small-window `@media` rules keep plain px.
+- New workspace check "Fluid density". Before and after captures at 2400x1300, 1920x1080, 1366x768 and 1024x768 are in the project files under `density/`. README `hero.png`, `new-migration.png` and `migration-plans.png` were recaptured at 1440x1000; the other README images still show the earlier, larger text (same layout).
+- Not field-validated: Edge 109 on Windows Server 2012 R2 (`clamp()`, `min()` and `max()` inside `calc()` are supported there since Chrome 79), and Windows display scaling above 100 %, which makes the CSS viewport smaller and so the interface denser.
+
 ## 3.2.37 published and verified — 2026-11-26
 
 - [Release v3.2.37](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.37) ("Server Inventory and Migration Manager 3.2.37"), tag and target commit `b0708c3d90053133584a107862bf6f85ad7028a5`. Source: #149, #152, #153, #154, #155, #156, #158, #159 and #160, prepared by #157 and published by #161. The owner asked to release everything together on 2026-11-26.

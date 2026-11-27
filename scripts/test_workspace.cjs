@@ -422,6 +422,16 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   f.state.update={...f.state.update,installFailed:false,notice:''};await f.page.waitForTimeout(1100);assert.equal(await f.page.locator('#updateInstallButton').textContent(),'Install and restart');assert.equal(await f.page.locator('#updateTitle').textContent(),'Update ready');
   f.state.update={status:'current',title:'Up to date',message:'Installed.',canCheck:true};await f.page.waitForTimeout(1100);assert(!await f.page.locator('#updateBanner').isVisible());assert.deepEqual(f.dialogs,[]);
  }finally{await f.close();}});
+ await check('Fluid density: text and spacing are full size on a 1440p screen, smaller at 1080p and smaller windows, and never below 10.5 px',async()=>{const f=await fixture(browser);try{
+  const read=()=>f.page.evaluate(()=>{const cs=s=>getComputedStyle(document.querySelector(s));return {body:parseFloat(cs('body').fontSize),pad:parseFloat(cs('.card-body').paddingTop),tab:document.querySelector('.tab-button').getBoundingClientRect().height,small:Array.from(document.querySelectorAll('body *')).filter(e=>e.offsetParent&&Array.from(e.childNodes).some(x=>x.nodeType===3&&x.nodeValue.trim())&&parseFloat(getComputedStyle(e).fontSize)<10.5).length};});
+  await f.page.setViewportSize({width:2560,height:1369});await f.page.waitForTimeout(100);const big=await read();
+  assert(Math.abs(big.body-14)<0.05,'body text is 14 px on a 1440p screen, got '+big.body);
+  await f.page.setViewportSize({width:1904,height:1000});await f.page.waitForTimeout(100);const hd=await read();
+  assert(hd.body<12&&hd.body>=11,'body text shrinks at 1080p, got '+hd.body);assert(hd.pad<big.pad*0.8,'padding shrinks at 1080p: '+hd.pad+' vs '+big.pad);assert(hd.tab<big.tab,'tabs get shorter at 1080p');
+  await f.page.setViewportSize({width:2384,height:1000});await f.page.waitForTimeout(100);const wideShort=await read();assert(wideShort.body<=hd.body+0.01,'a short window scales by its height');
+  await f.page.setViewportSize({width:2240,height:1300});await f.page.waitForTimeout(100);const mid=await read();assert(mid.body>hd.body&&mid.body<big.body,'the scale is fluid between 1080p and 1440p, got '+mid.body);
+  for(const size of [{width:1904,height:1000},{width:1350,height:690},{width:1008,height:690},{width:784,height:522}]){await f.page.setViewportSize(size);await f.page.waitForTimeout(100);assert.equal((await read()).small,0,'text below 10.5 px at '+size.width+'x'+size.height);}
+ }finally{await f.close();}});
  await check('Nothing is cut off: every tool and every New migration screen at 1024x768, 1366x768 and 1920x1080 scrolls instead of clipping, and Back and Next stay in view',async()=>{const f=await fixture(browser);try{
   f.vm.inventory=vmwareInventoryFixture();f.vm.plan=vmwarePlanFixture();
   f.state.vmware=Object.assign(vmwareIdle(),{status:'connected',server:'vc01.example.com',account:'administrator@vsphere.local',summary:vmwareSummaryFixture(),inventorySerial:1,canPrepare:true,hyperVHere:true,hostStorage:{known:true,vhdPath:'D:\\Hyper-V\\Disks',vmPath:'D:\\Hyper-V',clustered:true,volumes:[{path:'C:\\ClusterStorage\\Volume1',freeBytes:1099511627776,totalBytes:2199023255552,csv:true}]}});
