@@ -10,7 +10,7 @@
 <link rel="apple-touch-icon" sizes="256x256" href="/app-icon.png?v=327">
 <style>
 * { box-sizing: border-box; }
-/* Fluid density (rule 58): --fz scales text and --sp scales padding, gaps and control heights with the window.
+/* Fluid density (rule 59): --fz scales text and control heights and --sp scales padding, margins and gaps with the window.
    Full size at 2560x1369 (a 1440p screen); text reaches 0.82 and spacing 0.7 at 1920x1050 or smaller, and no
    text goes below 10.5 px (every font-size is max(10.5px,...)). A short or narrow window scales by the smaller side. */
 :root { --fz: clamp(0.82px, min(calc(0.28px + 0.028125vw), calc(0.2275px + 0.0564vh)), 1px); --sp: clamp(0.7px, min(calc(-0.2px + 0.046875vw), calc(-0.287px + 0.094vh)), 1px); }
@@ -326,7 +326,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visi
 .metric-action{cursor:pointer;transition:border-color .15s,box-shadow .15s}.metric-action:hover{border-color:#9db8e6;box-shadow:0 1px 4px rgba(31,95,191,.12)}.metric-action:focus-visible{outline:2px solid #2d6fd6;outline-offset:2px}
 .log-view .log-focus{outline:2px solid #e0a12b;outline-offset:-1px;background:rgba(245,200,75,.18)}
 .shortcuts-link{padding:0;margin-top:calc(3*var(--sp));font-size:max(10.5px,calc(11*var(--fz)))}
-.shortcuts-dialog{border:1px solid #d6dde8;border-radius:14px;padding:0;width:min(520px,calc(100vw - 32px));max-height:calc(100vh - 32px);color:#172033;box-shadow:0 18px 50px rgba(15,23,42,.28)}.shortcuts-dialog::backdrop{background:rgba(15,23,42,.38)}
+.shortcuts-dialog{border:1px solid #d6dde8;border-radius:14px;padding:0;width:min(520px,calc(100vw - 32px));max-height:calc(100vh - 32px);overflow:auto;color:#172033;box-shadow:0 18px 50px rgba(15,23,42,.28)}.shortcuts-dialog::backdrop{background:rgba(15,23,42,.38)}
 .shortcuts-head{display:flex;align-items:center;justify-content:space-between;gap:calc(12*var(--sp));padding:calc(14*var(--sp)) calc(18*var(--sp));border-bottom:1px solid #e3e8ef}.shortcuts-head h2{margin:0;font-size:max(10.5px,calc(16*var(--fz)))}
 .shortcuts-list{margin:0;padding:calc(12*var(--sp)) calc(18*var(--sp)) calc(16*var(--sp));display:grid;grid-template-columns:auto 1fr;gap:calc(9*var(--sp)) calc(16*var(--sp));align-items:baseline}.shortcuts-list dt{white-space:nowrap;font-size:max(10.5px,calc(12*var(--fz)))}.shortcuts-list dd{margin:0;color:#45526a;font-size:max(10.5px,calc(13*var(--fz)))}
 kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px solid #c9d2df;border-bottom-width:2px;border-radius:5px;background:#f6f8fb;font:600 11px/16px Consolas,"Segoe UI",monospace;text-align:center;color:#172033}
@@ -1512,6 +1512,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
               <label><input type="checkbox" id="mpStartVMs" checked> Start each new VM after its cutover</label>
               <label><input type="checkbox" id="mpCluster"> Make the new VMs highly available (the copied disks folder and the VM configuration folder must both be on a Cluster Shared Volume)</label>
               <label><input type="checkbox" id="mpQuiesce"> Application-consistent copies (VMware Tools quiesces the guest)</label>
+              <label><input type="checkbox" id="mpEject" checked> Eject CD/DVD and floppy images before copying (drives set to a client device, ISO path recorded first), so a missing ISO cannot stop vSphere's export</label>
               <label><input type="checkbox" id="mpDisconnect" checked> After cutover, set the old VMware VM's adapters to not connect (recorded first)</label>
               <label><input type="checkbox" id="mpFixUp" checked> Fix each new VM up once Windows starts: IP settings, gateway and DNS from vCenter, VMware Tools, hidden adapters, disks and activation (needs Start)</label>
             </div>
@@ -1818,6 +1819,12 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
       <label class="cfm-style"><input type="radio" name="cfmStyle" value="none" id="cfmStyleNone"><span><strong>Don't ask</strong><small>Actions run as soon as you press their button. Only for a test lab.</small></span></label>
     </fieldset>
     <div class="helper" id="settingsStatus" role="status" aria-live="polite">Saved for your Windows account on this computer.</div>
+    <fieldset class="cfm-styles" id="vddkSettings"><legend>VMware VDDK, for faster copies of running VMs</legend>
+      <div class="helper">With VMware's Virtual Disk Development Kit, each copy round of a running VMware VM reads only the blocks that changed, straight from the ESXi host (NBDSSL, port 902). Without it, the round streams the whole disk through vSphere's export. VMware's license does not let this application include VDDK: download VDDK 7.0.3, 8 or 9 for Windows from Broadcom, extract it, and choose its folder here. Every DLL in it must carry VMware's or Broadcom's signature.</div>
+      <label class="vm-field">VDDK folder (blank turns it off)<input id="vddkFolder" type="text" spellcheck="false" autocomplete="off" placeholder="C:\VDDK\VMware-vix-disklib-8.0.3" data-browse="folder" data-browse-title="Choose the folder you extracted the Windows VDDK download into (it holds bin\vixDiskLib.dll)."></label>
+      <div class="about-actions"><button class="primary-button" id="vddkSave" type="button">Check and save</button><button class="secondary-button" id="vddkOff" type="button">Turn off</button></div>
+      <div class="helper" id="vddkStatus" role="status" aria-live="polite"></div>
+    </fieldset>
   </div>
 </dialog>
 <dialog class="shortcuts-dialog" id="aboutDialog" aria-labelledby="aboutTitle">
@@ -3573,7 +3580,14 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     var d=byId('settingsDialog'),s=cfmStyle();Array.prototype.forEach.call(document.querySelectorAll('input[name="cfmStyle"]'),function(r){r.checked=r.value===s;});
     byId('settingsStatus').textContent='Saved for your Windows account on this computer.';byId('settingsStatus').className='helper';
     if(!d.open){if(d.showModal){d.showModal();}else{d.setAttribute('open','');}}byId('settingsClose').focus();
+    vddkShow(null,'Checking the VDDK folder\u2026');
+    request('GET','/api/vddk',null,function(err,data){if(err){vddkShow(null,err,true);return;}byId('vddkFolder').value=(data.vddk&&data.vddk.folder)||'';vddkShow(data.vddk);});
   }
+  function vddkShow(v,text,bad){var st=byId('vddkStatus');st.textContent=text||(v&&v.message)||'';st.className='helper'+(bad||(v&&v.folder&&!v.ready)?' error':'');}
+  function vddkSave(folder){var save=byId('vddkSave'),off=byId('vddkOff');save.disabled=off.disabled=true;vddkShow(null,folder?'Checking the signatures in '+folder+'\u2026':'Turning VDDK off\u2026');
+    request('POST','/api/vddk',{folder:folder},function(err,data){save.disabled=off.disabled=false;if(err){vddkShow(null,err,true);return;}byId('vddkFolder').value=(data.vddk&&data.vddk.folder)||'';vddkShow(data.vddk,(folder?'Saved. ':'')+((data.vddk&&data.vddk.message)||''));});}
+  byId('vddkSave').addEventListener('click',function(){vddkSave(trimText(byId('vddkFolder').value));});
+  byId('vddkOff').addEventListener('click',function(){vddkSave('');});
   function closeSettings(){var d=byId('settingsDialog');if(d.close){d.close();}else{d.removeAttribute('open');}}
   byId('settingsClose').addEventListener('click',closeSettings);
   byId('settingsDialog').addEventListener('click',function(e){if(e.target===this){closeSettings();}});
@@ -5617,13 +5631,14 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
       if(copy){copy.disabled=vmLocked()||notHost||short;}}
     folder.addEventListener('input',function(){kept.copy=folder.value;syncSpace();});vmFolder.addEventListener('input',function(){kept.vm=vmFolder.value;});
     var checks={},options=(hv?[['keepMac','Keep the source VM\'s MAC addresses',false]]:[['quiesce','Quiesce the guest for each copy (VMware Tools, VSS in Windows)',!!vm.toolsRunning],['keepMac','Keep the VMware MAC addresses',false]]);
+    if(!hv&&vmArr(vm.mediaImages).length){options.push(['ejectMedia','Eject CD/DVD and floppy images before copying: the drives are set to a client device, not connected (the ISO path is recorded first), so a missing ISO cannot stop the copy ('+vmArr(vm.mediaImages).join(', ')+')',true]);}
     if(store&&store.clustered){options.push(['cluster','Make it highly available in the failover cluster at the cutover (the copied disks folder and the VM configuration folder must both be on a Cluster Shared Volume)',kept.cluster]);}
     options.forEach(function(c){var label=el('label','vm-check'),input=document.createElement('input');input.type='checkbox';input.checked=c[2];input.setAttribute('data-vm-move',c[0]);checks[c[0]]=input;label.appendChild(input);label.appendChild(el('span','',c[1]));section.appendChild(label);});
     var hostSw=store&&store.switches,unmapped=[],autoSw=[];vmArr(vm.nics).forEach(function(n){var pick=vmSwitchFor(n.network,hostSw);if(!pick){unmapped.push(n.network||n.label);}else if(pick.auto){autoSw.push((n.network||n.label)+' to '+pick.name);}});
     if(autoSw.length){section.appendChild(el('div','migrate-detail','Networks: '+autoSw.join(', ')+' (the same name, or the host\'s only switch; name another in the plan\'s network map to change it). VLANs come from the VMware port groups.'));}
     if(unmapped.length){section.appendChild(el('div','migrate-detail warning','No Hyper-V switch is named for '+unmapped.join(', ')+' in the plan\'s network map; those adapters are added disconnected.'));}
     var after=vmAfterCutover(section,vm);
-    var body=function(action){return {vmId:vm.id,action:action,copyFolder:trimText(folder.value),vmFolder:trimText(vmFolder.value),quiesce:!!(checks.quiesce&&checks.quiesce.checked),keepMac:checks.keepMac.checked,start:after.start(),cluster:!!(checks.cluster&&checks.cluster.checked),disconnectSource:after.disconnect(),fixUp:after.fixUp()};};
+    var body=function(action){return {vmId:vm.id,action:action,copyFolder:trimText(folder.value),vmFolder:trimText(vmFolder.value),quiesce:!!(checks.quiesce&&checks.quiesce.checked),keepMac:checks.keepMac.checked,start:after.start(),cluster:!!(checks.cluster&&checks.cluster.checked),disconnectSource:after.disconnect(),fixUp:after.fixUp()};};var bodyNoMedia=body;body=function(action){var b=bodyNoMedia(action);if(checks.ejectMedia){b.ejectMedia=checks.ejectMedia.checked;}return b;};
     if(checks.cluster){checks.cluster.addEventListener('change',function(){kept.cluster=checks.cluster.checked;});}
     var row=el('div','vm-move-actions'),copy=el('button','secondary-button',last&&!last.cutover?'Copy changes\u2026':'Copy disks\u2026'),cut=el('button','secondary-button','Cut over\u2026');
     copy.type='button';copy.id='vmMoveCopy';copy.disabled=vmLocked()||notHost;cut.type='button';cut.id='vmMoveCutover';cut.disabled=vmLocked()||notHost;syncSpace();
@@ -5705,6 +5720,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     // 4. Copy and cut over
     var s4=vmTargetStep(section,'4. Copy, then cut over','Copy while the VMware VM keeps running, as often as you like. Cut over when ready: the host is read again, the guest is shut down through VMware Tools (never a hard power-off), the last changes are copied and verified, and the VM is created on '+(vmHvrForm.node||info.computer)+'. The VMware VM is left powered off, so going back is starting it again.','On this computer');
     var checks={},opts=[['quiesce','Quiesce the guest for each copy (VMware Tools, VSS in Windows)',vmHvrForm.quiesce==null?!!vm.toolsRunning:vmHvrForm.quiesce],['keepMac','Keep the VMware MAC addresses',vmHvrForm.keepMac]];
+    if(vmArr(vm.mediaImages).length){opts.push(['ejectMedia','Eject CD/DVD and floppy images before copying: the drives are set to a client device, not connected (the ISO path is recorded first), so a missing ISO cannot stop the copy ('+vmArr(vm.mediaImages).join(', ')+')',vmHvrForm.ejectMedia!==false]);}
     if(info.cluster&&info.clusterModule){opts.push(['cluster','Make it highly available in failover cluster '+info.cluster+' at the cutover (the copied disks folder and the VM configuration folder must both be on a Cluster Shared Volume)',vmHvrForm.cluster]);}
     opts.forEach(function(o){var label=el('label','vm-check'),input=document.createElement('input');input.type='checkbox';input.checked=!!o[2];input.setAttribute('data-hvr-opt',o[0]);input.addEventListener('change',function(){vmHvrForm[o[0]]=input.checked;});checks[o[0]]=input;label.appendChild(input);label.appendChild(el('span','',o[1]));s4.appendChild(label);});
     var switches=vmArr(info.switches).map(function(x){return x.name;}),lower=switches.map(function(x){return String(x).toLowerCase();});
@@ -5720,7 +5736,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
       var off=vmLocked()||!v.canPrepare;copy.disabled=off||short;cut.disabled=off;}
     syncSpace();
     var target=function(){return (trimText(folder.value)||folder.placeholder)+' on '+(vmHvrForm.node||info.computer);};
-    var body=function(action){return {vmId:vm.id,action:action,node:vmHvrForm.node||info.computer,copyFolder:trimText(folder.value),vmFolder:trimText(vmFolder.value),path:vmHvrForm.path,address:trimText(vmHvrForm.address),thumbprint:vmThumbHex(vmHvrForm.thumbprint),code:trimText(vmHvrForm.code),quiesce:!!(checks.quiesce&&checks.quiesce.checked),keepMac:checks.keepMac.checked,start:after.start(),cluster:!!(checks.cluster&&checks.cluster.checked),disconnectSource:after.disconnect(),fixUp:after.fixUp()};};
+    var body=function(action){return {vmId:vm.id,action:action,node:vmHvrForm.node||info.computer,copyFolder:trimText(folder.value),vmFolder:trimText(vmFolder.value),path:vmHvrForm.path,address:trimText(vmHvrForm.address),thumbprint:vmThumbHex(vmHvrForm.thumbprint),code:trimText(vmHvrForm.code),quiesce:!!(checks.quiesce&&checks.quiesce.checked),keepMac:checks.keepMac.checked,start:after.start(),cluster:!!(checks.cluster&&checks.cluster.checked),disconnectSource:after.disconnect(),fixUp:after.fixUp()};};var bodyNoMedia=body;body=function(action){var b=bodyNoMedia(action);if(checks.ejectMedia){b.ejectMedia=checks.ejectMedia.checked;}return b;};
     var sent=function(){vmHvrForm.code='';};
     copy.addEventListener('click',function(){
       openMigrateDialog({title:'Copy '+vm.name,path:'/api/hvremote/move',understand:'I understand '+vm.name+' gets a temporary snapshot in vSphere while it copies',field:'confirm',body:body('copy'),expected:vm.name,label:"Type the VM's name to confirm",button:'Copy disks',
@@ -5751,6 +5767,8 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     if(options.type==='password'){input.addEventListener('change',function(){vmTargetForm[key]=input.value;});}
     wrap.appendChild(input);return wrap;
   }
+  function vmWithEject(body,vm,hv){if(!hv&&vmArr(vm.mediaImages).length){body.ejectMedia=vmTargetForm.ejectMedia!==false;}return body;}
+  function vmMediaShort(file){var m=/^\[[^\]]*\]\s*(.*)$/.exec(String(file||''));var p=m?m[1]:String(file||'');return p.split('/').pop()||p;}
   function vmTargetCheck(key,label,fallback){var wrap=el('label','vm-check'),input=document.createElement('input');input.type='checkbox';input.setAttribute('data-vm-target',key);
     input.checked=vmTargetForm.hasOwnProperty(key)?!!vmTargetForm[key]:!!fallback;vmTargetForm[key]=input.checked;input.addEventListener('change',function(){vmTargetForm[key]=input.checked;});wrap.appendChild(input);wrap.appendChild(el('span','',label));return wrap;}
   function vmTargetButton(id,text,handler){var b=el('button','secondary-button',text);b.type='button';b.id=id;b.disabled=vmLocked();b.addEventListener('click',handler);return b;}
@@ -5833,14 +5851,15 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     if(last){var lu=el('ul','vm-findings');if(last.round){vmArr(last.round.disks).forEach(function(d){lu.appendChild(el('li','good',d.label+': '+(vmCopyModeLabels[d.mode]||d.mode)+' to '+d.target+', '+formatBytesShort(d.bytesWritten)+' written'+(d.verified?', verified':'')+'.'));});}if(v.moveError){lu.appendChild(el('li','warning',v.moveError));}if(lu.childNodes.length){mv.appendChild(lu);}}
     if(!v.canPrepare&&!hv){mv.appendChild(el('div','migrate-help','To copy, read the inventory from vCenter or ESXi in this session.'));}
     if(!hv){mv.appendChild(vmTargetCheck('quiesce','Quiesce the guest for each copy (VMware Tools, VSS in Windows)',!!vm.toolsRunning));}
+    if(!hv&&vmArr(vm.mediaImages).length){mv.appendChild(vmTargetCheck('ejectMedia','Eject CD/DVD and floppy images before copying: the drives are set to a client device, not connected (the ISO path is recorded first), so a missing ISO cannot stop the copy ('+vmArr(vm.mediaImages).join(', ')+')',true));}
     var row=el('div','vm-move-actions');
     var copy=vmTargetButton('vmTargetCopy',last&&!last.cutover?'Copy changes\u2026':'Copy disks\u2026',function(){
-      openMigrateDialog({title:'Copy '+vm.name,path:'/api/vmware/target/move',understand:'I understand '+vm.name+' gets a temporary snapshot in vSphere while it copies',field:'confirm',body:{vmId:vm.id,action:'copy',quiesce:!!vmTargetForm.quiesce},expected:vm.name,label:"Type the VM's name to confirm",button:'Copy disks',
+      openMigrateDialog({title:'Copy '+vm.name,path:'/api/vmware/target/move',understand:'I understand '+vm.name+' gets a temporary snapshot in vSphere while it copies',field:'confirm',body:vmWithEject({vmId:vm.id,action:'copy',quiesce:!!vmTargetForm.quiesce},vm,hv),expected:vm.name,label:"Type the VM's name to confirm",button:'Copy disks',
         paragraphs:[hv?'The VM keeps running. On the source Hyper-V host this will:':'The VM keeps running. vSphere will:'],list:(hv?[vmHyperVCheckpointStep]:['turn on changed block tracking for this VM, if it is off','take a snapshot named "Server Inventory and Migration Manager replication" and remove it when the copy ends']).concat(['send each disk to the receiver at '+(receiver?receiver.link.address:'')]),
         after:function(){vmMarkRunning('move','moving','Copying '+vm.name+'\'s disks.');}});
     });
     var cut=vmTargetButton('vmTargetCutover','Cut over\u2026',function(){
-      openMigrateDialog({title:'Cut over '+vm.name,path:'/api/vmware/target/move',understand:'I understand '+vm.name+' is shut down and moved now',field:'confirm',body:{vmId:vm.id,action:'cutover'},expected:vm.name,label:"Type the VM's name to confirm",button:'Shut down and cut over',
+      openMigrateDialog({title:'Cut over '+vm.name,path:'/api/vmware/target/move',understand:'I understand '+vm.name+' is shut down and moved now',field:'confirm',body:vmWithEject({vmId:vm.id,action:'cutover'},vm,hv),expected:vm.name,label:"Type the VM's name to confirm",button:'Shut down and cut over',
         alert:hv?vmHyperVShutdownAlert('new '+(target==='physical'?'server':'VM')+' is running'):'The VMware VM is shut down through VMware Tools and stays off. Users lose access until the new '+(target==='physical'?'server':'VM')+' is running.',
         paragraphs:['In this order:'],list:['shut the guest down (never a hard power-off)','copy the last changes and verify every disk'].concat(created?['turn off the receiver VM on '+label+', switch it to boot from its first disk and start it']:['then restart the new '+(target==='physical'?'server':'VM')+' from its own disk yourself']),
         after:function(){vmMarkRunning('move','moving','Cutting '+vm.name+' over.');}});
@@ -7684,7 +7703,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   // selection carried over, and says so.
   var nwStepNames=['What','Where','How','When','Review','Status'];
   var nw={step:0,reached:0,source:'',picks:{},filter:'',target:'',copyRoot:'',vmFolder:'',cluster:false,node:'',hvHost:'',hvUser:'',net:{},method:'',
-    opts:{syncMinutes:60,concurrency:2,quiesce:false,keepMac:true,startVms:true,disconnectSource:true,fixUp:true,testSwitch:'',bizMbps:'0',offMbps:'0',bizStart:8,bizEnd:18},
+    opts:{syncMinutes:60,concurrency:2,quiesce:false,keepMac:true,startVms:true,disconnectSource:true,ejectMedia:true,fixUp:true,testSwitch:'',bizMbps:'0',offMbps:'0',bizStart:8,bizEnd:18},
     startMode:'now',startAt:'',waveMode:'',waves:{},cut:{},name:'',confirm:'',planId:'',busy:false,error:'',filled:'',statusFilter:'',statusKind:'',
     srv:{picks:{},folder:'',interval:15,rpo:'30',services:'',compress:true,shutdown:true,fullRead:false,live:false,limit:'0',biz:'0',bizStart:0,bizEnd:0,confirm:'',agents:[],hosts:'',user:'',watch:false,instError:'',action:'sync',cutAt:''}};
   var nwSwitches=null,nwSwitchesAsked=false,nwLastPoll=0,nwSig='',nwStatusSig='',nwRowsChosen={};
@@ -8199,7 +8218,9 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     box.appendChild(nwHeading('Options for a migration plan'));
     box.appendChild(nwCheck('nwKeepMac','Keep each adapter\'s MAC address',o.keepMac,function(on){o.keepMac=on;}));
     box.appendChild(nwCheck('nwStartVms','Start each new VM after its cutover',o.startVms,function(on){o.startVms=on;}));
-    if(isVMware){box.appendChild(nwCheck('nwDisconnect','After cutover, set the old VMware VM\'s adapters to not connect (their settings are recorded first)',o.disconnectSource,function(on){o.disconnectSource=on;}));
+    if(isVMware){var withMedia=nwPickedVMs().filter(function(v){return vmArr(v.mediaImages).length>0;});
+      if(withMedia.length){box.appendChild(nwCheck('nwEject','Eject the CD/DVD and floppy images of '+vmPlural(withMedia.length,'VM')+' ('+withMedia.map(function(v){return v.name+': '+vmArr(v.mediaImages).map(vmMediaShort).join(', ');}).join('; ')+') before copying: the drives are set to a client device, not connected, and each ISO path is recorded first. vSphere cannot copy a running VM whose drive names an ISO that no longer exists.',o.ejectMedia,function(on){o.ejectMedia=on;}));}
+      box.appendChild(nwCheck('nwDisconnect','After cutover, set the old VMware VM\'s adapters to not connect (their settings are recorded first)',o.disconnectSource,function(on){o.disconnectSource=on;}));
       box.appendChild(nwCheck('nwFixUp','Fix each new VM up once Windows starts: put back the IP settings, gateway and DNS recorded from vCenter, remove VMware Tools and the hidden VMware adapters, bring data disks online and activate Windows (needs Start)',o.fixUp,function(on){o.fixUp=on;nwGaShow();}));
       var gaHost=el('div','');gaHost.id='nwGaHost';box.appendChild(gaHost);
       var nwGaShow=function(){gaHost.textContent='';if(o.fixUp){vmGuestAutoPanel(gaHost,'nwGa');}};nwGaShow();}
@@ -8267,7 +8288,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     row('What',vmPlural(picked.length,'VM')+' from '+(vmInventory&&vmInventory.server||'')+': '+picked.slice(0,12).map(function(vm){return vm.name;}).join(', ')+(picked.length>12?' and '+(picked.length-12)+' more':'')+' (about '+formatBytesShort(nwUsedBytes())+')',0);
     row('Where',(nwRemote()?'Hyper-V host '+(nw.node||'')+(nwHvr()&&nwHvr().info.cluster?' in cluster '+nwHvr().info.cluster:'')+', run from this computer ('+vmComputer()+')':'This Hyper-V host ('+vmComputer()+')')+(nw.cluster?', highly available in its cluster':'')+'. Disks in '+(nw.copyRoot||'the host\'s default folder')+'; VMs in '+(nw.vmFolder||'the host\'s default folder')+'.',1);
     row('Networks',nwNetworks().map(function(n){var mm=nwMap(n);return n.name+' to '+(mm.sw===null?'?':(mm.sw||'not connected'))+(mm.vlan?' VLAN '+mm.vlan:'');}).join('; ')||'None',1);
-    row('How',(m?m.name:'')+': sync every '+mpDuration(o.syncMinutes*60)+', '+o.concurrency+' at once'+(Number(o.bizMbps)||Number(o.offMbps)?', bandwidth limited':'')+(o.keepMac?', MAC addresses kept':'')+(o.startVms?', new VMs started':'')+(o.disconnectSource&&nwInvType()==='vmware'?', old adapters disconnected after cutover':'')+(o.fixUp&&o.startVms&&nwInvType()==='vmware'?', IP settings put back automatically':'')+'.',2);
+    row('How',(m?m.name:'')+': sync every '+mpDuration(o.syncMinutes*60)+', '+o.concurrency+' at once'+(Number(o.bizMbps)||Number(o.offMbps)?', bandwidth limited':'')+(o.keepMac?', MAC addresses kept':'')+(o.startVms?', new VMs started':'')+(o.ejectMedia&&nwInvType()==='vmware'&&nwPickedVMs().some(function(v){return vmArr(v.mediaImages).length>0;})?', CD/DVD images ejected before copying':'')+(o.disconnectSource&&nwInvType()==='vmware'?', old adapters disconnected after cutover':'')+(o.fixUp&&o.startVms&&nwInvType()==='vmware'?', IP settings put back automatically':'')+'.',2);
     var waves=nwWaveList();
     row('When','First copies '+(nw.startMode==='at'?'at '+nw.startAt.replace('T',' '):'now')+'. '+waves.map(function(w){var c=nw.cut[w]||{};return 'Wave '+w+' ('+nwPickedVMs().filter(function(vm){return nwWaveOf(vm.id)===w;}).length+'): '+(c.mode==='at'?'cut over at '+c.at.replace('T',' '):'cut over when you press Cut over');}).join('; ')+'.',3);
     box.appendChild(dl);
@@ -8365,7 +8386,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
       vmPlan.vms=vmArr(vmPlan.vms);
       picked.forEach(function(vm){var w=nwWaveOf(vm.id),e=vmPlanEntry(vm.id);if(!e){e={id:vm.id,name:vm.name,wave:0,hold:false,exclude:false,notes:''};vmPlan.vms.push(e);}if(e.wave!==w||e.hold||e.exclude){e.wave=w;e.hold=false;e.exclude=false;e.manual=true;}});
     }
-    var o=nw.opts,settings={syncMinutes:o.syncMinutes,concurrency:o.concurrency,copyRoot:trimText(nw.copyRoot),vmFolder:trimText(nw.vmFolder),testSwitch:o.testSwitch,keepMac:o.keepMac,startVms:o.startVms,cluster:!!nw.cluster,quiesce:nwInvType()==='vmware'&&o.quiesce,disconnectSource:nwInvType()==='vmware'&&o.disconnectSource,fixUp:nwInvType()==='vmware'&&o.startVms&&o.fixUp,
+    var o=nw.opts,settings={syncMinutes:o.syncMinutes,concurrency:o.concurrency,copyRoot:trimText(nw.copyRoot),vmFolder:trimText(nw.vmFolder),testSwitch:o.testSwitch,keepMac:o.keepMac,startVms:o.startVms,cluster:!!nw.cluster,quiesce:nwInvType()==='vmware'&&o.quiesce,disconnectSource:nwInvType()==='vmware'&&o.disconnectSource,ejectMedia:nwInvType()==='vmware'&&o.ejectMedia,fixUp:nwInvType()==='vmware'&&o.startVms&&o.fixUp,
       throttle:{businessMbps:Number(o.bizMbps)||0,limitMbps:Number(o.offMbps)||0,businessStart:o.bizStart,businessEnd:o.bizEnd}};
     if(nw.startMode==='at'){settings.startAt=new Date(nw.startAt).toISOString();}
     if(nwRemote()){var hvr=nwHvr();settings.remoteHost=hvr?hvr.host:'';settings.node=nw.node||'';}
@@ -8759,6 +8780,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     if(t.hasAttribute('data-nw-filter')){var fl=t.getAttribute('data-nw-filter');nw.statusFilter=(fl===nw.statusFilter||fl==='total')?'':fl;if(nw.statusKind==='servers'){renderNwSrvStatusBody();}else{renderNwStatusBody();}return;}
     if(t.hasAttribute('data-nw-pickwave')){var w=Number(t.getAttribute('data-nw-pickwave')),p=nwPlan();vmArr(p&&p.vms).forEach(function(v){if((v.wave||0)===w&&v.state!=='done'){nwRowsChosen[v.id]=true;}});nwStatusSig='';renderNwStatusBody();return;}
     if(t.hasAttribute('data-mp-test')){nwPlanAction({action:'test',id:nw.planId,vmIds:[t.getAttribute('data-mp-test')]});return;}
+    if(t.hasAttribute('data-mp-eject')){var ep=nwPlan();if(ep){mpEjectRetry(ep,t.getAttribute('data-mp-eject'),function(body,done){nwPlanAction(body,done);});}return;}
     if(t.hasAttribute('data-mp-endtest')){nwPlanAction({action:'endTest',id:nw.planId,vmIds:[t.getAttribute('data-mp-endtest')]});return;}
     if(t.id==='nwCutNow'){var ids=nwChosen().map(function(v){return v.id;}),c=byId('nwCutConfirm'),pl=nwPlan();if(nwCutWhy()||!pl){return;}cfmAsk({names:nwChosen().map(function(v){return v.name;}),title:'Cut over '+vmPlural(ids.length,'VM'),text:['Each chosen VM\'s guest is shut down now, its last changes are copied and the Hyper-V VM is created. The VMware VM is left off so you can roll back by starting it.'],button:'Cut over now'},function(){nwPlanAction({action:'cutover',id:nw.planId,vmIds:ids,at:'now',confirm:cfmVal(c,pl.name)},function(err){if(!err){nwRowsChosen={};cfmClear(c);}});});return;}
   });
@@ -8863,7 +8885,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     vmArr(vmInventory&&vmInventory.vms).forEach(function(vm){if(waves[vm.id]===w&&!used[vm.id]&&!vm.template&&!vmCutOverBy(vm)&&mpReadiness(vm).status!=='blocked'&&mpReadiness(vm).status!=='skip'){mpPicks[vm.id]=true;}});
     if(!trimText(byId('mpName').value)){byId('mpName').value=mpWaveLabel(w).replace(':',' -');}renderMpPicker();}
   function mpSettingsFromForm(){
-    var s={syncMinutes:Number(byId('mpSync').value),concurrency:Number(byId('mpConcurrency').value),copyRoot:trimText(byId('mpCopyRoot').value),vmFolder:trimText(byId('mpVMFolder').value),testSwitch:byId('mpTestSwitch').value,keepMac:byId('mpKeepMac').checked,startVms:byId('mpStartVMs').checked,cluster:byId('mpCluster').checked,quiesce:byId('mpQuiesce').checked,disconnectSource:byId('mpDisconnect').checked,fixUp:byId('mpFixUp').checked,
+    var s={syncMinutes:Number(byId('mpSync').value),concurrency:Number(byId('mpConcurrency').value),copyRoot:trimText(byId('mpCopyRoot').value),vmFolder:trimText(byId('mpVMFolder').value),testSwitch:byId('mpTestSwitch').value,keepMac:byId('mpKeepMac').checked,startVms:byId('mpStartVMs').checked,cluster:byId('mpCluster').checked,quiesce:byId('mpQuiesce').checked,disconnectSource:byId('mpDisconnect').checked,ejectMedia:byId('mpEject').checked,fixUp:byId('mpFixUp').checked,
       throttle:{businessMbps:Number(trimText(byId('mpBizMbps').value)||0),limitMbps:Number(trimText(byId('mpOffMbps').value)||0),businessStart:Number(byId('mpBizStart').value),businessEnd:Number(byId('mpBizEnd').value)}};
     if(byId('mpStartMode').value==='at'&&byId('mpStartAt').value){s.startAt=new Date(byId('mpStartAt').value).toISOString();}
     // A plan run against another Hyper-V host keeps its host and node.
@@ -8873,19 +8895,26 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   function mpFillForm(p){
     var s=(p&&p.settings)||{};byId('mpName').value=p?p.name:'';
     byId('mpSync').value=String(s.syncMinutes||60);byId('mpConcurrency').value=String(s.concurrency||2);byId('mpCopyRoot').value=s.copyRoot||'';byId('mpVMFolder').value=s.vmFolder||'';byId('mpTestSwitch').value=s.testSwitch||'';
-    byId('mpKeepMac').checked=p?!!s.keepMac:true;byId('mpStartVMs').checked=p?!!s.startVms:true;byId('mpCluster').checked=!!s.cluster;byId('mpQuiesce').checked=!!s.quiesce;byId('mpDisconnect').checked=p?!!s.disconnectSource:true;byId('mpFixUp').checked=p?!!s.fixUp:true;var gaHost=byId('mpGaHost');gaHost.textContent='';vmGuestAutoPanel(gaHost,'mpGa');
+    byId('mpKeepMac').checked=p?!!s.keepMac:true;byId('mpStartVMs').checked=p?!!s.startVms:true;byId('mpCluster').checked=!!s.cluster;byId('mpQuiesce').checked=!!s.quiesce;byId('mpDisconnect').checked=p?!!s.disconnectSource:true;byId('mpEject').checked=p?!!s.ejectMedia:true;byId('mpFixUp').checked=p?!!s.fixUp:true;var gaHost=byId('mpGaHost');gaHost.textContent='';vmGuestAutoPanel(gaHost,'mpGa');
     var t=s.throttle||{};byId('mpBizMbps').value=String(t.businessMbps||0);byId('mpOffMbps').value=String(t.limitMbps||0);byId('mpBizStart').value=String(p?t.businessStart||0:8);byId('mpBizEnd').value=String(p?t.businessEnd||0:18);
     var at=mpLocalInput(s.startAt);byId('mpStartMode').value=at?'at':'now';byId('mpStartAt').value=at;byId('mpStartAtField').classList.toggle('hidden',!at);
     byId('mpCopyRoot').disabled=!!(p&&vmArr(p.vms).some(function(v){return v.state!=='waiting';}));
     vmSetStatus('mpNewStatus','',false);
   }
+  function mpPlanOfVM(v){var list=vmArr(mpState&&mpState.plans);for(var i=0;i<list.length;i++){if(vmArr(list[i].vms).indexOf(v)>=0){return list[i];}}return null;}
+  // mpEjectRetry turns on the plan's Eject CD/DVD and floppy images and
+  // copies the VM again at once (vmware_media.go does the change).
+  function mpEjectRetry(plan,vmId,post){var vm=vmArr(plan.vms).filter(function(v){return v.id===vmId;})[0];
+    cfmAsk({title:'Eject CD/DVD images',names:[vm?vm.name:vmId],text:['Every VM in plan '+plan.name+' gets its CD/DVD and floppy drives set to a client device, not connected, before its next copy. Each ISO path is recorded first, so it can be put back by hand. Only the drives change.'],button:'Eject and copy again'},function(){
+      post({action:'update',id:plan.id,settings:Object.assign({},plan.settings,{ejectMedia:true})},function(err){if(!err){post({action:'sync',id:plan.id,vmIds:[vmId]});}});});}
   function mpStateCell(v){
     var td=el('td'),label=mpStateNames[v.state]||v.state;
     if(v.live){var pct=v.live.percent||0,box=el('div','mp-progress'),bar=el('div','mp-bar active'),fill=el('span','mp-bar-fill');fill.style.width=pct+'%';bar.appendChild(fill);box.appendChild(el('div','',(v.live.cutover?'Cutting over':(v.seeded?'Syncing':'Seeding'))+' '+pct+'%'));box.appendChild(bar);
       var bits=[formatBytesShort(v.live.bytesRead)+' read'];if(v.live.bytesPerSecond){bits.push(formatBytesShort(v.live.bytesPerSecond)+'/s');}if(v.live.secondsLeft){bits.push(mpDuration(v.live.secondsLeft)+' left');}box.appendChild(el('div','mp-progress-text',bits.join(' · ')));td.appendChild(box);}
     else{td.appendChild(el('span','mp-chip '+({ready:'good',done:'good',failed:'danger',testing:'warning'}[v.state]||''),label));}
     if(v.test){td.appendChild(el('span','vm-note','Test VM '+v.test.name+(v.test.vmId?'':' (not finished: end the test to clean up)')+'. Syncs wait until the test ends.'));}
-    if(v.error){td.appendChild(el('div','mp-err',v.error));}
+    if(v.error){td.appendChild(el('div','mp-err',v.error));
+      var owner=mpPlanOfVM(v);if(owner&&!(owner.settings||{}).ejectMedia&&v.state!=='done'&&/Tick Eject CD\/DVD and floppy images/.test(v.error)){var ej=el('button','secondary-button','Eject the CD/DVD images and copy again');ej.type='button';ej.setAttribute('data-mp-eject',v.id);ej.title='Turns on Eject CD/DVD and floppy images for this plan and copies '+v.name+' now';td.appendChild(ej);}}
     vmArr(v.notes).slice(-2).forEach(function(n){td.appendChild(el('div','mp-notes',n));});
     if(v.state==='done'){vmFixupStatus(td,v.name);}
     var actions=el('div','mp-row-actions');
@@ -8898,7 +8927,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   function renderMpDetail(p){
     var s=p.settings;
     byId('mpDetailTitle').textContent=p.name+(p.paused?' (paused)':'');
-    byId('mpDetailSettings').textContent=p.server+(s.remoteHost?' to Hyper-V host '+(s.node||s.remoteHost)+(s.node&&s.node.toLowerCase()!==s.remoteHost.toLowerCase()?' in '+s.remoteHost:'')+', run from this computer':' to this Hyper-V host')+' · sync every '+mpDuration(s.syncMinutes*60)+' · '+s.concurrency+' at once · bandwidth '+p.throttle+(mpTime(s.startAt)?' · starts '+mpTime(s.startAt):'')+(s.cluster?' · highly available':'')+(s.disconnectSource?' · old VM disconnected after cutover':'')+(s.fixUp?' · new VMs fixed up automatically':'');
+    byId('mpDetailSettings').textContent=p.server+(s.remoteHost?' to Hyper-V host '+(s.node||s.remoteHost)+(s.node&&s.node.toLowerCase()!==s.remoteHost.toLowerCase()?' in '+s.remoteHost:'')+', run from this computer':' to this Hyper-V host')+' · sync every '+mpDuration(s.syncMinutes*60)+' · '+s.concurrency+' at once · bandwidth '+p.throttle+(mpTime(s.startAt)?' · starts '+mpTime(s.startAt):'')+(s.cluster?' · highly available':'')+(s.disconnectSource?' · old VM disconnected after cutover':'')+(s.ejectMedia?' · CD/DVD images ejected before copying':'')+(s.fixUp?' · new VMs fixed up automatically':'');
     var sum=byId('mpSummary');sum.textContent='';
     mpTiles.forEach(function(t){var n=p.summary[t[0]]||0;var b=el('button','mp-stat'+(n&&t[2]?' '+t[2]:''));b.type='button';b.setAttribute('data-mp-filter',t[0]);b.setAttribute('aria-pressed',mpFilter===t[0]&&t[0]!=='total'?'true':'false');b.appendChild(el('strong','',formatCount(n)));b.appendChild(el('span','',t[1]));b.title='Show '+(t[0]==='total'?'every VM':t[1].toLowerCase()+' VMs');sum.appendChild(b);});
     byId('mpAdvice').textContent=mpAdvice(p);
@@ -8974,6 +9003,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   byId('mpRows').addEventListener('click',function(e){
     var p=mpPlan();if(!p){return;}
     var t=e.target.closest('[data-mp-test]');if(t){vmSetStatus('mpStatus','Making the test VM...',false);mpPost({action:'test',id:p.id,vmIds:[t.getAttribute('data-mp-test')]},'mpStatus');return;}
+    var ej=e.target.closest('[data-mp-eject]');if(ej){mpEjectRetry(p,ej.getAttribute('data-mp-eject'),function(body,done){mpPost(body,'mpStatus',done);});return;}
     var x=e.target.closest('[data-mp-endtest]');if(x){vmSetStatus('mpStatus','Removing the test VM...',false);mpPost({action:'endTest',id:p.id,vmIds:[x.getAttribute('data-mp-endtest')]},'mpStatus');}
   });
   byId('mpSyncAll').addEventListener('click',function(){var p=mpPlan();if(p){mpPost({action:'sync',id:p.id,vmIds:[]},'mpStatus');}});

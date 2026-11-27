@@ -553,3 +553,29 @@ func TestAssessFlagsVMsWhoseNameSaysAlreadyMigrated(t *testing.T) {
 		}
 	}
 }
+
+// A drive that names an ISO but is not connected (the file may be gone,
+// EPICHyperspaceLocal 2026-11-26) is flagged; a connected one keeps the
+// existing media finding only.
+func TestReadinessFlagsADriveNamingAnImageThatIsNotConnected(t *testing.T) {
+	vm := vmSampleInventory().VMs[0]
+	vm.ConnectedMedia, vm.MediaImages = nil, []string{"[Datastore001] ISO Files/SW_DVD9_Win_Server.ISO"}
+	codes := vmFindingCodes(vmAssessPtr(vm))
+	if codes["media-image"] != vmSeverityWarning {
+		t.Fatalf("a disconnected ISO was not flagged: %v", codes)
+	}
+	vm.ConnectedMedia = []string{"SW_DVD9_Win_Server.ISO"}
+	codes = vmFindingCodes(vmAssessPtr(vm))
+	if _, ok := codes["media-image"]; ok || codes["media"] != vmSeverityWarning {
+		t.Fatalf("a connected ISO: %v", codes)
+	}
+	vm.Source, vm.ConnectedMedia = "hyperv", nil
+	if _, ok := vmFindingCodes(vmAssessPtr(vm))["media-image"]; ok {
+		t.Fatal("a Hyper-V source got the VMware export finding")
+	}
+}
+
+func vmAssessPtr(vm vmMachine) *vmReadiness {
+	r := assessVM(vm, vmTargetHyperV, time.Now())
+	return &r
+}

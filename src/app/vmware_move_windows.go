@@ -93,6 +93,8 @@ func (a *application) handleVMwareMove(response http.ResponseWriter, request *ht
 		// after the cutover; FixUp fixes the new VM up once it starts.
 		DisconnectSource bool `json:"disconnectSource"`
 		FixUp            bool `json:"fixUp"`
+		// EjectMedia: see vmReplicaOptions.EjectMedia.
+		EjectMedia bool `json:"ejectMedia"`
 	}
 	if !decodeVMwareRequest(response, request, &input) {
 		return
@@ -199,7 +201,7 @@ func (a *application) handleVMwareMove(response http.ResponseWriter, request *ht
 		progress, prefix := a.moveProgress(vm, copyFolder)
 		connect := vmConnectOptions{Server: server, User: user, Password: password, Thumbprint: thumbprint, UserAgent: displayName + " " + appVersion, AppVersion: appVersion}
 		result, err := a.runMoveRound(ctx, inventory, vm, connect,
-			vmMoveRequest{VMID: vm.ID, Name: vm.Name, Datacenter: vm.Datacenter, CopyFolder: copyFolder, Quiesce: input.Quiesce, Cutover: input.Action == "cutover", RecordFolder: records, Progress: progress, Stage: a.moveStage}, log)
+			vmMoveRequest{VMID: vm.ID, Name: vm.Name, Datacenter: vm.Datacenter, CopyFolder: copyFolder, Quiesce: input.Quiesce, Cutover: input.Action == "cutover", EjectMedia: input.EjectMedia, RecordFolder: records, Progress: progress, Stage: a.moveStage}, log)
 		a.copyTransfers().EndRunning(prefix, err, errors.Is(err, context.Canceled), err == nil && input.Action == "cutover")
 		password = ""
 		if err == nil && input.Action == "cutover" {
