@@ -505,6 +505,8 @@ func (a *application) handlePlans(response http.ResponseWriter, request *http.Re
 		}
 	case "cancelCutover":
 		err = runner.ScheduleCutover(input.ID, input.VMIDs, time.Time{})
+	case "markTested":
+		err = runner.MarkTested(input.ID, input.VMIDs)
 	case "test", "endTest":
 		if len(input.VMIDs) != 1 {
 			fail(http.StatusBadRequest, "Choose one VM.")

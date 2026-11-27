@@ -1414,6 +1414,12 @@ func (a *application) vmwareOpenTarget(kind string) (target string, folder bool,
 		return a.vmware.outputFolder, true, true
 	case "receiverlog":
 		return a.vmReceiverLogPath(), false, true
+	case "vddklog":
+		// VixDiskLib's own log once VDDK has started, else its folder.
+		if path := vddkLogPath(); path != "" {
+			return path, false, true
+		}
+		return filepath.Join(os.Getenv("LOCALAPPDATA"), appName, "VMware", "VDDK", "Temp"), true, true
 	case "vmwarerunbook":
 		return a.vmware.runbookPath, false, true
 	case "hvbuildreport":

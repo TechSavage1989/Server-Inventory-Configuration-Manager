@@ -151,7 +151,7 @@ func TestReplicationRoundsSeedThenCopyOnlyChangedBlocks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if second.Disks[0].Mode != "changed" || second.Disks[0].BytesRead != 4<<20 || second.Disks[0].Changed != 1 {
+	if second.Disks[0].Mode != "changed" || second.Disks[0].Read != "datastore" || second.Disks[0].Tracked == 0 || second.Disks[0].BytesRead != 4<<20 || second.Disks[0].Changed != 1 {
 		t.Fatalf("second round %+v", second.Disks[0])
 	}
 	if askedWith[len(askedWith)-1] != "52 aa bb/1" {

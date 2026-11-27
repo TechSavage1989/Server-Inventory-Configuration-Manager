@@ -1315,7 +1315,7 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   assert((await f.page.locator('#asRows .err-help').textContent()).length>10,'a failure is explained in plain words');
   // A plan VM shows where it is on the way and what comes next; a known error gets its fix.
   f.plans.plans=[{id:'p1',name:'Wave 1',server:'vc01.example.com',paused:false,settings:{syncMinutes:60,concurrency:2},throttle:'no limit',summary:{total:2,waiting:0,copying:0,ready:1,testing:0,scheduled:0,done:0,failed:1},vms:[
-   {id:'vm-a',name:'APP01',wave:1,state:'ready',seeded:true,failures:0},
+   {id:'vm-a',name:'APP01',wave:1,state:'ready',seeded:true,failures:0,testedAt:'0001-01-01T00:00:00Z'},
    {id:'vm-b',name:'WEB01',wave:1,state:'failed',seeded:false,failures:2,error:'[DS1] WEB01/WEB01-flat.vmdk: the server answered 500 Internal Server Error'},
    {id:'vm-c',name:'FILE01',wave:2,state:'ready',seeded:true,failures:0,lastSync:new Date().toISOString(),testedAt:new Date(Date.now()-3600000).toISOString()}]}];
   await goTool(f,'plans');await f.page.waitForSelector('#mpRows .vm-track');
@@ -1325,7 +1325,11 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   // Go/no-go per wave: wave 1 is not ready (a failed first copy), wave 2 is.
   const w1=f.page.locator('[data-mp-go="1"]'),w2=f.page.locator('[data-mp-go="2"]');
   assert.equal(await w1.locator('.mp-chip').textContent(),'Not yet');assert((await w1.textContent()).includes('WEB01 failed')||(await w1.textContent()).includes('1 VM failed'),await w1.textContent());
-  assert((await w1.textContent()).includes('not tested yet: APP01'),'an untested VM is named');assert(await w1.locator('[data-mp-gowave]').isDisabled());
+  assert((await w1.textContent()).includes('not tested yet: APP01'),'an untested VM is named');
+  // Go's zero time is not a test: the track agrees with the wave check (3.3.0-test.3 showed Tested done beside "not tested yet").
+  assert(!(await f.page.locator('#mpRows tr').filter({hasText:'APP01'}).locator('.vm-track .done').allTextContents()).some(t=>t.includes('Tested')),'an untested VM is not shown as tested');
+  await w1.locator('[data-mp-marktested]').click();for(let i=0;i<50&&!f.planCalls.some(c=>c.body.action==='markTested');i++){await f.page.waitForTimeout(100);}
+  assert.deepEqual(f.planCalls.find(c=>c.body.action==='markTested').body.vmIds,['vm-a','vm-b'],'a test run another way can be recorded for the wave');assert(await w1.locator('[data-mp-gowave]').isDisabled());
   assert.equal(await w2.locator('.mp-chip').textContent(),'Go',await w2.textContent());
   await w2.locator('[data-mp-gowave]').click();assert.equal(await f.page.locator('#mpSelCount').textContent(),'1 VM(s) selected.');assert(await f.page.locator('[data-mp-row="vm-c"]').isChecked(),'the wave is selected for the cutover');
   const help=f.page.locator('#mpRows tr').filter({hasText:'WEB01'}).locator('.err-help');assert((await help.textContent()).includes('ESXi'),await help.textContent());
@@ -2396,6 +2400,14 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   await errBox.locator('summary').click();await new Promise(r=>setTimeout(r,4500));
   assert(await f.page.locator('#nwStatusBody details.mp-err .err-more').isVisible(),'Details stays open after a refresh');
   assert((await f.page.locator('#nwStatusBody details.mp-err .err-more').textContent()).startsWith('Hard disk 1: vSphere will not let'));
+  // With VDDK set up, the same failure offers a retry and VDDK's log, never setup again.
+  desk.error='Hard disk 1: vSphere will not let this VM be read while it runs. VDDK could not read it either (could not open [ds] desk23.vmdk: no permission). If the vCenter account is not an administrator, give its role Cryptographic operations > Direct Access. Fix that and sync again to copy it through VDDK while it runs (VDDK\'s own log says more), or copy it at its cutover while it is shut down.';
+  await f.page.waitForSelector('#nwStatusBody [data-mp-retry="vm-desk23"]',{timeout:15000});
+  assert.equal(await f.page.locator('#nwStatusBody [data-mp-vddk="vm-desk23"]').count(),0,'no Set up VDDK once VDDK is set up');
+  assert(await f.page.locator('#nwStatusBody [data-mp-vddklog="vm-desk23"]').isVisible());
+  await f.page.locator('#nwStatusBody [data-mp-retry="vm-desk23"]').click();
+  for(let i=0;i<100&&!f.planCalls.some(c=>c.body.action==='sync');i++){await new Promise(r=>setTimeout(r,50));}
+  assert.deepEqual(f.planCalls.find(c=>c.body.action==='sync').body.vmIds,['vm-desk23'],'Retry with VDDK syncs that VM');
   await f.page.locator('#nwStatusBody [data-mp-offline="vm-desk23"]').click();
   for(let i=0;i<100&&!f.planCalls.some(c=>c.body.action==='method');i++){await new Promise(r=>setTimeout(r,50));}
   const m=f.planCalls.find(c=>c.body.action==='method');assert.deepEqual({vmIds:m.body.vmIds,method:m.body.method},{vmIds:['vm-desk23'],method:'offline'});
@@ -2626,12 +2638,18 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   const created=f.planCalls.find(c=>c.body.action==='create');assert.deepEqual(created.body.vmIds,[enabled[0]]);assert.equal(created.body.settings.throttle.businessMbps,200);assert.equal(created.body.settings.throttle.businessStart,8);assert.equal(created.body.settings.testSwitch,'Isolated');assert.equal(created.body.settings.disconnectSource,true,'disconnecting the old VM is ticked by default');assert(created.body.settings.startAt.startsWith('2026-12-0'));assert.equal(created.token,'workspace-test');
   const now=new Date().toISOString();
   f.plans.plans[0]=Object.assign(f.plans.plans[0],{summary:{total:3,waiting:0,copying:1,ready:1,testing:0,scheduled:0,done:0,failed:1},vms:[
-   {id:'vm-app01',name:'APP01',wave:1,state:'ready',seeded:true,lastSync:now,lastMode:'changed',lastRead:1073741824,lastWritten:268435456,lastSeconds:95,nextSync:now,failures:0},
+   {id:'vm-app01',name:'APP01',wave:1,state:'ready',seeded:true,lastSync:now,lastMode:'changed',lastVia:'vddk',lastTracked:1073741824,lastRead:1073741824,lastWritten:268435456,lastSeconds:95,nextSync:now,failures:0},
    {id:'vm-sql01',name:'SQL01',wave:1,state:'copying',seeded:false,live:{percent:40,bytesRead:42949672960,bytesPerSecond:104857600,secondsLeft:600,elapsed:400},failures:0},
-   {id:'vm-web01',name:'WEB01',wave:2,state:'failed',seeded:true,error:'<b>datastore unreachable</b>',failures:2}]});
+   {id:'vm-web01',name:'WEB01',wave:2,state:'failed',seeded:true,error:'<b>datastore unreachable</b>',failures:2,lastMode:'full',lastVia:'export',lastRead:96636764160,lastWritten:4294967296,lastSeconds:2040,lastWhy:'Hard disk 1: changed block tracking could not answer (FileFault); this usually means vSphere reset tracking (a storage move, a restore, or tracking turned off and on), so the disk is read in full once'}]});
   await f.page.waitForFunction(()=>document.querySelectorAll('#mpRows tr').length===3,null,{timeout:15000});
   assert((await f.page.locator('#mpRows').textContent()).includes('Seeding 40%'));assert((await f.page.locator('#mpRows .mp-progress-text').textContent()).includes('100 MB/s · 10 min left'));
   assert.equal(await f.page.locator('#mpRows .mp-err').textContent(),'<b>datastore unreachable</b>','errors are text, not markup');
+  // Each row says how its last round read the disks, and why a full read happened.
+  const reads=await f.page.locator('#mpRows .mp-read').allTextContents();
+  assert(reads[0].startsWith('Changed blocks through VDDK')&&reads[0].includes('1.0 GB changed, 1.0 GB read, 256 MB written in 2 min'),reads[0]);
+  assert.equal(await f.page.locator('#mpRows .mp-read.good').count(),1);assert.equal(await f.page.locator('#mpRows .mp-read.warning').count(),1);
+  assert(reads[1].startsWith('Full read')&&!reads[1].includes('changed,'),reads[1]);
+  assert((await f.page.locator('#mpRows .mp-why').textContent()).includes('reset tracking'),'a full read says why');
   assert((await f.page.locator('#mpAdvice').textContent()).startsWith('1 VM(s) failed'));
   await f.page.locator('#mpSummary [data-mp-filter="failed"]').click();await f.page.waitForFunction(()=>document.querySelectorAll('#mpRows tr').length===1);assert.equal(await f.page.locator('#mpSummary [data-mp-filter="failed"]').getAttribute('aria-pressed'),'true');
   await f.page.locator('#mpFilterBar [data-mp-filter]').click();await f.page.waitForFunction(()=>document.querySelectorAll('#mpRows tr').length===3);
