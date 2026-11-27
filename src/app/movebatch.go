@@ -256,6 +256,34 @@ type mbWork struct {
 	Cutover bool
 }
 
+// mbClaim says what a sweep copies, for the page: the plans and source
+// servers it uses and whether it cuts over.
+type mbClaim struct {
+	Plans   []string `json:"plans"`
+	Servers []string `json:"servers"`
+	VMs     int      `json:"vms"`
+	Cutover bool     `json:"cutover"`
+}
+
+// mbClaimFor summarises a sweep's work. Caller holds r.mu.
+func mbClaimFor(work []mbWork) mbClaim {
+	claim := mbClaim{Plans: []string{}, Servers: []string{}}
+	seen := map[string]bool{}
+	for _, item := range work {
+		if !seen["p|"+item.Plan.ID] {
+			seen["p|"+item.Plan.ID] = true
+			claim.Plans = append(claim.Plans, item.Plan.Name)
+		}
+		if key := "s|" + strings.ToLower(item.Plan.Server); !seen[key] {
+			seen[key] = true
+			claim.Servers = append(claim.Servers, item.Plan.Server)
+		}
+		claim.VMs++
+		claim.Cutover = claim.Cutover || item.Cutover
+	}
+	return claim
+}
+
 // mbDue picks the work for one sweep: due cutovers first, then due copies
 // by wave and name, at most each plan's concurrency and limit in all.
 func mbDue(plans []*mbPlan, now time.Time, limit int) []mbWork {
@@ -423,9 +451,9 @@ type mbRunner struct {
 	path   string
 	plans  []*mbPlan
 	target mbTarget
-	// claim takes the VMware action lock for a sweep; it returns false with
-	// a reason when another step holds it.
-	claim     func() (release func(), reason string)
+	// claim marks a sweep as copying, so steps that would change the same
+	// VMs or the session wait; it returns a reason when it cannot start.
+	claim     func(mbClaim) (release func(), reason string)
 	log       func(string)
 	now       func() time.Time
 	live      map[string]*mbLive
@@ -442,7 +470,7 @@ type mbRunner struct {
 
 func newMBRunner(path string, target mbTarget) *mbRunner {
 	return &mbRunner{path: path, target: target, now: time.Now, log: func(string) {}, live: map[string]*mbLive{}, throttles: map[string]*vmThrottle{}, cancels: map[string]context.CancelFunc{},
-		claim: func() (func(), string) { return func() {}, "" }, ready: func(*mbPlan) string { return "" }}
+		claim: func(mbClaim) (func(), string) { return func() {}, "" }, ready: func(*mbPlan) string { return "" }}
 }
 
 func mbNewID() string {
@@ -867,8 +895,9 @@ func (r *mbRunner) Sweep() {
 		return
 	}
 	r.sweeping = true
+	claim := mbClaimFor(work)
 	r.mu.Unlock()
-	release, reason := r.claim()
+	release, reason := r.claim(claim)
 	r.mu.Lock()
 	if reason != "" {
 		r.sweeping, r.blocked = false, reason

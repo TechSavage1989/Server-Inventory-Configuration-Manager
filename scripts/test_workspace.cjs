@@ -874,7 +874,7 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   await f.page.locator('#vmPassword').fill('Synthetic-Pa55');await f.page.locator('#vmPassword').press('Enter');await f.page.waitForFunction(()=>document.querySelector('#vmwareTabBadge').textContent==='Reading');
   assert.deepEqual(vmwareCalls(f,'connect').map(c=>c.body),[{server:'vc01.example.com',user:'readonly@vsphere.local',password:'Synthetic-Pa55'}]);assert.equal(await f.page.locator('#vmPassword').inputValue(),'','the password leaves the page');
   assert(await f.page.locator('#vmStop').isVisible());assert(await f.page.locator('#vmServer').isDisabled());
-  await f.page.keyboard.press('Alt+1');assert(await f.page.locator('#startButton').isDisabled(),'collection locks while VMware reads');await goTool(f,'environment');
+  await f.page.keyboard.press('Alt+1');assert(await f.page.locator('#startButton').isEnabled(),'a Discovery read only reads, so collection stays available (rule 65)');await goTool(f,'environment');
   Object.assign(f.state.vmware,{running:false,action:'',status:'connectfailed',message:'vc01.example.com presented a certificate Windows does not trust.',certificate:{thumbprint:'AA:BB:CC:<b>',subject:'CN=vc01.example.com',issuer:'CN=CA <b>not markup</b>',notAfter:'2027-01-01',reason:'x509: certificate signed by unknown authority',mismatch:false}});
   await f.page.waitForFunction(()=>!document.querySelector('#vmCert').classList.contains('hidden'));assert.equal(await f.page.locator('#vmwareTabBadge').textContent(),'Failed');
   assert.equal(await f.page.locator('#vmCertIssuer').textContent(),'CN=CA <b>not markup</b>');assert.equal(await f.page.locator('#vmCert b').count(),0);
@@ -1516,6 +1516,36 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   for(const size of [{width:1008,height:690},{width:784,height:522}]){await f.page.setViewportSize(size);await goTool(f,'environment');await field.scrollIntoViewIfNeeded();
    const box=await f.page.locator('#vmOutputRoot + .path-pick-button').boundingBox();assert(box&&box.x+box.width<=size.width,'Browse stays inside '+size.width+' px');
    assert(await f.page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),'no horizontal scroll at '+size.width+' px');}
+ }finally{await f.close();}});
+ await check('A migration plan copying keeps Discovery and This server usable, and says why anything waits',async()=>{const f=await fixture(browser);try{
+  f.vm.inventory=vmwareInventoryFixture();f.vm.plan=vmwarePlanFixture();
+  f.state.vmware=Object.assign(vmwareIdle(),{status:'connected',server:'vc01.example.com',account:'administrator@vsphere.local',summary:vmwareSummaryFixture(),inventorySerial:1,canPrepare:true,hyperVHere:true,
+   planCopy:{plans:['Wave 1'],servers:['vc01.example.com'],vms:4,cutover:false}});
+  await goTool(f,'environment');await f.page.waitForFunction(()=>!document.querySelector('#vmReadNotice').classList.contains('hidden'));
+  const notice=await f.page.locator('#vmReadNotice').textContent();
+  assert(notice.includes('Migration plan “Wave 1” is copying 4 VMs from vc01.example.com')&&notice.includes('read vc01.example.com again'),notice);
+  assert.equal(await f.page.locator('#vmwareTabBadge').textContent(),'Plan copying');
+  await f.page.locator('#vmServer').fill('vc01.example.com');await f.page.locator('#vmUser').fill('readonly@vsphere.local');
+  assert(await f.page.locator('#vmConnect').isEnabled(),'reading the same vCenter again stays available');
+  await f.page.locator('#vmServer').fill('vc02.example.com');assert(await f.page.locator('#vmConnect').isDisabled(),'reading another vCenter waits for the copy');
+  assert(await f.page.locator('#vmHvRead').isDisabled()&&await f.page.locator('#vmOpenInventory').isDisabled()&&await f.page.locator('#vmReset').isDisabled(),'reads that replace the session wait');
+  assert(await f.page.locator('#vmOutputRoot').isEnabled(),'the save folder can still be changed');
+  await f.page.locator('#vmReadNoticeOpen').click();await f.page.waitForFunction(()=>!document.querySelector('#tabPlans').classList.contains('hidden'));
+  await goTool(f,'server');assert(await f.page.locator('#startButton').isEnabled(),'This server can collect while a plan copies');assert(await f.page.locator('#configLockNotice').isHidden());
+  await goTool(f,'movevms');await f.page.waitForFunction(()=>!document.querySelector('#vmBusyNotice').classList.contains('hidden'));
+  assert((await f.page.locator('#vmBusyNotice').textContent()).includes('Wave 1'),'Move VMs says why its steps wait');assert(await f.page.locator('#vmReadNotice').isHidden());
+  // Another VMware step blocks collection, and This server says what and links to it.
+  Object.assign(f.state.vmware,{planCopy:null,running:true,action:'prepare',status:'preparing'});
+  await goTool(f,'server');await f.page.waitForFunction(()=>!document.querySelector('#configLockNotice').classList.contains('hidden'));
+  assert((await f.page.locator('#configLockText').textContent()).includes('Prepare on VMware'));assert(await f.page.locator('#startButton').isDisabled());
+  // A Discovery read never blocks collection.
+  Object.assign(f.state.vmware,{action:'connect',status:'connecting'});await f.page.waitForFunction(()=>!document.querySelector('#startButton').disabled);
+  // A collection never blocks a Discovery read.
+  Object.assign(f.state.vmware,{running:false,action:'',status:'connected'});f.state.running=true;f.state.status='running';
+  await f.page.waitForFunction(()=>/Collection/.test((document.querySelector('.tab-button.active')||{}).textContent||''));await goTool(f,'environment');await f.page.waitForFunction(()=>!document.querySelector('#vmServer').disabled);await f.page.locator('#vmServer').fill('vc02.example.com');await f.page.locator('#vmUser').fill('readonly@vsphere.local');
+  await f.page.waitForFunction(()=>!document.querySelector('#vmConnect').disabled&&!document.querySelector('#vmHvRead').disabled);
+  assert(await f.page.locator('#vmOutputRoot').isDisabled(),'the shared folder waits for the collection that writes there');
+  assert.deepEqual(f.dialogs,[]);
  }finally{await f.close();}});
  await check('VMware disk copy: the receiver shows its address, code and thumbprint; sending checks them and sends only the chosen disks',async()=>{const f=await fixture(browser);try{
   await goTool(f,'environment');await goTool(f,'diskcopy');
