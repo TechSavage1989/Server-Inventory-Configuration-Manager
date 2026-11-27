@@ -4655,6 +4655,11 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   function vmArr(value){if(value===null||value===undefined||value===''){return [];}return Object.prototype.toString.call(value)==='[object Array]'?value:[value];}
   function vmOtherBusy(){return !!(latestState&&latestState.running)||restoreIsRunning(latestState&&latestState.restore)||migrateIsRunning()||convertIsRunning();}
   function vmLocked(){return vmBusy||vmwareIsRunning()||vmOtherBusy();}
+  // Saving the migration plan (network map, waves, scenario, acknowledgements)
+  // writes only the plan file, so it runs beside every other step; only a
+  // Discovery read, which replaces the inventory the plan belongs to, holds
+  // it back (vmPlanSaveRefusalLocked in vmware.go checks the same).
+  function vmPlanLocked(){var v=vmwareState()||{};return vmBusy||!!(v.running&&vmReadActions[v.action]);}
   function vmTarget(){return vmPlan&&vmPlan.target?vmPlan.target:vmTargetLocal;}
   var vmTargetList=[{id:'hyperv',name:'Hyper-V',kind:'cluster'},{id:'scale',name:'Scale HyperCore',kind:'cluster'},{id:'nutanix',name:'Nutanix AHV',kind:'cluster'},{id:'proxmox',name:'Proxmox VE',kind:'cluster'},{id:'azure',name:'Azure',kind:'cloud'},{id:'aws',name:'AWS EC2',kind:'cloud'},{id:'physical',name:'a physical server',kind:'physical'}];
   function vmTargetInfo(target){for(var i=0;i<vmTargetList.length;i++){if(vmTargetList[i].id===target){return vmTargetList[i];}}return vmTargetList[0];}
@@ -4712,7 +4717,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   // Acknowledges (or, with on false, un-acknowledges) the Review first
   // findings of the given VMs for the current target and saves the plan.
   function vmAcknowledge(vms,on){
-    if(!vmPlan||vmLocked()){return;}
+    if(!vmPlan||vmPlanLocked()){return;}
     var target=vmTarget(),changed=0;
     vms.forEach(function(vm){var p=vmPlanEntry(vm.id);if(!p){return;}var raw=null;vmArr(vm.readiness).forEach(function(x){if(x.target===target){raw=x;}});if(!raw){return;}
       var keys=vmAckNeeded(raw).map(function(f){return target+':'+f.code;}),acks=vmArr(p.acknowledged).filter(function(a){return keys.indexOf(a)<0;});
@@ -4828,7 +4833,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     if(v.hvRemote&&v.hvRemote.serial!==vmHvrSerial){vmHvrSerial=v.hvRemote.serial;renderVmDetail();}
     var fixKey=JSON.stringify([v.guestAuto||{},vmArr(v.fixups).map(function(f){return [f.vm,f.state,f.message,vmArr(f.steps).length];})]);if(fixKey!==vmFixKey){vmFixKey=fixKey;renderVmDetail();}
     renderVmDiskCopy(state,v);renderVmRoles();renderVmMedia(v);renderVmMoveIntro();pfUpdate();
-    var batchKey=JSON.stringify(v.prepareBatch||null),lockKey=vmLocked()+'|'+(v.canPrepare?1:0);if(batchKey!==vmBulkPollKey){vmBulkPollKey=batchKey;renderVmBulkBatch(v);}if(lockKey!==vmBulkLockKey){vmBulkLockKey=lockKey;renderVmBulk();}
+    var batchKey=JSON.stringify(v.prepareBatch||null),lockKey=vmLocked()+'|'+vmPlanLocked()+'|'+(v.canPrepare?1:0);if(batchKey!==vmBulkPollKey){vmBulkPollKey=batchKey;renderVmBulkBatch(v);}if(lockKey!==vmBulkLockKey){vmBulkLockKey=lockKey;renderVmBulk();}
     byId('vmGuestHere').textContent=vmComputer()?'This computer: '+vmComputer()+'.':'';
     var guestMessage=byId('vmGuestMessage');guestMessage.textContent=v.guestMessage||'';guestMessage.className='migrate-inline-status'+(v.guestError?' error':'');
     renderVmGuestTarget();
@@ -4844,6 +4849,9 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   function renderVmBusyNotice(v){
     var why=null;
     if(vmToolId!=='environment'&&!vmBusy&&vmLocked()&&!(v.running&&(vmActionTools[v.action]||'environment')===vmToolId)){why=busyWhy();}
+    // Plan and runbook only saves the plan, which a migration plan copy does
+    // not hold back, so that copy needs no notice there.
+    if(why&&vmToolId==='plan'&&!v.running&&!vmOtherBusy()){why=null;}
     renderBusyNotice('vmBusyNotice','vmBusyNoticeText','vmBusyNoticeOpen',why?{text:why.text+' Steps here that change VMs or this computer are available again when it finishes.',label:why.label,open:why.open}:null,'info');
   }
   function vmHostKey(name){name=trimText(name).toLowerCase().replace(/^[a-z]+:\/\//,'').replace(/[\/?#].*$/,'').replace(/:\d+$/,'');return /^[\d.]+$/.test(name)?name:name.split('.')[0];}
@@ -4876,7 +4884,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     var stop=byId('vmStop');stop.classList.toggle('hidden',!(running&&(v.action==='connect'||v.action==='hyperv'||v.action==='compare'||v.action==='move'||v.action==='hvconnect'||v.action==='hvmove'||v.action==='media'||v.action==='upload'||v.action==='target-create'||v.action==='send')));stop.disabled=!!v.cancelRequested;stop.textContent=v.cancelRequested?'Stopping...':'Stop';
     byId('vmTargetSelect').disabled=vmBusy||running;
     var hasPlan=!!(vmInventory&&vmPlan);
-    byId('vmSavePlan').disabled=locked||!hasPlan;byId('vmSuggest').disabled=locked||!hasPlan;byId('vmWriteRunbook').disabled=locked||!hasPlan;
+    byId('vmSavePlan').disabled=vmPlanLocked()||!hasPlan;byId('vmSuggest').disabled=vmPlanLocked()||!hasPlan;byId('vmWriteRunbook').disabled=vmBusy||running||vmOtherBusy()||!hasPlan;
     byId('vmPlanDirtyNote').textContent=vmPlanDirty?'Unsaved changes.':'';
     ['vmGuestCapture','vmGuestStatus'].forEach(function(id){byId(id).disabled=locked||(vmGuestNeedsAdmin()&&!admin);});byId('vmGuestLoad').disabled=locked;
     byId('vmGuestUse').disabled=locked;byId('vmGuestForget').disabled=locked;byId('vmGuestVcenter').disabled=locked||!byId('vmGuestVcVm').value;
@@ -5896,7 +5904,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     if(lines.length===1){cell.appendChild(document.createTextNode(lines[0]));}
     else{var ul=el('ul','vm-reason-list');lines.forEach(function(t){ul.appendChild(el('li','',t));});cell.appendChild(ul);}
     if(vm&&vmPlan&&(r.status==='review'||r.acknowledged)){
-      var b=el('button','link-button vm-ack',r.acknowledged?'Open again':'Acknowledge');b.type='button';b.setAttribute('data-vm-ack',vm.id);b.disabled=vmLocked();
+      var b=el('button','link-button vm-ack',r.acknowledged?'Open again':'Acknowledge');b.type='button';b.setAttribute('data-vm-ack',vm.id);b.disabled=vmPlanLocked();
       b.title=r.acknowledged?'Put '+vm.name+' back in Review first':'I have reviewed these items for '+vm.name+': count it as ready';
       b.addEventListener('click',function(e){e.stopPropagation();vmAcknowledge([vm],!r.acknowledged);});
       b.addEventListener('keydown',function(e){e.stopPropagation();});
@@ -5928,7 +5936,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     all.title=pickable.length<vmTableShown.length?'Select the '+vmPlural(pickable.length,'VM')+' shown (VMs already moved and VMware system VMs are left out)':'Select the '+vmPlural(pickable.length,'VM')+' shown';
     renderVmBulk();
     var toReview=vmArr(vmInventory.vms).filter(function(vm){return vmReadiness(vm).status==='review';}),ackAll=byId('vmAckAll');
-    ackAll.classList.toggle('hidden',!toReview.length||!vmPlan);ackAll.disabled=vmLocked();ackAll.textContent='Acknowledge all '+formatCount(toReview.length)+' to review';
+    ackAll.classList.toggle('hidden',!toReview.length||!vmPlan);ackAll.disabled=vmPlanLocked();ackAll.textContent='Acknowledge all '+formatCount(toReview.length)+' to review';
     byId('vmTableNote').textContent=total>shown?'Showing '+shown+' of '+formatCount(total)+'. Search to narrow the list.':vmPlural(total,'VM')+(vmFilter==='all'&&!query?'':' shown');
   }
   function renderVmDetail(){renderVmDrawer(false,false);}
@@ -6505,7 +6513,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   var vmScenarioFallback=[{id:'new',name:'New hardware',when:'The new platform runs on servers that are not running the source today. Describe them in New cluster size.',kinds:['cluster','cloud','physical']},{id:'rolling',name:'Reuse the existing hosts (rolling, one host at a time)',when:'The source hosts themselves become the new platform. Each stage empties one host onto the others, rebuilds it and moves a wave of VMs onto the hosts rebuilt so far.',kinds:['cluster']}];
   function vmPlanRolling(){return !!(vmPlan&&vmPlan.scenario==='rolling');}
   function vmSetScenario(id){
-    if(!vmPlan||vmLocked()||(vmPlan.scenario||'new')===id){return;}
+    if(!vmPlan||vmPlanLocked()||(vmPlan.scenario||'new')===id){return;}
     vmCollectStages();vmPlan.scenario=id;
     if(id==='rolling'&&!vmPlan.rolling){vmPlan.rolling={autoCapacity:true,stages:[],sourceCluster:''};}
     saveVmPlan(id==='rolling'&&!vmArr(vmPlan.rolling.stages).length?{suggestStages:true,keepWaves:true}:null,id==='rolling'?'Reusing the existing hosts: the new cluster is filled from them and one stage per host is suggested. Change anything you like.':'New hardware: describe the new servers in New cluster size.');
@@ -6728,7 +6736,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     if(!names.length){return {why:'Nothing to do with the steps ticked.'};}
     return {steps:steps,names:names};
   }
-  function vmBulkSave(message){if(vmLocked()){vmBulkMsg.list='Wait for the current step to finish.';renderVmBulk();return;}saveVmPlan(null,message,function(err){vmBulkMsg.list=err||message;vmBulkMsg.listError=!!err;renderVmBulk();});}
+  function vmBulkSave(message){if(vmPlanLocked()){vmBulkMsg.list='Wait for the current step to finish.';renderVmBulk();return;}saveVmPlan(null,message,function(err){vmBulkMsg.list=err||message;vmBulkMsg.listError=!!err;renderVmBulk();});}
   function vmPickByOptions(select){
     var add=function(group,label,value){var o=new Option(label,value);group.appendChild(o);};
     select.appendChild(new Option('Select by…',''));
@@ -6752,7 +6760,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   function renderVmBulkInto(box,where){
     box.textContent='';if(!vmInventory){return;}
     vmPickReset();
-    var v=vmwareState()||{},ids=vmPickedIds(),n=ids.length,locked=vmLocked(),row=el('div','vm-bulk-row');
+    var v=vmwareState()||{},ids=vmPickedIds(),n=ids.length,locked=vmPlanLocked(),row=el('div','vm-bulk-row');
     var hidden=where==='list'?ids.filter(function(id){return vmTableShown.indexOf(id)<0;}):[],moved=ids.filter(function(id){return !!vmMovedReason(vmFind(id));});
     row.appendChild(el('strong','vm-bulk-count',n?vmPlural(n,'VM')+' selected'+(hidden.length?' ('+formatCount(hidden.length)+' hidden by the filter)':''):'No VMs selected'));
     var by=document.createElement('select');by.setAttribute('aria-label','Select VMs by host, cluster, folder, wave, readiness or power');by.setAttribute('data-vm-pickby',where);vmPickByOptions(by);
@@ -6830,7 +6838,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
       tr.appendChild(vmCellInput('text',nm.targetVlan,'New VLAN for '+nm.source+' (selected VMs)',function(value){nm.targetVlan=value;},{maxlength:'4',inputmode:'numeric'}));tbody.appendChild(tr);});
     if(!tbody.childNodes.length){var r=el('tr',''),c=el('td','','The selected VMs have no network adapters on a known network.');c.colSpan=4;r.appendChild(c);tbody.appendChild(r);}
     table.appendChild(tbody);var wrap=el('div','vm-table-wrap');wrap.appendChild(table);panel.appendChild(wrap);
-    var save=el('button','primary-button','Save the network map');save.type='button';save.id='vmBulkNetSave';save.disabled=vmLocked();save.addEventListener('click',function(){vmBulkSave('Network map saved.');});panel.appendChild(save);
+    var save=el('button','primary-button','Save the network map');save.type='button';save.id='vmBulkNetSave';save.disabled=vmPlanLocked();save.addEventListener('click',function(){vmBulkSave('Network map saved.');});panel.appendChild(save);
     box.appendChild(panel);
   }
   var vmBatchStateLabels={waiting:'Waiting',running:'Running',done:'Done',failed:'Failed',stopped:'Not started'};
@@ -6856,7 +6864,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     vmCapacityFields.forEach(function(f){var n=Number(byId(f.id).value);if(isNaN(n)||n<0){n=0;}capacity[f.key]=f.whole?Math.round(n):n;});
   }
   function saveVmPlan(extra,status,done){
-    if(!vmPlan||vmLocked()){return;}
+    if(!vmPlan||vmPlanLocked()){return;}
     vmCollectCapacity();var body={plan:vmPlan};if(extra){for(var k in extra){if(extra.hasOwnProperty(k)){body[k]=extra[k];}}}
     vmPost('/api/vmware/plan',body,'vmPlanStatus',function(err,data){
       if(err){if(done){done(err);}return;}

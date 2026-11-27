@@ -1542,6 +1542,11 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   await goTool(f,'server');assert(await f.page.locator('#startButton').isEnabled(),'This server can collect while a plan copies');assert(await f.page.locator('#configLockNotice').isHidden());
   await goTool(f,'movevms');await f.page.waitForFunction(()=>!document.querySelector('#vmBusyNotice').classList.contains('hidden'));
   assert((await f.page.locator('#vmBusyNotice').textContent()).includes('Wave 1'),'Move VMs says why its steps wait');assert(await f.page.locator('#vmReadNotice').isHidden());
+  // Saving the plan (network map, waves) only writes the plan file, so it runs beside the copy.
+  await goTool(f,'plan');await f.page.waitForFunction(()=>!document.querySelector('#vmSavePlan').disabled);assert(await f.page.locator('#vmBusyNotice').isHidden(),'Plan and runbook needs no notice for a plan copy');
+  assert(await f.page.locator('#vmWriteRunbook').isEnabled(),'the runbook can be written while a plan copies');
+  const plansBefore=vmwareCalls(f,'plan').length;await f.page.locator('#vmSavePlan').click();await f.page.waitForFunction(()=>document.querySelector('#vmPlanStatus').textContent==='Plan saved.');
+  assert.equal(vmwareCalls(f,'plan').length,plansBefore+1,'the plan is saved while another plan copies');
   // Another VMware step blocks collection, and This server says what and links to it.
   Object.assign(f.state.vmware,{planCopy:null,running:true,action:'prepare',status:'preparing'});
   await goTool(f,'server');await f.page.waitForFunction(()=>!document.querySelector('#configLockNotice').classList.contains('hidden'));
