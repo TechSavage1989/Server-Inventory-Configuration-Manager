@@ -470,9 +470,12 @@ func (a *application) handlePlans(response http.ResponseWriter, request *http.Re
 			go runner.Sweep()
 		}
 	case "sync":
-		err = runner.SyncNow(input.ID, input.VMIDs)
+		var answer mbSyncAnswer
+		answer, err = runner.SyncRequest(input.ID, input.VMIDs)
 		if err == nil {
 			go runner.Sweep()
+			writeJSON(response, http.StatusOK, map[string]any{"ok": true, "sync": answer})
+			return
 		}
 	case "cutover":
 		if !confirmed() {
