@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func migrateTestDiscovery() *migrateDiscovery {
@@ -26,11 +27,11 @@ func TestMigratePlanValidatesSharesNamesAndFolders(t *testing.T) {
 	plan, err := validateMigratePlan(discovery, []migratePlanInput{
 		{Name: "finance", DestName: "Finance", DestPath: `D:\Shares\Finance`, AllowOverwrite: true},
 		{Name: "Projects", DestName: "Projects2", DestPath: `D:\Shares\Projects`},
-	}, []migrateShareState{{Name: "Finance", DestName: "Finance", DestPath: `d:\shares\finance`, PreviouslySynced: true, CreatedShare: true}})
+	}, []migrateShareState{{Name: "Finance", DestName: "Finance", DestPath: `d:\shares\finance`, PreviouslySynced: true, CreatedShare: true}}, false)
 	if err != nil || len(plan) != 2 || plan[0].Name != "Finance" || !plan[0].PreviouslySynced || !plan[0].CreatedShare || !plan[0].AllowOverwrite || plan[1].AllowOverwrite || plan[1].PreviouslySynced {
 		t.Fatalf("valid plan rejected or saved progress lost: %v %#v", err, plan)
 	}
-	moved, _ := validateMigratePlan(discovery, []migratePlanInput{{Name: "Finance", DestName: "Finance", DestPath: `D:\Other\Finance`}}, plan)
+	moved, _ := validateMigratePlan(discovery, []migratePlanInput{{Name: "Finance", DestName: "Finance", DestPath: `D:\Other\Finance`}}, plan, false)
 	if moved[0].PreviouslySynced || moved[0].AllowOverwrite {
 		t.Fatal("a changed destination kept the earlier copy's progress or overwrite intent")
 	}
@@ -48,11 +49,11 @@ func TestMigratePlanValidatesSharesNamesAndFolders(t *testing.T) {
 		"nested folders":  {{Name: "Finance", DestName: "Finance", DestPath: `D:\Shares`}, {Name: "Projects", DestName: "Projects", DestPath: `D:\Shares\Projects`}},
 		"nothing":         nil,
 	} {
-		if _, err := validateMigratePlan(discovery, bad, nil); err == nil {
+		if _, err := validateMigratePlan(discovery, bad, nil, false); err == nil {
 			t.Fatal("plan accepted:", name)
 		}
 	}
-	if _, err := validateMigratePlan(nil, []migratePlanInput{{Name: "Finance", DestName: "Finance", DestPath: `D:\Shares\Finance`}}, nil); err == nil {
+	if _, err := validateMigratePlan(nil, []migratePlanInput{{Name: "Finance", DestName: "Finance", DestPath: `D:\Shares\Finance`}}, nil, false); err == nil {
 		t.Fatal("plan accepted without discovery")
 	}
 }
@@ -205,7 +206,7 @@ func TestMigrateConnectAsAccountStaysInMemory(t *testing.T) {
 		}
 	}
 	a.migrateSaveLocked()
-	saved, err := os.ReadFile(filepath.Join(a.migrateWorkPath("FS-OLD-07"), "state.json"))
+	saved, err := os.ReadFile(filepath.Join(a.migrateWorkPath("FS-OLD-07", ""), "state.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -249,12 +250,12 @@ func TestMigrateConnectAsAccountStaysInMemory(t *testing.T) {
 func TestMigrateRefusesWindowsProgramAndProfileFolders(t *testing.T) {
 	discovery := migrateTestDiscovery()
 	for _, folder := range []string{os.Getenv("SystemRoot") + `\Shares\Finance`, os.Getenv("ProgramFiles") + `\Finance`, os.Getenv("ProgramData") + `\Finance`, filepath.Dir(os.Getenv("PUBLIC")) + `\Someone\Finance`} {
-		if _, err := validateMigratePlan(discovery, []migratePlanInput{{Name: "Finance", DestName: "Finance", DestPath: folder}}, nil); err == nil || !strings.Contains(err.Error(), "Choose a folder for shared data") {
+		if _, err := validateMigratePlan(discovery, []migratePlanInput{{Name: "Finance", DestName: "Finance", DestPath: folder}}, nil, false); err == nil || !strings.Contains(err.Error(), "Choose a folder for shared data") {
 			t.Fatalf("%s was accepted: %v", folder, err)
 		}
 	}
 	for _, folder := range []string{`D:\Shares\Finance`, `C:\Data\Finance`, `E:\Program Files Old\Finance`} {
-		if _, err := validateMigratePlan(discovery, []migratePlanInput{{Name: "Finance", DestName: "Finance", DestPath: folder}}, nil); err != nil {
+		if _, err := validateMigratePlan(discovery, []migratePlanInput{{Name: "Finance", DestName: "Finance", DestPath: folder}}, nil, false); err != nil {
 			t.Fatalf("%s was refused: %v", folder, err)
 		}
 	}
@@ -264,5 +265,133 @@ func TestMigrateRefusesWindowsProgramAndProfileFolders(t *testing.T) {
 	a.handleMigrateBrowse(recorder, httptest.NewRequest(http.MethodPost, "/?token=migrate-test", strings.NewReader(`{"share":"Finance"}`)))
 	if recorder.Code != http.StatusConflict {
 		t.Fatal("the folder picker opened during a migration step:", recorder.Code, recorder.Body.String())
+	}
+}
+
+// Moving shares between two other servers: the new server needs the old
+// server's account (Windows does not pass this computer's sign-in on), the
+// new server's name confirms copies and cutover, this computer's own rights
+// do not matter, and passwords never reach state.json or the state response.
+func TestMigrateToAnotherServerFromAnAdminComputer(t *testing.T) {
+	const secret = "Synthetic-Remote-Pa55!"
+	const targetSecret = "Synthetic-Target-Pa55!"
+	a := &application{token: "migrate-test", computerName: "SRV-DEMO-01", admin: false, shutdown: make(chan struct{})}
+	a.update.appDataRoot = t.TempDir()
+	discover := func(body map[string]any) (int, string) {
+		data, _ := json.Marshal(body)
+		recorder := httptest.NewRecorder()
+		a.handleMigrateDiscover(recorder, httptest.NewRequest(http.MethodPost, "/?token=migrate-test", bytes.NewReader(data)))
+		return recorder.Code, recorder.Body.String()
+	}
+	if code, text := discover(map[string]any{"source": "FS-OLD-07"}); code != http.StatusForbidden || !strings.Contains(text, "Another server") {
+		t.Fatal("a move to this computer without administrator rights was not refused with the way out:", code, text)
+	}
+	if code, text := discover(map[string]any{"source": "FS-OLD-07", "target": "FS-NEW-02"}); code != http.StatusBadRequest || !strings.Contains(text, "cannot pass your sign-in") {
+		t.Fatal("a remote move without the old server's account was accepted:", code, text)
+	}
+	if code, text := discover(map[string]any{"source": "FS-OLD-07", "target": "fs-old-07.example.test", "user": `EXAMPLE\admin`, "password": secret}); code != http.StatusBadRequest || !strings.Contains(text, "different server") {
+		t.Fatal("the old server was accepted as the new one:", code, text)
+	}
+	if code, text := discover(map[string]any{"source": "FS-OLD-07", "target": "FS-NEW-02", "user": `EXAMPLE\admin`, "password": secret, "targetUser": `EXAMPLE\other`}); code != http.StatusBadRequest || !strings.Contains(text, "New server account") || strings.Contains(text, secret) {
+		t.Fatal("a new server account without a password was accepted:", code, text)
+	}
+	if a.migrate.action != "" || a.criticalOperations != 0 {
+		t.Fatal("a refused Connect changed the migration")
+	}
+
+	a.migrate = migrateRuntime{source: "FS-OLD-07", target: "fs-new-02.example.test", account: `EXAMPLE\admin`, password: secret, targetAccount: `EXAMPLE\target`, targetPassword: targetSecret}
+	a.migrate.discovery = migrateTestDiscovery()
+	input := a.migrateRemoteInputLocked()
+	var line map[string]string
+	if json.Unmarshal(input, &line) != nil || line["sourceUser"] != `EXAMPLE\admin` || line["sourcePassword"] != secret || line["targetUser"] != `EXAMPLE\target` || line["targetPassword"] != targetSecret || bytes.Count(input, []byte("\n")) != 1 {
+		t.Fatalf("unexpected runner input %q", input)
+	}
+	if _, err := validateMigratePlan(a.migrate.discovery, []migratePlanInput{{Name: "Finance", DestName: "Finance", DestPath: `C:\Windows\Finance`}}, nil, true); err == nil {
+		t.Fatal("the new server's Windows folder was accepted")
+	}
+	call := func(handler func(http.ResponseWriter, *http.Request), body map[string]any) (int, string) {
+		data, _ := json.Marshal(body)
+		recorder := httptest.NewRecorder()
+		handler(recorder, httptest.NewRequest(http.MethodPost, "/?token=migrate-test", bytes.NewReader(data)))
+		return recorder.Code, recorder.Body.String()
+	}
+	if code, text := call(a.handleMigratePlan, map[string]any{"shares": []map[string]any{{"name": "Finance", "destName": "Finance", "destPath": `D:\Shares\Finance`, "allowOverwrite": true}}}); code != http.StatusOK {
+		t.Fatal("plan refused:", code, text)
+	}
+	if code, text := call(a.handleMigrateSync, map[string]any{}); code != http.StatusBadRequest || !strings.Contains(text, "FS-NEW-02") {
+		t.Fatal("an overwrite copy was not confirmed with the new server's name:", code, text)
+	}
+	if code, text := call(a.handleMigrateSync, map[string]any{"confirmComputerName": "fs-new-02"}); code != http.StatusConflict || !strings.Contains(text, "check") {
+		t.Fatal("without administrator rights here, a remote copy should get past the rights check to the plan check:", code, text)
+	}
+	if code, text := call(a.handleMigrateCutover, map[string]any{"confirmComputerName": "SRV-DEMO-01"}); code != http.StatusBadRequest || !strings.Contains(text, "FS-NEW-02") {
+		t.Fatal("cutover confirmed with this computer's name:", code, text)
+	}
+	if code, text := call(a.handleMigrateCutover, map[string]any{"confirmComputerName": "FS-NEW-02.example.test"}); code != http.StatusConflict || !strings.Contains(text, "Copy every") {
+		t.Fatal("cutover with the new server's full name did not reach the copy check:", code, text)
+	}
+	if code, text := call(a.handleMigrateBrowse, map[string]any{"share": "Finance"}); code != http.StatusConflict || !strings.Contains(text, "fs-new-02.example.test") {
+		t.Fatal("the local folder picker opened for a folder on the new server:", code, text)
+	}
+
+	// Automatic copies until cutover.
+	if code, _ := call(a.handleMigrateAutoSync, map[string]any{"minutes": 5}); code != http.StatusBadRequest {
+		t.Fatal("a 5-minute interval was accepted")
+	}
+	if code, text := call(a.handleMigrateAutoSync, map[string]any{"minutes": 30}); code != http.StatusBadRequest || !strings.Contains(text, "FS-NEW-02") {
+		t.Fatal("automatic overwrite copies were turned on without confirmation:", code, text)
+	}
+	if code, text := call(a.handleMigrateAutoSync, map[string]any{"minutes": 30, "confirmComputerName": "fs-new-02"}); code != http.StatusOK {
+		t.Fatal("automatic copies refused:", code, text)
+	}
+	snapshot := a.migrateSnapshotLocked()
+	if snapshot.AutoSyncMinutes != 30 || !strings.Contains(snapshot.AutoSyncWaiting, "check the plan") || snapshot.NextAutoSyncMs != 0 || snapshot.TargetName != "FS-NEW-02" || snapshot.Target != "fs-new-02.example.test" {
+		t.Fatalf("unexpected automatic copy state: %+v", snapshot)
+	}
+	a.migrate.autoSyncFrom = time.Now().Add(-time.Hour)
+	a.migrateSchedulerTick(time.Now())
+	if a.migrate.action != "" || a.criticalOperations != 0 {
+		t.Fatal("an automatic copy started before the plan was checked")
+	}
+	a.migrate.prechecked = true
+	a.migrate.plan[0].Precheck = &migratePrecheck{OK: true}
+	if waiting := a.migrateAutoSyncWaitingLocked(); waiting != "" {
+		t.Fatal("still waiting after the check:", waiting)
+	}
+	a.migrate.password = ""
+	if waiting := a.migrateAutoSyncWaitingLocked(); !strings.Contains(waiting, "connect again") {
+		t.Fatal("automatic copies did not wait for the old server's password:", waiting)
+	}
+	a.migrate.password = secret
+	if code, _ := call(a.handleMigratePlan, map[string]any{"shares": []map[string]any{{"name": "Finance", "destName": "Finance", "destPath": `D:\Shares\Finance`, "allowOverwrite": true}}}); code != http.StatusOK || a.migrate.autoSyncOverwrite {
+		t.Fatal("a changed plan kept the overwrite confirmation for automatic copies")
+	}
+
+	a.migrateSaveLocked()
+	work := a.migrateWorkPath("FS-OLD-07", "fs-new-02.example.test")
+	if !strings.HasSuffix(work, "FS-OLD-07_TO_FS-NEW-02.EXAMPLE.TEST") {
+		t.Fatal("unexpected work folder:", work)
+	}
+	saved, err := os.ReadFile(filepath.Join(work, "state.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ := json.Marshal(a.migrateSnapshotLocked())
+	for name, data := range map[string][]byte{"state.json": saved, "state response": body} {
+		if bytes.Contains(data, []byte(secret)) || bytes.Contains(data, []byte(targetSecret)) {
+			t.Fatalf("%s contains a password", name)
+		}
+	}
+	if !bytes.Contains(saved, []byte(`"target": "fs-new-02.example.test"`)) || !bytes.Contains(saved, []byte(`"autoSyncMinutes": 30`)) {
+		t.Fatalf("state.json lacks the new server or the copy interval: %s", saved)
+	}
+	if loaded := a.migrateLoadSaved("FS-OLD-07", "fs-new-02.example.test"); loaded == nil || loaded.AutoSyncMinutes != 30 {
+		t.Fatal("the saved migration did not load for the same servers")
+	}
+	if a.migrateLoadSaved("FS-OLD-07", "") != nil {
+		t.Fatal("a move to another server loaded as a move to this computer")
+	}
+	if a.criticalOperations != 0 {
+		t.Fatal("refused steps leaked critical operations:", a.criticalOperations)
 	}
 }

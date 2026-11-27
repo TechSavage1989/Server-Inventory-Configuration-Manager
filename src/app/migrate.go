@@ -126,9 +126,14 @@ type migrateAlias struct {
 // can continue after the application restarts.
 type migrateSaved struct {
 	Source         string              `json:"source"`
+	Target         string              `json:"target,omitempty"`
 	Plan           []migrateShareState `json:"plan"`
 	SourceReadOnly bool                `json:"sourceReadOnly"`
 	Alias          string              `json:"alias"`
+	// AutoSyncMinutes keeps copying until cutover while the application is
+	// open (0 is off). An overwrite confirmation is never saved: after a
+	// restart it is given again.
+	AutoSyncMinutes int `json:"autoSyncMinutes,omitempty"`
 }
 
 type migrateRuntime struct {
@@ -157,6 +162,20 @@ type migrateRuntime struct {
 	account      string
 	password     string
 	accessDenied bool
+	// target is the new server when it is not this computer ("" is this
+	// computer). The engine then runs inside it through PowerShell remoting
+	// with targetAccount (empty: this Windows account); its password lives
+	// only in memory, like the old server's.
+	target         string
+	targetAccount  string
+	targetPassword string
+	// Automatic copies until cutover: every autoSyncMinutes after
+	// autoSyncFrom (the end of the last copy, or when they were turned on).
+	// autoSyncOverwrite records that the operator confirmed copying with
+	// overwrite for this plan.
+	autoSyncMinutes   int
+	autoSyncFrom      time.Time
+	autoSyncOverwrite bool
 }
 
 type migrateStateResponse struct {
@@ -182,6 +201,14 @@ type migrateStateResponse struct {
 	EndedAtUnixMs   int64               `json:"endedAtUnixMs"`
 	Account         string              `json:"account"`
 	AccessDenied    bool                `json:"accessDenied"`
+	// Target is the new server ("" is this computer); TargetName is the name
+	// cutover and overwrite are confirmed with.
+	Target          string `json:"target"`
+	TargetName      string `json:"targetName"`
+	TargetAccount   string `json:"targetAccount"`
+	AutoSyncMinutes int    `json:"autoSyncMinutes"`
+	NextAutoSyncMs  int64  `json:"nextAutoSyncUnixMs"`
+	AutoSyncWaiting string `json:"autoSyncWaiting"`
 }
 
 // migrateUserPattern accepts user, DOMAIN\user and user@domain.example.
@@ -194,11 +221,11 @@ func (a *application) migrateRoot() string {
 	return filepath.Join(a.update.appDataRoot, "Migrations")
 }
 
-func (a *application) migrateWorkPath(source string) string {
+func (a *application) migrateWorkPath(source, target string) string {
 	if source == "" {
 		return ""
 	}
-	return filepath.Join(a.migrateRoot(), safeName(strings.ToUpper(source)))
+	return filepath.Join(a.migrateRoot(), safeName(migrateWorkKey(source, target)))
 }
 
 // Caller holds a.mu.
@@ -265,13 +292,46 @@ func (a *application) migrateSnapshotLocked() migrateStateResponse {
 		SourceReadOnly:  a.migrate.sourceReadOnly,
 		AliasAdded:      a.migrate.aliasAdded,
 		Logs:            append([]logEntry{}, a.migrate.logs...),
-		WorkPath:        a.migrateWorkPath(a.migrate.source),
+		WorkPath:        a.migrateWorkPath(a.migrate.source, a.migrate.target),
 		CancelRequested: a.migrate.cancelRequested && a.migrate.action != "",
 		StartedAtUnixMs: toMillis(a.migrate.startedAt),
 		EndedAtUnixMs:   toMillis(a.migrate.endedAt),
 		Account:         a.migrate.account,
 		AccessDenied:    a.migrate.accessDenied,
+		Target:          a.migrate.target,
+		TargetName:      migrateConfirmName(a.migrate.target, a.computerName),
+		TargetAccount:   a.migrate.targetAccount,
+		AutoSyncMinutes: a.migrate.autoSyncMinutes,
+		NextAutoSyncMs:  a.migrateNextAutoSyncMsLocked(),
+		AutoSyncWaiting: a.migrateAutoSyncWaitingLocked(),
 	}
+}
+
+// Caller holds a.mu. When the next automatic copy is due, or 0.
+func (a *application) migrateNextAutoSyncMsLocked() int64 {
+	if a.migrate.autoSyncMinutes <= 0 || a.migrate.autoSyncFrom.IsZero() || a.migrateAutoSyncWaitingLocked() != "" {
+		return 0
+	}
+	return a.migrate.autoSyncFrom.Add(time.Duration(a.migrate.autoSyncMinutes)*time.Minute).UnixNano() / int64(time.Millisecond)
+}
+
+// Caller holds a.mu. Why automatic copies cannot run now, or "".
+func (a *application) migrateAutoSyncWaitingLocked() string {
+	if a.migrate.autoSyncMinutes <= 0 {
+		return ""
+	}
+	if !a.migrateCanCopyLocked() {
+		return "Waiting: check the plan (and fix any problem it finds) to resume automatic copies."
+	}
+	if a.migrate.target != "" && a.migrate.password == "" {
+		return "Waiting: connect again with the old server's account to resume automatic copies."
+	}
+	for _, share := range a.migrate.plan {
+		if share.AllowOverwrite && !a.migrate.autoSyncOverwrite {
+			return "Waiting: overwrite is allowed for a share, so turn automatic copies on again and confirm it."
+		}
+	}
+	return ""
 }
 
 // Caller holds a.mu.
@@ -350,11 +410,11 @@ func (a *application) migrateLog(format string, values ...any) {
 
 // Caller holds a.mu.
 func (a *application) migrateSaveLocked() {
-	work := a.migrateWorkPath(a.migrate.source)
+	work := a.migrateWorkPath(a.migrate.source, a.migrate.target)
 	if work == "" {
 		return
 	}
-	data, err := json.MarshalIndent(migrateSaved{Source: a.migrate.source, Plan: a.migrate.plan, SourceReadOnly: a.migrate.sourceReadOnly, Alias: a.migrate.aliasAdded}, "", "  ")
+	data, err := json.MarshalIndent(migrateSaved{Source: a.migrate.source, Target: a.migrate.target, Plan: a.migrate.plan, SourceReadOnly: a.migrate.sourceReadOnly, Alias: a.migrate.aliasAdded, AutoSyncMinutes: a.migrate.autoSyncMinutes}, "", "  ")
 	if err != nil || os.MkdirAll(work, 0700) != nil {
 		return
 	}
@@ -364,13 +424,13 @@ func (a *application) migrateSaveLocked() {
 	}
 }
 
-func (a *application) migrateLoadSaved(source string) *migrateSaved {
-	data, err := os.ReadFile(filepath.Join(a.migrateWorkPath(source), "state.json"))
+func (a *application) migrateLoadSaved(source, target string) *migrateSaved {
+	data, err := os.ReadFile(filepath.Join(a.migrateWorkPath(source, target), "state.json"))
 	if err != nil {
 		return nil
 	}
 	var saved migrateSaved
-	if json.Unmarshal(data, &saved) != nil || !strings.EqualFold(saved.Source, source) {
+	if json.Unmarshal(data, &saved) != nil || !strings.EqualFold(saved.Source, source) || !strings.EqualFold(saved.Target, target) {
 		return nil
 	}
 	return &saved
@@ -452,24 +512,48 @@ func (a *application) startMigrateAction(action string) (int, string) {
 
 // runMigrateEngine runs one engine mode. The plan (when given) and result
 // files live in a private runtime folder; logs go to the source's work path.
+// When the new server is another computer, the modes that read the old
+// server or change the new one run inside the new server through
+// Invoke-ShareMigrationRemote.ps1 (PowerShell remoting, RemoteSigned, the
+// accounts on standard input); the DFS and name checks run here and name
+// the new server with -TargetName.
 func (a *application) runMigrateEngine(mode, source string, plan []byte) (result []byte, exitCode int, err error) {
 	runtimeDir, script, err := a.prepareRestoreEngineNamed("Migrate-", migrateEngineName)
 	if err != nil {
 		return nil, -1, fmt.Errorf("the migration engine could not be prepared: %v", err)
 	}
 	defer os.RemoveAll(runtimeDir)
-	work := a.migrateWorkPath(source)
+	a.mu.Lock()
+	target := a.migrate.target
+	a.mu.Unlock()
+	work := a.migrateWorkPath(source, target)
 	if work != "" {
 		_ = os.MkdirAll(work, 0700)
 	}
 	resultPath := filepath.Join(runtimeDir, "Result.json")
 	cancelPath := filepath.Join(runtimeDir, "Stop-Requested")
-	arguments := []string{"-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", script, "-Mode", mode, "-ResultPath", resultPath, "-CancelPath", cancelPath}
-	if source != "" {
-		arguments = append(arguments, "-Source", source)
-	}
-	if work != "" {
-		arguments = append(arguments, "-WorkPath", work)
+	remote := target != "" && migrateRemoteModes[mode]
+	var arguments []string
+	if remote {
+		runner := filepath.Join(runtimeDir, migrateRemoteRunnerName)
+		if _, err := writeEmbeddedFile(migrateRemoteRunnerName, runner); err != nil {
+			return nil, -1, fmt.Errorf("the remote runner could not be prepared: %v", err)
+		}
+		arguments = []string{"-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "RemoteSigned", "-File", runner, "-Target", target, "-Mode", mode, "-EnginePath", script, "-ResultPath", resultPath, "-CancelPath", cancelPath, "-WorkName", migrateRemoteWorkName(source)}
+		if source != "" {
+			arguments = append(arguments, "-Source", source)
+		}
+	} else {
+		arguments = []string{"-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", script, "-Mode", mode, "-ResultPath", resultPath, "-CancelPath", cancelPath}
+		if source != "" {
+			arguments = append(arguments, "-Source", source)
+		}
+		if work != "" {
+			arguments = append(arguments, "-WorkPath", work)
+		}
+		if target != "" {
+			arguments = append(arguments, "-TargetName", target)
+		}
 	}
 	if plan != nil {
 		planPath := filepath.Join(runtimeDir, "Plan.json")
@@ -485,7 +569,12 @@ func (a *application) runMigrateEngine(mode, source string, plan []byte) (result
 			a.migrate.logFile = file
 		}
 	}
-	input := a.migrateCredentialInputLocked(mode)
+	var input []byte
+	if remote {
+		input = a.migrateRemoteInputLocked()
+	} else {
+		input = a.migrateCredentialInputLocked(mode)
+	}
 	a.mu.Unlock()
 	if input != nil {
 		arguments = append(arguments, "-CredentialFromInput")
@@ -509,6 +598,18 @@ func (a *application) runMigrateEngine(mode, source string, plan []byte) (result
 	}
 	result, _ = os.ReadFile(resultPath)
 	return stripUTF8BOM(result), exitCode, nil
+}
+
+// migrateRemoteInputLocked hands both accounts to the remote runner on
+// standard input: the new server's (empty for this Windows account) and the
+// old server's, which the new server uses to read the old one. Caller holds
+// a.mu.
+func (a *application) migrateRemoteInputLocked() []byte {
+	line, err := json.Marshal(map[string]string{"targetUser": a.migrate.targetAccount, "targetPassword": a.migrate.targetPassword, "sourceUser": a.migrate.account, "sourcePassword": a.migrate.password})
+	if err != nil {
+		return nil
+	}
+	return append(line, '\n')
 }
 
 // migrateSourceModes are the engine modes that reach the old server and so
@@ -584,7 +685,12 @@ func decodeMigrateRequest(response http.ResponseWriter, request *http.Request, v
 }
 
 func (a *application) requireMigrateAdmin(response http.ResponseWriter) bool {
-	if !a.admin {
+	// From an admin computer every change is made inside the new server, as
+	// an administrator there, so this computer's own rights do not matter.
+	a.mu.Lock()
+	remote := a.migrate.target != ""
+	a.mu.Unlock()
+	if !a.admin && !remote {
 		writeJSON(response, http.StatusForbidden, map[string]any{"ok": false, "error": "Moving file shares needs administrator rights. Close the application and run it as administrator."})
 		return false
 	}
@@ -596,11 +702,14 @@ func (a *application) handleMigrateDiscover(response http.ResponseWriter, reques
 		return
 	}
 	var input struct {
-		Source   string `json:"source"`
-		User     string `json:"user"`
-		Password string `json:"password"`
+		Source         string `json:"source"`
+		User           string `json:"user"`
+		Password       string `json:"password"`
+		Target         string `json:"target"`
+		TargetUser     string `json:"targetUser"`
+		TargetPassword string `json:"targetPassword"`
 	}
-	if !decodeMigrateRequest(response, request, &input) || !a.requireMigrateAdmin(response) {
+	if !decodeMigrateRequest(response, request, &input) {
 		return
 	}
 	source := strings.Trim(strings.TrimSpace(input.Source), `\`)
@@ -608,28 +717,68 @@ func (a *application) handleMigrateDiscover(response http.ResponseWriter, reques
 		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "Type the old server's name, for example FS01 or fs01.example.com."})
 		return
 	}
+	target, targetErr := migrateCleanTarget(input.Target, a.computerName, source)
+	if targetErr != nil {
+		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": targetErr.Error()})
+		return
+	}
+	if target == "" && !a.admin {
+		writeJSON(response, http.StatusForbidden, map[string]any{"ok": false, "error": "Moving file shares to this computer needs administrator rights. Close the application and run it as administrator, or choose Another server as the new server."})
+		return
+	}
 	a.mu.Lock()
-	account, secret, accountErr := resolveMigrateAccount(a.migrate, source, input.User, input.Password)
+	current := a.migrate
 	a.mu.Unlock()
+	if !strings.EqualFold(current.target, target) {
+		// The held passwords belong to the other migration.
+		current = migrateRuntime{}
+	}
+	account, secret, accountErr := resolveMigrateAccount(current, source, input.User, input.Password)
 	input.Password = ""
 	if accountErr != nil {
 		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": accountErr.Error()})
 		return
+	}
+	targetAccount, targetSecret := "", ""
+	if target != "" {
+		// Windows does not pass this computer's sign-in from the new server
+		// on to the old one, so the new server needs the old server's
+		// account and password to read it.
+		if account == "" {
+			writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "The new server reads the old server itself, and Windows cannot pass your sign-in on from one server to another. Under Connect as, type an account that is an administrator on " + source + " and its password."})
+			return
+		}
+		held := migrateRuntime{source: source, account: current.targetAccount, password: current.targetPassword}
+		if !strings.EqualFold(current.source, source) {
+			held = migrateRuntime{}
+		}
+		var err error
+		targetAccount, targetSecret, err = resolveMigrateAccount(held, source, input.TargetUser, input.TargetPassword)
+		input.TargetPassword = ""
+		if err != nil {
+			writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "New server account: " + err.Error()})
+			return
+		}
 	}
 	if status, message := a.startMigrateAction("discover"); status != 0 {
 		writeJSON(response, status, map[string]any{"ok": false, "error": message})
 		return
 	}
 	a.mu.Lock()
-	if !strings.EqualFold(a.migrate.source, source) {
+	if !strings.EqualFold(a.migrate.source, source) || !strings.EqualFold(a.migrate.target, target) {
 		a.migrate = migrateRuntime{action: "discover", startedAt: time.Now()}
 	}
 	a.migrate.source = source
+	a.migrate.target = target
 	a.migrate.account, a.migrate.password = account, secret
+	a.migrate.targetAccount, a.migrate.targetPassword = targetAccount, targetSecret
 	a.migrate.status = "discovering"
 	a.migrate.message = "Connecting to " + source + "."
 	if account != "" {
 		a.migrate.message = "Connecting to " + source + " as " + account + "."
+	}
+	if target != "" {
+		a.migrate.message = "Connecting to the new server " + target + ", which reads the shares of " + source + "."
 	}
 	a.mu.Unlock()
 	go func() {
@@ -641,14 +790,22 @@ func (a *application) handleMigrateDiscover(response http.ResponseWriter, reques
 			a.migrate.source = discovery.Source
 			a.migrate.prechecked = false
 			if len(a.migrate.plan) == 0 {
-				if saved := a.migrateLoadSaved(discovery.Source); saved != nil {
+				if saved := a.migrateLoadSaved(discovery.Source, a.migrate.target); saved != nil {
 					a.migrate.plan = saved.Plan
 					a.migrate.sourceReadOnly = saved.SourceReadOnly
 					a.migrate.aliasAdded = saved.Alias
+					if saved.AutoSyncMinutes > 0 && migrateCheckAutoSync(saved.AutoSyncMinutes) == nil {
+						a.migrate.autoSyncMinutes = saved.AutoSyncMinutes
+						a.migrate.autoSyncFrom = time.Now()
+					}
 				}
 			}
 			a.mu.Unlock()
-			a.finishMigrateAction("discovered", fmt.Sprintf("Found %d share(s) on %s.", len(discovery.Shares), discovery.Source))
+			found := fmt.Sprintf("Found %d share(s) on %s.", len(discovery.Shares), discovery.Source)
+			if discovery.CurrentComputer != "" && !strings.EqualFold(discovery.CurrentComputer, a.computerName) {
+				found = fmt.Sprintf("Found %d share(s) on %s. The new server %s read them and makes the copies.", len(discovery.Shares), discovery.Source, discovery.CurrentComputer)
+			}
+			a.finishMigrateAction("discovered", found)
 			return
 		}
 		message := "Could not read the shares of " + source + "."
@@ -674,7 +831,7 @@ type migratePlanInput struct {
 
 // validateMigratePlan checks the operator's selection against the discovered
 // shares and against itself.
-func validateMigratePlan(discovery *migrateDiscovery, input []migratePlanInput, previous []migrateShareState) ([]migrateShareState, error) {
+func validateMigratePlan(discovery *migrateDiscovery, input []migratePlanInput, previous []migrateShareState, remote bool) ([]migrateShareState, error) {
 	if discovery == nil {
 		return nil, errors.New("Connect to the old server first.")
 	}
@@ -713,7 +870,13 @@ func validateMigratePlan(discovery *migrateDiscovery, input []migratePlanInput, 
 		if names[upperName] {
 			return nil, fmt.Errorf("The share name %s is used twice.", destName)
 		}
-		if reason := migrateProtectedFolder(destPath); reason != "" {
+		reason := ""
+		if remote {
+			reason = migrateRemoteFolderProblem(destPath)
+		} else {
+			reason = migrateProtectedFolder(destPath)
+		}
+		if reason != "" {
 			return nil, fmt.Errorf("The new folder for %s is %s. Choose a folder for shared data, such as D:\\Shares\\%s.", source.Name, reason, source.Name)
 		}
 		names[strings.ToUpper(destName)] = true
@@ -786,6 +949,13 @@ func (a *application) handleMigrateBrowse(response http.ResponseWriter, request 
 		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "Wait for the current step to finish."})
 		return
 	}
+	a.mu.Lock()
+	remoteTarget := a.migrate.target
+	a.mu.Unlock()
+	if remoteTarget != "" {
+		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "The new folders are on " + remoteTarget + ": use Browse beside the folder, which opens its drives."})
+		return
+	}
 	title := "Choose the parent folder for the new shares on this server. Each share gets its own folder inside it. Use Make New Folder to create one."
 	if !input.Parent {
 		share := strings.TrimSpace(input.Share)
@@ -831,13 +1001,14 @@ func (a *application) handleMigratePlan(response http.ResponseWriter, request *h
 		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "Wait for the current step to finish."})
 		return
 	}
-	plan, err := validateMigratePlan(a.migrate.discovery, input.Shares, a.migrate.plan)
+	plan, err := validateMigratePlan(a.migrate.discovery, input.Shares, a.migrate.plan, a.migrate.target != "")
 	if err != nil {
 		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": err.Error()})
 		return
 	}
 	a.migrate.plan = plan
 	a.migrate.prechecked = false
+	a.migrate.autoSyncOverwrite = false
 	a.migrate.space = nil
 	a.migrate.status = "planned"
 	a.migrate.message = "Check the plan before copying."
@@ -859,25 +1030,33 @@ func (a *application) launchMigrateStep(response http.ResponseWriter, action, mo
 	if !a.requireMigrateAdmin(response) {
 		return
 	}
-	if status, message := a.startMigrateAction(action); status != 0 {
+	if status, message := a.beginMigrateStep(action, mode, runningStatus, runningMessage, ready, done); status != 0 {
 		writeJSON(response, status, map[string]any{"ok": false, "error": message})
 		return
+	}
+	writeJSON(response, http.StatusAccepted, map[string]any{"ok": true})
+}
+
+// beginMigrateStep claims the migration and starts a plan-based engine mode
+// in the background. It returns an HTTP status and message when refused.
+// Caller must not hold a.mu.
+func (a *application) beginMigrateStep(action, mode, runningStatus, runningMessage string, ready func() string, done func(result []byte, code int)) (int, string) {
+	if status, message := a.startMigrateAction(action); status != 0 {
+		return status, message
 	}
 	a.mu.Lock()
 	if message := ready(); message != "" {
 		a.migrate.action = ""
 		a.mu.Unlock()
 		a.endCriticalOperation()
-		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": message})
-		return
+		return http.StatusConflict, message
 	}
 	plan, err := a.migratePlanFileLocked()
 	if err != nil {
 		a.migrate.action = ""
 		a.mu.Unlock()
 		a.endCriticalOperation()
-		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": err.Error()})
-		return
+		return http.StatusConflict, err.Error()
 	}
 	source := a.migrate.source
 	a.migrate.status = runningStatus
@@ -892,7 +1071,7 @@ func (a *application) launchMigrateStep(response http.ResponseWriter, action, mo
 		}
 		done(result, code)
 	}()
-	writeJSON(response, http.StatusAccepted, map[string]any{"ok": true})
+	return 0, ""
 }
 
 func (a *application) handleMigratePrecheck(response http.ResponseWriter, request *http.Request) {
@@ -993,31 +1172,121 @@ func (a *application) handleMigrateSync(response http.ResponseWriter, request *h
 	for _, share := range a.migrate.plan {
 		overwrite = overwrite || share.AllowOverwrite
 	}
+	target := a.migrate.target
 	a.mu.Unlock()
-	if overwrite && !strings.EqualFold(strings.TrimSpace(input.ConfirmComputerName), a.computerName) {
-		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "Type this server's name, " + a.computerName + ", to confirm overwriting existing destination files and shares."})
+	confirmName := migrateConfirmName(target, a.computerName)
+	if overwrite && !migrateConfirmMatches(input.ConfirmComputerName, target, a.computerName) {
+		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "Confirm with the new server's name, " + confirmName + ", to overwrite existing destination files and shares."})
 		return
 	}
-	a.launchMigrateStep(response, "sync", "Sync", "copying", "Copying. Users can keep working on the old server; run Copy again later to bring over what changed.", func() string {
-		if !a.migrateCanCopyLocked() {
-			return "Run the check, and fix any problem it finds, before copying."
+	a.launchMigrateStep(response, "sync", "Sync", "copying", "Copying. Users can keep working on the old server; run Copy again later to bring over what changed.", a.migrateSyncReady, a.migrateSyncDone)
+}
+
+// Caller holds a.mu.
+func (a *application) migrateSyncReady() string {
+	if !a.migrateCanCopyLocked() {
+		return "Run the check, and fix any problem it finds, before copying."
+	}
+	return ""
+}
+
+func (a *application) migrateSyncDone(raw []byte, code int) {
+	var result migrateSyncResult
+	_ = json.Unmarshal(raw, &result)
+	a.mu.Lock()
+	a.applySyncResultLocked(result)
+	// The next automatic copy counts from the end of this one.
+	a.migrate.autoSyncFrom = time.Now()
+	auto := a.migrate.autoSyncMinutes > 0
+	a.mu.Unlock()
+	next := "Run Copy again any time to bring over changes, then cut over."
+	if auto {
+		next = "Automatic copies keep bringing over changes until you cut over."
+	}
+	switch {
+	case code == 0:
+		a.finishMigrateAction("copied", "Copy finished. "+next)
+	case code == 2:
+		a.finishMigrateAction("canceled", "Copy stopped. Run Copy again to continue where it left off.")
+	default:
+		a.finishMigrateAction("failed", "Some files could not be copied. See each share and the log, then run Copy again.")
+	}
+}
+
+// handleMigrateAutoSync turns automatic copies until cutover on (every 15 to
+// 1440 minutes) or off (0). With overwrite allowed for a share, turning them
+// on is confirmed with the new server's name, like a copy by hand.
+func (a *application) handleMigrateAutoSync(response http.ResponseWriter, request *http.Request) {
+	if !a.requireAuthorization(response, request) {
+		return
+	}
+	var input struct {
+		Minutes             int    `json:"minutes"`
+		ConfirmComputerName string `json:"confirmComputerName"`
+	}
+	if !decodeMigrateRequest(response, request, &input) {
+		return
+	}
+	if err := migrateCheckAutoSync(input.Minutes); err != nil {
+		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.migrate.source == "" || len(a.migrate.plan) == 0 {
+		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "Connect and choose the shares first."})
+		return
+	}
+	overwrite := false
+	for _, share := range a.migrate.plan {
+		overwrite = overwrite || share.AllowOverwrite
+	}
+	if input.Minutes > 0 && overwrite {
+		if !migrateConfirmMatches(input.ConfirmComputerName, a.migrate.target, a.computerName) {
+			writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "Confirm with the new server's name, " + migrateConfirmName(a.migrate.target, a.computerName) + ", to let automatic copies overwrite existing destination files."})
+			return
 		}
-		return ""
-	}, func(raw []byte, code int) {
-		var result migrateSyncResult
-		_ = json.Unmarshal(raw, &result)
-		a.mu.Lock()
-		a.applySyncResultLocked(result)
-		a.mu.Unlock()
-		switch {
-		case code == 0:
-			a.finishMigrateAction("copied", "Copy finished. Run Copy again any time to bring over changes, then cut over.")
-		case code == 2:
-			a.finishMigrateAction("canceled", "Copy stopped. Run Copy again to continue where it left off.")
-		default:
-			a.finishMigrateAction("failed", "Some files could not be copied. See each share and the log, then run Copy again.")
+		a.migrate.autoSyncOverwrite = true
+	}
+	if input.Minutes != a.migrate.autoSyncMinutes || a.migrate.autoSyncFrom.IsZero() {
+		a.migrate.autoSyncFrom = time.Now()
+	}
+	a.migrate.autoSyncMinutes = input.Minutes
+	if input.Minutes == 0 {
+		a.migrate.autoSyncOverwrite = false
+	}
+	a.migrateSaveLocked()
+	writeJSON(response, http.StatusOK, map[string]any{"ok": true})
+}
+
+// runMigrateScheduler starts the automatic copies that are due. It runs
+// while the application is open; a copy refused because another step runs
+// is tried again at the next tick.
+func (a *application) runMigrateScheduler() {
+	ticker := time.NewTicker(20 * time.Second)
+	defer ticker.Stop()
+	for range ticker.C {
+		a.migrateSchedulerTick(time.Now())
+	}
+}
+
+func (a *application) migrateSchedulerTick(now time.Time) {
+	a.mu.Lock()
+	due := a.migrate.action == "" && a.migrateAutoSyncWaitingLocked() == "" && migrateAutoSyncDue(a.migrate.autoSyncMinutes, a.migrate.autoSyncFrom, now)
+	source := a.migrate.source
+	a.mu.Unlock()
+	if !due {
+		return
+	}
+	a.migrateLog("Automatic copy started for %s.", source)
+	if status, message := a.beginMigrateStep("sync", "Sync", "copying", "Automatic copy: bringing over what changed since the last copy.", func() string {
+		if reason := a.migrateAutoSyncWaitingLocked(); reason != "" {
+			return reason
 		}
-	})
+		return a.migrateSyncReady()
+	}, a.migrateSyncDone); status != 0 {
+		a.migrateLog("Automatic copy not started: %s", message)
+	}
 }
 
 func (a *application) handleMigrateCutover(response http.ResponseWriter, request *http.Request) {
@@ -1030,11 +1299,18 @@ func (a *application) handleMigrateCutover(response http.ResponseWriter, request
 	if !decodeMigrateRequest(response, request, &input) {
 		return
 	}
-	if !strings.EqualFold(strings.TrimSpace(input.ConfirmComputerName), a.computerName) {
-		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "Type this server's name, " + a.computerName + ", to confirm the cutover."})
+	a.mu.Lock()
+	cutTarget := a.migrate.target
+	a.mu.Unlock()
+	if !migrateConfirmMatches(input.ConfirmComputerName, cutTarget, a.computerName) {
+		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "Confirm with the new server's name, " + migrateConfirmName(cutTarget, a.computerName) + ", to cut over."})
 		return
 	}
-	a.launchMigrateStep(response, "cutover", "Cutover", "cuttingover", "Final copy, then creating the shares here and verifying.", func() string {
+	running := "Final copy, then creating the shares here and verifying."
+	if cutTarget != "" {
+		running = "Final copy, then creating the shares on " + cutTarget + " and verifying."
+	}
+	a.launchMigrateStep(response, "cutover", "Cutover", "cuttingover", running, func() string {
 		if !a.migrateCanCutoverLocked() {
 			return "Copy every selected share at least once before cutting over."
 		}
@@ -1049,11 +1325,23 @@ func (a *application) handleMigrateCutover(response http.ResponseWriter, request
 			verified = verified && item.Verified
 		}
 		a.mu.Unlock()
+		where := "this server"
+		if cutTarget != "" {
+			where = cutTarget
+		}
+		if code == 0 {
+			// The shares are live on the new server: nothing is left to keep
+			// copying automatically.
+			a.mu.Lock()
+			a.migrate.autoSyncMinutes = 0
+			a.migrate.autoSyncOverwrite = false
+			a.mu.Unlock()
+		}
 		switch {
 		case code == 0 && verified:
-			a.finishMigrateAction("cutover", "Cutover complete. The shares are live on this server and match the old ones.")
+			a.finishMigrateAction("cutover", "Cutover complete. The shares are live on "+where+" and match the old ones.")
 		case code == 0:
-			a.finishMigrateAction("cutover", "The shares are live on this server, but some files changed during cutover. Run the cutover again to copy them.")
+			a.finishMigrateAction("cutover", "The shares are live on "+where+", but some files changed during cutover. Run the cutover again to copy them.")
 		case code == 2:
 			a.finishMigrateAction("canceled", "Cutover stopped before the shares were created. Run it again.")
 		default:
@@ -1191,7 +1479,10 @@ func (a *application) handleMigrateAlias(response http.ResponseWriter, request *
 		a.mu.Lock()
 		a.migrate.aliasAdded = result.Added
 		a.mu.Unlock()
-		a.finishMigrateAction("aliasadded", "Added "+result.Added+" as a name of this server. Restart this server for it to take effect.")
+		a.mu.Lock()
+		where := migrateConfirmName(a.migrate.target, a.computerName)
+		a.mu.Unlock()
+		a.finishMigrateAction("aliasadded", "Added "+result.Added+" as a name of "+where+". Restart "+where+" for it to take effect.")
 	})
 }
 

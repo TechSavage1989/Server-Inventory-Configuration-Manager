@@ -427,7 +427,11 @@ func (a *application) asTasksLocked(now time.Time) []asRow {
 		if name == "" {
 			name = "File shares"
 		}
-		if row, ok := asTaskRow("shares", "Move file shares", name, "File shares to this server", m.action != "", failed(m.status), m.message, -1, 0, m.endedAt, now); ok {
+		to := "File shares to this server"
+		if m.target != "" {
+			to = "File shares to " + m.target
+		}
+		if row, ok := asTaskRow("shares", "Move file shares", name, to, m.action != "", failed(m.status), m.message, -1, 0, m.endedAt, now); ok {
 			out = append(out, row)
 		}
 	}
