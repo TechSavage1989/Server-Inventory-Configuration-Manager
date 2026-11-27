@@ -196,6 +196,7 @@ async function fixture(browser,old=false){
    if(action==='preflight/run'){const p=v.preflight||{};v.preflight=Object.assign(p,{running:true,user:data.user||p.user||'',hasPassword:!!data.user||!!p.hasPassword,items:(data.items||[]).map(i=>({id:i.id,state:'waiting',summary:''})),message:'Checking.'});send(202,{ok:true});return;}
    if(action==='preflight/forget'){v.preflight=Object.assign(v.preflight||{},{user:'',hasPassword:false});send(200,{ok:true});return;}
    if(action==='guest-auto/run'){(v.fixups||[]).forEach(x=>{if(x.vm===data.vm){x.state='waiting';x.message='Waiting for Windows in '+x.vm+' to start.';x.steps=[];}});send(202,{ok:true});return;}
+   if(action==='remember'){const r=vm.remember||(vm.remember={enabled:false,entries:[]});if(req.method==='POST'){if(typeof data.enabled==='boolean'){r.enabled=data.enabled;if(!data.enabled){r.entries=[];}}if(data.forget){r.entries=r.entries.filter(e=>e.server!==data.forget);}}send(200,{ok:true,remember:r});return;}
    if(action==='connect'){Object.assign(v,{running:true,action:'connect',status:'connecting',server:data.server,account:data.user,certificate:null});send(202,{ok:true});return;}
    if(action==='plan'){vm.plan=JSON.parse(JSON.stringify(data.plan));if(data.suggest){vm.plan.vms.forEach((p,i)=>{if(p.manual&&!data.resetManual){return;}p.manual=false;p.hold=i===2;p.wave=i===2?0:(i===3?1:2);p.why=i===2?'Blocked for Hyper-V.':(i===3?'Powered off, so nobody is using it.':'A running server with no special role in its name.');});vm.plan.waves=[{wave:1,title:'Pilot',reason:'Powered-off, test and development VMs go first.'},{wave:2,title:'General servers',reason:'Running servers with no special role in their names.'}];vm.plan.waveSize=data.waveSize||2;}if(vm.plan.scenario==='rolling'){vm.plan.rolling=vm.plan.rolling||{autoCapacity:true,stages:[],sourceCluster:''};if(!vm.plan.rolling.sourceCluster){vm.plan.rolling.sourceCluster='Prod-Cluster';}if(data.suggestStages){vm.plan.rolling.stages=['esx03.example.com','esx01.example.com','esx02.example.com'].map((h,i)=>({host:h,wave:i+1,moveFirst:i===2,notes:''}));}if(vm.plan.rolling.autoCapacity){Object.assign(vm.plan.capacity,{nodes:3,coresPerNode:32,memoryGbPerNode:512,usableStorageTb:4,reserveNodes:1});}}vm.sizing=['azure','aws'].includes(vm.plan.target)?Object.assign(vmwareSizingFixture(false),{status:'quota',notes:['Check the subscription quota covers 14 vCPUs.']}):vmwareSizingFixture(!!vm.plan.capacity.coresPerNode);send(200,{ok:true,plan:vm.plan,sizing:vm.sizing,rolling:vm.plan.scenario==='rolling'?vmRollingFixture(vm.plan):null,saved:true});return;}
    if(action==='export-plan'){v.runbookPath='C:\\Reports\\VMware_vc01\\Migration-Runbook.html';v.planCsvPath='C:\\Reports\\VMware_vc01\\Migration-Plan.csv';v.runbookDocxPath='C:\\Reports\\VMware_vc01\\Migration-Runbook.docx';send(200,{ok:true});return;}
@@ -2489,6 +2490,30 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   await f.page.waitForFunction(()=>document.querySelector('#mpStatus').textContent==='Nothing to sync. Left alone: APP01 is already cut over.',null,{timeout:15000});
   assert(!(await f.page.content()).includes('S3cret!'));
  }finally{await f.close();}});
+ await check('Remembered vCenter sign-ins are opt-in, listed without passwords and forgettable, and the plan sign-in can turn them on',async()=>{const f=await fixture(browser);try{
+  const now=new Date().toISOString(),blocked='Sign in to vc01.example.com in Discovery again: the password is kept only while the application runs.';
+  f.state.vmware=Object.assign(vmwareIdle(),{server:'vc01.example.com',account:'svc-migrate@vsphere.local'});
+  f.plans.plans.push({id:'p1',name:'Wave 1',server:'vc01.example.com',paused:false,blocked,settings:{syncMinutes:60,concurrency:2,copyRoot:'D:\\Copies',vmFolder:'D:\\VMs',startAt:now},throttle:'no limit',summary:{total:1,waiting:0,copying:0,ready:1,testing:0,scheduled:0,done:0,failed:0},vms:[{id:'vm-app01',name:'APP01',wave:1,state:'ready',seeded:true,lastSync:now,failures:0}]});
+  await goTool(f,'plans');await f.page.waitForSelector('#mpSignIn:not(.hidden)');
+  assert.equal(await f.page.locator('#mpSignInRemember').isChecked(),false,'remembering is off by default');
+  assert((await f.page.locator('#mpSignIn').textContent()).includes('use a dedicated vCenter account'));
+  await f.page.waitForFunction(()=>document.querySelector('#mpSignInUser').value==='svc-migrate@vsphere.local',null,{timeout:15000});
+  await f.page.locator('#mpSignInRemember').check();await f.page.locator('#mpSignInPassword').fill('Pa55-word!');await f.page.locator('#mpSignInButton').click();
+  await f.page.waitForFunction(()=>/Signed in\./.test(document.querySelector('#mpSignInStatus').textContent),null,{timeout:15000});
+  const connect=f.vmwareCalls.filter(c=>c.action==='connect'&&c.method==='POST');assert.equal(connect.length,1);assert.equal(connect[0].body.remember,true,'the tick asks to remember it');
+  // Help > Settings lists it by server and user only, and Forget and the tick remove it.
+  f.vm.remember={enabled:true,entries:[{server:'vc01.example.com',user:'svc-migrate@vsphere.local',saved:now}]};
+  await f.page.locator('#helpMenuButton').click();await f.page.locator('#helpSettings').click();await f.page.waitForSelector('#vcRememberList [data-vc-forget="vc01.example.com"]');
+  assert(await f.page.locator('#vcRememberOn').isChecked());
+  assert((await f.page.locator('#vcRememberList').textContent()).includes('svc-migrate@vsphere.local on vc01.example.com'));
+  await f.page.locator('#vcRememberList [data-vc-forget="vc01.example.com"]').click();
+  await f.page.waitForFunction(()=>!document.querySelector('#vcRememberList [data-vc-forget]'),null,{timeout:15000});
+  assert.deepEqual(f.vmwareCalls.filter(c=>c.action==='remember'&&c.method==='POST').map(c=>c.body),[{forget:'vc01.example.com'}]);
+  await f.page.locator('#vcRememberOn').uncheck();
+  await f.page.waitForFunction(()=>/kept in memory only/.test(document.querySelector('#vcRememberStatus').textContent),null,{timeout:15000});
+  assert.deepEqual(f.vmwareCalls.filter(c=>c.action==='remember'&&c.method==='POST').map(c=>c.body).pop(),{enabled:false});
+  assert(!(await f.page.content()).includes('Pa55-word!'),'the password never stays in the page');
+ }finally{await f.close();}});
  await check('All jobs and servers: a VM whose sync is running shows Syncing with its progress, overdue or not',async()=>{const f=await fixture(browser);try{
   const now=Date.now(),iso=t=>new Date(t).toISOString();
   const base={kind:'plan',method:'Migration plan',detail:'Plan Wave 1',plan:'p1',percent:-1,lagSeconds:600,wave:1,limitMinutes:60,actions:['sync','pause','cutover','wave']};
@@ -2736,7 +2761,7 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   assert((await f.page.locator('#asRows tr[data-as-key="plan:p1|vm-11"] .as-progress-text').textContent()).includes('100 MB/s'));
   assert.equal(await f.page.locator('#asRows tr[data-as-key="plan:p1|vm-11"] [role="progressbar"]').getAttribute('aria-valuenow'),'40');
   assert(await f.page.locator('[data-as-act="cutover"]').isDisabled(),'nothing selected');
-  assert((await f.page.locator('#asWhy').textContent()).startsWith('Tick servers'));
+  assert.equal(await f.page.locator('#asWhy').textContent(),'','no hint to tick servers');
   await f.page.locator('#asSelectBy').selectOption('insync');await f.page.waitForFunction(()=>document.querySelector('#asSelCount').textContent==='2 servers selected');
   assert.equal(await f.page.locator('[data-as-act="cutover"]').textContent(),'Cut over (2)');
   await f.page.evaluate(()=>document.activeElement.blur());if(!f.errors.length){await f.page.screenshot({path:out+'/all-jobs-and-servers.png'});}assert.equal(await f.page.locator('[data-as-act="createjob"]').textContent(),'Create replication jobs (0)');

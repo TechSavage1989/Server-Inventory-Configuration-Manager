@@ -324,7 +324,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visi
 /* Workspace polish: grouped categories, quick actions, shortcuts */
 .vm-ack{display:inline-block;margin-top:calc(3*var(--sp))}
 .vm-fixup{margin-top:calc(10*var(--sp));padding:calc(8*var(--sp)) calc(10*var(--sp));border:1px solid #dbe3ed;border-radius:8px;background:#fbfcfe}.vm-fixup.failed{border-color:#e7b4ae;background:#fdf6f5}.vm-fixup.done{border-color:#b9dcc4;background:#f5fbf7}.vm-fixup-head{display:flex;flex-wrap:wrap;gap:calc(6*var(--sp));align-items:baseline;font-size:max(10.5px,calc(12.5*var(--fz)))}.vm-ga{margin:calc(6*var(--sp)) 0}
-.mp-signin{display:flex;flex-direction:column;align-items:flex-start;gap:calc(6*var(--sp));margin:calc(8*var(--sp)) 0;padding:calc(10*var(--sp)) calc(12*var(--sp));border:1px solid #e0c98a;border-radius:8px;background:#fffaf0}.mp-signin.hidden{display:none}.mp-signin-row{display:flex;flex-wrap:wrap;gap:calc(8*var(--sp));align-items:center}.mp-signin-row input{width:16em;max-width:100%}
+.mp-signin{display:flex;flex-direction:column;align-items:flex-start;gap:calc(6*var(--sp));margin:calc(8*var(--sp)) 0;padding:calc(10*var(--sp)) calc(12*var(--sp));border:1px solid #e0c98a;border-radius:8px;background:#fffaf0}.mp-signin.hidden{display:none}.mp-signin-remember{display:flex;gap:calc(6*var(--sp));align-items:flex-start;font-size:max(10.5px,calc(12*var(--fz)))}.mp-signin-remember input{flex:none;width:15px;height:15px;margin-top:2px}.vc-remember-list{display:flex;flex-direction:column;gap:calc(4*var(--sp))}.vc-remember-row{display:flex;gap:calc(8*var(--sp));align-items:center;flex-wrap:wrap}.mp-signin-row{display:flex;flex-wrap:wrap;gap:calc(8*var(--sp));align-items:center}.mp-signin-row input{width:16em;max-width:100%}
 .link-button{background:none;border:0;padding:2px calc(4*var(--sp));margin:0;color:#1f5fbf;font-weight:600;font-size:max(10.5px,calc(12*var(--fz)));cursor:pointer;border-radius:5px;text-decoration:underline;text-underline-offset:2px}.link-button:hover{color:#123f85}.link-button:focus-visible{outline:2px solid #2d6fd6;outline-offset:1px}.link-button:disabled{color:#94a0b3;cursor:default;text-decoration:none}
 .category-group{margin-top:calc(14*var(--sp))}.category-group+.category-group{margin-top:calc(16*var(--sp))}.category-group .category-grid{margin-top:calc(8*var(--sp))}.category-group-head{display:flex;align-items:center;gap:calc(10*var(--sp));padding-bottom:calc(6*var(--sp));border-bottom:1px solid #e3e8ef}.category-group-title{font-size:max(10.5px,calc(12*var(--fz)));font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#45526a}.category-group-count{font-size:max(10.5px,calc(12*var(--fz)));color:#6a7790;margin-right:auto}
 .category-check.has-export strong::after{content:"+ export";display:inline-block;margin-left:calc(6*var(--sp));padding:0 calc(6*var(--sp));border-radius:999px;background:#dfeafe;color:#1f4f9c;font-size:10px;font-weight:700;line-height:calc(16*var(--fz));vertical-align:1px}
@@ -2064,6 +2064,11 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     <fieldset class="cfm-styles" id="updateChannelSettings"><legend>Updates</legend>
       <label class="cfm-style"><input type="checkbox" id="updateTestChannel"><span><strong>Also offer test builds (Test channel)</strong><small>Test builds hold new features before they reach a stable release. They are signed like stable releases but are tried by fewer people. With this ticked, the update bar offers whichever is newer: the newest test build or the newest stable release. Untick it to go back to stable releases only; if a test build is installed, the newest stable release is offered in its place. Nothing downloads or installs until you choose to.</small></span></label>
       <div class="helper" id="updateChannelStatus" role="status" aria-live="polite"></div>
+    </fieldset>
+    <fieldset class="cfm-styles" id="vcRememberSettings"><legend>vCenter and ESXi sign-ins for migration plans</legend>
+      <label class="cfm-style"><input type="checkbox" id="vcRememberOn"><span><strong>Remember sign-ins on this computer, so plans carry on after a restart or update</strong><small>Off: the password is kept in memory only, and plans wait after every restart until someone signs in again. On: each sign-in that reads vCenter or ESXi is kept encrypted by Windows for your account on this computer (DPAPI), never in logs, plans or reports, and plans sign in again by themselves. A password the server refuses is forgotten at once. Anyone who can sign in to Windows as you on this computer could use it, so use a dedicated vCenter account with only the permissions migrations need, not an administrator's own account.</small></span></label>
+      <div id="vcRememberList" class="vc-remember-list"></div>
+      <div class="helper" id="vcRememberStatus" role="status" aria-live="polite"></div>
     </fieldset>
     <fieldset class="cfm-styles" id="vddkSettings"><legend>VMware VDDK, for faster copies of running VMs</legend>
       <div class="helper">With VMware's Virtual Disk Development Kit, each copy round of a running VMware VM reads only the blocks that changed, straight from the ESXi host (NBDSSL, port 902). Without it, the round streams the whole disk through vSphere's export. VMware's license does not let this application include VDDK: download VDDK 7.0.3, 8 or 9 for Windows from Broadcom, extract it, and choose its folder here. Every DLL in it must carry VMware's or Broadcom's signature.</div>
@@ -4141,6 +4146,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     if(!d.open){if(d.showModal){d.showModal();}else{d.setAttribute('open','');}}byId('settingsClose').focus();
     pgDirty=false;pgFill(pgSettings());pgShow('');renderPgHolds();
     byId('updateTestChannel').checked=!!(latestUpdateState&&latestUpdateState.channel==='test');byId('updateChannelStatus').textContent=channelText(latestUpdateState);byId('updateChannelStatus').className='helper';
+    vcRememberLoad();
     vddkShow(null,'Checking the VDDK folder\u2026');
     request('GET','/api/vddk',null,function(err,data){if(err){vddkShow(null,err,true);return;}byId('vddkFolder').value=(data.vddk&&data.vddk.folder)||'';vddkShow(data.vddk);});
   }
@@ -9854,6 +9860,9 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     var pass=document.createElement('input');pass.type='password';pass.id='mpSignInPassword';pass.autocomplete='new-password';pass.maxLength=256;pass.setAttribute('aria-label','vCenter or ESXi password');pass.placeholder='Password';
     var go=el('button','primary-button','Sign in and sync');go.type='button';go.id='mpSignInButton';
     row.appendChild(user);row.appendChild(pass);row.appendChild(go);box.appendChild(row);
+    var rl=el('label','mp-signin-remember'),rem=document.createElement('input');rem.type='checkbox';rem.id='mpSignInRemember';rl.appendChild(rem);
+    rl.appendChild(el('span','','Remember it on this computer, so the plan carries on after a restart (kept encrypted by Windows for your account; use a dedicated vCenter account). Help, Settings can forget it.'));box.appendChild(rl);
+    vcRememberLoad(function(){if(vcRememberView&&vcRememberView.enabled){rem.checked=true;}});
     var st=el('div','migrate-inline-status');st.id='mpSignInStatus';st.setAttribute('role','status');st.setAttribute('aria-live','polite');box.appendChild(st);
     var hv=el('button','link-button','Is '+server+' a Hyper-V host? Read it in Discovery');hv.type='button';hv.addEventListener('click',function(){showTool('environment');});box.appendChild(hv);
     var say=function(text,bad){st.textContent=text;st.className='migrate-inline-status'+(bad?' error':'');};
@@ -9863,7 +9872,8 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
       if(!pass.value){say('Type the password.',true);pass.focus();return;}
       if(vmBusy||(v=vmwareState()||{}).running){say('Another VMware or Hyper-V step is running. Sign in when it finishes.',true);return;}
       say('Signing in to '+server+'…',false);go.disabled=true;
-      vmPost('/api/vmware/connect',{server:server,user:u,password:pass.value},null,function(err){
+      var body={server:server,user:u,password:pass.value};if(rem.checked){body.remember=true;}
+      vmPost('/api/vmware/connect',body,null,function(err){
         pass.value='';go.disabled=false;
         if(err){say(err,true);return;}
         vmMarkRunning('connect','connecting','Connecting to '+server+' as '+u+'.');
@@ -9893,6 +9903,21 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
       if(data.sync&&mpSignInServer({blocked:data.sync.waiting})){var f=byId('mpSignInPassword');if(f){f.focus();}}
     });
   }
+  // Remembered vCenter sign-ins (Help > Settings): the page sees servers and
+  // user names only, never a password.
+  var vcRememberView=null;
+  function vcRememberRender(view,err){
+    if(view){vcRememberView=view;}
+    var v=vcRememberView||{enabled:false,entries:[]},list=byId('vcRememberList'),st=byId('vcRememberStatus');
+    byId('vcRememberOn').checked=!!v.enabled;list.textContent='';
+    vmArr(v.entries).forEach(function(e){var row=el('div','vc-remember-row');row.appendChild(el('span','selectable',e.user+' on '+e.server+(mpTime(e.saved)?' (saved '+mpTime(e.saved)+')':'')));var b=el('button','secondary-button','Forget');b.type='button';b.setAttribute('data-vc-forget',e.server);row.appendChild(b);list.appendChild(row);});
+    var text=err||(v.notice||'');if(!text){text=v.enabled?(vmArr(v.entries).length?'Plans sign in with these after a restart.':'The next sign-in that reads vCenter or ESXi is remembered.'):'Not remembered: passwords are kept in memory only.';}
+    st.textContent=text;st.className='helper'+(err?' error':'');
+  }
+  function vcRememberLoad(done){request('GET','/api/vmware/remember',null,function(err,data){vcRememberRender(err?null:data.remember,err);if(done){done();}});}
+  function vcRememberPost(body){request('POST','/api/vmware/remember',body,function(err,data){vcRememberRender(err?null:data.remember,err);mpSignInKey='';});}
+  byId('vcRememberOn').addEventListener('change',function(){vcRememberPost({enabled:this.checked});});
+  byId('vcRememberList').addEventListener('click',function(e){var b=e.target.closest('[data-vc-forget]');if(b){vcRememberPost({forget:b.getAttribute('data-vc-forget')});}});
   function mpBadge(){var b=byId('plansBadge'),list=mpState?vmArr(mpState.plans):[],copying=0,failed=0;list.forEach(function(p){copying+=p.summary.copying;failed+=p.summary.failed;});b.classList.toggle('hidden',!copying&&!failed);b.textContent=failed?failed+' failed':copying+' copying';}
   function renderMp(){
     if(!mpState){return;}

@@ -78,6 +78,7 @@ func (a *application) startPlans() {
 	}
 	a.plans.runner = runner
 	go runner.Loop(context.Background())
+	go a.runVCAutoSignIn()
 }
 
 // mbReady says why a plan's work cannot run now, or "".
@@ -94,10 +95,10 @@ func (a *application) mbReady(plan *mbPlan) string {
 	defer a.mu.Unlock()
 	inventory := a.vmware.inventory
 	if inventory == nil || !strings.EqualFold(inventory.Server, plan.Server) {
-		return "Read the inventory of " + plan.Server + " in Discovery (VMware and Hyper-V) to let this plan copy."
+		return "Read the inventory of " + plan.Server + " in Discovery (VMware and Hyper-V) to let this plan copy." + a.vcRememberHint(plan.Server)
 	}
 	if !strings.EqualFold(inventory.ServerType, hypervServerType) && (a.vmware.password == "" || !strings.EqualFold(a.vmware.server, plan.Server)) {
-		return "Sign in to " + plan.Server + " in Discovery again: the password is kept only while the application runs."
+		return "Sign in to " + plan.Server + " in Discovery again: the password is kept only while the application runs." + a.vcRememberHint(plan.Server)
 	}
 	if a.installing || a.closing {
 		return "The application is closing or installing an update."
