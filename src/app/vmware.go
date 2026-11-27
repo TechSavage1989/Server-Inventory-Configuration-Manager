@@ -101,21 +101,23 @@ type vmwareStateResponse struct {
 	Fixups    []guestFixStatus `json:"fixups"`
 	// Preflight is the optional domain controller and SQL Server checks
 	// (user name only, never the password).
-	Preflight     *preflightStateResponse `json:"preflight"`
-	CompareSerial uint64                  `json:"compareSerial"`
-	CompareError  string                  `json:"compareError"`
-	Prepare       *vmPrepareResult        `json:"prepare"`
-	PrepareSerial uint64                  `json:"prepareSerial"`
-	PrepareError  string                  `json:"prepareError"`
-	PrepareBatch  []vmPrepareBatchItem    `json:"prepareBatch"`
-	CanPrepare    bool                    `json:"canPrepare"`
-	HyperVHere    bool                    `json:"hyperVHere"`
-	Move          *vmMoveResult           `json:"move"`
-	MoveSerial    uint64                  `json:"moveSerial"`
-	MoveError     string                  `json:"moveError"`
-	MoveStatus    *vmMoveStatus           `json:"moveStatus"`
-	MoveCopyRoot  string                  `json:"moveCopyRoot"`
-	HostStorage   *vmHostStorage          `json:"hostStorage"`
+	Preflight *preflightStateResponse `json:"preflight"`
+	// Rollback is every cutover that can be rolled back, newest first.
+	Rollback      *rbStateResponse     `json:"rollback"`
+	CompareSerial uint64               `json:"compareSerial"`
+	CompareError  string               `json:"compareError"`
+	Prepare       *vmPrepareResult     `json:"prepare"`
+	PrepareSerial uint64               `json:"prepareSerial"`
+	PrepareError  string               `json:"prepareError"`
+	PrepareBatch  []vmPrepareBatchItem `json:"prepareBatch"`
+	CanPrepare    bool                 `json:"canPrepare"`
+	HyperVHere    bool                 `json:"hyperVHere"`
+	Move          *vmMoveResult        `json:"move"`
+	MoveSerial    uint64               `json:"moveSerial"`
+	MoveError     string               `json:"moveError"`
+	MoveStatus    *vmMoveStatus        `json:"moveStatus"`
+	MoveCopyRoot  string               `json:"moveCopyRoot"`
+	HostStorage   *vmHostStorage       `json:"hostStorage"`
 	// HVRemote is the remote Hyper-V host or cluster Move VMs is connected
 	// to from this computer (never its password).
 	HVRemote *hvRemoteStateResponse `json:"hvRemote"`
@@ -166,7 +168,7 @@ func (a *application) vmwareSnapshotLocked() vmwareStateResponse {
 		Server: a.vmware.server, Account: a.vmware.account, Certificate: a.vmware.certificate,
 		InventorySerial: a.vmware.inventorySerial, OutputFolder: a.vmware.outputFolder, ReportPath: a.vmware.reportPath,
 		RunbookPath: a.vmware.runbookPath, RunbookDocxPath: vmRunbookDocxFor(a.vmware.runbookPath), DiscoveryPath: vmDiscoveryReportFor(a.vmware.reportPath), ReportDocxPath: vmReportBeside(a.vmware.reportPath, vmReportDocx), ReportPDFPath: vmReportBeside(a.vmware.reportPath, vmReportPDF), PlanCSVPath: a.vmware.planCSVPath,
-		GuestSerial: a.vmware.guestSerial, GuestMessage: a.vmware.guestMessage, GuestError: a.vmware.guestError, GuestWorkPath: a.guestWorkPath(), GuestTarget: a.guestTargetStateLocked(), GuestAuto: guestAutoState{User: a.guestAuto.user, HasPassword: a.guestAuto.password != ""}, Fixups: a.fixups.List(), Preflight: a.preflightStateLocked(),
+		GuestSerial: a.vmware.guestSerial, GuestMessage: a.vmware.guestMessage, GuestError: a.vmware.guestError, GuestWorkPath: a.guestWorkPath(), GuestTarget: a.guestTargetStateLocked(), GuestAuto: guestAutoState{User: a.guestAuto.user, HasPassword: a.guestAuto.password != ""}, Fixups: a.fixups.List(), Preflight: a.preflightStateLocked(), Rollback: a.rbStateLocked(),
 		CompareSerial: a.vmware.compareSerial, CompareError: a.vmware.compareError,
 		Prepare: a.vmware.prepare, PrepareSerial: a.vmware.prepareSerial, PrepareError: a.vmware.prepareError, PrepareBatch: append([]vmPrepareBatchItem{}, a.vmware.prepareBatch...),
 		Move: a.vmware.move, MoveSerial: a.vmware.moveSerial, MoveError: a.vmware.moveError, MoveStatus: a.vmware.moveStatus, MoveCopyRoot: a.vmwareCopyRootLocked(),
@@ -1203,6 +1205,16 @@ func (a *application) handleVMwareCompare(response http.ResponseWriter, request 
 func (a *application) vmwareOpenTarget(kind string) (target string, folder bool, known bool) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	if strings.HasPrefix(kind, "rollbacklog:") {
+		// A rollback's own log, by its record's ID only (never a path from
+		// the page).
+		for _, rec := range a.rollback.list {
+			if rec.ID == strings.TrimPrefix(kind, "rollbacklog:") {
+				return rec.LogPath, false, true
+			}
+		}
+		return "", false, true
+	}
 	switch kind {
 	case "vmwarereport":
 		return a.vmware.reportPath, false, true

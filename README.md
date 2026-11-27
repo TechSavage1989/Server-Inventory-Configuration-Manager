@@ -32,6 +32,7 @@ A portable **Windows x64 application** for collecting server inventory, exportin
 | Convert a VMDK, VHD, VHDX, qcow2 or raw disk to any of them, merging snapshot chains, add VirtIO or server drivers so Windows starts on its new platform, and send it straight to ESXi, Hyper-V, Proxmox VE, Nutanix or HyperCore as a new VM. Copy this computer's own disks the same way (P2V). | See the format, size, data and chain of a disk before converting it. | Stop and continue a conversion, or repeat it to copy only what changed. |
 | Put many VMware or Hyper-V VMs in one migration plan that seeds them from a start time and keeps them in sync on a schedule. | Watch every VM's state, progress, speed and time left, with tiles that filter to what is copying, in sync, testing or failed. | Test any VM on an isolated copy, then cut VMs over now or at a scheduled time, in wave order. |
 | See every server and job in one list, whatever moves it: agent replication, Migration plans, Move VMs, conversions, restores and file share moves. | One state for each (not configured, agent installed, initial copy, in sync, behind, testing, cut over, failed), with progress, speed, last copy and lag. | Tick many and act at once: install agents, create jobs, sync, pause, test failover, set waves, cut over in staggered waves.|
+| Roll back any cutover in one click when the migrated server does not work: the new VM is turned off and disconnected first, then the original starts with its own addresses and network. | See each cutover's rollback window and what is lost (changes made on the new VM since), with a strong warning for domain controllers. | Follow step-by-step instructions for every way of moving that cannot be rolled back automatically. |
 | Install a replication agent on many servers at once and keep every disk copied to the new machine. | Watch each job's recovery point, alerts and log from **Replicate servers**, with summary tiles that filter to what needs attention. | Cut over now or at a set time: services stop, the last changes go across and every disk is checked. |
 
 ## Screenshots
@@ -68,6 +69,7 @@ A portable **Windows x64 application** for collecting server inventory, exportin
   <tr><td colspan="2"><b>Every migration started there is shown live, wave by wave, through test and cutover</b><br><img src="docs/images/new-migration-status.png" alt="New migration status with clickable tiles, progress per VM and cutover by wave" width="880"></td></tr>
   <tr><td colspan="2"><b>Any other way of moving lists its steps in New migration, each with the computer it runs on and a live check</b><br><img src="docs/images/new-migration-steps.png" alt="New migration's How screen for Move VMs, with the steps in order and the computers involved" width="880"></td></tr>
   <tr><td colspan="2"><b>All jobs and servers: every server being moved or replicated, by any method, with its state and progress, and actions on many at once</b><br><img src="docs/images/all-jobs-and-servers.png" alt="All jobs and servers with state tiles, two servers selected and bulk actions" width="880"></td></tr>
+  <tr><td colspan="2"><b>Roll back: the new VM is turned off first, then the original starts with its own network; a domain controller needs its own tick</b><br><img src="docs/images/roll-back.png" alt="Roll back dialog for a domain controller with the data warning, USN rollback tick box, the steps in order and the options" width="880"></td></tr>
   <tr><td colspan="2"><b>Build the new Hyper-V hosts or cluster from the VMware data: every step previewed, then applied only after you confirm</b><br><img src="docs/images/hyperv-build.png" alt="Build Hyper-V hosts with a plan drafted from a VMware cluster and the roles step previewed on two nodes" width="880"></td></tr>
   <tr><td colspan="2"><b>The receiver shows who is connected and every copy arriving, with progress, speed and time left</b><br><img src="docs/images/receive-transfers.png" alt="Receiver with connected senders and copies in progress" width="880"></td></tr>
 </table>
@@ -406,6 +408,23 @@ Tick servers (or use **Select** for everything shown, every server in sync, ever
 - **Set wave** groups servers; **Cut over** runs now or at a set time, one wave after another with the gap you choose (confirm when asked), and **Cancel scheduled cutover** clears it.
 
 Actions run one server after another through each method's own rules (the same checks, shutdowns and verified final rounds), and one server failing never stops the others; the results list says what happened to each, and **Stop** ends the action before the next server. Migration plan actions and test failovers from replication copies need this program on the Hyper-V host that holds them.
+
+## Roll back a cutover
+
+**Roll back** (under **Start here** in **Migration and replication**) lists every cutover this computer made: Move VMs, Migration plans and New migration (to this Hyper-V host or to a remote host or cluster), moves to HyperCore, Nutanix AHV or Proxmox VE, and production VMs started from replication copies. **Roll back…** also appears beside each cut-over VM in those tools.
+
+The original is still there to come back to: a cutover only shuts it down and, when ticked, sets its network adapters to not connect, after saving how they were. It is never renamed, annotated, deleted or changed inside; the IP settings, VMware Tools removal and other fix-ups happen only in the new VM.
+
+Rolling back, in this order:
+
+1. shuts the new VM down (and turns it off after 10 minutes only if you allow it), disconnects its network adapters and stops it starting with the host. It is not deleted;
+2. reads the new VM again and goes on only when it is off, so the two never share an address;
+3. puts the original's network adapters back exactly as they were;
+4. starts the original (VMware or the source Hyper-V host), or for a replicated server asks its agent to start the services the cutover stopped and pause the job.
+
+The dialog shows how long ago the cutover was and warns that anything written on the new VM since then is not on the original. A domain controller needs its own tick box: starting an old copy after the new one has replicated causes USN rollback. Every step is logged (**Open the log**). If a step cannot finish (the source server is off, or a host was rebuilt), the steps to finish by hand are shown.
+
+For every other way of moving (P2V, V2P, disk conversions, file shares, restores, and a rolling conversion after a host was rebuilt), pick it under **Every way of moving** for its rollback steps. In a rolling same-hardware conversion, each stage that rebuilds a host lists the VMs whose rollback ends there, so you can test them first.
 
 ## Updates and settings
 

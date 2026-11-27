@@ -419,7 +419,7 @@ func (a *application) handleHVRemoteMove(response http.ResponseWriter, request *
 			if err == nil {
 				result.Host = node
 				result.Notes = a.afterCutover(context.Background(), vm, result.HyperVID, node, input.Start, input.DisconnectSource, input.FixUp, connect,
-					filepath.Join(a.vmwareRoot(), safeName(strings.ToLower(server)), "Move"), log)
+					filepath.Join(a.vmwareRoot(), safeName(strings.ToLower(server)), "Move"), "", log)
 			}
 		}
 		connect.Password = ""
