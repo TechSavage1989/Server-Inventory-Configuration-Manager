@@ -3,6 +3,17 @@
 - Owner asked whether the VM's clipboard can come back to this computer. No platform's web console passes it out (WebMKS, Proxmox and Prism VNC, HyperCore VNC; Hyper-V's basic console has no clipboard), and installing nothing in the guest rules out a clipboard agent. The console's **Copy out** panel (was VM clipboard) now offers two ways that work: text from the screen (Windows OCR on this computer, `Read-ScreenText.ps1`, `/api/console/ocr`, every platform) and text from a file in the VM (`/api/console/text` through VMware Tools, the QEMU guest agent or PowerShell Direct on the Hyper-V host; **Type the save command** types `Get-Clipboard | Set-Content` into PowerShell in the VM). Hyper-V Enhanced session still gives full clipboard both ways. AGENTS rule 68, README, EDR exclusions updated; `Read-ScreenText.ps1` added to the signing list.
 - Tests: `console_text_test.go` (Linux), `TestReadScreenTextScriptReadsTextFromAPicture` (Windows, skips without OCR), workspace check "VM console". Not field-validated: OCR accuracy on real console fonts, and the file read on each platform.
 
+## 3.3.0-test.4 release preparation — 2026-11-27
+
+Owner asked to ship all of today's requested changes in the next releases. 3.3.0-test.3 was published 18:40 UTC from test `085fd5c` (release run 46048321455, signed prerelease, EXE SHA-256 `19e4340cbe8fce55ffd02ca13410543c30af015a7fda44e3bb1997a4534f76cd`, 29,452,592 bytes; the stable feed stayed 3.2.40). test.4 adds #205 (VM console Ctrl+V), #207 (save plans during copies, folded Discovery read sections, steadier guest account) and #210 (VDDK plugin loading, start-up diagnosis, one-line errors). Version 3.3.0-test.4 in `release/VERSION` and `appVersion`; collector stays 3.3.0.
+
+## Unreleased: VDDK start-up diagnosis and one-line errors — 2026-11-27
+
+- Owner on 3.3.0-test.3: DESK21-CPA01/CPA02 rounds failed with VDDK error 16053 (VIX_E_DISK_SUBSYSTEM_INIT_FAIL) after the folder check passed. The owner's VixDiskLib log showed the cause: `Failed to load vddkVimAccess.dll : ErrorCode = 0x7e` and diskLibPlugin.dll not found, because VixDiskLib loads its plugins itself and their dependencies were searched for outside the VDDK folder. `vddkLoad` now calls `SetDllDirectory(bin)` before loading vixDiskLib.dll.
+- Check and save names DLLs the VDDK DLLs import that the computer lacks (`peImports`, `vddkMissingDependencies`). VixDiskLib's log functions now write `VMware\VDDK\Temp\vddk.log`; start, connect and open failures name the step and that log. `tmpDirectory` in `vixDiskLib.conf` is written with single backslashes.
+- Long errors in Migration plans, All jobs and servers and the transfer list show one line with Details (`errLine`, open state kept across refreshes in `errOpen`).
+- Tests: `TestVDDKNamesMissingVisualCRuntime`; the workspace check for virtual TPM VMs checks the folded error. Not field-validated: the log callbacks on a real VDDK.
+
 ## Unreleased (test branch): Ctrl+V in the VM console — 2026-11-27
 
 Owner on 3.3.0-test.2: Ctrl+V should paste into a VM console. Pressing Ctrl+V (or Shift+Insert) with the console focused now types this computer's clipboard into the VM through the existing Paste as typing path (`/api/console/type`), using the browser's paste event on the canvas, with `navigator.clipboard.readText` as a fallback. Ctrl and Shift are let go in the VM first and no V is sent; Ctrl+Shift+V sends a plain Ctrl+V. Page-only change; the workspace check "VM console" covers both keys. Not field-validated on a real console.

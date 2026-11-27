@@ -73,6 +73,7 @@ const vcAutoSignInEvery = 5 * time.Minute
 // reached. It never replaces a session or an inventory the operator opened.
 func (a *application) runVCAutoSignIn() {
 	tried := map[string]time.Time{}
+	a.loadRememberedGuest()
 	time.Sleep(5 * time.Second)
 	for {
 		a.mu.Lock()

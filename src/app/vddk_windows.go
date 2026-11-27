@@ -106,6 +106,23 @@ func vddkCheck(folder string) (vddkStatus, string, error) {
 			status.Signer = signer
 		}
 	}
+	imports := map[string][]string{}
+	for _, name := range dlls {
+		data, err := os.ReadFile(filepath.Join(bin, name))
+		if err != nil {
+			continue
+		}
+		if names, err := peImports(data); err == nil {
+			imports[name] = names
+		}
+	}
+	system, _ := windows.GetSystemDirectory()
+	if missing := vddkMissingDependencies(imports, func(name string) bool {
+		info, err := os.Stat(filepath.Join(system, name))
+		return err == nil && info.Mode().IsRegular()
+	}); len(missing) > 0 {
+		status.Problems = append(status.Problems, vddkMissingText(missing))
+	}
 	major, minor, patch, err := vddkLibraryVersion(filepath.Join(bin, "vixDiskLib.dll"))
 	if err != nil {
 		status.Problems = append(status.Problems, "vixDiskLib.dll has no version: "+err.Error())
@@ -280,7 +297,17 @@ func vddkLoad(folder string) (*vddkLibrary, error) {
 		return nil, err
 	}
 	// Loading the DLL by its full path with the altered search path makes
-	// Windows take its dependencies from the same folder.
+	// Windows take its dependencies from the same folder. That covers only
+	// this load: VixDiskLib later loads diskLibPlugin.dll and
+	// vddkVimAccess.dll itself, and their own dependencies (vmacore,
+	// libcrypto, ...) are searched for in the normal order, which does not
+	// hold the VDDK folder. Without it both fail with 0x7e and every open
+	// fails with 16053 (owner's Hyper-V host, 2026-11-27: "VddkVimAccess was
+	// not loaded during initialization"). SetDllDirectory adds the folder to
+	// this process's search order (and drops the current directory from it).
+	if err := windows.SetDllDirectory(bin); err != nil {
+		return nil, fmt.Errorf("could not add the VDDK folder to the DLL search path: %v", err)
+	}
 	handle, err := windows.LoadLibraryEx(filepath.Join(bin, "vixDiskLib.dll"), 0, windows.LOAD_WITH_ALTERED_SEARCH_PATH)
 	if err != nil {
 		return nil, fmt.Errorf("could not load vixDiskLib.dll: %v", err)
@@ -302,7 +329,9 @@ func vddkLoad(folder string) (*vddkLibrary, error) {
 	config := filepath.Join(work, "vixDiskLib.conf")
 	// VixDiskLib writes its own log to tmpDirectory; it never contains the
 	// password.
-	text := "tmpDirectory=\"" + strings.ReplaceAll(temp, `\`, `\\`) + "\"\r\nvixDiskLib.transport.LogLevel=3\r\nvixDiskLib.nfc.LogLevel=1\r\n"
+	// VMware's configuration format takes Windows paths with single
+	// backslashes, as .vmx files hold them.
+	text := "tmpDirectory=\"" + temp + "\"\r\nvixDiskLib.transport.LogLevel=4\r\nvixDiskLib.nfc.LogLevel=2\r\n"
 	if err := os.WriteFile(config, []byte(text), 0o600); err != nil {
 		return nil, err
 	}
@@ -311,9 +340,11 @@ func vddkLoad(folder string) (*vddkLibrary, error) {
 		libDir = folder
 	}
 	libDir8, config8 := append([]byte(libDir), 0), append([]byte(config), 0)
-	r, _, _ := lib.procs["VixDiskLib_InitEx"].Call(7, 0, 0, 0, 0, uintptr(unsafe.Pointer(&libDir8[0])), uintptr(unsafe.Pointer(&config8[0])))
+	logFn, warnFn := vddkLogCallbacks(temp)
+	vddkLogLine("INFO", fmt.Sprintf("starting VixDiskLib from %s with libDir %s", bin, libDir))
+	r, _, _ := lib.procs["VixDiskLib_InitEx"].Call(7, 0, logFn, warnFn, 0, uintptr(unsafe.Pointer(&libDir8[0])), uintptr(unsafe.Pointer(&config8[0])))
 	if r != 0 {
-		vddkLoaded.err = lib.errorFor(uint64(r))
+		vddkLoaded.err = vddkInitHint(lib.errorFor(uint64(r)))
 		return nil, vddkLoaded.err
 	}
 	vddkLoaded.lib = lib
@@ -413,7 +444,7 @@ func vddkPlatformOpen(ctx context.Context, folder string, params vddkConnect) (v
 	var conn uintptr
 	r, _, _ := lib.procs["VixDiskLib_ConnectEx"].Call(raw, 1, uintptr(unsafe.Pointer(&snapshot[0])), uintptr(unsafe.Pointer(&transport[0])), uintptr(unsafe.Pointer(&conn)))
 	if r != 0 {
-		return fail(lib.errorFor(uint64(r)))
+		return fail(fmt.Errorf("could not connect to the snapshot through NBDSSL: %v; VixDiskLib's own log is in %s", lib.errorFor(uint64(r)), vddkLogPath()))
 	}
 	session.conn = conn
 	return session, nil
@@ -446,7 +477,7 @@ func (s *vddkWindowsSession) Open(path string) (vddkDisk, error) {
 	var handle uintptr
 	r, _, _ := s.lib.procs["VixDiskLib_Open"].Call(s.conn, uintptr(unsafe.Pointer(&path8[0])), vddkFlagOpenReadOnly, uintptr(unsafe.Pointer(&handle)))
 	if r != 0 {
-		return nil, s.lib.errorFor(uint64(r))
+		return nil, fmt.Errorf("could not open %s: %v; VixDiskLib's own log is in %s", path, s.lib.errorFor(uint64(r)), vddkLogPath())
 	}
 	disk := &vddkWindowsDisk{lib: s.lib, handle: handle}
 	var info uintptr
@@ -588,4 +619,72 @@ func vddkStatusFor(folder string) vddkStatus {
 		status.Message = "VDDK " + status.Version + " (signed by " + status.Signer + ") is ready. Copies of running VMware VMs read only changed blocks through it."
 	}
 	return status
+}
+
+// VixDiskLib's messages go to vddk.log in its temp folder, so a failure that
+// VDDK names only by its code (16053 names no subsystem) can be traced. The
+// log functions receive a printf format and a va_list; msvcrt's _vsnprintf
+// formats them. VixDiskLib never logs the password.
+var vddkLog struct {
+	sync.Mutex
+	path string
+	file *os.File
+}
+
+var vddkLogCallbacksOnce struct {
+	sync.Once
+	log, warn uintptr
+}
+
+const vddkLogLimit = 20 << 20
+
+func vddkLogPath() string {
+	vddkLog.Lock()
+	defer vddkLog.Unlock()
+	return vddkLog.path
+}
+
+func vddkLogCallbacks(folder string) (uintptr, uintptr) {
+	vddkLog.Lock()
+	if vddkLog.file == nil {
+		vddkLog.path = filepath.Join(folder, "vddk.log")
+		flags := os.O_CREATE | os.O_WRONLY | os.O_APPEND
+		if info, err := os.Stat(vddkLog.path); err == nil && info.Size() > vddkLogLimit {
+			flags |= os.O_TRUNC
+		}
+		if file, err := os.OpenFile(vddkLog.path, flags, 0o600); err == nil {
+			vddkLog.file = file
+		}
+	}
+	vddkLog.Unlock()
+	format := windows.NewLazySystemDLL("msvcrt.dll").NewProc("_vsnprintf")
+	if format.Find() != nil {
+		return 0, 0
+	}
+	newLogger := func(level string) uintptr {
+		return windows.NewCallback(func(fmtPtr, args uintptr) uintptr {
+			var buf [4096]byte
+			format.Call(uintptr(unsafe.Pointer(&buf[0])), uintptr(len(buf)-1), fmtPtr, args)
+			n := 0
+			for n < len(buf) && buf[n] != 0 {
+				n++
+			}
+			vddkLogLine(level, strings.TrimRight(string(buf[:n]), "\r\n"))
+			return 0
+		})
+	}
+	vddkLogCallbacksOnce.Do(func() {
+		vddkLogCallbacksOnce.log = newLogger("INFO")
+		vddkLogCallbacksOnce.warn = newLogger("WARN")
+	})
+	return vddkLogCallbacksOnce.log, vddkLogCallbacksOnce.warn
+}
+
+func vddkLogLine(level, text string) {
+	vddkLog.Lock()
+	defer vddkLog.Unlock()
+	if vddkLog.file == nil {
+		return
+	}
+	fmt.Fprintf(vddkLog.file, "%s %s %s\r\n", time.Now().Format("2006-01-02 15:04:05.000"), level, text)
 }

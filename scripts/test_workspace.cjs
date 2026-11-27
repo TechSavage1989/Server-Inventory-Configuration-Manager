@@ -191,8 +191,8 @@ async function fixture(browser,old=false){
    const v=state.vmware;
    if(action==='inventory'){send(200,vm.inventory?{ok:true,serial:v.inventorySerial,inventory:vm.inventory,plan:vm.plan,sizing:vm.sizing,attention:vm.attention||[]}:{ok:true,inventory:null});return;}
    if(action==='hyperv'){Object.assign(v,{running:true,action:'hyperv',status:'connecting'});send(202,{ok:true});return;}
-   if(action==='guest-auto'){v.guestAuto={user:data.user,hasPassword:true};send(200,{ok:true,user:data.user});return;}
-   if(action==='guest-auto/forget'){v.guestAuto={user:'',hasPassword:false};send(200,{ok:true});return;}
+   if(action==='guest-auto'){const rem=!!(data.remember||(v.guestAuto&&v.guestAuto.rememberOn));v.guestAuto={user:data.user,hasPassword:true,remembered:rem,rememberOn:rem};send(200,{ok:true,user:data.user});return;}
+   if(action==='guest-auto/forget'){v.guestAuto={user:'',hasPassword:false,rememberOn:!!(v.guestAuto&&v.guestAuto.rememberOn)};send(200,{ok:true});return;}
    if(action==='preflight/run'){const p=v.preflight||{};v.preflight=Object.assign(p,{running:true,user:data.user||p.user||'',hasPassword:!!data.user||!!p.hasPassword,items:(data.items||[]).map(i=>({id:i.id,state:'waiting',summary:''})),message:'Checking.'});send(202,{ok:true});return;}
    if(action==='preflight/forget'){v.preflight=Object.assign(v.preflight||{},{user:'',hasPassword:false});send(200,{ok:true});return;}
    if(action==='guest-auto/run'){(v.fixups||[]).forEach(x=>{if(x.vm===data.vm){x.state='waiting';x.message='Waiting for Windows in '+x.vm+' to start.';x.steps=[];}});send(202,{ok:true});return;}
@@ -378,6 +378,7 @@ function apartControls(page){return page.evaluate(()=>{
  }
  return [...new Set(bad)];
 });}
+async function openReads(f){const t=f.page.locator('#vmReadBarToggle');if(await t.isVisible()&&await f.page.locator('#vmReadPanels').isHidden()){await t.click();}}
 async function goTool(f,id){await f.page.keyboard.press(discoveryTools.includes(id)?'Alt+1':'Alt+5');await f.page.locator('[data-tool="'+id+'"]').click();}
 // The VMware and Hyper-V inventory: open an item from the tree, and read the tree as 'level label' lines.
 // HTML5 drag and drop with real mouse steps (locator.dragTo misses the drop on scrolled pages).
@@ -1089,7 +1090,11 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   await f.page.locator('tr[data-vm-id="vm-app01"] [data-vm-ack]').click();await f.page.waitForFunction(()=>document.querySelector('#vmCountReview').textContent==='1');
   await f.page.locator('#vmTargetSelect').selectOption('scale');await f.page.waitForFunction(()=>document.querySelector('#vmCountsTitle').textContent==='Readiness for Scale HyperCore');assert.equal(await f.page.locator('tr[data-vm-id="vm-app01"] .run-chip').textContent(),'Review first','acknowledgements are per target');
   await f.page.locator('[data-vmfilter="all"]').click();await f.page.locator('#vmOpenReport').click();await f.page.waitForTimeout(200);assert.deepEqual(f.opens,['vmwarereport']);
-  await f.page.locator('#vmReset').click();await f.page.waitForFunction(()=>document.querySelector('#vmEnvResult').classList.contains('hidden'));assert.equal(await f.page.locator('#vmServer').inputValue(),'');
+  // Once read, the read sections fold into one line above the inventory.
+  assert(await f.page.locator('#vmReadPanels').isHidden(),'the read sections fold once an inventory is open');
+  assert((await f.page.locator('#vmReadBarText').textContent()).includes('vc01.example.com'));
+  await f.page.locator('#vmReadBarToggle').click();assert(await f.page.locator('#vmServer').isVisible());assert.equal(await f.page.locator('#vmReadBarToggle').textContent(),'Hide');
+  await f.page.locator('#vmReset').click();await f.page.waitForFunction(()=>document.querySelector('#vmEnvResult').classList.contains('hidden'));assert.equal(await f.page.locator('#vmServer').inputValue(),'');assert(await f.page.locator('#vmReadBar').isHidden(),'no line without an inventory');
   assert(f.vmwareCalls.every(c=>c.token==='workspace-test'));assert.deepEqual(f.dialogs,[]);
  }finally{await f.close();}});
  await check('VMware prepare source: needs a live session, preselects the needed steps, and posts them only after the VM name is typed',async()=>{const f=await fixture(browser);try{
@@ -1128,15 +1133,21 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   // No-touch cutover: start, disconnect the old VM and fix up are on by default.
   for(const k of ['start','disconnect','fixUp']){assert(await f.page.locator('input[data-vm-after="'+k+'"]').isChecked(),k+' is ticked by default');}
   assert((await f.page.locator('#vmAfterNote').textContent()).includes('Enter the guest account'),'the fix-up asks for the guest account');
-  // Use the account I'm signed in with fills the name only; the password is still asked for, inline, without a request.
-  await f.page.locator('#vmGaMine').click();assert.equal(await f.page.locator('#vmGaUser').inputValue(),'EXAMPLE\\operator');
-  assert((await f.page.locator('#vmGaPanel').textContent()).includes('cannot reuse your Windows sign-in'));
+  // The signed-in account fills the name by itself; the password is still asked for, inline, without a request.
+  assert.equal(await f.page.locator('#vmGaUser').inputValue(),'EXAMPLE\\operator');
+  assert((await f.page.locator('#vmGaPanel').textContent()).includes('Windows cannot pass your sign-in into a VM'));
+  {const pw=await f.page.locator('#vmGaPassword').boundingBox(),use=await f.page.locator('#vmGaUse').boundingBox();assert(use.y>=pw.y+pw.height+4,'Use this account sits below the password box');}
   await f.page.locator('#vmGaUse').click();assert.equal(await f.page.locator('#vmGaStatus').textContent(),'Type the password of EXAMPLE\\operator.');assert.equal(vmwareCalls(f,'guest-auto').length,0);
   // Values the browser fills in without an input event are still read.
   await f.page.locator('#vmGaUser').evaluate(e=>{e.value='EXAMPLE\\admin';});await f.page.locator('#vmGaPassword').evaluate(e=>{e.value='Synthetic-Guest-1';});await f.page.locator('#vmGaUse').click();
   await f.page.waitForFunction(()=>document.querySelector('#vmGaPanel')&&document.querySelector('#vmGaPanel').textContent.includes('sign in to the new VMs as EXAMPLE\\admin'));
   assert.deepEqual(vmwareCalls(f,'guest-auto').map(c=>c.body),[{user:'EXAMPLE\\admin',password:'Synthetic-Guest-1'}]);
   assert.equal(await f.page.locator('#vmGaPassword').count(),0,'the password field is gone once the account is held');
+  // Forget, then type it once with Remember ticked: one Enter keeps it, remembered, with no second try.
+  await f.page.locator('#vmGaForget').click();await f.page.locator('#vmGaPassword').waitFor();
+  await f.page.locator('#vmGaRemember').check();await f.page.locator('#vmGaPassword').fill('Synthetic-Guest-2');await f.page.locator('#vmGaPassword').press('Enter');
+  await f.page.waitForFunction(()=>document.querySelector('#vmGaPanel').textContent.includes('kept encrypted for your Windows account'));
+  assert.deepEqual(vmwareCalls(f,'guest-auto').at(-1).body,{user:'EXAMPLE\\admin',password:'Synthetic-Guest-2',remember:true});
   await f.page.locator('#vmMoveFolder').fill('E:\\Copies\\APP01');
   await f.page.locator('#vmMoveCopy').click();assert(await f.page.locator('#migrateDialog').isVisible());
   const copyText=await f.page.locator('#migrateDialogText').textContent();assert(copyText.includes('changed block tracking')&&copyText.includes('E:\\Copies\\APP01'),copyText);
@@ -1269,6 +1280,9 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   assert.deepEqual(await order(),['APP01','SQL01','WEB02']);await f.page.locator('[data-nw-sort="ready"]').first().click();{const o=await order();assert.deepEqual(o,['APP01','WEB02','SQL01'],'Readiness sorts ready first: '+o);}
   await f.page.locator('[data-nw-sort="ready"]').first().click();assert.equal(await f.page.locator('#nwVmList table').first().locator('th[aria-sort="descending"]').count(),1);
   assert(!await f.page.locator('[data-nw-pick="vm-legacy03"]').isVisible(),'a VM that cannot move is folded away');await f.page.locator('.nw-vm-off summary').click();assert(await f.page.locator('[data-nw-pick="vm-legacy03"]').isVisible());
+  // A redraw from the live refresh keeps it open (owner, 2026-11-27: it folded by itself after a few seconds).
+  await f.page.evaluate(()=>{window.__nwBefore=document.querySelector('#nwVmOff');});f.state.vmware.canPrepare=!f.state.vmware.canPrepare;
+  await f.page.waitForFunction(()=>document.querySelector('#nwVmOff')!==window.__nwBefore,null,{timeout:10000});assert(await f.page.locator('#nwVmOff').evaluate(d=>d.open),'Show why stays open through a redraw');
   assert((await f.page.locator('[data-nw-pick="vm-sql01"]').locator('xpath=ancestor::tr').textContent()).includes('1 snapshot'),'a Review first VM says why');
   await f.page.locator('#nwPickShown').check();assert((await f.page.locator('[data-nw="count"]').textContent()).startsWith('3 VMs ticked'));await readmeShot(f,'new-migration.png');
   await f.page.locator('#nwNext').click();const done=await f.page.locator('.nw-stepper-item.done').first().textContent();assert(done.includes('3 VMs'),'the step bar sums up a finished step: '+done);
@@ -1792,7 +1806,7 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   const notice=await f.page.locator('#vmReadNotice').textContent();
   assert(notice.includes('Migration plan “Wave 1” is copying 4 VMs from vc01.example.com')&&notice.includes('read vc01.example.com again'),notice);
   assert.equal(await f.page.locator('#vmwareTabBadge').textContent(),'Plan copying');
-  await f.page.locator('#vmServer').fill('vc01.example.com');await f.page.locator('#vmUser').fill('readonly@vsphere.local');
+  await openReads(f);await f.page.locator('#vmServer').fill('vc01.example.com');await f.page.locator('#vmUser').fill('readonly@vsphere.local');
   assert(await f.page.locator('#vmConnect').isEnabled(),'reading the same vCenter again stays available');
   await f.page.locator('#vmServer').fill('vc02.example.com');assert(await f.page.locator('#vmConnect').isDisabled(),'reading another vCenter waits for the copy');
   assert(await f.page.locator('#vmHvRead').isDisabled()&&await f.page.locator('#vmOpenInventory').isDisabled()&&await f.page.locator('#vmReset').isDisabled(),'reads that replace the session wait');
@@ -1801,6 +1815,11 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   await goTool(f,'server');assert(await f.page.locator('#startButton').isEnabled(),'This server can collect while a plan copies');assert(await f.page.locator('#configLockNotice').isHidden());
   await goTool(f,'movevms');await f.page.waitForFunction(()=>!document.querySelector('#vmBusyNotice').classList.contains('hidden'));
   assert((await f.page.locator('#vmBusyNotice').textContent()).includes('Wave 1'),'Move VMs says why its steps wait');assert(await f.page.locator('#vmReadNotice').isHidden());
+  // Saving the plan (network map, waves) only writes the plan file, so it runs beside the copy.
+  await goTool(f,'plan');await f.page.waitForFunction(()=>!document.querySelector('#vmSavePlan').disabled);assert(await f.page.locator('#vmBusyNotice').isHidden(),'Plan and runbook needs no notice for a plan copy');
+  assert(await f.page.locator('#vmWriteRunbook').isEnabled(),'the runbook can be written while a plan copies');
+  const plansBefore=vmwareCalls(f,'plan').length;await f.page.locator('#vmSavePlan').click();await f.page.waitForFunction(()=>document.querySelector('#vmPlanStatus').textContent==='Plan saved.');
+  assert.equal(vmwareCalls(f,'plan').length,plansBefore+1,'the plan is saved while another plan copies');
   // Another VMware step blocks collection, and This server says what and links to it.
   Object.assign(f.state.vmware,{planCopy:null,running:true,action:'prepare',status:'preparing'});
   await goTool(f,'server');await f.page.waitForFunction(()=>!document.querySelector('#configLockNotice').classList.contains('hidden'));
@@ -2355,6 +2374,13 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   // A copy that fails for this reason offers both fixes on its row.
   const desk=f.plans.plans[0].vms.find(v=>v.id==='vm-desk23');Object.assign(desk,{name:'DESK23',state:'failed',failures:1,error:'Hard disk 1: vSphere will not let this VM be read while it runs. Its own files are encrypted (every VM with a virtual TPM has them encrypted; the disks themselves are plain), vSphere refuses to export an encrypted VM, and the ESXi host locks the running disk. Choose the VDDK folder in Help > Settings to copy it while it runs, or copy it at its cutover while it is shut down.'});
   await f.page.waitForSelector('#nwStatusBody [data-mp-offline="vm-desk23"]',{timeout:15000});assert(await f.page.locator('#nwStatusBody [data-mp-vddk="vm-desk23"]').isVisible());
+  // A long error is one line in the state column, with the whole text behind Details, kept open across refreshes.
+  const errBox=f.page.locator('#nwStatusBody details.mp-err');assert.equal(await errBox.count(),1,'a long error is folded');
+  assert(!(await errBox.locator('.err-more').isVisible()),'the full error starts hidden');
+  const head=await errBox.locator('summary').textContent();assert(head.length<140&&head.endsWith('Details'),head);
+  await errBox.locator('summary').click();await new Promise(r=>setTimeout(r,4500));
+  assert(await f.page.locator('#nwStatusBody details.mp-err .err-more').isVisible(),'Details stays open after a refresh');
+  assert((await f.page.locator('#nwStatusBody details.mp-err .err-more').textContent()).startsWith('Hard disk 1: vSphere will not let'));
   await f.page.locator('#nwStatusBody [data-mp-offline="vm-desk23"]').click();
   for(let i=0;i<100&&!f.planCalls.some(c=>c.body.action==='method');i++){await new Promise(r=>setTimeout(r,50));}
   const m=f.planCalls.find(c=>c.body.action==='method');assert.deepEqual({vmIds:m.body.vmIds,method:m.body.method},{vmIds:['vm-desk23'],method:'offline'});
@@ -2995,7 +3021,7 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
    if(size.width===784&&!withUpdate){await f.page.locator('#migrateBody').evaluate(e=>e.scrollTop=0);await f.page.screenshot({path:out+'/migrate-800x600.png'});}
    await f.page.locator('#migrateCutover').scrollIntoViewIfNeeded();await f.page.locator('#migrateCutover').click();await inView('#migrateConfirmInput',24);await inView('#migrateConfirmButton',28);assert.deepEqual(await smallText(),[],label+' migrate dialog text below 10.5px');
    await f.page.locator('#migrateDialogCancel').click();assert(!await f.page.locator('#migrateDialog').isVisible());
-   await goTool(f,'environment');await f.page.locator('#vmwareBody').evaluate(e=>e.scrollTop=0);await inView('#vmwareBody',withUpdate?110:150);await inView('#vmServer',24);
+   await goTool(f,'environment');await f.page.locator('#vmwareBody').evaluate(e=>e.scrollTop=0);await inView('#vmwareBody',withUpdate?110:150);await inView('#vmReadBarToggle',24);
    for(const view of ['env','plan','guest','disks','failover','compare']){await goTool(f,{env:'movevms',disks:'diskcopy'}[view]||view);await inView('[data-tool="'+({env:'movevms',disks:'diskcopy'}[view]||view)+'"]',24);
     for(const target of {env:['#vmInvTree .vm-inv-row','#vmDrawerTitle','.vm-obj-tab'],plan:['#vmSuggest','#vmWriteRunbook'],guest:['#vmGuestCapture','#vmGuestApply','#vmGuestTools'],disks:['#vmReceiveStart','#vmSendFind','#vmSendStart','#vmMediaBuild'],failover:['#fvRefresh'],compare:['#vmCompareRun','#vmCompareBody tr']}[view]){for(let attempt=0;;attempt++){await f.page.locator(target).first().scrollIntoViewIfNeeded();try{await inView(target+':visible >> nth=0',20);break;}catch(e){if(attempt>=2){throw e;}await f.page.waitForTimeout(300);}}}
     assert.deepEqual(await smallText(),[],label+' vmware '+view+' text below 10.5px');assert(await f.page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),label+' vmware overflow');assert(await f.page.locator('#vmwareBody').evaluate(e=>e.scrollWidth<=e.clientWidth+1),label+' vmware panel overflow '+view);}
