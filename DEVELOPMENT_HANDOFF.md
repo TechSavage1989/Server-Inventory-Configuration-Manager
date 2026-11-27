@@ -1,3 +1,7 @@
+## 3.3.0 release preparation (test promoted to stable) — 2026-11-27
+
+The owner asked for the test line to become the next stable release. `test` (3.3.0-test.5, `5f7b6ee`) was merged into `release/next` with a merge commit so `test` stays an ancestor; every conflict took the test side, which already carried each `release/next` fix (#202, #206, #208, #213, #215 were ported as #201, #207, #210, #214, #216), and afterwards the tree matched `test` except for the 3.2.41 records and release notes. `release/VERSION` kept the stable value until publication. `appVersion` is 3.3.0; `collectorVersion` and the collector's `$scriptVersion` were already 3.3.0, so baseline provenance is unchanged. Release notes: `docs/release-notes/3.3.0.md`. The published-upgrade check starts from 3.2.41. After publication, fast-forward `release/next` to `main` and merge `main` into `test` so both lines start from 3.3.0.
+
 ## 3.3.0-test.5 release preparation — 2026-11-27
 
 3.3.0-test.4 was published 20:12 UTC from test `1c967f3` (release run 46059649488, signed prerelease, EXE SHA-256 `6f0e7f99b2d13dc3841c604836f253ebe0d93e2006e47e67d0f510167f206af7`; the stable feed stayed 3.2.40). Test.5 adds #209 (console Copy out), #214 (SQL and DC check failures on one line in the wave go/no-go) and #216 (test port of #215: changed-block reads after a stopped round, read method per disk, 5-minute syncs, VDDK-aware retries, kept plan fields, Tested fixes). Version 3.3.0-test.5 in `main.go` and `release/VERSION`; collector stays 3.3.0. Notes in `docs/release-notes/3.3.0-test.5.md`.
