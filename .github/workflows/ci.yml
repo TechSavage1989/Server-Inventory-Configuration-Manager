@@ -233,7 +233,7 @@ jobs:
   disks:
     # Disk converter cross-checks: QEMU writes every input variant the readers
     # must understand, and qemu-img checks and compares every output format.
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
@@ -253,7 +253,7 @@ jobs:
   linuxagent:
     # The Linux replication agent on a real kernel: LVM snapshots of a loop
     # disk, a replication job with cutover, and the systemd install.
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
