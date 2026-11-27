@@ -178,6 +178,19 @@ func vmDiscoveryRead(action string) bool {
 	return action == "connect" || action == "hyperv" || action == "open"
 }
 
+// vmPlanSaveRefusalLocked says why the migration plan (network map, waves,
+// scenario, acknowledgements) cannot be saved now, or "". Saving writes
+// only the plan file and replaces a.vmware.plan as a whole, so steps that
+// run (a migration plan copy, Prepare, Move VMs) keep the copy they read and
+// nothing conflicts; only a Discovery read, which replaces the inventory the
+// plan belongs to, holds it back. Caller holds a.mu.
+func (a *application) vmPlanSaveRefusalLocked() string {
+	if vmDiscoveryRead(a.vmware.action) {
+		return "A VMware step is running (" + vmActionName(a.vmware.action) + "). Save the plan when it ends, because it replaces the inventory the plan belongs to."
+	}
+	return ""
+}
+
 // vmwareBlocksCollectionLocked is true while a VMware step that is not a
 // Discovery read runs. A migration plan copy does not block a collection:
 // the collection only reads this computer. Caller holds a.mu.
@@ -787,10 +800,10 @@ func (a *application) handleVMwarePlan(response http.ResponseWriter, request *ht
 		return
 	}
 	a.mu.Lock()
-	inventory, busy := a.vmware.inventory, a.vmwareBusyLocked()
+	inventory, refusal := a.vmware.inventory, a.vmPlanSaveRefusalLocked()
 	a.mu.Unlock()
-	if busy {
-		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": a.vmwareBusyTextLocked() + " Wait for it to finish first."})
+	if refusal != "" {
+		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": refusal})
 		return
 	}
 	plan, err := validateVMPlan(input.Plan, inventory)
