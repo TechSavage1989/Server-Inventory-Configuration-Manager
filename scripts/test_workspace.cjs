@@ -1081,8 +1081,13 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   assert(!await f.page.locator('[data-tool="plans"] .tool-works').isVisible(),'Works with is not on the card');assert(!await f.page.locator('[data-tool="replicate"] .tool-runs').isVisible(),'only the selected card says where it runs');assert(await f.page.locator('[data-tool="plans"] .tool-runs').isVisible());
   assert(!await f.page.locator('#toolWorks-tabPlans').isVisible(),'About this tool starts folded');await f.page.locator('#toolAbout-tabPlans summary').click();
   const about=await f.page.locator('#toolWorks-tabPlans').textContent();assert(about.includes('Works with')&&about.includes('Pick this when')&&about.includes('Runs on the Hyper-V host'),about);
-  assert(!await f.page.locator('.hero').isVisible(),'the collection banner is not shown on Migration and replication');
-  await f.page.keyboard.press('Alt+3');assert(await f.page.locator('.hero').isVisible(),'and comes back on the other tabs');
+  assert.equal(await f.page.locator('.hero').count(),0,'no banner above the tabs on any screen');
+  for(const size of [{width:1440,height:1000},{width:1008,height:690},{width:784,height:522}]){await f.page.setViewportSize(size);await f.page.keyboard.press('Alt+3');
+   const bar=f.page.locator('.status-bar');assert(await bar.isVisible(),'the status bar shows at '+size.width);assert((await bar.textContent()).includes('Interface v'),'with the version');
+   const box=await bar.boundingBox();assert(box.y+box.height<=size.height&&box.height<=30,'a slim bar at the bottom: '+JSON.stringify(box));}
+  assert.equal(await f.page.locator('.topbar').count(),0,'no header bar');assert(!(await f.page.locator('body').textContent()).includes('Portable EXE'));
+  assert((await f.page.locator('#statusConnection').getAttribute('title')).includes('connected to the application'));assert(await f.page.locator('#helpMenuButton').isVisible(),'Help sits beside the tabs');
+  await f.page.setViewportSize({width:1440,height:1000});
   // Empty screens offer New migration.
   await goTool(f,'plans');await f.page.locator('#mpEmptyWizard').click();assert.equal(await f.page.locator('[data-tool="wizard"]').getAttribute('aria-pressed'),'true');assert.equal(await f.page.locator('[data-nw-source="vms"]').getAttribute('aria-pressed'),'true','it opens with VMs chosen');
   await goTool(f,'replicate');await f.page.waitForSelector('#rpEmptyWizard');assert(await f.page.locator('#rpSummary').isHidden(),'no row of zero tiles');

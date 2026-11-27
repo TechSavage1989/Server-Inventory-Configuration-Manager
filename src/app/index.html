@@ -145,7 +145,12 @@ img, svg { -webkit-user-drag: none; }
 .report-empty p { margin: 0 0 calc(16*var(--sp)); }
 .report-empty-actions { display: flex; justify-content: center; gap: calc(8*var(--sp)); flex-wrap: wrap; }
 .viewer-note { margin-top: calc(9*var(--sp)); color: #7b8798; font-size: max(10.5px,calc(11*var(--fz))); }
-.footer { margin-top: calc(18*var(--sp)); color: #8490a2; font-size: max(10.5px,calc(11*var(--fz))); text-align: center; }
+.footer { margin-top: calc(18*var(--sp)); color: #8490a2; font-size: max(10.5px,calc(11*var(--fz))); }
+.status-bar { display:flex; align-items:center; gap:calc(14*var(--sp)); padding-top:calc(4*var(--sp)); border-top:1px solid #e3e8ef; white-space:nowrap; overflow:hidden; }
+.status-bar .status-note { min-width:0; overflow:hidden; text-overflow:ellipsis; }
+.status-bar .shortcuts-link { margin-left:auto; }
+.status-bar strong { color:#5d6a7e; font-weight:600; }
+.status-bar .shortcuts-link { font-size:inherit; }
 .locked { opacity: .64; pointer-events: none; }
 @media (max-width: 920px) {
   .setup-layout { display: block; }
@@ -200,7 +205,7 @@ body { height: 100vh; }
 .app-tabs { flex: 0 0 auto; overflow-y: hidden; }
 .tab-panel { min-height: 0; flex: 1 1 auto; overflow: hidden; }
 .tab-panel.active { display: flex; flex-direction: column; min-height: 0; }
-.footer { flex: 0 0 auto; margin-top: calc(9*var(--sp)); }
+.footer { flex: 0 0 auto; margin-top: calc(6*var(--sp)); }
 
 /* Setup: fixed left information rail, independently scrolling configuration, fixed Start button. */
 .setup-layout { width: 100%; height: 100%; min-height: 0; display: flex; align-items: stretch; overflow: hidden; }
@@ -309,11 +314,11 @@ button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visi
  .update-actions { max-width:120px; }.update-actions button { padding:4px 8px; }.update-title { font-size:12px; }.update-status { font-size:11px; }
  .category-grid,.category-grid.compact { grid-template-columns:1fr; }.hero { display:none; }.brand-subtitle { display:none; }.brand-mark,.brand-mark img { width:32px; height:32px; }.brand-mark { flex-basis:32px; margin-right:8px; }
  .topbar,.topbar-inner { height:54px; }.topbar { flex-basis:54px; }.tab-button { min-width:0; padding:0 9px; font-size:12px; }.tab-badge { margin-left:3px; }
- .setup-actions { width:100%; }.setup-actions button { flex:1; }.setup-action-bar .primary-button { width:auto; margin:0; }.footer { display:none; }
+ .setup-actions { width:100%; }.setup-actions button { flex:1; }.setup-action-bar .primary-button { width:auto; margin:0; }.status-note { display:none; }
  .scope-panel { padding:12px; }.report-ident { min-width:0; }.viewer-search input { min-width:100px; }.report-actions button { font-size:12px; }
  .log-tools select { max-width:140px; }.status-header { gap:8px; }.card-header { padding:10px 13px; }.current-step { padding:6px 9px; }
 }
-@media(max-height:650px) { .hero,.footer { display:none; }.page { padding-top:8px; }.card-subtitle { font-size:11px; }.update-notes { max-height:65px; overflow:auto; margin-left:0; padding-left:18px; } }
+@media(max-height:650px) { .hero { display:none; }.page { padding-top:8px; }.card-subtitle { font-size:11px; }.update-notes { max-height:65px; overflow:auto; margin-left:0; padding-left:18px; } }
 @media(prefers-reduced-motion:reduce) { *,*::before,*::after { transition:none !important; } }
 
 /* Workspace polish: grouped categories, quick actions, shortcuts */
@@ -698,6 +703,22 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
 .tool-host{flex:1 1 auto;min-width:0;min-height:0;display:flex;flex-direction:column}
 .tool-pane{display:none;min-height:0;flex:1 1 auto}.tool-pane.active{display:flex;flex-direction:column}.tool-pane.active>*{flex:1 1 auto;min-height:0}
 .tool-current{display:none}
+.tab-row{display:flex;align-items:flex-end;gap:calc(8*var(--sp));flex:0 0 auto}
+.tab-row .app-tabs{flex:1 1 auto;min-width:0}
+.tab-row .help-menu{margin:0 0 calc(14*var(--sp)) 0;align-self:center}
+.tab-row .help-button{height:calc(28*var(--fz));border:1px solid #cfd8e4;background:#fff;color:#34445c;font-weight:600}
+.tab-row .help-button:hover,.tab-row .help-button[aria-expanded="true"]{background:#eef3fa}
+.tab-row .help-button::after{border-top-color:#6b7a90}
+.tab-row .help-list{top:calc(100% + 4px)}
+.status-bar .status-brand{display:inline-flex;align-items:center;gap:6px;color:#52647c}
+.status-bar .brand-mark,.status-bar .brand-mark img{width:16px;height:16px;flex:0 0 16px;margin:0}
+.status-bar .brand-title{font-size:inherit;font-weight:600}
+.status-bar .status-item{display:inline-flex;align-items:center;gap:5px}
+.status-bar .badge-dot{width:7px;height:7px;margin:0;border-radius:50%;background:#42c989}
+.status-bar .status-item.bad{color:#b42318}.status-bar .status-item.bad .badge-dot{background:#d92d20}
+.status-bar .status-item.warn{color:#9a6700;font-weight:600}
+@media(max-width:1400px){.status-bar .status-note{display:none}}
+@media(max-width:1100px){.status-bar .brand-title{display:none}}
 .nw-rolling{margin:0 0 calc(8*var(--sp));padding-left:22px}
 .nw-rolling-stage{margin-bottom:calc(6*var(--sp))}
 .nw-rolling-head{display:flex;gap:calc(8*var(--sp));align-items:center}
@@ -726,7 +747,6 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
 .tool-nav .tool-item .tool-works,.tool-nav .tool-item .tool-tags{display:none}.tool-nav .tool-item:not(.active) .tool-runs{display:none}
 .tool-nav .tool-desc{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.tool-nav .tool-item.active .tool-desc{display:block}
 .tool-about{margin-top:calc(4*var(--sp));font-size:max(10.5px,calc(12*var(--fz)))}.tool-about>summary{cursor:pointer;color:#1f4f9d;font-weight:600;width:max-content;max-width:100%}.tool-about[open]>summary{margin-bottom:calc(3*var(--sp))}.tool-about .tool-pane-works{margin-top:0}
-body.on-migration .hero{display:none}
 /* An empty screen says what it is for and offers the next step. */
 .err-help{margin:calc(4*var(--sp)) 0 2px;padding:calc(6*var(--sp)) calc(9*var(--sp));border-left:3px solid #c0392b;background:#fff6f5;border-radius:0 6px 6px 0;font-size:max(10.5px,calc(12*var(--fz)));color:#3b2420;line-height:1.4}.err-help strong{color:#8f1d14}.err-help .err-fix{display:block;margin-top:calc(5*var(--sp));min-height:0;padding:calc(3*var(--sp)) calc(10*var(--sp))}
 .mp-err.explained,.xfer-error.explained,.as-reason.explained{font-size:max(10.5px,calc(11*var(--fz)));color:#6b4a46}
@@ -838,7 +858,7 @@ body.on-migration .hero{display:none}
 @media(max-height:720px){
  .topbar,.topbar-inner{height:46px}.topbar{flex-basis:46px}.brand-subtitle{display:none}.brand-title{font-size:15px}
  .brand-mark,.brand-mark img{width:28px;height:28px}.brand-mark{flex-basis:28px;margin-right:9px}.help-button{height:28px}.help-list{top:33px}
- .hero,.footer{display:none}.page{padding-top:8px;padding-bottom:8px}
+ .hero{display:none}.footer{margin-top:4px}.status-note{display:none}.page{padding-top:8px;padding-bottom:6px}
  .app-tabs{margin-bottom:8px}.tab-button{height:34px}.app-notice{margin-bottom:8px;padding:6px 10px}
  .card-header{padding:8px 14px}.card-header .card-subtitle{display:none}.card-body{padding:12px 14px}
  .setup-action-bar{padding:8px 14px}.primary-button{height:36px;box-shadow:none}.secondary-button{min-height:32px}
@@ -864,14 +884,8 @@ body.on-migration .hero{display:none}
 </head>
 <body>
 <div class="shell">
-  <div class="topbar"><div class="topbar-inner">
-    <div class="brand"><div class="brand-mark" aria-hidden="true"><img src="/app-icon.svg?v=327" alt="" width="42" height="42"></div><div><div class="brand-title">Server Inventory and Migration Manager</div><div class="brand-subtitle">Configuration capture, documentation, and recovery assistance</div></div></div>
-    <div class="top-badges"><div class="badge"><span class="badge-dot"></span>Local interface</div><div class="badge" id="elevationBadge">Checking access</div><div class="badge" id="portableEditionBadge">Portable EXE</div></div>
-    <div class="help-menu" id="helpMenu"><button class="help-button" id="helpMenuButton" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="helpMenuList">Help</button><div class="help-list hidden" id="helpMenuList" role="menu" aria-labelledby="helpMenuButton"><button type="button" role="menuitem" id="helpCheckUpdates">Check for updates…</button><button type="button" role="menuitem" id="helpShortcuts">Keyboard shortcuts</button><button type="button" role="menuitem" id="helpSettings">Settings…</button><button type="button" role="menuitem" id="helpAbout">About</button></div></div>
-  </div></div>
 
   <div class="page">
-    <div class="hero"><div><h1>Your server, documented</h1><p>Choose your scope, capture configuration, and explore a complete local report.</p></div><div class="version-block">Interface <strong>v__APP_VERSION__</strong><br>Collector <strong>v__COLLECTOR_VERSION__</strong><br><button class="link-button shortcuts-link" id="shortcutsButton" type="button" aria-haspopup="dialog">Keyboard shortcuts</button></div></div>
 
     <div class="update-banner hidden" id="updateBanner" role="region" aria-label="Application update">
       <div class="update-copy">
@@ -887,12 +901,15 @@ body.on-migration .hero{display:none}
       <div class="update-progress" id="updateProgress"><div class="update-progress-fill" id="updateProgressFill"></div></div>
     </div>
 
+    <div class="tab-row">
     <div class="app-tabs" role="tablist" aria-label="Application sections">
       <button class="tab-button active" id="tabButtonDiscovery" role="tab" aria-controls="tabDiscovery" aria-selected="true" tabindex="0" type="button" data-tab="discovery">Discovery <span class="tab-badge hidden" id="discoveryTabBadge"></span></button>
       <button class="tab-button" id="tabButtonCollection" role="tab" aria-controls="tabCollection" aria-selected="false" tabindex="-1" type="button" data-tab="collection">Collection <span class="tab-badge" id="collectionTabBadge">Ready</span></button>
       <button class="tab-button" id="tabButtonReport" role="tab" aria-controls="tabReport" aria-selected="false" tabindex="-1" type="button" data-tab="report">Report Viewer <span class="tab-badge" id="reportTabBadge">None</span></button>
       <button class="tab-button" id="tabButtonRestore" role="tab" aria-controls="tabRestore" aria-selected="false" tabindex="-1" type="button" data-tab="restore">Restore <span class="tab-badge" id="restoreTabBadge">Ready</span></button>
       <button class="tab-button" id="tabButtonMigration" role="tab" aria-controls="tabMigration" aria-selected="false" tabindex="-1" type="button" data-tab="migration">Migration and replication <span class="tab-badge" id="migrationTabBadge">Ready</span></button>
+    </div>
+    <div class="help-menu" id="helpMenu"><button class="help-button" id="helpMenuButton" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="helpMenuList">Help</button><div class="help-list hidden" id="helpMenuList" role="menu" aria-labelledby="helpMenuButton"><button type="button" role="menuitem" id="helpCheckUpdates">Check for updates…</button><button type="button" role="menuitem" id="helpShortcuts">Keyboard shortcuts</button><button type="button" role="menuitem" id="helpSettings">Settings…</button><button type="button" role="menuitem" id="helpAbout">About</button></div></div>
     </div>
 
     <div class="activity-strip hidden" id="activityStrip" role="status" aria-label="What is moving now"></div>
@@ -1817,7 +1834,7 @@ body.on-migration .hero{display:none}
       </div></div>
     </section>
 
-    <div class="footer">All collection and report viewing remains local to this computer. No server inventory is uploaded by the application.</div>
+    <div class="footer status-bar" role="contentinfo"><span class="brand status-brand"><span class="brand-mark" aria-hidden="true"><img src="/app-icon.svg?v=327" alt="" width="16" height="16"></span><span class="brand-title">Server Inventory and Migration Manager</span></span><span class="status-item" id="statusConnection" title="This window is connected to the application running on this computer. If the application closes, this turns red."><span class="badge-dot"></span>Connected</span><span class="status-item" id="elevationBadge" title="Whether the application runs with administrator rights on this computer">Checking access</span><span class="status-versions">Interface <strong>v__APP_VERSION__</strong> · Collector <strong>v__COLLECTOR_VERSION__</strong></span><span class="status-note">Everything stays on this computer; no server inventory is uploaded.</span><button class="link-button shortcuts-link" id="shortcutsButton" type="button" aria-haspopup="dialog">Keyboard shortcuts</button></div>
   </div>
 </div>
 <dialog class="shortcuts-dialog" id="shortcutsDialog" aria-labelledby="shortcutsTitle">
@@ -1983,7 +2000,7 @@ body.on-migration .hero{display:none}
     byId('updateTitle').textContent='Update action unavailable';
     byId('updateStatus').textContent=message;
   }
-  function showConnectionClosed(){
+  function showConnectionClosed(){var sc=byId('statusConnection');if(sc){sc.classList.add('bad');sc.lastChild.textContent='Disconnected';sc.title='The application on this computer stopped answering. Start it again to reconnect.';}
     quiesceInterface('disconnected');
     notice('This application window is no longer connected. Close it and use the restarted application window.',true);
     byId('updateCheckButton').disabled=true;
@@ -3419,7 +3436,7 @@ body.on-migration .hero{display:none}
         if(saved){applySavedOptions(saved);byId('preferencesStatus').textContent='Saved choices restored';}
       }
     }
-    byId('serverName').textContent=state.computerName||'This server'; byId('adminState').textContent=state.isAdministrator?'Administrator':'Not elevated';byId('elevationBadge').textContent=state.isAdministrator?'Administrator':'Not elevated'; byId('powerShellState').textContent=state.powerShellVersion||'Available';
+    byId('serverName').textContent=state.computerName||'This server'; byId('adminState').textContent=state.isAdministrator?'Administrator':'Not elevated';byId('elevationBadge').textContent=state.isAdministrator?'Administrator':'Not running as administrator';byId('elevationBadge').classList.toggle('warn',!state.isAdministrator);byId('elevationBadge').title=state.isAdministrator?'The application runs with administrator rights on this computer.':'Some collections, restores and migrations need administrator rights. Start the application with Run as administrator.'; byId('powerShellState').textContent=state.powerShellVersion||'Available';
     setConfigDisabled(!!state.running); updateWorkflow(state);
     byId('statusTitle').textContent=state.phase||'Ready'; byId('statusMessage').textContent=state.message||''; byId('currentStep').textContent=state.currentStep||'No active collector.';
     byId('collectionProgress').setAttribute('aria-valuenow',String(state.progress||0));
