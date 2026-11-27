@@ -291,6 +291,8 @@ type application struct {
 	transfers *vmTransferBoard
 	repl      replRuntime
 	servers   asRuntime
+	// rollback is Roll back after a cutover (rollback_windows.go).
+	rollback rbRuntime
 }
 
 func utf16Ptr(value string) *uint16 {
@@ -2414,6 +2416,7 @@ func (a *application) serve(listener net.Listener) error {
 	mux.HandleFunc("/api/vmware/guest/", a.handleVMwareGuest)
 	mux.HandleFunc("/api/vmware/guest-load", a.handleVMwareGuestLoad)
 	mux.HandleFunc("/api/vmware/guest-auto", a.handleGuestAuto)
+	mux.HandleFunc("/api/rollback/", a.handleRollback)
 	mux.HandleFunc("/api/vmware/preflight/", a.handlePreflight)
 	mux.HandleFunc("/api/vmware/guest-auto/", a.handleGuestAuto)
 	mux.HandleFunc("/api/vmware/guest-target", a.handleGuestTarget)

@@ -77,6 +77,7 @@ async function fixture(browser,old=false){
  const uiCalls=[],vddkCalls=[];let vddk={folder:'',ready:false,loaded:false,message:'Off. Copies of running VMware VMs read whole disks through vSphere\'s export when the datastore refuses them.'};const state={ui:{schema:1,confirmStyle:'typed'},status:'idle',phase:'Ready',running:false,computerName:'SRV-DEMO-01',signedInAccount:'EXAMPLE\\operator',isAdministrator:true,powerShellVersion:'5.1',defaultOutputRoot:'C:\\Reports',update:{status:'current',title:'Up to date',message:'Installed v3.2.10. Latest v3.2.10.',canCheck:true},
   restore:{status:'idle',packages:{lastCollection:'',loadedReport:''},items:[],logs:[]},migrate:migrateIdle(),vmware:vmwareIdle(),convert:convertIdle()};
  const vm={inventory:null,plan:null,sizing:null,guest:null,compare:null};
+ const rollbackCalls=[];
  const failover={failovers:[],copies:[{name:'APP01-disk0.vhdx',size:107374182400,complete:true,verified:false,round:'a1@2026-11-25T14:19:23Z',job:'a1',recoveryPoint:'2026-11-25T14:19:23Z',updated:'2026-11-25T14:20:00Z',busy:false,generation:2,machine:{name:'APP01',cpus:6,memoryMB:12288,firmware:'uefi',adapters:2}},{name:'APP01-disk1.vhdx',size:536870912000,complete:true,verified:false,round:'a1@2026-11-25T14:19:23Z',job:'a1',recoveryPoint:'2026-11-25T14:19:23Z',updated:'2026-11-25T14:20:00Z',busy:false,generation:1},{name:'SQL01-disk0.vhdx',size:107374182400,complete:false,verified:false,updated:'2026-11-25T14:20:00Z',busy:true,generation:1}]};
  const targetTest={running:false,log:[],error:'',tests:[]};
  const repl={ok:true,pushing:false,pushLog:[],pushResults:null,serial:0,isAdministrator:true,defaultPort:44390,agents:[],summary:{agents:0,unreachable:0,jobs:0,healthy:0,behind:0,failing:0,paused:0,cutOver:0,alerts:0}};
@@ -256,6 +257,14 @@ async function fixture(browser,old=false){
   }
   if(url.pathname==='/api/output-root'){let body='';for await(const chunk of req)body+=chunk;const data=JSON.parse(body);outputRootCalls.push(data);if(data.outputRoot==='Q:\\NoSuchDrive'){send(400,{ok:false,error:'Reports cannot be saved there: synthetic failure.'});return;}state.defaultOutputRoot=data.outputRoot;send(200,{ok:true,outputRoot:data.outputRoot,saved:true});return;}
   if(url.pathname==='/api/pick'){let body='';for await(const chunk of req)body+=chunk;const data=JSON.parse(body);pickCalls.push(data);if(pickReject){send(400,{ok:false,error:pickReject});return;}send(200,{ok:true,selected:true,path:data.kind==='remote'?'C:\\ClusterStorage\\Volume1\\Picked':data.kind==='file'?'E:\\Media\\receiver.iso':'E:\\Picked'});return;}
+  if(url.pathname.startsWith('/api/rollback/')){
+   if(req.headers['x-app-token']!=='workspace-test'){send(403,{});return;}
+   const action=url.pathname.slice('/api/rollback/'.length);
+   if(action==='guides'){send(200,{ok:true,guides:[{id:'movevms',title:'Move VMs, Migration plans and New migration (VMware or Hyper-V to Hyper-V)',automatic:'yes',covers:'VMware and Hyper-V VMs moved to Hyper-V.',steps:['Use Roll back beside the VM below.'],warnings:['Anything written on the new machine since the cutover is not on the old one.']},{id:'shares',title:'Move file shares',automatic:'partly',covers:'Shares moved to a new file server.',steps:['In Move file shares, use Undo read-only on the old server.','Point users back to the old server.'],warnings:[]}]});return;}
+   let body='';for await(const chunk of req)body+=chunk;const data=JSON.parse(body||'{}');rollbackCalls.push({action,body:data});
+   if(action==='run'){const rb=state.vmware.rollback,r=rb&&rb.records.find(x=>x.id===data.id);if(r&&r.dc&&!data.dcConfirmed){send(400,{ok:false,error:'Tick the box to confirm you understand the domain controller warning.'});return;}if(r){r.state='running';rb.running=r.id;rb.serial++;}send(202,{ok:true});return;}
+   send(200,{ok:true});return;
+  }
   if(url.pathname==='/api/open'){let body='';for await(const chunk of req)body+=chunk;opens.push(JSON.parse(body).kind);send(200,{ok:true});return;}
   if(url.pathname==='/report/current'){res.writeHead(200,{'Content-Type':'text/html'});res.end('<!DOCTYPE html><html><head><title>Synthetic</title></head><body><div class="report-content"><section class="report-section active" id="s1"><p>alpha one</p><p>beta</p><p>alpha two</p><p>alpha three</p></section></div></body></html>');return;}
   if(url.pathname==='/api/skip-acl-export'){let body='';for await(const chunk of req)body+=chunk;skipRequests.push(JSON.parse(body));state.aclExport.skipRequested=true;send(202,{ok:true});return;}
@@ -268,7 +277,7 @@ async function fixture(browser,old=false){
  const url='http://127.0.0.1:'+server.address().port+'/';
  // A fixture that fails to load closes its own server and context; otherwise Node never exits and the job hangs until its timeout.
  try{await page.goto(url);await page.waitForFunction(()=>document.querySelector('#serverName').textContent==='SRV-DEMO-01');}catch(e){await context.close().catch(()=>{});server.close();throw new Error('Fixture page did not load ('+errors.concat(dialogs).join('; ')+'): '+e.message);}
- return {page,context,state,uiCalls,vddkCalls,pickCalls,outputRootCalls,rejectPick(message){pickReject=message},vm,repl,plans,planCalls,servers,serverCalls,failover,receiverPair,targetTest,replCalls,vmwareCalls,convertCalls,rejectConvert(action,message){convertReject[action]=message},setConvertSize(size){convertSize=size},rejectVmware(action,message){vmwareReject[action]=message},logs,dialogs,errors,started,skipRequests,opens,restoreCalls,migrateCalls,rejectMigrate(action,message){migrateReject[action]=message},rejectRestore(message){restoreReject=message},get saved(){return saved},get saveCalls(){return saveCalls},reject(){rejectStart=true},async close(){assert.deepEqual(errors,[]);await context.close();await new Promise(r=>server.close(r));}};
+ return {page,context,state,rollbackCalls,uiCalls,vddkCalls,pickCalls,outputRootCalls,rejectPick(message){pickReject=message},vm,repl,plans,planCalls,servers,serverCalls,failover,receiverPair,targetTest,replCalls,vmwareCalls,convertCalls,rejectConvert(action,message){convertReject[action]=message},setConvertSize(size){convertSize=size},rejectVmware(action,message){vmwareReject[action]=message},logs,dialogs,errors,started,skipRequests,opens,restoreCalls,migrateCalls,rejectMigrate(action,message){migrateReject[action]=message},rejectRestore(message){restoreReject=message},get saved(){return saved},get saveCalls(){return saveCalls},reject(){rejectStart=true},async close(){assert.deepEqual(errors,[]);await context.close();await new Promise(r=>server.close(r));}};
 }
 // Tools live in two tabs: Discovery (Alt+1) and Migration and replication (Alt+5).
 const discoveryTools=['server','environment'];
@@ -2232,6 +2241,49 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   for(const size of [{width:1008,height:690}]){await f.page.setViewportSize(size);await f.page.locator('#helpMenuButton').click();await f.page.locator('#helpSettings').click();
    assert(await f.page.evaluate(()=>{const d=document.querySelector('#settingsDialog').getBoundingClientRect();return d.bottom<=innerHeight&&d.right<=innerWidth;}),'Settings fits at 1024x768');await f.page.locator('#settingsClose').click();}
   assert.deepEqual(f.errors,[]);assert.deepEqual(f.dialogs,[]);
+ }finally{await f.close();}});
+ await check('Roll back: every cutover is listed with its window, the dialog turns the new VM off first, warns about lost data, asks for a vCenter sign-in when needed, a domain controller needs its own tick, and every other way of moving has its steps',async()=>{const f=await fixture(browser);try{
+  const planned=[{key:'stop',title:'Shut the new VM down'},{key:'check',title:'Check the new VM is off'},{key:'network',title:'Put the adapters back'},{key:'start',title:'Start the old VM'}];
+  const base={method:'move',cutoverAt:'2026-11-27T08:00:00Z',state:'ready',planned,window:'Roll back works as long as the old VM stays in vcenter.example.com with its disks.',dataWarning:'Anything written on the new VM since the cutover 2026-11-27 08:00 UTC (3 hours ago) is not on the old one.'};
+  f.state.vmware.rollback={running:'',serial:1,records:[
+   Object.assign({},base,{id:'r1',name:'APP01',source:{kind:'vmware',server:'vcenter.example.com',vmId:'vm-42',name:'APP01',adapterRecord:'C:\\rec\\APP01-adapters.json'},new:{kind:'hyperv',id:'6f1c7a3e-1b2c-4d5e-8f90-0a1b2c3d4e5f',name:'APP01'}}),
+   Object.assign({},base,{id:'r2',name:'DC01',dc:true,dcWarning:'This is a domain controller. Starting the old copy can cause USN rollback.',source:{kind:'vmware',server:'vcenter.example.com',vmId:'vm-7',name:'DC01'},new:{kind:'hyperv',id:'7f1c7a3e-1b2c-4d5e-8f90-0a1b2c3d4e5f',name:'DC01',host:'HV02'}}),
+   Object.assign({},base,{id:'r3',name:'FILE01',method:'copies',state:'done',finished:'2026-11-27T09:00:00Z',message:'FILE01 is rolled back.',steps:[{key:'stop',title:'Shut the new VM down',state:'ok'},{key:'agent',title:'Ask the agent',state:'ok'}],logPath:'C:\\x\\r3.log',source:{kind:'agent',name:'FILE01',job:'j1'},new:{kind:'hyperv',id:'8f1c7a3e-1b2c-4d5e-8f90-0a1b2c3d4e5f',name:'FILE01'}})]};
+  await goTool(f,'rollback');
+  await f.page.waitForFunction(()=>document.querySelectorAll('#rbList .rb-item').length===3);
+  assert.equal(await f.page.locator('#rollbackBadge').textContent(),'2');
+  assert((await f.page.locator('[data-rb-item="r1"]').textContent()).includes('stays in vcenter.example.com'));
+  assert.equal(await f.page.locator('[data-rb-item="r3"] [data-rb-open]').count(),0,'a rolled back VM has no Roll back button');
+  await f.page.locator('[data-rb-item="r3"] [data-rb-log]').click();await f.page.waitForFunction(()=>true);
+  await f.page.waitForTimeout(300);assert.deepEqual(f.opens.slice(-1),['rollbacklog:r3']);
+  // Every other way of moving has its steps.
+  await f.page.waitForFunction(()=>document.querySelectorAll('#rbMethod option').length===2);
+  await f.page.selectOption('#rbMethod','shares');assert((await f.page.locator('#rbGuide').textContent()).includes('Undo read-only'));
+  // The dialog: not signed in to vCenter, so the sign-in shows and Roll back waits.
+  await f.page.locator('[data-rb-item="r1"] [data-rb-open]').click();
+  await f.page.waitForFunction(()=>document.querySelector('#rbDialog').open);
+  assert((await f.page.locator('#rbDialogData').textContent()).includes('is not on the old one'));
+  const steps=await f.page.locator('#rbDialogSteps li').allTextContents();assert(steps[0].startsWith('Shut the new VM APP01 down')&&steps[1].startsWith('Read the new VM again'),steps.join('|'));
+  assert(await f.page.locator('#rbDialogDC').isHidden());
+  assert(await f.page.locator('#rbSignIn').isVisible());assert(await f.page.locator('#rbDialogGo').isDisabled());
+  Object.assign(f.state.vmware,{server:'vcenter.example.com',account:'EXAMPLE\\operator',canPrepare:true});
+  await f.page.waitForFunction(()=>document.querySelector('#rbSignIn').classList.contains('hidden'),null,{timeout:10000});
+  await f.page.locator('#rbConfirmInput').fill('APP0');assert(await f.page.locator('#rbDialogGo').isDisabled());
+  await f.page.locator('#rbConfirmInput').fill('APP01');await f.page.locator('#rbTurnOff').uncheck();
+  assert(!(await f.page.locator('#rbDialogSteps li').first().textContent()).includes('turning it off'));
+  await f.page.locator('#rbDialogGo').click();
+  await f.page.waitForFunction(()=>!document.querySelector('#rbDialog').open);
+  assert.deepEqual(f.rollbackCalls.filter(c=>c.action==='run').map(c=>c.body),[{turnOff:false,reconnect:true,start:true,dcConfirmed:false,id:'r1',confirm:'APP01'}]);
+  await f.page.waitForFunction(()=>(document.querySelector('[data-rb-item="r1"]')||{}).className==='rb-item running',null,{timeout:10000});
+  // A domain controller needs its own tick, whatever the confirmation style.
+  await f.page.locator('[data-rb-item="r2"] [data-rb-open]').click();await f.page.waitForFunction(()=>document.querySelector('#rbDialog').open);
+  assert(await f.page.locator('#rbDialogDC').isVisible());assert((await f.page.locator('#rbDialogDCText').textContent()).includes('USN rollback'));
+  await f.page.locator('#rbConfirmInput').fill('DC01');assert(await f.page.locator('#rbDialogGo').isDisabled(),'the domain controller tick is required');
+  await f.page.locator('#rbDCTick').check();assert(await f.page.locator('#rbDialogGo').isEnabled());
+  assert((await f.page.locator('#rbDialogSteps li').first().textContent()).includes('on HV02'));
+  await f.page.locator('#rbDialogCancel').click();assert(!(await f.page.evaluate(()=>document.querySelector('#rbDialog').open)));
+  assert.equal(f.rollbackCalls.filter(c=>c.action==='run').length,1);
+  assert.deepEqual(f.dialogs,[]);
  }finally{await f.close();}});
  await check('All jobs and servers: one list of every method with clickable tiles, live progress, Select by, bulk cutover in waves with the typed count, jobs to this Hyper-V host without a receiver to set up, agent installs, and task rows that open their tool',async()=>{const f=await fixture(browser);try{
   const now=new Date(),iso=d=>new Date(d).toISOString(),ago=m=>iso(now.getTime()-m*60000);

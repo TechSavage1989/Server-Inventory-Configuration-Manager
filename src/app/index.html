@@ -359,6 +359,15 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
 .restore-alert{margin-top:calc(12*var(--sp));padding:calc(10*var(--sp)) calc(12*var(--sp));border-radius:8px;font-size:max(10.5px,calc(12*var(--fz)));border:1px solid #f0cf8a;background:#fff9ea;color:#74551f}
 .restore-alert.danger{border-color:#f0b4b4;background:#fff2f2;color:#8c2626}.restore-alert.ok{border-color:#a9ddbf;background:#effaf3;color:#1d6b43}
 .restore-alert strong{font-weight:700}
+.rb-body{display:flex;flex-direction:column;gap:calc(10*var(--sp))}.rb-heading{margin:calc(8*var(--sp)) 0 0;font-size:max(10.5px,calc(14*var(--fz)));color:#23334b}
+.rb-list{display:flex;flex-direction:column;gap:calc(8*var(--sp))}.rb-item{border:1px solid #dbe3ed;border-radius:8px;padding:calc(10*var(--sp)) calc(12*var(--sp));background:#fff}.rb-item.done{background:#f6fbf8}.rb-item.failed,.rb-item.partial{border-color:#f0cf8a}
+.rb-item-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:calc(6*var(--sp)) calc(10*var(--sp))}.rb-item-head strong{font-size:max(10.5px,calc(14*var(--fz)))}
+.rb-line{margin-top:calc(5*var(--sp));font-size:max(10.5px,calc(12.5*var(--fz)));color:#3d4d63;overflow-wrap:anywhere}.rb-window{color:#52647c}
+.rb-steps{margin:calc(6*var(--sp)) 0 0;padding-left:calc(20*var(--sp));font-size:max(10.5px,calc(12.5*var(--fz)));line-height:1.45}.rb-steps li{margin:calc(3*var(--sp)) 0}.rb-steps li.ok{color:#1d6b43}.rb-steps li.failed{color:#8c2626}.rb-steps li.manual,.rb-steps li.skipped{color:#7a5a12}
+.rb-guide-pick{display:flex;flex-wrap:wrap;gap:calc(6*var(--sp)) calc(10*var(--sp));align-items:center}.rb-guide-pick select{min-width:0;max-width:100%}.rb-guide{border:1px solid #dbe3ed;border-radius:8px;padding:calc(10*var(--sp)) calc(12*var(--sp))}
+.rb-slot{display:inline-flex;gap:6px;align-items:center;margin-left:6px}.rb-slot:empty{display:none}.vm-move .rb-slot,.vm-move-target .rb-slot{display:flex;margin:calc(8*var(--sp)) 0 0}
+.rb-dialog .rb-order{margin:calc(10*var(--sp)) 0 0;font-weight:600}.rb-dialog .rb-window{font-size:max(10.5px,calc(12.5*var(--fz)))}.rb-options{margin-top:calc(8*var(--sp));padding-top:calc(6*var(--sp));border-top:1px solid #e3e8f0}
+.rb-signin{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:calc(10*var(--sp));padding:calc(8*var(--sp));border:1px solid #f0cf8a;border-radius:8px;background:#fff9ea}.rb-signin input{min-width:0;flex:1 1 140px}
 .restore-components{margin-top:calc(14*var(--sp));display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:calc(10*var(--sp))}
 .restore-component{border:1px solid #dbe3ed;border-radius:10px;padding:calc(11*var(--sp)) calc(12*var(--sp));background:#fff;min-width:0}
 .restore-component.selected{border-color:#a6c3f1;background:#f7faff}.restore-component.unavailable{background:#f8fafc}
@@ -1013,7 +1022,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     </section>
 
     <section class="tab-panel" id="tabMigration" role="tabpanel" aria-labelledby="tabButtonMigration">
-      <div class="tool-layout"><nav class="tool-nav" id="migrationNav" aria-label="Migration and replication tools"><div class="tool-group"><div class="tool-group-title">Start here</div><button class="tool-item tool-guide tool-wizard" type="button" data-tool="wizard" aria-pressed="false"><span class="tool-name">New migration</span><span class="tool-desc">Pick what you are moving, where it goes and when, on one set of screens. Start it and watch it here, or follow the steps for any other way.</span><span class="tool-runs"><b>Runs on</b> the Hyper-V host that will run the VMs</span></button><button class="tool-item" type="button" data-tool="servers" aria-pressed="false"><span class="tool-name">All jobs and servers<span class="tab-badge tool-badge hidden" id="serversBadge"></span></span><span class="tool-desc">Every server, VM and job being moved, replicated, converted or restored, with live status. Act on many at once.</span><span class="tool-runs"><b>Runs on</b> your admin computer, or the Hyper-V host for plans and tests</span></button></div><div class="tool-section-title" id="toolsAdvancedTitle">Tools (advanced): each part on its own</div><div class="tool-group"><div class="tool-group-title">Plan</div><button class="tool-item" type="button" data-tool="plan" aria-pressed="false"><span class="tool-name">Plan and runbook</span><span class="tool-desc">Waves, network map and the runbook (HTML and Word).</span><span class="tool-runs"><b>Runs on</b> your admin computer</span></button><button class="tool-item" type="button" data-tool="hvbuild" aria-pressed="false"><span class="tool-name">Build Hyper-V hosts<span class="tab-badge tool-badge hidden" id="hvbuildBadge"></span></span><span class="tool-desc">Set up Hyper-V, switches, storage and a failover cluster from the VMware data.</span><span class="tool-runs"><b>Runs on</b> your admin computer, changing the new Hyper-V nodes</span></button></div><div class="tool-group"><div class="tool-group-title">Move servers</div><button class="tool-item" type="button" data-tool="movevms" aria-pressed="false"><span class="tool-name">Move VMs<span class="tab-badge tool-badge" id="movevmsBadge">Ready</span></span><span class="tool-desc">VMware or Hyper-V VMs, nothing installed in them. Copy, then cut over.</span><span class="tool-runs"><b>Runs on</b> the Hyper-V host or your admin computer</span></button><button class="tool-item" type="button" data-tool="plans" aria-pressed="false"><span class="tool-name">Migration plans<span class="tab-badge tool-badge hidden" id="plansBadge"></span></span><span class="tool-desc">Many VMs at once: scheduled seeding, automatic syncs, test and scheduled cutover.</span><span class="tool-runs"><b>Runs on</b> the Hyper-V host that will run the VMs</span></button><button class="tool-item" type="button" data-tool="replicate" aria-pressed="false"><span class="tool-name">Replicate servers<span class="tab-badge tool-badge" id="replicationTabBadge">Ready</span></span><span class="tool-desc">Any Windows or Linux server, physical or virtual, kept in sync by an agent until cutover.</span><span class="tool-runs"><b>Runs on</b> your admin computer; agent on each source server</span></button><button class="tool-item" type="button" data-tool="diskcopy" aria-pressed="false"><span class="tool-name">Receive and send disks<span class="tab-badge tool-badge" id="diskcopyBadge">Ready</span></span><span class="tool-desc">The receiver every copy goes to, and Send by hand without the agent.</span><span class="tool-runs"><b>Runs on</b> the receiving computer; Send inside the source</span></button><button class="tool-item" type="button" data-tool="failover" aria-pressed="false"><span class="tool-name">Start VMs from copies</span><span class="tool-desc">Test failover or the production VM on Hyper-V.</span><span class="tool-runs"><b>Runs on</b> the Hyper-V host receiving the copies</span></button><button class="tool-item" type="button" data-tool="shares" aria-pressed="false"><span class="tool-name">Move file shares<span class="tab-badge tool-badge" id="migrateTabBadge">Ready</span></span><span class="tool-desc">Shares, files and permissions from an old file server.</span><span class="tool-runs"><b>Runs on</b> the new file server, or any admin computer</span></button></div><div class="tool-group"><div class="tool-group-title">Disks</div><button class="tool-item" type="button" data-tool="convert" aria-pressed="false"><span class="tool-name">Convert disk images<span class="tab-badge tool-badge" id="convertTabBadge">Ready</span></span><span class="tool-desc">VMDK, VHD(X), qcow2, raw: convert, fix up drivers, send to a host, P2V.</span><span class="tool-runs"><b>Runs on</b> any Windows computer that reaches the files</span></button></div><div class="tool-group"><div class="tool-group-title">Inside the machine</div><button class="tool-item" type="button" data-tool="guest" aria-pressed="false"><span class="tool-name">Prepare and fix up</span><span class="tool-desc">Record settings before the move; fix the machine up after it, from outside.</span><span class="tool-runs"><b>Runs on</b> the Hyper-V host or admin computer; nothing in the machine</span></button><button class="tool-item" type="button" data-tool="compare" aria-pressed="false"><span class="tool-name">Compare before and after</span><span class="tool-desc">What changed between two inventories.</span><span class="tool-runs"><b>Runs on</b> any computer</span></button></div></nav>
+      <div class="tool-layout"><nav class="tool-nav" id="migrationNav" aria-label="Migration and replication tools"><div class="tool-group"><div class="tool-group-title">Start here</div><button class="tool-item tool-guide tool-wizard" type="button" data-tool="wizard" aria-pressed="false"><span class="tool-name">New migration</span><span class="tool-desc">Pick what you are moving, where it goes and when, on one set of screens. Start it and watch it here, or follow the steps for any other way.</span><span class="tool-runs"><b>Runs on</b> the Hyper-V host that will run the VMs</span></button><button class="tool-item" type="button" data-tool="servers" aria-pressed="false"><span class="tool-name">All jobs and servers<span class="tab-badge tool-badge hidden" id="serversBadge"></span></span><span class="tool-desc">Every server, VM and job being moved, replicated, converted or restored, with live status. Act on many at once.</span><span class="tool-runs"><b>Runs on</b> your admin computer, or the Hyper-V host for plans and tests</span></button><button class="tool-item" type="button" data-tool="rollback" aria-pressed="false"><span class="tool-name">Roll back<span class="tab-badge tool-badge hidden" id="rollbackBadge"></span></span><span class="tool-desc">The migrated server does not work? Turn the new VM off and start the original again, or follow the steps for any other way of moving.</span><span class="tool-runs"><b>Runs on</b> the Hyper-V host or admin computer that cut it over</span></button></div><div class="tool-section-title" id="toolsAdvancedTitle">Tools (advanced): each part on its own</div><div class="tool-group"><div class="tool-group-title">Plan</div><button class="tool-item" type="button" data-tool="plan" aria-pressed="false"><span class="tool-name">Plan and runbook</span><span class="tool-desc">Waves, network map and the runbook (HTML and Word).</span><span class="tool-runs"><b>Runs on</b> your admin computer</span></button><button class="tool-item" type="button" data-tool="hvbuild" aria-pressed="false"><span class="tool-name">Build Hyper-V hosts<span class="tab-badge tool-badge hidden" id="hvbuildBadge"></span></span><span class="tool-desc">Set up Hyper-V, switches, storage and a failover cluster from the VMware data.</span><span class="tool-runs"><b>Runs on</b> your admin computer, changing the new Hyper-V nodes</span></button></div><div class="tool-group"><div class="tool-group-title">Move servers</div><button class="tool-item" type="button" data-tool="movevms" aria-pressed="false"><span class="tool-name">Move VMs<span class="tab-badge tool-badge" id="movevmsBadge">Ready</span></span><span class="tool-desc">VMware or Hyper-V VMs, nothing installed in them. Copy, then cut over.</span><span class="tool-runs"><b>Runs on</b> the Hyper-V host or your admin computer</span></button><button class="tool-item" type="button" data-tool="plans" aria-pressed="false"><span class="tool-name">Migration plans<span class="tab-badge tool-badge hidden" id="plansBadge"></span></span><span class="tool-desc">Many VMs at once: scheduled seeding, automatic syncs, test and scheduled cutover.</span><span class="tool-runs"><b>Runs on</b> the Hyper-V host that will run the VMs</span></button><button class="tool-item" type="button" data-tool="replicate" aria-pressed="false"><span class="tool-name">Replicate servers<span class="tab-badge tool-badge" id="replicationTabBadge">Ready</span></span><span class="tool-desc">Any Windows or Linux server, physical or virtual, kept in sync by an agent until cutover.</span><span class="tool-runs"><b>Runs on</b> your admin computer; agent on each source server</span></button><button class="tool-item" type="button" data-tool="diskcopy" aria-pressed="false"><span class="tool-name">Receive and send disks<span class="tab-badge tool-badge" id="diskcopyBadge">Ready</span></span><span class="tool-desc">The receiver every copy goes to, and Send by hand without the agent.</span><span class="tool-runs"><b>Runs on</b> the receiving computer; Send inside the source</span></button><button class="tool-item" type="button" data-tool="failover" aria-pressed="false"><span class="tool-name">Start VMs from copies</span><span class="tool-desc">Test failover or the production VM on Hyper-V.</span><span class="tool-runs"><b>Runs on</b> the Hyper-V host receiving the copies</span></button><button class="tool-item" type="button" data-tool="shares" aria-pressed="false"><span class="tool-name">Move file shares<span class="tab-badge tool-badge" id="migrateTabBadge">Ready</span></span><span class="tool-desc">Shares, files and permissions from an old file server.</span><span class="tool-runs"><b>Runs on</b> the new file server, or any admin computer</span></button></div><div class="tool-group"><div class="tool-group-title">Disks</div><button class="tool-item" type="button" data-tool="convert" aria-pressed="false"><span class="tool-name">Convert disk images<span class="tab-badge tool-badge" id="convertTabBadge">Ready</span></span><span class="tool-desc">VMDK, VHD(X), qcow2, raw: convert, fix up drivers, send to a host, P2V.</span><span class="tool-runs"><b>Runs on</b> any Windows computer that reaches the files</span></button></div><div class="tool-group"><div class="tool-group-title">Inside the machine</div><button class="tool-item" type="button" data-tool="guest" aria-pressed="false"><span class="tool-name">Prepare and fix up</span><span class="tool-desc">Record settings before the move; fix the machine up after it, from outside.</span><span class="tool-runs"><b>Runs on</b> the Hyper-V host or admin computer; nothing in the machine</span></button><button class="tool-item" type="button" data-tool="compare" aria-pressed="false"><span class="tool-name">Compare before and after</span><span class="tool-desc">What changed between two inventories.</span><span class="tool-runs"><b>Runs on</b> any computer</span></button></div></nav>
       <div class="tool-host" id="migrationHost"><div class="tool-current" id="migrationCurrent"></div>
     <section class="tool-pane" id="tabWizard" aria-labelledby="nwTitle">
       <div class="restore-wrap"><div class="card">
@@ -1552,6 +1561,20 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
         </div>
       </div></div>
     </section>
+    <section class="tool-pane" id="tabRollback" aria-label="Roll back">
+      <div class="restore-wrap"><div class="card">
+        <div class="card-header"><div><div class="card-title">Roll back</div><div class="card-subtitle">Bring the original server back when the migrated one does not work. The new VM is shut down and disconnected first, and only once it is confirmed off does the original start again, with its own disks, addresses and network.</div></div></div>
+        <div class="card-body rb-body">
+          <div class="migrate-help"><strong>Why the original still works.</strong> A cutover only shuts the original down (through VMware Tools or the Hyper-V shutdown service) and, when ticked, sets its network adapters to not connect so it cannot clash with the new VM. Nothing else about it changes: it is not renamed, annotated, deleted or edited inside, and its disks stay where they were. The IP settings, VMware Tools removal and other fix-ups happen only in the new VM. Roll back puts the adapters back exactly as they were and starts it. Nothing is deleted: the new VM stays for review.</div>
+          <div class="restore-alert danger hidden" id="rbError" role="alert"></div>
+          <h3 class="rb-heading">Cutovers you can roll back</h3>
+          <div class="rb-list" id="rbList" aria-live="polite"></div>
+          <h3 class="rb-heading">Every way of moving</h3>
+          <div class="rb-guide-pick"><label for="rbMethod">How was it moved?</label><select id="rbMethod"></select></div>
+          <div class="rb-guide" id="rbGuide"></div>
+        </div>
+      </div></div>
+    </section>
     <section class="tool-pane" id="tabServers" aria-label="All jobs and servers">
       <div class="restore-wrap"><div class="card">
         <div class="card-header"><div><div class="card-title">All jobs and servers</div><div class="card-subtitle">Everything this console moves, replicates, converts or restores, in one list: agent replication jobs, Migration plans, Move VMs copies, disk conversions, restores and file share moves, servers with the agent but no job, and the VMs of the inventory read in Discovery that nothing moves yet. Tick as many as you like and act on them together; Open takes you to the tool with that job's own settings.</div></div></div>
@@ -1815,6 +1838,27 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   </div>
   <div class="restore-dialog-actions"><button class="secondary-button" id="migrateDialogCancel" type="button">Cancel</button><button class="primary-button danger-primary" id="migrateConfirmButton" type="button" disabled>Confirm</button></div>
 </dialog>
+<dialog class="shortcuts-dialog restore-dialog rb-dialog" id="rbDialog" aria-labelledby="rbDialogTitle">
+  <div class="shortcuts-head"><h2 id="rbDialogTitle">Roll back</h2></div>
+  <div class="restore-dialog-body">
+    <div class="restore-alert" id="rbDialogData"></div>
+    <div class="restore-alert danger hidden" id="rbDialogDC"><div id="rbDialogDCText"></div><label class="cfm-tick"><input type="checkbox" id="rbDCTick"><span>I understand this is a domain controller and the risk of USN rollback</span></label></div>
+    <p class="rb-window" id="rbDialogWindow"></p>
+    <p class="rb-order">In this order:</p>
+    <ol class="rb-steps" id="rbDialogSteps"></ol>
+    <div class="rb-options">
+      <label class="cfm-tick"><input type="checkbox" id="rbTurnOff" checked><span>Turn the new VM off if it has not shut down in 10 minutes</span></label>
+      <label class="cfm-tick" id="rbReconnectRow"><input type="checkbox" id="rbReconnect" checked><span>Put the original's network adapters back as they were</span></label>
+      <label class="cfm-tick"><input type="checkbox" id="rbStart" checked><span id="rbStartLabel">Start the original</span></label>
+    </div>
+    <div class="rb-signin hidden" id="rbSignIn"><span id="rbSignInText"></span><input type="text" id="rbSignInUser" autocomplete="off" spellcheck="false" aria-label="Account"><input type="password" id="rbSignInPassword" autocomplete="off" aria-label="Password"><button class="secondary-button" id="rbSignInGo" type="button">Sign in</button><span class="migrate-inline-status" id="rbSignInStatus"></span></div>
+    <label class="restore-confirm-label hidden" for="rbConfirmInput" id="rbConfirmLabel">Type the name to confirm</label>
+    <input class="restore-confirm-input hidden" id="rbConfirmInput" type="text" autocomplete="off" spellcheck="false">
+    <label class="cfm-tick hidden" id="rbConfirmTickRow"><input type="checkbox" id="rbConfirmTick"><span id="rbConfirmTickLabel">I understand</span></label>
+    <div class="restore-dialog-error hidden" id="rbDialogError" role="alert"></div>
+  </div>
+  <div class="restore-dialog-actions"><button class="secondary-button" id="rbDialogCancel" type="button">Cancel</button><button class="primary-button danger-primary" id="rbDialogGo" type="button" disabled>Roll back</button></div>
+</dialog>
 <dialog class="shortcuts-dialog restore-dialog cfm-dialog" id="cfmDialog" aria-labelledby="cfmDialogTitle">
   <div class="shortcuts-head"><h2 id="cfmDialogTitle">Are you sure?</h2></div>
   <div class="restore-dialog-body"><div id="cfmDialogText"></div><p class="cfm-hint">You can change how actions are confirmed in Help, Settings.</p></div>
@@ -1975,6 +2019,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     movevms:{tab:'migration',pane:'tabVmware',view:'env',legacy:'vmware',title:'Move VMs',subtitle:'Copy a VMware or Hyper-V VM while it runs, as often as you like, then cut over: the guest is shut down, the last changes are copied and verified, and the new VM is created. Nothing is installed in the VM.',runs:'the Hyper-V host when moving to Hyper-V, or your admin computer connected to it; your admin computer for HyperCore, Nutanix, Proxmox and physical servers.'},
     wizard:{tab:'migration',pane:'tabWizard',legacy:'wizard'},
     servers:{tab:'migration',pane:'tabServers',legacy:'servers'},
+    rollback:{tab:'migration',pane:'tabRollback',legacy:'rollback'},
     replicate:{tab:'migration',pane:'tabReplication',legacy:'replication'},
     plans:{tab:'migration',pane:'tabPlans',legacy:'plans'},
     diskcopy:{tab:'migration',pane:'tabVmware',view:'disks',legacy:'vmware',title:'Receive and send disks',subtitle:'Set up the receiver that every copy goes to, or send one machine\'s disks by hand without the replication agent.',runs:'Receive and receiver media on the computer getting the disks; Send inside the machine being moved.'},
@@ -2006,6 +2051,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     hvbuild:{works:'New Hyper-V hosts on Windows Server 2012 R2 to 2025, standalone or a failover cluster with iSCSI or Fibre Channel storage, planned from a vCenter or ESXi 6.5 to 8.0 inventory (or typed in)',when:'the new Hyper-V hosts are installed with Windows Server and joined to the domain, and you want them set up like the VMware hosts before moving VMs to them',tags:['hyperv']},
     servers:{works:'Agent replication jobs (Windows and Linux, physical or virtual), Migration plans and Move VMs copies from VMware or Hyper-V, and the VMs of the inventory read in Discovery',when:'you move or replicate many servers and want one list of their status, or the same action on many at once',tags:['agent','agentless']},
     failover:{works:'Copies received on a Hyper-V host from Move VMs, Replicate servers or Send',tags:['hyperv']},
+    rollback:{works:'Built in for Move VMs, Migration plans and New migration (VMware or Hyper-V to this Hyper-V host or a remote host or cluster), moves to HyperCore, Nutanix AHV or Proxmox VE, and production VMs started from agent replication copies; steps for P2V, V2P, conversions, file shares, restores and rebuilt hosts',when:'a migrated server does not work after its cutover and you need the original back',tags:[]},
     guest:{works:'Windows Server 2008 R2 and later, and Windows clients, on any platform: from vCenter, PowerShell Direct, PowerShell remoting, or inside the machine as a fallback',tags:['agentless']},
     compare:{works:'Two inventories collected by this application',tags:['readonly']}
   };
@@ -2065,6 +2111,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     renderToolWorks(id);
     if(id==='plans'){mpOpen();}
     if(id==='servers'){asOpen();}
+    if(id==='rollback'){rbOpen();}
     if(id==='wizard'){nwOpen();}
   }
   function getCheckedValues(selector){ var nodes=document.querySelectorAll(selector+':checked'), out=[]; for(var i=0;i<nodes.length;i++){out.push(nodes[i].value);} return out; }
@@ -3256,6 +3303,133 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   }
   function setToolBadge(id,text){var b=byId(id);b.textContent=text||'';b.classList.toggle('hidden',!text);}
   function markIdleBadges(){var badges=document.querySelectorAll('.tab-badge');for(var i=0;i<badges.length;i++){var text=badges[i].textContent;if(text==='Ready'||text==='None'){badges[i].setAttribute('data-idle','');}else{badges[i].removeAttribute('data-idle');}}}
+  // Roll back (rule 62): every cutover this computer made, and the steps for
+  // every other way of moving. The dialog always opens, because it lists
+  // what changes; the confirmation inside follows Help > Settings, and a
+  // domain controller always needs its own tick.
+  var rbGuidesList=null,rbDialogRec=null,rbBusy=false,rbGuideChoice='';
+  function rbStateNow(){var v=vmwareState();return (v&&v.rollback)||{records:[]};}
+  function rbFind(id){return vmArr(rbStateNow().records).filter(function(r){return r.id===id;})[0]||null;}
+  function rbFor(name){var n=String(name||'').toLowerCase();return vmArr(rbStateNow().records).filter(function(r){return String(r.name).toLowerCase()===n||String(r.source&&r.source.name).toLowerCase()===n;})[0]||null;}
+  var rbStateText={ready:'Can be rolled back',running:'Rolling back',done:'Rolled back',partial:'Partly rolled back',failed:'Roll back failed'};
+  var rbMethodText={move:'Moved to this Hyper-V host',hvremote:'Moved to a remote Hyper-V host',platform:'Moved to another platform',copies:'Replicated (agent)'};
+  function rbWhen(t){return mpTime(t)||'';}
+  // A slot beside a cut-over VM; renderRollback fills it on every state.
+  function rbSlot(name){var s=el('span','rb-slot');s.setAttribute('data-rb-slot',String(name||''));rbFillSlot(s);return s;}
+  function rbFillSlot(slot){
+    var r=rbFor(slot.getAttribute('data-rb-slot')),sig=r?r.id+'|'+r.state:'';
+    if(slot.getAttribute('data-sig')===sig){return;}slot.setAttribute('data-sig',sig);slot.textContent='';
+    if(!r){return;}
+    if(r.state==='done'){slot.appendChild(el('span','mp-chip','Rolled back '+rbWhen(r.finished)));return;}
+    if(r.state==='running'){slot.appendChild(el('span','mp-chip warning','Rolling back…'));return;}
+    var b=el('button','secondary-button rb-button','Roll back…');b.type='button';b.setAttribute('data-rb-open',r.id);b.title='Turn the new VM off and start the original '+r.source.name+' again';slot.appendChild(b);
+  }
+  function rbOpen(){
+    if(rbGuidesList){renderRollbackGuide();return;}
+    request('GET','/api/rollback/guides',null,function(err,data){if(err){byId('rbGuide').textContent='The steps could not be loaded: '+err;return;}rbGuidesList=vmArr(data.guides);var sel=byId('rbMethod');sel.textContent='';rbGuidesList.forEach(function(g){var o=document.createElement('option');o.value=g.id;o.textContent=g.title;sel.appendChild(o);});if(rbGuideChoice){sel.value=rbGuideChoice;}renderRollbackGuide();});
+  }
+  function renderRollbackGuide(){
+    var box=byId('rbGuide'),g=(rbGuidesList||[]).filter(function(x){return x.id===byId('rbMethod').value;})[0];box.textContent='';if(!g){return;}
+    var tag={yes:'Built in: one click',partly:'Partly built in',no:'By hand: follow these steps'}[g.automatic]||'';
+    box.appendChild(el('div','rb-guide-head')).appendChild(el('span','mp-chip'+(g.automatic==='yes'?' good':' warning'),tag));
+    box.firstChild.appendChild(el('span','vm-note',' '+g.covers));
+    var ol=el('ol','rb-steps');vmArr(g.steps).forEach(function(t){ol.appendChild(el('li','',t));});box.appendChild(ol);
+    vmArr(g.warnings).forEach(function(w){box.appendChild(el('div','restore-alert',w));});
+  }
+  byId('rbMethod').addEventListener('change',function(){rbGuideChoice=byId('rbMethod').value;renderRollbackGuide();});
+  var rbListSig='';
+  function renderRollback(state){
+    var rb=rbStateNow(),records=vmArr(rb.records),open=records.filter(function(r){return r.state==='ready'||r.state==='partial'||r.state==='failed';}).length;
+    setToolBadge('rollbackBadge',rb.running?'Running':(open?String(open):''));
+    var slots=document.querySelectorAll('[data-rb-slot]');for(var i=0;i<slots.length;i++){rbFillSlot(slots[i]);}
+    var err=byId('rbError');err.textContent=rb.error?'The rollback records could not be read: '+rb.error:'';err.classList.toggle('hidden',!rb.error);
+    if(rbDialogRec){var cur=rbFind(rbDialogRec.id);if(cur){rbDialogRec=cur;}rbSyncDialog();}
+    var sig=JSON.stringify(records)+'|'+Math.floor(Date.now()/60000);if(sig===rbListSig){return;}rbListSig=sig;
+    var list=byId('rbList');list.textContent='';
+    if(!records.length){list.appendChild(el('div','vm-note','No cutover has been made from this computer yet. Each cutover made with Move VMs, a migration plan, New migration, a move to HyperCore, Nutanix AHV or Proxmox VE, or a production VM started from copies appears here with its Roll back button. For any other way of moving, pick it below for its steps.'));return;}
+    records.forEach(function(r){
+      var item=el('div','rb-item '+r.state);item.setAttribute('data-rb-item',r.id);
+      var head=el('div','rb-item-head');head.appendChild(el('strong','',r.name));head.appendChild(el('span','mp-chip'+({done:' good',ready:'',running:' warning',partial:' warning',failed:' danger'}[r.state]||''),rbStateText[r.state]||r.state));
+      if(r.dc){head.appendChild(el('span','mp-chip danger','Domain controller'));}
+      head.appendChild(el('span','vm-note',(rbMethodText[r.method]||r.method)+(r.plan?' by the plan '+r.plan:'')+'. Cut over '+rbWhen(r.cutoverAt)+'.'));
+      item.appendChild(head);
+      item.appendChild(el('div','rb-line','Original: '+r.source.name+(r.source.server?' on '+r.source.server:'')+'. New: '+(r.new.name||r.name)+(r.new.kind==='platform'?' on '+(r.new.platformHost||r.new.platform):(r.new.host?' on '+r.new.host:' on this Hyper-V host'))+'.'));
+      if(r.state!=='done'){item.appendChild(el('div','rb-line rb-window',r.window));}
+      if(r.message){item.appendChild(el('div','migrate-detail'+(r.state==='done'?'':' warning'),r.message));}
+      if(vmArr(r.steps).length&&r.state!=='ready'){var ol=el('ol','rb-steps rb-done');vmArr(r.steps).forEach(function(s){var li=el('li',s.state||'',s.title+(s.message?': '+s.message:''));ol.appendChild(li);});item.appendChild(ol);}
+      if(vmArr(r.manual).length){item.appendChild(el('div','rb-line','Do this by hand:'));var mo=el('ol','rb-steps');vmArr(r.manual).forEach(function(t){mo.appendChild(el('li','',t));});item.appendChild(mo);}
+      var row=el('div','vm-move-actions');
+      if(r.state!=='done'&&r.state!=='running'){var b=el('button','secondary-button danger-button','Roll back…');b.type='button';b.setAttribute('data-rb-open',r.id);row.appendChild(b);}
+      if(r.state==='running'){var st=el('button','secondary-button','Stop after this step');st.type='button';st.setAttribute('data-rb-stop','');row.appendChild(st);}
+      if(r.logPath){var lg=el('button','link-button','Open the log');lg.type='button';lg.setAttribute('data-rb-log',r.id);row.appendChild(lg);}
+      if(row.childNodes.length){item.appendChild(row);}
+      list.appendChild(item);
+    });
+  }
+  function rbNeedsSignIn(r){var v=vmwareState()||{};if(!r||r.source.kind!=='vmware'){return false;}if(!(byId('rbStart').checked||(byId('rbReconnect').checked&&r.source.adapterRecord))){return false;}return !(cfmSame(v.server||'',r.source.server||'')&&v.canPrepare);}
+  function rbOptions(){return {turnOff:byId('rbTurnOff').checked,reconnect:byId('rbReconnect').checked,start:byId('rbStart').checked,dcConfirmed:byId('rbDCTick').checked};}
+  function rbPlannedSteps(r,o){
+    var name=r.new.name||r.name,steps=[];
+    var where=r.new.kind==='platform'?'on '+(r.new.platformHost||r.new.platform):(r.new.host?'on '+r.new.host:'on this Hyper-V host');
+    steps.push(r.new.kind==='platform'?'Turn the new VM '+name+' off '+where+'.':'Shut the new VM '+name+' down '+where+(o.turnOff?', turning it off if it has not shut down in 10 minutes':'')+'; disconnect its network adapters and stop it starting with the host. It is not deleted.');
+    steps.push('Read the new VM again and go on only if it is off, so the two are never on the network together.');
+    if(r.source.kind==='vmware'&&o.reconnect){steps.push(r.source.adapterRecord?'Put '+r.source.name+'\'s network adapters back exactly as they were before the cutover.':'Leave '+r.source.name+'\'s network adapters as they are (the cutover did not disconnect them).');}
+    if(o.start){steps.push(r.source.kind==='agent'?'Ask the agent on '+r.source.name+' to start '+(vmArr(r.source.services).length?vmArr(r.source.services).join(', ')+' again':'its services')+' and pause its job.':(r.source.kind==='other'?'Show the steps to turn the original server on by hand.':'Start '+r.source.name+' on '+(r.source.server||'its host')+'.'));}
+    return steps;
+  }
+  function rbOpenDialog(id){
+    var r=rbFind(id);if(!r){notice('That cutover is no longer listed.',true);return;}
+    rbDialogRec=r;
+    byId('rbDialogTitle').textContent='Roll back '+r.name;
+    byId('rbDialogData').textContent=r.dataWarning;
+    byId('rbDialogDCText').textContent=r.dcWarning||'';byId('rbDialogDC').classList.toggle('hidden',!r.dc);byId('rbDCTick').checked=false;
+    byId('rbDialogWindow').textContent=r.window;
+    byId('rbTurnOff').checked=true;byId('rbReconnect').checked=true;byId('rbStart').checked=true;
+    byId('rbReconnectRow').classList.toggle('hidden',r.source.kind!=='vmware');
+    byId('rbStartLabel').textContent=r.source.kind==='agent'?'Ask the agent on '+r.source.name+' to start its stopped services and pause the job':(r.source.kind==='other'?'Show the steps to start the original by hand':'Start '+r.source.name+' when the new VM is off');
+    var style=cfmStyle();
+    byId('rbConfirmLabel').textContent='Type '+r.name+' to confirm';byId('rbConfirmLabel').classList.toggle('hidden',style!=='typed');byId('rbConfirmInput').classList.toggle('hidden',style!=='typed');byId('rbConfirmInput').value='';
+    byId('rbConfirmTickRow').classList.toggle('hidden',style!=='tick');byId('rbConfirmTick').checked=false;
+    byId('rbConfirmTickLabel').textContent='I understand the new '+r.name+' is turned off and the original starts again; changes made on the new one since the cutover stay on it';
+    var v=vmwareState()||{};byId('rbSignInUser').value=cfmSame(v.server||'',r.source.server||'')?(v.account||''):'';byId('rbSignInPassword').value='';byId('rbSignInStatus').textContent='';
+    byId('rbDialogError').classList.add('hidden');
+    rbSyncDialog();
+    var d=byId('rbDialog');if(d.showModal){d.showModal();}else{d.setAttribute('open','');}
+    (r.dc?byId('rbDCTick'):(style==='typed'?byId('rbConfirmInput'):(style==='tick'?byId('rbConfirmTick'):byId('rbDialogCancel')))).focus();
+  }
+  function rbSyncDialog(){
+    var r=rbDialogRec;if(!r){return;}var o=rbOptions();
+    var ol=byId('rbDialogSteps'),sig=JSON.stringify(rbPlannedSteps(r,o));if(ol.getAttribute('data-sig')!==sig){ol.setAttribute('data-sig',sig);ol.textContent='';rbPlannedSteps(r,o).forEach(function(t){ol.appendChild(el('li','',t));});}
+    var sign=rbNeedsSignIn(r);byId('rbSignIn').classList.toggle('hidden',!sign);
+    if(sign){byId('rbSignInText').textContent='Sign in to '+r.source.server+' to start the original (the password is kept only while this application runs):';}
+    var style=cfmStyle(),ok=style==='typed'?cfmSame(byId('rbConfirmInput').value,r.name):(style==='tick'?byId('rbConfirmTick').checked:true);
+    if(r.dc&&!o.dcConfirmed){ok=false;}
+    if(r.state==='running'||r.state==='done'||rbBusy||sign){ok=false;}
+    byId('rbDialogGo').disabled=!ok;
+    byId('rbDialogGo').title=sign?'Sign in first':(r.dc&&!o.dcConfirmed?'Tick the domain controller box first':'');
+  }
+  function rbCloseDialog(){if(rbBusy){return;}var d=byId('rbDialog');if(d.close){d.close();}else{d.removeAttribute('open');}rbDialogRec=null;}
+  ['rbTurnOff','rbReconnect','rbStart','rbDCTick','rbConfirmTick'].forEach(function(id){byId(id).addEventListener('change',rbSyncDialog);});
+  byId('rbConfirmInput').addEventListener('input',rbSyncDialog);
+  byId('rbDialogCancel').addEventListener('click',rbCloseDialog);
+  byId('rbDialog').addEventListener('cancel',function(e){e.preventDefault();rbCloseDialog();});
+  byId('rbSignInGo').addEventListener('click',function(){
+    var r=rbDialogRec,st=byId('rbSignInStatus'),user=trimText(byId('rbSignInUser').value),pass=byId('rbSignInPassword').value;if(!r){return;}
+    if(!user||!pass){st.textContent='Type the account and its password.';st.className='migrate-inline-status error';return;}
+    vmPost('/api/vmware/connect',{server:r.source.server,user:user,password:pass},null,function(err){byId('rbSignInPassword').value='';if(err){st.textContent=err;st.className='migrate-inline-status error';return;}st.textContent='Signing in to '+r.source.server+'. Roll back becomes available as soon as it has read the inventory.';st.className='migrate-inline-status';vmMarkRunning('connect','connecting','Connecting to '+r.source.server+' as '+user+'.');});
+  });
+  byId('rbDialogGo').addEventListener('click',function(){
+    var r=rbDialogRec;if(!r||byId('rbDialogGo').disabled){return;}
+    var body=rbOptions();body.id=r.id;body.confirm=cfmStyle()==='typed'?trimText(byId('rbConfirmInput').value):r.name;
+    rbBusy=true;rbSyncDialog();byId('rbDialogError').classList.add('hidden');
+    request('POST','/api/rollback/run',body,function(err){rbBusy=false;if(err){var box=byId('rbDialogError');box.textContent=err;box.classList.remove('hidden');rbSyncDialog();return;}rbCloseDialog();showTool('rollback');notice('Rolling '+r.name+' back. Each step shows in Roll back as it happens.');});
+  });
+  document.addEventListener('click',function(e){
+    var t=e.target.closest&&e.target.closest('[data-rb-open],[data-rb-stop],[data-rb-log]');if(!t){return;}
+    if(t.hasAttribute('data-rb-open')){rbOpenDialog(t.getAttribute('data-rb-open'));}
+    else if(t.hasAttribute('data-rb-stop')){request('POST','/api/rollback/stop',{},function(err){if(err){notice(err,true);}});}
+    else if(t.hasAttribute('data-rb-log')){request('POST','/api/open',{kind:'rollbacklog:'+t.getAttribute('data-rb-log')},function(err){if(err){notice(err,true);}});}
+  });
   function renderState(state){
     if(state.closing||(state.update&&state.update.status==='installing')){quiesceInterface('installing');return;}
     if(!latestState||latestState.runId!==state.runId){aclSkipPending=false;}
@@ -3268,6 +3442,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     renderVMware(state);
     renderConvert(state);
     renderHvBuild(state);
+    renderRollback(state);
     renderToolBadges(state);
     if(activeTab==='wizard'){renderGuide(false);nwTick();}
     markIdleBadges();
@@ -5763,6 +5938,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     row.appendChild(copy);row.appendChild(cut);section.appendChild(row);
     section.appendChild(vmMoveProgressBox(vm));
     vmFixupStatus(section,vm.name);
+    section.appendChild(rbSlot(vm.name));
     var xfer=el('div','vm-transfers hidden');xfer.id='vmMoveTransfers';xfer.setAttribute('data-prefix','move-'+vm.id+'|');section.appendChild(xfer);
     box.appendChild(section);renderVmMoveTransfers(v);
   }
@@ -5857,6 +6033,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     row.appendChild(copy);row.appendChild(cut);s4.appendChild(row);
     s4.appendChild(vmMoveProgressBox(vm));
     vmFixupStatus(s4,vm.name);
+    s4.appendChild(rbSlot(vm.name));
     var xfer=el('div','vm-transfers hidden');xfer.id='vmMoveTransfers';xfer.setAttribute('data-prefix','move-'+vm.id+'|');s4.appendChild(xfer);
   }
   // Move to HyperCore, Nutanix AHV, Proxmox VE or a physical server: the new
@@ -5974,6 +6151,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     copy.disabled=copy.disabled||!receiver||!(v.canPrepare||hv);cut.disabled=cut.disabled||!receiver||!(v.canPrepare||hv);
     row.appendChild(copy);row.appendChild(cut);mv.appendChild(row);
     mv.appendChild(vmMoveProgressBox(vm));
+    mv.appendChild(rbSlot(vm.name));
     var xfer=el('div','vm-transfers hidden');xfer.id='vmMoveTransfers';xfer.setAttribute('data-prefix','move-'+vm.id+'|');mv.appendChild(xfer);
     box.appendChild(section);renderVmMoveTransfers(v);
   }
@@ -6965,6 +7143,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
       var li=el('li',f.mode==='test'?'warning':'good');
       li.appendChild(el('strong','',f.name+': '));
       li.appendChild(document.createTextNode((f.mode==='test'?'test failover on differencing disks':'production VM')+' from '+vmArr(f.copies).join(', ')+(rpWhen(f.recoveryPoint)?', recovery point '+rpWhen(f.recoveryPoint):'')+'. Started '+rpWhen(f.started)+'. '));
+      if(f.mode!=='test'){li.appendChild(rbSlot(f.name));}
       var name=document.createElement('input');name.type='text';name.placeholder='Type '+f.name;name.setAttribute('aria-label','Type '+f.name+' to confirm');name.setAttribute('data-fv-endname',f.id);name.className='fv-end-name';if(typed[f.id]){name.value=typed[f.id];}
       var endWhat=f.mode==='test'?'I understand the test VM '+f.name+' and its test disks are removed':'I understand the copies of '+f.name+' are released for replication';
       var b=el('button','secondary-button',f.mode==='test'?'End test: remove the test VM':'Release the copies');b.type='button';b.setAttribute('data-fv-end',f.id);b.setAttribute('data-fv-vm',f.name);
@@ -8824,7 +9003,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
         var tr=el('tr'),c=el('td'),cb=document.createElement('input');cb.type='checkbox';cb.setAttribute('data-nw-row',v.id);cb.checked=!!nwRowsChosen[v.id];cb.setAttribute('aria-label','Select '+v.name);c.appendChild(cb);tr.appendChild(c);
         var n=el('td');n.appendChild(el('strong','',v.name));if(v.copyFolder){n.appendChild(el('span','vm-note',v.copyFolder));}tr.appendChild(n);
         tr.appendChild(mpStateCell(v));
-        var cut=el('td');if(v.state==='done'){cut.appendChild(el('span','',(mpTime(v.cutOver)?'Cut over '+mpTime(v.cutOver):'Cut over')));}else if(mpTime(v.cutoverAt)){cut.appendChild(el('span','mp-chip warning','Cutover at '+mpTime(v.cutoverAt)));}else{cut.appendChild(el('span','vm-note',v.seeded?'Ready when you are':'After its first copy'));}tr.appendChild(cut);
+        var cut=el('td');if(v.state==='done'){cut.appendChild(el('span','',(mpTime(v.cutOver)?'Cut over '+mpTime(v.cutOver):'Cut over')));cut.appendChild(rbSlot(v.name));}else if(mpTime(v.cutoverAt)){cut.appendChild(el('span','mp-chip warning','Cutover at '+mpTime(v.cutoverAt)));}else{cut.appendChild(el('span','vm-note',v.seeded?'Ready when you are':'After its first copy'));}tr.appendChild(cut);
         tb.appendChild(tr);});
       table.appendChild(tb);var wrap=el('div','vm-table-wrap');wrap.appendChild(table);sec.appendChild(wrap);body.appendChild(sec);
     });
@@ -9026,7 +9205,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     if(v.error){td.appendChild(el('div','mp-err',v.error));
       var owner=mpPlanOfVM(v);if(owner&&!(owner.settings||{}).ejectMedia&&v.state!=='done'&&/Tick Eject CD\/DVD and floppy images/.test(v.error)){var ej=el('button','secondary-button','Eject the CD/DVD images and copy again');ej.type='button';ej.setAttribute('data-mp-eject',v.id);ej.title='Turns on Eject CD/DVD and floppy images for this plan and copies '+v.name+' now';td.appendChild(ej);}}
     vmArr(v.notes).slice(-2).forEach(function(n){td.appendChild(el('div','mp-notes',n));});
-    if(v.state==='done'){vmFixupStatus(td,v.name);}
+    if(v.state==='done'){vmFixupStatus(td,v.name);td.appendChild(rbSlot(v.name));}
     var actions=el('div','mp-row-actions');
     if(v.state==='ready'&&!mpTime(v.cutoverAt)){var t=el('button','secondary-button','Test');t.type='button';t.setAttribute('data-mp-test',v.id);t.title='Start '+v.name+'-TEST on differencing disks with its network '+(mpPlan().settings.testSwitch?'on '+mpPlan().settings.testSwitch:'disconnected');actions.appendChild(t);}
     if(v.test){var e=el('button','secondary-button','End test');e.type='button';e.setAttribute('data-mp-endtest',v.id);actions.appendChild(e);}
