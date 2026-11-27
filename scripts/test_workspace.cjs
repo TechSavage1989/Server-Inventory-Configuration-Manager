@@ -2864,7 +2864,7 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
    for(const target of ['#rpPush','#rpHosts','#rpAlerts','#rpAgents']){await f.page.locator(target).scrollIntoViewIfNeeded();await inView(target,target==='#rpPush'?28:12);}
    assert.deepEqual(await smallText(),[],label+' replication text below 10.5px');assert(await f.page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),label+' replication overflow');
    assert(await f.page.locator('.rp-body').evaluate(e=>e.scrollWidth<=e.clientWidth+1),label+' replication panel overflow');
-   await goTool(f,'hvbuild');await f.page.locator('.hb-body').evaluate(e=>e.scrollTop=0);await inView('#hbBlank',24);
+   await goTool(f,'hvbuild');await f.page.waitForSelector('#hbBlank');await f.page.locator('.hb-body').evaluate(e=>e.scrollTop=0);await inView('#hbBlank',24);
    if(!await f.page.locator('#hbName').count()){await f.page.locator('#hbBlank').click();}
    for(const target of ['#hbName','#hbAddNode','#hbAddSwitch','#hbStorageKind','#hbSave','#hbSteps']){await f.page.locator(target).scrollIntoViewIfNeeded();await inView(target,12);}
    assert.deepEqual(await smallText(),[],label+' build Hyper-V hosts text below 10.5px');assert(await f.page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),label+' build Hyper-V hosts overflow');

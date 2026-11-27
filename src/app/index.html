@@ -2423,6 +2423,8 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     if(id==='servers'){asOpen();}
     if(id==='rollback'){rbOpen();}
     if(id==='wizard'){nwOpen();}
+    // A Build Hyper-V hosts editor marked stale (a new inventory) is drawn now, not at the next state poll.
+    if(id==='hvbuild'){var hbEd=byId('hbEditor');if(hbEd&&(hbEd.getAttribute('data-stale')||!hbEd.childNodes.length)){hbRenderEditor();}}
   }
   function getCheckedValues(selector){ var nodes=document.querySelectorAll(selector+':checked'), out=[]; for(var i=0;i<nodes.length;i++){out.push(nodes[i].value);} return out; }
   function setCheckedValues(selector, values){ var lookup={}; for(var i=0;i<values.length;i++){lookup[values[i]]=true;} var nodes=document.querySelectorAll(selector); for(var j=0;j<nodes.length;j++){nodes[j].checked=!!lookup[nodes[j].value];} syncCategoryState(); }
