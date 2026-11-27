@@ -27,7 +27,6 @@ import (
 const (
 	applicationID              = "Server-Inventory-Configuration-Manager"
 	stableExecutableName       = "Server-Inventory-Configuration-Manager.exe"
-	repositoryURL              = "https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager"
 	updateFeedURL              = "https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/latest/download/update-manifest.json"
 	updateCheckInterval        = 5 * time.Minute
 	updateFocusInterval        = 2 * time.Minute
@@ -56,30 +55,17 @@ const (
 	moveFileWriteThrough           = 0x00000008
 )
 
-type updateAsset struct {
-	Name   string `json:"name"`
-	URL    string `json:"url"`
-	SHA256 string `json:"sha256"`
-	Size   int64  `json:"size"`
-}
-
-type updateManifest struct {
-	SchemaVersion int         `json:"schema_version"`
-	AppID         string      `json:"app_id"`
-	Version       string      `json:"version"`
-	PublishedAt   string      `json:"published_at"`
-	ReleaseURL    string      `json:"release_url"`
-	Notes         []string    `json:"notes"`
-	ReadMore      bool        `json:"read_more"`
-	Asset         updateAsset `json:"asset"`
-}
-
 type updateCache struct {
 	ETag            string          `json:"etag"`
 	Manifest        *updateManifest `json:"manifest,omitempty"`
 	FailureCount    int             `json:"failure_count"`
 	BackoffUntilUTC string          `json:"backoff_until_utc,omitempty"`
 	LastCheckedUTC  string          `json:"last_checked_utc,omitempty"`
+	// Test channel: the releases listing's ETag, the newest test tag it named
+	// and that tag's validated manifest.
+	TestETag     string          `json:"test_etag,omitempty"`
+	TestTag      string          `json:"test_tag,omitempty"`
+	TestManifest *updateManifest `json:"test_manifest,omitempty"`
 }
 
 type updateStateResponse struct {
@@ -102,6 +88,10 @@ type updateStateResponse struct {
 	LastCheckUnixMs  int64    `json:"lastCheckUnixMs"`
 	Notice           string   `json:"notice,omitempty"`
 	InstallFailed    bool     `json:"installFailed,omitempty"`
+	Channel          string   `json:"channel"`               // stable or test
+	TestVersion      string   `json:"testVersion,omitempty"` // newest test build seen (Test channel)
+	StableVersion    string   `json:"stableVersion,omitempty"`
+	ToStable         bool     `json:"toStable,omitempty"` // the offer returns a test build to stable
 }
 
 type updateRuntime struct {
@@ -133,6 +123,11 @@ type updateRuntime struct {
 	schedulerOnce    sync.Once
 	readyVersion     string
 	readySHA256      string
+
+	channel        string          // update channel (update_channel.go)
+	stableManifest *updateManifest // last stable feed answer
+	testManifest   *updateManifest // last test prerelease (Test channel only)
+	offered        bool            // currentManifest is offered for install
 }
 
 type healthMarker struct {
@@ -179,28 +174,32 @@ func (a *application) initializeUpdater() error {
 	a.update.rollbackPath = filepath.Join(a.update.rollbackDir, "previous.exe")
 	a.update.rollbackMetaPath = filepath.Join(a.update.rollbackDir, "previous.json")
 	a.update.healthMarkerPath = filepath.Join(a.update.healthDir, "current.json")
+	a.update.channel = loadUpdateChannel(a.update.settingsDir)
 	a.update.state = updateStateResponse{
 		Status:           "idle",
 		Title:            "Update status",
 		Message:          "Installed " + appVersion + ". Update checks begin after startup.",
 		InstalledVersion: appVersion,
 		CanCheck:         true,
+		Channel:          a.update.channel,
 	}
 	if cache, err := a.readUpdateCache(); err == nil && validateManifest(cache.Manifest) == nil {
 		if when, err := time.Parse(time.RFC3339, cache.LastCheckedUTC); err == nil {
 			a.update.lastAttempt = when
 		}
-		a.applyManifestState(cache.Manifest, false)
-		if cmp, _ := compareVersions(appVersion, cache.Manifest.Version); cmp < 0 {
-			if verifyUpdateFile(a.update.readyPath, *cache.Manifest) == nil {
-				a.update.readyVersion = cache.Manifest.Version
-				a.update.readySHA256 = strings.ToLower(cache.Manifest.Asset.SHA256)
-				a.update.state.Downloaded = true
-				a.update.state.CanInstall = true
-				a.update.state.Status = "ready"
-				a.update.state.Title = "Update ready"
-				a.update.state.Message = fmt.Sprintf("Installed %s. Version %s is downloaded and verified.", appVersion, cache.Manifest.Version)
-			}
+		a.applyManifestState(cache.Manifest, cachedTestManifest(cache), false)
+		a.update.mu.Lock()
+		offer := a.update.currentManifest
+		offered := a.update.offered
+		a.update.mu.Unlock()
+		if offered && offer != nil && verifyUpdateFile(a.update.readyPath, *offer) == nil {
+			a.update.readyVersion = offer.Version
+			a.update.readySHA256 = strings.ToLower(offer.Asset.SHA256)
+			a.update.state.Downloaded = true
+			a.update.state.CanInstall = true
+			a.update.state.Status = "ready"
+			a.update.state.Title = "Update ready"
+			a.update.state.Message = fmt.Sprintf("Installed %s. Version %s is downloaded and verified.", appVersion, offer.Version)
 		}
 	}
 	a.cleanupStaleUpdateFiles()
@@ -208,7 +207,12 @@ func (a *application) initializeUpdater() error {
 		var record installRecord
 		if json.Unmarshal(data, &record) == nil {
 			executable, _ := os.Executable()
-			older := func(left, right string) bool { cmp, err := compareVersions(left, right); return err == nil && cmp < 0 }
+			// A test build replaced by an older stable build (Stable chosen
+			// again) counts as not yet updated, so a failed return is reported.
+			older := func(left, right string) bool {
+				cmp, err := compareVersions(left, right)
+				return err == nil && (cmp < 0 || (cmp != 0 && isTestVersion(left) && !isTestVersion(right)))
+			}
 			if notice := installOutcomeNotice(record, appVersion, executable, time.Now(), older); notice != "" {
 				a.update.state.Notice = notice
 				a.update.state.InstallFailed = record.Target != ""
@@ -321,45 +325,6 @@ func (a *application) writeUpdateCache(cache *updateCache) {
 	if err := os.WriteFile(temp, data, 0o644); err == nil {
 		_ = atomicReplaceFile(temp, a.update.cachePath)
 	}
-}
-
-func parseVersion(value string) ([3]int, error) {
-	var result [3]int
-	parts := strings.Split(strings.TrimSpace(value), ".")
-	if len(parts) != 3 {
-		return result, fmt.Errorf("invalid semantic version %q", value)
-	}
-	for i, part := range parts {
-		if part == "" || (len(part) > 1 && part[0] == '0') || strings.Trim(part, "0123456789") != "" {
-			return result, fmt.Errorf("invalid semantic version %q", value)
-		}
-		n, err := strconv.Atoi(part)
-		if err != nil || n < 0 || n > 65535 {
-			return result, fmt.Errorf("invalid semantic version %q", value)
-		}
-		result[i] = n
-	}
-	return result, nil
-}
-
-func compareVersions(left, right string) (int, error) {
-	l, err := parseVersion(left)
-	if err != nil {
-		return 0, err
-	}
-	r, err := parseVersion(right)
-	if err != nil {
-		return 0, err
-	}
-	for i := 0; i < 3; i++ {
-		if l[i] < r[i] {
-			return -1, nil
-		}
-		if l[i] > r[i] {
-			return 1, nil
-		}
-	}
-	return 0, nil
 }
 
 func isAllowedUpdateHost(host string) bool {
@@ -594,6 +559,20 @@ func (a *application) performUpdateCheck(etag string) {
 			}
 		}
 	}
+	if err == nil && isTestVersion(manifest.Version) {
+		err = errors.New("the stable update feed named a test build")
+	}
+	var testManifest *updateManifest
+	a.update.mu.Lock()
+	channel := a.update.channel
+	a.update.mu.Unlock()
+	if err == nil && channel == updateChannelTest {
+		var testRetry time.Duration
+		testManifest, testRetry, err = a.fetchTestManifest(resultCache)
+		if testRetry > retryAfter {
+			retryAfter = testRetry
+		}
+	}
 	now := time.Now().UTC()
 	if err != nil {
 		resultCache.FailureCount = minInt(resultCache.FailureCount+1, 8)
@@ -626,7 +605,7 @@ func (a *application) performUpdateCheck(etag string) {
 	resultCache.LastCheckedUTC = now.Format(time.RFC3339)
 	a.writeUpdateCache(resultCache)
 	// Retain single-flight ownership until the successful result is fully applied.
-	a.applyManifestState(manifest, true)
+	a.applyManifestState(manifest, testManifest, true)
 	a.update.mu.Lock()
 	a.update.checkInFlight = false
 	a.update.state.Checking = false
@@ -642,8 +621,11 @@ func minInt(a, b int) int {
 	return b
 }
 
-func (a *application) applyManifestState(manifest *updateManifest, logResult bool) {
-	if err := validateManifest(manifest); err != nil {
+// applyManifestState shows what the channel offers: stable is the stable
+// feed's manifest and test the newest test prerelease (nil off the Test
+// channel or when there is none).
+func (a *application) applyManifestState(stable, test *updateManifest, logResult bool) {
+	if err := validateManifest(stable); err != nil {
 		a.update.mu.Lock()
 		a.update.state.Status = "error"
 		a.update.state.Title = "Update check unavailable"
@@ -652,30 +634,53 @@ func (a *application) applyManifestState(manifest *updateManifest, logResult boo
 		a.update.mu.Unlock()
 		return
 	}
-	cmp, err := compareVersions(appVersion, manifest.Version)
-	if err != nil {
-		return
+	if test != nil && (validateManifest(test) != nil || !isTestVersion(test.Version)) {
+		test = nil
 	}
 	a.update.mu.Lock()
+	channel := a.update.channel
+	choice := chooseUpdate(appVersion, channel, stable, test)
+	manifest := choice.Manifest
+	if manifest == nil {
+		manifest = stable
+	}
+	offer := choice.Offer
+	a.update.stableManifest = stable
+	a.update.testManifest = test
 	a.update.currentManifest = manifest
+	a.update.offered = offer
+	a.update.state.Channel = channel
+	a.update.state.StableVersion = stable.Version
+	a.update.state.TestVersion = ""
+	if channel == updateChannelTest && test != nil {
+		a.update.state.TestVersion = test.Version
+	}
+	a.update.state.ToStable = choice.ToStable
 	a.update.state.LatestVersion = manifest.Version
 	a.update.state.ReleaseURL = manifest.ReleaseURL
-	a.update.state.Available = cmp < 0
-	if cmp < 0 {
+	a.update.state.Available = offer
+	if offer {
 		a.update.state.Notes = append([]string(nil), manifest.Notes...)
 		a.update.state.ReadMore = manifest.ReadMore
 	} else {
 		a.update.state.Notes = nil
 		a.update.state.ReadMore = false
 	}
-	a.update.state.CanDownload = cmp < 0 && !a.update.downloadInFlight
-	a.update.state.CanInstall = cmp < 0 && a.update.readyVersion == manifest.Version && existingFile(a.update.readyPath) != ""
+	a.update.state.CanDownload = offer && !a.update.downloadInFlight
+	a.update.state.CanInstall = offer && a.update.readyVersion == manifest.Version && existingFile(a.update.readyPath) != ""
 	a.update.state.Downloaded = a.update.state.CanInstall
 	a.update.state.Progress = 0
-	if cmp < 0 {
+	if offer {
 		a.update.state.Status = "available"
 		a.update.state.Title = "Update available"
 		a.update.state.Message = fmt.Sprintf("Installed %s. Latest %s.", appVersion, manifest.Version)
+		if choice.ToStable {
+			a.update.state.Title = "Stable version available"
+			a.update.state.Message = fmt.Sprintf("Installed test build %s. You chose the Stable channel: install stable %s to return to it.", appVersion, manifest.Version)
+		} else if isTestVersion(manifest.Version) {
+			a.update.state.Title = "Test build available"
+			a.update.state.Message = fmt.Sprintf("Installed %s. Test build %s is available (you chose the Test channel).", appVersion, manifest.Version)
+		}
 	} else {
 		a.update.state.Status = "current"
 		a.update.state.Title = "Up to date"
@@ -691,8 +696,135 @@ func (a *application) applyManifestState(manifest *updateManifest, logResult boo
 	}
 	a.update.mu.Unlock()
 	if logResult {
-		a.logUpdate("Update check completed. Installed=%s latest=%s available=%t", appVersion, manifest.Version, cmp < 0)
+		a.logUpdate("Update check completed. Channel=%s installed=%s stable=%s test=%s offered=%s", channel, appVersion, stable.Version, a.update.state.TestVersion, map[bool]string{true: manifest.Version, false: "none"}[offer])
 	}
+}
+
+// cachedTestManifest gives the cached test manifest when it is valid.
+func cachedTestManifest(cache *updateCache) *updateManifest {
+	if cache == nil || cache.TestManifest == nil || validateManifest(cache.TestManifest) != nil || !isTestVersion(cache.TestManifest.Version) {
+		return nil
+	}
+	return cache.TestManifest
+}
+
+// fetchTestManifest finds the newest test prerelease (Test channel only):
+// one releases listing from api.github.com (conditional on its ETag), then
+// that release's manifest from the release download host. No test release
+// is not an error; a failed or unreadable answer is.
+func (a *application) fetchTestManifest(cache *updateCache) (*updateManifest, time.Duration, error) {
+	request, err := http.NewRequest(http.MethodGet, testReleasesURL, nil)
+	if err != nil {
+		return nil, 0, err
+	}
+	request.Header.Set("Accept", "application/vnd.github+json")
+	request.Header.Set("User-Agent", applicationID+"/"+appVersion)
+	if cache.TestETag != "" && cachedTestManifest(cache) != nil {
+		request.Header.Set("If-None-Match", cache.TestETag)
+	}
+	response, err := a.updateClient().Do(request)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer response.Body.Close()
+	retry := serverRetryDelay(response)
+	tag := ""
+	switch response.StatusCode {
+	case http.StatusNotModified:
+		if cached := cachedTestManifest(cache); cached != nil {
+			return cached, retry, nil
+		}
+		return nil, retry, errors.New("the test release list was not modified but no test build is cached")
+	case http.StatusOK:
+		data, readErr := io.ReadAll(io.LimitReader(response.Body, 4*1024*1024+1))
+		if readErr != nil {
+			return nil, retry, readErr
+		}
+		if len(data) > 4*1024*1024 {
+			return nil, retry, errors.New("the test release list exceeds 4 MiB")
+		}
+		if tag, err = pickTestRelease(data); err != nil {
+			return nil, retry, err
+		}
+	default:
+		return nil, retry, fmt.Errorf("the test release list returned HTTP %d", response.StatusCode)
+	}
+	etag := response.Header.Get("ETag")
+	if tag == "" {
+		cache.TestETag, cache.TestTag, cache.TestManifest = etag, "", nil
+		return nil, retry, nil
+	}
+	if tag == cache.TestTag {
+		if cached := cachedTestManifest(cache); cached != nil && "v"+cached.Version == tag {
+			cache.TestETag = etag
+			return cached, retry, nil
+		}
+	}
+	manifestRequest, err := http.NewRequest(http.MethodGet, testManifestURL(tag), nil)
+	if err != nil {
+		return nil, retry, err
+	}
+	manifestRequest.Header.Set("Accept", "application/json")
+	manifestRequest.Header.Set("User-Agent", applicationID+"/"+appVersion)
+	manifestResponse, err := a.updateClient().Do(manifestRequest)
+	if err != nil {
+		return nil, retry, err
+	}
+	defer manifestResponse.Body.Close()
+	if manifestResponse.StatusCode != http.StatusOK {
+		return nil, retry, fmt.Errorf("the test build manifest returned HTTP %d", manifestResponse.StatusCode)
+	}
+	data, err := io.ReadAll(io.LimitReader(manifestResponse.Body, 1024*1024+1))
+	if err != nil {
+		return nil, retry, err
+	}
+	if len(data) > 1024*1024 {
+		return nil, retry, errors.New("the test build manifest exceeds 1 MiB")
+	}
+	manifest, err := decodeUpdateManifest(data)
+	if err != nil {
+		return nil, retry, fmt.Errorf("the test build manifest is not valid: %w", err)
+	}
+	if "v"+manifest.Version != tag || !isTestVersion(manifest.Version) {
+		return nil, retry, errors.New("the test build manifest does not match its release")
+	}
+	cache.TestETag, cache.TestTag, cache.TestManifest = etag, tag, manifest
+	return manifest, retry, nil
+}
+
+// setUpdateChannel saves the channel and checks again at once. It is refused
+// while an update downloads or installs.
+func (a *application) setUpdateChannel(channel string) error {
+	if !validUpdateChannel(channel) {
+		return errors.New("Choose the Stable or Test update channel.")
+	}
+	a.mu.Lock()
+	installing := a.installing
+	a.mu.Unlock()
+	if installing {
+		return errors.New("An update is being installed. Change the channel after it restarts.")
+	}
+	a.update.mu.Lock()
+	if a.update.downloadInFlight {
+		a.update.mu.Unlock()
+		return errors.New("An update is downloading. Change the channel when it finishes.")
+	}
+	if err := saveUpdateChannel(a.update.settingsDir, channel); err != nil {
+		a.update.mu.Unlock()
+		return errors.New("The update channel could not be saved. Check access to the application settings folder.")
+	}
+	previous := a.update.channel
+	a.update.channel = channel
+	a.update.state.Channel = channel
+	stable, test := a.update.stableManifest, a.update.testManifest
+	a.update.lastManual = time.Time{}
+	a.update.mu.Unlock()
+	a.logUpdate("Update channel changed from %s to %s", previous, channel)
+	if stable != nil {
+		// Show what is already known straight away; the check below confirms it.
+		a.applyManifestState(stable, test, false)
+	}
+	return a.beginUpdateCheck(true, false)
 }
 
 func (a *application) beginUpdateDownload() error {
@@ -716,8 +848,7 @@ func (a *application) beginUpdateDownload() error {
 		a.update.mu.Unlock()
 		return err
 	}
-	cmp, err := compareVersions(appVersion, manifest.Version)
-	if err != nil || cmp >= 0 {
+	if !a.update.offered || manifest.Version == appVersion {
 		a.update.mu.Unlock()
 		return errors.New("no newer update is available")
 	}

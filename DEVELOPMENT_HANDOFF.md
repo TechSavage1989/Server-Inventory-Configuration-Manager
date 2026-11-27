@@ -1,3 +1,11 @@
+## Unreleased: opt-in Test update channel and the test branch — 2026-11-27
+
+- **Help → Settings → Updates** has **Also offer test builds**. Stable (the default) is offered only stable releases. Test is also offered the newest signed test prerelease (`X.Y.Z-test.N`) and gets whichever is newer; unticking it while a test build runs offers the newest stable release in its place. Saved in `Settings\update-channel.json`. AGENTS rule 61.
+- The long-lived `test` branch (created 2026-11-27 from `release/next` at 34377a3, the 3.2.38 batch) holds test-channel work: PRs with base `test` get the quick Linux checks, pushes to `test` run the full suite, and `release.yml` publishes a signed prerelease from `test` when its `release/VERSION` names `X.Y.Z-test.N`.
+- The channel has to ship in a stable release first (installs before it know only the stable feed). Once this reaches `release/next`, merge `release/next` into `test` so test PRs get the quick checks and `release.yml` there accepts test builds.
+- Check that the GitHub `release` environment's deployment branches include `test`, or signing (Azure OIDC) cannot run for test builds.
+- Tests: `update_channel_test.go` (ordering, channel choice, release-list parsing, saved setting; Linux), `TestTestChannelOffersTestBuildsOnlyAfterOptIn` (Windows, fake GitHub), workspace check "Help > Settings opts in to the Test update channel". Not yet exercised: a real published test prerelease and a real return from a test build to stable.
+
 ## 3.2.38 release preparation — 2026-11-27
 
 Owner asked to publish ("publish"). Contents, merged into `release/next`: #164 (VM names on New migration tiles with an encryption note), #165 (eject CD/DVD images before copies), #167 (VDDK changed-block reads, operator-supplied), #168 (fluid density), #169 (file shares between two other servers) and #170 (rule numbering). Version 3.2.38 in `main.go` and the collector, release notes in `docs/release-notes/3.2.38.md`, and the published-upgrade test now starts from signed 3.2.37 (`323f7f7b...8545`).
