@@ -248,6 +248,29 @@ func vmReplicaChainMessage(disk vmReplicaDisk) error {
 	return fmt.Errorf("%s still has a snapshot chain: the VM runs on %s on top of %s. %s", disk.label, disk.file, strings.Join(disk.chain, " on top of "), vmConsolidateHint)
 }
 
+// vmEncryptedHomeHint ends the error of a running VM whose own files are
+// encrypted (every VM with a virtual TPM) when nothing could read its disks.
+// The plan rows turn it into Choose the VDDK folder and Copy at cutover
+// buttons (index.html, mpEncHomeRe).
+const vmEncryptedHomeHint = "Choose the VDDK folder in Help > Settings to copy it while it runs, or copy it at its cutover while it is shut down."
+
+// vmEncryptedHomeError explains, in plain words, why a running VM with
+// encrypted VM files could not be read, and what works instead. vSphere
+// refuses to export an encrypted VM (Broadcom KB 431565) and the host locks
+// the running disk, so only VDDK (NBDSSL reads such VMs) or a copy while
+// the VM is off can read it.
+func vmEncryptedHomeError(vddkSet bool, vddkWhy string) error {
+	text := "vSphere will not let this VM be read while it runs. Its own files are encrypted (every VM with a virtual TPM has them encrypted; the disks themselves are plain), vSphere refuses to export an encrypted VM, and the ESXi host locks the running disk."
+	if vddkSet {
+		reason := vddkWhy
+		if reason == "" {
+			reason = "it could not open the disk"
+		}
+		text += " VDDK could not read it either (" + strings.TrimSuffix(reason, ".") + "). If the vCenter account is not an administrator, give its role Cryptographic operations > Direct Access, which vSphere requires to read a VM with a virtual TPM, and check that this computer reaches each ESXi host on port 902."
+	}
+	return errors.New(text + " " + vmEncryptedHomeHint)
+}
+
 const vmConsolidateHint = "Consolidate the disks with Prepare source (Delete snapshots and consolidate), or Snapshots > Consolidate in vSphere, then copy again."
 
 // vmReplicaDisks lists the VM's current disks and refuses any that runs on
@@ -563,6 +586,13 @@ func vmReplicateRoundGuarded(ctx context.Context, client *vim25.Client, ref type
 	}()
 	var vddk vddkSession
 	vddkFailed := options.VDDK == nil || options.VDDKFolder == ""
+	// vddkWhy is why VDDK did not read a disk this round ("" when it was
+	// not set up), for the error of a VM nothing else can read.
+	vddkWhy := ""
+	if options.VDDKFolder != "" && options.VDDK == nil {
+		vddkWhy = "VDDK could not connect"
+	}
+	homeEncrypted := machine.Config != nil && machine.Config.KeyId != nil
 	defer func() {
 		if vddk != nil {
 			vddk.Close()
@@ -575,7 +605,7 @@ func vmReplicateRoundGuarded(ctx context.Context, client *vim25.Client, ref type
 				params.VMRef, params.Snapshot = ref.Value, snapshot.Value
 				opened, err := vddkOpenSession(ctx, options.VDDKFolder, params)
 				if err != nil {
-					vddkFailed = true
+					vddkFailed, vddkWhy = true, err.Error()
 					log(fmt.Sprintf("VDDK could not connect to this round's snapshot (%v); reading the disks without it.", err))
 				} else {
 					vddk = opened
@@ -587,6 +617,7 @@ func vmReplicateRoundGuarded(ctx context.Context, client *vim25.Client, ref type
 					log(fmt.Sprintf("%s: reading %s through VDDK (%s), only the blocks this round needs.", disk.label, disk.file, opened.Transport()))
 					return newVDDKSource(disk.file, opened), nil
 				}
+				vddkWhy = err.Error()
 				log(fmt.Sprintf("%s: VDDK could not open %s (%v); reading it without VDDK.", disk.label, disk.file, err))
 			}
 		}
@@ -602,6 +633,10 @@ func vmReplicateRoundGuarded(ctx context.Context, client *vim25.Client, ref type
 			}
 			opened, exportErr := vmOpenSnapshotExport(ctx, client, snapshot, total, log)
 			if exportErr != nil {
+				log(fmt.Sprintf("%s: vSphere's export failed too: %v", disk.label, exportErr))
+				if homeEncrypted {
+					return nil, vmEncryptedHomeError(options.VDDKFolder != "", vddkWhy)
+				}
 				if len(images) > 0 {
 					return nil, fmt.Errorf("%w; reading the snapshot through vSphere's export also failed: %v. The VM's %s names an image file, and vSphere's export fails when that file no longer exists. %s", err, exportErr, vmMediaNames(images), vmEjectMediaHint)
 				}

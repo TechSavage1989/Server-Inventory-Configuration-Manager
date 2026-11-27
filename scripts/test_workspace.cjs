@@ -1989,7 +1989,7 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   f.state.ui={schema:1,confirmStyle:'tick'};f.vm.inventory=vmwareInventoryFixture();f.vm.plan=vmwarePlanFixture();
   const encDisk={label:'Hard disk 1',controller:'SCSI 0',bus:0,unit:0,capacityBytes:107374182400,datastore:'DS-SSD-01',provisioning:'thin',mode:'persistent',rdm:'',encrypted:true};
   f.vm.inventory.vms.push(vmFixtureVM('DESK21',{hv:'blocked',hvFindings:[{severity:'blocker',code:'encrypted',message:'1 of the VM\'s 1 disks are encrypted with vSphere VM Encryption, so no other platform can read them.',action:'Decrypt it.'}],vm:{encrypted:true,encryptionRead:true,vtpm:true,disks:[encDisk]}}));
-  f.vm.inventory.vms.push(vmFixtureVM('DESK22',{vm:{encrypted:true,encryptionRead:true,vtpm:true}}));
+  f.vm.inventory.vms.push(vmFixtureVM('DESK22',{vm:{encrypted:true,encryptionRead:true,vtpm:true,powerState:'poweredOff'}}));
   f.state.vmware=Object.assign(vmwareIdle(),{status:'connected',server:'vc01.example.com',account:'administrator@vsphere.local',summary:vmwareSummaryFixture(),inventorySerial:1,canPrepare:true,hyperVHere:true,hostStorage:{known:true,vhdPath:'D:\\Hyper-V\\Disks',vmPath:'D:\\Hyper-V',clustered:false,volumes:[{path:'D:\\',freeBytes:1099511627776,totalBytes:2199023255552,csv:false}]}});
   await goTool(f,'wizard');await f.page.locator('[data-nw-source="vms"]').click();await f.page.waitForSelector('#nwVmList [data-nw-pick]');
   assert(!(await f.page.locator('[data-nw-pick="vm-desk21"]').isDisabled()),'a VM blocked only by encrypted disks can be ticked, because it is decrypted here');
@@ -2024,6 +2024,69 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   await f.page.waitForFunction(()=>!document.querySelector('#nwDecrypt'),null,{timeout:15000});
   assert((await f.page.locator('#nwBatch').textContent()).includes('Decrypted the VM and its disks.'));assert.equal(await f.page.locator('#nwWhy').textContent(),'','Start is ready once the VM is decrypted');
   await f.page.setViewportSize({width:1008,height:690});assert(await f.page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1),'no horizontal scroll at 1024x768');
+  assert.deepEqual(f.errors,[]);f.state.ui={schema:1,confirmStyle:'typed'};
+ }finally{await f.close();}});
+ await check('New migration: a running VM with a virtual TPM is copied through VDDK or at its cutover while shut down, in the same migration as the others',async()=>{const f=await fixture(browser);try{
+  f.state.ui={schema:1,confirmStyle:'tick'};f.vm.inventory=vmwareInventoryFixture();f.vm.plan=vmwarePlanFixture();
+  f.vm.inventory.vms.push(vmFixtureVM('DESK23',{vm:{encrypted:true,encryptionRead:true,vtpm:true,firmware:'efi'}}));
+  f.state.vmware=Object.assign(vmwareIdle(),{status:'connected',server:'vc01.example.com',account:'administrator@vsphere.local',summary:vmwareSummaryFixture(),inventorySerial:1,canPrepare:true,hyperVHere:true,hostStorage:{known:true,vhdPath:'D:\\Hyper-V\\Disks',vmPath:'D:\\Hyper-V',clustered:false,volumes:[{path:'D:\\',freeBytes:1099511627776,totalBytes:2199023255552,csv:false}]}});
+  await goTool(f,'wizard');await f.page.locator('[data-nw-source="vms"]').click();await f.page.waitForSelector('#nwVmList [data-nw-pick]');
+  assert((await f.page.locator('#nwVmList').textContent()).includes('Virtual TPM: copied while it runs only with VDDK'),'What says how a running vTPM VM can be copied');
+  await f.page.locator('[data-nw-pick="vm-app01"]').check();await f.page.locator('[data-nw-pick="vm-desk23"]').check();
+  await f.page.locator('#nwNext').click();await f.page.locator('[data-nw-target="here"]').click();await f.page.locator('[data-nw-switch="VM-Servers"]').selectOption('Isolated');
+  await f.page.locator('#nwNext').click();await f.page.locator('#nwNext').click();await f.page.locator('#nwNext').click();
+  await f.page.waitForSelector('#nwVddkFolder');
+  let checks=await f.page.locator('.nw-checks').textContent();assert(checks.includes('DESK23 runs with a virtual TPM')&&checks.includes('without VDDK')&&checks.includes('The other VMs are not affected'),checks);
+  await f.page.locator('#nwConfirmTick').check();assert(await f.page.locator('#nwNext').isDisabled(),'Start waits for a way to copy DESK23');
+  await f.page.screenshot({path:out+'/new-migration-vtpm-review-1440x1000.png'});
+  // Copy it at its cutover, while shut down: the rest of the migration is unchanged.
+  await f.page.locator('#nwVtpmOffline').click();
+  await f.page.waitForFunction(()=>document.querySelector('.nw-checks').textContent.includes('DESK23: copied at its cutover, while shut down'),null,{timeout:15000});
+  assert(!(await f.page.locator('.nw-checks').textContent()).includes('without VDDK'));assert((await f.page.locator('.nw-summary').textContent()).includes('1 VM copied at cutover while shut down (DESK23)'));
+  await f.page.screenshot({path:out+'/new-migration-vtpm-offline-1440x1000.png'});
+  // Back to live, then set up VDDK right here.
+  await f.page.locator('#nwVtpmLive').click();await f.page.waitForSelector('#nwVddkFolder');
+  await f.page.locator('#nwVddkFolder').fill('C:\\Bad');await f.page.locator('#nwVddkSave').click();
+  await f.page.waitForFunction(()=>document.querySelector('.nw-checks').textContent.includes('signature is not valid'),null,{timeout:15000});
+  await f.page.locator('#nwVddkFolder').fill('C:\\VDDK\\VMware-vix-disklib-8.0.3');await f.page.locator('#nwVddkSave').click();
+  await f.page.waitForFunction(()=>document.querySelector('.nw-checks').textContent.includes('VDDK 8.0.3 build 23950268 reads it instead'),null,{timeout:15000});
+  assert.deepEqual(f.vddkCalls.map(c=>c.folder),['C:\\Bad','C:\\VDDK\\VMware-vix-disklib-8.0.3']);
+  checks=await f.page.locator('.nw-checks').textContent();assert(checks.includes('Cryptographic operations > Direct Access'),checks);
+  await f.page.locator('#nwVtpmOffline').waitFor({state:'detached'});
+  // Start with DESK23 copied at its cutover: the plan carries each VM's method.
+  await f.page.locator('#nwConfirmTick').check();await f.page.locator('#nwNext').click();
+  await f.page.waitForFunction(()=>document.querySelector('.nw-stepper-item.current')&&document.querySelector('.nw-stepper-item.current').textContent==='6Status',null,{timeout:15000});
+  let created=f.planCalls.find(c=>c.body.action==='create');assert.deepEqual(created.body.methods,{},'with VDDK every VM is copied while it runs');
+  // A copy that fails for this reason offers both fixes on its row.
+  const desk=f.plans.plans[0].vms.find(v=>v.id==='vm-desk23');Object.assign(desk,{name:'DESK23',state:'failed',failures:1,error:'Hard disk 1: vSphere will not let this VM be read while it runs. Its own files are encrypted (every VM with a virtual TPM has them encrypted; the disks themselves are plain), vSphere refuses to export an encrypted VM, and the ESXi host locks the running disk. Choose the VDDK folder in Help > Settings to copy it while it runs, or copy it at its cutover while it is shut down.'});
+  await f.page.waitForSelector('#nwStatusBody [data-mp-offline="vm-desk23"]',{timeout:15000});assert(await f.page.locator('#nwStatusBody [data-mp-vddk="vm-desk23"]').isVisible());
+  await f.page.locator('#nwStatusBody [data-mp-offline="vm-desk23"]').click();
+  for(let i=0;i<100&&!f.planCalls.some(c=>c.body.action==='method');i++){await new Promise(r=>setTimeout(r,50));}
+  const m=f.planCalls.find(c=>c.body.action==='method');assert.deepEqual({vmIds:m.body.vmIds,method:m.body.method},{vmIds:['vm-desk23'],method:'offline'});
+  Object.assign(desk,{state:'waiting',failures:0,error:'',method:'offline'});
+  await f.page.waitForFunction(()=>document.querySelector('#nwStatusBody').textContent.includes('Copied at its cutover, while shut down'),null,{timeout:15000});
+  assert((await f.page.locator('#nwStatusBody').textContent()).includes('Copied at cutover'),'the cutover column says when it is copied');
+  await f.page.locator('[data-nw-row="vm-desk23"]').check();await f.page.locator('#nwCutConfirmTick').check();
+  assert(!(await f.page.locator('#nwCutNow').isDisabled()),'a VM copied at cutover can be cut over without an earlier copy');
+  await f.page.screenshot({path:out+'/new-migration-vtpm-status-1440x1000.png'});
+  await f.page.locator('#nwStatusBody [data-mp-vddk="vm-desk23"]').waitFor({state:'detached'});
+  await f.page.locator('#nwStatusBody [data-mp-live="vm-desk23"]').click();
+  for(let i=0;i<100&&f.planCalls.filter(c=>c.body.action==='method').length<2;i++){await new Promise(r=>setTimeout(r,50));}
+  assert.equal(f.planCalls.filter(c=>c.body.action==='method').pop().body.method,'','switching back to live');
+  assert.deepEqual(f.errors,[]);f.state.ui={schema:1,confirmStyle:'typed'};
+ }finally{await f.close();}});
+ await check('New migration: without VDDK, running vTPM VMs can be set to copy at cutover and the plan carries the method',async()=>{const f=await fixture(browser);try{
+  f.state.ui={schema:1,confirmStyle:'tick'};f.vm.inventory=vmwareInventoryFixture();f.vm.plan=vmwarePlanFixture();
+  f.vm.inventory.vms.push(vmFixtureVM('DESK23',{vm:{encrypted:true,encryptionRead:true,vtpm:true}}));
+  f.state.vmware=Object.assign(vmwareIdle(),{status:'connected',server:'vc01.example.com',account:'administrator@vsphere.local',summary:vmwareSummaryFixture(),inventorySerial:1,canPrepare:true,hyperVHere:true,hostStorage:{known:true,vhdPath:'D:\\Hyper-V\\Disks',vmPath:'D:\\Hyper-V',clustered:false,volumes:[{path:'D:\\',freeBytes:1099511627776,totalBytes:2199023255552,csv:false}]}});
+  await goTool(f,'wizard');await f.page.locator('[data-nw-source="vms"]').click();await f.page.waitForSelector('#nwVmList [data-nw-pick]');
+  await f.page.locator('[data-nw-pick="vm-app01"]').check();await f.page.locator('[data-nw-pick="vm-desk23"]').check();
+  await f.page.locator('#nwNext').click();await f.page.locator('[data-nw-target="here"]').click();await f.page.locator('[data-nw-switch="VM-Servers"]').selectOption('Isolated');
+  await f.page.locator('#nwNext').click();await f.page.locator('#nwNext').click();await f.page.locator('#nwNext').click();
+  await f.page.locator('#nwVtpmOffline').click();await f.page.locator('#nwVtpmLive').waitFor();
+  await f.page.locator('#nwConfirmTick').check();await f.page.locator('#nwNext').click();
+  await f.page.waitForFunction(()=>document.querySelector('.nw-stepper-item.current')&&document.querySelector('.nw-stepper-item.current').textContent==='6Status',null,{timeout:15000});
+  const created=f.planCalls.find(c=>c.body.action==='create');assert.deepEqual(created.body.methods,{'vm-desk23':'offline'});assert.deepEqual(created.body.vmIds.sort(),['vm-app01','vm-desk23'],'both VMs are in one migration');
   assert.deepEqual(f.errors,[]);f.state.ui={schema:1,confirmStyle:'typed'};
  }finally{await f.close();}});
  await check('New migration: a Proxmox target connects inside Where, lists each VM with where it stands, and hands off to Move VMs with the VMs selected',async()=>{const f=await fixture(browser);try{

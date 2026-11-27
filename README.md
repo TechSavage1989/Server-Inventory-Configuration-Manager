@@ -455,6 +455,8 @@ The choice is saved for your Windows account in `Settings\interface.json`. Which
 
 **Faster copies of running VMware VMs (optional).** Copies of a running VMware VM normally stream the whole disk through vSphere's export each round, because ESXi locks the disk. If you download VMware's Virtual Disk Development Kit (VDDK 7.0.3, 8 or 9 for Windows) from Broadcom and choose its folder under **Help → Settings…**, each round reads only the blocks that changed, straight from the ESXi host (NBDSSL, TCP 902). VMware's license does not allow VDDK to be included in this application. Every DLL in the folder must carry VMware's or Broadcom's signature, nothing is installed, and when VDDK cannot connect a round reads the disk the usual way. The folder is saved in `Settings\vddk.json`.
 
+**VMs with a virtual TPM.** vSphere will not export a VM whose own files are encrypted, and every VM with a virtual TPM has them encrypted, so a running one can be copied only through VDDK (a vCenter account that is not an administrator needs **Cryptographic operations > Direct Access**). Without VDDK, New migration offers to copy such a VM at its cutover, while it is shut down; it stays off for its whole copy, and the other VMs in the same migration still copy while they run. You can switch a VM between the two on its row in the migration's status.
+
 The application was renamed from Server Inventory Configuration Manager to **Server Inventory and Migration Manager** in 3.2.20. The executable (`Server-Inventory-Configuration-Manager.exe`), the settings folder above and the download address keep their original names, so existing copies keep updating themselves and keep their settings and shortcuts.
 
 ### Desktop behavior

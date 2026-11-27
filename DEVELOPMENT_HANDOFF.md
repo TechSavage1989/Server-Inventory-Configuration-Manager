@@ -1,12 +1,19 @@
 ## Unreleased: protect production space and bandwidth while copying — 2026-11-27
 
-- Owner: "there should always be a way to safely migrate and control the migration to preserve functional space for the production environment and bandwidth for the production network". AGENTS rule 64.
+- Owner: "there should always be a way to safely migrate and control the migration to preserve functional space for the production environment and bandwidth for the production network". AGENTS rule 65.
 - Space: before every VMware snapshot and Hyper-V checkpoint of a running VM, the datastores or volumes it grows on and the copy's destination must keep the reserve (default 10% and 50 GB) after the expected growth of every copy holding a snapshot there (default 10% of the VM's disks, at least 4 GB). Otherwise the copy waits (not a failure) with the reason in a banner over the migration tools, in plan rows and in Help > Settings. A running copy is stopped at the stop level (default 5% or 20 GB), which removes its snapshot. Windows replication agents check their own volumes before shadow copies (default 10% and 20 GB, per job).
 - Load: copies at once in all (default 4), per source datastore, source host and destination host (default 2 each).
 - Bandwidth: a global limit with business hours for every agentless copy on top of plan and new per-wave limits (wave concurrency too); agent jobs start with it; file share copies use Robocopy `/IPG` (not the final pass at cutover).
 - Files: `prodguard.go`, `prodguard_windows.go`, `prodguard_unix.go`, `prodguard_test.go`; hooks in `vmware_replicate.go`, `vmware_move.go`, `hyperv_move.go`, `hyperv_move_windows.go`, `hyperv_remote_windows.go`, `movebatch*.go`, `repl_job.go`, `repl_throttle.go`, `migrate.go`, `Migrate-FileShares.ps1`, `index.html`, `scripts/test_workspace.cjs`.
 - The Hyper-V checkpoint hook is a small block in `hypervMoveRound`'s running-VM branch, so it merges with the RCT work in PR #173.
 - Not field-validated: real datastore free space during concurrent snapshots, CSV free space through administrative shares, Robocopy's `/IPG` rate.
+
+## Unreleased: virtual TPM VMs copy through VDDK or at their cutover; one migration mixes copy methods — 2026-11-27
+
+- Field report on 3.2.38: running VMs with a virtual TPM (DESK21-CPA01, CPA02) failed every round. vSphere refuses to export a VM whose own files are encrypted (Broadcom KB 431565, every vTPM VM) and the host locks the running disk, so only VDDK or a copy while the VM is off can read them. The round now says so in plain words (`vmEncryptedHomeError`) instead of the raw fault.
+- Migration plan VMs have a copy method (`mbVM.Method`): live (default; VDDK when set) or copy at cutover while shut down. One plan mixes them with the same waves, cutover, fix-up and rollback. Plan rows offer Set up VDDK and Copy at cutover for these VMs; All jobs and servers shows Copies at cutover.
+- New migration's Review blocks a running vTPM VM until VDDK is set up (inline, same check as Help > Settings) or the VM is set to copy at cutover; the other VMs are unaffected. AGENTS rule 64.
+- Validation here: `go test ./...` and vet on Linux, a Windows cross-build, and `scripts/test_workspace.cjs` in Linux Chromium. Not field-validated: VDDK reads of a real vTPM VM, and an offline cutover of one.
 
 ## 3.2.38 published and verified — 2026-11-27
 
