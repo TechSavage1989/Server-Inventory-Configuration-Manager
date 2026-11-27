@@ -18,6 +18,13 @@ Limits: Roll back on a real vCenter and Hyper-V cluster node, Hyper-V RCT refere
 - The Hyper-V checkpoint hook is a small block in `hypervMoveRound`'s running-VM branch, so it merges with the RCT work in PR #173.
 - Not field-validated: real datastore free space during concurrent snapshots, CSV free space through administrative shares, Robocopy's `/IPG` rate.
 
+
+## VDDK folder check reads signatures itself (2026-11-27, next release after 3.2.39)
+
+- Field report on 3.2.38: Help > Settings refused the owner's genuine VDDK 8.0.3 folder. WinVerifyTrust answered TRUST_E_SUBJECT_FORM_UNKNOWN for every DLL, and GetFileVersionInfo said vixDiskLib.dll had no resource section, although every DLL carries an embedded Broadcom Inc signature (DigiCert Trusted G4 chain) and a version resource (checked against the owner's zip).
+- `authenticode.go` (untagged) verifies embedded Authenticode from the file bytes (PE hash, signed attributes, RSA/ECDSA signature, code-signing chain to the system roots) and reads RT_VERSION itself. `vddkFileSigner` and `vddkLibraryVersion` use it first and fall back to Windows' APIs; a file both refuse is still refused, with both reasons.
+- `TestAuthenticodeVerifyChecksHashSignatureAndChain` signs a synthetic PE and checks tampering, untrusted and expired signers, mismatched attributes, unsigned and non-PE files. All 22 DLLs of VDDK 8.0.3 for Windows verified as Broadcom Inc locally (VDDK not committed). Still not field-validated: why Windows' own APIs failed on that host, and loading VDDK there.
+
 ## Unreleased: virtual TPM VMs copy through VDDK or at their cutover; one migration mixes copy methods — 2026-11-27
 
 - Field report on 3.2.38: running VMs with a virtual TPM (DESK21-CPA01, CPA02) failed every round. vSphere refuses to export a VM whose own files are encrypted (Broadcom KB 431565, every vTPM VM) and the host locks the running disk, so only VDDK or a copy while the VM is off can read them. The round now says so in plain words (`vmEncryptedHomeError`) instead of the raw fault.
