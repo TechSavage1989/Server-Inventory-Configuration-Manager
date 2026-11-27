@@ -440,6 +440,8 @@ Settings, logs, cache, staging, rollback, and browser-session files live under:
 
 Reports stay in the selected output folder. Updates preserve your executable path and shortcut targets.
 
+**Protect production.** **Help → Settings…** also sets what every migration leaves for production. Before a copy of a running VM takes its snapshot (VMware) or checkpoint (Hyper-V), the application checks the datastore or volume it grows on and the copy's destination: a copy waits, instead of starting, when it would leave less than the free space you keep (10% and 50 GB by default), counting the other copies already running there, and a running copy is stopped and its snapshot removed if free space falls to the stop level. Waiting copies say why in a banner over the migration tools. The same place caps how many copies run at once (in all, per datastore, per source host and per destination) and sets one bandwidth limit, with business hours, for everything this computer copies; migration plans and their waves can limit further, replication jobs keep free space on their own server's volumes, and file share copies follow the limit too.
+
 **Confirmations.** Before an action changes a server, VM, plan or job (cut over, start a migration, delete a plan, remove snapshots, restore, bulk actions and the rest), the application asks you to confirm in the way chosen under **Help → Settings…**:
 
 - **Tick a box** (the default): an "I understand" box beside the button says what will happen; tick it, then press the button. Changing the selection clears it.

@@ -131,6 +131,7 @@ type stateResponse struct {
 	ACLExport               aclExportState         `json:"aclExport"`
 	CollectionPreferences   *collectionPreferences `json:"collectionPreferences,omitempty"`
 	UI                      uiSettings             `json:"ui"`
+	Production              pgView                 `json:"production"`
 	AppVersion              string                 `json:"appVersion"`
 	Closing                 bool                   `json:"closing"`
 	CollectorVersion        string                 `json:"collectorVersion"`
@@ -231,8 +232,11 @@ type internalState struct {
 }
 
 type application struct {
-	collectionPreferences   *collectionPreferences
-	uiSettings              uiSettings
+	collectionPreferences *collectionPreferences
+	uiSettings            uiSettings
+	// prodGuard keeps production's space and bandwidth during copies
+	// (prodguard.go).
+	prodGuard               *pgGuard
 	mu                      sync.Mutex
 	update                  updateRuntime
 	windowGeometry          windowGeometryRuntime
@@ -1197,6 +1201,7 @@ func newApplication() (*application, error) {
 	}
 	app.loadCollectionPreferences()
 	app.uiSettings = loadUISettings(app.update.settingsDir)
+	app.prodGuard = newPGGuard(loadPGSettings(app.update.settingsDir))
 	setVDDKFolder(loadVDDKSettings(app.update.settingsDir).Folder)
 	return app, nil
 }
@@ -1337,6 +1342,7 @@ func (a *application) snapshot(since int) stateResponse {
 		ACLExport:               a.state.ACLExport,
 		CollectionPreferences:   a.collectionPreferences,
 		UI:                      a.uiSettings,
+		Production:              a.prodGuard.View(),
 		AppVersion:              appVersion,
 		Closing:                 a.closing,
 		CollectorVersion:        collectorVersion,
@@ -2381,6 +2387,7 @@ func (a *application) serve(listener net.Listener) error {
 	mux.HandleFunc("/api/preferences", a.handlePreferences)
 	mux.HandleFunc("/api/ui-settings", a.handleUISettings)
 	mux.HandleFunc("/api/vddk", a.handleVDDK)
+	mux.HandleFunc("/api/production", a.handleProduction)
 	mux.HandleFunc("/api/cancel", a.handleCancel)
 	mux.HandleFunc("/api/skip-acl-export", a.handleSkipACLExport)
 	mux.HandleFunc("/api/open", a.handleOpen)
@@ -2401,6 +2408,7 @@ func (a *application) serve(listener net.Listener) error {
 	mux.HandleFunc("/api/migrate/alias", a.handleMigrateAlias)
 	mux.HandleFunc("/api/migrate/cancel", a.handleMigrateCancel)
 	mux.HandleFunc("/api/migrate/reset", a.handleMigrateReset)
+	mux.HandleFunc("/api/migrate/throttle", a.handleMigrateThrottle)
 	mux.HandleFunc("/api/migrate/autosync", a.handleMigrateAutoSync)
 	mux.HandleFunc("/api/vmware/connect", a.handleVMwareConnect)
 	mux.HandleFunc("/api/output-root", a.handleOutputRoot)
