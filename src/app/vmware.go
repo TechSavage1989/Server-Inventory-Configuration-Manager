@@ -133,9 +133,12 @@ type vmwareStateResponse struct {
 	SendError       string                 `json:"sendError"`
 	Receiver        vmReceiverState        `json:"receiver"`
 	CancelRequested bool                   `json:"cancelRequested"`
-	Logs            []logEntry             `json:"logs"`
-	StartedAtUnixMs int64                  `json:"startedAtUnixMs"`
-	EndedAtUnixMs   int64                  `json:"endedAtUnixMs"`
+	// PlanCopy is what a migration plan copies now (nil when idle). It does
+	// not set Running: Discovery reads and collections run beside it.
+	PlanCopy        *mbClaim   `json:"planCopy"`
+	Logs            []logEntry `json:"logs"`
+	StartedAtUnixMs int64      `json:"startedAtUnixMs"`
+	EndedAtUnixMs   int64      `json:"endedAtUnixMs"`
 }
 
 func (a *application) vmwareRoot() string { return filepath.Join(a.update.appDataRoot, "VMware") }
@@ -148,8 +151,94 @@ func (a *application) vmwarePlanPath(server string) string {
 	return filepath.Join(a.vmwareRoot(), safeName(strings.ToLower(server)), "plan.json")
 }
 
-// Caller holds a.mu.
-func (a *application) vmwareBusyLocked() bool { return a.vmware.action != "" }
+// vmwareBusyLocked is true while a VMware step runs or a migration plan
+// copies. Caller holds a.mu.
+func (a *application) vmwareBusyLocked() bool {
+	return a.vmware.action != "" || a.plans.copying != nil
+}
+
+// vmwareBusyTextLocked says what holds the VMware steps now. Caller
+// holds a.mu.
+func (a *application) vmwareBusyTextLocked() string {
+	if a.vmware.action != "" {
+		return "A VMware step is running (" + vmActionName(a.vmware.action) + ")."
+	}
+	if a.plans.copying != nil {
+		return vmPlanCopyText(a.plans.copying) + " (Migration plans shows its progress)."
+	}
+	return ""
+}
+
+// vmDiscoveryRead is a Discovery read: it reads vCenter, ESXi, a Hyper-V
+// host or a saved inventory and writes reports, and changes nothing on this
+// computer, so it runs beside collections, restores, file migrations,
+// conversions and migration plan copies.
+func vmDiscoveryRead(action string) bool {
+	return action == "connect" || action == "hyperv" || action == "open"
+}
+
+// vmwareBlocksCollectionLocked is true while a VMware step that is not a
+// Discovery read runs. A migration plan copy does not block a collection:
+// the collection only reads this computer. Caller holds a.mu.
+func (a *application) vmwareBlocksCollectionLocked() bool {
+	return a.vmware.action != "" && !vmDiscoveryRead(a.vmware.action)
+}
+
+// vmPlanCopyText says what a running migration plan copy uses, for refusals.
+func vmPlanCopyText(claim *mbClaim) string {
+	name := "A migration plan"
+	if len(claim.Plans) == 1 {
+		name = "Migration plan \"" + claim.Plans[0] + "\""
+	} else if len(claim.Plans) > 1 {
+		name = "Migration plans " + strings.Join(claim.Plans, ", ")
+	}
+	verb := "is copying"
+	if claim.Cutover {
+		verb = "is cutting over"
+	}
+	text := name + " " + verb + " " + vmPluralText(claim.VMs, "VM")
+	if len(claim.Servers) > 0 {
+		text += " from " + strings.Join(claim.Servers, ", ")
+	}
+	return text
+}
+
+func vmPluralText(n int, word string) string {
+	if n == 1 {
+		return "1 " + word
+	}
+	return fmt.Sprintf("%d %ss", n, word)
+}
+
+// vmSessionSwitchRefusalLocked says why a Discovery step may not replace
+// the vSphere or Hyper-V session now, or "". While a migration plan copies,
+// its rounds use the open inventory and the vSphere sign-in, so only a read
+// of the same server (which refreshes them) may run. Caller holds a.mu.
+func (a *application) vmSessionSwitchRefusalLocked(what string) string {
+	if a.plans.copying == nil {
+		return ""
+	}
+	return vmPlanCopyText(a.plans.copying) + " and uses the session open here. " + what + " would replace that session, so it is available again when this copy round ends (Migration plans shows its progress). You can still read " + vmNonEmpty(a.vmware.server, "the same server") + " again to refresh it, and use This server."
+}
+
+// planCopyRefusalLocked says why a migration plan sweep cannot start now,
+// or "". Discovery reads that keep the session (a read of the same server)
+// do not stop it. Caller holds a.mu.
+func (a *application) planCopyRefusalLocked() string {
+	switch {
+	case a.restoreBusyLocked():
+		return "A restore is running. The plan copies when it has finished."
+	case a.migrateBusyLocked():
+		return "A file migration step is running. The plan copies when it has finished."
+	case a.convertBusyLocked():
+		return "A disk conversion is running. The plan copies when it has finished."
+	case a.vmware.action == "hyperv" || a.vmware.action == "open":
+		return "A Discovery read is running. The plan copies when it has finished."
+	case a.vmware.action != "" && a.vmware.action != "connect":
+		return "Another VMware step is running. The plan copies when it has finished."
+	}
+	return ""
+}
 
 // Caller holds a.mu.
 func (a *application) vmwareSnapshotLocked() vmwareStateResponse {
@@ -180,6 +269,7 @@ func (a *application) vmwareSnapshotLocked() vmwareStateResponse {
 		Transfers:       []vmTransfer{},
 		CanPrepare:      a.vmware.inventory != nil && a.vmware.password != "" && strings.EqualFold(a.vmware.inventory.Server, a.vmware.server),
 		CancelRequested: a.vmware.cancelRequested && a.vmware.action != "",
+		PlanCopy:        a.plans.copying,
 		Target:          a.vmTargetStateLocked(),
 		Logs:            append([]logEntry{}, a.vmware.logs...),
 		StartedAtUnixMs: millis(a.vmware.startedAt), EndedAtUnixMs: millis(a.vmware.endedAt),
@@ -217,23 +307,37 @@ func (a *application) vmwareLog(format string, values ...any) {
 // startVMwareAction claims the VMware tab for one action. Caller must not
 // hold a.mu.
 func (a *application) startVMwareAction(action string) (int, string) {
+	return a.startVMwareActionWith(action, nil)
+}
+
+// startVMwareActionWith is startVMwareAction with a further check, run
+// under a.mu so nothing starts between the check and the claim.
+func (a *application) startVMwareActionWith(action string, check func() string) (int, string) {
 	if !a.beginCriticalOperation() {
 		return http.StatusConflict, "An update is being installed."
 	}
 	a.mu.Lock()
 	refusal := ""
+	read := vmDiscoveryRead(action)
+	readOnly := read || action == "export" || action == "compare"
 	switch {
-	case a.state.Running:
+	case !read && a.state.Running:
 		refusal = "A collection is running. Wait for it to finish first."
-	case a.restoreBusyLocked():
+	case !read && a.restoreBusyLocked():
 		refusal = "A restore is running. Wait for it to finish first."
-	case a.migrateBusyLocked():
+	case !read && a.migrateBusyLocked():
 		refusal = "A file migration step is running. Wait for it to finish first."
-	case a.vmwareBusyLocked():
-		refusal = "Another VMware step is running. Wait for it to finish first."
-	case a.convertBusyLocked():
+	case a.vmware.action != "":
+		refusal = "Another VMware step is running (" + vmActionName(a.vmware.action) + "). Wait for it to finish first."
+	case a.plans.copying != nil && !readOnly:
+		refusal = vmPlanCopyText(a.plans.copying) + ". This step can run when that copy round ends (Migration plans shows its progress)."
+	case !read && a.convertBusyLocked():
 		refusal = "A disk conversion is running. Wait for it to finish first."
-	default:
+	}
+	if refusal == "" && check != nil {
+		refusal = check()
+	}
+	if refusal == "" {
 		a.vmware.action = action
 		a.vmware.cancelRequested = false
 		a.vmware.cancel = nil
@@ -246,6 +350,25 @@ func (a *application) startVMwareAction(action string) (int, string) {
 		return http.StatusConflict, refusal
 	}
 	return 0, ""
+}
+
+// vmActionName names a running VMware step for people.
+func vmActionName(action string) string {
+	names := map[string]string{
+		"connect": "reading vCenter or ESXi", "hyperv": "reading a Hyper-V host", "open": "opening a saved inventory",
+		"export": "writing the runbook", "compare": "comparing packages", "prepare": "Prepare on VMware",
+		"move": "Move VMs", "hvmove": "Move VMs to another Hyper-V host", "hvconnect": "connecting to a Hyper-V host",
+		"send": "sending disks", "target-connect": "connecting to the target platform", "media": "building receiver media",
+		"upload": "uploading receiver media", "target-create": "creating the target VM", "hvbuild": "Build Hyper-V hosts",
+		"guest-load": "loading a guest recording",
+	}
+	if name, ok := names[action]; ok {
+		return name
+	}
+	if strings.HasPrefix(action, "guest-") {
+		return "Prepare and fix up"
+	}
+	return action
 }
 
 // moveStatusBegin starts the live status of a Move VMs copy or cutover.
@@ -429,17 +552,27 @@ func (a *application) handleVMwareConnect(response http.ResponseWriter, request 
 		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "Type the password for " + user + "."})
 		return
 	}
-	if status, message := a.startVMwareAction("connect"); status != 0 {
+	// Reading the server already open refreshes its session; reading
+	// another one replaces it, which waits while a migration plan copies.
+	if status, message := a.startVMwareActionWith("connect", func() string {
+		if strings.EqualFold(a.vmware.server, endpoint.Host) && (a.vmware.inventory == nil || !strings.EqualFold(a.vmware.inventory.ServerType, hypervServerType)) {
+			return ""
+		}
+		return a.vmSessionSwitchRefusalLocked("Reading " + endpoint.Host)
+	}); status != 0 {
 		writeJSON(response, status, map[string]any{"ok": false, "error": message})
 		return
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	a.mu.Lock()
-	if !strings.EqualFold(a.vmware.server, endpoint.Host) {
+	same := strings.EqualFold(a.vmware.server, endpoint.Host)
+	if !same {
 		a.vmware.inventory, a.vmware.plan, a.vmware.reportPath, a.vmware.outputFolder, a.vmware.runbookPath, a.vmware.planCSVPath = nil, nil, "", "", "", ""
 		a.vmware.thumbprint = ""
+		a.vmware.server, a.vmware.account, a.vmware.password = endpoint.Host, user, password
 	}
-	a.vmware.server, a.vmware.account, a.vmware.password = endpoint.Host, user, password
+	// A read of the same server keeps the working sign-in until the new
+	// one succeeds, so a mistyped password never stops a migration plan.
 	a.vmware.certificate = nil
 	a.vmware.cancel = cancel
 	a.vmware.status = "connecting"
@@ -449,6 +582,7 @@ func (a *application) handleVMwareConnect(response http.ResponseWriter, request 
 	go func() {
 		defer cancel()
 		inventory, err := collectVSphere(ctx, vmConnectOptions{Server: endpoint.Host, User: user, Password: password, Thumbprint: thumbprint, UserAgent: displayName + " " + appVersion, AppVersion: appVersion}, func(text string) { a.vmwareLog("%s", text) })
+		signIn := password
 		password = ""
 		if err != nil {
 			var certificate *vmCertificateError
@@ -471,6 +605,7 @@ func (a *application) handleVMwareConnect(response http.ResponseWriter, request 
 		report, writeErr := writeVMwareInventoryOutputs(folder, inventory)
 		plan := a.loadVMwarePlan(inventory)
 		a.mu.Lock()
+		a.vmware.server, a.vmware.account, a.vmware.password = endpoint.Host, user, signIn
 		a.vmware.inventory = inventory
 		a.vmware.inventorySerial++
 		a.vmware.plan = &plan
@@ -517,7 +652,9 @@ func (a *application) handleVMwareOpenInventory(response http.ResponseWriter, re
 	if !a.requireAuthorization(response, request) || !decodeVMwareRequest(response, request, nil) {
 		return
 	}
-	if status, message := a.startVMwareAction("open"); status != 0 {
+	if status, message := a.startVMwareActionWith("open", func() string {
+		return a.vmSessionSwitchRefusalLocked("Opening a saved inventory")
+	}); status != 0 {
 		writeJSON(response, status, map[string]any{"ok": false, "error": message})
 		return
 	}
@@ -621,7 +758,7 @@ func (a *application) handleVMwarePlan(response http.ResponseWriter, request *ht
 	inventory, busy := a.vmware.inventory, a.vmwareBusyLocked()
 	a.mu.Unlock()
 	if busy {
-		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "Wait for the current step to finish."})
+		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": a.vmwareBusyTextLocked() + " Wait for it to finish first."})
 		return
 	}
 	plan, err := validateVMPlan(input.Plan, inventory)
@@ -695,8 +832,12 @@ func (a *application) handleVMwareReset(response http.ResponseWriter, request *h
 	}
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	if why := a.vmSessionSwitchRefusalLocked("Forget"); why != "" {
+		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": why})
+		return
+	}
 	if a.vmwareBusyLocked() {
-		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "Wait for the current step to finish."})
+		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "Wait for the current step (" + vmActionName(a.vmware.action) + ") to finish."})
 		return
 	}
 	logs, next, guest, guestSerial, guestMessage, compare, compareSerial, compareFolder := a.vmware.logs, a.vmware.nextLog, a.vmware.guestResult, a.vmware.guestSerial, a.vmware.guestMessage, a.vmware.compare, a.vmware.compareSerial, a.vmware.compareFolder

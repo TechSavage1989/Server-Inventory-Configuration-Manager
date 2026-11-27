@@ -1588,9 +1588,9 @@ func (a *application) handleStart(response http.ResponseWriter, request *http.Re
 		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "A file migration step is running. Wait for it to finish before collecting."})
 		return
 	}
-	if a.vmwareBusyLocked() {
+	if a.vmwareBlocksCollectionLocked() {
 		a.mu.Unlock()
-		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "A VMware step is running. Wait for it to finish before collecting."})
+		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "A VMware step is running (" + vmActionName(a.vmware.action) + "). Wait for it to finish before collecting."})
 		return
 	}
 	if a.convertBusyLocked() {
@@ -1626,9 +1626,9 @@ func (a *application) handleStart(response http.ResponseWriter, request *http.Re
 		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "A file migration step is running. Wait for it to finish before collecting."})
 		return
 	}
-	if a.vmwareBusyLocked() {
+	if a.vmwareBlocksCollectionLocked() {
 		a.mu.Unlock()
-		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "A VMware step is running. Wait for it to finish before collecting."})
+		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "A VMware step is running (" + vmActionName(a.vmware.action) + "). Wait for it to finish before collecting."})
 		return
 	}
 	if a.convertBusyLocked() {

@@ -359,6 +359,8 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
 .restore-alert{margin-top:calc(12*var(--sp));padding:calc(10*var(--sp)) calc(12*var(--sp));border-radius:8px;font-size:max(10.5px,calc(12*var(--fz)));border:1px solid #f0cf8a;background:#fff9ea;color:#74551f}
 .restore-alert.danger{border-color:#f0b4b4;background:#fff2f2;color:#8c2626}.restore-alert.ok{border-color:#a9ddbf;background:#effaf3;color:#1d6b43}
 .restore-alert strong{font-weight:700}
+.busy-notice{display:flex;flex-wrap:wrap;align-items:center;gap:calc(6*var(--sp)) calc(10*var(--sp))}.busy-notice>span{flex:1 1 320px;min-width:0}.busy-notice .secondary-button{flex:0 0 auto}
+.restore-alert.info{border-color:#b9d3f2;background:#f1f7ff;color:#1f4f86}
 .rb-body{display:flex;flex-direction:column;gap:calc(10*var(--sp))}.rb-heading{margin:calc(8*var(--sp)) 0 0;font-size:max(10.5px,calc(14*var(--fz)));color:#23334b}
 .rb-list{display:flex;flex-direction:column;gap:calc(8*var(--sp))}.rb-item{border:1px solid #dbe3ed;border-radius:8px;padding:calc(10*var(--sp)) calc(12*var(--sp));background:#fff}.rb-item.done{background:#f6fbf8}.rb-item.failed,.rb-item.partial{border-color:#f0cf8a}
 .rb-item-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:calc(6*var(--sp)) calc(10*var(--sp))}.rb-item-head strong{font-size:max(10.5px,calc(14*var(--fz)))}
@@ -963,6 +965,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
             <div class="option-card sensitive-inline"><div class="option-inner" id="cardSensitive"><div class="option-head"><div class="option-title">Allow sensitive exports</div><label class="toggle"><input id="includeSensitive" type="checkbox" aria-label="Allow sensitive exports"><span class="slider"></span></label></div><div class="option-desc">Required for explicitly selected exports that can contain reusable secrets, such as a complete NPS configuration. Passwords, private certificate keys, DPAPI secrets and SQL credentials are never automatically collected.</div></div></div>
             <div class="warning-box" id="sensitiveWarning">Sensitive exports are disabled. Normal inventory and safe configuration exports do not require this option.</div>
           </div>
+          <div class="restore-alert busy-notice hidden" id="configLockNotice" role="status"><span id="configLockText"></span><button class="secondary-button hidden" id="configLockOpen" type="button"></button></div>
           <div class="action-bar setup-action-bar"><div class="scope-note"><span id="selectionSummary"></span><span id="scopeHint">Selections are recorded in the report.</span></div><div class="setup-actions"><button class="secondary-button" id="saveChoicesButton" type="button">Save choices</button><button class="primary-button" id="startButton" type="button">Start collection</button></div></div>
         </div>
         </div>
@@ -1110,8 +1113,10 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
         <div class="card-body" id="vmwareBody">
           <details class="vm-roles" id="vmRoles"><summary><span class="vm-roles-label">Which computer runs what?</span><span id="vmRolesSummary"></span></summary><div class="vm-roles-grid" id="vmRolesGrid"></div><div class="vm-roles-flow" id="vmRolesFlow"></div></details>
           <div class="restore-status" id="vmwareMessage" role="status" aria-live="polite"></div>
+          <div class="restore-alert busy-notice hidden" id="vmBusyNotice" role="status"><span id="vmBusyNoticeText"></span><button class="secondary-button hidden" id="vmBusyNoticeOpen" type="button"></button></div>
           <div id="vmViewEnv">
             <div class="vm-move-intro hidden" id="vmMoveIntro"><span id="vmMoveIntroText"></span> <button class="secondary-button" id="vmMoveIntroDiscover" type="button">Go to Discovery: VMware and Hyper-V</button></div>
+            <div class="restore-alert busy-notice vm-read-section hidden" id="vmReadNotice" role="status"><span id="vmReadNoticeText"></span><button class="secondary-button hidden" id="vmReadNoticeOpen" type="button"></button></div>
             <div class="vm-read-pair">
             <section class="migrate-section vm-read-section" aria-labelledby="vmConnectTitle">
               <h3 class="migrate-section-title" id="vmConnectTitle">Read a vCenter or ESXi host</h3>
@@ -2165,7 +2170,10 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   }
   function setConfigDisabled(disabled){
     // A running restore, migration or VMware step also locks collection; the server enforces the same rule.
-    disabled=!!disabled||configurationBusy||restoreIsRunning(latestState&&latestState.restore)||migrateIsRunning()||vmwareIsRunning()||convertIsRunning();
+    // A Discovery read or a migration plan copy does not lock it (rule 65).
+    var why=latestState&&!latestState.running?busyWhy({skip:['collection','plan','read']}):null;
+    renderBusyNotice('configLockNotice','configLockText','configLockOpen',why?{text:why.text+' Collection is available again when it finishes.',label:why.label,open:why.open}:null);
+    disabled=!!disabled||configurationBusy||!!why;
     var nodes=document.querySelectorAll('#configBody input,#configBody button'); for(var i=0;i<nodes.length;i++){nodes[i].disabled=disabled;}
     byId('startButton').disabled=!!disabled;byId('saveChoicesButton').disabled=!!disabled;
     byId('configBody').className=disabled?'card-body locked':'card-body'; if(!disabled){syncCategoryState();}
@@ -2413,7 +2421,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   var cvFormat='vhdx',cvInfo=null,cvSuggested='',cvTargetEdited=false,cvPending=false,cvFormatsBuilt=false,cvFormats=[],cvLastStatus='';
   function cvFormatById(id){for(var i=0;i<cvFormats.length;i++){if(cvFormats[i].id===id){return cvFormats[i];}}return null;}
   function cvExtension(id){var f=cvFormatById(id);return f?f.extension:'.img';}
-  function cvBusyElsewhere(state){return !!(state.running||(state.restore&&state.restore.status==='running')||(state.migrate&&state.migrate.running)||(state.vmware&&state.vmware.running));}
+  function cvBusyElsewhere(state){return !!(state.running||(state.restore&&state.restore.status==='running')||(state.migrate&&state.migrate.running)||(state.vmware&&(state.vmware.running||state.vmware.planCopy)));}
   function cvBuildFormats(formats){
     cvFormats=formats||[];if(cvFormatsBuilt||!cvFormats.length){return;}cvFormatsBuilt=true;
     var box=byId('cvFormats');box.textContent='';
@@ -3315,7 +3323,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     setToolBadge('movevmsBadge',moving?'Working':'');setToolBadge('diskcopyBadge',copyBusy);
     var reading=v.running&&(v.action==='connect'||v.action==='hyperv');
     setToolBadge('discoveryTabBadge',state.running?'Collecting':(reading?'Reading':''));
-    var rpBadge=byId('replicationTabBadge').textContent,busy=moving||(v.running&&!reading)||!!m.running||!!c.running||!!(rpState&&rpState.pushing);
+    var rpBadge=byId('replicationTabBadge').textContent,busy=moving||(v.running&&!reading)||!!v.planCopy||!!m.running||!!c.running||!!(rpState&&rpState.pushing);
     var mig=busy?'Working':(/alert/.test(rpBadge)?rpBadge:(r.running?'Receiving':(/Replicating/.test(rpBadge)?'Replicating':'Ready')));
     byId('migrationTabBadge').textContent=mig;
   }
@@ -3927,7 +3935,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     var progressView=!byId('restoreProgress').classList.contains('hidden'),packages=r.packages||{},locked=restoreLocked(),review=byId('restoreReviewButton');
     review.classList.toggle('hidden',progressView);
     review.disabled=!scan||!scan.isAdministrator||!restoreSelectedPlan().length||running||collecting||restoreBusy||r.status==='scanning'||migrateIsRunning()||vmwareIsRunning()||convertIsRunning();
-    review.title=!scan?'Choose an inventory package first.':(!scan.isAdministrator?'Run the application as administrator to restore.':(collecting?'Wait for the collection to finish first.':(migrateIsRunning()?'Wait for the file migration step to finish first.':(vmwareIsRunning()?'Wait for the VMware step to finish first.':(convertIsRunning()?'Wait for the disk conversion to finish first.':'')))));
+    review.title=!scan?'Choose an inventory package first.':(!scan.isAdministrator?'Run the application as administrator to restore.':(collecting?'Wait for the collection to finish first.':(migrateIsRunning()?'Wait for the file migration step to finish first.':(vmwareIsRunning()?(busyWhy()||{text:'A VMware step is running.'}).text+' Wait for it to finish first.':(convertIsRunning()?'Wait for the disk conversion to finish first.':'')))));
     byId('restoreUseLatest').disabled=locked||!packages.lastCollection;byId('restoreUseLoaded').disabled=locked||!packages.loadedReport;byId('restoreBrowse').disabled=locked;
     byId('restoreUseLatest').title=packages.lastCollection||'No collection has finished yet.';
     byId('restoreUseLoaded').title=packages.loadedReport||'Load a report in the Report Viewer first.';
@@ -4496,7 +4504,39 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   var vmReceiveServiceBusy=false,vmSendDiskList=null,vmSendReceiver=null,vmSendSerial=-1,vmReceiveWasRunning=null,vmSendComputerName='',vmCompare=null,vmCompareDatasets=[],vmCompareSerial=0,vmMoveSerial=0,vmCompareLoading=false,vmCompareBeforePath='',vmCompareAfterPath='',vmCompareOpen={},vmLogKey='';
   var vmRowLimit=400,vmStatusLabels={ready:'Ready',review:'Review first',blocked:'Blocked',skip:'Not moved'};
   function vmwareState(){return (latestState&&latestState.vmware)||null;}
-  function vmwareIsRunning(){var v=vmwareState();return !!(v&&v.running);}
+  // A migration plan copy (v.planCopy) does not set v.running: Discovery
+  // reads and collections run beside it, while steps that change VMs, the
+  // session or this computer still wait for it (the server checks the same).
+  function vmwareIsRunning(){var v=vmwareState();return !!(v&&(v.running||v.planCopy));}
+  function vmPlanCopy(){var v=vmwareState();return (v&&v.planCopy)||null;}
+  var vmReadActions={connect:1,hyperv:1,open:1};
+  function vmwareBlocksCollection(){var v=vmwareState();return !!(v&&v.running&&!vmReadActions[v.action]);}
+  var vmActionNames={connect:'reading vCenter or ESXi',hyperv:'reading a Hyper-V host',open:'opening a saved inventory',export:'writing the runbook',compare:'comparing packages',prepare:'Prepare on VMware',move:'Move VMs',hvmove:'Move VMs to another Hyper-V host',hvconnect:'connecting to a Hyper-V host',send:'sending disks','target-connect':'connecting to the target platform',media:'building receiver media',upload:'uploading receiver media','target-create':'creating the target VM',hvbuild:'Build Hyper-V hosts','guest-load':'loading a guest recording'};
+  var vmActionTools={connect:'environment',hyperv:'environment',open:'environment',export:'plan',compare:'compare',prepare:'movevms',move:'movevms',hvmove:'movevms',hvconnect:'movevms',send:'diskcopy','target-connect':'movevms',media:'diskcopy',upload:'movevms','target-create':'movevms',hvbuild:'hvbuild'};
+  function vmActionName(a){return vmActionNames[a]||(/^guest-/.test(a||'')?'Prepare and fix up':(a||'a VMware step'));}
+  function vmPlanCopyText(c){
+    var plans=vmArr(c.plans),name=plans.length===1?'Migration plan \u201c'+plans[0]+'\u201d':(plans.length?'Migration plans '+plans.join(', '):'A migration plan');
+    return name+(c.cutover?' is cutting over ':' is copying ')+vmPlural(c.vms||0,'VM')+(vmArr(c.servers).length?' from '+vmArr(c.servers).join(', '):'');
+  }
+  // busyWhy names the first other operation that holds things up, with
+  // the tool that shows it, or null. o.skip leaves out kinds that do not
+  // block the caller (collection, plan, read).
+  function busyWhy(o){
+    o=o||{};var s=latestState||{},v=vmwareState()||{};
+    if(!o.skip||o.skip.indexOf('collection')<0){if(s.running){return {text:'A collection of this server is running.',label:'Open This server',open:function(){showTool('server');}};}}
+    if(restoreIsRunning(s.restore)){return {text:'A restore is running on this server.',label:'Open Restore',open:function(){switchTab('restore');}};}
+    if(migrateIsRunning()){return {text:'A file share migration step is running.',label:'Open Move file shares',open:function(){showTool('shares');}};}
+    if(convertIsRunning()){return {text:'A disk conversion is running.',label:'Open Convert disk images',open:function(){showTool('convert');}};}
+    if(v.running&&!(o.skip&&o.skip.indexOf('read')>=0&&vmReadActions[v.action])){var tool=vmActionTools[v.action]||(/^guest-/.test(v.action||'')?'guest':'environment');return {text:'A VMware step is running: '+vmActionName(v.action)+'.',label:'Open it',open:function(){showTool(tool);}};}
+    if(v.planCopy&&!(o.skip&&o.skip.indexOf('plan')>=0)){return {text:vmPlanCopyText(v.planCopy)+'.',label:'Open Migration plans',open:function(){showTool('plans');}};}
+    return null;
+  }
+  function renderBusyNotice(box,text,button,why,tone){
+    box=byId(box);var b=byId(button);
+    if(!why){box.classList.add('hidden');return;}
+    box.classList.remove('hidden');box.classList.toggle('info',tone==='info');byId(text).textContent=why.text;
+    b.classList.toggle('hidden',!why.open);b.textContent=why.label||'Open';b.onclick=why.open||null;
+  }
   function convertIsRunning(){return !!(latestState&&latestState.convert&&latestState.convert.running);}
   function vmArr(value){if(value===null||value===undefined||value===''){return [];}return Object.prototype.toString.call(value)==='[object Array]'?value:[value];}
   function vmOtherBusy(){return !!(latestState&&latestState.running)||restoreIsRunning(latestState&&latestState.restore)||migrateIsRunning()||convertIsRunning();}
@@ -4613,7 +4653,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     pane.classList.toggle('vm-ctx-move',vmToolId==='movevms');
     pane.classList.toggle('vm-ctx-plain',vmToolId==='guest'||vmToolId==='compare'||vmToolId==='failover');
     pane.classList.toggle('vm-ctx-notarget',vmToolId==='compare'||vmToolId==='failover');
-    renderVmMoveIntro();
+    renderVmMoveIntro();if(latestState){renderVmBusyNotice(vmwareState()||{});}
     if(name==='env'&&vmInventory){renderVmDetail();}
   }
   // Receivers: every copy goes to one. Replication links here to set one up.
@@ -4642,7 +4682,8 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   function renderVmOutputRoot(state){
     var input=byId('vmOutputRoot'),root=state.defaultOutputRoot||'';
     if(root!==vmOutputShown&&document.activeElement!==input&&!vmOutputSaving){vmOutputShown=root;input.value=root;}
-    input.disabled=vmOutputSaving||!!(state.vmware&&state.vmware.running)||!!state.running;
+    // Only a running collection writes there; a read takes the folder when it finishes.
+    input.disabled=vmOutputSaving||!!state.running;input.title=state.running?'Available when the collection of this server finishes.':'';
   }
   function saveVmOutputRoot(){
     var input=byId('vmOutputRoot'),value=trimText(input.value);
@@ -4657,7 +4698,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   }
   function renderVMware(state){
     var v=state.vmware||{status:'idle',logs:[]};
-    var badge=v.running?(v.action==='connect'||v.action==='hyperv'?'Reading':'Working'):({connected:'Read',connectfailed:'Failed'}[v.status]||'Ready');
+    var badge=v.running?(v.action==='connect'||v.action==='hyperv'?'Reading':'Working'):(v.planCopy?'Plan copying':({connected:'Read',connectfailed:'Failed'}[v.status]||'Ready'));
     byId('vmwareTabBadge').textContent=badge;
     var message=byId('vmwareMessage');message.textContent=v.message||'';message.className='restore-status'+(v.status==='connectfailed'?' error':'');
     var server=byId('vmServer'),user=byId('vmUser');
@@ -4682,15 +4723,42 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     byId('vmOpenReport').classList.toggle('hidden',!v.reportPath);var disc=byId('vmOpenDiscovery');if(disc){disc.classList.toggle('hidden',!v.discoveryPath);}byId('vmOpenFolder').classList.toggle('hidden',!v.outputFolder);
     var last=state.restore&&state.restore.packages&&state.restore.packages.lastCollection;
     byId('vmCompareUseLast').classList.toggle('hidden',!last);
-    renderVmLog(v);syncVmButtons();
+    renderVmLog(v);syncVmButtons();renderVmBusyNotice(v);
+  }
+  // Outside Discovery's read view, say why this tool's buttons are off when
+  // another operation holds them, and open the tool that shows it.
+  function renderVmBusyNotice(v){
+    var why=null;
+    if(vmToolId!=='environment'&&!vmBusy&&vmLocked()&&!(v.running&&(vmActionTools[v.action]||'environment')===vmToolId)){why=busyWhy();}
+    renderBusyNotice('vmBusyNotice','vmBusyNoticeText','vmBusyNoticeOpen',why?{text:why.text+' Steps here that change VMs or this computer are available again when it finishes.',label:why.label,open:why.open}:null,'info');
+  }
+  function vmHostKey(name){name=trimText(name).toLowerCase().replace(/^[a-z]+:\/\//,'').replace(/[\/?#].*$/,'').replace(/:\d+$/,'');return /^[\d.]+$/.test(name)?name:name.split('.')[0];}
+  // What a Discovery read may do now, and why not: busy while another
+  // VMware step runs; while a migration plan copies, only a read of the same
+  // server (a refresh) may run, because the plan uses that session.
+  function vmDiscoveryReadState(v){
+    var r={busy:vmBusy||!!v.running,keep:false,vc:false,hv:false,why:null,tone:''},plan=v.planCopy;
+    if(v.running){var tool=vmActionTools[v.action]||(/^guest-/.test(v.action||'')?'guest':'environment');
+      r.why=vmReadActions[v.action]?null:{text:'A VMware step is running: '+vmActionName(v.action)+'. Reading waits until it ends; This server and the reports below stay available.',label:'Open it',open:tool==='environment'?null:function(){showTool(tool);}};return r;}
+    if(!plan){return r;}
+    var hyperV=!!(v.summary&&v.summary.serverType==='Hyper-V host'),cur=vmHostKey(v.server||'');
+    var typed=vmHostKey(byId('vmServer').value),hvTyped=vmHostKey(byId('vmHvHost').value)||vmHostKey(vmComputer()||'');
+    r.keep=true;r.vc=hyperV||!typed||typed!==cur;r.hv=!hyperV||hvTyped!==cur;r.tone='info';
+    r.why={text:vmPlanCopyText(plan)+' and uses the session open here. You can still read '+(v.server||'the same server')+' again to refresh it, browse everything below, write reports and use This server. Reading another vCenter or Hyper-V host, opening a saved inventory and Forget would replace that session, so they are available again when this copy round ends.',label:'Open Migration plans',open:function(){showTool('plans');}};
+    return r;
   }
   function syncVmButtons(){
     var v=vmwareState()||{},locked=vmLocked(),running=!!v.running,admin=!!(latestState&&latestState.isAdministrator);
+    // Discovery reads only read, so they run beside collections, restores,
+    // file migrations, conversions and migration plan copies; they wait only
+    // for another VMware step, and a plan copy keeps the session it uses.
+    var read=vmDiscoveryReadState(v);
     ['vmServer','vmUser','vmPassword','vmHvHost','vmHvUser','vmHvPassword'].forEach(function(id){byId(id).disabled=running;});
-    byId('vmHvRead').disabled=locked;
-    byId('vmConnect').disabled=locked||!trimText(byId('vmServer').value)||!trimText(byId('vmUser').value);
-    byId('vmOpenInventory').disabled=locked;byId('vmCertTrust').disabled=locked;
-    byId('vmReset').classList.toggle('hidden',!v.server&&!v.summary);byId('vmReset').disabled=locked;
+    byId('vmHvRead').disabled=read.busy||read.hv;
+    byId('vmConnect').disabled=read.busy||read.vc||!trimText(byId('vmServer').value)||!trimText(byId('vmUser').value);
+    byId('vmOpenInventory').disabled=read.busy||read.keep;byId('vmCertTrust').disabled=read.busy||read.vc;
+    byId('vmReset').classList.toggle('hidden',!v.server&&!v.summary);byId('vmReset').disabled=read.busy||read.keep;
+    renderBusyNotice('vmReadNotice','vmReadNoticeText','vmReadNoticeOpen',read.why,read.tone);
     var stop=byId('vmStop');stop.classList.toggle('hidden',!(running&&(v.action==='connect'||v.action==='hyperv'||v.action==='compare'||v.action==='move'||v.action==='hvconnect'||v.action==='hvmove'||v.action==='media'||v.action==='upload'||v.action==='target-create'||v.action==='send')));stop.disabled=!!v.cancelRequested;stop.textContent=v.cancelRequested?'Stopping...':'Stop';
     byId('vmTargetSelect').disabled=vmBusy||running;
     var hasPlan=!!(vmInventory&&vmPlan);
@@ -6901,7 +6969,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   vmFinder(byId('rpRecvFinder'),{address:byId('rpRecvAddress'),thumbprint:byId('rpRecvThumbprint'),code:byId('rpRecvCode')},{disks:true});
   Array.prototype.forEach.call(document.querySelectorAll('[data-vmfilter]'),function(b){b.addEventListener('click',function(){setVmFilter(b.getAttribute('data-vmfilter'));vmObjTab.root='vms';vmOpenDrawer({kind:'root'},{reveal:true});});});
   byId('vmTargetSelect').addEventListener('change',function(){changeVmTarget(this.value);});
-  ['vmServer','vmUser'].forEach(function(id){byId(id).addEventListener('input',syncVmButtons);});
+  ['vmServer','vmUser','vmHvHost'].forEach(function(id){byId(id).addEventListener('input',syncVmButtons);});
   ['vmServer','vmUser','vmPassword'].forEach(function(id){byId(id).addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();connectVmware();}});});
   byId('vmConnect').addEventListener('click',function(){connectVmware();});
   byId('vmHvRead').addEventListener('click',function(){readHyperV();});
