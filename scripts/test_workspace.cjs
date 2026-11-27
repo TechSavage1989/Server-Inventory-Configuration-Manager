@@ -6,6 +6,13 @@ const out='build/workspace-validation';fs.mkdirSync(out,{recursive:true});
 const report={status:'running',checks:[]};
 const policy=fs.readFileSync('src/app/main.go','utf8').match(/applicationPageCSP\s*=\s*"([^"]+)"/)[1];
 const args=process.argv.slice(2),executable=args.includes('--executable')?args[args.indexOf('--executable')+1]:null;
+// A tiny solid-colour PNG for the fake console stream.
+function solidPNG(w,h,rgb){const zlib=require('zlib'),crcTable=[];for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xedb88320^(c>>>1):c>>>1;crcTable[n]=c>>>0;}
+ const crc=b=>{let c=0xffffffff;for(const x of b)c=crcTable[(c^x)&255]^(c>>>8);return (c^0xffffffff)>>>0;};
+ const chunk=(type,data)=>{const len=Buffer.alloc(4);len.writeUInt32BE(data.length);const td=Buffer.concat([Buffer.from(type),data]);const c=Buffer.alloc(4);c.writeUInt32BE(crc(td));return Buffer.concat([len,td,c]);};
+ const ihdr=Buffer.alloc(13);ihdr.writeUInt32BE(w,0);ihdr.writeUInt32BE(h,4);ihdr[8]=8;ihdr[9]=2;
+ const rows=[];for(let y=0;y<h;y++){rows.push(0);for(let x=0;x<w;x++)rows.push(...rgb);}
+ return Buffer.concat([Buffer.from([137,80,78,71,13,10,26,10]),chunk('IHDR',ihdr),chunk('IDAT',zlib.deflateSync(Buffer.from(rows))),chunk('IEND',Buffer.alloc(0))]).toString('base64');}
 // Synthetic restore scan: a different source server, one unavailable role, high-impact and domain-wide components and a multi-item registry export.
 function restoreScanFixture(){return {sourceComputer:'FS-OLD-07',currentComputer:'SRV-DEMO-01',collectedAt:'2026-11-01 09:14',sameComputer:false,isAdministrator:true,manifestVerified:true,manifestMessage:'All 14 export files match the package manifest.',components:[
  {id:'DHCP',title:'DHCP Server',description:'Scopes, reservations, options and failover settings.',impact:'high',available:true,blockedReason:'',warnings:['Existing scopes with the same ID are replaced.'],items:[{id:'DHCP-config',title:'DHCP configuration',detail:'',available:true,blockedReason:'',defaultSelected:true}]},
@@ -74,7 +81,7 @@ const hvBuildStepCount=hvBuildFixture.steps.length;
 async function fixture(browser,old=false){
  let saved=null,started=[],saveCalls=0,rejectStart=false,skipRequests=[],opens=[],restoreReject=null,migrateReject={},vmwareReject={};const receiverPair={allowed:false};
  const logs=[],dialogs=[],errors=[],restoreCalls={browse:0,scan:[],start:[],cancel:0,tokens:[]},migrateCalls=[],vmwareCalls=[],convertCalls=[],replCalls=[],planCalls=[],serverCalls=[];const servers={rows:[],summary:{total:0,states:{},scheduled:0,methods:{}},bulk:{running:false,action:'',total:0,results:[]},hyperVHere:true,isAdministrator:true,local:{hyperV:true,computer:'HV01',running:false,folder:'',defaultFolder:'C:\\ClusterStorage\\Volume1\\Hyper-V\\Received',port:44380,addresses:['192.0.2.40']}};const plans={plans:[],inventory:{open:true,server:'vc01.example.com',serverType:'vCenter Server',live:true}};let convertReject={},convertSize=0;const pickCalls=[],outputRootCalls=[];let pickReject='';
- const uiCalls=[],vddkCalls=[];let vddk={folder:'',ready:false,loaded:false,message:'Off. Copies of running VMware VMs read whole disks through vSphere\'s export when the datastore refuses them.'};const state={ui:{schema:1,confirmStyle:'typed'},status:'idle',phase:'Ready',running:false,computerName:'SRV-DEMO-01',signedInAccount:'EXAMPLE\\operator',isAdministrator:true,powerShellVersion:'5.1',defaultOutputRoot:'C:\\Reports',update:{status:'current',title:'Up to date',message:'Installed v3.2.10. Latest v3.2.10.',canCheck:true},
+ const consoleCalls=[],consoleStreams=[],consoleOpt={needSignIn:'',caps:null};const uiCalls=[],vddkCalls=[];let vddk={folder:'',ready:false,loaded:false,message:'Off. Copies of running VMware VMs read whole disks through vSphere\'s export when the datastore refuses them.'};const state={ui:{schema:1,confirmStyle:'typed'},status:'idle',phase:'Ready',running:false,computerName:'SRV-DEMO-01',signedInAccount:'EXAMPLE\\operator',isAdministrator:true,powerShellVersion:'5.1',defaultOutputRoot:'C:\\Reports',update:{status:'current',title:'Up to date',message:'Installed v3.2.10. Latest v3.2.10.',canCheck:true},
   restore:{status:'idle',packages:{lastCollection:'',loadedReport:''},items:[],logs:[]},migrate:migrateIdle(),vmware:vmwareIdle(),convert:convertIdle()};
  const vm={inventory:null,plan:null,sizing:null,guest:null,compare:null};
  const failover={failovers:[],copies:[{name:'APP01-disk0.vhdx',size:107374182400,complete:true,verified:false,round:'a1@2026-11-25T14:19:23Z',job:'a1',recoveryPoint:'2026-11-25T14:19:23Z',updated:'2026-11-25T14:20:00Z',busy:false,generation:2,machine:{name:'APP01',cpus:6,memoryMB:12288,firmware:'uefi',adapters:2}},{name:'APP01-disk1.vhdx',size:536870912000,complete:true,verified:false,round:'a1@2026-11-25T14:19:23Z',job:'a1',recoveryPoint:'2026-11-25T14:19:23Z',updated:'2026-11-25T14:20:00Z',busy:false,generation:1},{name:'SQL01-disk0.vhdx',size:107374182400,complete:false,verified:false,updated:'2026-11-25T14:20:00Z',busy:true,generation:1}]};
@@ -241,6 +248,27 @@ async function fixture(browser,old=false){
    if(action==='repair'){Object.assign(c,{running:true,status:'running',task:'repair',repairTarget:data.target,message:'Fixing up '+data.path.split('\\').pop()+'.',serial:c.serial+1,log:['Opening '+data.path+' for changes.']});send(200,{ok:true});return;}
    send(200,{ok:true});return;
   }
+  if(url.pathname.startsWith('/api/console/')){
+   const action=url.pathname.slice(13);
+   if(action==='stream'){
+    if(url.searchParams.get('token')!=='workspace-test'){send(403,{});return;}
+    res.writeHead(200,{'Content-Type':'text/event-stream','Cache-Control':'no-store'});
+    const ev=(name,data)=>res.write('event: '+name+'\ndata: '+JSON.stringify(data)+'\n\n');
+    ev('size',{w:640,h:480});ev('tiles',[{x:0,y:0,png:solidPNG(64,64,[30,200,90])}]);ev('state',consoleStreams.view);
+    const entry={id:url.searchParams.get('id'),ev};consoleStreams.push(entry);req.on('close',()=>{const i=consoleStreams.indexOf(entry);if(i>=0)consoleStreams.splice(i,1);});return;
+   }
+   let body='';for await(const chunk of req)body+=chunk;const data=body?JSON.parse(body):{};consoleCalls.push({action,body:data,token:req.headers['x-app-token']});
+   if(req.headers['x-app-token']!=='workspace-test'){send(403,{});return;}
+   if(action==='open'){
+    if(consoleOpt.needSignIn){send(400,{ok:false,needSignIn:consoleOpt.needSignIn,error:'Sign in to vCenter or ESXi in Discovery first; the console uses that session.'});return;}
+    const caps=consoleOpt.caps||{display:'live',keyboard:true,mouse:true,typeText:true,clipToGuest:true,clipFrom:true,clipFromWhy:'Text the VM copies arrives here when VMware Tools passes it on.',filesTo:true,filesFrom:true,filesHow:'Through VMware Tools, with an account in the VM.',native:['vmrc'],notes:['Nothing is installed in the VM.']};
+    consoleStreams.view={id:'cn1',target:data,platform:'VMware',where:'esx01.example.com (WebMKS)',caps,status:'connected',message:'',typing:false};
+    send(200,{ok:true,session:consoleStreams.view});return;
+   }
+   if(action==='file'){send(202,{ok:true});const view=Object.assign({},consoleStreams.view,{file:{direction:data.direction,status:'done',bytes:2048,message:'Copied 2 KB.'}});consoleStreams.view=view;consoleStreams.forEach(e=>e.ev('state',view));return;}
+   if(action==='close'){const view=Object.assign({},consoleStreams.view,{status:'closed',message:'The console was closed.'});consoleStreams.forEach(e=>e.ev('state',view));send(200,{ok:true});return;}
+   send(200,{ok:true});return;
+  }
   if(url.pathname==='/api/servers'){
    let body='';for await(const chunk of req)body+=chunk;const data=body?JSON.parse(body):{};serverCalls.push({method:req.method,body:data,token:req.headers['x-app-token']});
    if(req.headers['x-app-token']!=='workspace-test'){send(403,{});return;}
@@ -268,7 +296,7 @@ async function fixture(browser,old=false){
  const url='http://127.0.0.1:'+server.address().port+'/';
  // A fixture that fails to load closes its own server and context; otherwise Node never exits and the job hangs until its timeout.
  try{await page.goto(url);await page.waitForFunction(()=>document.querySelector('#serverName').textContent==='SRV-DEMO-01');}catch(e){await context.close().catch(()=>{});server.close();throw new Error('Fixture page did not load ('+errors.concat(dialogs).join('; ')+'): '+e.message);}
- return {page,context,state,uiCalls,vddkCalls,pickCalls,outputRootCalls,rejectPick(message){pickReject=message},vm,repl,plans,planCalls,servers,serverCalls,failover,receiverPair,targetTest,replCalls,vmwareCalls,convertCalls,rejectConvert(action,message){convertReject[action]=message},setConvertSize(size){convertSize=size},rejectVmware(action,message){vmwareReject[action]=message},logs,dialogs,errors,started,skipRequests,opens,restoreCalls,migrateCalls,rejectMigrate(action,message){migrateReject[action]=message},rejectRestore(message){restoreReject=message},get saved(){return saved},get saveCalls(){return saveCalls},reject(){rejectStart=true},async close(){assert.deepEqual(errors,[]);await context.close();await new Promise(r=>server.close(r));}};
+ return {consoleCalls,consoleStreams,consoleOpt,page,context,state,uiCalls,vddkCalls,pickCalls,outputRootCalls,rejectPick(message){pickReject=message},vm,repl,plans,planCalls,servers,serverCalls,failover,receiverPair,targetTest,replCalls,vmwareCalls,convertCalls,rejectConvert(action,message){convertReject[action]=message},setConvertSize(size){convertSize=size},rejectVmware(action,message){vmwareReject[action]=message},logs,dialogs,errors,started,skipRequests,opens,restoreCalls,migrateCalls,rejectMigrate(action,message){migrateReject[action]=message},rejectRestore(message){restoreReject=message},get saved(){return saved},get saveCalls(){return saveCalls},reject(){rejectStart=true},async close(){assert.deepEqual(errors,[]);await context.close();await new Promise(r=>server.close(r));}};
 }
 // Tools live in two tabs: Discovery (Alt+1) and Migration and replication (Alt+5).
 const discoveryTools=['server','environment'];
@@ -777,6 +805,44 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   await f.page.waitForFunction(()=>document.querySelectorAll('#vmTableBody tr.vm-row').length===4);
  };
  const vmwareCalls=(f,action)=>f.vmwareCalls.filter(c=>c.action===action&&c.method==='POST');
+ await check('VM console: opens from a VM page in the app\'s own window, sends keys, special keys, sticky modifiers, paste as typing and files, shows the VM clipboard, and asks to sign in when the session is missing',async()=>{const f=await fixture(browser);try{
+  await vmwareConnected(f);await openVm(f,'vm-app01');
+  f.consoleOpt.needSignIn='vmware';await f.page.locator('#vmConsoleButton').click();
+  await f.page.waitForFunction(()=>/could not open/.test(document.querySelector('#cnOverlayBox').textContent));
+  assert((await f.page.locator('#cnOverlayBox').textContent()).includes('Sign in to vCenter or ESXi'));
+  f.consoleOpt.needSignIn='';await f.page.locator('#cnOverlayBox button',{hasText:'Try again'}).click();
+  await f.page.waitForFunction(()=>document.querySelector('#cnOverlay').classList.contains('hidden'));
+  const open=f.consoleCalls.filter(c=>c.action==='open').at(-1);assert.deepEqual({p:open.body.platform,id:open.body.id,name:open.body.name},{p:'vmware',id:'vm-app01',name:'APP01'});
+  await f.page.waitForFunction(()=>{const c=document.querySelector('#cnScreen canvas');if(!c||c.width!==640)return false;const d=c.getContext('2d').getImageData(10,10,1,1).data;return d[1]===200&&d[0]===30;});
+  assert((await f.page.locator('#cnStatus').textContent()).includes('APP01 on VMware'));
+  await f.page.locator('#cnScreen canvas').click({position:{x:20,y:20}});await f.page.keyboard.type('ab');await f.page.keyboard.press('Alt+2');
+  await f.page.waitForFunction(()=>true);await new Promise(r=>setTimeout(r,300));
+  const events=f.consoleCalls.filter(c=>c.action==='input').flatMap(c=>c.body.events);
+  assert(events.some(e=>e.t==='k'&&e.s===0x61&&e.d),'a is sent as a keysym');assert(events.some(e=>e.t==='k'&&e.s===0xffe9&&e.d),'Alt goes to the VM');assert(events.some(e=>e.t==='p'),'the click goes to the VM');
+  assert(await f.page.locator('#consoleDialog').evaluate(d=>d.open),'Alt+2 does not switch tabs while the console is open');
+  await f.page.locator('#cnCad').click();await f.page.locator('#cnKeysMenu summary').click();await f.page.locator('#cnKeysList button',{hasText:'Task Manager'}).click();
+  await f.page.waitForFunction(()=>true);await new Promise(r=>setTimeout(r,200));
+  assert.deepEqual(f.consoleCalls.filter(c=>c.action==='keys').map(c=>c.body.combo),['ctrlaltdel','ctrlshiftesc']);
+  await f.page.locator('#cnStickyCtrl').click();assert.equal(await f.page.locator('#cnStickyCtrl').getAttribute('aria-pressed'),'true');
+  await f.page.locator('#cnScreen canvas').focus();await f.page.keyboard.press('c');await new Promise(r=>setTimeout(r,300));
+  const after=f.consoleCalls.filter(c=>c.action==='input').flatMap(c=>c.body.events);const ci=after.findIndex(e=>e.s===0x63&&e.d);
+  assert(ci>0&&after.slice(0,ci).some(e=>e.s===0xffe3&&e.d),'sticky Ctrl is held for the next key');assert.equal(await f.page.locator('#cnStickyCtrl').getAttribute('aria-pressed'),'false','sticky Ctrl lets go after one key');
+  await f.page.locator('#cnPasteButton').click();await f.page.locator('#cnPasteText').fill('P@ssw0rd!');await f.page.locator('#cnPasteSpeed').selectOption('60');await f.page.locator('#cnPasteEnter').check();await f.page.locator('#cnPasteGo').click();
+  await f.page.waitForFunction(()=>document.querySelector('#cnPasteText')&&document.querySelector('#cnPasteText').value==='');
+  assert.deepEqual(f.consoleCalls.filter(c=>c.action==='type').at(-1).body,{id:'cn1',text:'P@ssw0rd!\n',delayMs:60});
+  f.consoleStreams.forEach(e=>e.ev('clip',{text:'copied in the VM'}));await f.page.waitForFunction(()=>/new/.test(document.querySelector('#cnClipButton').textContent));
+  await f.page.locator('#cnClipButton').click();assert.equal(await f.page.locator('#cnSide .cn-clip').textContent(),'copied in the VM');
+  await f.page.locator('#cnFilesButton').click();await f.page.locator('#cnFileLocal').fill('C:\\Transfer\\setup.log');await f.page.locator('#cnFileGuest').fill('C:\\Temp\\setup.log');await f.page.locator('#cnFileUser').fill('Administrator');await f.page.locator('#cnFilePass').fill('Synthetic-Pa55');await f.page.locator('#cnFileGo').click();
+  await f.page.waitForFunction(()=>/Copied 2 KB/.test(document.querySelector('#cnFileStatus').textContent));assert.equal(await f.page.locator('#cnFilePass').inputValue(),'','the guest password leaves the page');
+  assert.deepEqual(f.consoleCalls.filter(c=>c.action==='file').at(-1).body,{id:'cn1',direction:'to',local:'C:\\Transfer\\setup.log',guest:'C:\\Temp\\setup.log',user:'Administrator',password:'Synthetic-Pa55'});
+  await f.page.locator('#cnInfoButton').click();assert((await f.page.locator('#cnSide').textContent()).includes('Nothing is installed in the VM'));
+  await f.page.locator('#cnNative button',{hasText:'VMware Remote Console'}).click();await f.page.waitForFunction(()=>/Opened in its own window/.test(document.querySelector('#cnStatus').textContent));
+  await f.page.setViewportSize({width:1008,height:690});assert(await f.page.locator('#cnCad').isVisible());assert(await f.page.locator('#cnInfoButton').isVisible(),'the toolbar fits at 1024x768');
+  await f.page.locator('#cnHide').click();assert(await f.page.locator('#cnReopen').isVisible());assert.equal(await f.page.locator('#cnReopen').textContent(),'Consoles (1)');
+  await f.page.locator('#cnReopen').click();await f.page.locator('#cnTabs .cn-tab button[aria-label^="Close"]').click();
+  await f.page.waitForFunction(()=>!document.querySelector('#consoleDialog').open);assert.equal(f.consoleCalls.filter(c=>c.action==='close').length,1);
+  assert(f.consoleCalls.every(c=>c.token==='workspace-test'));assert.deepEqual(f.dialogs,[]);assert.deepEqual(f.errors,[]);
+ }finally{await f.close();}});
  await check('SQL and DC checks: optional, read only, run on chosen VMs with this or another account and shown in readiness',async()=>{const f=await fixture(browser);try{
   await vmwareConnected(f);await f.page.locator('[data-vmfilter="all"]').click();
   await f.page.locator('#vmListBulk [data-bulk="preflight"]').click();
