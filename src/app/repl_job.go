@@ -28,6 +28,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"runtime/debug"
 	"sort"
 	"strings"
@@ -465,7 +466,13 @@ func newReplAgent(dir string, platform replPlatform) (*replAgent, error) {
 		return newVMRemoteSink(ctx, link.Address, link.Thumbprint, link.Code, target)
 	}
 	a.probeReceiver = vmReceiverDescribe
-	a.spaceFree = pgMountFree
+	// A Windows shadow copy grows inside the volume it copies, so the
+	// volume's free space decides whether a round may start. A Linux LVM
+	// snapshot takes its space from the volume group, and lvcreate refuses
+	// a snapshot the group cannot hold, so the file system is not checked.
+	if runtime.GOOS == "windows" {
+		a.spaceFree = pgMountFree
+	}
 	raw, err := os.ReadFile(filepath.Join(dir, "jobs.json"))
 	switch {
 	case err == nil:
