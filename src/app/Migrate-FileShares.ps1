@@ -560,6 +560,17 @@ function Invoke-SyncShares {
             # /COPYALL keeps data, attributes, timestamps, NTFS permissions,
             # owner and auditing; /B uses backup rights to read every file.
             $options = @('/MIR', '/COPYALL', '/DCOPY:DAT', '/B', '/MT:16', '/NDL') + (Get-CommonRobocopyArguments)
+            # A bandwidth limit (the migration's or the console's, whichever
+            # is lower now) applies to repeat copies, not the final pass at
+            # cutover. Robocopy paces with an inter-packet gap after each
+            # 64 KB block per thread, so the rate is approximate.
+            $mbps = 0
+            if ($Plan.PSObject.Properties['bandwidthMbps']) { $mbps = [int]$Plan.bandwidthMbps }
+            if ($Label -eq 'Copy' -and $mbps -gt 0) {
+                $gap = [int][Math]::Ceiling(4 * 524.288 / $mbps)
+                $options = @($options | ForEach-Object { if ($_ -eq '/MT:16') { '/MT:4' } else { $_ } }) + @('/IPG:' + $gap)
+                Write-Log 'INFO' ($name + (': copying at about {0} Mbps (4 threads, {1} ms between blocks) to protect the production network.' -f $mbps, $gap))
+            }
             $code = Invoke-RobocopyRun -From $from -To $dest -Options $options -LogPath $log -ShareName $name -ExpectedFiles ([uint64]$share.expectedFiles)
             $item.exitCode = $code
             $summary = Get-RobocopySummary $log

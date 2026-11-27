@@ -1,7 +1,7 @@
 name: CI
 on:
   push:
-    branches: [main, fix/collection-responsiveness-3211]
+    branches: [main, test, fix/collection-responsiveness-3211]
   pull_request:
   # Run the full suite on any branch from the Actions tab (or the API), for a
   # change into release/next that needs the Windows checks before the batch.
@@ -9,7 +9,8 @@ on:
 permissions:
   contents: read
 # Batched merges (AGENTS.md, "Batched merges"): fixes are pull requests into
-# release/next, which get the quick Linux checks only; the one pull request
+# release/next (or, for test-channel work, into test: AGENTS rule 61), which
+# get the quick Linux checks only; the one pull request
 # from release/next to main runs everything. A newer push to the same pull
 # request or branch cancels the run it replaces; pushes to main always finish.
 concurrency:
@@ -70,7 +71,7 @@ jobs:
           if-no-files-found: ignore
   windows:
     # Skipped for pull requests into release/next; the batch pull request runs it.
-    if: ${{ !startsWith(github.base_ref, 'release/') }}
+    if: ${{ !startsWith(github.base_ref, 'release/') && github.base_ref != 'test' }}
     runs-on: windows-latest
     timeout-minutes: 25
     steps:
@@ -279,7 +280,7 @@ jobs:
 
   restore:
     # Skipped for pull requests into release/next; the batch pull request runs it.
-    if: ${{ !startsWith(github.base_ref, 'release/') }}
+    if: ${{ !startsWith(github.base_ref, 'release/') && github.base_ref != 'test' }}
     # Real restore round trips: installs DHCP, DNS, IIS, NPS and Print Server on
     # the disposable runner, exports synthetic configuration the way the
     # collector does, changes it, and restores it with the embedded engine.
@@ -300,7 +301,7 @@ jobs:
             build/restore-validation/scan.json
   migration:
     # Skipped for pull requests into release/next; the batch pull request runs it.
-    if: ${{ !startsWith(github.base_ref, 'release/') }}
+    if: ${{ !startsWith(github.base_ref, 'release/') && github.base_ref != 'test' }}
     # Real file share migration round trip on the disposable runner (it is both
     # the old and the new server): discover, check, copy, copy again, cutover,
     # old-share read-only and undo.
@@ -321,7 +322,7 @@ jobs:
             build/migration-validation/checks.txt
   vmguest:
     # Skipped for pull requests into release/next; the batch pull request runs it.
-    if: ${{ !startsWith(github.base_ref, 'release/') }}
+    if: ${{ !startsWith(github.base_ref, 'release/') && github.base_ref != 'test' }}
     # Real guest fix-up round trip: a loopback adapter gets static settings,
     # they are recorded, cleared, put back and undone with the embedded engine.
     runs-on: windows-latest

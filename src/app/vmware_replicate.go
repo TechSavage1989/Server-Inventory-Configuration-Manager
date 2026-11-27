@@ -20,6 +20,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -65,6 +66,13 @@ type vmReplicaOptions struct {
 	// client device, not connected, before the snapshot (vmware_media.go),
 	// so a missing ISO cannot stop vSphere's export of the snapshot.
 	EjectMedia bool
+	// Space, when set, checks the datastores the snapshot grows on (and
+	// TargetVolume, the copy's destination) before the snapshot and watches
+	// them while the round runs (prodguard.go). SpaceOwner names the round
+	// in the guard's holds.
+	Space        *pgGuard
+	SpaceOwner   string
+	TargetVolume func() (pgVolume, bool)
 }
 
 // vmThrottledSource paces reads through a throttle.
@@ -240,6 +248,29 @@ func vmReplicaChainMessage(disk vmReplicaDisk) error {
 	return fmt.Errorf("%s still has a snapshot chain: the VM runs on %s on top of %s. %s", disk.label, disk.file, strings.Join(disk.chain, " on top of "), vmConsolidateHint)
 }
 
+// vmEncryptedHomeHint ends the error of a running VM whose own files are
+// encrypted (every VM with a virtual TPM) when nothing could read its disks.
+// The plan rows turn it into Choose the VDDK folder and Copy at cutover
+// buttons (index.html, mpEncHomeRe).
+const vmEncryptedHomeHint = "Choose the VDDK folder in Help > Settings to copy it while it runs, or copy it at its cutover while it is shut down."
+
+// vmEncryptedHomeError explains, in plain words, why a running VM with
+// encrypted VM files could not be read, and what works instead. vSphere
+// refuses to export an encrypted VM (Broadcom KB 431565) and the host locks
+// the running disk, so only VDDK (NBDSSL reads such VMs) or a copy while
+// the VM is off can read it.
+func vmEncryptedHomeError(vddkSet bool, vddkWhy string) error {
+	text := "vSphere will not let this VM be read while it runs. Its own files are encrypted (every VM with a virtual TPM has them encrypted; the disks themselves are plain), vSphere refuses to export an encrypted VM, and the ESXi host locks the running disk."
+	if vddkSet {
+		reason := vddkWhy
+		if reason == "" {
+			reason = "it could not open the disk"
+		}
+		text += " VDDK could not read it either (" + strings.TrimSuffix(reason, ".") + "). If the vCenter account is not an administrator, give its role Cryptographic operations > Direct Access, which vSphere requires to read a VM with a virtual TPM, and check that this computer reaches each ESXi host on port 902."
+	}
+	return errors.New(text + " " + vmEncryptedHomeHint)
+}
+
 const vmConsolidateHint = "Consolidate the disks with Prepare source (Delete snapshots and consolidate), or Snapshots > Consolidate in vSphere, then copy again."
 
 // vmReplicaDisks lists the VM's current disks and refuses any that runs on
@@ -345,6 +376,49 @@ func vmReplicaRecordAs(folder string, machine mo.VirtualMachine, action, suffix 
 
 // vmReplicateRound runs one replication round for a VM.
 func vmReplicateRound(ctx context.Context, client *vim25.Client, ref types.ManagedObjectReference, options vmReplicaOptions) (*vmReplicaResult, error) {
+	if options.Space == nil {
+		return vmReplicateRoundGuarded(ctx, client, ref, options)
+	}
+	read := func(ctx context.Context) ([]pgVolume, error) {
+		var power mo.VirtualMachine
+		if err := property.DefaultCollector(client).RetrieveOne(ctx, ref, []string{"runtime.powerState"}, &power); err != nil {
+			return nil, err
+		}
+		volumes := []pgVolume{}
+		if power.Runtime.PowerState != types.VirtualMachinePowerStatePoweredOff {
+			// A powered-off VM writes nothing, so its snapshot does not grow.
+			stores, err := vmSnapshotVolumes(ctx, client, ref)
+			if err != nil {
+				return nil, err
+			}
+			volumes = stores
+		}
+		if options.TargetVolume != nil {
+			if target, ok := options.TargetVolume(); ok {
+				volumes = append(volumes, target)
+			}
+		}
+		return volumes, nil
+	}
+	volumes, err := read(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("could not read the free space of the VM's datastores: %w", err)
+	}
+	claim, err := options.Space.Admit(options.SpaceOwner, volumes)
+	if err != nil {
+		return nil, err
+	}
+	defer claim.Release()
+	guarded, cancel := context.WithCancel(ctx)
+	defer cancel()
+	claim.Watch(guarded, cancel, read, options.Log)
+	result, err := vmReplicateRoundGuarded(guarded, client, ref, options)
+	return result, claim.Wrap(err)
+}
+
+// vmReplicateRoundGuarded is the round itself, once the production guard (if
+// any) has let it start.
+func vmReplicateRoundGuarded(ctx context.Context, client *vim25.Client, ref types.ManagedObjectReference, options vmReplicaOptions) (*vmReplicaResult, error) {
 	log := options.Log
 	if log == nil {
 		log = func(string) {}
@@ -512,6 +586,13 @@ func vmReplicateRound(ctx context.Context, client *vim25.Client, ref types.Manag
 	}()
 	var vddk vddkSession
 	vddkFailed := options.VDDK == nil || options.VDDKFolder == ""
+	// vddkWhy is why VDDK did not read a disk this round ("" when it was
+	// not set up), for the error of a VM nothing else can read.
+	vddkWhy := ""
+	if options.VDDKFolder != "" && options.VDDK == nil {
+		vddkWhy = "VDDK could not connect"
+	}
+	homeEncrypted := machine.Config != nil && machine.Config.KeyId != nil
 	defer func() {
 		if vddk != nil {
 			vddk.Close()
@@ -524,7 +605,7 @@ func vmReplicateRound(ctx context.Context, client *vim25.Client, ref types.Manag
 				params.VMRef, params.Snapshot = ref.Value, snapshot.Value
 				opened, err := vddkOpenSession(ctx, options.VDDKFolder, params)
 				if err != nil {
-					vddkFailed = true
+					vddkFailed, vddkWhy = true, err.Error()
 					log(fmt.Sprintf("VDDK could not connect to this round's snapshot (%v); reading the disks without it.", err))
 				} else {
 					vddk = opened
@@ -536,6 +617,7 @@ func vmReplicateRound(ctx context.Context, client *vim25.Client, ref types.Manag
 					log(fmt.Sprintf("%s: reading %s through VDDK (%s), only the blocks this round needs.", disk.label, disk.file, opened.Transport()))
 					return newVDDKSource(disk.file, opened), nil
 				}
+				vddkWhy = err.Error()
 				log(fmt.Sprintf("%s: VDDK could not open %s (%v); reading it without VDDK.", disk.label, disk.file, err))
 			}
 		}
@@ -544,13 +626,17 @@ func vmReplicateRound(ctx context.Context, client *vim25.Client, ref types.Manag
 			if err == nil || !vmFolderRefused(err) {
 				return source, err
 			}
-			log(fmt.Sprintf("%s: the datastore would not open %s while the VM runs (%v); reading this round's snapshot through vSphere's export instead.", disk.label, disk.file, err))
+			log(fmt.Sprintf("%s: the datastore would not open %s while the VM runs (%v); reading this round's snapshot through vSphere's export instead. The export streams all of the disk's used data, so only changed chunks are written but every used block is read; a VDDK folder chosen in Help > Settings reads only changed blocks.", disk.label, disk.file, err))
 			total := int64(0)
 			for _, item := range disks {
 				total += item.capacity
 			}
 			opened, exportErr := vmOpenSnapshotExport(ctx, client, snapshot, total, log)
 			if exportErr != nil {
+				log(fmt.Sprintf("%s: vSphere's export failed too: %v", disk.label, exportErr))
+				if homeEncrypted {
+					return nil, vmEncryptedHomeError(options.VDDKFolder != "", vddkWhy)
+				}
 				if len(images) > 0 {
 					return nil, fmt.Errorf("%w; reading the snapshot through vSphere's export also failed: %v. The VM's %s names an image file, and vSphere's export fails when that file no longer exists. %s", err, exportErr, vmMediaNames(images), vmEjectMediaHint)
 				}
@@ -654,4 +740,53 @@ func vmRemoveReplicaSnapshot(ctx context.Context, client *vim25.Client, snapshot
 		return err
 	}
 	return object.NewTask(client, response.Returnval).Wait(ctx)
+}
+
+// vmSnapshotVolumes reads the datastores a VM's snapshot grows on (those of
+// its disks and its home folder) with their free space now and the size of
+// the VM's disks on each (prodguard.go).
+func vmSnapshotVolumes(ctx context.Context, client *vim25.Client, ref types.ManagedObjectReference) ([]pgVolume, error) {
+	collector := property.DefaultCollector(client)
+	var machine mo.VirtualMachine
+	if err := collector.RetrieveOne(ctx, ref, []string{"datastore", "config.hardware.device", "config.files"}, &machine); err != nil {
+		return nil, err
+	}
+	if len(machine.Datastore) == 0 {
+		return nil, nil
+	}
+	var stores []mo.Datastore
+	if err := collector.Retrieve(ctx, machine.Datastore, []string{"name", "summary"}, &stores); err != nil {
+		return nil, err
+	}
+	bytes := map[string]int64{}
+	if machine.Config != nil {
+		for _, device := range machine.Config.Hardware.Device {
+			disk, ok := device.(*types.VirtualDisk)
+			if !ok {
+				continue
+			}
+			if backing, ok := disk.Backing.(types.BaseVirtualDeviceFileBackingInfo); ok {
+				if name := vmDatastoreOfPath(backing.GetVirtualDeviceFileBackingInfo().FileName); name != "" {
+					bytes[name] += disk.CapacityInBytes
+				}
+			}
+		}
+	}
+	volumes := []pgVolume{}
+	for _, store := range stores {
+		volumes = append(volumes, pgVolume{Key: "datastore:" + store.Self.Value, Label: store.Name, Free: store.Summary.FreeSpace, Capacity: store.Summary.Capacity, VMBytes: bytes[store.Name]})
+	}
+	sort.Slice(volumes, func(i, j int) bool { return volumes[i].Label < volumes[j].Label })
+	return volumes, nil
+}
+
+// vmDatastoreOfPath is the datastore name of "[name] folder/file.vmdk".
+func vmDatastoreOfPath(path string) string {
+	if !strings.HasPrefix(path, "[") {
+		return ""
+	}
+	if end := strings.Index(path, "]"); end > 1 {
+		return path[1:end]
+	}
+	return ""
 }

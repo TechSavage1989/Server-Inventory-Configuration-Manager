@@ -134,7 +134,7 @@ func validateVersionResource(file *pe.File, expectedVersion string) error {
 	}
 	version, _ := parseVersion(expectedVersion)
 	ms := uint32(version[0])<<16 | uint32(version[1])
-	ls := uint32(version[2]) << 16
+	ls := uint32(version[2])<<16 | uint32(version[3]) // a test build's number is the build field
 	if binary.LittleEndian.Uint32(blob[fixed+8:]) != ms || binary.LittleEndian.Uint32(blob[fixed+12:]) != ls || binary.LittleEndian.Uint32(blob[fixed+16:]) != ms || binary.LittleEndian.Uint32(blob[fixed+20:]) != ls {
 		return errors.New("Windows file/product version does not match the manifest")
 	}

@@ -32,6 +32,14 @@ type vmAdapterRecord struct {
 // vmDisconnectSourceAdapters sets every adapter of the powered-off VM to not
 // connect at power on. It returns how many adapters it changed.
 func vmDisconnectSourceAdapters(parent context.Context, options vmConnectOptions, vmID, name, recordFolder string, log func(string)) (int, error) {
+	changed, _, err := vmDisconnectSourceAdaptersRecord(parent, options, vmID, name, recordFolder, log)
+	return changed, err
+}
+
+// vmDisconnectSourceAdaptersRecord is vmDisconnectSourceAdapters that also
+// returns the record it saved ("" when nothing changed), so Roll back can
+// put the adapters back exactly (rollback_vsphere.go).
+func vmDisconnectSourceAdaptersRecord(parent context.Context, options vmConnectOptions, vmID, name, recordFolder string, log func(string)) (int, string, error) {
 	if log == nil {
 		log = func(string) {}
 	}
@@ -39,22 +47,22 @@ func vmDisconnectSourceAdapters(parent context.Context, options vmConnectOptions
 	defer cancel()
 	vsphere, err := openVSphereSession(ctx, options, log)
 	if err != nil {
-		return 0, err
+		return 0, "", err
 	}
 	defer vsphere.logout()
 	ref := types.ManagedObjectReference{Type: "VirtualMachine", Value: vmID}
 	var machine mo.VirtualMachine
 	if err := property.DefaultCollector(vsphere.client).RetrieveOne(ctx, ref, []string{"name", "runtime.powerState", "config.hardware.device"}, &machine); err != nil {
-		return 0, fmt.Errorf("the VM could not be read: %v", vmFriendlyConnectError(err, vsphere.host))
+		return 0, "", fmt.Errorf("the VM could not be read: %v", vmFriendlyConnectError(err, vsphere.host))
 	}
 	if machine.Name != name {
-		return 0, fmt.Errorf("the VM with this ID is now called %q, not %q; its adapters were not changed", machine.Name, name)
+		return 0, "", fmt.Errorf("the VM with this ID is now called %q, not %q; its adapters were not changed", machine.Name, name)
 	}
 	if machine.Runtime.PowerState != types.VirtualMachinePowerStatePoweredOff {
-		return 0, errors.New("the VM is not powered off; its adapters were not changed")
+		return 0, "", errors.New("the VM is not powered off; its adapters were not changed")
 	}
 	if machine.Config == nil {
-		return 0, errors.New("vSphere did not return the VM's devices")
+		return 0, "", errors.New("vSphere did not return the VM's devices")
 	}
 	records := []vmAdapterRecord{}
 	changes := []types.BaseVirtualDeviceConfigSpec{}
@@ -85,18 +93,18 @@ func vmDisconnectSourceAdapters(parent context.Context, options vmConnectOptions
 		changes = append(changes, &types.VirtualDeviceConfigSpec{Operation: types.VirtualDeviceConfigSpecOperationEdit, Device: device})
 	}
 	if len(changes) == 0 {
-		return 0, nil
+		return 0, "", nil
 	}
 	if recordFolder == "" {
-		return 0, errors.New("no folder for the adapters' record; nothing was changed")
+		return 0, "", errors.New("no folder for the adapters' record; nothing was changed")
 	}
 	if err := os.MkdirAll(recordFolder, 0700); err != nil {
-		return 0, err
+		return 0, "", err
 	}
 	raw, _ := json.MarshalIndent(map[string]interface{}{"vm": machine.Name, "id": vmID, "action": "disconnect network adapters after cutover", "time": time.Now().UTC(), "adapters": records}, "", "  ")
 	file := filepath.Join(recordFolder, vmUnsafeFileName.ReplaceAllString(machine.Name, "-")+"-"+time.Now().UTC().Format("20060102-150405")+"-adapters.json")
 	if err := os.WriteFile(file, raw, 0600); err != nil {
-		return 0, err
+		return 0, "", err
 	}
 	log(fmt.Sprintf("Setting %d network adapter(s) of the old VM to not connect (record: %s).", len(changes), file))
 	task, err := object.NewVirtualMachine(vsphere.client, ref).Reconfigure(ctx, types.VirtualMachineConfigSpec{DeviceChange: changes})
@@ -104,7 +112,7 @@ func vmDisconnectSourceAdapters(parent context.Context, options vmConnectOptions
 		err = task.Wait(ctx)
 	}
 	if err != nil {
-		return 0, fmt.Errorf("the old VM's adapters could not be disconnected: %w", err)
+		return 0, "", fmt.Errorf("the old VM's adapters could not be disconnected: %w", err)
 	}
-	return len(changes), nil
+	return len(changes), file, nil
 }
