@@ -20,6 +20,10 @@ type mbRuntime struct {
 	loadErr string
 	// testing is set while a test VM is made or removed.
 	testing bool
+	// copying is what a sweep copies or cuts over now (nil when idle). It
+	// does not hold the VMware action, so Discovery reads and collections
+	// still run; steps that change VMs or the session wait for it.
+	copying *mbClaim
 }
 
 // startPlans loads the plans and starts their scheduler, so scheduled
@@ -33,15 +37,41 @@ func (a *application) startPlans() {
 	runner := newMBRunner(filepath.Join(a.vmwareRoot(), "migration-plans.json"), &mbHostTarget{a: a})
 	runner.log = func(text string) { a.vmwareLog("Plan: %s", text) }
 	runner.ready = a.mbReady
-	runner.claim = func() (func(), string) {
-		if status, message := a.startVMwareAction("plan"); status != 0 {
-			return nil, message
+	runner.guard = a.prodGuard
+	runner.locate = func(plan *mbPlan, vm *mbVM) pgSlotKeys {
+		_, m, err := (&mbHostTarget{a: a}).machine(plan, vm)
+		if err != nil {
+			return pgSlotKeys{}
+		}
+		target := a.computerName
+		if mbRemote(plan) {
+			target = plan.Settings.Node
+			if target == "" {
+				target = plan.Settings.RemoteHost
+			}
+		}
+		return pgSlotKeysFor(m, target)
+	}
+	runner.claim = func(claim mbClaim) (func(), string) {
+		if !a.beginCriticalOperation() {
+			return nil, "An update is being installed."
 		}
 		a.mu.Lock()
-		a.vmware.cancel = runner.Stop
-		a.vmware.status, a.vmware.message = "moving", "A migration plan is copying VMs."
+		reason := a.planCopyRefusalLocked()
+		if reason == "" {
+			a.plans.copying = &claim
+		}
 		a.mu.Unlock()
-		return func() { a.finishVMwareAction("connected", "") }, ""
+		if reason != "" {
+			a.endCriticalOperation()
+			return nil, reason
+		}
+		return func() {
+			a.mu.Lock()
+			a.plans.copying = nil
+			a.mu.Unlock()
+			a.endCriticalOperation()
+		}, ""
 	}
 	if err := runner.Load(); err != nil {
 		a.plans.loadErr = err.Error()
@@ -225,7 +255,7 @@ func (t *mbHostTarget) Create(ctx context.Context, plan *mbPlan, vm *mbVM, resul
 	}
 	notes = append(notes, a.afterCutover(ctx, m, id, "", plan.Settings.StartVMs, plan.Settings.DisconnectSource, plan.Settings.FixUp,
 		vmConnectOptions{Server: server, User: user, Password: password, Thumbprint: thumbprint, UserAgent: displayName + " " + appVersion, AppVersion: appVersion},
-		filepath.Join(a.vmwareRoot(), safeName(strings.ToLower(plan.Server)), "Move"), log)...)
+		filepath.Join(a.vmwareRoot(), safeName(strings.ToLower(plan.Server)), "Move"), plan.Name, log)...)
 	return id, notes, nil
 }
 
@@ -351,8 +381,12 @@ func (a *application) handlePlans(response http.ResponseWriter, request *http.Re
 		Name     string     `json:"name"`
 		Settings mbSettings `json:"settings"`
 		VMIDs    []string   `json:"vmIds"`
-		At       string     `json:"at"`
-		Confirm  string     `json:"confirm"`
+		// Methods gives a VM's copy method on create (mbVM.Method);
+		// Method is the one the "method" action sets.
+		Methods map[string]string `json:"methods"`
+		Method  string            `json:"method"`
+		At      string            `json:"at"`
+		Confirm string            `json:"confirm"`
 	}
 	if !decodeVMwareRequest(response, request, &input) {
 		return
@@ -419,7 +453,7 @@ func (a *application) handlePlans(response http.ResponseWriter, request *http.Re
 				fail(http.StatusBadRequest, "A chosen VM is no longer in the inventory. Read it again.")
 				return
 			}
-			vms = append(vms, mbVM{ID: m.ID, Name: m.Name, Wave: waves[m.ID]})
+			vms = append(vms, mbVM{ID: m.ID, Name: m.Name, Wave: waves[m.ID], Method: input.Methods[m.ID]})
 		}
 		var plan *mbPlan
 		plan, err = runner.Create(input.Name, inventory.Server, input.Settings, vms)
@@ -457,6 +491,11 @@ func (a *application) handlePlans(response http.ResponseWriter, request *http.Re
 			}
 		}
 		err = runner.ScheduleCutover(input.ID, input.VMIDs, at)
+		if err == nil {
+			go runner.Sweep()
+		}
+	case "method":
+		err = runner.SetMethod(input.ID, input.VMIDs, input.Method)
 		if err == nil {
 			go runner.Sweep()
 		}

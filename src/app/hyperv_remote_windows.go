@@ -169,7 +169,7 @@ func (a *application) handleHVRemoteConnect(response http.ResponseWriter, reques
 	}
 	a.mu.Unlock()
 	if user != "" && (!vmwareUserPattern.MatchString(user) || password == "" || len(password) > 256 || strings.ContainsRune(password, 0)) {
-		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "Type the password for " + user + ", or leave the account empty to use your own Windows account."})
+		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "Type the password for " + user + ", or choose your current sign-in."})
 		return
 	}
 	if status, message := a.startVMwareAction("hvconnect"); status != 0 {
@@ -419,7 +419,7 @@ func (a *application) handleHVRemoteMove(response http.ResponseWriter, request *
 			if err == nil {
 				result.Host = node
 				result.Notes = a.afterCutover(context.Background(), vm, result.HyperVID, node, input.Start, input.DisconnectSource, input.FixUp, connect,
-					filepath.Join(a.vmwareRoot(), safeName(strings.ToLower(server)), "Move"), log)
+					filepath.Join(a.vmwareRoot(), safeName(strings.ToLower(server)), "Move"), "", log)
 			}
 		}
 		connect.Password = ""
@@ -524,7 +524,13 @@ func (a *application) hvRemoteRound(ctx context.Context, hv hvRemoteRuntime, vm 
 	if !cutover {
 		a.saveVCenterCapture(vm, log)
 	}
+	release, err := a.protectMove(ctx, vm, &request, node, log)
+	if err != nil {
+		a.copyTransfers().EndRunning(prefix, err, errors.Is(err, context.Canceled), false)
+		return nil, err
+	}
 	result, err := vmMoveRound(ctx, options, request, log)
+	release()
 	a.copyTransfers().EndRunning(prefix, err, errors.Is(err, context.Canceled), err == nil && cutover)
 	if err == nil && result != nil {
 		// The VM is created from the paths the node sees.

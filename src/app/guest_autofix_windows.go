@@ -146,13 +146,18 @@ func (a *application) guestAutoTarget(vm vmMachine, hyperVID, host string) (gues
 }
 
 // afterCutover runs what follows a successful cutover: the old VMware VM's
-// adapters set to not connect (so its address is never used twice), then
-// the automatic fix-up of the new VM in the background. It returns notes for
-// the move result; nothing here fails the cutover.
-func (a *application) afterCutover(ctx context.Context, vm vmMachine, hyperVID, host string, started, disconnect, fixUp bool, options vmConnectOptions, recordFolder string, log func(string)) []string {
+// adapters set to not connect (so its address is never used twice), the
+// rollback record (rollback_windows.go, with the adapters' record so Roll
+// back puts them back exactly), then the automatic fix-up of the new VM in
+// the background. plan names the migration plan ("" for Move VMs). It
+// returns notes for the move result; nothing here fails the cutover.
+func (a *application) afterCutover(ctx context.Context, vm vmMachine, hyperVID, host string, started, disconnect, fixUp bool, options vmConnectOptions, recordFolder, plan string, log func(string)) []string {
 	notes := []string{}
+	adapterRecord := ""
+	defer func() { a.recordVMCutover(vm, hyperVID, host, plan, adapterRecord) }()
 	if disconnect && vm.Source != vmSourceHyperV {
-		changed, err := vmDisconnectSourceAdapters(ctx, options, vm.ID, vm.Name, recordFolder, log)
+		changed, record, err := vmDisconnectSourceAdaptersRecord(ctx, options, vm.ID, vm.Name, recordFolder, log)
+		adapterRecord = record
 		switch {
 		case err != nil:
 			notes = append(notes, "The old VM's network adapters were not disconnected: "+err.Error()+".")

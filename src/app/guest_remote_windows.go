@@ -175,7 +175,7 @@ func (a *application) handleGuestTarget(response http.ResponseWriter, request *h
 		a.mu.Lock()
 		defer a.mu.Unlock()
 		if a.vmwareBusyLocked() {
-			writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "Wait for the current step to finish."})
+			writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": a.vmwareBusyTextLocked() + " Wait for it to finish first."})
 			return
 		}
 		password := input.Password
@@ -208,7 +208,7 @@ func (a *application) handleGuestTarget(response http.ResponseWriter, request *h
 		a.mu.Lock()
 		defer a.mu.Unlock()
 		if a.vmwareBusyLocked() {
-			writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "Wait for the current step to finish."})
+			writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": a.vmwareBusyTextLocked() + " Wait for it to finish first."})
 			return
 		}
 		a.guestRemote = guestTarget{Mode: "local"}
