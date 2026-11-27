@@ -322,7 +322,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visi
 .metric-action{cursor:pointer;transition:border-color .15s,box-shadow .15s}.metric-action:hover{border-color:#9db8e6;box-shadow:0 1px 4px rgba(31,95,191,.12)}.metric-action:focus-visible{outline:2px solid #2d6fd6;outline-offset:2px}
 .log-view .log-focus{outline:2px solid #e0a12b;outline-offset:-1px;background:rgba(245,200,75,.18)}
 .shortcuts-link{padding:0;margin-top:3px;font-size:11px}
-.shortcuts-dialog{border:1px solid #d6dde8;border-radius:14px;padding:0;width:min(520px,calc(100vw - 32px));max-height:calc(100vh - 32px);color:#172033;box-shadow:0 18px 50px rgba(15,23,42,.28)}.shortcuts-dialog::backdrop{background:rgba(15,23,42,.38)}
+.shortcuts-dialog{border:1px solid #d6dde8;border-radius:14px;padding:0;width:min(520px,calc(100vw - 32px));max-height:calc(100vh - 32px);overflow:auto;color:#172033;box-shadow:0 18px 50px rgba(15,23,42,.28)}.shortcuts-dialog::backdrop{background:rgba(15,23,42,.38)}
 .shortcuts-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;border-bottom:1px solid #e3e8ef}.shortcuts-head h2{margin:0;font-size:16px}
 .shortcuts-list{margin:0;padding:12px 18px 16px;display:grid;grid-template-columns:auto 1fr;gap:9px 16px;align-items:baseline}.shortcuts-list dt{white-space:nowrap;font-size:12px}.shortcuts-list dd{margin:0;color:#45526a;font-size:13px}
 kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df;border-bottom-width:2px;border-radius:5px;background:#f6f8fb;font:600 11px/16px Consolas,"Segoe UI",monospace;text-align:center;color:#172033}
@@ -1831,6 +1831,12 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
       <label class="cfm-style"><input type="radio" name="cfmStyle" value="none" id="cfmStyleNone"><span><strong>Don't ask</strong><small>Actions run as soon as you press their button. Only for a test lab.</small></span></label>
     </fieldset>
     <div class="helper" id="settingsStatus" role="status" aria-live="polite">Saved for your Windows account on this computer.</div>
+    <fieldset class="cfm-styles" id="vddkSettings"><legend>VMware VDDK, for faster copies of running VMs</legend>
+      <div class="helper">With VMware's Virtual Disk Development Kit, each copy round of a running VMware VM reads only the blocks that changed, straight from the ESXi host (NBDSSL, port 902). Without it, the round streams the whole disk through vSphere's export. VMware's license does not let this application include VDDK: download VDDK 7.0.3, 8 or 9 for Windows from Broadcom, extract it, and choose its folder here. Every DLL in it must carry VMware's or Broadcom's signature.</div>
+      <label class="vm-field">VDDK folder (blank turns it off)<input id="vddkFolder" type="text" spellcheck="false" autocomplete="off" placeholder="C:\VDDK\VMware-vix-disklib-8.0.3" data-browse="folder" data-browse-title="Choose the folder you extracted the Windows VDDK download into (it holds bin\vixDiskLib.dll)."></label>
+      <div class="about-actions"><button class="primary-button" id="vddkSave" type="button">Check and save</button><button class="secondary-button" id="vddkOff" type="button">Turn off</button></div>
+      <div class="helper" id="vddkStatus" role="status" aria-live="polite"></div>
+    </fieldset>
   </div>
 </dialog>
 <dialog class="shortcuts-dialog" id="aboutDialog" aria-labelledby="aboutTitle">
@@ -3586,7 +3592,14 @@ kbd{display:inline-block;min-width:20px;padding:1px 6px;border:1px solid #c9d2df
     var d=byId('settingsDialog'),s=cfmStyle();Array.prototype.forEach.call(document.querySelectorAll('input[name="cfmStyle"]'),function(r){r.checked=r.value===s;});
     byId('settingsStatus').textContent='Saved for your Windows account on this computer.';byId('settingsStatus').className='helper';
     if(!d.open){if(d.showModal){d.showModal();}else{d.setAttribute('open','');}}byId('settingsClose').focus();
+    vddkShow(null,'Checking the VDDK folder\u2026');
+    request('GET','/api/vddk',null,function(err,data){if(err){vddkShow(null,err,true);return;}byId('vddkFolder').value=(data.vddk&&data.vddk.folder)||'';vddkShow(data.vddk);});
   }
+  function vddkShow(v,text,bad){var st=byId('vddkStatus');st.textContent=text||(v&&v.message)||'';st.className='helper'+(bad||(v&&v.folder&&!v.ready)?' error':'');}
+  function vddkSave(folder){var save=byId('vddkSave'),off=byId('vddkOff');save.disabled=off.disabled=true;vddkShow(null,folder?'Checking the signatures in '+folder+'\u2026':'Turning VDDK off\u2026');
+    request('POST','/api/vddk',{folder:folder},function(err,data){save.disabled=off.disabled=false;if(err){vddkShow(null,err,true);return;}byId('vddkFolder').value=(data.vddk&&data.vddk.folder)||'';vddkShow(data.vddk,(folder?'Saved. ':'')+((data.vddk&&data.vddk.message)||''));});}
+  byId('vddkSave').addEventListener('click',function(){vddkSave(trimText(byId('vddkFolder').value));});
+  byId('vddkOff').addEventListener('click',function(){vddkSave('');});
   function closeSettings(){var d=byId('settingsDialog');if(d.close){d.close();}else{d.removeAttribute('open');}}
   byId('settingsClose').addEventListener('click',closeSettings);
   byId('settingsDialog').addEventListener('click',function(e){if(e.target===this){closeSettings();}});

@@ -1,3 +1,11 @@
+## Unreleased: VMware VDDK reads of running VMs (changed blocks only) — 2026-11-27
+
+- Owner request: explore VDDK so pre-cutover syncs of running VMs read only the CBT changed blocks instead of streaming the whole disk through the export. Rule 58.
+- Licensing: the owner's VDDK 8.0.3 download carries only the VMware General Terms (2023-11-22, section 1.3: internal use only, no sublicensing), so VDDK is not shipped. Operators choose their own extracted VDDK folder in Help > Settings (`/api/vddk`, `Settings\vddk.json`).
+- `vddk.go` (sector source, settings, connection), `vddk_windows.go` (signature check with WinVerifyTrust and Broadcom/VMware signer, version 7.0.3+, LoadLibraryEx, VixDiskLib through syscalls with the header's pack-4 offsets, NBDSSL only, read only, no PrepareForAccess), `vddk_other.go`. Rounds try VDDK first, then the datastore read, then the export.
+- Tests: `vddk_test.go` (vcsim with a fake session: seed, a changed-block round reading one chunk, fallback when VDDK cannot connect), `vddk_windows_test.go` (unsigned and Microsoft-signed DLLs refused), workspace check for the setting.
+- Not field-validated: real VixDiskLib calls (struct offsets, UID login, SHA-1 thumbprint, nbdssl to port 902) against vCenter and ESXi with VDDK 7.0.3, 8.0.3 and 9.
+
 ## 3.2.37 published and verified — 2026-11-26
 
 - [Release v3.2.37](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.37) ("Server Inventory and Migration Manager 3.2.37"), tag and target commit `b0708c3d90053133584a107862bf6f85ad7028a5`. Source: #149, #152, #153, #154, #155, #156, #158, #159 and #160, prepared by #157 and published by #161. The owner asked to release everything together on 2026-11-26.
