@@ -236,3 +236,31 @@ func TestPreflightResultsSurviveANewReadAndReachTheReports(t *testing.T) {
 		}
 	}
 }
+
+func TestPreflightErrorsAreOneLineWithTheDetailKept(t *testing.T) {
+	winrm := "Connecting to remote server DESK19101038.example.org failed with the following error message : The client cannot connect to the destination specified in the request. Verify that the service on the destination is running and is accepting requests. Consult the logs and documentation for the WS-Management service running on the destination, most commonly IIS or WinRM. If the destination is the WinRM service, run the following command on the destination to analyze and configure the WinRM service: \"winrm quickconfig\". For more information, see the about_Remote_Troubleshooting Help topic."
+	cases := []struct{ via, err, want string }{
+		{"winrm", winrm, "couldn't reach DESK19101038.example.org over WinRM (TCP 5985)."},
+		{"winrm", "Connecting to remote server app01 failed with the following error message : Access is denied.", "app01 refused the account (access denied)."},
+		{"winrm", "The WinRM client cannot process the request. Default authentication may be used with an IP address under the following conditions: the transport is HTTPS or the destination is in the TrustedHosts list", "couldn't sign in to app01 over WinRM (TCP 5985): use its domain name (Kerberos) rather than an IP address."},
+		{"direct", "The operation timed out.", "app01 did not answer in time through PowerShell Direct."},
+		{"winrm", "Something odd. With more text.\nSecond line", "Something odd."},
+	}
+	for _, c := range cases {
+		computer := "app01"
+		if strings.Contains(c.err, "DESK19101038") {
+			computer = "DESK19101038.example.org"
+		}
+		if got := preflightErrorSummary(computer, c.via, c.err); got != c.want {
+			t.Errorf("summary of %.40q = %q, want %q", c.err, got, c.want)
+		}
+	}
+	check := &vmPreflight{CheckedAt: vmTestNow, Computer: "DESK19101038.example.org", Via: "winrm", Error: winrm}
+	findings := preflightFindings(check)
+	if len(findings) != 1 || strings.Contains(findings[0].Message, "quickconfig") || !strings.Contains(findings[0].Message, "over WinRM (TCP 5985)") || findings[0].Detail != winrm {
+		t.Fatalf("findings = %+v", findings)
+	}
+	if rows := preflightFacts(check); strings.Contains(rows[len(rows)-1][1], "quickconfig") {
+		t.Fatalf("report row keeps the raw error: %q", rows[len(rows)-1][1])
+	}
+}

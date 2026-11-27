@@ -752,6 +752,12 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
 .mp-go li.warn::before{content:"!";color:var(--warning,#9a6700)}
 .mp-go li.block::before{content:"\2717";color:var(--danger,#c0392b)}
 .mp-go li.info::before{content:"\2022";color:var(--muted,#667085)}
+.mp-go ul.mp-go-items{margin:calc(2*var(--sp)) 0 0}
+.mp-go ul.mp-go-items li{padding:calc(1*var(--sp)) 0 calc(1*var(--sp)) 12px}
+.mp-go ul.mp-go-items li::before{content:"\2013";color:var(--muted,#667085);font-weight:400}
+.err-detail{margin-top:calc(2*var(--sp))}
+.err-detail summary{cursor:pointer;color:var(--accent,#1f5fbf);font-size:max(10.5px,calc(12*var(--fz)))}
+.err-detail pre{white-space:pre-wrap;word-break:break-word;max-height:220px;overflow:auto;margin:calc(4*var(--sp)) 0 0;padding:calc(6*var(--sp));border:1px solid var(--border);border-radius:6px;background:rgba(127,127,127,.08);font-size:max(10.5px,calc(11.5*var(--fz)))}
 .activity-strip{display:flex;flex-wrap:wrap;align-items:center;gap:calc(6*var(--sp));padding:calc(4*var(--sp)) calc(10*var(--sp));margin:0 0 calc(6*var(--sp));border:1px solid var(--line);border-radius:8px;background:var(--panel);font-size:max(10.5px,calc(12.5*var(--fz)))}
 .activity-strip .act-title{font-weight:600;margin-right:calc(4*var(--sp))}
 .activity-strip button{border:1px solid var(--line);background:transparent;color:inherit;border-radius:999px;padding:calc(2*var(--sp)) calc(9*var(--sp));font:inherit;cursor:pointer}
@@ -2351,6 +2357,9 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     {re:/verification failed|does not match the source/i,title:'The copy did not match the source',text:'A verified read found a difference. The next copy rewrites the chunks that differ.',fix:'retry',fixText:'Copy this VM again now'},
     {re:/receiver/i,title:'The receiver did not take the copy',text:'Check that the receiver is running on the new host and reachable from the source.',fix:'',fixText:''}
   ];
+  // The full text behind a one-line message (a finding's detail, such as a
+  // remote error), folded under Details so a list stays one line per item.
+  function detailFold(parent,text){text=trimText(text||'');if(!text){return null;}var d=el('details','err-detail'),sm=el('summary','','Details');d.appendChild(sm);d.appendChild(el('pre','selectable',text));parent.appendChild(d);return d;}
   function errorExplain(text){text=String(text||'');for(var i=0;i<errorCatalog.length;i++){if(errorCatalog[i].re.test(text)){return errorCatalog[i];}}return null;}
   function errorHelp(text,ctx){
     var e=errorExplain(text);if(!e){return null;}ctx=ctx||{};
@@ -5745,7 +5754,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   }
   function vmFindingsList(vm,r,limit){
     var list=el('ul','vm-findings'),shown=0,findings=vmArr(r.findings).slice().sort(function(a,b){var o={blocker:0,warning:1,info:2};return (o[a.severity]||3)-(o[b.severity]||3);});
-    findings.forEach(function(f){if(limit&&shown>=limit){return;}shown++;var li=el('li',f.severity,f.message);if(f.action){li.appendChild(el('span','vm-finding-action',f.action));}var ways=vmWaysOut(f,vm);if(ways){li.appendChild(ways);}list.appendChild(li);});
+    findings.forEach(function(f){if(limit&&shown>=limit){return;}shown++;var li=el('li',f.severity,f.message);if(f.action){li.appendChild(el('span','vm-finding-action',f.action));}detailFold(li,f.detail);var ways=vmWaysOut(f,vm);if(ways){li.appendChild(ways);}list.appendChild(li);});
     if(!list.childNodes.length){list.appendChild(el('li','good',r.status==='skip'?'This VMware system VM is not moved.':'Nothing to fix before moving to '+vmTargetName(vmTarget())+'.'));}
     return {list:list,more:findings.length-shown};
   }
@@ -6300,9 +6309,10 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   function pfComputerOf(vm){return pfForm.computers[vm.id]!==undefined?pfForm.computers[vm.id]:(vm.guestHostName||vm.ipAddress||'');}
   function pfItemOf(id){var list=vmArr(pfState().items);for(var i=0;i<list.length;i++){if(list[i].id===id){return list[i];}}return null;}
   // The last check of a VM in one line.
+  function oneLine(text){var line=trimText(String(text||'').split('\n')[0]),cut=line.indexOf('. ');if(cut>0){line=line.slice(0,cut+1);}return line.length>140?line.slice(0,137)+'...':line;}
   function pfLast(vm){
     var p=vm.preflight;if(!p){return 'Not checked yet.';}
-    var when=vmWhen(p.checkedAt);if(p.error){return 'Not reached '+when+': '+p.error;}
+    var when=vmWhen(p.checkedAt);if(p.error){return 'Not reached '+when+': '+(p.errorSummary||oneLine(p.error));}
     var f=p.facts||{},parts=[];
     if(f.dc&&f.dc.checked){parts.push(f.dc.isDC?'domain controller'+(vmArr(f.dc.roles).length?' ('+vmArr(f.dc.roles).join(', ')+')':''):'not a domain controller');}
     if(f.sql&&f.sql.checked){var n=vmArr(f.sql.instances).length;parts.push(n?vmPlural(n,'SQL Server instance'):'no SQL Server');}
@@ -10178,7 +10188,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   function mpRoleFindings(id){var vm=mpInvVM(id),out=[];if(!vm){return out;}vmArr(vm.readiness).forEach(function(r){if(r.target!=='hyperv'){return;}vmArr(r.findings).forEach(function(f){if(/^(dc-|sql-|preflight-)/.test(f.code)&&f.severity!=='info'){out.push(f);}});});return out;}
   function mpGoChecks(p,vms){
     var list=[],names=function(a){return a.slice(0,4).map(function(v){return v.name;}).join(', ')+(a.length>4?' and '+(a.length-4)+' more':'');};
-    var add=function(kind,text){list.push({kind:kind,text:text});};
+    var add=function(kind,text,items){list.push({kind:kind,text:text,items:items});};
     var unseeded=vms.filter(function(v){return !v.seeded;}),failed=vms.filter(function(v){return v.state==='failed';}),testing=vms.filter(function(v){return v.state==='testing'||v.test;}),cutting=vms.filter(function(v){return v.state==='cutting';});
     if(unseeded.length){add('block',vmPlural(unseeded.length,'VM')+' still on the first copy: '+names(unseeded)+'.');}else{add('ok','Every VM has a whole copy.');}
     if(failed.length){add('block',vmPlural(failed.length,'VM')+' failed: '+names(failed)+'. Read the message in the list.');}
@@ -10189,9 +10199,9 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     if(stale.length){add('warn',vmPlural(stale.length,'VM')+' not synced in the last '+mpDuration(limit/1000)+': '+names(stale)+'. Sync now to shorten the final copy.');}else if(!unseeded.length){add('ok','Every copy synced recently.');}
     var untested=vms.filter(function(v){return !mpTime(v.testedAt);});
     if(untested.length){add('warn',vmPlural(untested.length,'VM')+' not tested yet: '+names(untested)+'. Test starts an isolated copy; production is untouched.');}else{add('ok','Every VM was tested.');}
-    var blockers=[],warns=[];vms.forEach(function(v){mpRoleFindings(v.id).forEach(function(f){(f.severity==='blocker'?blockers:warns).push(v.name+': '+f.message);});});
-    if(blockers.length){add('block','SQL Server or domain controller check: '+blockers.slice(0,3).join(' ')+(blockers.length>3?' And '+(blockers.length-3)+' more.':''));}
-    if(warns.length){add('warn','SQL Server or domain controller check: '+warns.slice(0,3).join(' ')+(warns.length>3?' And '+(warns.length-3)+' more.':''));}
+    var blockers=[],warns=[];vms.forEach(function(v){mpRoleFindings(v.id).forEach(function(f){(f.severity==='blocker'?blockers:warns).push({text:v.name+': '+f.message,detail:f.detail});});});
+    if(blockers.length){add('block','SQL Server or domain controller check, '+vmPlural(blockers.length,'problem')+':',blockers);}
+    if(warns.length){add('warn','SQL Server or domain controller check, '+vmPlural(warns.length,'item')+' to review:',warns);}
     if(!blockers.length&&!warns.length&&vmInventory){add('ok','No SQL Server or domain controller problem found (the checks are optional: SQL and DC checks in Discovery).');}
     var at=vms.map(function(v){return mpTime(v.cutoverAt);}).filter(Boolean).sort();
     if(at.length){add('info','Cutover scheduled for '+at[0]+(at.length<vms.length?' ('+at.length+' of '+vms.length+' VMs)':'')+'.');}
@@ -10207,7 +10217,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
       var card=el('div','mp-go');card.setAttribute('data-mp-go',String(w));
       var head=el('div','mp-go-head');head.appendChild(el('strong','',(w?'Wave '+w:'No wave')+' · '+vmPlural(vms.length,'VM')));
       head.appendChild(el('span','mp-chip '+(block?'danger':(warn?'warning':'good')),block?'Not yet':(warn?'Check first':'Go')));card.appendChild(head);
-      var ul=el('ul');checks.forEach(function(c){ul.appendChild(el('li',c.kind,c.text));});card.appendChild(ul);
+      var ul=el('ul');checks.forEach(function(c){var li=el('li',c.kind,c.text);if(c.items){var sub=el('ul','mp-go-items');c.items.forEach(function(it){var x=el('li','',it.text);detailFold(x,it.detail);sub.appendChild(x);});li.appendChild(sub);}ul.appendChild(li);});card.appendChild(ul);
       var b=el('button',block?'secondary-button':'primary-button','Cut over '+(w?'wave '+w:'these VMs')+'…');b.type='button';b.setAttribute('data-mp-gowave',String(w));b.disabled=block||mpBusy;b.title=block?'Fix the items marked with a cross first.':'Selects the '+vmPlural(vms.length,'VM')+' of this wave for the cutover below';card.appendChild(b);
       rows.appendChild(card);
     });

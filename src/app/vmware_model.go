@@ -281,6 +281,9 @@ type vmFinding struct {
 	Code     string `json:"code"`
 	Message  string `json:"message"`
 	Action   string `json:"action"`
+	// Detail is the full text behind a one-line Message (such as a remote
+	// error), shown only on request.
+	Detail string `json:"detail,omitempty"`
 }
 
 type vmReadiness struct {
