@@ -405,7 +405,7 @@ func (o *rbWindowsOps) StartSource(ctx context.Context, rec *rbRecord, log func(
 		defer func() { options.Password = "" }()
 		return vmPowerOnSource(ctx, options, rec.Source.VMID, rec.Source.Name, log)
 	case "hyperv":
-		return o.a.hypervHostFor(rec.Source.Server, log).run(ctx, "Start", rec.Source.VMID, "", nil, "-VMName", rec.Source.Name)
+		return o.a.hypervHostFor(rec.Source.Server, log).run(ctx, "Start", rec.Source.VMID, []string{"-VMName", rec.Source.Name}, nil)
 	}
 	return errors.New("this kind of old machine is not known")
 }

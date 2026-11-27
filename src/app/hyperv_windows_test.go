@@ -66,9 +66,11 @@ func TestMoveHyperVScriptOnThisComputer(t *testing.T) {
 	if err := os.WriteFile(script, hypervMoveScriptData, 0600); err != nil {
 		t.Fatal(err)
 	}
-	run := func(mode, vmID string) (map[string]any, string) {
+	run := func(mode, vmID string, extra ...string) (map[string]any, string) {
 		result := filepath.Join(folder, mode+"-Result.json")
-		command := exec.Command(powershellPath(), "-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", script, "-Mode", mode, "-VMId", vmID, "-ResultPath", result)
+		os.Remove(result)
+		arguments := append([]string{"-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", script, "-Mode", mode, "-VMId", vmID, "-ResultPath", result}, extra...)
+		command := exec.Command(powershellPath(), arguments...)
 		output, err := command.CombinedOutput()
 		if err != nil {
 			t.Fatalf("the script failed: %v\n%s", err, output)
@@ -100,6 +102,29 @@ func TestMoveHyperVScriptOnThisComputer(t *testing.T) {
 	envelope, _ = run("RemoveCheckpoint", "00000000-0000-4000-8000-000000000000")
 	if envelope["ok"] == true {
 		t.Fatalf("RemoveCheckpoint without an ID succeeded: %v", envelope)
+	}
+	// The change tracking modes refuse missing input before reading the
+	// host, and fail cleanly on a host without Hyper-V.
+	for _, check := range []struct {
+		mode  string
+		extra []string
+		want  string
+	}{
+		{"KeepReferencePoint", nil, "No checkpoint was named"},
+		{"RemoveReferencePoint", nil, "No reference point was named"},
+		{"DiskChanges", []string{"-LimitId", "rct:1", "-DiskSize", "1048576"}, "No disk was named"},
+		{"DiskChanges", []string{"-DiskPath", `D:\VMs\APP01.vhdx`, "-DiskSize", "1048576"}, "No change tracking ID"},
+		{"DiskChanges", []string{"-DiskPath", `D:\VMs\APP01.vhdx`, "-LimitId", "rct:1"}, "disk size was not given"},
+		{"TrackingCheckpoint", nil, ""},
+	} {
+		envelope, output := run(check.mode, "00000000-0000-4000-8000-000000000000", check.extra...)
+		message := fmt.Sprint(envelope["error"])
+		if envelope["ok"] == true || (check.want != "" && !strings.Contains(message, check.want)) {
+			t.Fatalf("%s %v: %v\n%s", check.mode, check.extra, envelope, output)
+		}
+		if check.want == "" && !strings.Contains(message, "Hyper-V is not installed") && !strings.Contains(message, "was not found") && !strings.Contains(message, "Access is denied") {
+			t.Fatalf("%s: unexpected failure %s\n%s", check.mode, message, output)
+		}
 	}
 }
 
