@@ -267,6 +267,10 @@ func mbRemoteCopyFolder(root, hostVHDPath, vmName string) (string, error) {
 	return hvRemoteCheckLocalPath(strings.TrimRight(hvCleanWinPath(root), `\`) + `\` + vmReplicaBaseName(vmName))
 }
 
+// mbDueNow is the next sync of a VM someone asked to sync now: before any
+// sweep's clock, and shown as now.
+var mbDueNow = time.Unix(1, 0).UTC()
+
 // mbNextSync is when the VM's next round is due; zero means not scheduled.
 func mbNextSync(plan *mbPlan, vm *mbVM) time.Time {
 	switch vm.State {
@@ -276,7 +280,11 @@ func mbNextSync(plan *mbPlan, vm *mbVM) time.Time {
 	if vm.Held != "" && !vm.SyncNow {
 		return vm.HeldAt.Add(pgRetryAfter)
 	}
-	if vm.SyncNow || vm.LastAttempt.IsZero() {
+	if vm.SyncNow {
+		// Asked for now: ahead of the interval and of the plan's start.
+		return mbDueNow
+	}
+	if vm.LastAttempt.IsZero() {
 		return plan.Settings.StartAt
 	}
 	interval := time.Duration(plan.Settings.SyncMinutes) * time.Minute
@@ -752,25 +760,73 @@ func (r *mbRunner) SetWave(id string, ids []string, wave int) error {
 	return r.saveLocked()
 }
 
+// mbSyncAnswer says what a Sync now press did: how many VMs were asked
+// for, why the others were not, and why the plan cannot copy right now.
+type mbSyncAnswer struct {
+	Queued  int      `json:"queued"`
+	Skipped []string `json:"skipped,omitempty"`
+	Waiting string   `json:"waiting,omitempty"`
+	Paused  bool     `json:"paused,omitempty"`
+}
+
+// mbSyncSkipReason says why Sync now leaves a VM alone, or "".
+func mbSyncSkipReason(vm *mbVM) string {
+	if mbOffline(vm) {
+		return vm.Name + " copies at its cutover"
+	}
+	switch vm.State {
+	case mbWaiting, mbReady, mbFailed:
+		return ""
+	case mbCopying:
+		return vm.Name + " is copying now"
+	case mbTesting:
+		return vm.Name + " has a test VM running"
+	case mbCutting:
+		return vm.Name + " is being cut over"
+	case mbDone:
+		return vm.Name + " is already cut over"
+	}
+	return vm.Name + " cannot sync now"
+}
+
 // SyncNow asks for a round of the given VMs (all when empty) at the next
 // sweep, ahead of their interval and the plan's start time.
 func (r *mbRunner) SyncNow(id string, ids []string) error {
+	_, err := r.SyncRequest(id, ids)
+	return err
+}
+
+// SyncRequest is SyncNow with an answer the page shows at once, so a press
+// never looks like it did nothing: the VMs asked for, the ones left alone
+// and why, and what keeps the plan from copying (a missing sign-in).
+func (r *mbRunner) SyncRequest(id string, ids []string) (mbSyncAnswer, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	answer := mbSyncAnswer{}
 	plan, err := r.planLocked(id)
 	if err != nil {
-		return err
+		return answer, err
 	}
 	want := map[string]bool{}
 	for _, v := range ids {
 		want[v] = true
 	}
 	for _, vm := range plan.VMs {
-		if (len(want) == 0 || want[vm.ID]) && (vm.State == mbWaiting || vm.State == mbReady || vm.State == mbFailed) && !mbOffline(vm) {
-			vm.SyncNow = true
+		if len(want) != 0 && !want[vm.ID] {
+			continue
 		}
+		if why := mbSyncSkipReason(vm); why != "" {
+			answer.Skipped = append(answer.Skipped, why)
+			continue
+		}
+		vm.SyncNow = true
+		answer.Queued++
 	}
-	return r.saveLocked()
+	answer.Paused = plan.Paused
+	if !plan.Paused && r.ready != nil {
+		answer.Waiting = r.ready(plan)
+	}
+	return answer, r.saveLocked()
 }
 
 // mbCanCutOver says why a VM cannot be scheduled for cutover, or "".
@@ -1299,7 +1355,7 @@ func (r *mbRunner) View() ([]mbPlanView, bool, string) {
 			item := mbVMView{mbVM: *vm}
 			if !plan.Paused {
 				item.NextSync = mbNextSync(plan, vm)
-				if item.NextSync.IsZero() && (vm.State == mbWaiting || vm.State == mbReady || vm.State == mbFailed) {
+				if item.NextSync.Equal(mbDueNow) || item.NextSync.IsZero() && (vm.State == mbWaiting || vm.State == mbReady || vm.State == mbFailed) {
 					item.NextSync = now
 				}
 			}

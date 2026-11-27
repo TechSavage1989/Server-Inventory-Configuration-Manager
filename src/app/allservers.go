@@ -31,6 +31,7 @@ const (
 	asSeeding       = "seeding"       // the first full copy is not finished
 	asAtCutover     = "atcutover"     // copied only at its cutover, while shut down
 	asInSync        = "insync"        // a whole copy exists and is current
+	asSyncing       = "syncing"       // a whole copy exists and a round is bringing it up to date
 	asBehind        = "behind"        // a whole copy exists but is older than its limit
 	asPaused        = "paused"
 	asTesting       = "testing" // a test VM runs from the copies
@@ -72,6 +73,7 @@ var asStateText = map[string]string{
 	asSeeding:       "Initial copy",
 	asAtCutover:     "Copies at cutover",
 	asInSync:        "In sync, ready to cut over",
+	asSyncing:       "Syncing",
 	asBehind:        "Behind",
 	asPaused:        "Paused",
 	asTesting:       "Testing",
@@ -111,6 +113,7 @@ type asRow struct {
 	// LagSeconds is the age of the newest whole copy (-1 when none).
 	LagSeconds int64     `json:"lagSeconds"`
 	LimitMins  int       `json:"limitMinutes,omitempty"`
+	Overdue    bool      `json:"overdue,omitempty"` // the last whole copy is older than its limit
 	Wave       int       `json:"wave"`
 	CutoverAt  time.Time `json:"cutoverAt,omitempty"`
 	// Host is the name or address an agent would be installed on.
@@ -248,8 +251,14 @@ func asJobRow(agent replAgentRow, job replJobView, in asInput) asRow {
 		if st.State == replStateNeverRun || (st.State == replStateIdle && st.Rounds == 0) {
 			row.Reason = "Waiting for the first round to start."
 		}
+	case st.State == replStateSyncing:
+		row.State, row.Reason = asSyncing, "A round is copying the changes since the last recovery point. A whole copy exists, so it can be tested or cut over."
+		if job.RPOSecond > int64(limit)*60 {
+			row.Overdue = true
+			row.Reason += fmt.Sprintf(" The recovery point is older than the %d-minute RPO; this round brings it up to date.", limit)
+		}
 	case job.RPOSecond > int64(limit)*60:
-		row.State, row.Reason = asBehind, fmt.Sprintf("The newest copy is older than the %d-minute RPO. Rounds may be too slow for the changes: raise the bandwidth limit or Sync now.", limit)
+		row.State, row.Reason, row.Overdue = asBehind, fmt.Sprintf("The newest copy is older than the %d-minute RPO. Rounds may be too slow for the changes: raise the bandwidth limit or Sync now.", limit), true
 	default:
 		row.State, row.Reason = asInSync, "A whole copy exists and stays current. Test it, then cut over."
 	}
@@ -317,8 +326,14 @@ func asPlanRow(plan mbPlanView, vm mbVMView, now time.Time) asRow {
 		if plan.Blocked != "" {
 			row.Reason += " " + plan.Blocked
 		}
+	case vm.State == mbCopying:
+		row.State, row.Reason = asSyncing, "A sync is copying the changes since the last one. A whole copy exists, so it can be cut over."
+		if behind {
+			row.Overdue = true
+			row.Reason += " The last sync is older than twice the plan's interval; this one brings it up to date."
+		}
 	case behind:
-		row.State, row.Reason = asBehind, "The last sync is older than twice the plan's interval."
+		row.State, row.Reason, row.Overdue = asBehind, "The last sync is older than twice the plan's interval.", true
 		if plan.Blocked != "" {
 			row.Reason += " " + plan.Blocked
 		}
@@ -619,10 +634,23 @@ type asBulkResult struct {
 	Text string `json:"text"`
 }
 
+// asSyncText words a plan's answer to Sync now for one row.
+func asSyncText(answer mbSyncAnswer) string {
+	switch {
+	case answer.Queued == 0 && len(answer.Skipped) > 0:
+		return "Not synced: " + answer.Skipped[0] + "."
+	case answer.Paused:
+		return "Syncs once its plan is resumed."
+	case answer.Waiting != "":
+		return "Asked to sync, but it waits: " + answer.Waiting
+	}
+	return "Syncs at the plan's next check, within a minute."
+}
+
 // asPlans is what bulk actions call on Migration plans (mbRunner).
 type asPlans interface {
 	SetPaused(id string, paused bool) error
-	SyncNow(id string, ids []string) error
+	SyncRequest(id string, ids []string) (mbSyncAnswer, error)
 	ScheduleCutover(id string, ids []string, at time.Time) error
 	StartTest(ctx context.Context, id, vmID string) error
 	EndTest(ctx context.Context, id, vmID string) error
@@ -820,7 +848,9 @@ func (r *asRunner) Run(ctx context.Context, req asBulkRequest, rows []asRow, rep
 				text = map[string]string{asActSync: "A round starts now.", asActPause: "Paused.", asActResume: "Resumed."}[req.Action]
 			} else if err = plans(); err == nil {
 				if req.Action == asActSync {
-					err, text = r.plans.SyncNow(row.Plan, []string{row.VM}), "Syncs at the plan's next check."
+					var answer mbSyncAnswer
+					answer, err = r.plans.SyncRequest(row.Plan, []string{row.VM})
+					text = asSyncText(answer)
 				} else if planDone[row.Plan] {
 					text = "Its plan was already " + map[bool]string{true: "paused", false: "resumed"}[req.Action == asActPause] + "."
 				} else {
