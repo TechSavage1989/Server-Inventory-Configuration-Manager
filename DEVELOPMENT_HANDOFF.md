@@ -1,3 +1,12 @@
+## 3.2.38 published and verified — 2026-11-27
+
+- [Release v3.2.38](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.38) ("Server Inventory and Migration Manager 3.2.38"), tag and target commit `f26e245f8f951018343a5fcced439a214446e373`. Source: #164, #165, #167, #168 and #169 through the batch #166 (merged into `main` with a merge commit, `34377a3`), prepared by #171 and published by #172. The owner asked to publish on 2026-11-27.
+- The [publish run](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/45985767353) passed first time: publish job 10:52–11:14 UTC, embedded scripts and EXE signed through Azure Artifact Signing over OIDC before the tests and checksum (Valid, timestamped); public feed and downloads verified.
+- The actual 3.2.37-to-3.2.38 upgrade (published signed 3.2.37 EXE through Download and Install, restart into 3.2.38, native health, settings, shortcut, timers, cleanup and rollback) passed in one run, 11:15–11:27 UTC.
+- Stable EXE: 28,542,256 bytes; SHA-256 `287349f46a752fb5d33971668e917ddf02b3b0dc696e9444dd21d5f12265b5cc` (matches the public feed). Linux agent `simm-agent-linux-amd64`: 13,672,448 bytes; SHA-256 `c4309a058d37f2cd3e955be7a17f8191186f4e76f9e2f732df295334046269f1`. All 14 assets are published.
+
+Limits: VDDK reads against a real ESXi host and vCenter, ejecting images on a real vCenter, and file share moves between two real servers over remoting have not been field-tested. The limits under 3.2.37 still apply. CI artifacts were not downloaded, and no client data was used.
+
 ## Unreleased: opt-in Test update channel and the test branch — 2026-11-27
 
 - **Help → Settings → Updates** has **Also offer test builds**. Stable (the default) is offered only stable releases. Test is also offered the newest signed test prerelease (`X.Y.Z-test.N`) and gets whichever is newer; unticking it while a test build runs offers the newest stable release in its place. Saved in `Settings\update-channel.json`. AGENTS rule 61.
