@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -516,6 +517,9 @@ func (a *application) handleVMwareConnect(response http.ResponseWriter, request 
 		User       string `json:"user"`
 		Password   string `json:"password"`
 		Thumbprint string `json:"thumbprint"`
+		// Remember turns on remembered sign-ins (Help > Settings) and keeps
+		// this one once it works.
+		Remember bool `json:"remember"`
 	}
 	if !decodeVMwareRequest(response, request, &input) {
 		return
@@ -552,6 +556,23 @@ func (a *application) handleVMwareConnect(response http.ResponseWriter, request 
 		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "Type the password for " + user + "."})
 		return
 	}
+	if input.Remember {
+		if err := a.vcRememberStore().SetEnabled(true); err != nil {
+			writeJSON(response, http.StatusInternalServerError, map[string]any{"ok": false, "error": "The sign-in could not be remembered: " + err.Error()})
+			return
+		}
+	}
+	if status, message := a.startVMwareConnect(endpoint, user, password, thumbprint, false); status != 0 {
+		writeJSON(response, status, map[string]any{"ok": false, "error": message})
+		return
+	}
+	writeJSON(response, http.StatusAccepted, map[string]any{"ok": true})
+}
+
+// startVMwareConnect signs in to vCenter or ESXi and reads its inventory in
+// the background. auto is a sign-in from a remembered password: one the
+// server refuses is forgotten at once.
+func (a *application) startVMwareConnect(endpoint *url.URL, user, password, thumbprint string, auto bool) (int, string) {
 	// Reading the server already open refreshes its session; reading
 	// another one replaces it, which waits while a migration plan copies.
 	if status, message := a.startVMwareActionWith("connect", func() string {
@@ -560,8 +581,7 @@ func (a *application) handleVMwareConnect(response http.ResponseWriter, request 
 		}
 		return a.vmSessionSwitchRefusalLocked("Reading " + endpoint.Host)
 	}); status != 0 {
-		writeJSON(response, status, map[string]any{"ok": false, "error": message})
-		return
+		return status, message
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	a.mu.Lock()
@@ -577,6 +597,9 @@ func (a *application) handleVMwareConnect(response http.ResponseWriter, request 
 	a.vmware.cancel = cancel
 	a.vmware.status = "connecting"
 	a.vmware.message = "Connecting to " + endpoint.Host + " as " + user + "."
+	if auto {
+		a.vmware.message = "Signing in to " + endpoint.Host + " as " + user + " with the remembered sign-in, so migration plans can carry on."
+	}
 	a.appendVMwareLogLocked(time.Now().Format("2006-01-02 15:04:05") + " " + a.vmware.message)
 	a.mu.Unlock()
 	go func() {
@@ -596,9 +619,18 @@ func (a *application) handleVMwareConnect(response http.ResponseWriter, request 
 			if canceled {
 				message = "Stopped. Nothing was read."
 			}
+			if auto && vcRememberRefused(message) {
+				a.vcRememberStore().Forget(endpoint.Host, "The remembered password of "+user+" for "+endpoint.Host+" was refused, so it was forgotten. Sign in again.")
+				message += " The remembered sign-in was forgotten; sign in again."
+			}
 			a.vmwareLog("%s", message)
 			a.finishVMwareAction("connectfailed", message)
 			return
+		}
+		if store := a.vcRememberStore(); store.Enabled() {
+			if err := store.Remember(endpoint.Host, user, signIn, thumbprint, time.Now()); err != nil {
+				a.vmwareLog("The sign-in could not be remembered: %s", err.Error())
+			}
 		}
 		a.applySavedPreflight(inventory)
 		folder := a.vmwareOutputFolder("VMware_" + safeName(inventory.Server))
@@ -625,7 +657,7 @@ func (a *application) handleVMwareConnect(response http.ResponseWriter, request 
 		a.vmwareLog("%s", message)
 		a.finishVMwareAction("connected", message)
 	}()
-	writeJSON(response, http.StatusAccepted, map[string]any{"ok": true})
+	return 0, ""
 }
 
 func (a *application) handleVMwareCancel(response http.ResponseWriter, request *http.Request) {

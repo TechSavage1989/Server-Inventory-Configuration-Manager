@@ -60,9 +60,9 @@ func (p *asFakePlans) SetPaused(id string, paused bool) error {
 	p.calls = append(p.calls, "paused "+id+" "+map[bool]string{true: "yes", false: "no"}[paused])
 	return nil
 }
-func (p *asFakePlans) SyncNow(id string, ids []string) error {
+func (p *asFakePlans) SyncRequest(id string, ids []string) (mbSyncAnswer, error) {
 	p.calls = append(p.calls, "sync "+id+" "+strings.Join(ids, ","))
-	return nil
+	return mbSyncAnswer{Queued: len(ids)}, nil
 }
 func (p *asFakePlans) ScheduleCutover(id string, ids []string, at time.Time) error {
 	if at.IsZero() {
@@ -399,5 +399,37 @@ func TestAllServersRowsOfferTheSourceNewAndTestVMConsoles(t *testing.T) {
 	consoles = asConsolesFor(asRow{Kind: asKindVM, VM: "4C4D-HV"}, asInput{Inventory: inventory})
 	if len(consoles) != 1 || consoles[0].Target.Platform != "hyperv" || consoles[0].Target.Host != "vc1" {
 		t.Fatalf("Hyper-V source console %+v", consoles)
+	}
+}
+
+// A seeded VM whose round is running shows Syncing with its progress,
+// whether its last sync was recent or overdue; overdue is a detail, not a
+// different state (owner, 3.3.0-test.1: one VM showed "In sync" and the
+// other "Behind" while both were mid-sync).
+func TestAPlanVMMidSyncShowsSyncingWhetherOrNotItIsOverdue(t *testing.T) {
+	now := time.Date(2026, 11, 27, 12, 0, 0, 0, time.UTC)
+	plan := mbPlanView{ID: "p1", Name: "Wave 1", Settings: mbSettings{SyncMinutes: 30}}
+	row := func(lastSync time.Time, state string) asRow {
+		vm := mbVMView{mbVM: mbVM{ID: "vm-1", Name: "APP01", State: state, Seeded: true, LastSync: lastSync}}
+		if state == mbCopying {
+			vm.Live = &mbLiveView{Percent: 3}
+		}
+		return asPlanRow(plan, vm, now)
+	}
+	fresh := row(now.Add(-40*time.Minute), mbCopying)
+	late := row(now.Add(-2*time.Hour-12*time.Minute), mbCopying)
+	for _, r := range []asRow{fresh, late} {
+		if r.State != asSyncing || r.StateText != "Syncing" || r.Percent != 3 || !asHas(r, asActCutover) {
+			t.Fatalf("mid-sync row = %+v", r)
+		}
+	}
+	if fresh.Overdue || !late.Overdue || !strings.Contains(late.Reason, "brings it up to date") {
+		t.Fatalf("overdue: fresh %v, late %v %q", fresh.Overdue, late.Overdue, late.Reason)
+	}
+	if idle := row(now.Add(-2*time.Hour), mbReady); idle.State != asBehind || !idle.Overdue {
+		t.Fatalf("idle overdue row = %+v", idle)
+	}
+	if idle := row(now.Add(-10*time.Minute), mbReady); idle.State != asInSync || idle.Overdue {
+		t.Fatalf("idle current row = %+v", idle)
 	}
 }
