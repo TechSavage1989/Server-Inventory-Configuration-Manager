@@ -4,6 +4,7 @@
 - Each round records how each disk was read (VDDK, datastore, export, RCT, file), what change tracking reported and why it read more; Migration plans and All jobs and servers show it under Last sync with a ✓ or ! and a folded **Why:**, and the plan log has one summary line per round.
 - Near-real-time replication: plans sync every 5 or 10 minutes as well (`mbMinSyncMinutes`), with at least 2 minutes after a long round ends (`mbRoundGap`). Short intervals only read changes cheaply through VDDK (VMware) or RCT (Hyper-V); through vSphere's export every round streams the whole used disk.
 - With VDDK set up, a vTPM VM's failure ends with `vmEncryptedHomeVDDKHint` and offers Retry with VDDK and Open the VDDK log instead of Set up VDDK.
+- Saving migration plans keeps fields this version does not know (`mbKeepUnknownFields`), so a stable build no longer drops the test channel's `testedAt` when the owner switches channels.
 - Not field-validated: a real stopped round followed by a changed-block round on vCenter, and 5-minute rounds on a busy host.
 
 ## Unreleased: VDDK start-up diagnosis and one-line errors — 2026-11-27

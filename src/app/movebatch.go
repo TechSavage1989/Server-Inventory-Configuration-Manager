@@ -662,6 +662,9 @@ func (r *mbRunner) saveLocked() error {
 	if err != nil {
 		return err
 	}
+	if previous, err := os.ReadFile(r.path); err == nil {
+		raw = mbKeepUnknownFields(raw, previous)
+	}
 	return replWriteFileAtomic(r.path, raw)
 }
 
