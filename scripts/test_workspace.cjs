@@ -1684,7 +1684,7 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   await f.page.locator('#vmWaveBulk [data-bulk="wave"]').selectOption('3');await f.page.locator('#vmWaveBulk [data-bulk="put"]').click();
   assert.equal(await f.page.locator('[data-wave-lane="3"] .vm-wave-vm[data-vm-id="vm-app01"]').count(),1,'Put in wave moves the ticked VMs');
   await f.page.locator('#vmWaveBulk [data-vm-pickby]').selectOption({label:'On hold'});assert.equal(await f.page.locator('#vmWaveBulk .vm-bulk-count').textContent(),'2 VMs selected','select by wave or lane');
-  await f.page.locator('#vmWaveBulk [data-bulk="clear"]').click();assert.equal(await f.page.locator('#vmWaveBulk .vm-bulk-count').textContent(),'Tick VMs to change many at once');
+  await f.page.locator('#vmWaveBulk [data-bulk="clear"]').click();assert.equal(await f.page.locator('#vmWaveBulk .vm-bulk-count').textContent(),'No VMs selected');
   assert.equal(await f.page.locator('#vmPlanDirtyNote').textContent(),'Unsaved changes.');
   await f.page.locator('#vmSavePlan').click();await f.page.waitForFunction(()=>document.querySelector('#vmPlanStatus').textContent==='Plan saved.');
   const saved=vmwareCalls(f,'plan')[1].body.plan;
@@ -2761,7 +2761,7 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   assert((await f.page.locator('#asRows tr[data-as-key="plan:p1|vm-11"] .as-progress-text').textContent()).includes('100 MB/s'));
   assert.equal(await f.page.locator('#asRows tr[data-as-key="plan:p1|vm-11"] [role="progressbar"]').getAttribute('aria-valuenow'),'40');
   assert(await f.page.locator('[data-as-act="cutover"]').isDisabled(),'nothing selected');
-  assert.equal(await f.page.locator('#asWhy').textContent(),'','no hint to tick servers');
+  assert.equal(await f.page.locator('#asWhy').textContent(),'','no hint to tick servers');assert(await f.page.locator('#asWhy').isVisible(),'the reason line keeps its space');
   await f.page.locator('#asSelectBy').selectOption('insync');await f.page.waitForFunction(()=>document.querySelector('#asSelCount').textContent==='2 servers selected');
   assert.equal(await f.page.locator('[data-as-act="cutover"]').textContent(),'Cut over (2)');
   await f.page.evaluate(()=>document.activeElement.blur());if(!f.errors.length){await f.page.screenshot({path:out+'/all-jobs-and-servers.png'});}assert.equal(await f.page.locator('[data-as-act="createjob"]').textContent(),'Create replication jobs (0)');
@@ -2887,6 +2887,37 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   const sent=await f.page.locator('#vmSendTransfers').textContent();assert(sent.includes('Failed')&&sent.includes('stopped answering')&&sent.includes('192.0.2.40:44380'),sent);
   await f.page.setViewportSize({width:1440,height:1000});await f.page.locator('[data-diskrole="receive"]').click();await f.page.locator('#vmReceiveTransfers').evaluate(e=>e.scrollIntoView({block:'center'}));await f.page.screenshot({path:shots+'/vmware-receive-transfers-1440x1000.png'});
   assert.deepEqual(f.dialogs,[]);
+ }finally{await f.close();}});
+ await check('Selecting rows keeps the layout still: nothing below the list moves when a row is ticked or unticked, and no hint says to tick rows',async()=>{const f=await fixture(browser);try{
+  await f.page.setViewportSize({width:1350,height:690});
+  // Tops of every visible element with an id in the shown pane; ids survive a rebuild, so a moved control is found even when it was redrawn.
+  const tops=()=>f.page.evaluate(()=>{const out={},pane=Array.prototype.find.call(document.querySelectorAll('.tool-pane'),p=>p.offsetParent!==null)||document.body;
+    Array.prototype.forEach.call(pane.querySelectorAll('[id]'),e=>{if(e.closest('tbody'))return;const r=e.getBoundingClientRect();if(!r.width||!r.height)return;let y=r.top;for(let q=e;q;q=q.parentElement){if(/sticky|fixed/.test(getComputedStyle(q).position))return;if(q!==e)y+=q.scrollTop;}out[e.id]=Math.round(y+window.scrollY);});return out;});
+  const still=async(label,act)=>{const a=await tops();await act();await f.page.waitForTimeout(250);const b=await tops();
+    const moved=Object.keys(a).filter(k=>k in b&&Math.abs(a[k]-b[k])>1).map(k=>k+' '+a[k]+'->'+b[k]);assert.deepEqual(moved,[],label+': moved '+moved.join(', '));};
+  await vmwareConnected(f);f.vm.plan=vmwarePlanFixture();f.state.vmware.inventorySerial=2;
+  await goTool(f,'movevms');await f.page.locator('#vmObjTab-vms').click();await f.page.waitForFunction(()=>document.querySelectorAll('#vmTableBody input[data-vm-pick]').length>1);
+  assert(!/tick VMs to change many/i.test(await f.page.locator('#vmListPanel').textContent()),'no hint to tick VMs');
+  const pick=f.page.locator('#vmTableBody input[data-vm-pick]').first();
+  await still('Move VMs tick',()=>pick.check());assert(await f.page.locator('#vmListBulk [data-bulk="put"]').isEnabled());
+  await still('Move VMs untick',()=>pick.uncheck());assert(await f.page.locator('#vmListBulk [data-bulk="put"]').isDisabled(),'the wave actions stay in place, turned off');
+  const row=(o)=>Object.assign({percent:-1,lagSeconds:-1,wave:0,actions:[],detail:'',reason:''},o);
+  f.servers.rows=[row({key:'job:a1|j1',kind:'job',method:'Agent replication',name:'APP01',agent:'a1',job:'j1',state:'insync',stateText:'In sync',actions:['sync','pause','test','cutover','wave']}),
+    row({key:'agent:a4',kind:'agent',method:'Agent installed',name:'FS01',agent:'a4',state:'agent',stateText:'Agent installed, no job',actions:[]})];
+  await goTool(f,'servers');await f.page.waitForSelector('[data-as-row="job:a1|j1"]');
+  assert(!/Tick servers in the list/.test(await f.page.locator('#tabServers').textContent()),'no hint to tick servers');
+  await still('All servers tick',()=>f.page.locator('[data-as-row="job:a1|j1"]').check());
+  await still('All servers tick one that cannot act',()=>f.page.locator('[data-as-row="agent:a4"]').check());
+  await still('All servers untick',async()=>{await f.page.locator('[data-as-row="agent:a4"]').uncheck();await f.page.locator('[data-as-row="job:a1|j1"]').uncheck();});
+  f.plans.plans=[{id:'p0',name:'Wave 1',server:'vc01.example.com',paused:false,settings:{},throttle:'no limit',summary:{total:2,waiting:0,copying:0,ready:2,testing:0,scheduled:0,done:0,failed:0},vms:[{id:'vm-web02',name:'WEB02',wave:1,state:'ready',seeded:true,failures:0},{id:'vm-app01',name:'APP01',wave:1,state:'ready',seeded:true,failures:0}]}];
+  await goTool(f,'plans');await f.page.waitForSelector('#mpRows input[data-mp-row]');
+  await still('Migration plans tick',()=>f.page.locator('#mpRows input[data-mp-row]').first().check());
+  await still('Migration plans untick',()=>f.page.locator('#mpRows input[data-mp-row]').first().uncheck());
+  f.vm.inventory=vmwareInventoryFixture();f.state.vmware=Object.assign(vmwareIdle(),{status:'connected',server:'vc01.example.com',summary:vmwareSummaryFixture(),inventorySerial:3,canPrepare:true,hyperVHere:true});
+  await goTool(f,'wizard');await f.page.locator('[data-nw-source="vms"]').click();await f.page.waitForSelector('#nwVmList [data-nw-pick]:not([disabled])');
+  const nwPick=f.page.locator('#nwVmList [data-nw-pick]:not([disabled])').first();
+  await f.page.waitForTimeout(2500);
+  await still('New migration tick',()=>nwPick.check());await still('New migration untick',()=>nwPick.uncheck());
  }finally{await f.close();}});
  await check('Low-resolution windows (800x600 and 1024x768 screens) keep every workspace reachable and legible',async()=>{const f=await fixture(browser);try{
   for(let i=0;i<40;i++)f.logs.push('[INFO] Message '+i);
