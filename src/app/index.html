@@ -2115,7 +2115,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   <div class="cn-main">
     <div class="cn-screen fit" id="cnScreen">
       <div class="cn-overlay hidden" id="cnOverlay"><div id="cnOverlayBox"></div></div>
-      <div class="cn-hint hidden" id="cnHint">Click the screen to type into the VM. Keys go to the VM while it has focus.</div>
+      <div class="cn-hint hidden" id="cnHint">Click the screen to type into the VM. Keys go to the VM while it has focus. Ctrl+V types your clipboard into the VM; Ctrl+Shift+V sends a plain Ctrl+V.</div>
     </div>
     <aside class="cn-side hidden" id="cnSide" aria-live="polite"></aside>
   </div>
@@ -10288,6 +10288,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     c.addEventListener('mousemove',function(e){cnPointer(s,e,false);});
     c.addEventListener('wheel',function(e){e.preventDefault();cnWheel(s,e);},{passive:false});
     c.addEventListener('contextmenu',function(e){e.preventDefault();});
+    c.addEventListener('paste',function(e){e.preventDefault();e.stopPropagation();if(!s.pasteWait){return;}s.pasteWait=false;var d=e.clipboardData,t=d?d.getData('text/plain'):'';cnTypeClipboard(s,t);});
     s.canvas=c;s.ctx=c.getContext('2d');s.ctx.fillStyle='#000';s.ctx.fillRect(0,0,c.width,c.height);
   }
   function openConsole(target){
@@ -10340,9 +10341,51 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     return 0;
   }
   function cnIsModifier(ks){return ks>=0xffe1&&ks<=0xffee;}
-  function cnKeyEvent(s,e,down){
-    e.preventDefault();e.stopPropagation();
+  // Ctrl+V (and Shift+Insert) type this computer's clipboard into the VM, as
+  // Paste as typing does; Ctrl+Shift+V sends a plain Ctrl+V to the VM instead.
+  function cnIsPasteKey(e){
+    if(e.altKey||e.metaKey){return false;}
+    var v=e.code==='KeyV'||e.key==='v'||e.key==='V';
+    if(e.ctrlKey&&v){return true;}
+    return !e.ctrlKey&&e.shiftKey&&(e.code==='Insert'||e.key==='Insert');
+  }
+  function cnPasteKey(s,e){
+    var id=e.code||e.key;s.pasteKey=id;e.stopPropagation();
+    if(e.ctrlKey&&e.shiftKey){
+      e.preventDefault();
+      ['ShiftLeft','ShiftRight','Shift'].forEach(function(k){if(s.pressed[k]){cnQueue(s,{t:'k',s:s.pressed[k],d:false});delete s.pressed[k];}});
+      cnQueue(s,{t:'k',s:0x76,d:true});cnQueue(s,{t:'k',s:0x76,d:false});return;
+    }
+    // Let the browser raise its paste event on the screen; the VM must not see
+    // Ctrl or Shift held while the text is typed, so release them there first.
+    Object.keys(s.pressed).forEach(function(k){if(cnIsModifier(s.pressed[k])){cnQueue(s,{t:'k',s:s.pressed[k],d:false});delete s.pressed[k];}});
+    s.held.slice().reverse().forEach(function(m){cnQueue(s,{t:'k',s:m,d:false});});if(s.held.length){s.held=[];cnSticky={ctrl:false,alt:false,win:false};cnRenderBar();}
+    s.pasteWait=true;
+    setTimeout(function(){
+      if(!s.pasteWait){return;}s.pasteWait=false;
+      if(!navigator.clipboard||!navigator.clipboard.readText){cnPasteNote(s,'','The clipboard could not be read here. Use Paste as typing.');return;}
+      navigator.clipboard.readText().then(function(t){cnTypeClipboard(s,t);},function(){cnPasteNote(s,'','The clipboard could not be read. Use Paste as typing and paste into its box.');});
+    },300);
+  }
+  function cnPasteNote(s,note,error){s.pasteNote=note;s.lastError=error;cnRenderStatus();}
+  function cnTypeClipboard(s,text){
     if(!cnLive(s)){return;}
+    text=String(text||'');
+    if(!text){cnPasteNote(s,'','Your clipboard holds no text to type.');return;}
+    var n=Array.from(text.replace(/\r\n/g,'\n')).length;
+    if(n>20000){cnPasteNote(s,'','Your clipboard holds '+n+' characters; Ctrl+V types at most 20000. Use Paste as typing for part of it.');return;}
+    var sp=byId('cnPasteSpeed'),delay=sp?Number(sp.value):15;
+    cnPasteNote(s,'Ctrl+V: typing '+n+' character'+(n===1?'':'s')+' from your clipboard','');
+    request('POST','/api/console/type',{id:s.id,text:text,delayMs:delay},function(err,data){
+      if(err||!data.ok){cnPasteNote(s,'',(data&&data.error)||err);return;}
+      s.canvas.focus();
+    });
+  }
+  function cnKeyEvent(s,e,down){
+    if(!cnLive(s)){e.preventDefault();e.stopPropagation();return;}
+    if(down&&cnIsPasteKey(e)){cnPasteKey(s,e);return;}
+    e.preventDefault();e.stopPropagation();
+    if(!down&&s.pasteKey&&(e.code||e.key)===s.pasteKey){s.pasteKey='';return;}
     var id=e.code||e.key,ks=down?cnKeysym(e):(s.pressed[id]||cnKeysym(e));if(!ks){return;}
     if(down){
       if(!cnIsModifier(ks)&&(cnSticky.ctrl||cnSticky.alt||cnSticky.win)&&!s.held.length){
@@ -10454,7 +10497,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     var box=byId('cnStatus'),s=cnCurrent();box.textContent='';if(!s){return;}
     function part(label,value){var span=el('span');if(label){span.appendChild(el('strong','',label+' '));}span.appendChild(document.createTextNode(value));box.appendChild(span);}
     part('',(s.target.name||s.target.id)+' on '+cnPlatformName(s.target.platform));
-    if(s.view){part('Through',s.view.where||'');part('Picture',s.view.caps.display==='snapshots'?'refreshed a few times a second':'live');if(s.canvas){part('Screen',s.canvas.width+' \u00d7 '+s.canvas.height);}if(s.view.typing){part('','Typing into the VM\u2026');}}
+    if(s.view){part('Through',s.view.where||'');part('Picture',s.view.caps.display==='snapshots'?'refreshed a few times a second':'live');if(s.canvas){part('Screen',s.canvas.width+' \u00d7 '+s.canvas.height);}if(s.view.typing){part('',s.pasteNote?s.pasteNote+'\u2026':'Typing into the VM\u2026');}}
     if(s.nativeNote){part('',s.nativeNote);}
     if(s.lastError){var err=el('span','cn-err-text',s.lastError);err.style.color='#fca5a5';box.appendChild(err);}
     if(s.view&&s.view.message&&s.view.status==='connected'){part('',s.view.message);}
@@ -10469,7 +10512,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     var caps=s.view.caps,head=el('h3'),close=el('button','','Close');close.type='button';close.addEventListener('click',function(){cnPanel='';cnRender();s.canvas.focus();});
     if(cnPanel==='paste'){
       head.appendChild(el('span','','Paste as typing'));head.appendChild(close);side.appendChild(head);
-      side.appendChild(el('p','cn-note','The text is typed into the VM one key at a time, so it works on sign-in screens, in setup and recovery screens and anywhere a paste is not allowed.'));
+      side.appendChild(el('p','cn-note','The text is typed into the VM one key at a time, so it works on sign-in screens, in setup and recovery screens and anywhere a paste is not allowed. Ctrl+V on the screen does the same with your clipboard.'));
       var lab=el('label','','Text to type');lab.htmlFor='cnPasteText';side.appendChild(lab);
       var ta=document.createElement('textarea');ta.id='cnPasteText';ta.spellcheck=false;ta.setAttribute('autocomplete','off');side.appendChild(ta);
       var row=el('div','cn-row'),read=el('button','','Read my clipboard');read.type='button';read.title='Fill the box from this computer\'s clipboard';
@@ -10483,7 +10526,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
       type.addEventListener('click',function(){
         if(s.view.typing){request('POST','/api/console/type',{id:s.id,stop:true},function(){});return;}
         var text=ta.value;if(ec.checked){text+='\n';}if(!text){byId('cnPasteMsg').textContent='Type or paste the text first.';return;}
-        byId('cnPasteMsg').textContent='';request('POST','/api/console/type',{id:s.id,text:text,delayMs:Number(speed.value)},function(err,data){if(err||!data.ok){byId('cnPasteMsg').textContent=(data&&data.error)||err;return;}if(cc.checked){ta.value='';}s.canvas.focus();});
+        byId('cnPasteMsg').textContent='';s.pasteNote='';request('POST','/api/console/type',{id:s.id,text:text,delayMs:Number(speed.value)},function(err,data){if(err||!data.ok){byId('cnPasteMsg').textContent=(data&&data.error)||err;return;}if(cc.checked){ta.value='';}s.canvas.focus();});
       });
       go.appendChild(type);
       if(caps.clipToGuest){var asClip=el('button','','Send as the VM\'s clipboard');asClip.type='button';asClip.title='Offers the text to the VM as the console\'s clipboard. Only some platforms pass it on; typing always works.';asClip.addEventListener('click',function(){request('POST','/api/console/type',{id:s.id,text:ta.value,clipboard:true},function(err,data){byId('cnPasteMsg').textContent=(err||!data.ok)?((data&&data.error)||err):'Sent.';});});go.appendChild(asClip);}

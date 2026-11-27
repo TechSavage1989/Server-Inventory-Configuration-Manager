@@ -1,3 +1,7 @@
+## Unreleased (test branch): Ctrl+V in the VM console — 2026-11-27
+
+Owner on 3.3.0-test.2: Ctrl+V should paste into a VM console. Pressing Ctrl+V (or Shift+Insert) with the console focused now types this computer's clipboard into the VM through the existing Paste as typing path (`/api/console/type`), using the browser's paste event on the canvas, with `navigator.clipboard.readText` as a fallback. Ctrl and Shift are let go in the VM first and no V is sent; Ctrl+Shift+V sends a plain Ctrl+V. Page-only change; the workspace check "VM console" covers both keys. Not field-validated on a real console.
+
 ## 3.3.0-test.3 preparation — 2026-11-27
 
 - 3.3.0-test.2 published 17:44 UTC (run 46041811614, tag commit `a230ea6`, signed prerelease, EXE SHA-256 `a73324111f45e514ce734d694ba0191a4cc7b213442ca358ca6fb94e19c44c8b`, 29,406,000 bytes; stable feed unchanged at 3.2.40). The owner then approved 3.3.0-test.3 with #201 (Sync now feedback, Syncing state, opt-in remembered vCenter sign-in). Version 3.3.0-test.3 (collector 3.3.0), notes in `docs/release-notes/3.3.0-test.3.md`.

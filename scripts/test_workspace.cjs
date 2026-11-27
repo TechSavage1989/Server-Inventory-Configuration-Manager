@@ -907,6 +907,23 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   await f.page.locator('#cnPasteButton').click();await f.page.locator('#cnPasteText').fill('P@ssw0rd!');await f.page.locator('#cnPasteSpeed').selectOption('60');await f.page.locator('#cnPasteEnter').check();await f.page.locator('#cnPasteGo').click();
   await f.page.waitForFunction(()=>document.querySelector('#cnPasteText')&&document.querySelector('#cnPasteText').value==='');
   assert.deepEqual(f.consoleCalls.filter(c=>c.action==='type').at(-1).body,{id:'cn1',text:'P@ssw0rd!\n',delayMs:60});
+  // Ctrl+V on the screen types this computer's clipboard into the VM (no
+  // panel), with Ctrl released in the VM first and no V sent; Ctrl+Shift+V
+  // sends a plain Ctrl+V to the VM instead.
+  await f.context.grantPermissions(['clipboard-read','clipboard-write']);await f.page.evaluate(()=>navigator.clipboard.writeText('admin\r\nS3cret!'));
+  const typedBefore=f.consoleCalls.filter(c=>c.action==='type').length,inputBefore=f.consoleCalls.filter(c=>c.action==='input').flatMap(c=>c.body.events).length;
+  await f.page.locator('#cnScreen canvas').focus();await f.page.keyboard.press('Control+V');
+  for(let i=0;i<40&&f.consoleCalls.filter(c=>c.action==='type').length===typedBefore;i++){await new Promise(r=>setTimeout(r,50));}
+  assert.deepEqual(f.consoleCalls.filter(c=>c.action==='type').at(-1).body,{id:'cn1',text:'admin\r\nS3cret!',delayMs:60},'Ctrl+V types the clipboard into the VM');
+  await new Promise(r=>setTimeout(r,200));
+  const pasteEvents=f.consoleCalls.filter(c=>c.action==='input').flatMap(c=>c.body.events).slice(inputBefore);
+  assert(!pasteEvents.some(e=>e.t==='k'&&e.s===0x76),'Ctrl+V sends no V key to the VM');
+  const ctrlDown=pasteEvents.findIndex(e=>e.s===0xffe3&&e.d);assert(ctrlDown>=0&&pasteEvents.slice(ctrlDown+1).some(e=>e.s===0xffe3&&!e.d),'Ctrl is let go in the VM before the text is typed');
+  assert((await f.page.locator('#cnHint').textContent()).includes('Ctrl+V types your clipboard'));
+  const typedAfter=f.consoleCalls.filter(c=>c.action==='type').length;await f.page.keyboard.press('Control+Shift+V');await new Promise(r=>setTimeout(r,500));
+  assert.equal(f.consoleCalls.filter(c=>c.action==='type').length,typedAfter,'Ctrl+Shift+V does not type the clipboard');
+  const rawEvents=f.consoleCalls.filter(c=>c.action==='input').flatMap(c=>c.body.events);const vi=rawEvents.findIndex(e=>e.s===0x76&&e.d);
+  assert(vi>0&&rawEvents.slice(0,vi).some(e=>e.s===0xffe3&&e.d),'Ctrl+Shift+V sends Ctrl+V to the VM');
   f.consoleStreams.forEach(e=>e.ev('clip',{text:'copied in the VM'}));await f.page.waitForFunction(()=>/new/.test(document.querySelector('#cnClipButton').textContent));
   await f.page.locator('#cnClipButton').click();assert.equal(await f.page.locator('#cnSide .cn-clip').textContent(),'copied in the VM');
   await f.page.locator('#cnFilesButton').click();await f.page.locator('#cnFileLocal').fill('C:\\Transfer\\setup.log');await f.page.locator('#cnFileGuest').fill('C:\\Temp\\setup.log');await f.page.locator('#cnFileUser').fill('Administrator');await f.page.locator('#cnFilePass').fill('Synthetic-Pa55');await f.page.locator('#cnFileGo').click();

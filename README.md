@@ -208,7 +208,7 @@ Open the console of a source, replicated, test or migrated VM without leaving th
 
 - **VMware** (vCenter or ESXi), **Proxmox VE**, **Nutanix AHV** and **Scale HyperCore** through each platform's own console, and **Hyper-V** through its screen and keyboard interfaces, which work before the VM has a network.
 - **Ctrl+Alt+Del**, a **Keys** menu (Win+R, Alt+Tab, Ctrl+Shift+Esc, F8, F12 and more) and sticky **Ctrl**, **Alt** and **Win** for keys Windows keeps for itself.
-- **Paste as typing** types text one key at a time, so passwords and commands go into sign-in, setup and recovery screens. The text is not saved or logged.
+- **Paste as typing** types text one key at a time, so passwords and commands go into sign-in, setup and recovery screens. The text is not saved or logged. **Ctrl+V** on the console types your clipboard the same way; **Ctrl+Shift+V** sends a plain Ctrl+V to the VM.
 - **Files** copies one file in or out through VMware Tools, the QEMU guest agent (Proxmox VE) or PowerShell Direct (on the Hyper-V host). An existing file is never replaced.
 - **What works here** says what each platform supports and why. The platform's own console (VMware Remote Console, Virtual Machine Connection, Hyper-V Enhanced session) opens from the toolbar when you want clipboard and drive sharing.
 
