@@ -178,6 +178,19 @@ func vmDiscoveryRead(action string) bool {
 	return action == "connect" || action == "hyperv" || action == "open"
 }
 
+// vmPlanSaveRefusalLocked says why the migration plan (network map, waves,
+// scenario, acknowledgements) cannot be saved now, or "". Saving writes
+// only the plan file and replaces a.vmware.plan as a whole, so steps that
+// run (a migration plan copy, Prepare, Move VMs) keep the copy they read and
+// nothing conflicts; only a Discovery read, which replaces the inventory the
+// plan belongs to, holds it back. Caller holds a.mu.
+func (a *application) vmPlanSaveRefusalLocked() string {
+	if vmDiscoveryRead(a.vmware.action) {
+		return "A VMware step is running (" + vmActionName(a.vmware.action) + "). Save the plan when it ends, because it replaces the inventory the plan belongs to."
+	}
+	return ""
+}
+
 // vmwareBlocksCollectionLocked is true while a VMware step that is not a
 // Discovery read runs. A migration plan copy does not block a collection:
 // the collection only reads this computer. Caller holds a.mu.
@@ -258,7 +271,7 @@ func (a *application) vmwareSnapshotLocked() vmwareStateResponse {
 		Server: a.vmware.server, Account: a.vmware.account, Certificate: a.vmware.certificate,
 		InventorySerial: a.vmware.inventorySerial, OutputFolder: a.vmware.outputFolder, ReportPath: a.vmware.reportPath,
 		RunbookPath: a.vmware.runbookPath, RunbookDocxPath: vmRunbookDocxFor(a.vmware.runbookPath), DiscoveryPath: vmDiscoveryReportFor(a.vmware.reportPath), ReportDocxPath: vmReportBeside(a.vmware.reportPath, vmReportDocx), ReportPDFPath: vmReportBeside(a.vmware.reportPath, vmReportPDF), PlanCSVPath: a.vmware.planCSVPath,
-		GuestSerial: a.vmware.guestSerial, GuestMessage: a.vmware.guestMessage, GuestError: a.vmware.guestError, GuestWorkPath: a.guestWorkPath(), GuestTarget: a.guestTargetStateLocked(), GuestAuto: guestAutoState{User: a.guestAuto.user, HasPassword: a.guestAuto.password != ""}, Fixups: a.fixups.List(), Preflight: a.preflightStateLocked(), Rollback: a.rbStateLocked(),
+		GuestSerial: a.vmware.guestSerial, GuestMessage: a.vmware.guestMessage, GuestError: a.vmware.guestError, GuestWorkPath: a.guestWorkPath(), GuestTarget: a.guestTargetStateLocked(), GuestAuto: a.guestAutoStateLocked(), Fixups: a.fixups.List(), Preflight: a.preflightStateLocked(), Rollback: a.rbStateLocked(),
 		CompareSerial: a.vmware.compareSerial, CompareError: a.vmware.compareError,
 		Prepare: a.vmware.prepare, PrepareSerial: a.vmware.prepareSerial, PrepareError: a.vmware.prepareError, PrepareBatch: append([]vmPrepareBatchItem{}, a.vmware.prepareBatch...),
 		Move: a.vmware.move, MoveSerial: a.vmware.moveSerial, MoveError: a.vmware.moveError, MoveStatus: a.vmware.moveStatus, MoveCopyRoot: a.vmwareCopyRootLocked(),
@@ -787,10 +800,10 @@ func (a *application) handleVMwarePlan(response http.ResponseWriter, request *ht
 		return
 	}
 	a.mu.Lock()
-	inventory, busy := a.vmware.inventory, a.vmwareBusyLocked()
+	inventory, refusal := a.vmware.inventory, a.vmPlanSaveRefusalLocked()
 	a.mu.Unlock()
-	if busy {
-		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": a.vmwareBusyTextLocked() + " Wait for it to finish first."})
+	if refusal != "" {
+		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": refusal})
 		return
 	}
 	plan, err := validateVMPlan(input.Plan, inventory)
