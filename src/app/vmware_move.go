@@ -36,6 +36,11 @@ type vmMoveRequest struct {
 	Stage func(stage, detail string)
 	// EjectMedia: see vmReplicaOptions.EjectMedia.
 	EjectMedia bool
+	// Space checks and watches free space for copy rounds (never for the
+	// cutover, whose source is already shut down); see vmReplicaOptions.
+	Space        *pgGuard
+	SpaceOwner   string
+	TargetVolume func() (pgVolume, bool)
 }
 
 type vmMoveResult struct {
@@ -110,6 +115,10 @@ func vmMoveRound(parent context.Context, options vmConnectOptions, request vmMov
 			vddk = nil
 		}
 	}
+	space := request.Space
+	if request.Cutover {
+		space = nil
+	}
 	round, err := vmReplicateRound(ctx, vsphere.client, ref, vmReplicaOptions{
 		VDDK:         vddk,
 		VDDKFolder:   vddkFolder,
@@ -123,6 +132,9 @@ func vmMoveRound(parent context.Context, options vmConnectOptions, request vmMov
 		Throttle:     request.Throttle,
 		Stage:        request.Stage,
 		EjectMedia:   request.EjectMedia,
+		Space:        space,
+		SpaceOwner:   request.SpaceOwner,
+		TargetVolume: request.TargetVolume,
 		Log:          log,
 		Progress: func(disk string, p vmCopyProgress) {
 			if request.Progress != nil {

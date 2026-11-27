@@ -1,3 +1,13 @@
+## Unreleased: protect production space and bandwidth while copying — 2026-11-27
+
+- Owner: "there should always be a way to safely migrate and control the migration to preserve functional space for the production environment and bandwidth for the production network". AGENTS rule 62.
+- Space: before every VMware snapshot and Hyper-V checkpoint of a running VM, the datastores or volumes it grows on and the copy's destination must keep the reserve (default 10% and 50 GB) after the expected growth of every copy holding a snapshot there (default 10% of the VM's disks, at least 4 GB). Otherwise the copy waits (not a failure) with the reason in a banner over the migration tools, in plan rows and in Help > Settings. A running copy is stopped at the stop level (default 5% or 20 GB), which removes its snapshot. Replication agents check their own volumes before shadow copies (default 10% and 20 GB, per job).
+- Load: copies at once in all (default 4), per source datastore, source host and destination host (default 2 each).
+- Bandwidth: a global limit with business hours for every agentless copy on top of plan and new per-wave limits (wave concurrency too); agent jobs start with it; file share copies use Robocopy `/IPG` (not the final pass at cutover).
+- Files: `prodguard.go`, `prodguard_windows.go`, `prodguard_unix.go`, `prodguard_test.go`; hooks in `vmware_replicate.go`, `vmware_move.go`, `hyperv_move.go`, `hyperv_move_windows.go`, `hyperv_remote_windows.go`, `movebatch*.go`, `repl_job.go`, `repl_throttle.go`, `migrate.go`, `Migrate-FileShares.ps1`, `index.html`, `scripts/test_workspace.cjs`.
+- The Hyper-V checkpoint hook is a small block in `hypervMoveRound`'s running-VM branch, so it merges with the RCT work in PR #173.
+- Not field-validated: real datastore free space during concurrent snapshots, CSV free space through administrative shares, Robocopy's `/IPG` rate.
+
 ## 3.2.38 release preparation — 2026-11-27
 
 Owner asked to publish ("publish"). Contents, merged into `release/next`: #164 (VM names on New migration tiles with an encryption note), #165 (eject CD/DVD images before copies), #167 (VDDK changed-block reads, operator-supplied), #168 (fluid density), #169 (file shares between two other servers) and #170 (rule numbering). Version 3.2.38 in `main.go` and the collector, release notes in `docs/release-notes/3.2.38.md`, and the published-upgrade test now starts from signed 3.2.37 (`323f7f7b...8545`).

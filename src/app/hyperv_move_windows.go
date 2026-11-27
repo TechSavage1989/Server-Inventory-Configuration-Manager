@@ -136,6 +136,15 @@ func (h *hypervScriptHost) Shutdown(ctx context.Context, vmID string) (string, e
 // runMoveRound runs a copy round or cutover for a VM from either source:
 // vSphere replication for VMware VMs, checkpoints for Hyper-V VMs.
 func (a *application) runMoveRound(ctx context.Context, inventory *vmInventory, vm vmMachine, options vmConnectOptions, request vmMoveRequest, log func(string)) (*vmMoveResult, error) {
+	target := ""
+	if request.NewSink == nil {
+		target = a.computerName
+	}
+	release, err := a.protectMove(ctx, vm, &request, target, log)
+	if err != nil {
+		return nil, err
+	}
+	defer release()
 	if vm.Source != vmSourceHyperV {
 		if !request.Cutover {
 			// While VMware Tools still answers, keep the guest's network
@@ -153,5 +162,6 @@ func (a *application) runMoveRound(ctx context.Context, inventory *vmInventory, 
 	}
 	return hypervMoveRound(ctx, a.hypervHostFor(inventory.Server, log), hypervMoveRequest{
 		VMID: vm.ID, Name: vm.Name, CopyFolder: request.CopyFolder, Cutover: request.Cutover, DiskOrder: order, NewSink: request.NewSink, Progress: request.Progress, Throttle: request.Throttle,
+		Space: request.Space, SpaceOwner: request.SpaceOwner, TargetVolume: request.TargetVolume, Volumes: pgLocalPathVolumes,
 	}, log)
 }

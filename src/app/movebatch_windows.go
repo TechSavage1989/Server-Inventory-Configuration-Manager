@@ -33,6 +33,21 @@ func (a *application) startPlans() {
 	runner := newMBRunner(filepath.Join(a.vmwareRoot(), "migration-plans.json"), &mbHostTarget{a: a})
 	runner.log = func(text string) { a.vmwareLog("Plan: %s", text) }
 	runner.ready = a.mbReady
+	runner.guard = a.prodGuard
+	runner.locate = func(plan *mbPlan, vm *mbVM) pgSlotKeys {
+		_, m, err := (&mbHostTarget{a: a}).machine(plan, vm)
+		if err != nil {
+			return pgSlotKeys{}
+		}
+		target := a.computerName
+		if mbRemote(plan) {
+			target = plan.Settings.Node
+			if target == "" {
+				target = plan.Settings.RemoteHost
+			}
+		}
+		return pgSlotKeysFor(m, target)
+	}
 	runner.claim = func() (func(), string) {
 		if status, message := a.startVMwareAction("plan"); status != 0 {
 			return nil, message
