@@ -49,7 +49,13 @@ type vcRememberView struct {
 	Notice  string               `json:"notice,omitempty"`
 }
 
+// vcRememberGuestKey is the entry of the guest administrator account that
+// fixes up new VMs after cutover (owner, 2026-11-27: remember it with the
+// same opt-in). It is not a server name, so plans never sign in with it.
+const vcRememberGuestKey = "guest-administrator"
+
 type vcRememberListItem struct {
+	Kind   string    `json:"kind,omitempty"`
 	Server string    `json:"server"`
 	User   string    `json:"user"`
 	Saved  time.Time `json:"saved"`
@@ -241,7 +247,11 @@ func (r *vcRemember) View() vcRememberView {
 	view := vcRememberView{Enabled: r.data.Enabled, Entries: []vcRememberListItem{}, Notice: r.loadErr}
 	if r.data.Enabled {
 		for _, e := range r.data.Entries {
-			view.Entries = append(view.Entries, vcRememberListItem{Server: e.Server, User: e.User, Saved: e.Saved})
+			item := vcRememberListItem{Server: e.Server, User: e.User, Saved: e.Saved}
+			if vcRememberKey(e.Server) == vcRememberGuestKey {
+				item.Kind = "guest"
+			}
+			view.Entries = append(view.Entries, item)
 		}
 	}
 	notes := []string{}
