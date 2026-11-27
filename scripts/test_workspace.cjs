@@ -949,7 +949,7 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   assert.deepEqual(f.consoleCalls.filter(c=>c.action==='text').at(-1).body,{id:'cn1',guest:"C:\\Users\\Public\\it's.txt",user:'Administrator',password:'Synthetic-Pa55'});
   assert.equal(await f.page.locator('#cnTextPass').inputValue(),'','the guest password leaves the page');
   await f.page.locator('#cnOutCopy').click();await f.page.waitForFunction(()=>/Copied/.test(document.querySelector('#cnOutMsg').textContent));
-  assert.equal(await f.page.evaluate(()=>navigator.clipboard.readText()),'C:\\> ipconfig\nIPv4 Address. . . : 192.0.2.25','Copy puts the text on this computer\'s clipboard');
+  assert.equal((await f.page.evaluate(()=>navigator.clipboard.readText())).replace(/\r\n/g,'\n'),'C:\\> ipconfig\nIPv4 Address. . . : 192.0.2.25','Copy puts the text on this computer\'s clipboard');
   await f.page.locator('#cnFilesButton').click();await f.page.locator('#cnFileLocal').fill('C:\\Transfer\\setup.log');await f.page.locator('#cnFileGuest').fill('C:\\Temp\\setup.log');await f.page.locator('#cnFileUser').fill('Administrator');await f.page.locator('#cnFilePass').fill('Synthetic-Pa55');await f.page.locator('#cnFileGo').click();
   await f.page.waitForFunction(()=>/Copied 2 KB/.test(document.querySelector('#cnFileStatus').textContent));assert.equal(await f.page.locator('#cnFilePass').inputValue(),'','the guest password leaves the page');
   assert.deepEqual(f.consoleCalls.filter(c=>c.action==='file').at(-1).body,{id:'cn1',direction:'to',local:'C:\\Transfer\\setup.log',guest:'C:\\Temp\\setup.log',user:'Administrator',password:'Synthetic-Pa55'});
