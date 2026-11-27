@@ -295,8 +295,8 @@ func TestPlanPauseStopsRoundsWithoutCountingFailure(t *testing.T) {
 func TestPlanRefusesDuplicatesAndBadSettings(t *testing.T) {
 	target := &mbFakeTarget{checkErr: map[string]error{"vcls-1": errors.New("not moved")}}
 	runner, _ := mbTestRunner(t, target)
-	if _, err := runner.Create("P", "vc", mbSettings{SyncMinutes: 5}, mbVMs("a")); err == nil {
-		t.Fatal("5-minute syncs must be refused")
+	if _, err := runner.Create("P", "vc", mbSettings{SyncMinutes: 4}, mbVMs("a")); err == nil {
+		t.Fatal("4-minute syncs must be refused")
 	}
 	if _, err := runner.Create("P", "vc", mbSettings{Concurrency: 9}, mbVMs("a")); err == nil {
 		t.Fatal("concurrency 9 must be refused")
@@ -581,7 +581,7 @@ func TestEncryptedHomeErrorSaysWhatWorks(t *testing.T) {
 		t.Fatal(plain)
 	}
 	withVDDK := vmEncryptedHomeError(true, "VixDiskLib_Open failed: no permission.").Error()
-	if !strings.Contains(withVDDK, "Cryptographic operations > Direct Access") || !strings.Contains(withVDDK, "no permission)") || !strings.HasSuffix(withVDDK, vmEncryptedHomeHint) {
+	if !strings.Contains(withVDDK, "Cryptographic operations > Direct Access") || !strings.Contains(withVDDK, "no permission)") || !strings.HasSuffix(withVDDK, vmEncryptedHomeVDDKHint) || strings.Contains(withVDDK, "Choose the VDDK folder") {
 		t.Fatal(withVDDK)
 	}
 }

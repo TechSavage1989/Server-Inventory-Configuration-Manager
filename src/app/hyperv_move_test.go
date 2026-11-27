@@ -422,7 +422,7 @@ func TestHyperVChangeTrackingReadsOnlyChangedAreas(t *testing.T) {
 		t.Fatalf("queries %v", host.queries)
 	}
 	disk0 := result.Round.Disks[0]
-	if disk0.Mode != "changed" || disk0.BytesRead != 1<<20 || disk0.Changed != 1 {
+	if disk0.Mode != "changed" || disk0.Read != "rct" || disk0.Tracked == 0 || disk0.BytesRead != 1<<20 || disk0.Changed != 1 {
 		t.Fatalf("changed round %+v", disk0)
 	}
 	if !bytes.Equal(hypervReadAll(t, result.Disks[0]), f.data[0]) {
@@ -489,7 +489,7 @@ func TestHyperVChangeTrackingFallsBackToFullReads(t *testing.T) {
 	other := request(false)
 	other.CopyFolder = filepath.Join(t.TempDir(), "Elsewhere")
 	host.changes = nil
-	if result, err = hypervMoveRound(context.Background(), host, other, nil); err != nil || result.Round.Disks[0].Mode != "full" {
+	if result, err = hypervMoveRound(context.Background(), host, other, nil); err != nil || result.Round.Disks[0].Mode != "full" || result.Round.Disks[0].Read != "file" || result.Round.Disks[0].Why == "" {
 		t.Fatalf("a new copy target used change tracking: %v %+v", err, result.Round.Disks)
 	}
 	// A failed keep leaves the checkpoint to be removed as before.
