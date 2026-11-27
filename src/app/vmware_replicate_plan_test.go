@@ -129,3 +129,22 @@ func TestPlanMarksVMsTestedByHand(t *testing.T) {
 		t.Fatalf("only the chosen VM is tested: %+v", views[0].VMs)
 	}
 }
+
+// Fields a newer version wrote survive a save by a version that does not
+// know them (a stable build saving a test-channel plan file).
+func TestPlanSaveKeepsFieldsItDoesNotKnow(t *testing.T) {
+	old := []byte(`[{"id":"p1","name":"P","futurePlan":1,"settings":{"syncMinutes":60,"futureSetting":"x"},"vms":[{"id":"a","name":"A","error":"old error","futureTestedAt":"2026-11-27T10:00:00Z"},{"id":"b","name":"B"}]},{"id":"gone","futurePlan":2}]`)
+	fresh := []byte(`[{"id":"p1","name":"P","settings":{"syncMinutes":30},"vms":[{"id":"a","name":"A"},{"id":"b","name":"B"}]}]`)
+	got := strings.Join(strings.Fields(string(mbKeepUnknownFields(fresh, old))), "")
+	for _, want := range []string{`"futurePlan":1`, `"futureSetting":"x"`, `"futureTestedAt":"2026-11-27T10:00:00Z"`, `"syncMinutes":30`} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %s in %s", want, got)
+		}
+	}
+	if strings.Contains(got, "old error") || strings.Contains(got, `"futurePlan":2`) {
+		t.Errorf("a field this version cleared, or a deleted plan, came back: %s", got)
+	}
+	if string(mbKeepUnknownFields(fresh, []byte(`[{"id":"p1","name":"P"}]`))) != string(fresh) {
+		t.Error("a file with nothing unknown must be written as it is")
+	}
+}
