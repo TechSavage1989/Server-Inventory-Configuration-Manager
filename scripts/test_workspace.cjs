@@ -286,6 +286,51 @@ async function fixture(browser,old=false){
 }
 // Tools live in two tabs: Discovery (Alt+1) and Migration and replication (Alt+5).
 const discoveryTools=['server','environment'];
+// apartControls finds controls pulled apart on wide windows: a tick box or
+// radio stretched wider than itself, or one standing far from its own text.
+function apartControls(page){return page.evaluate(()=>{
+ const bad=[],root=document.querySelector('.tab-panel.active');if(!root){return ['no active tab'];}
+ const name=e=>e.tagName.toLowerCase()+(e.id?'#'+e.id:'')+(e.getAttribute('data-cfm-tick')!==null?'[tick '+e.getAttribute('data-cfm-tick')+']':'')+(e.parentElement&&typeof e.parentElement.className==='string'&&e.parentElement.className?' in .'+e.parentElement.className.trim().split(/\s+/)[0]:'');
+ for(const i of root.querySelectorAll('input[type=checkbox],input[type=radio]')){
+  if(!i.getClientRects().length||getComputedStyle(i).visibility==='hidden'||getComputedStyle(i).opacity==='0'||i.closest('.toggle')){continue;}
+  const r=i.getBoundingClientRect();if(r.width>24){bad.push(name(i)+' is '+Math.round(r.width)+' px wide');}
+  const lab=i.closest('label');if(!lab){continue;}
+  const w=document.createTreeWalker(lab,NodeFilter.SHOW_TEXT);let t,gap=null;
+  while((t=w.nextNode())){if(!t.textContent.trim()){continue;}if(!(i.compareDocumentPosition(t)&Node.DOCUMENT_POSITION_FOLLOWING)){continue;}const rg=document.createRange();rg.selectNodeContents(t);const rr=rg.getClientRects()[0];if(!rr){continue;}if(Math.abs((rr.top+rr.bottom)/2-(r.top+r.bottom)/2)<rr.height){gap=rr.left-r.right;}break;}
+  if(gap!==null&&gap>32){bad.push(name(i)+' stands '+Math.round(gap)+' px from its label');}
+ }
+ // Controls that touch: side by side on one line with less than 4 px
+ // between them (an input joined to its Browse button is one control).
+ const vis=e=>{if(!e.getClientRects().length){return false;}const d=e.closest('details:not([open])');if(d&&!e.closest('summary')){return false;}const cs=getComputedStyle(e);return cs.visibility!=='hidden'&&cs.display!=='none'&&cs.opacity!=='0';};
+ const ctl='button,select,input:not([type=checkbox]):not([type=radio]):not([type=hidden]),textarea,label.cfm-tick,label.vm-check,label.vm-field';
+ const items=[...root.querySelectorAll(ctl)].filter(e=>vis(e)&&!e.closest('.toggle,.path-pick,.path-row,.tool-nav,.nw-stepper,[role=tablist],.vm-inv-views,.seg,.btn-group,.mp-summary,.nw-tiles,.vm-tiles,.status-track,.gd-choices,.nw-choices')&&!(e.matches('label.vm-field')&&e.querySelector(ctl))).filter(e=>!(e.matches('input,select,textarea')&&e.closest('label.vm-field,label.vm-check,label.cfm-tick')));
+ const shown=e=>{let r=e.getBoundingClientRect(),L=r.left,T=r.top,R=r.right,B=r.bottom;for(let p=e.parentElement;p&&p!==document.documentElement;p=p.parentElement){const cs=getComputedStyle(p);if(cs.overflowX!=='visible'||cs.overflowY!=='visible'){const q=p.getBoundingClientRect();L=Math.max(L,q.left);T=Math.max(T,q.top);R=Math.min(R,q.right);B=Math.min(B,q.bottom);}}return {left:L,top:T,right:R,bottom:B,width:R-L,height:B-T};};
+ const boxes=items.map(e=>({e,r:shown(e)})).filter(b=>b.r.width>4&&b.r.height>4);
+ for(let a=0;a<boxes.length;a++){for(let b=0;b<boxes.length;b++){if(a===b){continue;}const A=boxes[a].r,B=boxes[b].r;
+  const overlapY=Math.min(A.bottom,B.bottom)-Math.max(A.top,B.top);if(overlapY<Math.min(A.height,B.height)*0.5){continue;}
+  const gap=B.left-A.right;if(gap>=-1&&gap<4&&!boxes[a].e.contains(boxes[b].e)&&!boxes[b].e.contains(boxes[a].e)){bad.push(name(boxes[a].e)+' touches '+name(boxes[b].e)+' ('+Math.round(gap)+' px)');}
+  const overlapX=Math.min(A.right,B.right)-Math.max(A.left,B.left);if(overlapX>2&&overlapY>2&&a<b&&!boxes[a].e.contains(boxes[b].e)&&!boxes[b].e.contains(boxes[a].e)){bad.push(name(boxes[a].e)+' overlaps '+name(boxes[b].e));}
+ }}
+ // Bordered boxes stacked with no space between them.
+ const boxed=e=>{const cs=getComputedStyle(e);return parseFloat(cs.borderTopWidth)>0&&cs.borderTopStyle!=='none'&&parseFloat(cs.borderBottomWidth)>0&&cs.borderBottomStyle!=='none'&&parseFloat(cs.borderLeftWidth)>0;};
+ for(const e of root.querySelectorAll('section,div,details,fieldset')){
+  if(!vis(e)||!boxed(e)){continue;}let n=e.nextElementSibling;while(n&&!vis(n)){n=n.nextElementSibling;}
+  if(!n||!boxed(n)){continue;}const A=shown(e),B=shown(n);if(A.height<4||B.height<4){continue;}
+  const gap=B.top-A.bottom,ox=Math.min(A.right,B.right)-Math.max(A.left,B.left);
+  if(ox>20&&gap>=-1&&gap<4&&getComputedStyle(e.parentElement).display!=='grid'||ox>20&&gap>=-1&&gap<4&&getComputedStyle(e.parentElement).rowGap==='normal'&&getComputedStyle(e.parentElement).display==='grid'){bad.push(name(e)+' touches '+name(n)+' below it ('+Math.round(gap)+' px)');}
+ }
+ // Buttons side by side in one row are the same height.
+ for(const row of new Set(boxes.filter(b=>b.e.tagName==='BUTTON').map(b=>b.e.parentElement))){
+  const bs=[...row.children].filter(c=>c.tagName==='BUTTON'&&vis(c)&&!c.classList.contains('link-button')).map(c=>c.getBoundingClientRect());
+  for(let k=1;k<bs.length;k++){if(Math.abs(bs[k].top-bs[k-1].top)<bs[k].height/2&&Math.abs(bs[k].height-bs[k-1].height)>4){bad.push(name(row)+' has buttons of '+Math.round(bs[k-1].height)+' and '+Math.round(bs[k].height)+' px');break;}}
+ }
+ // Text cut off at the side.
+ for(const e of root.querySelectorAll('p,div,span,label,h3,h4,li')){
+  if(!vis(e)){continue;}const cs=getComputedStyle(e);if(cs.whiteSpace==='nowrap'||cs.textOverflow==='ellipsis'){continue;}
+  if(/hidden|clip/.test(cs.overflowX)&&e.scrollWidth-e.clientWidth>2){bad.push(name(e)+' hides '+(e.scrollWidth-e.clientWidth)+' px at the side');}
+ }
+ return [...new Set(bad)];
+});}
 async function goTool(f,id){await f.page.keyboard.press(discoveryTools.includes(id)?'Alt+1':'Alt+5');await f.page.locator('[data-tool="'+id+'"]').click();}
 // The VMware and Hyper-V inventory: open an item from the tree, and read the tree as 'level label' lines.
 // HTML5 drag and drop with real mouse steps (locator.dragTo misses the drop on scrolled pages).
@@ -481,12 +526,12 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   const migration=await f.page.locator('#migrationNav [data-tool]').evaluateAll(n=>n.map(x=>x.getAttribute('data-tool')));
   const all=['server','environment',...migration];
   for(const size of sizes){await f.page.setViewportSize(size);
-   for(const id of all){await goTool(f,id);await f.page.waitForTimeout(150);const bad=await clipped();assert.deepEqual(bad,[],id+' at '+size.width+'x'+size.height+': '+bad.join('; '));}
+   for(const id of all){await goTool(f,id);await f.page.waitForTimeout(150);const bad=await clipped();assert.deepEqual(bad,[],id+' at '+size.width+'x'+size.height+': '+bad.join('; '));const apart=await apartControls(f.page);if(process.env.SIMM_SWEEP){if(size.width>1900){await f.page.screenshot({path:process.env.SIMM_SWEEP+'/'+id+'.png'});}if(apart.length){console.log('APART',id,size.width,apart.join('; '));}}else{assert.deepEqual(apart,[],'controls apart in '+id+' at '+size.width+'x'+size.height+': '+apart.join('; '));}}
    for(const tab of ['Collection','Report','Restore']){const b=f.page.locator('#tabButton'+tab);if(await b.count()){await b.click();await f.page.waitForTimeout(100);const bad=await clipped();assert.deepEqual(bad,[],tab+' at '+size.width+'x'+size.height+': '+bad.join('; '));}}
   }
   // Every New migration screen, including the tallest: Where with a cluster
   // and the steps of a way that continues in its own tool.
-  const screens=async label=>{for(const size of sizes){await f.page.setViewportSize(size);await f.page.waitForTimeout(150);const bad=await clipped();assert.deepEqual(bad,[],'New migration '+label+' at '+size.width+'x'+size.height+': '+bad.join('; '));assert(await inView('#nwNext'),'Next is in view on '+label+' at '+size.width+'x'+size.height);if(await f.page.locator('#nwBack').isVisible()){assert(await inView('#nwBack'),'Back is in view on '+label);}}};
+  const screens=async label=>{for(const size of sizes){await f.page.setViewportSize(size);await f.page.waitForTimeout(150);const bad=await clipped();assert.deepEqual(bad,[],'New migration '+label+' at '+size.width+'x'+size.height+': '+bad.join('; '));const apart=await apartControls(f.page);if(process.env.SIMM_SWEEP){if(size.width>1900){await f.page.screenshot({path:process.env.SIMM_SWEEP+'/nw-'+label.replace(/\W+/g,'-')+'.png'});}if(apart.length){console.log('APART nw',label,size.width,apart.join('; '));}}else{assert.deepEqual(apart,[],'controls apart on New migration '+label+' at '+size.width+'x'+size.height+': '+apart.join('; '));}assert(await inView('#nwNext'),'Next is in view on '+label+' at '+size.width+'x'+size.height);if(await f.page.locator('#nwBack').isVisible()){assert(await inView('#nwBack'),'Back is in view on '+label);}}};
   await goTool(f,'wizard');await f.page.locator('[data-nw-source="vms"]').click();await f.page.waitForSelector('#nwVmList [data-nw-pick]');
   await f.page.locator('[data-nw-pick="vm-app01"]').check();await f.page.locator('[data-nw-pick="vm-sql01"]').check();await screens('What');
   await f.page.locator('#nwNext').click();await f.page.locator('[data-nw-target="here"]').click();await f.page.locator('[data-nw-switch="VM-Servers"]').selectOption('Isolated');await screens('Where');
@@ -2068,6 +2113,10 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   await f.page.locator('[data-nw-filter="copying"]').click();assert.equal(await f.page.locator('#nwStatusBody [data-nw-row]').count(),1,'tiles filter the list');await f.page.locator('[data-nw-filter="copying"]').click();
   await f.page.screenshot({path:out+'/new-migration-status-1440x1000.png'});
   await f.page.locator('[data-nw-row="'+f.plans.plans[0].vms[0].id+'"]').check();assert((await f.page.locator('#nwStatusMsg').textContent()).startsWith('Tick "I understand"'));
+  for(const width of [1904,2560]){await f.page.setViewportSize({width,height:1000});await f.page.waitForTimeout(100);await f.page.locator('#nwCutNow').scrollIntoViewIfNeeded();await f.page.screenshot({path:out+'/new-migration-status-'+width+'.png'});const apart=await apartControls(f.page);assert.deepEqual(apart,[],'Status at '+width+': '+apart.join('; '));
+   const g=await f.page.evaluate(()=>{const t=document.querySelector('#nwCutConfirmTick').closest('label').getBoundingClientRect(),b=document.querySelector('#nwCutNow').getBoundingClientRect(),m=document.querySelector('#nwStatusMsg').getBoundingClientRect();return {tickToButton:b.left-t.right,msgLeft:m.left,buttonLeft:b.left,msgTop:m.top,buttonBottom:b.bottom,buttonRight:b.right};});
+   assert(g.tickToButton>=0&&g.tickToButton<=32,'the cutover button sits beside its tick box at '+width+': '+JSON.stringify(g));assert(Math.abs(g.msgLeft-g.buttonLeft)<=2||(g.msgLeft>=g.buttonRight&&g.msgLeft-g.buttonRight<=32),'the reason sits under or beside the button at '+width+': '+JSON.stringify(g));}
+  await f.page.setViewportSize({width:1440,height:1000});
   await f.page.locator('#nwCutConfirmTick').check();await f.page.locator('#nwCutNow').click();
   for(let i=0;i<100&&f.planCalls.filter(c=>c.body.action==='cutover').length<2;i++){await new Promise(r=>setTimeout(r,50));}const now=f.planCalls.filter(c=>c.body.action==='cutover').pop();assert.equal(now.body.at,'now');assert.equal(now.body.confirm,name);
   await f.page.setViewportSize({width:1008,height:690});await f.page.locator('[data-nw-step]').first().waitFor();
@@ -2331,6 +2380,8 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   // Tick box: no name to type, the box says what happens and is cleared when the selection changes.
   assert(!await f.page.locator('#mpConfirm').isVisible(),'no plan name to type');assert(await f.page.locator('#mpConfirmTick').isVisible());
   assert((await f.page.locator('label:has(#mpConfirmTick)').textContent()).includes('shut down and cut over'));
+  for(const size of [{width:1008,height:690},{width:1350,height:690},{width:1904,height:1000}]){await f.page.setViewportSize(size);await f.page.waitForTimeout(100);await f.page.locator('#mpCutNow').scrollIntoViewIfNeeded();await f.page.screenshot({path:out+'/plans-cutover-'+size.width+'.png'});const apart=await apartControls(f.page);assert.deepEqual(apart,[],'Migration plans cutover at '+size.width+': '+apart.join('; '));}
+  await f.page.setViewportSize({width:1440,height:1000});
   await f.page.locator('[data-mp-row="vm-app01"]').check();assert.equal(await f.page.locator('#mpCutWhy').textContent(),'Tick "I understand" to cut over the selected VMs.');assert(await f.page.locator('#mpCutNow').isDisabled());
   await f.page.locator('#mpConfirmTick').check();assert(!await f.page.locator('#mpCutNow').isDisabled());
   await f.page.locator('#mpCutNow').scrollIntoViewIfNeeded();await f.page.screenshot({path:out+'/confirm-tick-1440x1000.png'});
