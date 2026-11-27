@@ -966,6 +966,27 @@ func (a *replAgent) Action(id, action string) error {
 			a.clearAlertsLocked(job, kind)
 		}
 		a.logLocked(job, "The operator marked the cutover as finished by hand; replication stopped. Nothing on this server was changed.")
+	case "rollback":
+		// Roll back a finished cutover (rollback.go): the console has turned
+		// the new VM off. Start the services the cutover stopped and pause
+		// the job; the next round after Resume rescans the receiver's disks,
+		// because the new VM wrote to them. Nothing else here changes.
+		if !done {
+			return errors.New("the job is not cut over, so there is nothing to roll back")
+		}
+		job.cutover, job.spec.CutoverAt = false, nil
+		job.status.State, job.status.NextRun, job.status.RescanNext = replStatePaused, time.Time{}, true
+		job.status.Message = "Rolled back: this server runs again and the job is paused. To migrate again, remove the new VM on the Hyper-V host, then Resume: the first round rescans the copies, so only what differs is sent."
+		a.logLocked(job, "Rolled back by the operator after the cutover; the job is paused and its next round rescans the receiver's disks.")
+		if services := append([]string(nil), job.spec.StopServices...); len(services) > 0 {
+			log := a.jobLog(job)
+			go func() {
+				log("Starting " + strings.Join(services, ", ") + " again (rollback).")
+				if err := a.platform.StartServices(services, log); err != nil {
+					log("Some services did not start again: " + err.Error())
+				}
+			}()
+		}
 	case "cancel-cutover":
 		if job.status.State == replStateCutover && job.stopCutover != nil {
 			// A running cutover: stop the final round and roll back

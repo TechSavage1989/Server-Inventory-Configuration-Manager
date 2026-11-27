@@ -37,7 +37,7 @@ func (a *application) hypervHostFor(server string, log func(string)) *hypervScri
 	return &hypervScriptHost{app: a, host: host, local: local, log: log}
 }
 
-func (h *hypervScriptHost) run(ctx context.Context, mode, vmID, checkpoint string, out any) error {
+func (h *hypervScriptHost) run(ctx context.Context, mode, vmID, checkpoint string, out any, extra ...string) error {
 	runtimeRoot := filepath.Join(h.app.update.appDataRoot, "Runtime")
 	if err := os.MkdirAll(runtimeRoot, 0700); err != nil {
 		return err
@@ -59,6 +59,7 @@ func (h *hypervScriptHost) run(ctx context.Context, mode, vmID, checkpoint strin
 	if checkpoint != "" {
 		arguments = append(arguments, "-CheckpointId", checkpoint)
 	}
+	arguments = append(arguments, extra...)
 	command := exec.CommandContext(ctx, h.app.powerShellPath, arguments...)
 	waitErr := h.app.runEngineProcess(command, func(line string) {
 		if h.log != nil {

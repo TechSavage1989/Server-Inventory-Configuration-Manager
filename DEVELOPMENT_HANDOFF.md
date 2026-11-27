@@ -1,6 +1,6 @@
 ## Unreleased: protect production space and bandwidth while copying — 2026-11-27
 
-- Owner: "there should always be a way to safely migrate and control the migration to preserve functional space for the production environment and bandwidth for the production network". AGENTS rule 62.
+- Owner: "there should always be a way to safely migrate and control the migration to preserve functional space for the production environment and bandwidth for the production network". AGENTS rule 64.
 - Space: before every VMware snapshot and Hyper-V checkpoint of a running VM, the datastores or volumes it grows on and the copy's destination must keep the reserve (default 10% and 50 GB) after the expected growth of every copy holding a snapshot there (default 10% of the VM's disks, at least 4 GB). Otherwise the copy waits (not a failure) with the reason in a banner over the migration tools, in plan rows and in Help > Settings. A running copy is stopped at the stop level (default 5% or 20 GB), which removes its snapshot. Windows replication agents check their own volumes before shadow copies (default 10% and 20 GB, per job).
 - Load: copies at once in all (default 4), per source datastore, source host and destination host (default 2 each).
 - Bandwidth: a global limit with business hours for every agentless copy on top of plan and new per-wave limits (wave concurrency too); agent jobs start with it; file share copies use Robocopy `/IPG` (not the final pass at cutover).
@@ -8,9 +8,33 @@
 - The Hyper-V checkpoint hook is a small block in `hypervMoveRound`'s running-VM branch, so it merges with the RCT work in PR #173.
 - Not field-validated: real datastore free space during concurrent snapshots, CSV free space through administrative shares, Robocopy's `/IPG` rate.
 
+## 3.2.38 published and verified — 2026-11-27
+
+- [Release v3.2.38](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.38) ("Server Inventory and Migration Manager 3.2.38"), tag and target commit `f26e245f8f951018343a5fcced439a214446e373`. Source: #164, #165, #167, #168 and #169 through the batch #166 (merged into `main` with a merge commit, `34377a3`), prepared by #171 and published by #172. The owner asked to publish on 2026-11-27.
+- The [publish run](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/45985767353) passed first time: publish job 10:52–11:14 UTC, embedded scripts and EXE signed through Azure Artifact Signing over OIDC before the tests and checksum (Valid, timestamped); public feed and downloads verified.
+- The actual 3.2.37-to-3.2.38 upgrade (published signed 3.2.37 EXE through Download and Install, restart into 3.2.38, native health, settings, shortcut, timers, cleanup and rollback) passed in one run, 11:15–11:27 UTC.
+- Stable EXE: 28,542,256 bytes; SHA-256 `287349f46a752fb5d33971668e917ddf02b3b0dc696e9444dd21d5f12265b5cc` (matches the public feed). Linux agent `simm-agent-linux-amd64`: 13,672,448 bytes; SHA-256 `c4309a058d37f2cd3e955be7a17f8191186f4e76f9e2f732df295334046269f1`. All 14 assets are published.
+
+Limits: VDDK reads against a real ESXi host and vCenter, ejecting images on a real vCenter, and file share moves between two real servers over remoting have not been field-tested. The limits under 3.2.37 still apply. CI artifacts were not downloaded, and no client data was used.
+
+## Unreleased: opt-in Test update channel and the test branch — 2026-11-27
+
+- **Help → Settings → Updates** has **Also offer test builds**. Stable (the default) is offered only stable releases. Test is also offered the newest signed test prerelease (`X.Y.Z-test.N`) and gets whichever is newer; unticking it while a test build runs offers the newest stable release in its place. Saved in `Settings\update-channel.json`. AGENTS rule 61.
+- The long-lived `test` branch (created 2026-11-27 from `release/next` at 34377a3, the 3.2.38 batch) holds test-channel work: PRs with base `test` get the quick Linux checks, pushes to `test` run the full suite, and `release.yml` publishes a signed prerelease from `test` when its `release/VERSION` names `X.Y.Z-test.N`.
+- The channel has to ship in a stable release first (installs before it know only the stable feed). Once this reaches `release/next`, merge `release/next` into `test` so test PRs get the quick checks and `release.yml` there accepts test builds.
+- Check that the GitHub `release` environment's deployment branches include `test`, or signing (Azure OIDC) cannot run for test builds.
+- Tests: `update_channel_test.go` (ordering, channel choice, release-list parsing, saved setting; Linux), `TestTestChannelOffersTestBuildsOnlyAfterOptIn` (Windows, fake GitHub), workspace check "Help > Settings opts in to the Test update channel". Not yet exercised: a real published test prerelease and a real return from a test build to stable.
+
 ## 3.2.38 release preparation — 2026-11-27
 
 Owner asked to publish ("publish"). Contents, merged into `release/next`: #164 (VM names on New migration tiles with an encryption note), #165 (eject CD/DVD images before copies), #167 (VDDK changed-block reads, operator-supplied), #168 (fluid density), #169 (file shares between two other servers) and #170 (rule numbering). Version 3.2.38 in `main.go` and the collector, release notes in `docs/release-notes/3.2.38.md`, and the published-upgrade test now starts from signed 3.2.37 (`323f7f7b...8545`).
+
+## Unreleased: one-click Roll back after a cutover — 2026-11-27
+
+- New **Roll back** tool (Migration and replication, Start here) and a **Roll back…** button beside every cut-over VM. Every cutover that creates a VM now leaves a record (`rollback.go`, AGENTS rule 62). Rolling back shuts the new VM down and disconnects it, confirms it is off, puts the original VMware VM's adapters back from the record the cutover saved and starts the original (vSphere, or the source Hyper-V host through `Move-HyperVVM.ps1 -Mode Start`), or asks the replication agent to start its stopped services (new agent action `rollback`; older agents get manual steps).
+- Audit of every cutover path: the original is only shut down (VMware Tools / Hyper-V shutdown component), optionally has its adapters set to not connect (recorded) and optionally its CD/DVD images ejected. Nothing renames, annotates, deletes or changes inside the original. The fix-ups (IP settings, VMware Tools removal) run only in the new VM.
+- Domain controllers need their own tick box; the dialog shows the cutover time and the data written since that stays on the new VM. Rolling stages list the VMs whose rollback ends when a host is rebuilt or a LUN reused. Steps for P2V, V2P, conversions, file shares, restore and rebuilt hosts are under Every way of moving.
+- Tests: `go test ./...` (rollback_test.go, rollback_vsphere_test.go against vcsim), the workspace check "Roll back". Not field-validated: real vCenter power-on after cutover, Stop-VM over remoting on a cluster node, the agent action on a real source.
 
 ## Unreleased: fluid density, so 1080p and smaller windows fit more — 2026-11-27
 

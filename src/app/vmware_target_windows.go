@@ -539,6 +539,7 @@ func (a *application) handleVMTargetMove(response http.ResponseWriter, request *
 				if err == nil {
 					created.CutOver = time.Now().UTC()
 					saveVMTargetRecord(a.vmTargetRecordsFolder(server), created)
+					a.recordPlatformCutover(*vm, created)
 					finished = vm.Name + " is cut over and starting on " + vmTargetLabel(created.Platform) + " from its own disk."
 				} else {
 					err = errors.New("the last changes are copied and the VMware VM is shut down, but switching the new VM to its disk failed: " + err.Error() + ". Turn the new VM off, remove the receiver media, set it to boot from its first disk and start it, or start the VMware VM again to go back")
