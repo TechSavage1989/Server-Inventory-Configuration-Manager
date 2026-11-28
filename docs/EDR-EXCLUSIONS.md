@@ -192,6 +192,17 @@ one JSON line on standard input and is kept in memory until **Use my Windows
 account** or exit. If your EDR watches remote PowerShell, allow
 `wsmprovhost.exe` running these read-only tools on the servers you check.
 
+### Move SQL databases
+
+Nothing is installed or started on either SQL Server.
+
+| Behaviour | Where | Why |
+| --- | --- | --- |
+| `powershell.exe -ExecutionPolicy RemoteSigned -File Invoke-SqlMigration.ps1 -Mode Batches` (signed script, never Bypass, no encoded command), input as one JSON line on standard input | The admin computer running the application | Runs T-SQL batches on the old and new SQL Servers (TCP 1433 or the instance's port) |
+| `Invoke-Command -ComputerName <SQL Server's computer>` over WinRM, only when a different Windows account is typed | The SQL Server's own computer | Runs the same T-SQL there as that account, because Windows cannot pass a typed account on through SQL Server otherwise |
+| `Invoke-SqlMigration.ps1 -Mode Dns`: `Invoke-Command -ComputerName <DNS server>` running the DnsServer cmdlets on one CNAME and `setspn` for the alias | The DNS server, only when an alias is moved | Points the alias at the new server and back on Roll back |
+| `BACKUP DATABASE` / `BACKUP LOG` and `RESTORE` by the SQL Server services to the backup share | Both SQL Servers | The copy itself; files are written by the SQL Server service accounts, not by this application |
+
 ### VM console
 
 The console window shows a VM's screen inside the application. Nothing is

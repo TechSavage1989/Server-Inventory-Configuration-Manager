@@ -116,8 +116,13 @@ type sqlObjectItem struct {
 // Options compared and offered for copying. The first group is ticked by
 // default when it differs; memory and the others are shown unticked
 // because they depend on the new hardware or on security choices.
-var sqlConfigDefault = []string{"cost threshold for parallelism", "max degree of parallelism", "optimize for ad hoc workloads", "backup compression default", "backup checksum default", "remote admin connections", "Database Mail XPs", "clr enabled", "contained database authentication", "Ad Hoc Distributed Queries", "Ole Automation Procedures"}
-var sqlConfigShown = []string{"max server memory (MB)", "min server memory (MB)", "xp_cmdshell", "clr strict security", "filestream access level", "remote access", "fill factor (%)"}
+var sqlConfigDefault = []string{"cost threshold for parallelism", "max degree of parallelism", "optimize for ad hoc workloads", "backup compression default", "backup checksum default", "remote admin connections", "Database Mail XPs", "clr enabled", "contained database authentication"}
+
+// xp_cmdshell is never offered: turning it on would let T-SQL start
+// programs on the new server, which this application never does. OLE
+// Automation and ad hoc distributed queries are security choices, so they
+// are shown unticked.
+var sqlConfigShown = []string{"max server memory (MB)", "min server memory (MB)", "clr strict security", "Ole Automation Procedures", "Ad Hoc Distributed Queries", "filestream access level", "remote access", "fill factor (%)"}
 
 // sqlConfigNeedsRestart are options that change only when SQL Server restarts.
 var sqlConfigNeedsRestart = map[string]bool{"fill factor (%)": true, "remote access": true}

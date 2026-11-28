@@ -1,3 +1,9 @@
+## Unreleased: Move SQL databases — 2026-11-28
+
+- New tool **Move SQL databases** (Migration and replication > Move servers, and New migration's source *SQL Server databases*). Reads both SQL Servers, suggests per database backup and restore, log shipping or a distributed availability group (only for databases already in an AG, owner decision), carries logins with SIDs and passwords, Agent jobs, operators, linked servers and chosen server settings, tests, cuts over (now or scheduled), moves a DNS alias and rolls back. Rule 72.
+- Engine `src/app/Invoke-SqlMigration.ps1` (signed, RemoteSigned), rules in `sqlmig*.go`, endpoints `/api/sql/*` in `sqlmig_windows.go`, demo backend `docs/demo/src/04-sql.js`.
+- Tests: `go test -run TestSQL ./src/app` (fakes, any platform); CI job `sqlmig` runs `TestSQLMigrationOnLocalDB` with two LocalDB instances on Windows; workspace checks "Move SQL databases" and New migration's guide. Not field-validated against real SQL Server instances, availability groups or DNS.
+
 ## Unreleased: browser demo and feature tour on GitHub Pages — 2026-11-28
 
 - `docs/demo/` runs the real interface on a simulated backend with fictional data; `docs/tour/` is the annotated feature tour; `docs/index.html` links both. Served by GitHub Pages from `docs/` once the owner turns Pages on (Settings > Pages: `main`, `/docs`, custom domain migrationmanager.techsavage3d.com from `docs/CNAME`, set 2026-11-28). Docs only: no version change, no release.
