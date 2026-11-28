@@ -280,6 +280,11 @@ try {
     if ($credential) { $parameters.Credential = $credential }
     if ($Transport -eq 'direct') {
         if (-not $VMName) { throw 'No VM name was given.' }
+        # PowerShell Direct looks the VM up with an unqualified Get-VM; on a
+        # host with VMware PowerCLI that can be PowerCLI's. Use Hyper-V's.
+        Import-Module Hyper-V -ErrorAction Stop
+        $found = Get-Command Get-VM -ErrorAction SilentlyContinue
+        if (-not $found -or [string]$found.ModuleName -ne 'Hyper-V') { Set-Item -Path function:global:Get-VM -Value { Hyper-V\Get-VM @args } }
         $parameters.VMName = $VMName
         $label = $VMName
     }

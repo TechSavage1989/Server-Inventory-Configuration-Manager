@@ -50,11 +50,11 @@ $readHost = {
     if ($result.hyperV -and (Get-Module -ListAvailable -Name Hyper-V)) {
         $result.hyperVModule = $true
         Import-Module Hyper-V
-        $vmHost = Get-VMHost
+        $vmHost = Hyper-V\Get-VMHost
         $result.vhdPath = [string]$vmHost.VirtualHardDiskPath
         $result.vmPath = [string]$vmHost.VirtualMachinePath
-        $result.switches = @(Get-VMSwitch | ForEach-Object { @{ name = [string]$_.Name; type = [string]$_.SwitchType } })
-        $result.vms = @(Get-VM | ForEach-Object { [string]$_.Name })
+        $result.switches = @(Hyper-V\Get-VMSwitch | ForEach-Object { @{ name = [string]$_.Name; type = [string]$_.SwitchType } })
+        $result.vms = @(Hyper-V\Get-VM | ForEach-Object { [string]$_.Name })
     }
     $volumes = New-Object System.Collections.ArrayList
     foreach ($volume in @(Get-WmiObject -Class Win32_Volume -Filter 'DriveType = 3')) {
@@ -81,7 +81,7 @@ $readHost = {
                     foreach ($node in @(Get-ClusterNode | Where-Object { $_.State -eq 'Up' -and [string]$_.Name -ne [string]$env:COMPUTERNAME })) {
                         try {
                             $there = @{}
-                            foreach ($other in @(Get-VMSwitch -ComputerName ([string]$node.Name) -ErrorAction Stop)) { $there[([string]$other.Name).ToLowerInvariant()] = $true }
+                            foreach ($other in @(Hyper-V\Get-VMSwitch -ComputerName ([string]$node.Name) -ErrorAction Stop)) { $there[([string]$other.Name).ToLowerInvariant()] = $true }
                             foreach ($key in @($common.Keys)) { if (-not $there.ContainsKey($key)) { $common.Remove($key) } }
                         } catch {
                             $unread += [string]$node.Name

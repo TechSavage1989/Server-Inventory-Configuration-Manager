@@ -319,11 +319,11 @@ func (t *mbHostTarget) EndTest(ctx context.Context, plan *mbPlan, vm *mbVM, log 
 	script := ""
 	if test.VMID == "" {
 		// The VM's ID is unknown: never remove a VM by name.
-		script = fmt.Sprintf("Import-Module Hyper-V\nif (Get-VM -Name %s -ErrorAction SilentlyContinue) { throw ('A VM named ' + %s + ' exists but this application did not record its ID; remove it in Hyper-V Manager, then end the test again.') }\n", vmPSQuote(test.Name), vmPSQuote(test.Name))
+		script = fmt.Sprintf("Import-Module Hyper-V\nif (Hyper-V\\Get-VM -Name %s -ErrorAction SilentlyContinue) { throw ('A VM named ' + %s + ' exists but this application did not record its ID; remove it in Hyper-V Manager, then end the test again.') }\n", vmPSQuote(test.Name), vmPSQuote(test.Name))
 	}
 	script += replFailoverEndScript(replFailover{VMID: test.VMID, Name: test.Name, Copies: test.Copies, Children: test.Children}, test.Folder)
 	if test.VMID == "" {
-		script = strings.Replace(script, "$vm = Get-VM -Id ''", "$vm = $null", 1)
+		script = strings.Replace(script, "$vm = Hyper-V\\Get-VM -Id ''", "$vm = $null", 1)
 	}
 	log("Removing the test VM " + test.Name + " and its test disks.")
 	if _, err := vmRunPowerShell(script); err != nil {

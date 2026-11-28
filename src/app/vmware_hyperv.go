@@ -208,7 +208,7 @@ func (p *vmHyperVPlan) Script() string {
 	line("$ErrorActionPreference = 'Stop'")
 	line("Import-Module Hyper-V")
 	line("$name = %s", vmPSQuote(p.Name))
-	line("if (Get-VM -Name $name -ErrorAction SilentlyContinue) { throw ('A Hyper-V VM named ' + $name + ' already exists; nothing was changed.') }")
+	line("if (Hyper-V\\Get-VM -Name $name -ErrorAction SilentlyContinue) { throw ('A Hyper-V VM named ' + $name + ' already exists; nothing was changed.') }")
 	disks := make([]string, len(p.Disks))
 	for i, disk := range p.Disks {
 		disks[i] = vmPSQuote(disk)
@@ -216,51 +216,51 @@ func (p *vmHyperVPlan) Script() string {
 	line("$disks = @(%s)", strings.Join(disks, ", "))
 	line("foreach ($disk in $disks) { if (-not (Test-Path -LiteralPath $disk -PathType Leaf)) { throw ('The copied disk ' + $disk + ' is missing.') } }")
 	if p.Path != "" {
-		line("$vm = New-VM -Name $name -Generation %d -MemoryStartupBytes %d -Path %s -NoVHD", p.Generation, p.MemoryBytes, vmPSQuote(p.Path))
+		line("$vm = Hyper-V\\New-VM -Name $name -Generation %d -MemoryStartupBytes %d -Path %s -NoVHD", p.Generation, p.MemoryBytes, vmPSQuote(p.Path))
 	} else {
-		line("$vm = New-VM -Name $name -Generation %d -MemoryStartupBytes %d -NoVHD", p.Generation, p.MemoryBytes)
+		line("$vm = Hyper-V\\New-VM -Name $name -Generation %d -MemoryStartupBytes %d -NoVHD", p.Generation, p.MemoryBytes)
 	}
 	line("try {")
-	line("  Set-VMProcessor -VM $vm -Count %d", p.CPUs)
-	line("  Set-VMMemory -VM $vm -DynamicMemoryEnabled $false")
-	line("  Get-VMNetworkAdapter -VM $vm | Remove-VMNetworkAdapter")
+	line("  Hyper-V\\Set-VMProcessor -VM $vm -Count %d", p.CPUs)
+	line("  Hyper-V\\Set-VMMemory -VM $vm -DynamicMemoryEnabled $false")
+	line("  Hyper-V\\Get-VMNetworkAdapter -VM $vm | Hyper-V\\Remove-VMNetworkAdapter")
 	if p.Generation == 1 {
-		line("  Add-VMHardDiskDrive -VM $vm -ControllerType IDE -ControllerNumber 0 -ControllerLocation 0 -Path $disks[0]")
+		line("  Hyper-V\\Add-VMHardDiskDrive -VM $vm -ControllerType IDE -ControllerNumber 0 -ControllerLocation 0 -Path $disks[0]")
 		if len(p.Disks) > 1 {
-			line("  for ($i = 1; $i -lt $disks.Count; $i++) { Add-VMHardDiskDrive -VM $vm -ControllerType SCSI -Path $disks[$i] }")
+			line("  for ($i = 1; $i -lt $disks.Count; $i++) { Hyper-V\\Add-VMHardDiskDrive -VM $vm -ControllerType SCSI -Path $disks[$i] }")
 		}
 	} else {
-		line("  foreach ($disk in $disks) { Add-VMHardDiskDrive -VM $vm -ControllerType SCSI -Path $disk }")
-		line("  Set-VMFirmware -VM $vm -FirstBootDevice (Get-VMHardDiskDrive -VM $vm | Select-Object -First 1)")
+		line("  foreach ($disk in $disks) { Hyper-V\\Add-VMHardDiskDrive -VM $vm -ControllerType SCSI -Path $disk }")
+		line("  Hyper-V\\Set-VMFirmware -VM $vm -FirstBootDevice (Hyper-V\\Get-VMHardDiskDrive -VM $vm | Select-Object -First 1)")
 		if p.SecureBoot {
-			line("  Set-VMFirmware -VM $vm -EnableSecureBoot On -SecureBootTemplate %s", vmPSQuote(p.SecureBootTemplate))
+			line("  Hyper-V\\Set-VMFirmware -VM $vm -EnableSecureBoot On -SecureBootTemplate %s", vmPSQuote(p.SecureBootTemplate))
 		} else {
-			line("  Set-VMFirmware -VM $vm -EnableSecureBoot Off")
+			line("  Hyper-V\\Set-VMFirmware -VM $vm -EnableSecureBoot Off")
 		}
 		if p.TPM {
-			line("  Set-VMKeyProtector -VM $vm -NewLocalKeyProtector")
-			line("  Enable-VMTPM -VM $vm")
+			line("  Hyper-V\\Set-VMKeyProtector -VM $vm -NewLocalKeyProtector")
+			line("  Hyper-V\\Enable-VMTPM -VM $vm")
 		}
 	}
 	for index, adapter := range p.Adapters {
 		name := fmt.Sprintf("Network Adapter %d", index+1)
 		if adapter.Switch != "" {
-			line("  $nic = Add-VMNetworkAdapter -VM $vm -Name %s -SwitchName %s -Passthru", vmPSQuote(name), vmPSQuote(adapter.Switch))
+			line("  $nic = Hyper-V\\Add-VMNetworkAdapter -VM $vm -Name %s -SwitchName %s -Passthru", vmPSQuote(name), vmPSQuote(adapter.Switch))
 		} else {
-			line("  $nic = Add-VMNetworkAdapter -VM $vm -Name %s -Passthru", vmPSQuote(name))
+			line("  $nic = Hyper-V\\Add-VMNetworkAdapter -VM $vm -Name %s -Passthru", vmPSQuote(name))
 		}
 		if adapter.MAC != "" {
-			line("  Set-VMNetworkAdapter -VMNetworkAdapter $nic -StaticMacAddress %s", vmPSQuote(adapter.MAC))
+			line("  Hyper-V\\Set-VMNetworkAdapter -VMNetworkAdapter $nic -StaticMacAddress %s", vmPSQuote(adapter.MAC))
 		}
 		if adapter.VLAN > 0 {
-			line("  Set-VMNetworkAdapterVlan -VMNetworkAdapter $nic -Access -VlanId %d", adapter.VLAN)
+			line("  Hyper-V\\Set-VMNetworkAdapterVlan -VMNetworkAdapter $nic -Access -VlanId %d", adapter.VLAN)
 		}
 	}
 	notes := p.Notes
 	if notes == "" {
 		notes = "Moved from VMware by Server Inventory and Migration Manager."
 	}
-	line("  Set-VM -VM $vm -Notes %s", vmPSQuote(notes))
+	line("  Hyper-V\\Set-VM -VM $vm -Notes %s", vmPSQuote(notes))
 	line("} catch {")
 	line("  $problem = $_")
 	line("  # The new VM is left in place, without its disks deleted, so the cause can be checked.")
@@ -274,7 +274,7 @@ func (p *vmHyperVPlan) Script() string {
 		line("try { Import-Module FailoverClusters; Add-ClusterVirtualMachineRole -VMName $name -ErrorAction Stop | Out-Null; "+report+" } catch { "+report+" }", "'"+vmClusterRoleAdded+"'", "'"+vmClusterRoleFailed+" ' + $_.Exception.Message")
 	}
 	if p.Start {
-		line("Start-VM -VM $vm")
+		line("Hyper-V\\Start-VM -VM $vm")
 	}
 	line(final)
 	return s.String()
