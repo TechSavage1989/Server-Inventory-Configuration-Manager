@@ -1562,8 +1562,8 @@ function Restore-Account {
     foreach ($member in (Get-BundleList $group.members)) {
         $name = [string]$member.name
         $sid = [string]$member.sid
-        $local = ($machine -and $sid.StartsWith($machine + '-')) -or ($source -and $name.StartsWith($source + '\', [System.StringComparison]::OrdinalIgnoreCase))
-        if ($local) { $path = 'WinNT://' + $script:ComputerName + '/' + $name.Substring($name.IndexOf('\') + 1) }
+        $local = ($machine -and $sid.StartsWith($machine + '-')) -or ($source -and ($name.StartsWith($source + '\', [System.StringComparison]::OrdinalIgnoreCase) -or $name.IndexOf('\' + $source + '\', [System.StringComparison]::OrdinalIgnoreCase) -ge 0))
+        if ($local) { $path = 'WinNT://' + $script:ComputerName + '/' + $name.Substring($name.LastIndexOf('\') + 1) }
         elseif ($sid) { $path = 'WinNT://' + $sid }
         else { $path = 'WinNT://' + $name.Replace('\', '/') }
         try { $target.Add($path); Add-Content -LiteralPath (Join-Path $Rollback 'Members-Added.txt') -Value ($Data.name + ': ' + $name) -Encoding UTF8 }

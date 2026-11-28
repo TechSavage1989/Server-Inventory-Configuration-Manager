@@ -199,7 +199,11 @@ function Get-LocalAccounts {
                     $path = [string]$member.GetType().InvokeMember('ADsPath', 'GetProperty', $null, $member, $null)
                     $memberSid = ''
                     try { $memberSid = (New-Object System.Security.Principal.SecurityIdentifier($member.GetType().InvokeMember('objectSid', 'GetProperty', $null, $member, $null), 0)).Value } catch { }
-                    $name = $path -replace '^WinNT://', '' -replace '/', '\'
+                    # Local members read as WinNT://WORKGROUP/COMPUTER/name (or
+                    # DOMAIN/COMPUTER/name): keep the last two parts, COMPUTER\name.
+                    $parts = @(($path -replace '^WinNT://', '').Split('/') | Where-Object { $_ })
+                    if ($parts.Count -gt 2) { $parts = $parts[($parts.Count - 2)..($parts.Count - 1)] }
+                    $name = $parts -join '\'
                     $members += [ordered]@{ name = $name; sid = $memberSid }
                 }
             } catch { Add-Warning ('The members of local group ' + $child.Name.Value + ' could not be read: ' + $_.Exception.Message) }
