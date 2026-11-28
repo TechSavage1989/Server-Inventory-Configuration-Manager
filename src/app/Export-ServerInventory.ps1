@@ -1554,6 +1554,16 @@ function Get-ReportCellText {
     }
 }
 
+# Subnet masks are shown in full beside the prefix length (owner, 2026-11-28).
+function ConvertTo-SubnetMaskText {
+    param($PrefixLength, [string]$Address)
+    $prefix = -1
+    if ($Address -match ':' -or -not [int]::TryParse([string]$PrefixLength, [ref]$prefix) -or $prefix -lt 0 -or $prefix -gt 32) { return '' }
+    $octets = @()
+    for ($i = 0; $i -lt 4; $i++) { $bits = [Math]::Min(8, [Math]::Max(0, $prefix - (8 * $i))); $octets += [string](256 - [Math]::Pow(2, 8 - $bits)) }
+    return ($octets -join '.')
+}
+
 function Get-ReportData {
     param(
         [Parameter(Mandatory = $true)]
@@ -3713,6 +3723,7 @@ function New-ConsolidatedServerReport {
     $iscsiSessions = @(Get-ReportData -BasePath (Join-Path $paths.Network 'iSCSI-Sessions'))
     $networkAdapters = @(Get-ReportData -BasePath (Join-Path $paths.Network 'Network-Adapters'))
     $ipAddresses = @(Get-ReportData -BasePath (Join-Path $paths.Network 'IP-Addresses'))
+    $ipAddresses = @($ipAddresses | Where-Object { $null -ne $_ } | ForEach-Object { Add-Member -InputObject $_ -NotePropertyName SubnetMask -NotePropertyValue (ConvertTo-SubnetMaskText $_.PrefixLength ([string]$_.IPAddress)) -Force -PassThru })
     $dnsClients = @(Get-ReportData -BasePath (Join-Path $paths.Network 'DNS-Client-Server-Addresses'))
     $routes = @(Get-ReportData -BasePath (Join-Path $paths.Network 'Routes'))
     $networkTeams = @(Get-ReportData -BasePath (Join-Path $paths.Network 'LBFO-Teams'))
@@ -3924,7 +3935,7 @@ function New-ConsolidatedServerReport {
         $ip = [string]$address.IPAddress
         if ([string]::IsNullOrWhiteSpace($ip) -or $ip -match '^(127\.|169\.254\.|::1$|fe80:)') { continue }
         $text = $ip
-        if (-not [string]::IsNullOrWhiteSpace([string]$address.PrefixLength)) { $text += '/' + [string]$address.PrefixLength }
+        if (-not [string]::IsNullOrWhiteSpace([string]$address.PrefixLength)) { $mask = ConvertTo-SubnetMaskText $address.PrefixLength $ip; if ($mask) { $text += ' / ' + $mask + ' (/' + [string]$address.PrefixLength + ')' } else { $text += '/' + [string]$address.PrefixLength } }
         if (-not [string]::IsNullOrWhiteSpace([string]$address.InterfaceAlias)) { $text += ' (' + [string]$address.InterfaceAlias + ')' }
         if ((& $profileIsIPv4 $address.AddressFamily) -or ($ip -notmatch ':')) { $profileIPv4 += $text; $profileAliases[[string]$address.InterfaceAlias] = $true }
         else { $profileIPv6 += $text }
@@ -4116,7 +4127,7 @@ function New-ConsolidatedServerReport {
     Add-ReportHeading -Text '6. Network Configuration' -Level 1 -PageBreakBefore
 
     Add-ReportHeading -Text '6.1 IP Addressing and DNS' -Level 2
-    Add-ReportTable -Title 'IP addresses' -Rows ($ipAddresses | Where-Object { $_.IPAddress -notmatch '^fe80:' }) -Columns @('InterfaceAlias', 'AddressFamily', 'IPAddress', 'PrefixLength', 'PrefixOrigin', 'SuffixOrigin', 'AddressState', 'SkipAsSource') -MaxRows 3000
+    Add-ReportTable -Title 'IP addresses' -Rows ($ipAddresses | Where-Object { $_.IPAddress -notmatch '^fe80:' }) -Columns @('InterfaceAlias', 'AddressFamily', 'IPAddress', 'SubnetMask', 'PrefixLength', 'PrefixOrigin', 'SuffixOrigin', 'AddressState', 'SkipAsSource') -MaxRows 3000
     Add-ReportTable -Title 'DNS client server addresses' -Rows $dnsClients -Columns @('InterfaceAlias', 'InterfaceIndex', 'AddressFamily', 'ServerAddresses') -MaxRows 1000
     Add-ReportTable -Title 'IP interface configuration' -Rows $ipInterfaces -Columns @('InterfaceAlias', 'AddressFamily', 'ConnectionState', 'Dhcp', 'NlMtuBytes', 'InterfaceMetric', 'RouterDiscovery', 'WeakHostSend', 'WeakHostReceive') -MaxRows 3000
     Add-ReportTable -Title 'Network connection profiles' -Rows $connectionProfiles -Columns @('Name', 'InterfaceAlias', 'InterfaceIndex', 'NetworkCategory', 'IPv4Connectivity', 'IPv6Connectivity') -MaxRows 1000
@@ -4464,7 +4475,7 @@ function New-ConsolidatedServerReport {
     [void]$summaryBuilder.AppendLine('')
     [void]$summaryBuilder.AppendLine('NETWORK ADDRESSES')
     foreach ($address in @($ipAddresses | Where-Object { $_.IPAddress -and $_.IPAddress -notmatch '^(127\.|::1$|fe80:)' })) {
-        [void]$summaryBuilder.AppendLine('- ' + [string]$address.InterfaceAlias + ': ' + [string]$address.IPAddress + '/' + [string]$address.PrefixLength)
+        [void]$summaryBuilder.AppendLine('- ' + [string]$address.InterfaceAlias + ': ' + [string]$address.IPAddress + $(if ($address.SubnetMask) { ' / ' + [string]$address.SubnetMask + ' (/' + [string]$address.PrefixLength + ')' } else { '/' + [string]$address.PrefixLength }))
     }
     [void]$summaryBuilder.AppendLine('')
     [void]$summaryBuilder.AppendLine('STORAGE VOLUMES')

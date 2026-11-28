@@ -500,7 +500,7 @@ func buildRunbook(plan vmPlan, inventory *vmInventory) []vmRunbookWave {
 			}
 			address := ""
 			if len(nic.IPAddresses) > 0 {
-				address = " [" + strings.Join(nic.IPAddresses, ", ")
+				address = " [" + strings.Join(ipMaskList(nic.IPAddresses), ", ")
 				if nic.Static {
 					address += ", static"
 				}

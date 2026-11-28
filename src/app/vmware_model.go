@@ -790,7 +790,7 @@ func assessVM(vm vmMachine, target string, now time.Time) vmReadiness {
 	if statics := vmStaticNICs(vm); len(statics) > 0 {
 		addresses := []string{}
 		for _, nic := range statics {
-			addresses = append(addresses, strings.Join(nic.IPAddresses, ", "))
+			addresses = append(addresses, strings.Join(ipMaskList(nic.IPAddresses), ", "))
 		}
 		if profile.Kind == vmKindCloud {
 			add(vmSeverityWarning, "static-ip", "Static IP configuration on "+vmPlural(len(statics), "adapter", "adapters")+" ("+strings.Join(addresses, "; ")+"). "+profile.Short+" assigns addresses through DHCP, and a static address inside the guest cuts it off the network.", "Reserve the address as a static private IP on the new "+profile.NetworkLabel+" (if it fits the subnet), and leave the guest on DHCP. The migration service usually switches the guest to DHCP; check after cutover. Plan DNS changes for addresses that change.")
