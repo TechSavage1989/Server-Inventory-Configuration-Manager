@@ -1,3 +1,7 @@
+## 3.3.3 release preparation — 2026-11-28
+
+The owner approved publishing the next stable release on 2026-11-28 ("publish when ready", "no test, just stable"). 3.3.3 carries #251 and #255 (move a server live, rule 75), #258 (choose what to restore and what a live move copies, rule 76) and #260 (Move a domain controller, rule 77). `appVersion`, `collectorVersion` and the collector's `$scriptVersion` are 3.3.3; notes in `docs/release-notes/3.3.3.md`; the published-upgrade check starts from 3.3.2 (#257). No test build for this release.
+
 ## Unreleased: move a domain controller — 2026-11-28
 
 - Owner asked for a DC-specific build and migration feature: build a new DC from an existing one, promotion, FSMO transfer and demotion of the old one. Owner chose to offer both address options per plan (take over the old IP, the default, or keep the new address and repoint clients). Rule 77.
