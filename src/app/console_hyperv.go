@@ -50,9 +50,11 @@ type consoleHVInfo struct {
 type consoleHVFrame struct {
 	OK    bool   `json:"ok"`
 	Error string `json:"error"`
-	W     int    `json:"w"`
-	H     int    `json:"h"`
-	Data  string `json:"data"`
+	// Same is true when the picture has not changed since the last one sent.
+	Same bool   `json:"same"`
+	W    int    `json:"w"`
+	H    int    `json:"h"`
+	Data string `json:"data"`
 }
 
 type consoleHVAnswer struct {
@@ -68,7 +70,18 @@ const (
 )
 
 type consoleHyperVBackend struct {
-	link     consoleHVLink
+	link consoleHVLink
+	// input carries keys and the pointer through a second helper with its
+	// own connection, so they never wait behind a picture (the same link
+	// when the second helper could not start).
+	input    consoleHVLink
+	inputMu  sync.Mutex
+	kick     chan struct{}
+	moveMu   sync.Mutex
+	move     map[string]any
+	moveWake chan struct{}
+	done     chan struct{}
+	lastIn   time.Time
 	frame    *consoleFrame
 	mu       sync.Mutex
 	guestW   int
@@ -109,7 +122,7 @@ func (b *consoleHyperVBackend) noteInfo(info consoleHVInfo) {
 }
 
 func newConsoleHyperVBackend(link consoleHVLink, frame *consoleFrame) (*consoleHyperVBackend, consoleHVInfo, error) {
-	b := &consoleHyperVBackend{link: link, frame: frame, interval: 250 * time.Millisecond}
+	b := &consoleHyperVBackend{link: link, input: link, frame: frame, interval: consoleHVBusyInterval, kick: make(chan struct{}, 1), moveWake: make(chan struct{}, 1), done: make(chan struct{})}
 	info, err := b.info()
 	if err != nil {
 		link.close()
@@ -120,7 +133,69 @@ func newConsoleHyperVBackend(link consoleHVLink, frame *consoleFrame) (*consoleH
 		return nil, info, errors.New("the VM is not running, so it has no screen to show. Start it in Hyper-V first")
 	}
 	b.mouse, b.enhanced = info.Mouse, consoleHVEnhancedWhy(info)
+	go b.sendMoves()
 	return b, info, nil
+}
+
+// Frame pacing: a picture every consoleHVBusyInterval while the screen
+// changes or input arrived in the last consoleHVBusyFor, otherwise every
+// consoleHVIdleInterval. Input asks for a picture at once, no sooner than
+// consoleHVMinFrameGap after the last one.
+const (
+	consoleHVBusyInterval = 100 * time.Millisecond
+	consoleHVIdleInterval = 400 * time.Millisecond
+	consoleHVBusyFor      = 3 * time.Second
+	consoleHVMinFrameGap  = 40 * time.Millisecond
+)
+
+// useInputLink sends keys and the pointer through a second helper.
+func (b *consoleHyperVBackend) useInputLink(link consoleHVLink) {
+	b.inputMu.Lock()
+	b.input = link
+	b.inputMu.Unlock()
+}
+
+// sendInput sends one input request in order with the others and asks for
+// a new picture, so the result of a key or click shows at once.
+func (b *consoleHyperVBackend) sendInput(request map[string]any) error {
+	b.inputMu.Lock()
+	var answer consoleHVAnswer
+	err := b.input.call(request, &answer)
+	b.inputMu.Unlock()
+	b.mu.Lock()
+	b.lastIn = time.Now()
+	b.mu.Unlock()
+	select {
+	case b.kick <- struct{}{}:
+	default:
+	}
+	if err != nil {
+		return err
+	}
+	if !answer.OK {
+		return errors.New(firstNonEmpty(answer.Error, "Hyper-V refused the request"))
+	}
+	return nil
+}
+
+// sendMoves sends the newest pointer position whenever one is waiting:
+// moves arriving while one is sent replace each other instead of queueing,
+// which made the pointer trail far behind the mouse.
+func (b *consoleHyperVBackend) sendMoves() {
+	for {
+		select {
+		case <-b.done:
+			return
+		case <-b.moveWake:
+		}
+		b.moveMu.Lock()
+		request := b.move
+		b.move = nil
+		b.moveMu.Unlock()
+		if request != nil && !b.isClosed() {
+			_ = b.sendInput(request)
+		}
+	}
 }
 
 func (b *consoleHyperVBackend) info() (consoleHVInfo, error) {
@@ -169,6 +244,8 @@ func consoleRGB565(data []byte, width, height int) ([]uint32, error) {
 
 func (b *consoleHyperVBackend) Run(ctx context.Context) error {
 	lastInfo := time.Now()
+	lastChange := time.Now()
+	needFull := true
 	failures := 0
 	for ctx.Err() == nil {
 		if time.Since(lastInfo) > 5*time.Second {
@@ -187,11 +264,19 @@ func (b *consoleHyperVBackend) Run(ctx context.Context) error {
 		b.mu.Unlock()
 		started := time.Now()
 		var answer consoleHVFrame
-		err := b.link.call(map[string]any{"op": "frame", "w": width, "h": height}, &answer)
+		request := map[string]any{"op": "frame", "w": width, "h": height}
+		if needFull {
+			request["full"] = true
+		}
+		err := b.link.call(request, &answer)
 		if err == nil && !answer.OK {
 			err = errors.New(firstNonEmpty(answer.Error, "Hyper-V did not send the screen"))
 		}
-		if err == nil {
+		changed := false
+		if err == nil && answer.Same {
+			// Nothing changed since the last picture.
+		} else if err == nil {
+			changed = true
 			var raw []byte
 			raw, err = base64.StdEncoding.DecodeString(answer.Data)
 			if err == nil {
@@ -202,10 +287,12 @@ func (b *consoleHyperVBackend) Run(ctx context.Context) error {
 					b.frameW, b.frameH = answer.W, answer.H
 					b.mu.Unlock()
 					b.frame.SetFull(answer.W, answer.H, pixels)
+					needFull = false
 				}
 			}
 		}
 		if err != nil {
+			needFull = true
 			if b.isClosed() {
 				return nil
 			}
@@ -216,15 +303,35 @@ func (b *consoleHyperVBackend) Run(ctx context.Context) error {
 		} else {
 			failures = 0
 		}
-		// Ask again sooner when the host answers fast, later when it is slow.
-		wait := b.interval
+		if changed {
+			lastChange = time.Now()
+		}
+		b.mu.Lock()
+		lastIn := b.lastIn
+		b.mu.Unlock()
+		wait := consoleHVIdleInterval
+		if time.Since(lastChange) < consoleHVBusyFor || time.Since(lastIn) < consoleHVBusyFor {
+			wait = b.interval
+		}
+		// A slow host is asked no faster than it answers.
 		if took := time.Since(started); took > wait {
 			wait = took
 		}
+		timer := time.NewTimer(wait)
 		select {
 		case <-ctx.Done():
-		case <-time.After(wait):
+		case <-timer.C:
+		case <-b.kick:
+			// Input arrived: show its result now, after a short gap so a
+			// burst of keys is one picture.
+			if gap := consoleHVMinFrameGap - time.Since(started); gap > 0 {
+				select {
+				case <-ctx.Done():
+				case <-time.After(gap):
+				}
+			}
 		}
+		timer.Stop()
 	}
 	return nil
 }
@@ -243,15 +350,19 @@ func (b *consoleHyperVBackend) Key(keysym uint32, down bool) error {
 	return b.simple(map[string]any{"op": "key", "vk": vk, "down": down})
 }
 
+// simple sends a key, typing or button request in order, after any pointer
+// move still waiting.
 func (b *consoleHyperVBackend) simple(request map[string]any) error {
-	var answer consoleHVAnswer
-	if err := b.link.call(request, &answer); err != nil {
-		return err
+	b.moveMu.Lock()
+	move := b.move
+	b.move = nil
+	b.moveMu.Unlock()
+	if move != nil {
+		if err := b.sendInput(move); err != nil {
+			return err
+		}
 	}
-	if !answer.OK {
-		return errors.New(firstNonEmpty(answer.Error, "Hyper-V refused the request"))
-	}
-	return nil
+	return b.sendInput(request)
 }
 
 // Pointer scales from the shown frame to the guest's screen and sends button
@@ -285,7 +396,21 @@ func (b *consoleHyperVBackend) Pointer(x, y int, buttons byte) error {
 	if buttons&(8|16) != 0 && previous&(8|16) == 0 {
 		request["wheel"] = map[bool]int{true: 120, false: -120}[buttons&8 != 0] // one wheel notch
 	}
-	return b.simple(request)
+	if len(changes) == 0 && request["wheel"] == nil {
+		// A plain move: keep only the newest one waiting.
+		b.moveMu.Lock()
+		b.move = request
+		b.moveMu.Unlock()
+		select {
+		case b.moveWake <- struct{}{}:
+		default:
+		}
+		return nil
+	}
+	b.moveMu.Lock()
+	b.move = nil // this request moves the pointer there too
+	b.moveMu.Unlock()
+	return b.sendInput(request)
 }
 
 // consoleHVMinGap is the least time between characters typed into Hyper-V:
@@ -362,6 +487,13 @@ func (b *consoleHyperVBackend) Close() error {
 	}
 	b.closed = true
 	b.mu.Unlock()
+	close(b.done)
+	b.inputMu.Lock()
+	input := b.input
+	b.inputMu.Unlock()
+	if input != b.link {
+		input.close()
+	}
 	return b.link.close()
 }
 
@@ -375,7 +507,7 @@ func consoleHyperVCaps(info consoleHVInfo, local bool) consoleCaps {
 		ClipFromWhy: "Hyper-V's basic console has no clipboard. Use Enhanced session for copy and paste both ways once Windows in the VM is running, read text from the screen, or (on the Hyper-V host) save the text to a file in the VM and read it here.",
 		Native:      []string{"enhanced"},
 		Notes: []string{
-			"Shown through Hyper-V's own screen and keyboard interfaces (WMI), so it works before the VM has a network. The picture refreshes a few times a second.",
+			"Shown through Hyper-V's own screen and keyboard interfaces (WMI), so it works before the VM has a network. The picture refreshes up to ten times a second, and at once after a key or click; a smooth, full-speed screen needs Enhanced session or Virtual Machine Connection.",
 		},
 		KeyboardNote: "Paste as typing sends plain text (ASCII) through Hyper-V's keyboard, as Virtual Machine Connection's Type clipboard text does.",
 	}

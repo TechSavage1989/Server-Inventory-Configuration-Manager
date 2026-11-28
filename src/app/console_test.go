@@ -13,6 +13,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"image"
+	"image/color"
+	"image/jpeg"
+	"image/png"
 	"io"
 	"net"
 	"net/http"
@@ -161,7 +165,29 @@ func bgrx(color uint32) []byte {
 func drawAllEncodings(w io.Writer) {
 	var zbuf bytes.Buffer
 	zw := zlib.NewWriter(&zbuf)
-	w.Write([]byte{0, 0, 0, 7})
+	w.Write([]byte{0, 0, 0, 10})
+	// TightPNG fill 2x2 at (24,0); the TPIXEL is the pixel without padding.
+	rect(w, 24, 0, 2, 2, rfbEncTightPNG)
+	w.Write([]byte{0x80, 0x56, 0x34, 0x12})
+	// TightPNG PNG 2x1 at (24,4): red, blue; a two-byte compact length.
+	pic := image.NewNRGBA(image.Rect(0, 0, 2, 1))
+	pic.Set(0, 0, color.NRGBA{255, 0, 0, 255})
+	pic.Set(1, 0, color.NRGBA{0, 0, 255, 255})
+	var pngData bytes.Buffer
+	png.Encode(&pngData, pic)
+	rect(w, 24, 4, 2, 1, rfbEncTightPNG)
+	w.Write(append([]byte{0xA0}, tightLength(pngData.Len())...))
+	w.Write(pngData.Bytes())
+	// TightPNG JPEG 8x8 at (16,16), one grey.
+	grey := image.NewGray(image.Rect(0, 0, 8, 8))
+	for i := range grey.Pix {
+		grey.Pix[i] = 0x80
+	}
+	var jpegData bytes.Buffer
+	jpeg.Encode(&jpegData, grey, &jpeg.Options{Quality: 95})
+	rect(w, 16, 16, 8, 8, rfbEncTightPNG)
+	w.Write(append([]byte{0x90}, tightLength(jpegData.Len())...))
+	w.Write(jpegData.Bytes())
 	// Raw 2x1 at (0,0): red, green.
 	rect(w, 0, 0, 2, 1, rfbEncRaw)
 	w.Write(append(bgrx(0xff0000), bgrx(0x00ff00)...))
@@ -202,6 +228,20 @@ func drawAllEncodings(w io.Writer) {
 	// Guest clipboard.
 	w.Write([]byte{3, 0, 0, 0, 0, 0, 0, 5})
 	io.WriteString(w, "hello")
+}
+
+// tightLength writes Tight's compact length.
+func tightLength(n int) []byte {
+	out := []byte{byte(n & 0x7f)}
+	if n > 0x7f {
+		out[0] |= 0x80
+		out = append(out, byte(n>>7&0x7f))
+		if n > 0x3fff {
+			out[1] |= 0x80
+			out = append(out, byte(n>>14))
+		}
+	}
+	return out
 }
 
 func pixel(f *consoleFrame, x, y int) uint32 {
@@ -245,11 +285,15 @@ func TestRFBClientDecodesEveryEncodingAndSendsInput(t *testing.T) {
 			{8, 0}: 0xffff00, {9, 1}: 0x112233, {10, 2}: 0x112233, {11, 3}: 0xffff00,
 			{0, 6}: 0x123456, {1, 6}: 0x56789a, {4, 6}: 0xaabbcc, {6, 7}: 0xaabbcc,
 			{20, 20}: 0xff0000, {21, 20}: 0x00ff00,
+			{24, 0}: 0x123456, {25, 1}: 0x123456, {24, 4}: 0xff0000, {25, 4}: 0x0000ff,
 		}
 		for at, want := range checks {
 			if got := pixel(frame, at[0], at[1]); got != want {
 				t.Errorf("password %q: pixel %v is %06x, want %06x", password, at, got, want)
 			}
+		}
+		if got := pixel(frame, 19, 19); got>>16 < 0x7c || got>>16 > 0x84 || got&0xff < 0x7c || got&0xff > 0x84 {
+			t.Errorf("password %q: JPEG pixel is %06x, want about 808080", password, got)
 		}
 		mu.Lock()
 		if len(cursor) != 8 || cursor[0] != 1 || cursor[2] != 3 || cursor[3] != 255 || cursor[7] != 0 {
@@ -280,7 +324,7 @@ func TestRFBClientDecodesEveryEncodingAndSendsInput(t *testing.T) {
 		if fake.clips[0] != "x?y" {
 			t.Errorf("clipboard %q", fake.clips[0])
 		}
-		if len(fake.encs) == 0 || fake.encs[0] != rfbEncZRLE {
+		if len(fake.encs) < 2 || fake.encs[0] != rfbEncTightPNG || fake.encs[1] != rfbEncZRLE {
 			t.Errorf("encodings %v", fake.encs)
 		}
 		fake.mu.Unlock()
@@ -453,11 +497,15 @@ func TestConsoleFrameSendsOnlyChangedTiles(t *testing.T) {
 	var sent []uint32
 	sentW, sentH := -1, -1
 	tiles, resized, w, h := frame.takeTiles(viewer, &sent, &sentW, &sentH)
-	if !resized || w != 200 || h != 100 || len(tiles) != 4*2 {
+	// Neighbouring changed tiles travel as one strip per row.
+	if !resized || w != 200 || h != 100 || len(tiles) != 2 {
 		t.Fatalf("first frame: resized %v %dx%d %d tiles", resized, w, h, len(tiles))
 	}
-	if tiles[3].W != 8 || tiles[7].H != 36 {
-		t.Fatalf("edge tiles %+v %+v", tiles[3], tiles[7])
+	if tiles[0].W != 200 || tiles[0].H != 64 || tiles[1].Y != 64 || tiles[1].H != 36 {
+		t.Fatalf("strips %+v %+v", tiles[0], tiles[1])
+	}
+	if img, err := png.Decode(base64.NewDecoder(base64.StdEncoding, strings.NewReader(tiles[1].PNG))); err != nil || img.Bounds().Dx() != 200 || img.Bounds().Dy() != 36 {
+		t.Fatalf("strip picture: %v", err)
 	}
 	frame.Fill(70, 10, 2, 2, 0xabcdef)
 	frame.Fill(0, 0, 1, 1, 0) // unchanged pixel: no tile
@@ -479,6 +527,15 @@ func TestConsoleFrameSendsOnlyChangedTiles(t *testing.T) {
 	tiles, _, _, _ = frame.takeTiles(viewer, &sent, &sentW, &sentH)
 	if len(tiles) != 2 { // the earlier fill reverted, and the new pixel
 		t.Fatalf("SetFull tiles %d", len(tiles))
+	}
+	// Two changed tiles apart in one row are two strips; touching ones one.
+	frame.Fill(0, 70, 1, 1, 0x111111)
+	frame.Fill(130, 70, 1, 1, 0x111111)
+	frame.Fill(64, 0, 1, 1, 0x222222)
+	frame.Fill(128, 0, 1, 1, 0x222222)
+	tiles, _, _, _ = frame.takeTiles(viewer, &sent, &sentW, &sentH)
+	if len(tiles) != 3 || tiles[0].X != 64 || tiles[0].W != 128 || tiles[1].X != 0 || tiles[1].W != 64 || tiles[2].X != 128 {
+		t.Fatalf("strips %+v", tiles)
 	}
 	frame.Copy(190, 90, 0, 0, 20, 20) // clipped to the screen, never a panic
 	frame.SetBGRX(198, 98, 4, 4, make([]byte, 64))
@@ -549,19 +606,33 @@ type fakeHVLink struct {
 	state         int
 	noMouse       bool
 	enhancedState int
+	// same answers same:true after the first picture, as the helper does
+	// for an unchanged screen; delay slows every call.
+	same   bool
+	frames int
+	delay  time.Duration
 }
 
 func (f *fakeHVLink) call(request map[string]any, answer any) error {
 	f.mu.Lock()
 	raw, _ := json.Marshal(request)
 	f.requests = append(f.requests, string(raw))
-	state, mouse, enhanced := f.state, !f.noMouse, f.enhancedState
+	state, mouse, enhanced, delay := f.state, !f.noMouse, f.enhancedState, f.delay
+	if request["op"] == "frame" {
+		f.frames++
+	}
+	same := f.same && f.frames > 1
 	f.mu.Unlock()
+	time.Sleep(delay)
 	var reply any
 	switch request["op"] {
 	case "info":
 		reply = map[string]any{"ok": true, "name": "APP01", "state": state, "width": 800, "height": 600, "generation": 2, "mouse": mouse, "host": "HV01", "enhancedState": enhanced}
 	case "frame":
+		if same {
+			reply = map[string]any{"ok": true, "same": true}
+			break
+		}
 		w, h := request["w"].(int), request["h"].(int)
 		data := make([]byte, w*h*2)
 		data[0], data[1] = 0x00, 0xf8
@@ -1026,4 +1097,57 @@ func TestConsoleFileRequestsNeverReplaceFiles(t *testing.T) {
 			t.Errorf("request %+v must be refused", bad)
 		}
 	}
+}
+
+func TestHyperVConsoleSendsInputBesidePicturesAndKeepsOnlyTheNewestMove(t *testing.T) {
+	pictures := &fakeHVLink{state: 2, same: true, delay: 30 * time.Millisecond}
+	frame := newConsoleFrame()
+	backend, _, err := newConsoleHyperVBackend(pictures, frame)
+	if err != nil {
+		t.Fatal(err)
+	}
+	input := &fakeHVLink{state: 2, delay: 40 * time.Millisecond}
+	backend.useInputLink(input)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go backend.Run(ctx)
+	waitFor(t, "the screen", func() bool { w, _ := frame.Size(); return w == 800 && pixel(frame, 0, 0) == 0xff0000 })
+	// Moves arriving faster than Hyper-V takes them replace each other.
+	for i := 0; i < 30; i++ {
+		backend.Pointer(i*10, i*5, 0)
+		time.Sleep(2 * time.Millisecond)
+	}
+	backend.Pointer(300, 150, 1) // a click goes in order, after no stale move
+	backend.Key('a', true)
+	waitFor(t, "the input", func() bool {
+		input.mu.Lock()
+		defer input.mu.Unlock()
+		return strings.Contains(strings.Join(input.requests, "\n"), `"vk":65`)
+	})
+	input.mu.Lock()
+	moves := 0
+	for _, r := range input.requests {
+		if strings.Contains(r, `"op":"mouse"`) {
+			moves++
+		}
+	}
+	last := input.requests[len(input.requests)-2]
+	input.mu.Unlock()
+	if moves > 8 {
+		t.Errorf("%d pointer requests for 30 moves; waiting moves must replace each other", moves)
+	}
+	if !strings.Contains(last, `"button":1`) || !strings.Contains(last, `"x":300`) {
+		t.Errorf("the click must be sent last at its own position: %s", last)
+	}
+	pictures.mu.Lock()
+	all := strings.Join(pictures.requests, "\n")
+	pictures.mu.Unlock()
+	if strings.Contains(all, `"op":"mouse"`) || strings.Contains(all, `"op":"key"`) {
+		t.Error("input must not travel on the picture link")
+	}
+	if !strings.Contains(pictures.requests[1], `"full":true`) || strings.Count(all, `"full":true`) != 1 {
+		t.Errorf("only the first picture asks for a full answer:\n%s", all)
+	}
+	backend.Close()
+	backend.Pointer(1, 1, 0) // after Close: never a panic
 }
