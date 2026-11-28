@@ -41,13 +41,16 @@ type hvBuildStepInfo struct {
 
 // hvBuildCheckIPv4CIDR checks "10.0.0.11/24".
 func hvBuildCheckIPv4CIDR(value string) (string, error) {
+	// The mask may be typed in full or as a prefix length (parseIPv4WithMask);
+	// the plan keeps address/prefix.
 	value = strings.TrimSpace(value)
-	ip, network, err := net.ParseCIDR(value)
-	if err != nil || ip.To4() == nil {
-		return "", fmt.Errorf("%q is not an IPv4 address with a prefix length, such as 10.0.20.11/24", value)
+	address, ones, err := parseIPv4WithMask(value)
+	if err != nil {
+		return "", err
 	}
-	ones, _ := network.Mask.Size()
-	if ones < 8 || ones > 30 || ip.Equal(network.IP) {
+	ip := net.ParseIP(address)
+	network := ip.Mask(net.CIDRMask(ones, 32))
+	if ones < 8 || ones > 30 || ip.Equal(network) {
 		return "", fmt.Errorf("%q is not a usable host address", value)
 	}
 	return ip.To4().String() + "/" + strconv.Itoa(ones), nil
@@ -985,8 +988,8 @@ if (-not $vlan -or [int]$vlan.AccessVlanId -ne %[1]s) { Plan-Change ('Put ' + $n
 `, nic.VLAN)
 		}
 		fmt.Fprintf(&s, `
-if (-not (Test-HasAddress $alias %[1]s)) { Plan-Change ('Give ' + $alias + ' the address ' + %[1]s + '/%[2]s (not registered in DNS)') { param($x) Set-StaticAddress $x } @{ alias = $alias; ip = %[1]s; prefix = %[2]s } }
-`, vmPSQuote(address), prefix)
+if (-not (Test-HasAddress $alias %[1]s)) { Plan-Change ('Give ' + $alias + ' the address ' + %[1]s + ' / %[3]s (/%[2]s), not registered in DNS') { param($x) Set-StaticAddress $x } @{ alias = $alias; ip = %[1]s; prefix = %[2]s } }
+`, vmPSQuote(address), prefix, hvBuildMaskOf(prefix))
 		if jumbo {
 			s.WriteString(`
 $value = -1
@@ -1025,8 +1028,8 @@ if (-not $adapter) { Block ('There is no physical adapter named ' + $adapterName
 else {
     $binding = Get-NetAdapterBinding -Name $adapterName -ComponentID vms_pp -ErrorAction SilentlyContinue
     if ($binding -and $binding.Enabled) { Block ($adapterName + ' belongs to a virtual switch; iSCSI needs its own adapters.') }
-    if (-not (Test-HasAddress $adapterName %[2]s)) { Plan-Change ('Give ' + $adapterName + ' the address ' + %[2]s + '/%[3]s for iSCSI (not registered in DNS)') { param($x) Set-StaticAddress $x } @{ alias = $adapterName; ip = %[2]s; prefix = %[3]s } }
-`, vmPSQuote(nic.Adapter), vmPSQuote(address), prefix)
+    if (-not (Test-HasAddress $adapterName %[2]s)) { Plan-Change ('Give ' + $adapterName + ' the address ' + %[2]s + ' / %[4]s (/%[3]s) for iSCSI, not registered in DNS') { param($x) Set-StaticAddress $x } @{ alias = $adapterName; ip = %[2]s; prefix = %[3]s } }
+`, vmPSQuote(nic.Adapter), vmPSQuote(address), prefix, hvBuildMaskOf(prefix))
 			if storage.Jumbo {
 				s.WriteString(`    $value = Get-JumboValue $adapterName
     if ($value -ge 0 -and $value -lt 9000) { Plan-Change ('Turn on jumbo frames (9014) on ' + $adapterName) { param($n) Set-NetAdapterAdvancedProperty -Name $n -RegistryKeyword '*JumboPacket' -RegistryValue 9014 } $adapterName }
@@ -1354,6 +1357,16 @@ if ($quorum) {
 	return s.String()
 }
 
+// hvBuildMaskOf gives the dotted subnet mask of a prefix length typed as
+// text, for the change list (masks are shown in full, netmask.go).
+func hvBuildMaskOf(prefix string) string {
+	n, err := strconv.Atoi(prefix)
+	if err != nil {
+		return ""
+	}
+	return ipv4MaskText(n)
+}
+
 // hvBuildSubnet returns the network of an address/prefix as text.
 func hvBuildSubnet(cidr string) (string, string) {
 	_, network, err := net.ParseCIDR(cidr)
@@ -1397,7 +1410,7 @@ $migrationIds = @()
 $usedNames = @($networks | ForEach-Object { $_.Name })
 foreach ($want in $wanted) {
     $network = $networks | Where-Object { $_.Address -eq $want.address -and $_.AddressMask -eq $want.mask } | Select-Object -First 1
-    if (-not $network) { Note ('No cluster network uses ' + $want.address + '/' + $want.mask + ' (for ' + $want.name + ') yet.'); continue }
+    if (-not $network) { Note ('No cluster network uses ' + $want.address + ' / ' + $want.mask + ' (for ' + $want.name + ') yet.'); continue }
     if ($want.migration) { $migrationIds += [string]$network.Id }
     $x = @{ cluster = $clusterName; address = $want.address; mask = $want.mask; name = $want.name; role = $want.role }
     if ($network.Name -ne $want.name) {

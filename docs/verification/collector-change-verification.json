@@ -2,7 +2,7 @@
   "schema_version": 1,
   "compared_revision": "81e2a0e5a598df6e8edd7bb533e2f02b915a9c7b",
   "compared_release": "v3.2.10",
-  "approval": "Previously approved startup cyclic-table handling and bounded ACL export, plus user-requested final-report performance improvements, preservation of actual collection values in CSV-backed reports, and the user-approved (2026-11-12) printer migration export fix so PrintBRM backs up the local spooler and a missing export is reported.; and the user-requested (2026-11-18) executive summary TCP/IP and activation status facts; and the user-reported (2026-11-20) fix adding the missing column lists to the DHCP policies, scope statistics and bindings report tables, which stopped report generation on DHCP servers.; and the user-reported (2026-11-25) fixes for the Active Directory health collector (pass the forest name to Get-ADReplicationFailure instead of '*') and the event history collector (call the module-qualified Get-WinEvent so a same-named file on PATH cannot shadow it). No unrelated collector behavior changes authorized.",
+  "approval": "Previously approved startup cyclic-table handling and bounded ACL export, plus user-requested final-report performance improvements, preservation of actual collection values in CSV-backed reports, and the user-approved (2026-11-12) printer migration export fix so PrintBRM backs up the local spooler and a missing export is reported.; and the user-requested (2026-11-18) executive summary TCP/IP and activation status facts; and the user-reported (2026-11-20) fix adding the missing column lists to the DHCP policies, scope statistics and bindings report tables, which stopped report generation on DHCP servers.; and the user-reported (2026-11-25) fixes for the Active Directory health collector (pass the forest name to Get-ADReplicationFailure instead of '*') and the event history collector (call the module-qualified Get-WinEvent so a same-named file on PATH cannot shadow it).; and the user-requested (2026-11-28) full subnet masks beside the prefix length in the IP addresses report table, the executive summary profile and the text summary. No unrelated collector behavior changes authorized.",
   "normalization": "Standalone scriptVersion normalized to3.0.0; separately pinned HTML renderer restored to original before region comparison.",
   "files": {
     "Export-ServerInventory.ps1": {
@@ -70,6 +70,16 @@
           "reason": "Preserve report property collection identity before cyclic/nesting guards"
         },
         {
+          "before_start": 64889,
+          "before_end": 64889,
+          "before_start_line_normalized": 1321,
+          "before_end_line_normalized": 1320,
+          "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "after_length": 519,
+          "after_sha256": "3d4e22373492b5b2519492efb9ba60fb41b5c5f925f40e1ae14f55a7dcc19502",
+          "reason": "User-requested (2026-11-28): show the full subnet mask beside the prefix length in the IP addresses table, the executive summary profile and the text summary"
+        },
+        {
           "before_start": 102959,
           "before_end": 103042,
           "before_start_line_normalized": 2210,
@@ -78,6 +88,16 @@
           "after_length": 689,
           "after_sha256": "5aa5ae9e9b6173fd93e69bca15f1b811860913d815dd8479e61dfdc85e50eb14",
           "reason": "Fast fixed-format Word table paragraphs with validated XML text and original multiline fallback"
+        },
+        {
+          "before_start": 122866,
+          "before_end": 122866,
+          "before_start_line_normalized": 2547,
+          "before_end_line_normalized": 2546,
+          "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "after_length": 246,
+          "after_sha256": "12004c4c59c54415e0fe0072b9da9303475d5e33805007f79f461f4d29a737fc",
+          "reason": "User-requested (2026-11-28): show the full subnet mask beside the prefix length in the IP addresses table, the executive summary profile and the text summary"
         },
         {
           "before_start": 137923,
@@ -105,9 +125,9 @@
           "before_start_line_normalized": 2735,
           "before_end_line_normalized": 2734,
           "before_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-          "after_length": 4008,
-          "after_sha256": "b37da9a913127771c1e59fbea4c46173d9c36a5b983a511fc0a4ec802ad142f2",
-          "reason": "Executive summary profile TCP/IP and activation facts (user-requested 2026-11-18): derive values from data this collection already saved"
+          "after_length": 4161,
+          "after_sha256": "1bb43575a553fb56eb6e36a5c6dbfe6886492c62c468c3ecee6c9b2bf044e970",
+          "reason": "Executive summary profile TCP/IP and activation facts (user-requested 2026-11-18): derive values from data this collection already saved; User-requested (2026-11-28): show the full subnet mask beside the prefix length in the IP addresses table, the executive summary profile and the text summary"
         },
         {
           "before_start": 144175,
@@ -118,6 +138,16 @@
           "after_length": 784,
           "after_sha256": "df23812ae5b17f6681df1a3cecca11edb32d6f9460527d75676860f1a278899e",
           "reason": "Executive summary profile TCP/IP and activation rows in the server identity table (user-requested 2026-11-18)"
+        },
+        {
+          "before_start": 162179,
+          "before_end": 162446,
+          "before_start_line_normalized": 2878,
+          "before_end_line_normalized": 2878,
+          "before_sha256": "afa4d2d3cf547ce9f96a86c3bc6abde4d24ca1ca67543f5d9d2db1e32b17da8c",
+          "after_length": 281,
+          "after_sha256": "db10852dd0149b2ab46280821c120890ee3f7bd218f3c7146bd183153b39b87f",
+          "reason": "User-requested (2026-11-28): show the full subnet mask beside the prefix length in the IP addresses table, the executive summary profile and the text summary"
         },
         {
           "before_start": 175090,
@@ -138,6 +168,16 @@
           "after_length": 712,
           "after_sha256": "a97cd59d3ee831aaeadd96146e24c36289e99301a879cdcb814dfa1a23c39d53",
           "reason": "User-reported (2026-11-20) fix: the DHCP policies, scope statistics and bindings report tables were missing their mandatory column lists, which stopped report generation on DHCP servers"
+        },
+        {
+          "before_start": 210249,
+          "before_end": 210404,
+          "before_start_line_normalized": 3222,
+          "before_end_line_normalized": 3222,
+          "before_sha256": "ff44201e8fe7721d6879f77ebf04eab31095ffa83b56f4cbbb7f8a8edd80fb3b",
+          "after_length": 278,
+          "after_sha256": "68c70c73b59d8e5f6ffbb3f041260071831a11576bcbbf2dd82871234041fc77",
+          "reason": "User-requested (2026-11-28): show the full subnet mask beside the prefix length in the IP addresses table, the executive summary profile and the text summary"
         },
         {
           "before_start": 291794,
@@ -264,6 +304,6 @@
   },
   "reviewed_diff": {
     "path": "docs/verification/collector-approved-changes.diff",
-    "sha256": "c53258bbcec176238a1c03a322d4f1fc0fc906e691f7c7dbd5dd58307c0297e2"
+    "sha256": "7cf28d6ae4546d018243c021c21867a5124f5c083eb497afdd57d230f0d2d851"
   }
 }
