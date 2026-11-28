@@ -2,6 +2,7 @@
 
 - Owner said yes to the full IIS server-to-server move (phase 2 of the new-server restore). The Restore tab now has **Restore from: Another server, live**: it reads the old server over PowerShell remoting into a package there (migration bundle with a random passphrase kept in memory only, IIS configuration backup, website files), copies it to the new server with Robocopy (only changes on a second read), then checks and restores it inside the new server (or on this computer) with the usual restore steps. Cutover stops the old IIS sites; Start them again is the way back; Finish removes both packages.
 - New `Invoke-ServerMoveRemote.ps1` (signed, RemoteSigned); both engines gained `-Embedded -LogPath` (and `-Passphrase` / `-SecretsJson`); rules in `servermove.go`, Windows side `servermove_windows.go`, AGENTS rule 75, EDR-EXCLUSIONS updated.
+- New migration source *A Windows server's roles* (target *A new Windows server*): ways **Move a server live** and **Restore a package on a new server**, each with its own steps, hand off to the Restore tab on that source (`openRestoreFrom`). Workspace check "New migration holds the former Guided migration" covers both.
 - Tests: `go test -run TestServerMove ./src/app`; `TestServerMoveReadsAndChecksAServerThroughRemoting` (Windows, WinRM to localhost); workspace check "Move a server live". Not field-validated on two real servers.
 
 ## Unreleased: restore collection packages fully on a new server — 2026-11-28
