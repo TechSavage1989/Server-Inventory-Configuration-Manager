@@ -35,8 +35,8 @@ const (
 	// displayName is the name people see.
 	appName            = "Server Inventory Configuration Manager"
 	displayName        = "Server Inventory and Migration Manager"
-	appVersion         = "3.3.1"
-	collectorVersion   = "3.3.1"
+	appVersion         = "3.3.2"
+	collectorVersion   = "3.3.2"
 	applicationPageCSP = "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; frame-src 'self'"
 	maximumCollectors  = 49
 
