@@ -374,6 +374,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
 .sq-objects{display:flex;flex-direction:column;gap:calc(4*var(--sp))}.sq-obj-why{margin:0 0 calc(4*var(--sp)) 23px}.sq-object-head{font-weight:650;margin-top:calc(6*var(--sp))}.sq-object-items{margin:calc(2*var(--sp)) 0 0;padding-left:20px}
 .sq-findings{display:flex;flex-direction:column;gap:calc(4*var(--sp))}.sq-finding{display:flex;gap:calc(8*var(--sp));align-items:baseline}
 .sq-plans{display:flex;flex-direction:column;gap:calc(12*var(--sp))}.sq-plan-head{margin-bottom:calc(6*var(--sp))}.sq-signin{display:flex;flex-wrap:wrap;gap:calc(8*var(--sp));align-items:flex-end;margin-bottom:calc(8*var(--sp))}.sq-signin>div{flex-basis:100%}
+.dc-phases{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:calc(8*var(--sp));margin:calc(6*var(--sp)) 0}.dc-phase{border:1px solid #d9e1ec;border-radius:8px;padding:calc(8*var(--sp))}.dc-phase.current{border-color:#7aa7e8}.dc-steps{display:flex;flex-direction:column;gap:calc(4*var(--sp));margin-top:calc(4*var(--sp))}.dc-step{display:flex;flex-wrap:wrap;gap:calc(6*var(--sp));align-items:baseline}.dc-step>.mp-err,.dc-step>.vm-note{flex-basis:100%}.dc-roles{display:flex;flex-wrap:wrap;gap:calc(4*var(--sp)) calc(14*var(--sp))}.dc-why-tick{margin:0 0 calc(4*var(--sp)) 23px}.dc-schedule input[type=datetime-local]{min-width:14em}.dc-rb-pass{min-width:16em}.dc-checks summary{cursor:pointer;font-weight:650}.dc-checks{margin:calc(6*var(--sp)) 0}.dc-guide{margin-top:calc(6*var(--sp))}
 .sq-cut input[type=text]{width:6em}.sq-alias-row{display:flex;flex-wrap:wrap;gap:calc(8*var(--sp));align-items:center;margin-top:calc(8*var(--sp))}.sq-plan .link-button{align-self:flex-start;margin-top:calc(8*var(--sp))}
 .rb-body{display:flex;flex-direction:column;gap:calc(10*var(--sp))}.rb-heading{margin:calc(8*var(--sp)) 0 0;font-size:max(10.5px,calc(14*var(--fz)));color:#23334b}
 .rb-list{display:flex;flex-direction:column;gap:calc(8*var(--sp))}.rb-item{border:1px solid #dbe3ed;border-radius:8px;padding:calc(10*var(--sp)) calc(12*var(--sp));background:#fff}.rb-item.done{background:#f6fbf8}.rb-item.failed,.rb-item.partial{border-color:#f0cf8a}
@@ -1229,7 +1230,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     </section>
 
     <section class="tab-panel" id="tabMigration" role="tabpanel" aria-labelledby="tabButtonMigration">
-      <div class="tool-layout"><nav class="tool-nav" id="migrationNav" aria-label="Migration and replication tools"><div class="tool-group"><div class="tool-group-title">Start here</div><button class="tool-item tool-guide tool-wizard" type="button" data-tool="wizard" aria-pressed="false"><span class="tool-name">New migration</span><span class="tool-desc">Pick what you are moving, where it goes and when, on one set of screens. Start it and watch it here, or follow the steps for any other way.</span><span class="tool-runs"><b>Runs on</b> the Hyper-V host that will run the VMs</span></button><button class="tool-item" type="button" data-tool="servers" aria-pressed="false"><span class="tool-name">All jobs and servers<span class="tab-badge tool-badge hidden" id="serversBadge"></span></span><span class="tool-desc">Every server, VM and job being moved, replicated, converted or restored, with live status. Act on many at once.</span><span class="tool-runs"><b>Runs on</b> your admin computer, or the Hyper-V host for plans and tests</span></button><button class="tool-item" type="button" data-tool="rollback" aria-pressed="false"><span class="tool-name">Roll back<span class="tab-badge tool-badge hidden" id="rollbackBadge"></span></span><span class="tool-desc">The migrated server does not work? Turn the new VM off and start the original again, or follow the steps for any other way of moving.</span><span class="tool-runs"><b>Runs on</b> the Hyper-V host or admin computer that cut it over</span></button></div><div class="tool-section-title" id="toolsAdvancedTitle">Tools (advanced): each part on its own</div><div class="tool-group"><div class="tool-group-title">Plan</div><button class="tool-item" type="button" data-tool="plan" aria-pressed="false"><span class="tool-name">Plan and runbook</span><span class="tool-desc">Waves, network map and the runbook (HTML and Word).</span><span class="tool-runs"><b>Runs on</b> your admin computer</span></button><button class="tool-item" type="button" data-tool="hvbuild" aria-pressed="false"><span class="tool-name">Build Hyper-V hosts<span class="tab-badge tool-badge hidden" id="hvbuildBadge"></span></span><span class="tool-desc">Set up Hyper-V, switches, storage and a failover cluster from the VMware data.</span><span class="tool-runs"><b>Runs on</b> your admin computer, changing the new Hyper-V nodes</span></button></div><div class="tool-group"><div class="tool-group-title">Move servers</div><button class="tool-item" type="button" data-tool="movevms" aria-pressed="false"><span class="tool-name">Move VMs<span class="tab-badge tool-badge" id="movevmsBadge">Ready</span></span><span class="tool-desc">VMware or Hyper-V VMs, nothing installed in them. Copy, then cut over.</span><span class="tool-runs"><b>Runs on</b> the Hyper-V host or your admin computer</span></button><button class="tool-item" type="button" data-tool="plans" aria-pressed="false"><span class="tool-name">Migration plans<span class="tab-badge tool-badge hidden" id="plansBadge"></span></span><span class="tool-desc">Many VMs at once: scheduled seeding, automatic syncs, test and scheduled cutover.</span><span class="tool-runs"><b>Runs on</b> the Hyper-V host that will run the VMs</span></button><button class="tool-item" type="button" data-tool="replicate" aria-pressed="false"><span class="tool-name">Replicate servers<span class="tab-badge tool-badge" id="replicationTabBadge">Ready</span></span><span class="tool-desc">Any Windows or Linux server, physical or virtual, kept in sync by an agent until cutover.</span><span class="tool-runs"><b>Runs on</b> your admin computer; agent on each source server</span></button><button class="tool-item" type="button" data-tool="diskcopy" aria-pressed="false"><span class="tool-name">Receive and send disks<span class="tab-badge tool-badge" id="diskcopyBadge">Ready</span></span><span class="tool-desc">The receiver every copy goes to, and Send by hand without the agent.</span><span class="tool-runs"><b>Runs on</b> the receiving computer; Send inside the source</span></button><button class="tool-item" type="button" data-tool="failover" aria-pressed="false"><span class="tool-name">Start VMs from copies</span><span class="tool-desc">Test failover or the production VM on Hyper-V.</span><span class="tool-runs"><b>Runs on</b> the Hyper-V host receiving the copies</span></button><button class="tool-item" type="button" data-tool="shares" aria-pressed="false"><span class="tool-name">Move file shares<span class="tab-badge tool-badge" id="migrateTabBadge">Ready</span></span><span class="tool-desc">Shares, files and permissions from an old file server.</span><span class="tool-runs"><b>Runs on</b> the new file server, or any admin computer</span></button><button class="tool-item" type="button" data-tool="sqlmove" aria-pressed="false"><span class="tool-name">Move SQL databases<span class="tab-badge tool-badge hidden" id="sqlBadge"></span></span><span class="tool-desc">Databases, logins and jobs to a new SQL Server: backup and restore, log shipping or a distributed availability group.</span><span class="tool-runs"><b>Runs on</b> your admin computer; nothing installed on the SQL Servers</span></button></div><div class="tool-group"><div class="tool-group-title">Disks</div><button class="tool-item" type="button" data-tool="convert" aria-pressed="false"><span class="tool-name">Convert disk images<span class="tab-badge tool-badge" id="convertTabBadge">Ready</span></span><span class="tool-desc">VMDK, VHD(X), qcow2, raw: convert, fix up drivers, send to a host, P2V.</span><span class="tool-runs"><b>Runs on</b> any Windows computer that reaches the files</span></button></div><div class="tool-group"><div class="tool-group-title">Inside the machine</div><button class="tool-item" type="button" data-tool="guest" aria-pressed="false"><span class="tool-name">Prepare and fix up</span><span class="tool-desc">Record settings before the move; fix the machine up after it, from outside.</span><span class="tool-runs"><b>Runs on</b> the Hyper-V host or admin computer; nothing in the machine</span></button><button class="tool-item" type="button" data-tool="compare" aria-pressed="false"><span class="tool-name">Compare before and after</span><span class="tool-desc">What changed between two inventories.</span><span class="tool-runs"><b>Runs on</b> any computer</span></button></div></nav>
+      <div class="tool-layout"><nav class="tool-nav" id="migrationNav" aria-label="Migration and replication tools"><div class="tool-group"><div class="tool-group-title">Start here</div><button class="tool-item tool-guide tool-wizard" type="button" data-tool="wizard" aria-pressed="false"><span class="tool-name">New migration</span><span class="tool-desc">Pick what you are moving, where it goes and when, on one set of screens. Start it and watch it here, or follow the steps for any other way.</span><span class="tool-runs"><b>Runs on</b> the Hyper-V host that will run the VMs</span></button><button class="tool-item" type="button" data-tool="servers" aria-pressed="false"><span class="tool-name">All jobs and servers<span class="tab-badge tool-badge hidden" id="serversBadge"></span></span><span class="tool-desc">Every server, VM and job being moved, replicated, converted or restored, with live status. Act on many at once.</span><span class="tool-runs"><b>Runs on</b> your admin computer, or the Hyper-V host for plans and tests</span></button><button class="tool-item" type="button" data-tool="rollback" aria-pressed="false"><span class="tool-name">Roll back<span class="tab-badge tool-badge hidden" id="rollbackBadge"></span></span><span class="tool-desc">The migrated server does not work? Turn the new VM off and start the original again, or follow the steps for any other way of moving.</span><span class="tool-runs"><b>Runs on</b> the Hyper-V host or admin computer that cut it over</span></button></div><div class="tool-section-title" id="toolsAdvancedTitle">Tools (advanced): each part on its own</div><div class="tool-group"><div class="tool-group-title">Plan</div><button class="tool-item" type="button" data-tool="plan" aria-pressed="false"><span class="tool-name">Plan and runbook</span><span class="tool-desc">Waves, network map and the runbook (HTML and Word).</span><span class="tool-runs"><b>Runs on</b> your admin computer</span></button><button class="tool-item" type="button" data-tool="hvbuild" aria-pressed="false"><span class="tool-name">Build Hyper-V hosts<span class="tab-badge tool-badge hidden" id="hvbuildBadge"></span></span><span class="tool-desc">Set up Hyper-V, switches, storage and a failover cluster from the VMware data.</span><span class="tool-runs"><b>Runs on</b> your admin computer, changing the new Hyper-V nodes</span></button></div><div class="tool-group"><div class="tool-group-title">Move servers</div><button class="tool-item" type="button" data-tool="movevms" aria-pressed="false"><span class="tool-name">Move VMs<span class="tab-badge tool-badge" id="movevmsBadge">Ready</span></span><span class="tool-desc">VMware or Hyper-V VMs, nothing installed in them. Copy, then cut over.</span><span class="tool-runs"><b>Runs on</b> the Hyper-V host or your admin computer</span></button><button class="tool-item" type="button" data-tool="plans" aria-pressed="false"><span class="tool-name">Migration plans<span class="tab-badge tool-badge hidden" id="plansBadge"></span></span><span class="tool-desc">Many VMs at once: scheduled seeding, automatic syncs, test and scheduled cutover.</span><span class="tool-runs"><b>Runs on</b> the Hyper-V host that will run the VMs</span></button><button class="tool-item" type="button" data-tool="replicate" aria-pressed="false"><span class="tool-name">Replicate servers<span class="tab-badge tool-badge" id="replicationTabBadge">Ready</span></span><span class="tool-desc">Any Windows or Linux server, physical or virtual, kept in sync by an agent until cutover.</span><span class="tool-runs"><b>Runs on</b> your admin computer; agent on each source server</span></button><button class="tool-item" type="button" data-tool="diskcopy" aria-pressed="false"><span class="tool-name">Receive and send disks<span class="tab-badge tool-badge" id="diskcopyBadge">Ready</span></span><span class="tool-desc">The receiver every copy goes to, and Send by hand without the agent.</span><span class="tool-runs"><b>Runs on</b> the receiving computer; Send inside the source</span></button><button class="tool-item" type="button" data-tool="failover" aria-pressed="false"><span class="tool-name">Start VMs from copies</span><span class="tool-desc">Test failover or the production VM on Hyper-V.</span><span class="tool-runs"><b>Runs on</b> the Hyper-V host receiving the copies</span></button><button class="tool-item" type="button" data-tool="shares" aria-pressed="false"><span class="tool-name">Move file shares<span class="tab-badge tool-badge" id="migrateTabBadge">Ready</span></span><span class="tool-desc">Shares, files and permissions from an old file server.</span><span class="tool-runs"><b>Runs on</b> the new file server, or any admin computer</span></button><button class="tool-item" type="button" data-tool="sqlmove" aria-pressed="false"><span class="tool-name">Move SQL databases<span class="tab-badge tool-badge hidden" id="sqlBadge"></span></span><span class="tool-desc">Databases, logins and jobs to a new SQL Server: backup and restore, log shipping or a distributed availability group.</span><span class="tool-runs"><b>Runs on</b> your admin computer; nothing installed on the SQL Servers</span></button><button class="tool-item" type="button" data-tool="dcmove" aria-pressed="false"><span class="tool-name">Move a domain controller<span class="tab-badge tool-badge hidden" id="dcBadge"></span></span><span class="tool-desc">Build a new DC like the old one, promote it, move the FSMO roles and demote the old DC, with checks before every change.</span><span class="tool-runs"><b>Runs on</b> your admin computer; nothing installed on the DCs</span></button></div><div class="tool-group"><div class="tool-group-title">Disks</div><button class="tool-item" type="button" data-tool="convert" aria-pressed="false"><span class="tool-name">Convert disk images<span class="tab-badge tool-badge" id="convertTabBadge">Ready</span></span><span class="tool-desc">VMDK, VHD(X), qcow2, raw: convert, fix up drivers, send to a host, P2V.</span><span class="tool-runs"><b>Runs on</b> any Windows computer that reaches the files</span></button></div><div class="tool-group"><div class="tool-group-title">Inside the machine</div><button class="tool-item" type="button" data-tool="guest" aria-pressed="false"><span class="tool-name">Prepare and fix up</span><span class="tool-desc">Record settings before the move; fix the machine up after it, from outside.</span><span class="tool-runs"><b>Runs on</b> the Hyper-V host or admin computer; nothing in the machine</span></button><button class="tool-item" type="button" data-tool="compare" aria-pressed="false"><span class="tool-name">Compare before and after</span><span class="tool-desc">What changed between two inventories.</span><span class="tool-runs"><b>Runs on</b> any computer</span></button></div></nav>
       <div class="tool-host" id="migrationHost"><div class="tool-current" id="migrationCurrent"></div>
     <div class="pg-banner hidden" id="pgBanner" role="status" aria-live="polite"><span id="pgBannerText"></span><button class="secondary-button" id="pgBannerOpen" type="button">Production protection settings</button></div>
     <section class="tool-pane" id="tabWizard" aria-labelledby="nwTitle">
@@ -1863,6 +1864,83 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
         </div>
       </div></div>
     </section>
+    <section class="tool-pane" id="tabDc" aria-label="Move a domain controller">
+      <div class="restore-wrap"><div class="card">
+        <div class="card-header"><div><div class="card-title">Move a domain controller</div><div class="card-subtitle">Replace a domain controller with a new one: the new server is promoted with the old DC's site, DNS, global catalog and folders, the FSMO roles and time source move to it, DHCP and the other DCs are pointed at it, and the old DC is demoted cleanly. The domain is checked before every change. Nothing is installed on either server, and a DC is never cloned or copied.</div></div></div>
+        <div class="card-body sq-body dc-body">
+          <div class="restore-alert danger hidden" id="dcError" role="alert"></div>
+          <div class="sq-plans" id="dcPlans" aria-label="Domain controller plans"></div>
+          <section class="migrate-card" id="dcNewCard" aria-labelledby="dcNewTitle">
+            <h4 id="dcNewTitle">New domain controller plan</h4>
+            <div class="vm-note dc-editing hidden" id="dcEditing"><span id="dcEditingText"></span> <button class="link-button" id="dcCancelEdit" type="button">Stop changing it</button></div>
+            <h5 class="mp-heading">1. Servers and account</h5>
+            <div class="sq-servers">
+              <label class="vm-field">Domain controller you are replacing<input id="dcSrc" type="text" maxlength="255" spellcheck="false" autocomplete="off" placeholder="DC01 or dc01.corp.example.com"></label>
+              <label class="vm-field">New server (Windows Server 2016 or later, static address)<input id="dcDst" type="text" maxlength="255" spellcheck="false" autocomplete="off" placeholder="DC03"></label>
+            </div>
+            <div class="dc-auth" id="dcAuth"></div>
+            <div class="mp-three" id="dcAccount">
+              <label class="vm-field">Domain Admin account<input id="dcUser" type="text" maxlength="256" spellcheck="false" autocomplete="off" placeholder="CORP\admin"></label>
+              <label class="vm-field">Password<input id="dcPass" type="password" maxlength="256" autocomplete="new-password"></label>
+            </div>
+            <div class="vm-move-actions"><button class="primary-button" id="dcRead" type="button">Read both servers</button><span class="migrate-inline-status sq-why" id="dcReadStatus" role="status"></span></div>
+            <div id="dcRest" class="hidden">
+              <div class="sq-facts" id="dcFacts"></div>
+              <h5 class="mp-heading">2. The new domain controller</h5>
+              <div class="mp-three">
+                <label class="vm-field"><span>Site <span data-dc-tag="site"></span></span><select id="dcSite"></select><span class="hb-why" data-dc-why="site"></span></label>
+                <label class="vm-field"><span>First copy of the directory from <span data-dc-tag="replicateFrom"></span></span><select id="dcReplFrom"></select><span class="hb-why" data-dc-why="replicateFrom"></span></label>
+              </div>
+              <label class="vm-check"><input type="checkbox" id="dcInstallDns"><span>Install DNS Server on it <span data-dc-tag="installDns"></span></span></label><div class="hb-why dc-why-tick" data-dc-why="installDns"></div>
+              <label class="vm-check"><input type="checkbox" id="dcGc"><span>Make it a global catalog <span data-dc-tag="globalCatalog"></span></span></label><div class="hb-why dc-why-tick" data-dc-why="globalCatalog"></div>
+              <div class="mp-three">
+                <label class="vm-field"><span>Database folder <span data-dc-tag="paths"></span></span><input id="dcDbPath" type="text" maxlength="240" spellcheck="false" autocomplete="off"></label>
+                <label class="vm-field">Log folder<input id="dcLogPath" type="text" maxlength="240" spellcheck="false" autocomplete="off"></label>
+                <label class="vm-field">SYSVOL folder<input id="dcSysvolPath" type="text" maxlength="240" spellcheck="false" autocomplete="off"></label>
+              </div>
+              <div class="hb-why" data-dc-why="paths"></div>
+              <h5 class="mp-heading">3. FSMO roles, time and DNS forwarders</h5>
+              <div class="dc-roles" id="dcRoles" role="group" aria-label="FSMO roles to move"></div><span data-dc-tag="moveRoles"></span><div class="hb-why" data-dc-why="moveRoles"></div>
+              <div class="mp-three">
+                <label class="vm-field"><span>Time source for the new PDC emulator <span data-dc-tag="ntpServer"></span></span><input id="dcNtp" type="text" maxlength="200" spellcheck="false" autocomplete="off"><span class="hb-why" data-dc-why="ntpServer"></span></label>
+                <label class="vm-field"><span>DNS forwarders (comma between) <span data-dc-tag="forwarders"></span></span><input id="dcForwarders" type="text" maxlength="400" spellcheck="false" autocomplete="off"><span class="hb-why" data-dc-why="forwarders"></span></label>
+              </div>
+              <h5 class="mp-heading">4. Address and clients</h5>
+              <div class="migrate-account dc-ipmode" role="radiogroup" aria-labelledby="dcIpLabel"><span class="migrate-account-label" id="dcIpLabel">After the old DC is retired</span>
+                <label><input type="radio" name="dcIp" id="dcIpTakeover" value="takeover"><span>The new DC takes over the old DC's IP address</span></label>
+                <label><input type="radio" name="dcIp" id="dcIpRepoint" value="repoint"><span>The new DC keeps its own address</span></label>
+              </div>
+              <span data-dc-tag="ipMode"></span><div class="hb-why" data-dc-why="ipMode"></div>
+              <div class="migrate-help" id="dcIpNote"></div>
+              <div class="mp-three" id="dcSpare">
+                <label class="vm-field"><span>Spare address for the old server <span data-dc-tag="oldNewAddress"></span></span><input id="dcSpareAddr" type="text" maxlength="15" spellcheck="false" autocomplete="off" placeholder="192.0.2.250"></label>
+                <label class="vm-field">Prefix length<input id="dcSparePrefix" type="text" maxlength="2" spellcheck="false" autocomplete="off"></label>
+                <label class="vm-field">Gateway<input id="dcSpareGw" type="text" maxlength="15" spellcheck="false" autocomplete="off"></label>
+              </div>
+              <div class="hb-why" data-dc-why="oldNewAddress"></div>
+              <label class="vm-check"><input type="checkbox" id="dcRepoint"><span>Point DHCP scopes and the other DCs' DNS settings at the new DC <span data-dc-tag="repoint"></span></span></label><div class="hb-why dc-why-tick" data-dc-why="repoint"></div>
+              <label class="vm-check"><input type="checkbox" id="dcOldDead"><span>The old DC is dead and will never start again (seize the roles and clean up its records instead of demoting it)</span></label>
+              <div id="dcJoin">
+                <h5 class="mp-heading">5. Join the new server to the domain</h5>
+                <p class="migrate-help" id="dcJoinWhy"></p>
+                <div class="mp-three">
+                  <label class="vm-field">Local Administrator on the new server<input id="dcJoinUser" type="text" maxlength="256" spellcheck="false" autocomplete="off" placeholder="DC03\Administrator"></label>
+                  <label class="vm-field">Password<input id="dcJoinPass" type="password" maxlength="256" autocomplete="new-password"></label>
+                </div>
+              </div>
+              <h5 class="mp-heading" id="dcReviewTitle">6. Review and save</h5>
+              <div class="mp-three">
+                <label class="vm-field">Plan name<input id="dcName" type="text" maxlength="80" spellcheck="false" autocomplete="off"></label>
+                <label class="vm-field">Wave<input id="dcWave" type="text" maxlength="2" spellcheck="false" autocomplete="off" value="0"></label>
+              </div>
+              <div class="sq-findings" id="dcPreview" aria-live="polite"></div>
+              <div class="vm-move-actions"><button class="primary-button" id="dcSave" type="button">Save the plan</button><span class="migrate-inline-status sq-why" id="dcSaveStatus" role="status"></span></div>
+            </div>
+          </section>
+          <details class="sq-log"><summary>Activity</summary><pre class="log-view" id="dcLog"></pre></details>
+        </div>
+      </div></div>
+    </section>
     <section class="tool-pane" id="tabServers" aria-label="All jobs and servers">
       <div class="restore-wrap"><div class="card">
         <div class="card-header"><div><div class="card-title">All jobs and servers</div><div class="card-subtitle">Everything this console moves, replicates, converts or restores, in one list: agent replication jobs, Migration plans, Move VMs copies, disk conversions, restores and file share moves, servers with the agent but no job, and the VMs of the inventory read in Discovery that nothing moves yet. Tick as many as you like and act on them together; Open takes you to the tool with that job's own settings.</div></div></div>
@@ -2395,6 +2473,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     failover:{tab:'migration',pane:'tabVmware',view:'failover',legacy:'vmware',title:'Start VMs from copies',subtitle:'Start a test VM on differencing disks, or the production VM after cutover, from copies this Hyper-V host received from Move VMs, Replicate servers or Send.',runs:'the Hyper-V host that receives the copies, as administrator.'},
     shares:{tab:'migration',pane:'tabMigrate',legacy:'migrate'},
     sqlmove:{tab:'migration',pane:'tabSql',legacy:'sqlmove'},
+    dcmove:{tab:'migration',pane:'tabDc',legacy:'dcmove'},
     convert:{tab:'migration',pane:'tabConvert',legacy:'convert'},
     guest:{tab:'migration',pane:'tabVmware',view:'guest',legacy:'vmware',title:'Prepare and fix up',subtitle:'Record the machine\'s settings before the move and fix it up after it starts on the new platform, without installing anything in it.',runs:'the Hyper-V host or your admin computer, reaching the machine from outside (nothing installed in it); or inside the machine as a fallback.'},
     compare:{tab:'migration',pane:'tabVmware',view:'compare',legacy:'vmware',title:'Compare before and after',subtitle:'Compare the inventory collected before the move with the one collected after it.',runs:'any computer with both inventory packages.'}
@@ -2415,7 +2494,8 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     {id:'shares',when:'only the file shares, files and permissions move to a new file server, not the whole server. Run it on the new file server, or on any admin computer: the new server then copies straight from the old one through PowerShell remoting.',tool:'shares',card:true,name:'Move file shares',from:['shares'],to:['fileserver','fileremote'],agent:'agentless',live:'live',fromText:'Windows file server shares, files and permissions (Windows Server 2012 or later)',toText:'a new Windows file server (Windows Server 2012 or later): this computer or another server',note:'Copies while users keep working, again and again until cutover; the shares move at cutover. Nothing is installed on either server.'},
     {id:'servermove',when:'a Windows server\'s roles move to a new Windows server you installed, with the old one still running: this computer reads the old server through PowerShell remoting, copies a package to the new one and restores it there, mapping addresses, drives and accounts. Read again to bring over changes before you stop the old sites.',tool:'restore',restoreFrom:'live',name:'Move a server live',from:['serverroles'],to:['winserver'],agent:'agentless',live:'live',fromText:'Windows Server 2012 or later reachable by WinRM: IIS sites, application pools, certificates with keys, website files, file shares, local users and groups, roles and features, DNS and DHCP settings',toText:'a new Windows Server of the same or a later version, this computer or another reached by WinRM',note:'Nothing is installed on either server. AD DS, AD CS, Hyper-V, failover clustering, WSUS, Remote Desktop Services and SQL Server move in their own ways; the check lists them.'},
     {id:'restorepkg',when:'the old server cannot be reached from the new one, or you already have a collection package from it: prepare the package for a new server when collecting, then restore it on the new server.',tool:'restore',restoreFrom:'package',flow:'serverpkg',name:'Restore a package on a new server',from:['serverroles'],to:['winserver'],agent:'agentless',live:'offline',fromText:'a collection package made with Prepare this package for a new server',toText:'a new Windows Server, restored on that server',note:'The package is a copy taken at one moment: anything changed on the old server after it was collected is not in it.'},
-    {id:'sqlmove',when:'databases move to a new SQL Server rather than the whole server: each database is copied while it stays in use (log shipping, or a distributed availability group when it is already in an availability group) or at cutover (backup and restore), with its logins, jobs and linked servers.',tool:'sqlmove',card:true,name:'Move SQL databases',from:['sqldbs'],to:['sqlserver'],agent:'agentless',live:'live',fromText:'SQL Server 2012 or later databases (any edition; distributed availability groups need SQL Server 2016 or later with an availability group)',toText:'a new SQL Server of the same or a later version',note:'Nothing is installed on either SQL Server: this computer connects to both with T-SQL and PowerShell remoting. The old databases stay as they were at cutover until you roll back or remove them.'}
+    {id:'sqlmove',when:'databases move to a new SQL Server rather than the whole server: each database is copied while it stays in use (log shipping, or a distributed availability group when it is already in an availability group) or at cutover (backup and restore), with its logins, jobs and linked servers.',tool:'sqlmove',card:true,name:'Move SQL databases',from:['sqldbs'],to:['sqlserver'],agent:'agentless',live:'live',fromText:'SQL Server 2012 or later databases (any edition; distributed availability groups need SQL Server 2016 or later with an availability group)',toText:'a new SQL Server of the same or a later version',note:'Nothing is installed on either SQL Server: this computer connects to both with T-SQL and PowerShell remoting. The old databases stay as they were at cutover until you roll back or remove them.'},
+    {id:'dcmove',when:'a domain controller is replaced by a new server you installed: the new one is promoted with the old one\'s site, DNS, global catalog and folders, takes the FSMO roles and time source, and the old one is demoted cleanly (or its records cleaned up when it is dead). Pick keeping the old address when devices have the DC\'s IP typed in.',tool:'dcmove',card:true,name:'Move a domain controller',from:['dcs'],to:['dcnew'],agent:'agentless',live:'live',fromText:'a writable domain controller of an Active Directory domain at functional level Windows Server 2008 or later, with SYSVOL on DFSR',toText:'a new Windows Server 2016 or later (2025 needs functional level 2016) with a static address, joined to the domain or in a workgroup',note:'Nothing is installed on the DCs: this computer runs the Windows AD DS commands on them through PowerShell remoting with a Domain Admin account. The domain is checked (replication, SYSVOL, FSMO owners, time) before every change.'}
   ];
   var toolSupport={
     wizard:{works:'VMware (vCenter or ESXi 6.5 to 8.0) or Hyper-V VMs to this Hyper-V host or its failover cluster, start to finish; every other source and target gets its steps in order, each with the computer it runs on, a live check and its tool',when:'you start any migration and want only the choices it needs, in order',tags:['agentless','live']},
@@ -2428,7 +2508,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     guest:{works:'Windows Server 2008 R2 and later, and Windows clients, on any platform: from vCenter, PowerShell Direct, PowerShell remoting, or inside the machine as a fallback',tags:['agentless']},
     compare:{works:'Two inventories collected by this application',tags:['readonly']}
   };
-  var modeTargetNames={hyperv:'Hyper-V',scale:'Scale HyperCore',nutanix:'Nutanix AHV',proxmox:'Proxmox VE',physical:'a physical server',vsphere:'VMware ESXi or vCenter',fileserver:'a new Windows file server',fileremote:'another Windows file server',sqlserver:'a new SQL Server',winserver:'a new Windows server'};
+  var modeTargetNames={hyperv:'Hyper-V',scale:'Scale HyperCore',nutanix:'Nutanix AHV',proxmox:'Proxmox VE',physical:'a physical server',vsphere:'VMware ESXi or vCenter',fileserver:'a new Windows file server',fileremote:'another Windows file server',sqlserver:'a new SQL Server',winserver:'a new Windows server',dcnew:'a new domain controller'};
   var modeTagNames={agentless:'Agentless',agent:'Agent on the source',inguest:'Run inside the source',live:'Live, source keeps running',offline:'Offline, source shut down',readonly:'Read only',hyperv:'Hyper-V only'};
   function modeList(names){if(names.length<2){return names.join('');}return names.slice(0,-1).join(', ')+' or '+names[names.length-1];}
   function modeWorksText(mode){return (mode.fromText||mode.from.join(', '))+' to '+(mode.toText||modeList(mode.to.map(function(t){return modeTargetNames[t]||t;})));}
@@ -2583,6 +2663,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     if(id==='servers'){asOpen();}
     if(id==='rollback'){rbOpen();}
     if(id==='sqlmove'){sqOpen();}
+    if(id==='dcmove'){dcOpen();}
     if(id==='wizard'){nwOpen();}
     // A Build Hyper-V hosts editor marked stale (a new inventory) is drawn now, not at the next state poll.
     if(id==='hvbuild'){var hbEd=byId('hbEditor');if(hbEd&&(hbEd.getAttribute('data-stale')||!hbEd.childNodes.length)){hbRenderEditor();}}
@@ -3679,11 +3760,12 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     {id:'shares',name:'File shares',detail:'Shares, files and permissions from an old Windows file server.'},
     {id:'sqldbs',name:'SQL Server databases',detail:'Databases with their logins, jobs and linked servers, to a new SQL Server.'},
     {id:'serverroles',name:'A Windows server\'s roles',detail:'IIS sites, certificates, file shares, local accounts and features, read live from the old server.'},
-    {id:'serverpkg',name:'A Windows server\'s roles',detail:'Restored from a collection package prepared for a new server.'}];
-  var gdTargetNames={sqlserver:'A new SQL Server',winserver:'A new Windows server',hyperv:'Hyper-V',scale:'Scale Computing HyperCore',nutanix:'Nutanix AHV',proxmox:'Proxmox VE',physical:'A physical server',vsphere:'VMware ESXi or vCenter'};
-  var gdTargetDetail={sqlserver:'The databases are restored on a SQL Server you already installed.',winserver:'The roles are restored on a Windows server you already installed.',hyperv:'VHDX disks and a new Hyper-V VM.',scale:'A new HyperCore VM.',nutanix:'A new AHV VM.',proxmox:'A new Proxmox VE VM.',physical:'Copied straight onto a server\'s own disks (V2P or P2P).',vsphere:'A new VM imported into vSphere.'};
-  var gdTargetsFor={vmware:['hyperv','scale','nutanix','proxmox','physical'],hyperv:['hyperv','scale','nutanix','proxmox','physical'],server:['hyperv','scale','nutanix','proxmox','physical'],image:['hyperv','vsphere','scale','nutanix','proxmox'],shares:[],sqldbs:['sqlserver'],serverroles:['winserver'],serverpkg:['winserver']};
-  var gdWhereNames={admin:'Your admin computer',hvhost:'The new Hyper-V host',inside:'Inside the machine being moved',newinside:'Inside the new machine',console:'The new machine\'s console',platform:'The platform\'s own console',fileserver:'The new file server',adminfs:'Any admin computer (directs the move)',any:'Any computer with this application',source:'The server being moved',sqladmin:'Your admin computer (reaches both SQL Servers)'};
+    {id:'serverpkg',name:'A Windows server\'s roles',detail:'Restored from a collection package prepared for a new server.'},
+    {id:'dcs',name:'A domain controller',detail:'Replaced by a new DC: promotion, FSMO roles, DNS and DHCP clients, and demotion of the old one.'}];
+  var gdTargetNames={dcnew:'A new domain controller',sqlserver:'A new SQL Server',winserver:'A new Windows server',hyperv:'Hyper-V',scale:'Scale Computing HyperCore',nutanix:'Nutanix AHV',proxmox:'Proxmox VE',physical:'A physical server',vsphere:'VMware ESXi or vCenter'};
+  var gdTargetDetail={dcnew:'A Windows server you installed is promoted beside the old DC, which is then retired.',sqlserver:'The databases are restored on a SQL Server you already installed.',winserver:'The roles are restored on a Windows server you already installed.',hyperv:'VHDX disks and a new Hyper-V VM.',scale:'A new HyperCore VM.',nutanix:'A new AHV VM.',proxmox:'A new Proxmox VE VM.',physical:'Copied straight onto a server\'s own disks (V2P or P2P).',vsphere:'A new VM imported into vSphere.'};
+  var gdTargetsFor={vmware:['hyperv','scale','nutanix','proxmox','physical'],hyperv:['hyperv','scale','nutanix','proxmox','physical'],server:['hyperv','scale','nutanix','proxmox','physical'],image:['hyperv','vsphere','scale','nutanix','proxmox'],shares:[],sqldbs:['sqlserver'],serverroles:['winserver'],serverpkg:['winserver'],dcs:['dcnew']};
+  var gdWhereNames={admin:'Your admin computer',hvhost:'The new Hyper-V host',inside:'Inside the machine being moved',newinside:'Inside the new machine',console:'The new machine\'s console',platform:'The platform\'s own console',fileserver:'The new file server',adminfs:'Any admin computer (directs the move)',any:'Any computer with this application',source:'The server being moved',sqladmin:'Your admin computer (reaches both SQL Servers)',dcadmin:'Your admin computer (reaches the DCs with PowerShell remoting)'};
   var gdSource='',gdTarget='',gdFlowKey='',gdTicks={},gdStepsNow=[];
   function gdStore(key,value){try{if(value===undefined){return window.localStorage.getItem(key);}window.localStorage.setItem(key,value);}catch(e){}return null;}
   function gdCtx(){
@@ -3821,6 +3903,14 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
       S('Test','sqladmin','Test brings a copy of a database online on the new server under another name, so applications can be tried against it while the log keeps shipping. End test removes that copy only.',null,'sqlmove',{optional:true});
       S('Cut over','sqladmin','Cut over (now or at a time): users are disconnected from the old database, the last changes are copied and the database comes online on the new server; the old one stays as it was, ready for Roll back. Jobs are turned on and a DNS alias can move with the last database.',null,'sqlmove');
       S('Point applications at the new server','admin','Change connection strings that name the old server, unless they use the alias this plan moved.',null,null,{manual:true});
+    } else if(src==='dcs'){
+      S('Install Windows on the new server','admin','Install Windows Server 2016 or later on the new server, give it a static IPv4 address and point its DNS at a domain controller. Joining the domain is optional: the plan can join it. Nothing of this application is installed on either server; both need PowerShell remoting (WinRM), which Windows Server turns on by default.',null,null,{manual:true});
+      S('Read both servers','dcadmin','In Move a domain controller, type the old DC and the new server, sign in with a Domain Admin account and Read both servers. Every setting of the new DC is filled in from the old one (site, DNS, global catalog, folders, roles, time source, forwarders) with the reason; change any of them, then Save the plan. Reading changes nothing.',gdDcReadCheck,'dcmove');
+      S('Check the domain','dcadmin','Check the domain runs the domain controller checks on every DC (replication, SYSVOL, FSMO owners, time). A failing replication or SYSVOL stops the plan before anything changes. It runs again before every phase.',gdDcHealthCheck,'dcmove');
+      S('Build the new DC','dcadmin','Build joins the server to the domain if needed, adds AD DS, promotes it with the settings of the plan (it restarts once) and waits until it replicates and shares SYSVOL and NETLOGON.',gdDcPhaseCheck('build'),'dcmove');
+      S('Move the roles','dcadmin','Move the roles transfers the FSMO roles, sets the time source on the new PDC emulator and points DHCP and the other DCs\' DNS settings at the new DC. Roll back puts all of it back.',gdDcPhaseCheck('cutover'),'dcmove');
+      S('Retire the old DC','dcadmin','Retire checks the domain again through the new DC, then demotes the old DC (or cleans up its records when it is dead) and, if chosen, gives the new DC the old address. Before this, Roll back is one click; after it, the tool lists the steps.',gdDcPhaseCheck('retire'),'dcmove');
+      S('Check applications and remove the old server','admin','Check sign-ins, Group Policy, DNS and anything with the old DC\'s name typed in, then remove the old server from the network and the domain when you are ready.',null,null,{manual:true});
     } else if(src==='serverroles'){
       S('Install Windows on the new server','admin','Install Windows Server on the new server (the same version as the old one or later), give it its own name and address and join it to the domain. Nothing of this application is installed on either server; both need PowerShell remoting (WinRM), which Windows Server turns on by default.',null,null,{manual:true});
       S('Read the old server and copy','admin','In Restore, Restore from: Another server, live. Type the old server, choose the new one (this server or another) and Read the old server and copy. It reads IIS, certificates, shares, accounts and features, copies a package and the website files to the new server and checks it. Reading changes nothing on the old server.',gdRolesReadCheck,'restore',{restoreFrom:'live'});
@@ -3854,6 +3944,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     if(src==='vmware'||src==='hyperv'){return tgt==='hyperv'?'Everything runs on the new Hyper-V host: it reads the source, copies each disk while the VM runs, and at cutover shuts the VM down, copies the last changes and builds the Hyper-V VM. Nothing is installed in the VM.':'Your admin computer reads the source, creates the new '+(tgt==='physical'?'server\'s receiver media':'VM on '+T)+' and copies each disk while the VM runs to a receiver running on the new machine; at cutover the VM is shut down and the last changes copied. Nothing is installed in the VM.';}
     if(src==='server'){return 'An agent on the server copies every disk from shadow copies (or LVM snapshots on Linux) to a receiver on the new machine, again and again, so the copy stays minutes behind. You test, then cut over at a time you choose.';}
     if(src==='image'){return 'Convert disk images reads the image (merging snapshots and differencing disks), converts it to '+T+'\'s format and can upload it and create the VM. The source file is only read.';}
+    if(src==='dcs'){return 'Your admin computer runs the Windows AD DS commands on both servers through PowerShell remoting with a Domain Admin account: it checks the domain, promotes the new server, moves the FSMO roles and demotes the old DC. Nothing is installed on either server, and every phase checks the domain first.';}
     if(src==='sqldbs'){return 'Your admin computer reaches both SQL Servers with T-SQL (and PowerShell remoting for a different Windows account). The old server backs each database up to a share, the new one restores it and keeps applying log backups until cutover, or a distributed availability group keeps it in sync. Nothing is installed on either server.';}
     if(src==='serverroles'){return 'Your admin computer reads the old server through PowerShell remoting, copies a package and the website files to the new server and restores it there, with addresses, drives and accounts mapped to the new server. The old server keeps running until you stop its sites. Nothing is installed on either server.';}
     if(src==='serverpkg'){return 'The old server is collected with its migration bundle (protected by a passphrase), and the package is restored on the new server with addresses, drives and accounts mapped to it.';}
@@ -3888,7 +3979,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
       try{gdTicks=JSON.parse(gdStore('simm.guide.ticks.'+gdFlowKey)||'{}')||{};}catch(e){gdTicks={};}
       gdStepsNow=gdSteps(gdSource,gdTarget);
       var srcName=gdSourceList.filter(function(o){return o.id===gdSource;})[0].name;
-      byId('gdPlanTitle').textContent=(gdSource==='sqldbs'?'Moving SQL Server databases to a new SQL Server':gdSource==='serverroles'?'Moving a Windows server\'s roles to a new server, live':gdSource==='serverpkg'?'Restoring a Windows server\'s roles on a new server from a package':gdSource==='shares'?(gdTarget==='fileremote'?'Moving file shares between two other servers':'Moving file shares to a new file server'):'Moving '+srcName.replace(/^A /,'a ')+' to '+gdTargetNames[gdTarget])+': the steps, in order';
+      byId('gdPlanTitle').textContent=(gdSource==='dcs'?'Replacing a domain controller with a new one':gdSource==='sqldbs'?'Moving SQL Server databases to a new SQL Server':gdSource==='serverroles'?'Moving a Windows server\'s roles to a new server, live':gdSource==='serverpkg'?'Restoring a Windows server\'s roles on a new server from a package':gdSource==='shares'?(gdTarget==='fileremote'?'Moving file shares between two other servers':'Moving file shares to a new file server'):'Moving '+srcName.replace(/^A /,'a ')+' to '+gdTargetNames[gdTarget])+': the steps, in order';
       byId('gdHow').textContent=gdHow(gdSource,gdTarget);
       var comps=byId('gdComputers');comps.textContent='';comps.appendChild(el('span','gd-pick-title','Computers involved: '));
       gdComputers(gdStepsNow).forEach(function(w){var chip=el('span','gd-computer');chip.appendChild(el('b','',gdWhereNames[w]));comps.appendChild(chip);});
@@ -9219,7 +9310,8 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     {id:'shares',name:'File shares',detail:'Shares, files and permissions from an old file server.'},
     {id:'images',name:'Disk image files',detail:'VMDK, VHD(X), qcow2 or raw files of a VM that is shut down or exported.'},
     {id:'sqldbs',name:'SQL Server databases',detail:'Databases, logins, jobs and linked servers to a new SQL Server, without moving the whole server.'},
-    {id:'roles',name:'A Windows server\'s roles',detail:'IIS sites, certificates, file shares, local accounts and features to a new Windows server you installed.'}
+    {id:'roles',name:'A Windows server\'s roles',detail:'IIS sites, certificates, file shares, local accounts and features to a new Windows server you installed.'},
+    {id:'dcs',name:'A domain controller',detail:'A new DC built like the old one: promotion, FSMO roles, DNS and DHCP clients, then the old DC demoted.'}
   ];
   var nwTargetInfo={
     here:{name:'This Hyper-V host',detail:'This computer, or its failover cluster. Copies, syncs and cutover all run here.'},
@@ -9231,10 +9323,11 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     vsphere:{name:'VMware ESXi or vCenter',detail:'The converted disk is imported as a new VM.'},
     fileserver:{name:'This file server',detail:'The shares are recreated on the computer running this application. Run it there as administrator.'},
     winserver:{name:'A new Windows server',detail:'A Windows server you installed: this computer or another reached by PowerShell remoting. Nothing is installed on either server.'},
+    dcnew:{name:'A new domain controller',detail:'A Windows server you installed. This computer promotes it beside the old DC; nothing is installed on either.'},
     sqlserver:{name:'A new SQL Server',detail:'A SQL Server you installed. This computer reaches both servers; nothing is installed on either.'},
     fileremote:{name:'Another file server',detail:'Run from any admin computer: the new server copies straight from the old one through PowerShell remoting, so files never pass through this computer. Nothing is installed on either server.'}
   };
-  function nwTargetsFor(src){return {vms:['here','hvremote','scale','nutanix','proxmox','physical'],servers:['here','scale','nutanix','proxmox','physical'],shares:['fileserver','fileremote'],sqldbs:['sqlserver'],roles:['winserver'],images:['here','vsphere','scale','nutanix','proxmox']}[src]||[];}
+  function nwTargetsFor(src){return {vms:['here','hvremote','scale','nutanix','proxmox','physical'],servers:['here','scale','nutanix','proxmox','physical'],shares:['fileserver','fileremote'],sqldbs:['sqlserver'],roles:['winserver'],dcs:['dcnew'],images:['here','vsphere','scale','nutanix','proxmox']}[src]||[];}
   function nwMode(id){return migrationModes.filter(function(m){return m.id===id;})[0]||null;}
   function nwInvType(){return vmInventory?(vmInventory.serverType==='Hyper-V host'?'hyperv':'vmware'):'';}
   // The ways that fit, recommended first.
@@ -9248,6 +9341,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     if(s==='servers'){return ['replicate','sendbyhand'];}
     if(s==='shares'){return ['shares'];}
     if(s==='sqldbs'){return ['sqlmove'];}
+    if(s==='dcs'){return ['dcmove'];}
     if(s==='roles'){return ['servermove','restorepkg'];}
     if(s==='images'){return ['convert'];}
     return [];
@@ -9257,7 +9351,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   // follows that flow's steps. Null when the way has no steps of its own.
   function nwGuideFlow(){
     var m=nwMode(nw.method);if(!m||!nw.source||!nw.target){return null;}
-    var src=m.flow||{vms:nwInvType()||'vmware',servers:'server',shares:'shares',images:'image',sqldbs:'sqldbs',roles:'serverroles'}[nw.source];
+    var src=m.flow||{vms:nwInvType()||'vmware',servers:'server',shares:'shares',images:'image',sqldbs:'sqldbs',roles:'serverroles',dcs:'dcs'}[nw.source];
     var tgt=src==='shares'?(nw.target==='fileremote'?'fileremote':'fileserver'):({here:'hyperv',hvremote:'hyperv'}[nw.target]||nw.target);
     if(!gdTargetsFor[src]||(src!=='shares'&&gdTargetsFor[src].indexOf(tgt)<0)){return null;}
     return {src:src,tgt:tgt};
@@ -11171,6 +11265,231 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     }
     go();
   });
+  // Move a domain controller (rule 76). The two servers are read once (read
+  // only) and every setting of the new DC is suggested from the old one with
+  // its reason; a plan then runs its phases (build, move the roles, retire)
+  // on this computer through /api/dc, checking the domain before each.
+  // Passwords are cleared from the page at once and kept in memory on this
+  // computer only.
+  var dcState=null,dcLastPoll=0,dcBusyNow=false,dcEdit='',dcFormKey='',dcTouched={},dcPlansSig='',dcLogSig='',dcPreviewSig='',dcAuthChoice=null;
+  var dcStepStateText={pending:'Not started',running:'Running',done:'Done',failed:'Failed',skipped:'Not needed'};
+  var dcSuggestKeys=['site','installDns','globalCatalog','replicateFrom','paths','moveRoles','ntpServer','forwarders','ipMode','oldNewAddress','repoint'];
+  function dcLoad(){dcLastPoll=Date.now();request('GET','/api/dc/state',null,function(err,data){if(err||!data||!data.dc){return;}dcState=data.dc;renderDc();});}
+  function dcOpen(){dcAuth();dcLoad();}
+  function dcAuth(){
+    if(dcAuthChoice){dcAuthChoice.refresh();return;}
+    dcAuthChoice=signInChoice({key:'dcmig',idPrefix:'dc',label:'Connect as',fields:[byId('dcAccount')],held:function(){return !!(dcState&&dcState.user);},
+      note:function(){return 'Your current sign-in reads both servers and checks the domain. Building, moving the roles and retiring need a Domain Admin account typed here, because the steps pass it on to the other domain controllers.';},
+      clear:function(){byId('dcUser').value='';byId('dcPass').value='';},
+      onCurrent:function(){if(dcState&&dcState.user){request('POST','/api/dc/forget',{},function(){dcLoad();});}},
+      focus:function(){return byId('dcUser');},keep:true});
+    byId('dcAuth').appendChild(dcAuthChoice.el);
+  }
+  function dcPost(path,body,statusId,done){
+    if(dcBusyNow){return;}dcBusyNow=true;if(statusId){vmSetStatus(statusId,'',false);}
+    request('POST','/api/dc/'+path,body,function(err,data){dcBusyNow=false;if(statusId&&byId(statusId)){vmSetStatus(statusId,err||(data&&data.message)||'',!!err);}if(done){done(err,data||{});}dcLoad();});
+  }
+  function dcUserBody(){var u=trimText(byId('dcUser').value),p=byId('dcPass').value;byId('dcPass').value='';return dcAuthChoice&&dcAuthChoice.current()?{}:{user:u,password:p};}
+  byId('dcRead').addEventListener('click',function(){
+    var src=trimText(byId('dcSrc').value),dst=trimText(byId('dcDst').value);
+    if(!src||!dst){vmSetStatus('dcReadStatus','Type the old domain controller and the new server.',true);return;}
+    var body=dcUserBody();body.source=src;body.target=dst;
+    var read=function(){dcPost('read',{source:src,target:dst},'dcReadStatus');};
+    if(body.password){dcPost('account',{user:body.user,password:body.password},'dcReadStatus',function(err){if(!err){read();}});}else{read();}
+  });
+  function dcPlanById(id){return vmArr(dcState&&dcState.plans).filter(function(p){return p.id===id;})[0]||null;}
+  function dcFormPlan(){return dcEdit?dcPlanById(dcEdit):null;}
+  // What the form shows: the plan being changed, or a new plan from the read.
+  function dcFormSource(){
+    var p=dcFormPlan();if(p){return {old:p.old,tgt:p.new,settings:p.settings||{},plan:p};}
+    if(!dcState||!dcState.readOld||!dcState.readNew||!dcState.suggest){return null;}
+    return {old:dcState.readOld,tgt:dcState.readNew,settings:dcState.suggest,plan:null};
+  }
+  function dcSetSelect(sel,values,value){
+    sel.textContent='';var seen={};vmArr(values).concat(value?[value]:[]).forEach(function(v){if(!v||seen[v.toLowerCase()]){return;}seen[v.toLowerCase()]=1;var o=document.createElement('option');o.value=v;o.textContent=v;sel.appendChild(o);});sel.value=value||'';
+  }
+  function dcFill(f){
+    var s=f.settings,old=f.old||{},tgt=f.tgt||{};
+    dcSetSelect(byId('dcSite'),old.sites,s.site);
+    dcSetSelect(byId('dcReplFrom'),vmArr(old.dcs).filter(function(d){return !d.readOnly;}).map(function(d){return d.hostName||d.name;}),s.replicateFrom);
+    byId('dcInstallDns').checked=!!s.installDns;byId('dcGc').checked=!!s.globalCatalog;
+    byId('dcDbPath').value=s.databasePath||'';byId('dcLogPath').value=s.logPath||'';byId('dcSysvolPath').value=s.sysvolPath||'';
+    var roles=byId('dcRoles');roles.textContent='';var names=dcState.roles||{};
+    ['schema','naming','pdc','rid','infrastructure'].forEach(function(r){var owner=(old.roleOwners||{})[r]||'';var l=el('label','vm-check'),i=document.createElement('input'),t=el('span','',(names[r]||r)+(owner?' (now on '+owner.split('.')[0]+')':''));i.type='checkbox';i.setAttribute('data-dc-role',r);i.checked=vmArr(s.moveRoles).indexOf(r)>=0;l.appendChild(i);l.appendChild(t);roles.appendChild(l);});
+    byId('dcNtp').value=s.ntpServer||'';byId('dcForwarders').value=vmArr(s.forwarders).join(', ');
+    byId(s.ipMode==='repoint'?'dcIpRepoint':'dcIpTakeover').checked=true;
+    byId('dcSpareAddr').value=s.oldNewAddress||'';byId('dcSparePrefix').value=s.oldNewPrefix?String(s.oldNewPrefix):'';byId('dcSpareGw').value=s.oldNewGateway||'';
+    byId('dcRepoint').checked=!!s.repoint;byId('dcOldDead').checked=!!s.oldDead;
+    if(f.plan){byId('dcName').value=f.plan.name;byId('dcWave').value=String(f.plan.wave||0);}
+    else{byId('dcName').value=(old.name||'')+' to '+(tgt.name||'');byId('dcWave').value='0';}
+    dcTouched={};dcSuggestKeys.forEach(function(k){if(s.suggested&&s.suggested[k]===false){dcTouched[k]=true;}});
+  }
+  function dcSettingsFromForm(f){
+    var base=f.settings||{},roles=[];Array.prototype.forEach.call(document.querySelectorAll('[data-dc-role]'),function(i){if(i.checked){roles.push(i.getAttribute('data-dc-role'));}});
+    var sug={};dcSuggestKeys.forEach(function(k){sug[k]=!dcTouched[k];});
+    return {site:byId('dcSite').value,installDns:byId('dcInstallDns').checked,globalCatalog:byId('dcGc').checked,replicateFrom:byId('dcReplFrom').value,
+      databasePath:trimText(byId('dcDbPath').value),logPath:trimText(byId('dcLogPath').value),sysvolPath:trimText(byId('dcSysvolPath').value),moveRoles:roles,
+      ntpServer:trimText(byId('dcNtp').value),forwarders:byId('dcForwarders').value.split(/[,;\s]+/).map(trimText).filter(function(x){return x;}),
+      ipMode:byId('dcIpRepoint').checked?'repoint':'takeover',oldNewAddress:trimText(byId('dcSpareAddr').value),oldNewPrefix:parseInt(byId('dcSparePrefix').value,10)||0,oldNewGateway:trimText(byId('dcSpareGw').value),
+      repoint:byId('dcRepoint').checked,oldDead:byId('dcOldDead').checked,suggested:sug,why:base.why||{}};
+  }
+  function dcTags(f){
+    var why=(f&&f.settings&&f.settings.why)||{};
+    Array.prototype.forEach.call(document.querySelectorAll('[data-dc-tag]'),function(n){var k=n.getAttribute('data-dc-tag');n.className='hb-tag '+(dcTouched[k]?'hb-tag-mine':'hb-tag-sug');n.textContent=dcTouched[k]?'Set by you':'Suggested';n.title=dcTouched[k]?'':(why[k]||'');});
+    Array.prototype.forEach.call(document.querySelectorAll('[data-dc-why]'),function(n){var k=n.getAttribute('data-dc-why');n.textContent=dcTouched[k]?'':(why[k]||'');});
+    var take=byId('dcIpTakeover').checked,modes=(dcState&&dcState.ipModes)||{};
+    byId('dcIpNote').textContent=(take?modes.takeover:modes.repoint)||'';
+    ['dcSpareAddr','dcSparePrefix','dcSpareGw'].forEach(function(id){byId(id).disabled=!take||byId('dcOldDead').checked;});
+  }
+  var dcFieldKeys={dcSite:'site',dcReplFrom:'replicateFrom',dcInstallDns:'installDns',dcGc:'globalCatalog',dcDbPath:'paths',dcLogPath:'paths',dcSysvolPath:'paths',dcNtp:'ntpServer',dcForwarders:'forwarders',dcIpTakeover:'ipMode',dcIpRepoint:'ipMode',dcSpareAddr:'oldNewAddress',dcSparePrefix:'oldNewAddress',dcSpareGw:'oldNewAddress',dcRepoint:'repoint'};
+  byId('dcRest').addEventListener('input',function(e){var t=e.target,k=dcFieldKeys[t.id]||(t.getAttribute('data-dc-role')?'moveRoles':'');if(k){dcTouched[k]=true;}dcTags(dcFormSource());});
+  byId('dcRest').addEventListener('change',function(e){var t=e.target,k=dcFieldKeys[t.id]||(t.getAttribute('data-dc-role')?'moveRoles':'');if(k){dcTouched[k]=true;}dcTags(dcFormSource());});
+  function dcFindingRow(f,key){
+    var row=el('div','sq-finding'),sev=f.severity==='blocker'?'danger':(f.severity==='warning'?'warning':'');
+    row.appendChild(el('span','mp-chip'+(sev?' '+sev:''),f.severity==='blocker'?'Blocks':(f.severity==='warning'?'Review':'Note')));
+    var txt=el('div');txt.appendChild(errLine(f.message,'',key));if(f.action){txt.appendChild(el('div','vm-note',f.action));}row.appendChild(txt);return row;
+  }
+  function dcFacts(f){
+    var box=byId('dcFacts');box.textContent='';var o=f.old||{},t=f.tgt||{};
+    var roleNames=(dcState.roles||{}),held=vmArr(o.roles).map(function(r){return roleNames[r]||r;});
+    box.appendChild(el('div','',o.name+' ('+(o.os||'Windows')+') is a '+(o.readOnly?'read-only ':'')+'domain controller of '+o.domain+' in site '+o.site+(o.globalCatalog?', a global catalog':'')+(o.dnsServer?' and a DNS server':'')+'. Domain level '+o.domainMode+', forest level '+o.forestMode+', SYSVOL on '+(o.sysvol||'DFSR')+'.'));
+    box.appendChild(el('div','',held.length?'FSMO roles on it: '+held.join(', ')+'.':'It holds no FSMO roles.'));
+    var dcs=vmArr(o.dcs);box.appendChild(el('div','',dcs.length+' domain controller'+(dcs.length===1?'':'s')+' in the domain: '+dcs.map(function(d){return d.name+(d.site?' ('+d.site+')':'');}).join(', ')+'.'));
+    box.appendChild(el('div','',t.name+' ('+(t.os||'Windows')+') '+(t.isDC?'is already a domain controller of '+t.domain:(t.domainJoined?'is joined to '+t.domain:'is in a workgroup'))+', '+(Math.round((t.freeGB||0)*10)/10)+' GB free'+(t.pendingReboot?', waiting for a restart':'')+'.'));
+  }
+  function renderDc(){
+    if(!dcState){return;}
+    dcAuth();
+    var plans=vmArr(dcState.plans);setToolBadge('dcBadge',plans.length?String(plans.length):'');
+    if(dcState.reading){vmSetStatus('dcReadStatus',dcState.message||'Reading…',false);}else if(dcState.message&&!dcBusyNow){vmSetStatus('dcReadStatus',dcState.message,!!dcState.failed);}
+    if(dcEdit&&!dcFormPlan()){dcEdit='';}
+    var f=dcFormSource(),rest=byId('dcRest');rest.classList.toggle('hidden',!f);
+    byId('dcEditing').classList.toggle('hidden',!dcEdit);byId('dcNewTitle').textContent=dcEdit?'Change a domain controller plan':'New domain controller plan';
+    if(dcEdit){var ep=dcFormPlan();byId('dcEditingText').textContent='Changing '+ep.name+'. Read both servers again to bring the facts up to date.';}
+    byId('dcSave').textContent=dcEdit?'Save the changes':'Save the plan';
+    if(f){
+      var key=dcEdit?('edit|'+dcEdit):('new|'+(dcState.readFor||[]).join('|')+'|'+JSON.stringify(dcState.suggest&&dcState.suggest.why));
+      if(key!==dcFormKey){dcFormKey=key;dcFill(f);}
+      dcFacts(f);dcTags(f);
+      var joined=!!(f.tgt&&f.tgt.domainJoined);byId('dcJoin').classList.toggle('hidden',joined);byId('dcReviewTitle').textContent=(joined?'5':'6')+'. Review and save';
+      byId('dcJoinWhy').textContent=joined?'':(f.tgt?f.tgt.name:'The new server')+' is not joined to a domain. The build joins it with the Domain Admin account; it needs its own local Administrator account to accept that.';
+      var pv=dcEdit?vmArr(dcState.checks[dcEdit]):vmArr(dcState.preview),sig=JSON.stringify(pv);
+      if(sig!==dcPreviewSig){dcPreviewSig=sig;var box=byId('dcPreview');box.textContent='';pv.forEach(function(x,i){box.appendChild(dcFindingRow(x,'dcpv:'+i+x.code));});if(!pv.length){box.appendChild(el('div','vm-note','Nothing to fix before saving. The domain itself is checked when you start.'));}}
+    }
+    renderDcPlans(plans);
+    var logs=vmArr(dcState.logs).join('\n');if(logs!==dcLogSig){dcLogSig=logs;byId('dcLog').textContent=logs;}
+  }
+  byId('dcCancelEdit').addEventListener('click',function(){dcEdit='';dcFormKey='';renderDc();});
+  byId('dcSave').addEventListener('click',function(){
+    var f=dcFormSource();if(!f){return;}
+    var wave=parseInt(byId('dcWave').value,10)||0,body=dcUserBody();
+    body.id=dcEdit;body.name=trimText(byId('dcName').value);body.source=f.plan?f.plan.source:trimText(byId('dcSrc').value)||(dcState.readFor||[])[0];body.target=f.plan?f.plan.target:trimText(byId('dcDst').value)||(dcState.readFor||[])[1];
+    if(!body.user&&dcState.user){body.user=dcState.user;}
+    body.wave=wave;body.settings=dcSettingsFromForm(f);
+    var ju=trimText(byId('dcJoinUser').value),jp=byId('dcJoinPass').value;byId('dcJoinPass').value='';if(ju){body.joinUser=ju;}if(jp){body.joinPassword=jp;}
+    dcPost('save',body,'dcSaveStatus',function(err,data){if(err){return;}dcEdit='';dcFormKey='';vmSetStatus('dcSaveStatus','Saved '+(data.plan&&data.plan.name||'the plan')+'. Check the domain, then build.',false);});
+  });
+  function dcPhaseDone(p,phase){return vmArr((dcState.phaseSteps||{})[phase]).every(function(s){var st=(p.steps||{})[s];return st&&(st.state==='done'||st.state==='skipped');});}
+  function dcNextPhase(p){var order=['build','cutover','retire'];for(var i=0;i<order.length;i++){if(!dcPhaseDone(p,order[i])){return order[i];}}return '';}
+  function dcPlanPasswords(p,next){
+    var need=[];
+    if(p.user&&dcState.user!==p.user){need.push(['password','Password for '+p.user]);}
+    if(!dcPhaseDone(p,'build')&&!dcState.hasDsrm){need.push(['dsrm','Directory Services Restore Mode password for the new DC']);}
+    if(next==='retire'&&!p.settings.oldDead&&!dcState.hasLocal){need.push(['localAdmin','New local Administrator password for the old server (after demotion)']);}
+    return need;
+  }
+  function renderDcPlans(plans){
+    var sig=JSON.stringify([plans,dcState.running,dcState.ready,dcState.checks,dcState.rollback,dcState.user,dcState.hasDsrm,dcState.hasLocal,dcState.hasNewLocal,cfmStyle()]);if(sig===dcPlansSig){return;}dcPlansSig=sig;
+    var box=byId('dcPlans');box.textContent='';
+    if(!plans.length){return;}
+    plans.forEach(function(p){
+      var running=(dcState.running||{})[p.id]||'',next=dcNextPhase(p),card=el('section','migrate-card sq-plan dc-plan');card.setAttribute('data-dc-plan',p.id);
+      var head=el('div','sq-plan-head');head.appendChild(el('strong','',p.name));head.appendChild(el('span','vm-note',' '+p.source+' to '+p.target+'. Wave '+(p.wave||0)+'.'+(p.schedule&&mpTime(p.schedule.at)?' '+(dcState.phases||{})[p.schedule.phase]+' is scheduled for '+mpTime(p.schedule.at)+'.':'')));card.appendChild(head);
+      var phases=el('div','dc-phases');
+      ['build','cutover','retire'].forEach(function(ph){
+        var row=el('div','dc-phase'+(ph===next?' current':'')+(dcPhaseDone(p,ph)?' done':''));row.appendChild(el('strong','',(dcState.phases||{})[ph]||ph));
+        var list=el('div','dc-steps');vmArr((dcState.phaseSteps||{})[ph]).forEach(function(s){var st=(p.steps||{})[s]||{state:'pending'},cls={done:' good',failed:' danger',running:' warning'}[st.state]||'';var item=el('div','dc-step');item.appendChild(el('span','mp-chip'+cls,dcStepStateText[st.state]||st.state));item.appendChild(el('span','',(dcState.steps||{})[s]||s));if(st.message){item.appendChild(errLine(st.message,st.state==='failed'?'mp-err':'vm-note','dcstep:'+p.id+s));}list.appendChild(item);});
+        row.appendChild(list);phases.appendChild(row);
+      });
+      card.appendChild(phases);
+      var checks=vmArr((dcState.checks||{})[p.id]);
+      if(checks.length){var cd=keepOpen(el('details','dc-checks'),'dcchk:'+p.id,checks.some(function(c){return c.severity==='blocker';}));var nb=checks.filter(function(c){return c.severity==='blocker';}).length;cd.appendChild(el('summary','',nb?nb+' thing'+(nb===1?'':'s')+' to fix before the next phase':checks.length+' note'+(checks.length===1?'':'s')+' from the checks'));checks.forEach(function(c,i){cd.appendChild(dcFindingRow(c,'dcchk:'+p.id+i));});card.appendChild(cd);}
+      var health=vmArr(p.health);if(health.length){var hl=el('div','vm-note dc-health');hl.textContent='Domain checked '+mpTime(health[0].checkedAt)+': '+health.map(function(h){return h.dc.split('.')[0]+(h.error?' (could not be reached)':(vmArr(h.findings).some(function(x){return x.severity==='blocker';})?' (problems)':' (healthy)'));}).join(', ')+'.';card.appendChild(hl);}
+      var ready=(dcState.ready||{})[p.id];if(ready&&!running){card.appendChild(el('div','restore-alert warning',ready));}
+      var need=next?dcPlanPasswords(p,next):[];
+      if(need.length){var pw=el('div','mp-three dc-passwords');need.forEach(function(n){var l=el('label','vm-field',n[1]),i=document.createElement('input');i.type='password';i.autocomplete='new-password';i.maxLength=256;i.setAttribute('data-dc-pass',n[0]);l.appendChild(i);pw.appendChild(l);});card.appendChild(pw);}
+      var acts=el('div','mp-row-actions');
+      var btn=function(text,act,cls,off,extra){var b=el('button',cls||'secondary-button',text);b.type='button';b.setAttribute('data-dc-act',act);b.setAttribute('data-dc-for',p.id);if(extra){b.setAttribute('data-dc-phase',extra);}b.disabled=!!off;if(off&&off!==true){b.title=off;}acts.appendChild(b);return b;};
+      var busy=running?'A step is running.':'';
+      btn('Check the domain','check','',busy);
+      [['build','Build the new DC'],['cutover','Move the roles'],['retire','Retire the old DC']].forEach(function(x){btn(x[1],'run',x[0]===next?'primary-button':'secondary-button',busy||(x[0]!==next?(dcPhaseDone(p,x[0])?'Done.':'Waits for the earlier phase.'):''),x[0]);});
+      btn('Stop','stop','secondary-button danger-button',running?'':'Nothing is running.');
+      card.appendChild(acts);
+      var why=el('div','migrate-inline-status sq-why');why.id='dcPlanStatus_'+p.id;why.setAttribute('role','status');card.appendChild(why);
+      var sched=el('div','vm-move-actions dc-schedule');
+      var sel=document.createElement('select');sel.id='dcSchedPhase_'+p.id;sel.setAttribute('aria-label','Phase to schedule');[['cutover','Move the roles'],['retire','Retire the old DC']].forEach(function(x){var o=document.createElement('option');o.value=x[0];o.textContent=x[1];sel.appendChild(o);});if(next==='retire'){sel.value='retire';}
+      var at=document.createElement('input');at.type='datetime-local';at.id='dcSchedAt_'+p.id;at.setAttribute('aria-label','When');
+      sched.appendChild(sel);sched.appendChild(at);
+      var sb=el('button','secondary-button','Schedule');sb.type='button';sb.setAttribute('data-dc-act','schedule');sb.setAttribute('data-dc-for',p.id);sb.disabled=!!running||!next||next==='build';sched.appendChild(sb);
+      var cb=el('button','secondary-button','Clear schedule');cb.type='button';cb.setAttribute('data-dc-act','unschedule');cb.setAttribute('data-dc-for',p.id);cb.disabled=!p.schedule;sched.appendChild(cb);
+      card.appendChild(sched);
+      var rbWhy=(dcState.rollback||{})[p.id],rb=el('div','vm-move-actions dc-rollback');
+      var rbt=el('label','vm-check'),rbi=document.createElement('input');rbi.type='checkbox';rbi.id='dcRbNew_'+p.id;rbt.appendChild(rbi);rbt.appendChild(el('span','','Also demote the new DC'));rb.appendChild(rbt);
+      var rl=el('label','vm-field dc-rb-pass','Its new local Administrator password'),rp=document.createElement('input');rp.type='password';rp.autocomplete='new-password';rp.maxLength=256;rp.id='dcRbPass_'+p.id;rl.appendChild(rp);rb.appendChild(rl);
+      var rbb=el('button','secondary-button danger-button','Roll back…');rbb.type='button';rbb.setAttribute('data-dc-act','rollback');rbb.setAttribute('data-dc-for',p.id);rbb.disabled=!!running||!!rbWhy;if(rbWhy){rbb.title=rbWhy;}rb.appendChild(rbb);
+      rbi.disabled=rp.disabled=rbb.disabled;
+      card.appendChild(rb);
+      if(rbWhy){card.appendChild(el('div','vm-note',rbWhy));}
+      var guide=vmArr((dcState.guide||{})[p.id]);if(guide.length&&rbWhy){var gd=keepOpen(el('details','dc-guide'),'dcguide:'+p.id);gd.appendChild(el('summary','','How to go back after the old DC is retired'));var ol=el('ol','');guide.forEach(function(g){ol.appendChild(el('li','',g));});gd.appendChild(ol);card.appendChild(gd);}
+      if(p.note){card.appendChild(errLine(p.note,'vm-note','dcnote:'+p.id));}
+      var links=el('div','mp-row-actions');
+      var ed=el('button','link-button','Change settings');ed.type='button';ed.setAttribute('data-dc-act','edit');ed.setAttribute('data-dc-for',p.id);ed.disabled=!!running;links.appendChild(ed);
+      var del=el('button','link-button','Delete this plan…');del.type='button';del.setAttribute('data-dc-act','delete');del.setAttribute('data-dc-for',p.id);del.disabled=!!running;links.appendChild(del);
+      card.appendChild(links);
+      box.appendChild(card);
+    });
+  }
+  // Passwords typed on a plan go to the server first (kept in memory there),
+  // so they never travel with a confirmation.
+  function dcSendPasswords(p,status,then){
+    var card=document.querySelector('[data-dc-plan="'+p.id+'"]'),body={user:p.user},any=false;
+    if(card){Array.prototype.forEach.call(card.querySelectorAll('[data-dc-pass]'),function(i){if(i.value){body[i.getAttribute('data-dc-pass')]=i.value;any=true;}i.value='';});}
+    if(!any){then();return;}
+    dcPost('account',body,status,function(err){if(!err){then();}});
+  }
+  var dcPhaseWarn={build:'The new server may be joined to the domain and restarts once when it is promoted. Nothing changes on the old DC.',cutover:'The FSMO roles move to the new DC, the new PDC emulator takes its time from the source chosen, and DHCP and the other DCs are pointed at the new DC if chosen. Roll back puts all of it back.',retire:'The old DC is demoted and restarts as a member server (or, when it is dead, its records are removed from the directory). After this, Roll back is no longer one click.'};
+  byId('dcPlans').addEventListener('click',function(e){
+    var b=e.target.closest('button');if(!b||b.disabled){return;}
+    var act=b.getAttribute('data-dc-act'),id=b.getAttribute('data-dc-for'),p=dcPlanById(id),st='dcPlanStatus_'+id;if(!act||!p){return;}
+    if(act==='edit'){dcEdit=id;dcFormKey='';byId('dcSrc').value=p.source;byId('dcDst').value=p.target;renderDc();byId('dcNewCard').scrollIntoView({block:'start'});return;}
+    if(act==='check'){dcSendPasswords(p,st,function(){dcPost('check',{id:id},st);});return;}
+    if(act==='stop'){dcPost('stop',{id:id},st);return;}
+    if(act==='unschedule'){dcPost('schedule',{id:id,phase:'',at:''},st);return;}
+    if(act==='run'){
+      var ph=b.getAttribute('data-dc-phase'),steps=vmArr((dcState.phaseSteps||{})[ph]).filter(function(s){var x=(p.steps||{})[s];return !x||x.state!=='skipped'&&x.state!=='done';}).map(function(s){return (dcState.steps||{})[s]||s;});
+      dcSendPasswords(p,st,function(){openMigrateDialog({title:((dcState.phases||{})[ph]||ph)+': '+p.name+'?',paragraphs:[dcPhaseWarn[ph],'The domain is checked first; any problem stops the phase before it changes anything.'],list:steps,label:'Plan name',expected:p.name,understand:'I understand: '+dcPhaseWarn[ph],button:{build:'Build',cutover:'Move the roles',retire:'Retire'}[ph],path:'/api/dc/run',body:{id:id,phase:ph},field:'confirm',after:dcLoad});});
+      return;
+    }
+    if(act==='schedule'){
+      var phase=byId('dcSchedPhase_'+id).value,when=byId('dcSchedAt_'+id).value;if(!when){vmSetStatus(st,'Choose the date and time.',true);return;}
+      dcSendPasswords(p,st,function(){openMigrateDialog({title:'Schedule '+((dcState.phases||{})[phase]||phase).toLowerCase()+'?',paragraphs:[dcPhaseWarn[phase],'It starts at '+when.replace('T',' ')+' while this application is open on this computer. If it cannot start then, it is cancelled with a note, never run late.'],label:'Plan name',expected:p.name,understand:'I understand: '+dcPhaseWarn[phase],button:'Schedule',path:'/api/dc/schedule',body:{id:id,phase:phase,at:when},field:'confirm',after:dcLoad});});
+      return;
+    }
+    if(act==='rollback'){
+      var removeNew=byId('dcRbNew_'+id).checked,pass=byId('dcRbPass_'+id).value;byId('dcRbPass_'+id).value='';
+      var list=['Changes put back: DHCP DNS servers, the other DCs\' DNS settings and the time source, as recorded.'];if(vmArr(p.rolesMoved).length){list.push('The FSMO roles go back to '+p.source+'.');}if(removeNew){list.push(p.target+' is demoted and becomes a member server.');}
+      var open=function(){openMigrateDialog({title:'Roll back '+p.name+'?',paragraphs:['Everything this plan changed is put back while the old DC is still a domain controller.'+(removeNew?'':' The new DC stays a domain controller, which is harmless.')],list:list,label:'Plan name',expected:p.name,understand:'I understand the roles and settings go back to '+p.source,button:'Roll back',path:'/api/dc/rollback',body:{id:id,removeNew:removeNew},field:'confirm',after:dcLoad});};
+      if(removeNew&&pass){dcPost('account',{user:p.user,newLocal:pass},st,function(err){if(!err){open();}});}else{open();}
+      return;
+    }
+    if(act==='delete'){openMigrateDialog({title:'Delete '+p.name+'?',paragraphs:['The plan record is removed from this computer. Nothing changes on either server.'],label:'Plan name',expected:p.name,understand:'I understand only the plan record is removed',button:'Delete',path:'/api/dc/delete',body:{id:id},field:'confirm',after:dcLoad});}
+  });
+  // New migration's steps for a domain controller.
+  function gdDcPlans(){return vmArr(dcState&&dcState.plans);}
+  function gdDcReadCheck(){if(!dcState){return gdInfo('Open Move a domain controller to read the servers.');}if(dcState.reading){return gdInfo(dcState.message||'Reading.');}var ps=gdDcPlans();if(ps.length){return gdOk(ps.length+' plan'+(ps.length===1?'':'s')+' saved.');}if(dcState.readOld){return gdOk('Read '+dcState.readOld.name+'. Save the plan.');}return gdInfo('Not read yet.');}
+  function gdDcHealthCheck(){var ps=gdDcPlans();if(!ps.length){return gdInfo('Save a plan first.');}var p=ps[0],h=vmArr(p.health);if(!h.length){return gdInfo('Not checked yet.');}var bad=h.filter(function(x){return x.error||vmArr(x.findings).some(function(f){return f.severity==='blocker';});});return bad.length?gdWarn(bad.length+' DC'+(bad.length===1?'':'s')+' need attention.'):gdOk('Every DC passed at '+mpTime(h[0].checkedAt)+'.');}
+  function gdDcPhaseCheck(ph){return function(){var ps=gdDcPlans();if(!ps.length){return gdInfo('Save a plan first.');}var p=ps[0];if(dcPhaseDone(p,ph)){return gdOk('Done for '+p.name+'.');}if((dcState.running||{})[p.id]){return gdInfo('Running.');}return gdInfo('Not done yet.');};}
+  setInterval(function(){if(activeTab==='dcmove'?Date.now()-dcLastPoll>=3000:(dcState&&vmArr(dcState.plans).length&&Date.now()-dcLastPoll>=30000)){dcLoad();}},1500);
   setInterval(function(){if(activeTab==='sqlmove'?Date.now()-sqLastPoll>=3000:(sqState&&vmArr(sqState.plans).length&&Date.now()-sqLastPoll>=30000)){sqLoad();}},1500);
   setInterval(function(){if(activeTab==='plans'?Date.now()-mpLastPoll>=3000:Date.now()-mpLastPoll>=30000){mpLoad();}},1500);
   setInterval(function(){if(activeTab==='replication'?Date.now()-rpLastPoll>=4500:Date.now()-rpLastPoll>=30000){rpRefresh();}},1500);

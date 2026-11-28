@@ -91,6 +91,8 @@ async function fixture(browser,old=false){
  const vm={inventory:null,plan:null,sizing:null,guest:null,compare:null};
  const rollbackCalls=[];
  const sqlCalls=[];
+ const dcCalls=[];
+ const dcFix=dcFixture();
  const sqlFix=sqlFixture();
  const failover={failovers:[],copies:[{name:'APP01-disk0.vhdx',size:107374182400,complete:true,verified:false,round:'a1@2026-11-25T14:19:23Z',job:'a1',recoveryPoint:'2026-11-25T14:19:23Z',updated:'2026-11-25T14:20:00Z',busy:false,generation:2,machine:{name:'APP01',cpus:6,memoryMB:12288,firmware:'uefi',adapters:2}},{name:'APP01-disk1.vhdx',size:536870912000,complete:true,verified:false,round:'a1@2026-11-25T14:19:23Z',job:'a1',recoveryPoint:'2026-11-25T14:19:23Z',updated:'2026-11-25T14:20:00Z',busy:false,generation:1},{name:'SQL01-disk0.vhdx',size:107374182400,complete:false,verified:false,updated:'2026-11-25T14:20:00Z',busy:true,generation:1}]};
  const targetTest={running:false,log:[],error:'',tests:[]};
@@ -343,6 +345,19 @@ async function fixture(browser,old=false){
     send(200,{ok:true});return;}
    send(200,{ok:true});return;
   }
+  if(url.pathname.startsWith('/api/dc/')){
+   if(req.headers['x-app-token']!=='workspace-test'){send(403,{});return;}
+   const action=url.pathname.slice(8);let body='';for await(const chunk of req)body+=chunk;const data=body?JSON.parse(body):{};dcCalls.push({action,body:data});
+   if(action==='state'){send(200,{ok:true,dc:dcFix});return;}
+   if(action==='account'){if(data.dsrm){dcFix.hasDsrm=true;}if(data.password){dcFix.user=data.user;}send(200,{ok:true});return;}
+   if(action==='read'){Object.assign(dcFix,dcReadFixture());dcFix.message='Read DC01 and DC03.';send(202,{ok:true});return;}
+   if(action==='save'){const p=dcPlanFixture('d2',data.name,data.source,data.target);p.settings=data.settings;p.wave=data.wave;dcFix.plans.push(p);send(200,{ok:true,plan:p,checks:[]});return;}
+   const p=dcFix.plans.find(x=>x.id===data.id);
+   if(['run','rollback','delete'].includes(action)&&(!p||data.confirm!==p.name)){send(400,{ok:false,error:'Confirm the plan\'s name.'});return;}
+   if(action==='run'){dcFix.running[p.id]=data.phase;p.steps.health={state:'running'};send(202,{ok:true});return;}
+   if(action==='delete'){dcFix.plans=dcFix.plans.filter(x=>x!==p);send(200,{ok:true});return;}
+   send(200,{ok:true});return;
+  }
   if(url.pathname.startsWith('/api/rollback/')){
    if(req.headers['x-app-token']!=='workspace-test'){send(403,{});return;}
    const action=url.pathname.slice('/api/rollback/'.length);
@@ -363,7 +378,7 @@ async function fixture(browser,old=false){
  const url='http://127.0.0.1:'+server.address().port+'/';
  // A fixture that fails to load closes its own server and context; otherwise Node never exits and the job hangs until its timeout.
  try{await page.goto(url);await page.waitForFunction(()=>document.querySelector('#serverName').textContent==='SRV-DEMO-01');}catch(e){await context.close().catch(()=>{});server.close();throw new Error('Fixture page did not load ('+errors.concat(dialogs).join('; ')+'): '+e.message);}
- return {serverMoveCalls,sqlCalls,sqlFix,consoleCalls,consoleStreams,consoleOpt,page,context,state,profiles,profileCalls,rollbackCalls,uiCalls,vddkCalls,channelCalls,productionCalls,pickCalls,outputRootCalls,rejectPick(message){pickReject=message},vm,repl,plans,planCalls,servers,serverCalls,failover,receiverPair,targetTest,replCalls,vmwareCalls,convertCalls,rejectConvert(action,message){convertReject[action]=message},setConvertSize(size){convertSize=size},rejectVmware(action,message){vmwareReject[action]=message},logs,dialogs,errors,started,skipRequests,opens,restoreCalls,migrateCalls,rejectMigrate(action,message){migrateReject[action]=message},rejectRestore(message){restoreReject=message},setRestoreScan(fn){restoreScanExtra=fn},get saved(){return saved},get saveCalls(){return saveCalls},reject(){rejectStart=true},async close(){assert.deepEqual(errors,[]);await context.close();await new Promise(r=>server.close(r));}};
+ return {serverMoveCalls,sqlCalls,sqlFix,dcCalls,dcFix,consoleCalls,consoleStreams,consoleOpt,page,context,state,profiles,profileCalls,rollbackCalls,uiCalls,vddkCalls,channelCalls,productionCalls,pickCalls,outputRootCalls,rejectPick(message){pickReject=message},vm,repl,plans,planCalls,servers,serverCalls,failover,receiverPair,targetTest,replCalls,vmwareCalls,convertCalls,rejectConvert(action,message){convertReject[action]=message},setConvertSize(size){convertSize=size},rejectVmware(action,message){vmwareReject[action]=message},logs,dialogs,errors,started,skipRequests,opens,restoreCalls,migrateCalls,rejectMigrate(action,message){migrateReject[action]=message},rejectRestore(message){restoreReject=message},setRestoreScan(fn){restoreScanExtra=fn},get saved(){return saved},get saveCalls(){return saveCalls},reject(){rejectStart=true},async close(){assert.deepEqual(errors,[]);await context.close();await new Promise(r=>server.close(r));}};
 }
 // Move SQL databases: a synthetic read of two servers and one plan.
 function sqlDbFixture(name,method,state){return {name,method,wave:0,state,facts:{name},nextTry:'0001-01-01T00:00:00Z',seeded:state==='ready'||state==='done'?'2026-11-28T08:00:00Z':'0001-01-01T00:00:00Z',lastRound:state==='ready'?'2026-11-28T09:45:00Z':'0001-01-01T00:00:00Z',cutoverAt:'0001-01-01T00:00:00Z',cutAt:state==='done'?'2026-11-28T09:00:00Z':'0001-01-01T00:00:00Z',testedAt:'0001-01-01T00:00:00Z',rolledBackAt:'0001-01-01T00:00:00Z'};}
@@ -379,6 +394,14 @@ function sqlReadView(){
   suggest:{backupPath:'\\\\OLDSQL\\E$\\Backup\\SIMM',backupWhy:'The old server\'s own backup folder through its administrative share.',dataPath:'D:\\Data',logPath:'L:\\Logs',pathWhy:'The new server\'s default data and log folders.',syncMinutes:15,syncWhy:'Every 15 minutes.',concurrency:2,aliasZone:'corp.example.com',objectsWhy:'Logins keep their SIDs and passwords.',disableJobs:true,disableJobWhy:'The old jobs are turned off at cutover.'},errors:{}};
 }
 function sqlFixture(){return {plans:[sqlPlanFixture('q1','Finance SQL',[sqlDbFixture('Payroll','logship','ready'),Object.assign(sqlDbFixture('Ledger','backup','failed'),{error:'The backup of Ledger failed: Operating system error 5 (Access is denied.) on \\\\OLDSQL\\E$\\Backup\\SIMM. Give the SQL Server service account write access to the folder and try again; nothing else was changed on either server.'})])],running:{},read:sqlReadView(),reading:false,message:'',failed:false,held:[],dnsUser:'',logs:['10:00:00  Finance SQL: shipped the log of Payroll (2 MB).'],ready:{},methods:{backup:'Backup and restore',logship:'Log shipping',dag:'Distributed availability group'},signedInAccount:'CORP\\admin',limits:{minSync:5,maxSync:1440}};}
+// Move a domain controller: a synthetic read of DC01 and DC03 and one plan half way.
+const dcNames={roles:{schema:'Schema master',naming:'Domain naming master',pdc:'PDC emulator',rid:'RID master',infrastructure:'Infrastructure master'},steps:{health:'Check the domain',join:'Join the domain',install:'Add AD DS',promote:'Promote',verify:'Check replication and SYSVOL',roles:'Move the FSMO roles',repoint:'Point DNS clients at the new DC',demote:'Demote the old DC',ipswap:'Move the old address'},phases:{build:'Build the new DC',cutover:'Move the roles',retire:'Retire the old DC',check:'Check the domain'},phaseSteps:{build:['health','join','install','promote','verify'],cutover:['health','roles','repoint'],retire:['health','demote','ipswap'],check:['health']},ipModes:{takeover:'Pick this when devices, printers or firewall rules have the old DC\'s IP address typed in.',repoint:'Pick this when the new DC is in another subnet, or you want both addresses to stay as they are.'}};
+function dcOldFixture(){return {name:'DC01',hostName:'dc01.corp.example.com',domain:'corp.example.com',netbios:'CORP',forest:'corp.example.com',domainMode:'Windows2016Domain',forestMode:'Windows2016Forest',site:'HQ',sites:['HQ','Branch'],os:'Windows Server 2016 Standard',osVersion:'10.0 (14393)',globalCatalog:true,readOnly:false,dnsServer:true,dhcpServer:false,roles:['pdc','rid','infrastructure'],roleOwners:{schema:'dc02.corp.example.com',naming:'dc02.corp.example.com',pdc:'dc01.corp.example.com',rid:'dc01.corp.example.com',infrastructure:'dc01.corp.example.com'},forwarders:['198.51.100.53'],zones:['corp.example.com'],addresses:[{interface:'Ethernet',index:4,address:'10.0.0.10',prefix:24,gateway:'10.0.0.1',dns:['10.0.0.11','127.0.0.1']}],ntpServer:'time.example.com,0x9',timeType:'NTP',sysvol:'DFSR',databasePath:'C:\\Windows\\NTDS',logPath:'C:\\Windows\\NTDS',sysvolPath:'C:\\Windows\\SYSVOL',dcs:[{name:'DC01',hostName:'dc01.corp.example.com',site:'HQ',address:'10.0.0.10',globalCatalog:true},{name:'DC02',hostName:'dc02.corp.example.com',site:'HQ',address:'10.0.0.11',globalCatalog:true}],dhcpServers:['dhcp01.corp.example.com'],otherRoles:[]};}
+function dcNewFixture(){return {name:'DC03',hostName:'dc03.corp.example.com',os:'Windows Server 2022 Standard',osVersion:'10.0 (20348)',domainJoined:true,domain:'corp.example.com',isDC:false,addsInstalled:false,dnsInstalled:false,pendingReboot:false,freeGB:88.4,addresses:[{interface:'Ethernet',index:6,address:'10.0.0.20',prefix:24,gateway:'10.0.0.1',dns:['10.0.0.10','10.0.0.11']}]};}
+function dcSettingsFixture(){return {site:'HQ',installDns:true,globalCatalog:true,replicateFrom:'dc01.corp.example.com',databasePath:'C:\\Windows\\NTDS',logPath:'C:\\Windows\\NTDS',sysvolPath:'C:\\Windows\\SYSVOL',moveRoles:['pdc','rid','infrastructure'],ntpServer:'time.example.com',forwarders:['198.51.100.53'],ipMode:'takeover',oldNewAddress:'',oldNewPrefix:24,oldNewGateway:'10.0.0.1',repoint:true,oldDead:false,suggested:{site:true,installDns:true,globalCatalog:true,replicateFrom:true,paths:true,moveRoles:true,ntpServer:true,forwarders:true,ipMode:true,oldNewAddress:true,repoint:true},why:{site:'The old DC is in site HQ, so the new one serves the same clients.',installDns:'The old DC is a DNS server.',globalCatalog:'The old DC is a global catalog.',replicateFrom:'The first copy of the directory comes from the old DC, which has passed the checks.',paths:'The same folders as on the old DC.',moveRoles:'Every FSMO role the old DC holds moves to the new one before it is demoted.',ntpServer:'The old PDC emulator takes its time from time.example.com; the new PDC uses the same source.',forwarders:'The same DNS forwarders as the old DC.',ipMode:'Devices with the old DC\'s address typed in keep working.',oldNewAddress:'Type a free address in the old DC\'s subnet for the old server; the new DC takes 10.0.0.10.',repoint:'DHCP scopes and the other DCs are pointed at the new DC\'s address.'}};}
+function dcPlanFixture(id,name,source,target){const st=s=>({state:s,started:'0001-01-01T00:00:00Z',ended:'0001-01-01T00:00:00Z'});return {id,name,created:'2026-11-28T08:00:00Z',source:source||'DC01',target:target||'DC03',user:'CORP\\admin',old:dcOldFixture(),new:dcNewFixture(),settings:dcSettingsFixture(),steps:{health:st('done'),join:st('skipped'),install:st('done'),promote:st('done'),verify:st('done'),roles:st('pending'),repoint:st('pending'),demote:st('pending'),ipswap:st('pending')},health:[{dc:'dc01.corp.example.com',checkedAt:'2026-11-28T09:00:00Z',findings:[]},{dc:'dc02.corp.example.com',checkedAt:'2026-11-28T09:00:00Z',findings:[]}],wave:1,rolledBackAt:'0001-01-01T00:00:00Z'};}
+function dcReadFixture(){return {readOld:dcOldFixture(),readNew:dcNewFixture(),readFor:['DC01','DC03'],suggest:dcSettingsFixture(),preview:[{severity:'info',code:'dc-new-older',message:'Nothing blocks this plan.',action:''}]};}
+function dcFixture(){return Object.assign({plans:[dcPlanFixture('d1','HQ DC refresh')],running:{},ready:{},checks:{d1:[]},rollback:{d1:''},guide:{d1:[]},readOld:null,readNew:null,readFor:['',''],reading:false,message:'',failed:false,user:'CORP\\admin',joinUser:'',hasDsrm:true,hasLocal:false,hasNewLocal:false,signedInAccount:'CORP\\admin',logs:['09:00:00  HQ DC refresh: DC03 is a domain controller and replicates.'],suggest:null,preview:[]},dcNames);}
 // Tools live in two tabs: Discovery (Alt+1) and Migration and replication (Alt+5).
 const discoveryTools=['server','environment'];
 // apartControls finds controls pulled apart on wide windows: a tick box or
@@ -1663,6 +1686,11 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   assert.deepEqual(await methods(),['sqlmove']);assert.equal(await f.page.locator('#gdPlanTitle').textContent(),'Moving SQL Server databases to a new SQL Server: the steps, in order');
   assert((await f.page.locator('#gdSteps').textContent()).includes('Choose databases and how each moves'));
   await f.page.locator('#nwNext').click();await f.page.waitForTimeout(200);assert(await f.page.locator('#tabSql').isVisible(),'Continue in opens Move SQL databases');
+  // A domain controller: one way, its steps, and the hand-off opens Move a domain controller.
+  await goTool(f,'wizard');await f.page.locator('[data-nw-step="0"]').click();await f.page.locator('[data-nw-source="dcs"]').click();await f.page.locator('#nwNext').click();await f.page.locator('[data-nw-target="dcnew"]').click();await f.page.locator('#nwNext').click();
+  assert.deepEqual(await methods(),['dcmove']);assert.equal(await f.page.locator('#gdPlanTitle').textContent(),'Replacing a domain controller with a new one: the steps, in order');
+  {const t=await f.page.locator('#gdSteps').textContent();assert(t.includes('Check the domain')&&t.includes('Retire the old DC'),t);}
+  await f.page.locator('#nwNext').click();await f.page.waitForTimeout(200);assert(await f.page.locator('#tabDc').isVisible(),'Continue in opens Move a domain controller');
   // A Windows server's roles: live or from a package, each with its steps; Continue in opens Restore on that source.
   await goTool(f,'wizard');await f.page.locator('[data-nw-step="0"]').click();await f.page.locator('[data-nw-source="roles"]').click();await f.page.locator('#nwNext').click();await f.page.locator('[data-nw-target="winserver"]').click();await f.page.locator('#nwNext').click();
   assert.deepEqual(await methods(),['servermove','restorepkg']);assert.equal(await f.page.locator('#gdPlanTitle').textContent(),'Moving a Windows server\'s roles to a new server, live: the steps, in order');
@@ -3004,6 +3032,44 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   await f.page.waitForFunction(()=>/Cutting over/.test(document.querySelector('[data-sq-plan="q1"]').textContent));
   const cut=f.sqlCalls.find(c=>c.action==='action'&&c.body.action==='cutover');
   assert.deepEqual(cut.body.names,['Payroll']);assert.equal(cut.body.confirm,'1');
+  assert.deepEqual(f.errors,[]);
+ }finally{await f.close();}});
+ await check('Move a domain controller: both servers are read, every setting of the new DC is suggested with its reason, a changed one is marked Set by you, Save sends the settings, and a plan shows its phases with the next one confirmed by the plan name',async()=>{const f=await fixture(browser);try{
+  await goTool(f,'dcmove');await f.page.waitForSelector('[data-dc-plan="d1"]');
+  const plan=f.page.locator('[data-dc-plan="d1"]');
+  assert.match(await plan.textContent(),/DC01 to DC03/);
+  assert(await plan.locator('[data-dc-act="run"][data-dc-phase="build"]').isDisabled(),'build is done');
+  assert(!(await plan.locator('[data-dc-act="run"][data-dc-phase="cutover"]').isDisabled()),'moving the roles is next');
+  assert(await plan.locator('[data-dc-act="run"][data-dc-phase="retire"]').isDisabled(),'retire waits');
+  assert.equal(await plan.locator('[data-dc-pass]').count(),0,'no password is asked for: the account and DSRM are held');
+  await plan.locator('[data-dc-act="run"][data-dc-phase="cutover"]').click();
+  await f.page.locator('#migrateConfirmInput').fill('HQ DC refresh');await f.page.locator('#migrateConfirmButton').click();
+  await f.page.waitForFunction(()=>/Running/.test(document.querySelector('[data-dc-plan="d1"]').textContent));
+  const run=f.dcCalls.find(c=>c.action==='run');assert.equal(run.body.confirm,'HQ DC refresh');assert.equal(run.body.phase,'cutover');
+  assert(await plan.locator('[data-dc-act="stop"]').isEnabled(),'Stop is offered while a step runs');
+  // A new plan.
+  await f.page.locator('#dcSrc').fill('DC01');await f.page.locator('#dcDst').fill('DC03');
+  await f.page.locator('#dcRead').click();await f.page.waitForSelector('#dcRest:not(.hidden)');
+  assert.equal(await f.page.locator('#dcSite').inputValue(),'HQ');
+  assert.equal(await f.page.locator('#dcReplFrom').inputValue(),'dc01.corp.example.com');
+  assert(await f.page.locator('#dcInstallDns').isChecked()&&await f.page.locator('#dcGc').isChecked());
+  assert(await f.page.locator('[data-dc-role="pdc"]').isChecked()&&!(await f.page.locator('[data-dc-role="schema"]').isChecked()));
+  assert(await f.page.locator('#dcIpTakeover').isChecked());
+  assert.match(await f.page.locator('#dcIpNote').textContent(),/typed in/);
+  assert.match(await f.page.locator('[data-dc-tag="site"]').textContent(),/Suggested/);
+  assert.match(await f.page.locator('[data-dc-why="site"]').textContent(),/site HQ/);
+  assert.match(await f.page.locator('#dcFacts').textContent(),/FSMO roles on it: PDC emulator, RID master, Infrastructure master/);
+  assert(await f.page.locator('#dcJoin').isHidden(),'no join account for a domain-joined server');
+  await f.page.locator('#dcSite').selectOption('Branch');
+  assert.match(await f.page.locator('[data-dc-tag="site"]').textContent(),/Set by you/);
+  await f.page.locator('#dcSpareAddr').fill('10.0.0.250');
+  await f.page.locator('#dcSave').click();
+  await f.page.waitForFunction(()=>document.querySelectorAll('[data-dc-plan]').length===2);
+  const save=f.dcCalls.find(c=>c.action==='save');
+  assert.equal(save.body.settings.site,'Branch');assert.equal(save.body.settings.suggested.site,false);assert.equal(save.body.settings.suggested.installDns,true);
+  assert.equal(save.body.settings.oldNewAddress,'10.0.0.250');assert.deepEqual(save.body.settings.moveRoles,['pdc','rid','infrastructure']);
+  assert.equal(save.body.name,'DC01 to DC03');
+  for(const c of f.dcCalls){assert(!JSON.stringify(c.body).match(/"password":"[^"]/),'no password is sent with the current sign-in');}
   assert.deepEqual(f.errors,[]);
  }finally{await f.close();}});
  await check('Roll back: every cutover is listed with its window, the dialog turns the new VM off first, warns about lost data, asks for a vCenter sign-in when needed, a domain controller needs its own tick, and every other way of moving has its steps',async()=>{const f=await fixture(browser);try{

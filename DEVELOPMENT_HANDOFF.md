@@ -1,3 +1,9 @@
+## Unreleased: move a domain controller — 2026-11-28
+
+- Owner asked for a DC-specific build and migration feature: build a new DC from an existing one, promotion, FSMO transfer and demotion of the old one. Owner chose to offer both address options per plan (take over the old IP, the default, or keep the new address and repoint clients). Rule 76.
+- New tool **Move a domain controller** (`#tabDc`, ids `dc*`, Move servers group) and New migration source *A domain controller* (target *A new domain controller*, mode `dcmove`, guide flow `dcs`). Rules and runner in untagged `dcmig.go`/`dcmig_runner.go` (fake `dcHost` in `dcmig_test.go`), Windows side `dcmig_windows.go` (`/api/dc/`), engine `Invoke-DcMigration.ps1` (signed in `release.yml`). Demo backend `docs/demo/src/04-dc.js`.
+- Tests: `go test -run DC ./src/app`; `TestDCMigrationScriptReadsTheRunnerThroughRemoting` (Windows, WinRM to localhost: ReadNew of the runner, no secret in the output); workspace check "Move a domain controller" and New migration's guide check. Not field-validated: promotion, role transfer, DHCP repointing, demotion, metadata cleanup and the address swap on a real domain.
+
 ## Unreleased: move a server live from the old server to the new one — 2026-11-28
 
 - Owner said yes to the full IIS server-to-server move (phase 2 of the new-server restore). The Restore tab now has **Restore from: Another server, live**: it reads the old server over PowerShell remoting into a package there (migration bundle with a random passphrase kept in memory only, IIS configuration backup, website files), copies it to the new server with Robocopy (only changes on a second read), then checks and restores it inside the new server (or on this computer) with the usual restore steps. Cutover stops the old IIS sites; Start them again is the way back; Finish removes both packages.

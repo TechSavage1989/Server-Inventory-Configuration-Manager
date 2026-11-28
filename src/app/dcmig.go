@@ -962,3 +962,17 @@ func dcStepInput(p *dcPlan, step string) map[string]any {
 	}
 	return in
 }
+
+// dcPreviewChecks are the checks a new plan from this read would get,
+// before the domain is checked (so the "not checked yet" line is left out).
+func dcPreviewChecks(readFor [2]string, old *dcSourceInfo, tgt *dcTargetInfo, s dcSettings) []vmFinding {
+	p := &dcPlan{Name: "Preview", Source: readFor[0], Target: readFor[1], Old: old, New: tgt, Settings: s, Steps: map[string]dcStep{}}
+	out := []vmFinding{}
+	for _, f := range dcCheckPlan(p) {
+		if f.Code == "dc-health-pending" || f.Code == "dc-settings" {
+			continue
+		}
+		out = append(out, f)
+	}
+	return out
+}

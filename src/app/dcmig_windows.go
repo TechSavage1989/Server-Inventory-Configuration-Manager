@@ -346,6 +346,10 @@ type dcStateResponse struct {
 	Phases      map[string]string      `json:"phases"`
 	PhaseSteps  map[string][]string    `json:"phaseSteps"`
 	IPModes     map[string]string      `json:"ipModes"`
+	// Suggest and Preview are the settings and checks a new plan from the
+	// last read would get, so the page shows them before anything is saved.
+	Suggest *dcSettings `json:"suggest"`
+	Preview []vmFinding `json:"preview"`
 }
 
 func (a *application) dcState() dcStateResponse {
@@ -380,6 +384,11 @@ func (a *application) dcState() dcStateResponse {
 	a.dcmig.mu.Lock()
 	defer a.dcmig.mu.Unlock()
 	out.ReadOld, out.ReadNew, out.ReadFor, out.Reading, out.Message, out.Failed = a.dcmig.readOld, a.dcmig.readNew, a.dcmig.readFor, a.dcmig.reading, a.dcmig.message, a.dcmig.failed
+	if out.ReadOld != nil && out.ReadNew != nil {
+		sug := dcSuggest(dcSettings{}, out.ReadOld, out.ReadNew)
+		out.Suggest = &sug
+		out.Preview = dcPreviewChecks(out.ReadFor, out.ReadOld, out.ReadNew, sug)
+	}
 	sec := a.dcmig.secrets
 	if sec.Password != "" {
 		out.User = sec.User
