@@ -399,16 +399,26 @@ function Get-CertificateFacts {
         foreach ($certificate in @(Get-ChildItem -LiteralPath $path -ErrorAction SilentlyContinue)) {
             if (-not $certificate.HasPrivateKey) { continue }
             $thumb = ([string]$certificate.Thumbprint).ToUpperInvariant()
-            $exportable = $false
+            # Only a key known to forbid export is left out here; anything else is
+            # tried, and Export-PfxCertificate decides. CNG keys (what
+            # New-SelfSignedCertificate and most current templates make) answer
+            # PrivateKey with null, so null never means "not exportable".
+            $exportable = $true
             try {
-                $key = $certificate.PrivateKey
-                if ($key -and $key.CspKeyContainerInfo) { $exportable = [bool]$key.CspKeyContainerInfo.Exportable }
-                elseif ($key) { $exportable = $true }
+                $rsa = [System.Security.Cryptography.X509Certificates.RSACertificateExtensions]::GetRSAPrivateKey($certificate)
+                if ($rsa -is [System.Security.Cryptography.RSACng]) {
+                    $allow = [System.Security.Cryptography.CngExportPolicies]::AllowExport -bor [System.Security.Cryptography.CngExportPolicies]::AllowPlaintextExport
+                    $exportable = (([int]$rsa.Key.ExportPolicy) -band ([int]$allow)) -ne 0
+                }
+                elseif ($rsa -is [System.Security.Cryptography.RSACryptoServiceProvider]) { $exportable = [bool]$rsa.CspKeyContainerInfo.Exportable }
             }
             catch {
-                # CNG keys do not answer PrivateKey on .NET 4.0; Export-PfxCertificate
-                # decides below.
-                $exportable = $true
+                # .NET 4.0 has no GetRSAPrivateKey; CSP keys still answer PrivateKey.
+                try {
+                    $key = $certificate.PrivateKey
+                    if ($key -and $key.CspKeyContainerInfo) { $exportable = [bool]$key.CspKeyContainerInfo.Exportable }
+                }
+                catch { }
             }
             $list += [ordered]@{
                 thumbprint = $thumb; store = ('LocalMachine\' + $storeName); subject = [string]$certificate.Subject
