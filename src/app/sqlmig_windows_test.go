@@ -18,8 +18,13 @@ import (
 // ship the log, test, cut over (the old database is left restoring),
 // check the rows on the new server and roll back. The CI job sqlmig
 // installs LocalDB and sets SIMM_REQUIRE_LOCALDB so a missing LocalDB fails
-// there instead of skipping.
+// there instead of skipping. It runs only there: hosted runners already have
+// LocalDB, and its two minutes pushed the main Windows job's go test past
+// its ten-minute limit.
 func TestSQLMigrationOnLocalDB(t *testing.T) {
+	if os.Getenv("SIMM_REQUIRE_LOCALDB") == "" {
+		t.Skip("runs in the CI job sqlmig (set SIMM_REQUIRE_LOCALDB=1 to run it here)")
+	}
 	tool, err := exec.LookPath("SqlLocalDB.exe")
 	if err != nil {
 		for _, v := range []string{"170", "160", "150", "140", "130"} {
@@ -31,10 +36,7 @@ func TestSQLMigrationOnLocalDB(t *testing.T) {
 		}
 	}
 	if err != nil {
-		if os.Getenv("SIMM_REQUIRE_LOCALDB") != "" {
-			t.Fatal("SqlLocalDB.exe was not found")
-		}
-		t.Skip("SQL Server LocalDB is not installed")
+		t.Fatal("SqlLocalDB.exe was not found")
 	}
 	instances := []string{"SIMMSrc", "SIMMDst"}
 	for _, name := range instances {
