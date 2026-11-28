@@ -2413,6 +2413,8 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     {id:'sendbyhand',when:'you want a one-off copy of a running Windows computer without installing a service: run this application inside it and send.',tool:'diskcopy',card:true,name:'Send disks by hand',from:['server','vmware','hyperv'],to:['hyperv','scale','nutanix','proxmox','physical'],agent:'inguest',live:'live',fromText:'A running Windows computer, physical or virtual',note:'Run this application inside the source and send; send again for the changes. No service installed.'},
     {id:'convert',when:'the VM is shut down or exported and you have its disk files, or to copy this computer\'s own disks (P2V).',tool:'convert',card:true,name:'Convert disk images',flow:'image',from:['image','vmware','hyperv','server'],to:['hyperv','vsphere','scale','nutanix','proxmox'],agent:'agentless',live:'offline',fromText:'VMDK, VHD, VHDX, qcow2 or raw files from a VM that is shut down or exported, or this computer\'s own disks (P2V)',note:'Reads the files only. The source must not change while it is read.'},
     {id:'shares',when:'only the file shares, files and permissions move to a new file server, not the whole server. Run it on the new file server, or on any admin computer: the new server then copies straight from the old one through PowerShell remoting.',tool:'shares',card:true,name:'Move file shares',from:['shares'],to:['fileserver','fileremote'],agent:'agentless',live:'live',fromText:'Windows file server shares, files and permissions (Windows Server 2012 or later)',toText:'a new Windows file server (Windows Server 2012 or later): this computer or another server',note:'Copies while users keep working, again and again until cutover; the shares move at cutover. Nothing is installed on either server.'},
+    {id:'servermove',when:'a Windows server\'s roles move to a new Windows server you installed, with the old one still running: this computer reads the old server through PowerShell remoting, copies a package to the new one and restores it there, mapping addresses, drives and accounts. Read again to bring over changes before you stop the old sites.',tool:'restore',restoreFrom:'live',name:'Move a server live',from:['serverroles'],to:['winserver'],agent:'agentless',live:'live',fromText:'Windows Server 2012 or later reachable by WinRM: IIS sites, application pools, certificates with keys, website files, file shares, local users and groups, roles and features, DNS and DHCP settings',toText:'a new Windows Server of the same or a later version, this computer or another reached by WinRM',note:'Nothing is installed on either server. AD DS, AD CS, Hyper-V, failover clustering, WSUS, Remote Desktop Services and SQL Server move in their own ways; the check lists them.'},
+    {id:'restorepkg',when:'the old server cannot be reached from the new one, or you already have a collection package from it: prepare the package for a new server when collecting, then restore it on the new server.',tool:'restore',restoreFrom:'package',flow:'serverpkg',name:'Restore a package on a new server',from:['serverroles'],to:['winserver'],agent:'agentless',live:'offline',fromText:'a collection package made with Prepare this package for a new server',toText:'a new Windows Server, restored on that server',note:'The package is a copy taken at one moment: anything changed on the old server after it was collected is not in it.'},
     {id:'sqlmove',when:'databases move to a new SQL Server rather than the whole server: each database is copied while it stays in use (log shipping, or a distributed availability group when it is already in an availability group) or at cutover (backup and restore), with its logins, jobs and linked servers.',tool:'sqlmove',card:true,name:'Move SQL databases',from:['sqldbs'],to:['sqlserver'],agent:'agentless',live:'live',fromText:'SQL Server 2012 or later databases (any edition; distributed availability groups need SQL Server 2016 or later with an availability group)',toText:'a new SQL Server of the same or a later version',note:'Nothing is installed on either SQL Server: this computer connects to both with T-SQL and PowerShell remoting. The old databases stay as they were at cutover until you roll back or remove them.'}
   ];
   var toolSupport={
@@ -2426,7 +2428,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     guest:{works:'Windows Server 2008 R2 and later, and Windows clients, on any platform: from vCenter, PowerShell Direct, PowerShell remoting, or inside the machine as a fallback',tags:['agentless']},
     compare:{works:'Two inventories collected by this application',tags:['readonly']}
   };
-  var modeTargetNames={hyperv:'Hyper-V',scale:'Scale HyperCore',nutanix:'Nutanix AHV',proxmox:'Proxmox VE',physical:'a physical server',vsphere:'VMware ESXi or vCenter',fileserver:'a new Windows file server',fileremote:'another Windows file server',sqlserver:'a new SQL Server'};
+  var modeTargetNames={hyperv:'Hyper-V',scale:'Scale HyperCore',nutanix:'Nutanix AHV',proxmox:'Proxmox VE',physical:'a physical server',vsphere:'VMware ESXi or vCenter',fileserver:'a new Windows file server',fileremote:'another Windows file server',sqlserver:'a new SQL Server',winserver:'a new Windows server'};
   var modeTagNames={agentless:'Agentless',agent:'Agent on the source',inguest:'Run inside the source',live:'Live, source keeps running',offline:'Offline, source shut down',readonly:'Read only',hyperv:'Hyper-V only'};
   function modeList(names){if(names.length<2){return names.join('');}return names.slice(0,-1).join(', ')+' or '+names[names.length-1];}
   function modeWorksText(mode){return (mode.fromText||mode.from.join(', '))+' to '+(mode.toText||modeList(mode.to.map(function(t){return modeTargetNames[t]||t;})));}
@@ -2560,6 +2562,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   }
   function showTool(id){
     if(id==='guide'){id='wizard';}// Guided migration is now part of New migration.
+    if(id==='restore'){switchTab('restore');return;}// Restore is a top tab, not a tool.
     var t=tools[id];if(!t){return;}
     activeTool[t.tab]=id;
     if(activeTop!==t.tab){switchTab(t.tab);}else{showToolPane(id);}
@@ -3674,10 +3677,12 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     {id:'server',name:'A running server',detail:'Physical (P2V), or a VM on any platform. Windows or Linux. An agent copies it while it runs.'},
     {id:'image',name:'A disk image file',detail:'VMDK, VHD, VHDX, qcow2 or raw from a VM that is shut down or exported.'},
     {id:'shares',name:'File shares',detail:'Shares, files and permissions from an old Windows file server.'},
-    {id:'sqldbs',name:'SQL Server databases',detail:'Databases with their logins, jobs and linked servers, to a new SQL Server.'}];
-  var gdTargetNames={sqlserver:'A new SQL Server',hyperv:'Hyper-V',scale:'Scale Computing HyperCore',nutanix:'Nutanix AHV',proxmox:'Proxmox VE',physical:'A physical server',vsphere:'VMware ESXi or vCenter'};
-  var gdTargetDetail={sqlserver:'The databases are restored on a SQL Server you already installed.',hyperv:'VHDX disks and a new Hyper-V VM.',scale:'A new HyperCore VM.',nutanix:'A new AHV VM.',proxmox:'A new Proxmox VE VM.',physical:'Copied straight onto a server\'s own disks (V2P or P2P).',vsphere:'A new VM imported into vSphere.'};
-  var gdTargetsFor={vmware:['hyperv','scale','nutanix','proxmox','physical'],hyperv:['hyperv','scale','nutanix','proxmox','physical'],server:['hyperv','scale','nutanix','proxmox','physical'],image:['hyperv','vsphere','scale','nutanix','proxmox'],shares:[],sqldbs:['sqlserver']};
+    {id:'sqldbs',name:'SQL Server databases',detail:'Databases with their logins, jobs and linked servers, to a new SQL Server.'},
+    {id:'serverroles',name:'A Windows server\'s roles',detail:'IIS sites, certificates, file shares, local accounts and features, read live from the old server.'},
+    {id:'serverpkg',name:'A Windows server\'s roles',detail:'Restored from a collection package prepared for a new server.'}];
+  var gdTargetNames={sqlserver:'A new SQL Server',winserver:'A new Windows server',hyperv:'Hyper-V',scale:'Scale Computing HyperCore',nutanix:'Nutanix AHV',proxmox:'Proxmox VE',physical:'A physical server',vsphere:'VMware ESXi or vCenter'};
+  var gdTargetDetail={sqlserver:'The databases are restored on a SQL Server you already installed.',winserver:'The roles are restored on a Windows server you already installed.',hyperv:'VHDX disks and a new Hyper-V VM.',scale:'A new HyperCore VM.',nutanix:'A new AHV VM.',proxmox:'A new Proxmox VE VM.',physical:'Copied straight onto a server\'s own disks (V2P or P2P).',vsphere:'A new VM imported into vSphere.'};
+  var gdTargetsFor={vmware:['hyperv','scale','nutanix','proxmox','physical'],hyperv:['hyperv','scale','nutanix','proxmox','physical'],server:['hyperv','scale','nutanix','proxmox','physical'],image:['hyperv','vsphere','scale','nutanix','proxmox'],shares:[],sqldbs:['sqlserver'],serverroles:['winserver'],serverpkg:['winserver']};
   var gdWhereNames={admin:'Your admin computer',hvhost:'The new Hyper-V host',inside:'Inside the machine being moved',newinside:'Inside the new machine',console:'The new machine\'s console',platform:'The platform\'s own console',fileserver:'The new file server',adminfs:'Any admin computer (directs the move)',any:'Any computer with this application',source:'The server being moved',sqladmin:'Your admin computer (reaches both SQL Servers)'};
   var gdSource='',gdTarget='',gdFlowKey='',gdTicks={},gdStepsNow=[];
   function gdStore(key,value){try{if(value===undefined){return window.localStorage.getItem(key);}window.localStorage.setItem(key,value);}catch(e){}return null;}
@@ -3816,6 +3821,19 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
       S('Test','sqladmin','Test brings a copy of a database online on the new server under another name, so applications can be tried against it while the log keeps shipping. End test removes that copy only.',null,'sqlmove',{optional:true});
       S('Cut over','sqladmin','Cut over (now or at a time): users are disconnected from the old database, the last changes are copied and the database comes online on the new server; the old one stays as it was, ready for Roll back. Jobs are turned on and a DNS alias can move with the last database.',null,'sqlmove');
       S('Point applications at the new server','admin','Change connection strings that name the old server, unless they use the alias this plan moved.',null,null,{manual:true});
+    } else if(src==='serverroles'){
+      S('Install Windows on the new server','admin','Install Windows Server on the new server (the same version as the old one or later), give it its own name and address and join it to the domain. Nothing of this application is installed on either server; both need PowerShell remoting (WinRM), which Windows Server turns on by default.',null,null,{manual:true});
+      S('Read the old server and copy','admin','In Restore, Restore from: Another server, live. Type the old server, choose the new one (this server or another) and Read the old server and copy. It reads IIS, certificates, shares, accounts and features, copies a package and the website files to the new server and checks it. Reading changes nothing on the old server.',gdRolesReadCheck,'restore',{restoreFrom:'live'});
+      S('Choose what to restore and restore it','admin','Review the items, the Changes for this server (addresses, drives and account names already mapped to the new server) and type a password for any account that needs one, then Restore. The new server\'s current settings are saved first, so the restore can be undone.',gdRolesRestoreCheck,'restore',{restoreFrom:'live'});
+      S('Test the new server','admin','Browse the sites on the new server by its own name or a hosts file entry, open the shares and check the services. Read the old server and copy again as often as you like: only files changed since the last copy are sent.',null,null,{manual:true});
+      S('Stop the sites on the old server','admin','Stop the sites on the old server (confirm when asked) so nothing changes there after the last copy, then read and copy once more. Start them again is the way back.',gdRolesStopCheck,'restore',{restoreFrom:'live'});
+      S('Point DNS or the load balancer at the new server','admin','Change the DNS records, load balancer pools and firewall rules that name the old server or its address. Then Finish removes both copies of the package.',null,null,{manual:true});
+    } else if(src==='serverpkg'){
+      S('Collect the old server with Prepare this package for a new server','source','Run this application as administrator on the old server. In Discovery, This server, tick Prepare this package for a new server, type a passphrase (you need it to restore) and start the collection. The package then also holds certificates with their keys, IIS passwords, accounts and website files.',null,'server',{manual:true});
+      S('Install Windows on the new server','admin','Install Windows Server on the new server (the same version as the old one or later), give it its own name and address and copy this application and the package to it.',null,null,{manual:true});
+      S('Check the package on the new server','newinside','On the new server, run this application as administrator, open Restore and choose the package folder. Unlock the migration bundle with its passphrase.',gdRolesRestoreCheck,'restore',{restoreFrom:'package'});
+      S('Choose what to restore and restore it','newinside','Review the items, the Changes for this server and type a password for any account that needs one, then Restore. This server\'s current settings are saved first, so the restore can be undone.',gdRolesRestoreCheck,'restore',{restoreFrom:'package'});
+      S('Point DNS or the load balancer at the new server','admin','Stop the old server\'s sites or shut it down, then change DNS records, load balancer pools and firewall rules that name it.',null,null,{manual:true});
     } else if(src==='shares'&&tgt==='fileremote'){
       S('Choose the old and new servers','adminfs','Run this application on any admin computer (no administrator rights needed here). In Move file shares choose New server: Another server, type both names and the old server\'s administrator account. The new server copies straight from the old one through PowerShell remoting, so the files never pass through this computer and nothing is installed on either server.',gdSharesRemoteCheck,'shares');
       S('Choose shares and folders','adminfs','Every share is listed with its permissions; system shares start unticked. Choose where each one goes on the new server: Browse opens its drives through its administrative shares.',gdSharesCheck,'shares');
@@ -3837,6 +3855,8 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     if(src==='server'){return 'An agent on the server copies every disk from shadow copies (or LVM snapshots on Linux) to a receiver on the new machine, again and again, so the copy stays minutes behind. You test, then cut over at a time you choose.';}
     if(src==='image'){return 'Convert disk images reads the image (merging snapshots and differencing disks), converts it to '+T+'\'s format and can upload it and create the VM. The source file is only read.';}
     if(src==='sqldbs'){return 'Your admin computer reaches both SQL Servers with T-SQL (and PowerShell remoting for a different Windows account). The old server backs each database up to a share, the new one restores it and keeps applying log backups until cutover, or a distributed availability group keeps it in sync. Nothing is installed on either server.';}
+    if(src==='serverroles'){return 'Your admin computer reads the old server through PowerShell remoting, copies a package and the website files to the new server and restores it there, with addresses, drives and accounts mapped to the new server. The old server keeps running until you stop its sites. Nothing is installed on either server.';}
+    if(src==='serverpkg'){return 'The old server is collected with its migration bundle (protected by a passphrase), and the package is restored on the new server with addresses, drives and accounts mapped to it.';}
     if(tgt==='fileremote'){return 'Your admin computer directs the move: the new file server copies shares, files and permissions straight from the old one through PowerShell remoting while users keep working, then creates the shares at cutover. Files cross the network once and nothing is installed on either server.';}
     return 'The new file server copies shares, files and permissions from the old one while users keep working, then creates the shares at cutover.';
   }
@@ -3868,7 +3888,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
       try{gdTicks=JSON.parse(gdStore('simm.guide.ticks.'+gdFlowKey)||'{}')||{};}catch(e){gdTicks={};}
       gdStepsNow=gdSteps(gdSource,gdTarget);
       var srcName=gdSourceList.filter(function(o){return o.id===gdSource;})[0].name;
-      byId('gdPlanTitle').textContent=(gdSource==='sqldbs'?'Moving SQL Server databases to a new SQL Server':gdSource==='shares'?(gdTarget==='fileremote'?'Moving file shares between two other servers':'Moving file shares to a new file server'):'Moving '+srcName.replace(/^A /,'a ')+' to '+gdTargetNames[gdTarget])+': the steps, in order';
+      byId('gdPlanTitle').textContent=(gdSource==='sqldbs'?'Moving SQL Server databases to a new SQL Server':gdSource==='serverroles'?'Moving a Windows server\'s roles to a new server, live':gdSource==='serverpkg'?'Restoring a Windows server\'s roles on a new server from a package':gdSource==='shares'?(gdTarget==='fileremote'?'Moving file shares between two other servers':'Moving file shares to a new file server'):'Moving '+srcName.replace(/^A /,'a ')+' to '+gdTargetNames[gdTarget])+': the steps, in order';
       byId('gdHow').textContent=gdHow(gdSource,gdTarget);
       var comps=byId('gdComputers');comps.textContent='';comps.appendChild(el('span','gd-pick-title','Computers involved: '));
       gdComputers(gdStepsNow).forEach(function(w){var chip=el('span','gd-computer');chip.appendChild(el('b','',gdWhereNames[w]));comps.appendChild(chip);});
@@ -3943,10 +3963,28 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     }
     if(fix.kind==='tool'){box.appendChild(el('span','',fix.text||''));var t=el('button','primary-button',fix.label);t.type='button';t.addEventListener('click',function(){showTool(fix.tool);});box.appendChild(t);}
   }
-  function gdToolName(id){var item=document.querySelector('[data-tool="'+id+'"] .tool-name');return item?item.firstChild.textContent:id;}
+  function gdRolesReadCheck(){
+    var m=(latestState&&latestState.serverMove)||{};
+    if(m.status==='reading'||m.status==='copying'){return gdInfo(m.message||'Reading the old server.');}
+    if(m.read){return gdOk('Read from '+m.old+(m.readAt?' at '+m.readAt:'')+'.');}
+    return gdInfo('Not read yet.');
+  }
+  function gdRolesRestoreCheck(){
+    var r=(latestState&&latestState.restore)||{};
+    if(restoreIsRunning(r)){return gdInfo('Restoring now.');}
+    if(r.status==='succeeded'){return gdOk('Restored.');}
+    if(r.status==='failed'){return gdWarn('The last restore failed. Open Restore for the item that failed.');}
+    return gdInfo('Not restored yet.');
+  }
+  function gdRolesStopCheck(){
+    var m=(latestState&&latestState.serverMove)||{},n=(m.stoppedSites||[]).length;
+    return n?gdOk('Stopped on '+m.old+': '+m.stoppedSites.join(', ')+'.'):gdInfo('The old sites are still running.');
+  }
+  function gdToolName(id){if(id==='restore'){return 'Restore';}var item=document.querySelector('[data-tool="'+id+'"] .tool-name');return item?item.firstChild.textContent:id;}
   function gdOpen(step){
     if((gdSource==='vmware'||gdSource==='hyperv')&&tools[step.tool]&&tools[step.tool].pane==='tabVmware'&&gdTarget&&gdTarget!==vmTarget()&&!vmLocked()){changeVmTarget(gdTarget);byId('vmTargetSelect').value=gdTarget;}
     showTool(step.tool);
+    if(step.restoreFrom){openRestoreFrom(step.restoreFrom==='live');}
     if(step.preset==='source'){var sel=vmInventory&&vmArr(vmInventory.vms).filter(function(m){return m.id===vmSelectedVM;})[0];if(sel){vmGuestTargetFor(sel);}else{vmGuestPreset({mode:'winrm',vm:'',computer:'',host:'',user:''});}}
     else if(step.preset==='newvm'){var mv=latestState&&latestState.vmware&&latestState.vmware.move;vmGuestTargetNewVm(mv&&mv.vm||'');}
     else if(step.preset==='network'){vmGuestPreset({mode:'winrm',vm:'',computer:'',host:'',user:''});}
@@ -4849,6 +4887,15 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   function rlRunning(){var s=rlState().status;return rlBusyLocal||s==='reading'||s==='copying'||s==='sites'||s==='cleaning';}
   function restoreLiveChosen(){return byId('restoreFromLive').checked;}
   function rlNewHere(){return byId('rlNewHere').checked;}
+  // New migration and its steps open Restore on the chosen source. A check
+  // or restore in progress keeps what it is showing.
+  function openRestoreFrom(live){
+    var r=restoreState()||{};
+    if(restoreIsRunning(r)||r.status==='scanning'||rlRunning()||byId('restoreFromLive').disabled){return;}
+    restoreLiveTouched=true;setRestoreFrom(live);syncRlButtons();
+    var f=live?(trimText(byId('rlOld').value)?byId('rlRead'):byId('rlOld')):byId('restoreBrowse');
+    if(f&&!f.disabled&&f.focus){f.focus();}
+  }
   function setRestoreFrom(live){
     byId('restoreFromLive').checked=!!live;byId('restoreFromPackage').checked=!live;
     byId('restorePackageSource').classList.toggle('hidden',!!live);byId('restoreLive').classList.toggle('hidden',!live);
@@ -9171,7 +9218,8 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     {id:'servers',name:'Windows or Linux servers',detail:'Physical servers, or VMs on any other hypervisor, copied by an agent.'},
     {id:'shares',name:'File shares',detail:'Shares, files and permissions from an old file server.'},
     {id:'images',name:'Disk image files',detail:'VMDK, VHD(X), qcow2 or raw files of a VM that is shut down or exported.'},
-    {id:'sqldbs',name:'SQL Server databases',detail:'Databases, logins, jobs and linked servers to a new SQL Server, without moving the whole server.'}
+    {id:'sqldbs',name:'SQL Server databases',detail:'Databases, logins, jobs and linked servers to a new SQL Server, without moving the whole server.'},
+    {id:'roles',name:'A Windows server\'s roles',detail:'IIS sites, certificates, file shares, local accounts and features to a new Windows server you installed.'}
   ];
   var nwTargetInfo={
     here:{name:'This Hyper-V host',detail:'This computer, or its failover cluster. Copies, syncs and cutover all run here.'},
@@ -9182,10 +9230,11 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     physical:{name:'A physical server',detail:'The server boots receiver media and gets the copy (V2P).'},
     vsphere:{name:'VMware ESXi or vCenter',detail:'The converted disk is imported as a new VM.'},
     fileserver:{name:'This file server',detail:'The shares are recreated on the computer running this application. Run it there as administrator.'},
+    winserver:{name:'A new Windows server',detail:'A Windows server you installed: this computer or another reached by PowerShell remoting. Nothing is installed on either server.'},
     sqlserver:{name:'A new SQL Server',detail:'A SQL Server you installed. This computer reaches both servers; nothing is installed on either.'},
     fileremote:{name:'Another file server',detail:'Run from any admin computer: the new server copies straight from the old one through PowerShell remoting, so files never pass through this computer. Nothing is installed on either server.'}
   };
-  function nwTargetsFor(src){return {vms:['here','hvremote','scale','nutanix','proxmox','physical'],servers:['here','scale','nutanix','proxmox','physical'],shares:['fileserver','fileremote'],sqldbs:['sqlserver'],images:['here','vsphere','scale','nutanix','proxmox']}[src]||[];}
+  function nwTargetsFor(src){return {vms:['here','hvremote','scale','nutanix','proxmox','physical'],servers:['here','scale','nutanix','proxmox','physical'],shares:['fileserver','fileremote'],sqldbs:['sqlserver'],roles:['winserver'],images:['here','vsphere','scale','nutanix','proxmox']}[src]||[];}
   function nwMode(id){return migrationModes.filter(function(m){return m.id===id;})[0]||null;}
   function nwInvType(){return vmInventory?(vmInventory.serverType==='Hyper-V host'?'hyperv':'vmware'):'';}
   // The ways that fit, recommended first.
@@ -9199,6 +9248,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     if(s==='servers'){return ['replicate','sendbyhand'];}
     if(s==='shares'){return ['shares'];}
     if(s==='sqldbs'){return ['sqlmove'];}
+    if(s==='roles'){return ['servermove','restorepkg'];}
     if(s==='images'){return ['convert'];}
     return [];
   }
@@ -9207,7 +9257,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   // follows that flow's steps. Null when the way has no steps of its own.
   function nwGuideFlow(){
     var m=nwMode(nw.method);if(!m||!nw.source||!nw.target){return null;}
-    var src=m.flow||{vms:nwInvType()||'vmware',servers:'server',shares:'shares',images:'image',sqldbs:'sqldbs'}[nw.source];
+    var src=m.flow||{vms:nwInvType()||'vmware',servers:'server',shares:'shares',images:'image',sqldbs:'sqldbs',roles:'serverroles'}[nw.source];
     var tgt=src==='shares'?(nw.target==='fileremote'?'fileremote':'fileserver'):({here:'hyperv',hvremote:'hyperv'}[nw.target]||nw.target);
     if(!gdTargetsFor[src]||(src!=='shares'&&gdTargetsFor[src].indexOf(tgt)<0)){return null;}
     return {src:src,tgt:tgt};
@@ -10251,6 +10301,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     if(nw.source==='vms'&&(m.tool==='movevms')){var tgt={here:'hyperv',hvremote:'hyperv'}[nw.target]||nw.target;if(vmTargetList.some(function(x){return x.id===tgt;})&&vmTargetLocal!==tgt){changeVmTarget(tgt);}}
     if(m.tool==='shares'){var ms=migrateState()||{};if(!ms.source&&!ms.running){byId(nw.target==='fileremote'?'migrateTargetOther':'migrateTargetHere').checked=true;migrateWantRemote=nw.target==='fileremote';}}
     showTool(m.tool);
+    if(m.restoreFrom){openRestoreFrom(m.restoreFrom==='live');}
     if(m.tool==='shares'&&latestState){renderMigrate(latestState);(nw.target==='fileremote'&&!byId('migrateTarget').disabled?byId('migrateTarget'):byId('migrateSource')).focus();}
     if(nw.source==='vms'&&m.tool==='movevms'&&ids.length){vmObjTab['vm-move']='move';vmOpenDrawer({kind:'vm',id:ids[0]},{focus:true,reveal:true});}
   }

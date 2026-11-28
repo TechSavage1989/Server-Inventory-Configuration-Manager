@@ -1663,6 +1663,18 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   assert.deepEqual(await methods(),['sqlmove']);assert.equal(await f.page.locator('#gdPlanTitle').textContent(),'Moving SQL Server databases to a new SQL Server: the steps, in order');
   assert((await f.page.locator('#gdSteps').textContent()).includes('Choose databases and how each moves'));
   await f.page.locator('#nwNext').click();await f.page.waitForTimeout(200);assert(await f.page.locator('#tabSql').isVisible(),'Continue in opens Move SQL databases');
+  // A Windows server's roles: live or from a package, each with its steps; Continue in opens Restore on that source.
+  await goTool(f,'wizard');await f.page.locator('[data-nw-step="0"]').click();await f.page.locator('[data-nw-source="roles"]').click();await f.page.locator('#nwNext').click();await f.page.locator('[data-nw-target="winserver"]').click();await f.page.locator('#nwNext').click();
+  assert.deepEqual(await methods(),['servermove','restorepkg']);assert.equal(await f.page.locator('#gdPlanTitle').textContent(),'Moving a Windows server\'s roles to a new server, live: the steps, in order');
+  {const t=await f.page.locator('#gdSteps').textContent();assert(t.includes('Read the old server and copy')&&t.includes('Stop the sites on the old server'),t);}
+  assert.equal(await f.page.locator('#nwNext').textContent(),'Continue in Restore');
+  await f.page.locator('[data-nw-method="restorepkg"]').click();
+  {const t=await f.page.locator('#gdSteps').textContent();assert(t.includes('Prepare this package for a new server')&&t.includes('Check the package on the new server'),t);}
+  await f.page.locator('#nwNext').click();await f.page.waitForTimeout(200);
+  assert(await f.page.locator('#tabRestore').isVisible(),'Continue in opens Restore');assert(await f.page.locator('#restoreFromPackage').isChecked(),'a package is the source');
+  await goTool(f,'wizard');await f.page.locator('[data-nw-step="2"]').click();await f.page.locator('[data-nw-method="servermove"]').click();
+  {const step=f.page.locator('#gdSteps li.gd-step').filter({hasText:'Read the old server and copy'}).first();await step.locator('.gd-head').click();await step.locator('[data-gd-open]').click();}await f.page.waitForTimeout(200);
+  assert(await f.page.locator('#tabRestore').isVisible(),'the step opens Restore');assert(await f.page.locator('#restoreFromLive').isChecked(),'Another server, live is chosen');assert(await f.page.locator('#rlOld').isVisible());
   await goTool(f,'wizard');
   f.state.vmware.hyperVHere=false;
   await f.page.locator('[data-nw-step="0"]').click();await f.page.locator('[data-nw-source="images"]').click();await f.page.locator('#nwNext').click();await f.page.locator('[data-nw-target="here"]').click();await f.page.locator('#nwNext').click();
