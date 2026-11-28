@@ -259,7 +259,9 @@ function addFinding(vm,f){var r=(vm.readiness||[]).filter(function(x){return x.t
 /* ---------- Build Hyper-V hosts ---------- */
 var hbAct=null;
 on(/^\/api\/hvbuild\/([a-z]+)$/,function(q){var a=q.match[1],hb=V.hvBuild,d=q.data;
- if(a==='suggest'){return ok({plan:clone(D.hvBuildPlan)});}
+ if(a==='suggest'){if(d.existing){if(!hb.existing){return bad('Read the existing Hyper-V cluster or host first.');}return ok({plan:clone(D.hvBuildAdopted[hb.existing.kind])});}return ok({plan:clone(D.hvBuildPlan)});}
+ if(a==='readexisting'){if(V.running){return bad('Wait for '+V.action+' to finish.');}var kind=d.kind==='takein'?'takein':'join',names=String(d.name||'').split(/[\s,;]+/).filter(Boolean);if(!names.length){return bad('Type the name first.');}
+  begin('hvbuild','hvbuilding','Reading '+names.join(', ')+'.',[{at:2,msg:'Reading '+names[0]+'.',log:'Read '+names[0]+(kind==='join'?' and its cluster.':'.'),fn:function(){var r=clone(D.hvBuildExisting[kind]);r.names=names;r.at=iso();hb.existing=r;hb.serial++;}}],function(){hb.serial++;end('connected',kind==='join'?'Read cluster HVCLUS01 through HV01: 2 nodes, 2 Cluster Shared Volumes, 12 VMs.':'Read HV05: 2 switches, 3 host adapters, iSCSI storage.');});return J(202,{ok:true});}
  if(a==='save'){hb.plan=d.plan;hb.revision=D.hvBuildRevision;hb.steps=clone(D.hvBuildSteps);if(hb.saved.indexOf(d.plan.name)<0){hb.saved.push(d.plan.name);}hb.serial++;return ok({plan:d.plan});}
  if(a==='open'){hb.plan=clone(D.hvBuildPlan);hb.revision=D.hvBuildRevision;hb.steps=clone(D.hvBuildSteps);hb.serial++;return ok({plan:hb.plan});}
  if(a==='account'){hb.user=d.forget?'':d.user;hb.serial++;return ok();}
