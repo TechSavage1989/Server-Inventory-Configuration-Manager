@@ -9,7 +9,16 @@ param(
     # Reads one JSON line from standard input: {"passphrase":"..","passwords":{..}}.
     # The migration bundle's passphrase and the passwords typed under Changes
     # for this server never reach a command line, a file or the log.
-    [switch]$SecretsFromInput
+    [switch]$SecretsFromInput,
+    # A live move between servers (Invoke-ServerMoveRemote.ps1) runs this
+    # engine inside the new server as a script block: -Embedded returns the
+    # exit code instead of ending the session, lines (with the @@RESTORE@@
+    # events) go to -LogPath, which a second session follows, and
+    # -SecretsJson carries the same JSON line as standard input inside the
+    # encrypted remoting session, never on a command line or in a file.
+    [string]$LogPath,
+    [switch]$Embedded,
+    [string]$SecretsJson
 )
 
 # Restores configuration from a Server Inventory and Migration Manager package
@@ -32,6 +41,7 @@ try { [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false) } 
 
 function Write-Line {
     param([string]$Text)
+    if ($LogPath) { [System.IO.File]::AppendAllText($LogPath, $Text + "`r`n", (New-Object System.Text.UTF8Encoding($false))); return }
     [Console]::Out.WriteLine($Text)
     [Console]::Out.Flush()
 }
@@ -335,8 +345,9 @@ function Initialize-Bundle {
 }
 
 function Read-SecretInput {
-    if (-not $SecretsFromInput) { return }
-    $line = [Console]::In.ReadLine()
+    if ($SecretsJson) { $line = $SecretsJson }
+    elseif (-not $SecretsFromInput) { return }
+    else { $line = [Console]::In.ReadLine() }
     if (-not $line) { return }
     $value = $null
     try { $value = ConvertFrom-Json -InputObject $line } catch { throw 'The secrets passed to the restore engine could not be read.' }
@@ -1960,6 +1971,7 @@ function Invoke-RestorePlan {
 
 # ------------------------------------------------------------------- main ----
 
+$engineExit = 3
 try {
     Initialize-Package -Path $PackagePath
     $identity = Get-PackageIdentity
@@ -1992,12 +2004,14 @@ try {
         }
         if (-not $script:ManifestPresent) { foreach ($component in $result.components) { $component.available = $false; $component.blockedReason = $script:ManifestMessage; foreach ($item in $component.items) { $item.available = $false; $item.blockedReason = $script:ManifestMessage; $item.defaultSelected = $false } } }
         Write-Utf8File -Path $ResultPath -Text (ConvertTo-Json -InputObject $result -Depth 8)
-        exit 0
+        $engineExit = 0
     }
-    exit (Invoke-RestorePlan)
+    else { $engineExit = @(Invoke-RestorePlan)[-1] }
 }
 catch {
     Write-Log 'ERROR' $_.Exception.Message
     if ($Mode -eq 'Restore') { Write-RestoreEvent @{ event = 'done'; status = 'failed'; message = $_.Exception.Message } }
-    exit 3
+    $engineExit = 3
 }
+if ($Embedded) { return $engineExit }
+exit $engineExit

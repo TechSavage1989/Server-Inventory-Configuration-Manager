@@ -67,7 +67,7 @@ const (
 	lrLoadFromFile = 0x0010
 )
 
-//go:embed Export-ServerInventory.ps1 Run-Inventory.ps1 Restore-ServerConfiguration.ps1 Export-MigrationBundle.ps1 Migrate-FileShares.ps1 Invoke-ShareMigrationRemote.ps1 Migrate-VmGuest.ps1 Build-ReceiverMedia.ps1 index.html favicon.ico app-icon.png assets/icons/server-inventory.svg
+//go:embed Export-ServerInventory.ps1 Run-Inventory.ps1 Restore-ServerConfiguration.ps1 Export-MigrationBundle.ps1 Invoke-ServerMoveRemote.ps1 Migrate-FileShares.ps1 Invoke-ShareMigrationRemote.ps1 Migrate-VmGuest.ps1 Build-ReceiverMedia.ps1 index.html favicon.ico app-icon.png assets/icons/server-inventory.svg
 var embeddedPayloads embed.FS
 
 var (
@@ -187,6 +187,7 @@ type stateResponse struct {
 	LoadedReportName        string                 `json:"loadedReportName"`
 	LoadedReportSerial      uint64                 `json:"loadedReportSerial"`
 	Restore                 restoreStateResponse   `json:"restore"`
+	ServerMove              smStateResponse        `json:"serverMove"`
 	Migrate                 migrateStateResponse   `json:"migrate"`
 	VMware                  vmwareStateResponse    `json:"vmware"`
 	Convert                 convertStateResponse   `json:"convert"`
@@ -294,6 +295,7 @@ type application struct {
 	loadedReportName        string
 	loadedReportSerial      uint64
 	restore                 restoreRuntime
+	serverMove              smRuntime
 	migrate                 migrateRuntime
 	vmware                  vmwareRuntime
 	convert                 convertRuntime
@@ -1412,6 +1414,7 @@ func (a *application) snapshot(since int) stateResponse {
 		LoadedReportName:        a.loadedReportName,
 		LoadedReportSerial:      a.loadedReportSerial,
 		Restore:                 a.restoreSnapshotLocked(),
+		ServerMove:              a.serverMoveSnapshotLocked(),
 		Migrate:                 a.migrateSnapshotLocked(),
 		VMware:                  a.vmwareSnapshotLocked(),
 		Convert:                 a.convertSnapshotLocked(),
@@ -2458,6 +2461,9 @@ func (a *application) serve(listener net.Listener) error {
 	mux.HandleFunc("/api/restore/browse", a.handleRestoreBrowse)
 	mux.HandleFunc("/api/restore/scan", a.handleRestoreScan)
 	mux.HandleFunc("/api/restore/start", a.handleRestoreStart)
+	mux.HandleFunc("/api/servermove/read", a.handleServerMoveRead)
+	mux.HandleFunc("/api/servermove/sites", a.handleServerMoveSites)
+	mux.HandleFunc("/api/servermove/forget", a.handleServerMoveForget)
 	mux.HandleFunc("/api/restore/cancel", a.handleRestoreCancel)
 	mux.HandleFunc("/api/migrate/discover", a.handleMigrateDiscover)
 	mux.HandleFunc("/api/migrate/browse", a.handleMigrateBrowse)

@@ -83,6 +83,27 @@ tickers.push(function(){
  it.status='success';it.message='Restored and checked.';r.logs.push({text:stamp()+' [OK] '+it.title+': restored.'});rs.i++;rs.phase=0;
 });
 
+/* ---------- move a server live (Restore tab) ---------- */
+S.serverMove={status:'idle',logs:[]};
+on(/^\/api\/servermove\/(read|sites|forget)$/,function(q){
+ var a=q.match[1],m=S.serverMove,d=q.data||{};
+ if(a==='read'){
+  if(!d.old){return bad('Type the old server\'s name.');}
+  var target=d.newIsHere?X.COMPUTER:(d['new']||'');if(!target){return bad('Type the new server\'s name.');}
+  var short=String(d.old).split('.')[0].toUpperCase(),pkg=(d.newIsHere?'C:\\Users\\admin\\AppData\\Local\\Server Inventory Configuration Manager\\Server-Move\\':'C:\\ProgramData\\Server Inventory and Migration Manager\\Server-Move\\')+short+'_TO_'+String(target).split('.')[0].toUpperCase()+'\\Package\\'+short+'_ServerInventory_20261128_101500';
+  Object.assign(m,{status:'reading',step:'read',message:'Reading '+d.old+'.',old:d.old,'new':target,newIsHere:!!d.newIsHere,oldUser:d.oldUser||'',newUser:d.newUser||'',includeFiles:!!d.includeFiles,limitGB:d.limitGB||10,read:null,sites:[],stoppedSites:m.stoppedSites||[],logs:[{index:1,text:stamp()+' [INFO] Connecting to '+d.old+' through PowerShell remoting.'}]});
+  X.later(1500,function(){m.status='copying';m.message='Copying the package to '+target+'.';m.logs.push({index:2,text:stamp()+' [INFO] Saving the IIS configuration.'},{index:3,text:stamp()+' [INFO] Copying website files from D:\\Sites\\shop'});});
+  X.later(3200,function(){m.status='ready';m.step='check';m.message='Copied. Checking the package on '+target+'.';m.packagePath=pkg;m.readAt='2026-11-28 10:15:00';
+   m.read={features:14,localUsers:2,localGroups:1,shares:1,iisSites:2,siteNames:['Default Web Site','Shop'],certificatesInBundle:1,certificatesLeftOut:0,iisPasswords:2,webContentFolders:2,warnings:[],sizeBytes:162529280};m.sites=m.read.siteNames.slice();
+   m.logs.push({index:4,text:stamp()+' [INFO] The package is on '+target+'. Checking what can be restored there.'});
+   var r=S.restore;r.live=true;r.target=target;r.status='scanning';r.packagePath=pkg;r.scan=null;
+   X.later(1500,function(){var sc=restoreScan(pkg);sc.sourceComputer=short;sc.currentComputer=String(target).split('.')[0].toUpperCase();r.status='ready';r.message='Choose what to restore.';r.scan=sc;});});
+  return J(202,{ok:true});
+ }
+ if(a==='sites'){if(d.action==='stop'){m.stoppedSites=(m.sites||[]).slice();m.message='Stopped '+m.stoppedSites.length+' site(s) on '+m.old+'.';}else{m.message='Started '+(m.stoppedSites||[]).length+' site(s) on '+m.old+' again.';m.stoppedSites=[];}return J(202,{ok:true});}
+ if(a==='forget'){if((m.stoppedSites||[]).length){return J(409,{ok:false,error:'Sites this move stopped on '+m.old+' are still stopped. Start them again first.'});}S.serverMove={status:'idle',logs:[]};var r2=S.restore;if(r2.live){r2.live=false;r2.target='';r2.status='idle';r2.scan=null;r2.packagePath='';}return ok();}
+});
+
 /* ---------- move file shares ---------- */
 function migrateIdle(){return {running:false,action:'',status:'idle',message:'',source:'',discovery:null,plan:[],space:[],prechecked:false,canCopy:false,canCutover:false,dfs:null,alias:null,sourceReadOnly:false,aliasAdded:'',logs:[],workPath:'',cancelRequested:false,startedAtUnixMs:0,endedAtUnixMs:0,account:'',accessDenied:false,target:'',targetName:'',targetAccount:'',autoSyncMinutes:0,nextAutoSyncUnixMs:0,autoSyncWaiting:'',throttle:{limitMbps:0},throttleNowMbps:0};}
 S.migrate=migrateIdle();
