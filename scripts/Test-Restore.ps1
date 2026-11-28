@@ -297,6 +297,94 @@ $scan = Get-Content -LiteralPath $scanPath -Raw | ConvertFrom-Json
 $certificates = @($scan.components | Where-Object { $_.id -eq 'certificates' })[0]
 Assert (-not $certificates.available -and $certificates.items[0].blockedReason -match 'Already installed') 'Installed certificates are not offered again'
 
+# --- Migration bundle: restoring onto a new server ------------------------
+# Prepare this package for a new server adds 09-Migration-Bundle. Local
+# accounts, a share and a certificate with its private key are recorded,
+# removed, and re-created from the bundle; the passphrase states and the
+# secrets file are checked too.
+$bundleEngine = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\src\app\Export-MigrationBundle.ps1'))
+[Management.Automation.Language.Parser]::ParseFile($bundleEngine, [ref]$tokens, [ref]$errors) | Out-Null
+Assert ($errors.Count -eq 0) 'Bundle engine parses without errors'
+function Invoke-WithInput([string]$Script, [string[]]$Arguments, [string]$Line, [string]$Name) {
+    $log = Join-Path $OutputDirectory ($Name + '.log')
+    $Line | & $powerShell -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $Script @Arguments *> $log
+    $code = $LASTEXITCODE
+    Get-Content -LiteralPath $log | ForEach-Object { Write-Host ('  ' + $_) }
+    return @{ code = $code; log = (Get-Content -LiteralPath $log -Raw) }
+}
+$bundleUser = 'SICMBundleUser'; $bundleGroup = 'SICMBundleGroup'; $bundleShare = 'SICMBundleShare'
+$userPassword = 'Bndl-' + [Guid]::NewGuid().ToString('N').Substring(0, 16) + '!a1'
+Invoke-Checked net.exe @('user', $bundleUser, $userPassword, '/add', '/comment:Synthetic bundle user')
+Invoke-Checked net.exe @('localgroup', $bundleGroup, '/add')
+Invoke-Checked net.exe @('localgroup', $bundleGroup, $bundleUser, '/add')
+$shareFolder = Join-Path $work 'BundleShare'
+New-Item -ItemType Directory -Path $shareFolder -Force | Out-Null
+New-SmbShare -Name $bundleShare -Path $shareFolder -ReadAccess 'Everyone' -Description 'Synthetic bundle share' | Out-Null
+$keyCertificate = New-SelfSignedCertificate -Subject 'CN=SICM Bundle Test' -CertStoreLocation 'Cert:\LocalMachine\My' -NotAfter (Get-Date).AddDays(2) -KeyExportPolicy Exportable
+$keyThumbprint = $keyCertificate.Thumbprint
+Get-ChildItem -LiteralPath 'Cert:\LocalMachine\CA' | Where-Object { $_.Thumbprint -eq $keyThumbprint } | Remove-Item
+
+$passphrase = 'correct horse battery staple'
+$bundleResult = Join-Path $OutputDirectory 'bundle-result.json'
+$result = Invoke-WithInput $bundleEngine @('-PackagePath', $package, '-ResultPath', $bundleResult) ('{"passphrase":"' + $passphrase + '"}') 'bundle'
+$summary = Get-Content -LiteralPath $bundleResult -Raw | ConvertFrom-Json
+Assert ($result.code -eq 0 -and $summary.status -eq 'succeeded') ('Bundle written: ' + $summary.message)
+$bundleFolder = Join-Path $package '09-Migration-Bundle'
+foreach ($name in @('Bundle.json', 'Secrets.simmsec', 'Passphrase-Check.simmsec', 'Bundle-Manifest.csv', 'README.txt')) { Assert (Test-Path -LiteralPath (Join-Path $bundleFolder $name)) ('Bundle holds ' + $name) }
+$sealed = [IO.File]::ReadAllBytes((Join-Path $bundleFolder 'Secrets.simmsec'))
+Assert ([Text.Encoding]::ASCII.GetString($sealed, 0, 8) -eq 'SIMMSEC1') 'Secrets file is a sealed envelope'
+$sealedText = [Text.Encoding]::ASCII.GetString($sealed)
+Assert (-not $sealedText.Contains($passphrase) -and -not $sealedText.Contains('MII')) 'Secrets file holds neither the passphrase nor readable PFX data'
+$bundleText = Get-Content -LiteralPath (Join-Path $bundleFolder 'Bundle.json') -Raw
+Assert (-not $bundleText.Contains($passphrase) -and -not $bundleText.Contains($userPassword)) 'Bundle settings hold no passphrase or password'
+Assert (@(Get-ChildItem -LiteralPath $bundleFolder -Recurse -File -Include '*.pfx').Count -eq 0) 'No PFX file is left in the bundle'
+$bundleData = $bundleText | ConvertFrom-Json
+Assert (@($bundleData.certificates | Where-Object { $_.thumbprint -eq $keyThumbprint -and $_.inBundle }).Count -eq 1) 'The certificate with its private key is in the bundle'
+
+Invoke-Checked net.exe @('localgroup', $bundleGroup, '/delete')
+Invoke-Checked net.exe @('user', $bundleUser, '/delete')
+Remove-SmbShare -Name $bundleShare -Force
+Remove-Item -LiteralPath ('Cert:\LocalMachine\My\' + $keyThumbprint) -DeleteKey
+
+$result = Invoke-Engine @('-Mode', 'Scan', '-PackagePath', $package, '-ResultPath', $scanPath) 'bundle-scan-none'
+$scan = Get-Content -LiteralPath $scanPath -Raw | ConvertFrom-Json
+Assert ($scan.bundle.present -and $scan.bundle.passphrase -eq 'missing') 'Scan without the passphrase asks for it'
+$result = Invoke-WithInput $engine @('-Mode', 'Scan', '-PackagePath', $package, '-ResultPath', $scanPath, '-SecretsFromInput') '{"passphrase":"not the right one at all"}' 'bundle-scan-wrong'
+$scan = Get-Content -LiteralPath $scanPath -Raw | ConvertFrom-Json
+Assert ($scan.bundle.passphrase -eq 'wrong') 'A wrong passphrase is reported as wrong'
+$pfxItem = @(@($scan.components | Where-Object { $_.id -eq 'certificates' })[0].items | Where-Object { $_.id -eq ('certificates:pfx:' + $keyThumbprint) })[0]
+Assert ($pfxItem -and -not $pfxItem.available) 'The certificate with its key is not offered with a wrong passphrase'
+$secretLine = '{"passphrase":"' + $passphrase + '","passwords":{"account:' + ($computer + '\' + $bundleUser).ToLowerInvariant().Replace('\', '\\') + '":"' + $userPassword + '"}}'
+$result = Invoke-WithInput $engine @('-Mode', 'Scan', '-PackagePath', $package, '-ResultPath', $scanPath, '-SecretsFromInput') $secretLine 'bundle-scan-ok'
+$scan = Get-Content -LiteralPath $scanPath -Raw | ConvertFrom-Json
+Assert ($scan.bundle.passphrase -eq 'ok' -and $scan.bundle.usable) 'The right passphrase unlocks the bundle'
+$bundlePlan = @()
+foreach ($want in @(@{ id = 'accounts'; items = @(('accounts:user:' + $bundleUser), ('accounts:group:' + $bundleGroup)) }, @{ id = 'shares'; items = @('shares:' + $bundleShare) }, @{ id = 'certificates'; items = @('certificates:pfx:' + $keyThumbprint) })) {
+    $component = @($scan.components | Where-Object { $_.id -eq $want.id })[0]
+    foreach ($item in $want.items) {
+        $found = @($component.items | Where-Object { $_.id -eq $item })[0]
+        Assert ($found -and $found.available) ('Bundle scan offers ' + $item + ' ' + $(if ($found) { $found.blockedReason }))
+    }
+    $bundlePlan += $want
+}
+$planPath = Join-Path $OutputDirectory 'bundle-plan.json'
+ConvertTo-Json -InputObject @{ components = $bundlePlan } -Depth 5 | Set-Content -LiteralPath $planPath -Encoding UTF8
+$result = Invoke-WithInput $engine @('-Mode', 'Restore', '-PackagePath', $package, '-PlanPath', $planPath, '-RollbackPath', (Join-Path $OutputDirectory 'rollback-bundle'), '-CancelPath', $cancelPath, '-SecretsFromInput') $secretLine 'bundle-restore'
+Assert ($result.code -eq 0 -and $result.log -match '"event":"done","status":"succeeded"') 'Restore from the bundle succeeds'
+Assert (-not $result.log.Contains($userPassword) -and -not $result.log.Contains($passphrase)) 'The restore log holds no password or passphrase'
+$user = [ADSI]('WinNT://' + $computer + '/' + $bundleUser + ',user')
+Assert ([bool]$user.Name -and -not ([int]$user.UserFlags.Value -band 2)) 'Local user re-created and turned on (its password was typed)'
+Assert (((net.exe localgroup $bundleGroup) -join ' ') -match $bundleUser) 'Local group re-created with its member'
+$restoredShare = Get-SmbShare -Name $bundleShare -ErrorAction SilentlyContinue
+Assert ([bool]$restoredShare -and $restoredShare.Path -eq $shareFolder) 'Share re-created on its folder'
+Assert (@(Get-SmbShareAccess -Name $bundleShare | Where-Object { $_.AccountName -eq 'Everyone' -and $_.AccessRight -eq 'Read' -and $_.AccessControlType -eq 'Allow' }).Count -eq 1) 'Share permissions restored without the temporary deny'
+$restoredCert = Get-Item -LiteralPath ('Cert:\LocalMachine\My\' + $keyThumbprint) -ErrorAction SilentlyContinue
+Assert ([bool]$restoredCert -and $restoredCert.HasPrivateKey) 'Certificate restored with its private key'
+Invoke-Checked net.exe @('localgroup', $bundleGroup, '/delete')
+Invoke-Checked net.exe @('user', $bundleUser, '/delete')
+Remove-SmbShare -Name $bundleShare -Force
+Remove-Item -LiteralPath ('Cert:\LocalMachine\My\' + $keyThumbprint) -DeleteKey -ErrorAction SilentlyContinue
+
 # Clean up the runner state this script created.
 Remove-Item -LiteralPath ('Cert:\LocalMachine\CA\' + $thumbprint) -ErrorAction SilentlyContinue
 Remove-NetFirewallRule -DisplayName 'SICM Restore Test' -ErrorAction SilentlyContinue

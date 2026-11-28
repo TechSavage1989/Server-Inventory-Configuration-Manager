@@ -93,6 +93,21 @@ installs nothing on either server:
 | `WNetAddConnection2` to `\\<old server>\IPC$` with the typed account, removed when the run ends | New file server | Lets Robocopy read the old server's shares, because the admin computer's sign-in cannot be passed on (no CredSSP) |
 | Data files only in `%ProgramData%\Server Inventory and Migration Manager\File-Share-Migration\<old server>` (protected to SYSTEM and Administrators) and a per-run `Runs\<id>` folder that is removed | New file server | Copy logs, the saved old share permissions for Undo, and the run's engine text and result |
 
+### Prepare this package for a new server, and restoring it
+
+Collecting with **Prepare this package for a new server** runs one more signed
+script after the collector, and the Restore tab uses the same restore engine as
+before. Nothing is installed, no service or task is created, and nothing is
+sent anywhere:
+
+| Behaviour | Where | Why |
+| --- | --- | --- |
+| `powershell.exe -ExecutionPolicy RemoteSigned -File Export-MigrationBundle.ps1` (signed; the passphrase arrives as one JSON line on standard input) | Old server, as administrator | Writes the migration bundle into the package |
+| `Export-PfxCertificate` (or `X509Certificate2.Export`) for certificates in LocalMachine\My and WebHosting whose keys are exportable, each with a random password, to a folder protected to SYSTEM and Administrators that is deleted at once | Old server | Carries certificates with their private keys; the PFX bytes are kept only inside the passphrase-encrypted `Secrets.simmsec` |
+| Reads application pool, virtual directory and anonymous user passwords through `Microsoft.Web.Administration` (IIS's own API) | Old server | IIS keys never leave the server; the restore sets the passwords again through the same API, encrypted with the new server's keys |
+| `robocopy.exe /B` (backup mode) and `icacls /save` of the IIS website folders | Old server | Copies website files with their permissions into the package |
+| `Install-WindowsFeature`, ADSI `WinNT://` user and group creation, `New-SmbShare`, `Import-PfxCertificate`, `appcmd restore backup`, `netsh http add sslcert`, `robocopy.exe /B`, `icacls /restore` | New server, from the Restore tab as administrator | Re-creates what the operator ticked; each item's current state is saved to the rollback folder first |
+
 ### Prepare and fix up from outside the machine
 
 **Prepare and fix up** needs nothing installed in the machine being moved.
