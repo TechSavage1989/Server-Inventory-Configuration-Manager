@@ -824,10 +824,16 @@ var consoleSleep = func(ctx context.Context, d time.Duration) error {
 // Shift where a US keyboard needs it, at the pace consoleTypePaceFor gives.
 // Carriage returns are dropped so a pasted Windows line ending is one Enter.
 func consoleTypeKeys(ctx context.Context, backend consoleBackend, text string, delay time.Duration) error {
+	return consoleTypeKeysWith(ctx, backend, text, delay, consoleTypeMinGap)
+}
+
+// consoleTypeKeysWith is consoleTypeKeys with a console's own least gap
+// between characters.
+func consoleTypeKeysWith(ctx context.Context, backend consoleBackend, text string, delay, minGap time.Duration) error {
 	if !utf8.ValidString(text) {
 		return errors.New("the text is not valid UTF-8")
 	}
-	pace := consoleTypePaceFor(delay, consoleTypeMinGap)
+	pace := consoleTypePaceFor(delay, minGap)
 	for _, keysym := range consoleModifierKeysyms {
 		if err := backend.Key(keysym, false); err != nil {
 			return err
