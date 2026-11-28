@@ -174,10 +174,16 @@ func (a *application) sqlRunScript(ctx context.Context, mode string, input any, 
 	if err != nil {
 		return nil, err
 	}
-	command.Stdin = bytes.NewReader(append(line, '\n'))
-	for i := range line {
-		line[i] = 0
-	}
+	// The request is cleared only after PowerShell has read it: clearing it
+	// here emptied what standard input was about to send (append can share
+	// the array), so the engine read only zero bytes.
+	line = append(line, '\n')
+	command.Stdin = bytes.NewReader(line)
+	defer func() {
+		for i := range line {
+			line[i] = 0
+		}
+	}()
 	done := make(chan struct{})
 	defer close(done)
 	waitErr := a.runEngineProcess(command, func(text string) {
