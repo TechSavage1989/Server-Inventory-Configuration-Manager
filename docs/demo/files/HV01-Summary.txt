@@ -1,0 +1,6 @@
+Server Inventory and Migration Manager 3.3.0 - summary (demo data)
+Computer: HV01 (hv01.corp.example.com)
+Operating system: Microsoft Windows Server 2025 Datacenter
+Roles: Hyper-V, Failover Clustering, Cluster Shared Volumes, Multipath I/O
+Collectors: 27 of 28 completed (Printers: not available)
+Report: HV01-Server-Inventory.html

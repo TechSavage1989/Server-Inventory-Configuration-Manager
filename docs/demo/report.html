@@ -1,0 +1,2237 @@
+<!DOCTYPE html><html lang="en" data-report-layout="clean-v1" data-default-section="section-1"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HV01 - Server Inventory</title>
+<style>
+@page { size: landscape; margin: .5in; }
+:root { color-scheme: light; --ink:#14243a; --ink-2:#34475f; --muted:#5a6b80; --faint:#7d8b9c; --line:#e1e6ed; --line-2:#d2dae4; --bg:#f1f3f6; --surface:#fff; --surface-2:#f7f9fb; --blue:#1f5cc0; --blue-ink:#184b9f; --blue-soft:#eaf1fc; --ok:#1d7448; --ok-soft:#e5f3eb; --warn:#975a0d; --warn-soft:#fdf2df; --bad:#b0362f; --bad-soft:#fbe9e8; --navy:#12223a; --navy-2:#1c375c; }
+* { box-sizing:border-box; }
+html,body { height:100%; margin:0; overflow:hidden; }
+body { font:14px/1.5 "Segoe UI",Arial,sans-serif; color:var(--ink); background:var(--bg); -webkit-text-size-adjust:100%; }
+button,input { font:inherit; color:inherit; }
+button { cursor:pointer; }
+button:focus-visible,input:focus-visible,summary:focus-visible,a:focus-visible,.table-wrap:focus-visible,.report-content:focus-visible,.report-nav:focus-visible { outline:3px solid #7aa6ea; outline-offset:2px; }
+button:disabled { cursor:default; opacity:.45; }
+.report-app { height:100%; min-height:0; display:flex; flex-direction:column; }
+
+/* Cover band */
+.cover { flex:none; display:flex; align-items:center; gap:16px 20px; padding:18px 28px; color:#fff; background:linear-gradient(120deg,var(--navy) 0%,var(--navy-2) 100%); border-bottom:1px solid #0d1a2d; }
+.report-mark { flex:none; width:44px; height:44px; border-radius:11px; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.16); }
+.report-mark svg { width:26px; height:26px; fill:#d9e6fb; }
+.report-mark .mark-led { fill:#52d39a; }
+.report-brand { flex:1; min-width:0; }
+.eyebrow { color:#9ec0f3; font-size:11px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; }
+h1 { margin:2px 0 0; font-size:25px; line-height:1.2; font-weight:650; letter-spacing:-.02em; overflow-wrap:anywhere; }
+.subtitle { margin:4px 0 0; color:#c3d1e5; font-size:12px; overflow-wrap:anywhere; }
+.cover-actions { flex:none; display:flex; flex-direction:column; align-items:flex-end; gap:4px; max-width:240px; }
+.cover .quiet-button,.cover .nav-toggle { background:rgba(255,255,255,.1); border-color:rgba(255,255,255,.28); color:#fff; }
+.cover .quiet-button:hover,.cover .nav-toggle:hover { background:rgba(255,255,255,.18); border-color:rgba(255,255,255,.5); }
+.cover .copy-feedback { color:#c3d1e5; text-align:right; }
+.standalone-tools { flex:none; display:flex; flex-direction:column; align-items:flex-end; gap:5px; max-width:460px; }
+.report-search { display:flex; align-items:center; gap:6px; }
+.report-search input { min-width:100px; width:230px; padding:7px 11px; border:1px solid rgba(255,255,255,.3); border-radius:7px; background:#fff; color:var(--ink); }
+.quiet-button,.pager-button,.nav-toggle { border:1px solid var(--line-2); background:#fff; color:var(--ink-2); border-radius:7px; padding:6px 11px; font-size:12px; line-height:1.4; white-space:nowrap; }
+.quiet-button:hover:not(:disabled),.pager-button:hover:not(:disabled),.nav-toggle:hover { background:#f2f6fc; border-color:#a9bfe3; }
+.search-controls { display:none; gap:6px; align-items:center; }
+.search-message { display:none; font-size:12px; color:#c3d1e5; min-height:17px; }
+.search-active .search-controls { display:flex; }
+.search-active .search-message { display:block; }
+.nav-toggle { display:none; }
+
+/* Layout and navigation */
+.report-layout { position:relative; flex:1; min-height:0; display:grid; grid-template-columns:252px minmax(0,1fr); overflow:hidden; }
+.report-nav { position:relative; overflow:auto; min-height:0; background:var(--surface); border-right:1px solid var(--line); padding:18px 12px 24px; }
+.nav-heading { color:var(--faint); font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.14em; margin:4px 10px 8px; }
+.nav-group { margin:1px 0; }
+.section-nav-button { position:relative; width:100%; display:flex; gap:9px; align-items:baseline; border:0; border-radius:7px; padding:8px 10px; text-align:left; color:var(--ink-2); background:transparent; font-size:13px; line-height:1.35; }
+.section-nav-button:hover { color:var(--ink); background:#f1f4f8; }
+.section-nav-button.active { color:var(--blue-ink); background:var(--blue-soft); font-weight:650; }
+.section-nav-button.active::before { content:""; position:absolute; left:0; top:7px; bottom:7px; width:3px; border-radius:2px; background:var(--blue); }
+.nav-number { flex:0 0 18px; color:#97a3b2; font-size:11px; font-variant-numeric:tabular-nums; }
+.nav-title { flex:1; min-width:0; }
+.active .nav-number { color:#5583cf; }
+.subsection-list { display:none; margin:3px 4px 10px 37px; border-left:1px solid #d6e1f2; padding-left:6px; }
+.nav-group.active .subsection-list { display:block; }
+.subsection-nav-button { width:100%; display:block; border:0; background:transparent; color:var(--muted); font-size:12px; line-height:1.35; padding:4px 8px; text-align:left; border-radius:5px; }
+.subsection-nav-button.subsection-heading { color:var(--ink-2); font-weight:600; margin-top:4px; }
+.report-js .subsection-nav-button.subsection-empty { display:none; }
+.subsection-nav-button:hover,.subsection-nav-button.active { color:var(--blue-ink); background:var(--blue-soft); }
+.nav-reference { border-top:1px solid var(--line); margin-top:14px; padding-top:12px; }
+.nav-badge { flex:none; margin-left:auto; min-width:20px; padding:0 6px; border-radius:999px; background:var(--warn-soft); color:var(--warn); font-size:11px; font-weight:700; line-height:18px; text-align:center; font-variant-numeric:tabular-nums; align-self:center; }
+.nav-badge-error { background:var(--bad-soft); color:var(--bad); }
+
+/* Content */
+.report-content { min-width:0; min-height:0; overflow:auto; padding:20px 32px 36px; scroll-behavior:smooth; }
+.reading-width { max-width:none; margin:0; }
+.section-pager { display:flex; align-items:center; gap:8px; margin-bottom:16px; }
+.pager-label { flex:1; min-width:0; color:var(--faint); font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.pager-button { padding:4px 10px; font-size:12px; }
+.report-section { min-width:0; }
+.report-js .report-section { display:none; }
+.report-js .report-section.active { display:block; }
+.section-head { margin:0 0 16px; }
+.section-kicker { color:var(--blue); font-size:11px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; margin-bottom:2px; }
+.section-title { margin:0; font-size:26px; line-height:1.25; letter-spacing:-.02em; font-weight:650; }
+.section-intro { color:var(--muted); font-size:13px; margin:4px 0 0; max-width:780px; }
+.section-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:8px 14px; margin:0 0 14px; padding:0 0 12px; border-bottom:1px solid var(--line); }
+.section-stats { flex:1; min-width:180px; color:var(--muted); font-size:12px; }
+.section-stats::before { content:attr(data-stats); }
+.section-actions { display:flex; flex-wrap:wrap; gap:6px; }
+.section-actions .quiet-button { font-size:12px; padding:4px 10px; }
+
+/* Executive summary overview */
+.overview-grid { display:grid; grid-template-columns:minmax(0,1.65fr) minmax(250px,1fr); gap:14px; margin:0 0 14px; }
+.overview-card { background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:16px 18px; box-shadow:0 1px 2px rgba(20,36,58,.04); min-width:0; }
+.card-label { color:var(--faint); font-size:11px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; margin-bottom:12px; }
+.facts { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:12px 20px; }
+.fact-label { display:block; margin-bottom:2px; color:var(--faint); font-size:11px; font-weight:600; }
+.fact-value { display:block; font-size:13px; font-weight:600; color:var(--ink); overflow-wrap:anywhere; }
+.role-list { display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-top:14px; padding-top:12px; border-top:1px solid var(--line); }
+.role-list-label { color:var(--faint); font-size:11px; font-weight:600; margin-right:4px; }
+.role-chip { border:1px solid #c9d8f1; background:var(--blue-soft); color:var(--blue-ink); border-radius:999px; padding:3px 10px; font-size:12px; font-weight:600; }
+.role-chip:hover { background:#dce8fb; border-color:#9fbbe8; }
+.role-chip-more { background:#fff; color:var(--muted); border-color:var(--line-2); }
+.health-figure { display:flex; align-items:baseline; flex-wrap:wrap; gap:4px 10px; }
+.health-percent { font-size:34px; line-height:1.1; font-weight:650; letter-spacing:-.03em; color:var(--ok); }
+.health-review .health-percent { color:var(--warn); }
+.health-unknown .health-percent { font-size:20px; color:var(--muted); }
+.health-caption { margin:0; color:var(--muted); font-size:12px; }
+.health-bar { display:flex; height:10px; margin:14px 0 10px; border-radius:999px; overflow:hidden; background:#e7ebf0; }
+.health-ok { background:#2f9a64; }
+.health-fail { background:#d68a1c; }
+.health-legend { display:flex; flex-wrap:wrap; gap:4px 16px; font-size:12px; color:var(--muted); }
+.health-legend span::before { content:""; display:inline-block; width:8px; height:8px; border-radius:2px; margin-right:6px; vertical-align:0; }
+.legend-ok::before { background:#2f9a64; }
+.legend-fail::before { background:#d68a1c; }
+.metrics { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; margin:0 0 14px; }
+.metric { position:relative; border:1px solid var(--line); border-radius:12px; padding:14px 16px; background:var(--surface); box-shadow:0 1px 2px rgba(20,36,58,.04); min-width:0; }
+.metric-has-link { transition:border-color .15s,box-shadow .15s; }
+.metric-has-link:hover { border-color:#a9bfe3; box-shadow:0 2px 8px rgba(31,92,192,.1); }
+.metric-has-link::after { content:"\203A"; position:absolute; right:14px; top:12px; color:#9aabc2; font-size:18px; line-height:1; }
+.metric-value { display:block; font-size:28px; line-height:1.15; font-weight:650; letter-spacing:-.03em; margin-bottom:4px; font-variant-numeric:tabular-nums; }
+.metric-label { display:block; font-size:12px; color:var(--muted); }
+.metric-review { border-color:#ecd3a8; background:#fffbf4; }
+.metric-review .metric-value { color:var(--warn); }
+.metric-link { position:absolute; inset:0; width:100%; border:0; border-radius:12px; background:transparent; padding:0; }
+.attention { border:1px solid var(--line); border-radius:12px; background:var(--surface); padding:14px 16px; margin:0 0 18px; }
+.attention-head { display:flex; flex-wrap:wrap; align-items:baseline; gap:2px 12px; }
+.attention-title { margin:0; font-size:15px; font-weight:650; letter-spacing:0; }
+.attention-summary { margin:0; color:var(--muted); font-size:12px; }
+.attention-title::before { content:""; display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:8px; background:var(--faint); vertical-align:1px; }
+.attention-review { border-color:#ebd2a6; background:#fffaf1; }
+.attention-review .attention-title::before { background:#d68a1c; }
+.attention-clear { border-color:#c6e4d3; background:#f5fbf7; }
+.attention-clear .attention-title::before { background:#2f9a64; }
+.attention-items:empty { display:none; }
+.attention-items { margin-top:10px; }
+.attention .dataset { margin:8px 0 0; }
+.review-links { display:flex; flex-wrap:wrap; gap:6px; margin:14px 0 0; }
+.review-links:empty { display:none; }
+.review-link { border:1px solid #e6c995; color:#7f4c0b; background:#fff3de; padding:4px 11px; border-radius:999px; font-size:12px; font-weight:600; }
+.review-link:hover { background:#ffeacb; }
+
+/* Section overview (contents of the active section) */
+.section-overview { display:grid; grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); gap:4px 18px; margin:0 0 18px; padding:12px 14px; background:var(--surface); border:1px solid var(--line); border-radius:12px; }
+.overview-group { min-width:0; padding:2px 0 6px; }
+.overview-group-title { display:block; width:100%; border:0; background:transparent; text-align:left; padding:4px 6px; border-radius:5px; color:var(--ink); font-size:12px; font-weight:700; }
+.overview-group-title:hover { background:#f1f4f8; color:var(--blue-ink); }
+.overview-list { list-style:none; margin:0; padding:0; }
+.overview-list li { margin:0; break-inside:avoid; }
+.section-overview-single { display:block; }
+.section-overview-single .overview-list { column-width:250px; column-gap:22px; }
+.overview-item { width:100%; display:flex; align-items:baseline; gap:8px; border:0; background:transparent; text-align:left; padding:4px 6px; border-radius:5px; color:var(--ink-2); font-size:12px; line-height:1.35; }
+.overview-item::before { content:""; flex:none; width:6px; height:6px; border-radius:50%; background:#b5c3d4; transform:translateY(-1px); }
+.overview-item::after { content:attr(data-count); flex:none; margin-left:auto; color:var(--faint); font-size:11px; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.overview-item:hover { background:var(--blue-soft); color:var(--blue-ink); }
+.overview-item.has-warning::before { background:#d68a1c; }
+.overview-item.has-error::before { background:#c9463d; }
+.overview-item.overview-absent { color:var(--faint); font-style:italic; }
+.overview-item.overview-absent::before { background:transparent; border:1px solid #b5c3d4; }
+
+/* Groups, headings and prose */
+.subsection-group { margin:22px 0 0; }
+.subsection-group:first-child { margin-top:0; }
+.subsection-anchor { scroll-margin-top:16px; }
+h3 { font-size:17px; font-weight:650; margin:26px 0 10px; letter-spacing:-.01em; }
+.subsection-group > h3 { display:flex; align-items:center; gap:10px; margin:0 0 10px; padding-top:4px; }
+.subsection-group > h3::after { content:""; flex:1; height:1px; background:var(--line-2); }
+h4 { font-size:14px; margin:18px 0 8px; color:var(--ink-2); }
+p { margin:10px 0; overflow-wrap:anywhere; }
+ul { padding-left:22px; }
+li { margin:6px 0; }
+.notice,.info { padding:10px 14px; border-left:3px solid #d69d43; border-radius:0 8px 8px 0; background:var(--warn-soft); font-size:13px; }
+.info { border-color:#6f97d6; background:var(--blue-soft); }
+
+/* Datasets */
+.dataset { background:var(--surface); border:1px solid var(--line); border-radius:10px; margin:8px 0; scroll-margin-top:16px; box-shadow:0 1px 2px rgba(20,36,58,.035); }
+.dataset>summary { display:flex; align-items:center; gap:10px; list-style:none; padding:11px 16px; cursor:pointer; font-size:14px; font-weight:600; border-radius:10px; }
+.dataset>summary::-webkit-details-marker { display:none; }
+.dataset>summary::before { content:""; flex:0 0 7px; width:7px; height:7px; border-right:1.6px solid #7b899b; border-bottom:1.6px solid #7b899b; transform:rotate(-45deg); margin:0 3px 0 1px; transition:transform .15s; }
+.dataset[open]>summary::before { transform:rotate(45deg); margin-top:-4px; }
+.dataset>summary:hover { background:var(--surface-2); }
+.dataset[open]>summary { border-bottom:1px solid var(--line); border-radius:10px 10px 0 0; }
+.dataset-title { flex:1; min-width:0; overflow-wrap:anywhere; }
+.dataset-count { flex:none; color:var(--muted); background:#eef1f5; border-radius:999px; padding:1px 9px; font-size:11px; font-weight:600; white-space:nowrap; font-variant-numeric:tabular-nums; }
+.dataset-flag { flex:none; border:1px solid transparent; border-radius:999px; padding:1px 9px; font-size:11px; font-weight:700; line-height:18px; white-space:nowrap; cursor:pointer; }
+.dataset-flag-error:hover { border-color:var(--bad); }
+.dataset-flag-warning:hover { border-color:var(--warn); }
+tbody tr.issue-focus td { background:#fff6d6; box-shadow:inset 0 2px 0 #d0952a, inset 0 -2px 0 #d0952a; }
+.dataset-flag::before { content:attr(data-label); }
+.dataset-flag-warning { background:var(--warn-soft); color:var(--warn); }
+.dataset-flag-error { background:var(--bad-soft); color:var(--bad); }
+.dataset-priority { border-color:#ebd2a6; }
+.dataset-priority>summary { background:#fffbf3; }
+.dataset-body { padding:0 16px 14px; }
+.empty-data { color:var(--muted); font-size:12px; padding-top:10px; }
+.dataset-empty>summary { color:var(--muted); font-weight:500; }
+.dataset-empty .dataset-count { background:transparent; font-style:italic; font-weight:500; }
+.table-wrap { overflow:auto; margin:0 -16px; border-top:1px solid var(--line); }
+.dataset-long .table-wrap { max-height:62vh; }
+.dataset-text pre { max-height:70vh; }
+table { width:100%; border-collapse:separate; border-spacing:0; font-size:12.5px; text-align:left; }
+th { position:sticky; top:0; z-index:1; background:#f4f6f9; color:var(--ink-2); font-size:11.5px; font-weight:650; padding:7px 12px; white-space:nowrap; border-bottom:1px solid var(--line-2); vertical-align:top; }
+td { padding:6px 12px; border-bottom:1px solid #edf0f4; vertical-align:top; white-space:nowrap; overflow-wrap:normal; min-width:80px; }
+tbody tr:last-child td { border-bottom:0; }
+tbody tr:hover td { background:#f7faff; }
+.report-content,.cover { -webkit-user-select:text; user-select:text; }
+.dataset.wrap-values td { white-space:pre-wrap; overflow-wrap:anywhere; max-width:640px; }
+th.num,td.num { text-align:right; font-variant-numeric:tabular-nums; }
+th.num .table-sort { text-align:right; }
+.identity-table td:first-child { width:30%; color:var(--muted); }
+
+/* Key/value property sheets and single-record tables. Name/value lists keep
+   compact rows and the optional Wrap values toggle from 3.2.12. */
+.kv-table td:first-child { color:var(--muted); font-weight:600; background:var(--surface-2); border-right:1px solid #edf0f4; }
+.kv-table tbody tr:hover td:first-child { background:#f0f4fa; }
+.kv-table td.num { text-align:left; }
+.record-table { display:grid; grid-template-columns:minmax(150px,32%) minmax(0,1fr); grid-auto-flow:column; }
+.record-table thead,.record-table tbody,.record-table tr { display:contents; }
+.record-table th { position:static; background:transparent; color:var(--muted); font-size:12px; font-weight:600; white-space:normal; overflow-wrap:anywhere; border-bottom:1px solid #edf0f4; padding:6px 12px; }
+.record-table td { white-space:pre-wrap; overflow-wrap:anywhere; min-width:0; border-bottom:1px solid #edf0f4; }
+.record-table th.num,.record-table td.num { text-align:left; }
+.record-table tbody tr:hover td { background:transparent; }
+
+/* Dataset tools */
+.dataset-tools { display:flex; flex-wrap:wrap; align-items:center; gap:6px; padding:9px 0; }
+.dataset-tools .quiet-button { font-size:12px; padding:3px 9px; }
+.table-hint { font-size:11px; color:var(--faint); }
+.table-filter { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--muted); margin-left:auto; }
+.table-filter input { width:190px; min-width:100px; padding:4px 8px; border:1px solid var(--line-2); border-radius:6px; color:var(--ink); background:#fff; }
+.table-filter-count { flex-basis:100%; font-size:12px; color:var(--muted); }
+.table-filter-count:empty { display:none; }
+.table-sort { font:inherit; color:inherit; text-align:left; border:0; padding:0; background:transparent; }
+.table-sort::after { content:" ↕"; color:#8a98aa; }
+th[aria-sort="ascending"] .table-sort::after { content:" ↑"; color:var(--blue); }
+th[aria-sort="descending"] .table-sort::after { content:" ↓"; color:var(--blue); }
+.copy-feedback { flex-basis:100%; font-size:12px; color:var(--muted); }
+.copy-feedback:empty { display:none; }
+.copy-panel { position:fixed; z-index:20; inset:auto 20px 20px; max-height:55vh; overflow:auto; padding:16px; border:1px solid var(--blue); border-radius:10px; background:#fff; color:var(--ink); box-shadow:0 6px 28px rgba(20,36,58,.25); }
+.copy-panel[hidden] { display:none; }
+.copy-panel textarea { display:block; width:100%; height:22vh; margin:8px 0; resize:vertical; white-space:pre; font:12px/1.4 Consolas,monospace; }
+.copy-panel p { margin:0; }
+.table-note { font-size:12px; color:#7f5a1c; background:#fff7e8; padding:7px 10px; margin:12px 0 0; border-radius:6px; }
+.status { display:inline-block; border-radius:999px; padding:1px 9px 1px 8px; font-size:11px; font-weight:650; background:#edf1f6; color:#4d5f76; white-space:nowrap; }
+.status::before { content:""; display:inline-block; width:6px; height:6px; border-radius:50%; margin-right:5px; vertical-align:1px; background:currentColor; opacity:.8; }
+.status-success { background:var(--ok-soft); color:var(--ok); }
+.status-warning { background:var(--warn-soft); color:var(--warn); }
+.status-error { background:var(--bad-soft); color:var(--bad); }
+pre { white-space:pre; overflow:auto; overflow-wrap:normal; font:12px/1.6 Consolas,"Courier New",monospace; color:#2f4560; padding:14px 16px; border-radius:8px; background:#f5f7fa; border:1px solid var(--line); margin:12px 0 0; }
+
+/* "No data" groups */
+.absent-group { margin:12px 0 4px; border:1px dashed var(--line-2); border-radius:10px; background:rgba(255,255,255,.55); }
+.absent-group>summary { display:flex; align-items:center; gap:10px; list-style:none; padding:9px 14px; cursor:pointer; color:var(--muted); font-size:13px; font-weight:600; border-radius:10px; }
+.absent-group>summary::-webkit-details-marker { display:none; }
+.absent-group>summary::before { content:""; flex:0 0 7px; width:7px; height:7px; border-right:1.6px solid #98a5b5; border-bottom:1.6px solid #98a5b5; transform:rotate(-45deg); margin:0 3px 0 1px; }
+.absent-group[open]>summary::before { transform:rotate(45deg); margin-top:-4px; }
+.absent-group>summary:hover { background:#fff; }
+.absent-group .dataset-count { background:transparent; border:1px solid var(--line-2); font-style:normal; }
+.absent-body { padding:0 14px 10px; }
+.absent-note { margin:0 0 6px; color:var(--muted); font-size:12px; }
+.absent-list { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); column-gap:22px; align-items:start; }
+.absent-group .dataset { margin:0; border:0; border-top:1px solid var(--line); border-radius:0; box-shadow:none; background:transparent; }
+.absent-group .dataset>summary { padding:6px 2px; font-size:13px; border-radius:0; }
+.absent-group .dataset>summary:hover { background:transparent; color:var(--ink); }
+.absent-group .dataset[open]>summary { border-bottom:0; }
+.absent-group .dataset-count { padding:0 6px; }
+.absent-group .dataset-body { padding:0 2px 8px 22px; }
+.absent-group .empty-data { margin:0; padding-top:0; }
+.absent-group .dataset-tools { display:none; }
+
+mark.report-match { background:#fff1b6; color:inherit; padding:0; }
+mark.report-current { background:#ffd570; outline:2px solid #d0952a; }
+.back-to-top { position:absolute; right:24px; bottom:18px; z-index:5; border:1px solid #c8d4e5; background:#fff; color:#2b4466; border-radius:999px; padding:6px 14px; font-size:12px; font-weight:600; box-shadow:0 3px 12px rgba(20,36,58,.16); }
+.back-to-top:hover { background:#f1f5fc; border-color:#a5bde3; }
+.back-to-top[hidden] { display:none; }
+.cell-copy { position:absolute; z-index:4; width:46px; border:1px solid #c8d4e5; background:#fff; color:#2b4466; border-radius:5px; padding:0; font-size:11px; font-weight:600; line-height:20px; box-shadow:0 1px 4px rgba(20,36,58,.18); }
+.cell-copy:hover { background:#eaf1fc; border-color:#a5bde3; }
+.cell-copy[hidden] { display:none; }
+.footer-note { margin:28px 0 0; padding-top:14px; border-top:1px solid var(--line); color:var(--muted); font-size:12px; }
+
+/* Embedded in the application's Report Viewer */
+.embedded-report .standalone-tools { display:none; }
+.embedded-report .cover { padding:10px 20px; gap:10px 14px; }
+.embedded-report .report-mark { width:34px; height:34px; border-radius:9px; }
+.embedded-report .report-mark svg { width:20px; height:20px; }
+.embedded-report .eyebrow { font-size:11px; letter-spacing:.1em; }
+.embedded-report h1 { font-size:19px; }
+.embedded-report .subtitle { margin-top:1px; }
+.embedded-report .report-content { padding:18px 24px 30px; }
+
+html:not(.report-js) .report-nav,html:not(.report-js) .section-pager,html:not(.report-js) .section-toolbar,html:not(.report-js) .standalone-tools,html:not(.report-js) .attention-items { display:none; }
+html:not(.report-js) .report-layout { grid-template-columns:minmax(0,1fr); }
+html:not(.report-js) .report-section { padding-bottom:28px; margin-bottom:28px; border-bottom:2px solid var(--line-2); }
+
+@media(max-width:1180px) {
+ .metrics { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
+@media(max-width:1050px) {
+ .cover { padding:14px 22px; }
+ .report-search input { width:200px; }
+ .report-layout { grid-template-columns:220px minmax(0,1fr); }
+ .report-content,.embedded-report .report-content { padding:18px 22px 30px; }
+ .section-title { font-size:23px; }
+}
+@media(max-width:1050px) and (min-width:761px),(max-height:620px) {
+ .subtitle { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+}
+@media(max-width:900px) {
+ .overview-grid { grid-template-columns:minmax(0,1fr); }
+ .health-card { order:-1; }
+}
+@media(max-width:760px) {
+ .cover,.embedded-report .cover { flex-wrap:wrap; padding:10px 14px; gap:8px 10px; }
+ .report-mark,.embedded-report .report-mark { width:32px; height:32px; border-radius:8px; }
+ .report-mark svg,.embedded-report .report-mark svg { width:19px; height:19px; }
+ .eyebrow { display:none; }
+ h1,.embedded-report h1 { font-size:18px; }
+ .report-brand { flex:1 1 240px; }
+ .cover-actions { order:3; flex-direction:row; align-items:center; flex-wrap:wrap; max-width:none; }
+ .cover .copy-feedback { text-align:left; }
+ .nav-toggle { display:block; order:4; min-height:34px; }
+ .standalone-tools { order:5; flex-basis:100%; align-items:stretch; max-width:none; }
+ .report-search { flex-wrap:wrap; }
+ .report-search input { flex:1; width:100px; }
+ .search-controls { flex-wrap:wrap; }
+ .report-layout { grid-template-columns:minmax(0,1fr); grid-template-rows:auto minmax(0,1fr); }
+ .report-nav { display:none; grid-row:1; border-right:0; border-bottom:1px solid var(--line); max-height:45vh; padding:10px; box-shadow:0 6px 14px rgba(20,36,58,.08); }
+ .nav-open .report-nav { display:block; }
+ .report-content,.embedded-report .report-content { grid-row:2; padding:14px 14px 28px; }
+ .section-title { font-size:21px; }
+ .section-pager { gap:6px; margin-bottom:12px; }
+ .metrics { gap:8px; }
+ .metric { padding:12px; }
+ .metric-value { font-size:23px; }
+ .health-percent { font-size:28px; }
+ .section-nav-button { min-height:36px; }
+ .dataset>summary { padding:10px 12px; font-size:13px; }
+ .dataset-body { padding:0 12px 12px; }
+ .table-wrap { margin:0 -12px; }
+ .table-hint { display:none; }
+ .table-filter { margin-left:0; flex:1 1 100%; }
+ .table-filter input { flex:1; }
+ .section-overview { grid-template-columns:minmax(0,1fr); }
+ .back-to-top { right:14px; bottom:12px; }
+}
+@media(max-width:460px) {
+ .metrics { grid-template-columns:minmax(0,1fr); }
+ .facts { grid-template-columns:minmax(0,1fr); }
+ .pager-button { padding:4px 8px; }
+ .report-content,.embedded-report .report-content { padding:12px 10px 24px; }
+}
+@media(max-height:620px) {
+ .cover,.embedded-report .cover { padding-top:8px; padding-bottom:8px; }
+ .eyebrow { display:none; }
+ h1,.embedded-report h1 { font-size:18px; }
+ .report-mark,.embedded-report .report-mark { width:30px; height:30px; }
+ .report-content,.embedded-report .report-content { padding-top:12px; }
+ .section-pager { margin-bottom:10px; }
+ .section-head { margin-bottom:10px; }
+ .section-title { font-size:21px; }
+ .dataset-long .table-wrap { max-height:none; }
+}
+@media(max-height:460px) {
+ .subtitle { display:none; }
+ .section-intro { display:none; }
+}
+@media(prefers-reduced-motion:reduce) { .report-content { scroll-behavior:auto; } .dataset>summary::before { transition:none; } }
+@media print {
+ html,body { height:auto!important; overflow:visible!important; background:#fff; }
+ body { font-size:11px; }
+ .report-app,.report-layout,.report-content,.reading-width { display:block!important; height:auto!important; max-height:none!important; overflow:visible!important; padding:0!important; }
+ .cover { color:var(--ink); background:#fff!important; border:0; border-bottom:2px solid var(--ink); padding:0 0 14px!important; margin-bottom:18px; }
+ .eyebrow { display:block!important; color:var(--blue); }
+ .subtitle { display:block!important; color:var(--muted); }
+ .report-mark { background:var(--navy)!important; border:0; }
+ .report-nav,.section-pager,.section-toolbar,.section-overview,.standalone-tools,.cover-actions,.nav-toggle,.review-links,.dataset-tools,.copy-feedback,.copy-panel,.copy-action,.metric-link,.role-chip-more { display:none!important; }
+ .report-js .report-section,.report-section { display:block!important; margin:0 0 30px; break-before:page; }
+ .reading-width>.report-section:first-of-type { break-before:auto; }
+ .section-intro { display:block!important; }
+ .overview-card,.metric,.attention,.dataset { box-shadow:none; }
+ .overview-grid { grid-template-columns:minmax(0,1.6fr) minmax(0,1fr); break-inside:avoid; }
+ .metrics { grid-template-columns:repeat(4,minmax(0,1fr)); break-inside:avoid; }
+ .metric-has-link::after { display:none; }
+ .dataset { border-radius:0; border-color:#ccc; }
+ .dataset>summary,.absent-group>summary { cursor:default; }
+ .dataset>summary::before,.absent-group>summary::before { display:none; }
+ .absent-group { border-style:solid; }
+ .dataset-body,.table-wrap,.dataset-text pre { display:block!important; overflow:visible!important; max-height:none!important; }
+ .record-table { display:grid!important; }
+ th { position:static; }
+ thead { display:table-header-group; }
+ .record-table thead,.record-table tr { display:contents!important; }
+ tr { break-inside:avoid; }
+ tr[hidden] { display:table-row!important; }
+ .table-sort::after { display:none; }
+ td,.dataset.wrap-values td { min-width:0; max-width:none; white-space:pre-wrap; overflow-wrap:anywhere; font-size:9px; padding:5px 8px; }
+ pre { white-space:pre-wrap; overflow-wrap:anywhere; overflow:visible; }
+ th { white-space:normal; font-size:9px; padding:6px 8px; }
+ .notice,.info,.attention { break-inside:avoid; }
+ .back-to-top,.cell-copy,.print-action,.nav-badge,.dataset-flag { display:none!important; }
+ html.print-section .report-section:not(.active) { display:none!important; }
+ html.print-section .report-section.active { break-before:auto; }
+ mark { background:none!important; outline:0!important; }
+}
+
+</style>
+</head><body><div class="report-app"><header class="cover"><div class="report-mark" aria-hidden="true"><svg viewBox="0 0 32 32" width="32" height="32" focusable="false"><rect x="5" y="5" width="22" height="7" rx="2"/><rect x="5" y="13.5" width="22" height="7" rx="2"/><rect x="5" y="22" width="22" height="5" rx="2"/><circle class="mark-led" cx="9" cy="8.5" r="1.2"/><circle class="mark-led" cx="9" cy="17" r="1.2"/></svg></div><div class="report-brand"><div class="eyebrow">Server inventory / configuration snapshot</div>
+<h1>HV01</h1><p class="subtitle">Collected 2026-11-28 09:14 by EXAMPLE\admin with Server Inventory and Migration Manager 3.3.0</p></div><div class="cover-actions"></div>
+<button class="nav-toggle" id="toggle-report-nav" aria-controls="report-nav" aria-expanded="false" type="button">Sections</button>
+<div class="standalone-tools"><form id="report-search-form" class="report-search" role="search"><input id="report-search-input" type="search" aria-label="Search the full report" placeholder="Search the full report"><button class="quiet-button" type="submit">Find</button><button id="report-print" class="quiet-button" type="button">Print all</button></form>
+<div class="search-controls"><button id="report-search-prev" class="quiet-button" type="button" disabled>Previous match</button><button id="report-search-next" class="quiet-button" type="button" disabled>Next match</button><button id="report-search-clear" class="quiet-button" type="button">Clear</button></div><div id="report-search-message" class="search-message" role="status" aria-live="polite">Search every section, including collapsed details.</div></div></header>
+<div class="report-layout"><nav class="report-nav" id="report-nav" aria-label="Report sections" tabindex="0"><div class="nav-heading">Inventory sections</div>
+<div class="nav-group"><button type="button" class="section-nav-button section-main-button" data-section="section-1" data-title="Executive Summary"><span class="nav-number" aria-hidden="true">01</span><span class="nav-title">Executive Summary</span></button>
+<div class="subsection-list">
+<button type="button" class="subsection-nav-button" data-anchor="section-1-sub-1">Server identity and baseline</button>
+<button type="button" class="subsection-nav-button" data-anchor="section-1-sub-2">Inventory at a glance</button>
+<button type="button" class="subsection-nav-button" data-anchor="section-1-sub-3">Detected critical roles and platforms</button>
+<button type="button" class="subsection-nav-button" data-anchor="section-1-sub-4">Collection failures requiring review</button>
+<button type="button" class="subsection-nav-button" data-anchor="section-1-sub-5">Recovery prerequisites and gaps</button>
+</div>
+</div>
+<div class="nav-group"><button type="button" class="section-nav-button section-main-button" data-section="section-2" data-title="Report Contents"><span class="nav-number" aria-hidden="true">02</span><span class="nav-title">Report Contents</span></button>
+</div>
+<div class="nav-group"><button type="button" class="section-nav-button section-main-button" data-section="section-3" data-title="Hardware and Firmware"><span class="nav-number" aria-hidden="true">03</span><span class="nav-title">Hardware and Firmware</span></button>
+<div class="subsection-list">
+<button type="button" class="subsection-nav-button" data-anchor="section-3-sub-1">Processors</button>
+<button type="button" class="subsection-nav-button" data-anchor="section-3-sub-2">Memory modules</button>
+<button type="button" class="subsection-nav-button" data-anchor="section-3-sub-3">Firmware</button>
+</div>
+</div>
+<div class="nav-group"><button type="button" class="section-nav-button section-main-button" data-section="section-4" data-title="Operating System"><span class="nav-number" aria-hidden="true">04</span><span class="nav-title">Operating System</span></button>
+<div class="subsection-list">
+<button type="button" class="subsection-nav-button" data-anchor="section-4-sub-1">Installed roles and features</button>
+<button type="button" class="subsection-nav-button" data-anchor="section-4-sub-2">Installed updates</button>
+</div>
+</div>
+<div class="nav-group"><button type="button" class="section-nav-button section-main-button" data-section="section-5" data-title="Storage"><span class="nav-number" aria-hidden="true">05</span><span class="nav-title">Storage</span></button>
+<div class="subsection-list">
+<button type="button" class="subsection-nav-button" data-anchor="section-5-sub-1">Disks</button>
+<button type="button" class="subsection-nav-button" data-anchor="section-5-sub-2">Volumes</button>
+</div>
+</div>
+<div class="nav-group"><button type="button" class="section-nav-button section-main-button" data-section="section-6" data-title="Network"><span class="nav-number" aria-hidden="true">06</span><span class="nav-title">Network</span></button>
+<div class="subsection-list">
+<button type="button" class="subsection-nav-button" data-anchor="section-6-sub-1">Network adapters</button>
+<button type="button" class="subsection-nav-button" data-anchor="section-6-sub-2">IP configuration</button>
+<button type="button" class="subsection-nav-button" data-anchor="section-6-sub-3">Listening ports</button>
+</div>
+</div>
+<div class="nav-group"><button type="button" class="section-nav-button section-main-button" data-section="section-7" data-title="Services and Scheduled Tasks"><span class="nav-number" aria-hidden="true">07</span><span class="nav-title">Services and Scheduled Tasks</span></button>
+<div class="subsection-list">
+<button type="button" class="subsection-nav-button" data-anchor="section-7-sub-1">Automatic services</button>
+<button type="button" class="subsection-nav-button" data-anchor="section-7-sub-2">Scheduled tasks</button>
+</div>
+</div>
+<div class="nav-group"><button type="button" class="section-nav-button section-main-button" data-section="section-8" data-title="Applications"><span class="nav-number" aria-hidden="true">08</span><span class="nav-title">Applications</span></button>
+<div class="subsection-list">
+<button type="button" class="subsection-nav-button" data-anchor="section-8-sub-1">Installed applications</button>
+</div>
+</div>
+<div class="nav-group"><button type="button" class="section-nav-button section-main-button" data-section="section-9" data-title="Security"><span class="nav-number" aria-hidden="true">09</span><span class="nav-title">Security</span></button>
+<div class="subsection-list">
+<button type="button" class="subsection-nav-button" data-anchor="section-9-sub-1">Local administrators</button>
+<button type="button" class="subsection-nav-button" data-anchor="section-9-sub-2">Firewall profiles</button>
+</div>
+</div>
+<div class="nav-group"><button type="button" class="section-nav-button section-main-button" data-section="section-10" data-title="Shares"><span class="nav-number" aria-hidden="true">10</span><span class="nav-title">Shares</span></button>
+<div class="subsection-list">
+<button type="button" class="subsection-nav-button" data-anchor="section-10-sub-1">SMB shares</button>
+</div>
+</div>
+<div class="nav-group"><button type="button" class="section-nav-button section-main-button" data-section="section-11" data-title="Role-Specific Configuration"><span class="nav-number" aria-hidden="true">11</span><span class="nav-title">Role-Specific Configuration</span></button>
+<div class="subsection-list">
+<button type="button" class="subsection-nav-button subsection-heading" data-anchor="section-11-sub-1">Hyper-V</button>
+<button type="button" class="subsection-nav-button" data-anchor="section-11-sub-2">Virtual switches</button>
+<button type="button" class="subsection-nav-button" data-anchor="section-11-sub-3">Virtual machines</button>
+<button type="button" class="subsection-nav-button subsection-heading" data-anchor="section-11-sub-4">Failover clustering</button>
+<button type="button" class="subsection-nav-button" data-anchor="section-11-sub-5">Cluster nodes</button>
+<button type="button" class="subsection-nav-button" data-anchor="section-11-sub-6">Cluster Shared Volumes</button>
+<button type="button" class="subsection-nav-button" data-anchor="section-11-sub-7">Cluster quorum</button>
+</div>
+</div>
+<div class="nav-group"><button type="button" class="section-nav-button section-main-button" data-section="section-12" data-title="Event Summary"><span class="nav-number" aria-hidden="true">12</span><span class="nav-title">Event Summary</span></button>
+<div class="subsection-list">
+<button type="button" class="subsection-nav-button" data-anchor="section-12-sub-1">Recent errors and warnings</button>
+</div>
+</div>
+<div class="nav-group"><button type="button" class="section-nav-button section-main-button" data-section="section-13" data-title="Recovery and Migration Notes"><span class="nav-number" aria-hidden="true">13</span><span class="nav-title">Recovery and Migration Notes</span></button>
+</div>
+<div class="nav-group"><button type="button" class="section-nav-button section-main-button" data-section="section-14" data-title="Collection Appendix"><span class="nav-number" aria-hidden="true">14</span><span class="nav-title">Collection Appendix</span></button>
+<div class="subsection-list">
+<button type="button" class="subsection-nav-button" data-anchor="section-14-sub-1">Collector execution status</button>
+</div>
+</div>
+<div class="nav-reference"><div class="nav-heading">Reference</div>
+<div class="nav-group"><button type="button" class="section-nav-button section-main-button" data-section="section-overview" data-title="About this report"><span class="nav-number" aria-hidden="true"></span><span class="nav-title">About this report</span></button>
+</div>
+</div>
+</nav><main class="report-content" tabindex="0" aria-label="Report content"><div class="reading-width"><div class="section-pager"><div id="section-label" class="pager-label"></div><button id="previous-section" class="pager-button" type="button">Previous section</button><button id="next-section" class="pager-button" type="button">Next section</button></div>
+<section id="section-overview" class="report-section">
+<div class="section-head"><div class="section-kicker">Reference</div><h2 class="section-title">About this report</h2>
+<p class="section-intro">How this report was produced and how to use it.</p></div>
+<div class="section-toolbar"><div class="section-stats"></div><div class="section-actions"><button type="button" class="quiet-button" data-details-action="expand">Expand section</button><button type="button" class="quiet-button" data-details-action="collapse">Collapse section</button></div></div>
+</section>
+<section id="section-1" class="report-section">
+<div class="section-head"><div class="section-kicker">Overview</div><h2 class="section-title">Executive Summary</h2>
+<p class="section-intro">Server profile, collection health and the items to review first.</p></div>
+<div class="overview-grid"><div class="overview-card profile-card"><div class="card-label">Server profile</div><div class="facts">
+<div><span class="fact-label">Operating system</span><span class="fact-value">Microsoft Windows Server 2025 Datacenter</span></div>
+<div><span class="fact-label">Activation status</span><span class="fact-value">Licensed (Volume: KMS)</span></div>
+<div><span class="fact-label">Domain or workgroup</span><span class="fact-value">corp.example.com (domain)</span></div>
+<div><span class="fact-label">Physical or virtual</span><span class="fact-value">Physical (Example Systems R760)</span></div>
+<div><span class="fact-label">IPv4 addresses</span><span class="fact-value">192.0.2.40, 10.0.30.21, 10.0.31.21</span></div>
+<div><span class="fact-label">Default gateway</span><span class="fact-value">192.0.2.1</span></div>
+<div><span class="fact-label">DNS servers</span><span class="fact-value">192.0.2.21, 192.0.2.22</span></div>
+<div><span class="fact-label">Collected</span><span class="fact-value">2026-11-28 09:14</span></div>
+<div class="fact-extra"><span class="fact-label">FQDN</span><span class="fact-value">hv01.corp.example.com</span></div>
+<div class="fact-extra"><span class="fact-label">Version and build</span><span class="fact-value">10.0.26100 (24H2)</span></div>
+<div class="fact-extra"><span class="fact-label">IP assignment</span><span class="fact-value">Static</span></div>
+<div class="fact-extra"><span class="fact-label">CPU</span><span class="fact-value">2 x Example Xeon Gold 6430, 64 cores, 128 logical processors</span></div>
+<div class="fact-extra"><span class="fact-label">Memory</span><span class="fact-value">512 GB</span></div>
+<div class="fact-extra"><span class="fact-label">Last boot</span><span class="fact-value">2026-11-24 22:05</span></div>
+</div>
+<div class="role-list"><span class="role-list-label">Detected roles</span>
+<button type="button" class="role-chip" data-anchor="section-1-sub-3" title="Show detected critical roles and platforms">Hyper-V</button>
+<button type="button" class="role-chip" data-anchor="section-1-sub-3" title="Show detected critical roles and platforms">Failover Clustering</button>
+<button type="button" class="role-chip" data-anchor="section-1-sub-3" title="Show detected critical roles and platforms">Cluster Shared Volumes</button>
+<button type="button" class="role-chip" data-anchor="section-1-sub-3" title="Show detected critical roles and platforms">Multipath I/O</button>
+</div>
+</div>
+<div class="overview-card health-card"><div class="card-label">Collection health</div>
+<div class="health-figure health-review"><span class="health-percent">96%</span><p class="health-caption">of collectors completed (27 of 28)</p></div>
+<div class="health-bar" role="img" aria-label="27 collectors completed, 1 need review"><span class="health-ok" style="width:96.43%"></span><span class="health-fail" style="width:3.57%"></span></div>
+<div class="health-legend"><span class="legend-ok">27 completed</span><span class="legend-fail">1 need review</span></div>
+<div class="review-links">
+<button type="button" class="review-link" data-anchor="section-1-sub-4">1 collection issue</button>
+<button type="button" class="review-link" data-anchor="section-1-sub-5">2 recovery prerequisites or gaps</button>
+</div></div></div><div class="metrics">
+<div class="metric metric-has-link"><span class="metric-value">27</span><span class="metric-label">Collectors completed</span><button type="button" class="metric-link" data-anchor="section-14-sub-1" title="Show Collector execution status" aria-label="Show Collector execution status"></button></div>
+<div class="metric metric-review metric-has-link"><span class="metric-value">1</span><span class="metric-label">Collectors requiring review</span><button type="button" class="metric-link" data-anchor="section-1-sub-4" title="Show Collection failures requiring review" aria-label="Show Collection failures requiring review"></button></div>
+<div class="metric metric-has-link"><span class="metric-value">4</span><span class="metric-label">Critical roles and platforms</span><button type="button" class="metric-link" data-anchor="section-1-sub-3" title="Show Detected critical roles and platforms" aria-label="Show Detected critical roles and platforms"></button></div>
+<div class="metric metric-has-link"><span class="metric-value">23</span><span class="metric-label">Installed applications</span><button type="button" class="metric-link" data-anchor="section-8-sub-1" title="Show Installed applications" aria-label="Show Installed applications"></button></div>
+</div>
+<div class="attention attention-review" id="needs-attention"><div class="attention-head"><h3 class="attention-title">Needs attention</h3><p class="attention-summary">Review these items before relying on this inventory for recovery, migration, replacement or rebuild work.</p></div><div class="attention-items"></div></div>
+<div class="section-toolbar"><div class="section-stats"></div><div class="section-actions"><button type="button" class="quiet-button" data-details-action="expand">Expand section</button><button type="button" class="quiet-button" data-details-action="collapse">Collapse section</button></div></div>
+<details open id="section-1-sub-1" class="dataset" data-default-open="false" data-title="Server identity and baseline"><summary><span class="dataset-title">Server identity and baseline</span><span class="dataset-count">15 rows</span></summary><div class="dataset-body">
+<div class="table-wrap" tabindex="0" aria-label="Server identity and baseline"><table class="identity-table"><thead><tr>
+<th scope="col" data-original-label="Field">Field</th>
+<th scope="col" data-original-label="Value">Value</th>
+</tr></thead><tbody>
+<tr>
+<td>Computer name</td>
+<td>HV01</td>
+</tr>
+<tr>
+<td>FQDN</td>
+<td>hv01.corp.example.com</td>
+</tr>
+<tr>
+<td>Operating system</td>
+<td>Microsoft Windows Server 2025 Datacenter</td>
+</tr>
+<tr>
+<td>Version and build</td>
+<td>10.0.26100 (24H2)</td>
+</tr>
+<tr>
+<td>Activation status</td>
+<td>Licensed (Volume: KMS)</td>
+</tr>
+<tr>
+<td>Domain or workgroup</td>
+<td>corp.example.com (domain)</td>
+</tr>
+<tr>
+<td>Physical or virtual</td>
+<td>Physical (Example Systems R760)</td>
+</tr>
+<tr>
+<td>CPU</td>
+<td>2 x Example Xeon Gold 6430, 64 cores, 128 logical processors</td>
+</tr>
+<tr>
+<td>Memory</td>
+<td>512 GB</td>
+</tr>
+<tr>
+<td>IPv4 addresses</td>
+<td>192.0.2.40, 10.0.30.21, 10.0.31.21</td>
+</tr>
+<tr>
+<td>IP assignment</td>
+<td>Static</td>
+</tr>
+<tr>
+<td>Default gateway</td>
+<td>192.0.2.1</td>
+</tr>
+<tr>
+<td>DNS servers</td>
+<td>192.0.2.21, 192.0.2.22</td>
+</tr>
+<tr>
+<td>Last boot</td>
+<td>2026-11-24 22:05</td>
+</tr>
+<tr>
+<td>Collected</td>
+<td>2026-11-28 09:14</td>
+</tr>
+</tbody></table></div>
+</div></details>
+<details open id="section-1-sub-2" class="dataset" data-default-open="false" data-title="Inventory at a glance"><summary><span class="dataset-title">Inventory at a glance</span><span class="dataset-count">6 rows</span></summary><div class="dataset-body">
+<div class="table-wrap" tabindex="0" aria-label="Inventory at a glance"><table class=""><thead><tr>
+<th scope="col" data-original-label="Area">Area</th>
+<th scope="col" data-original-label="Count">Count</th>
+</tr></thead><tbody>
+<tr>
+<td>Collectors completed successfully</td>
+<td>27</td>
+</tr>
+<tr>
+<td>Collectors failed or unavailable</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Detected critical roles and platforms</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Installed applications</td>
+<td>23</td>
+</tr>
+<tr>
+<td>Services</td>
+<td>211</td>
+</tr>
+<tr>
+<td>Volumes</td>
+<td>5</td>
+</tr>
+</tbody></table></div>
+</div></details>
+<details open id="section-1-sub-3" class="dataset" data-default-open="false" data-title="Detected critical roles and platforms"><summary><span class="dataset-title">Detected critical roles and platforms</span><span class="dataset-count">4 rows</span></summary><div class="dataset-body">
+<div class="table-wrap" tabindex="0" aria-label="Detected critical roles and platforms"><table class=""><thead><tr>
+<th scope="col" data-original-label="Role">Role</th>
+<th scope="col" data-original-label="Evidence">Evidence</th>
+</tr></thead><tbody>
+<tr>
+<td>Hyper-V</td>
+<td>Hyper-V role installed; 6 virtual machines</td>
+</tr>
+<tr>
+<td>Failover Clustering</td>
+<td>Node of cluster HVCLU01 (3 nodes)</td>
+</tr>
+<tr>
+<td>Cluster Shared Volumes</td>
+<td>2 CSVs mounted under C:\ClusterStorage</td>
+</tr>
+<tr>
+<td>Multipath I/O</td>
+<td>MPIO with 2 iSCSI paths per LUN</td>
+</tr>
+</tbody></table></div>
+</div></details>
+<details open id="section-1-sub-4" class="dataset dataset-priority" data-default-open="true" data-title="Collection failures requiring review"><summary><span class="dataset-title">Collection failures requiring review</span><span class="dataset-count">1 row</span></summary><div class="dataset-body">
+<div class="table-wrap" tabindex="0" aria-label="Collection failures requiring review"><table class=""><thead><tr>
+<th scope="col" data-original-label="Collector">Collector</th>
+<th scope="col" data-original-label="Status">Status</th>
+<th scope="col" data-original-label="Message">Message</th>
+</tr></thead><tbody>
+<tr>
+<td>Printers</td>
+<td><span class="status status-warning">Unavailable</span></td>
+<td>The Print Spooler service is disabled on this server.</td>
+</tr>
+</tbody></table></div>
+</div></details>
+<details open id="section-1-sub-5" class="dataset dataset-priority" data-default-open="true" data-title="Recovery prerequisites and gaps"><summary><span class="dataset-title">Recovery prerequisites and gaps</span><span class="dataset-count">2 rows</span></summary><div class="dataset-body">
+<div class="table-wrap" tabindex="0" aria-label="Recovery prerequisites and gaps"><table class=""><thead><tr>
+<th scope="col" data-original-label="Item">Item</th>
+<th scope="col" data-original-label="Detail">Detail</th>
+</tr></thead><tbody>
+<tr>
+<td>Cluster quorum</td>
+<td>Cloud witness configured; record the storage account before rebuilding a node.</td>
+</tr>
+<tr>
+<td>BitLocker</td>
+<td>Volume C: is protected; store the recovery key before hardware changes.</td>
+</tr>
+</tbody></table></div>
+</div></details>
+</section>
+<section id="section-2" class="report-section">
+<div class="section-head"><div class="section-kicker">Section 02</div><h2 class="section-title">Report Contents</h2>
+<p class="section-intro">What this report covers.</p></div>
+<div class="section-toolbar"><div class="section-stats"></div><div class="section-actions"><button type="button" class="quiet-button" data-details-action="expand">Expand section</button><button type="button" class="quiet-button" data-details-action="collapse">Collapse section</button></div></div>
+<ul>
+<li>Hardware, firmware and operating system configuration</li>
+<li>Storage, network and listening services</li>
+<li>Roles, services, applications and security</li>
+<li>Hyper-V and failover cluster configuration</li>
+<li>Recent events and collection results</li>
+</ul>
+</section>
+<section id="section-3" class="report-section">
+<div class="section-head"><div class="section-kicker">Section 03</div><h2 class="section-title">Hardware and Firmware</h2>
+<p class="section-intro">Processors, memory, firmware, drivers, and devices.</p></div>
+<div class="section-toolbar"><div class="section-stats"></div><div class="section-actions"><button type="button" class="quiet-button" data-details-action="expand">Expand section</button><button type="button" class="quiet-button" data-details-action="collapse">Collapse section</button></div></div>
+<details open id="section-3-sub-1" class="dataset" data-default-open="true" data-title="Processors"><summary><span class="dataset-title">Processors</span><span class="dataset-count">2 rows</span></summary><div class="dataset-body">
+<div class="table-wrap" tabindex="0" aria-label="Processors"><table class=""><thead><tr>
+<th scope="col" data-original-label="Name">Name</th>
+<th scope="col" data-original-label="Cores">Cores</th>
+<th scope="col" data-original-label="LogicalProcessors">Logical Processors</th>
+<th scope="col" data-original-label="MaxClockSpeed">Max Clock Speed</th>
+</tr></thead><tbody>
+<tr>
+<td>Example Xeon Gold 6430</td>
+<td>32</td>
+<td>64</td>
+<td>2100 MHz</td>
+</tr>
+<tr>
+<td>Example Xeon Gold 6430</td>
+<td>32</td>
+<td>64</td>
+<td>2100 MHz</td>
+</tr>
+</tbody></table></div>
+</div></details>
+<details open id="section-3-sub-2" class="dataset dataset-long" data-default-open="false" data-title="Memory modules"><summary><span class="dataset-title">Memory modules</span><span class="dataset-count">16 rows</span></summary><div class="dataset-body">
+<div class="table-wrap" tabindex="0" aria-label="Memory modules"><table class=""><thead><tr>
+<th scope="col" data-original-label="Slot">Slot</th>
+<th scope="col" data-original-label="Capacity">Capacity</th>
+<th scope="col" data-original-label="Speed">Speed</th>
+<th scope="col" data-original-label="Manufacturer">Manufacturer</th>
+</tr></thead><tbody>
+<tr>
+<td>DIMM A1</td>
+<td>32 GB</td>
+<td>4800 MT/s</td>
+<td>Example Memory</td>
+</tr>
+<tr>
+<td>DIMM A2</td>
+<td>32 GB</td>
+<td>4800 MT/s</td>
+<td>Example Memory</td>
+</tr>
+<tr>
+<td>DIMM A3</td>
+<td>32 GB</td>
+<td>4800 MT/s</td>
+<td>Example Memory</td>
+</tr>
+<tr>
+<td>DIMM A4</td>
+<td>32 GB</td>
+<td>4800 MT/s</td>
+<td>Example Memory</td>
+</tr>
+<tr>
+<td>DIMM A5</td>
+<td>32 GB</td>
+<td>4800 MT/s</td>
+<td>Example Memory</td>
+</tr>
+<tr>
+<td>DIMM A6</td>
+<td>32 GB</td>
+<td>4800 MT/s</td>
+<td>Example Memory</td>
+</tr>
+<tr>
+<td>DIMM A7</td>
+<td>32 GB</td>
+<td>4800 MT/s</td>
+<td>Example Memory</td>
+</tr>
+<tr>
+<td>DIMM A8</td>
+<td>32 GB</td>
+<td>4800 MT/s</td>
+<td>Example Memory</td>
+</tr>
+<tr>
+<td>DIMM B1</td>
+<td>32 GB</td>
+<td>4800 MT/s</td>
+<td>Example Memory</td>
+</tr>
+<tr>
+<td>DIMM B2</td>
+<td>32 GB</td>
+<td>4800 MT/s</td>
+<td>Example Memory</td>
+</tr>
+<tr>
+<td>DIMM B3</td>
+<td>32 GB</td>
+<td>4800 MT/s</td>
+<td>Example Memory</td>
+</tr>
+<tr>
+<td>DIMM B4</td>
+<td>32 GB</td>
+<td>4800 MT/s</td>
+<td>Example Memory</td>
+</tr>
+<tr>
+<td>DIMM B5</td>
+<td>32 GB</td>
+<td>4800 MT/s</td>
+<td>Example Memory</td>
+</tr>
+<tr>
+<td>DIMM B6</td>
+<td>32 GB</td>
+<td>4800 MT/s</td>
+<td>Example Memory</td>
+</tr>
+<tr>
+<td>DIMM B7</td>
+<td>32 GB</td>
+<td>4800 MT/s</td>
+<td>Example Memory</td>
+</tr>
+<tr>
+<td>DIMM B8</td>
+<td>32 GB</td>
+<td>4800 MT/s</td>
+<td>Example Memory</td>
+</tr>
+</tbody></table></div>
+</div></details>
+<details open id="section-3-sub-3" class="dataset" data-default-open="false" data-title="Firmware"><summary><span class="dataset-title">Firmware</span><span class="dataset-count">6 rows</span></summary><div class="dataset-body">
+<div class="table-wrap" tabindex="0" aria-label="Firmware"><table class=""><thead><tr>
+<th scope="col" data-original-label="Field">Field</th>
+<th scope="col" data-original-label="Value">Value</th>
+</tr></thead><tbody>
+<tr>
+<td>Manufacturer</td>
+<td>Example Systems</td>
+</tr>
+<tr>
+<td>Model</td>
+<td>R760</td>
+</tr>
+<tr>
+<td>BIOS version</td>
+<td>2.19.1</td>
+</tr>
+<tr>
+<td>Firmware type</td>
+<td>UEFI</td>
+</tr>
+<tr>
+<td>Secure Boot</td>
+<td>On</td>
+</tr>
+<tr>
+<td>TPM</td>
+<td>2.0, ready</td>
+</tr>
+</tbody></table></div>
+</div></details>
+</section>
+<section id="section-4" class="report-section">
+<div class="section-head"><div class="section-kicker">Section 04</div><h2 class="section-title">Operating System</h2>
+<p class="section-intro">Roles, features, updates, startup, backup and recovery configuration.</p></div>
+<div class="section-toolbar"><div class="section-stats"></div><div class="section-actions"><button type="button" class="quiet-button" data-details-action="expand">Expand section</button><button type="button" class="quiet-button" data-details-action="collapse">Collapse section</button></div></div>
+<details open id="section-4-sub-1" class="dataset" data-default-open="true" data-title="Installed roles and features"><summary><span class="dataset-title">Installed roles and features</span><span class="dataset-count">7 rows</span></summary><div class="dataset-body">
+<div class="table-wrap" tabindex="0" aria-label="Installed roles and features"><table class=""><thead><tr>
+<th scope="col" data-original-label="Name">Name</th>
+<th scope="col" data-original-label="DisplayName">Display Name</th>
+<th scope="col" data-original-label="Status">Status</th>
+</tr></thead><tbody>
+<tr>
+<td>Hyper-V</td>
+<td>Hyper-V</td>
+<td>Installed</td>
+</tr>
+<tr>
+<td>Failover-Clustering</td>
+<td>Failover Clustering</td>
+<td>Installed</td>
+</tr>
+<tr>
+<td>Multipath-IO</td>
+<td>Multipath I/O</td>
+<td>Installed</td>
+</tr>
+<tr>
+<td>RSAT-Clustering-PowerShell</td>
+<td>Failover Cluster Module for Windows PowerShell</td>
+<td>Installed</td>
+</tr>
+<tr>
+<td>Hyper-V-PowerShell</td>
+<td>Hyper-V Module for Windows PowerShell</td>
+<td>Installed</td>
+</tr>
+<tr>
+<td>Data-Center-Bridging</td>
+<td>Data Center Bridging</td>
+<td>Installed</td>
+</tr>
+<tr>
+<td>BitLocker</td>
+<td>BitLocker Drive Encryption</td>
+<td>Installed</td>
+</tr>
+</tbody></table></div>
+</div></details>
+<details open id="section-4-sub-2" class="dataset" data-default-open="false" data-title="Installed updates"><summary><span class="dataset-title">Installed updates</span><span class="dataset-count">4 rows</span></summary><div class="dataset-body">
+<div class="table-wrap" tabindex="0" aria-label="Installed updates"><table class=""><thead><tr>
+<th scope="col" data-original-label="HotFixID">Hot Fix ID</th>
+<th scope="col" data-original-label="Description">Description</th>
+<th scope="col" data-original-label="InstalledOn">Installed On</th>
+</tr></thead><tbody>
+<tr>
+<td>KB5046617</td>
+<td>Security Update</td>
+<td>2026-11-13</td>
+</tr>
+<tr>
+<td>KB5046270</td>
+<td>Update</td>
+<td>2026-10-24</td>
+</tr>
+<tr>
+<td>KB5044284</td>
+<td>Security Update</td>
+<td>2026-10-09</td>
+</tr>
+<tr>
+<td>KB5043080</td>
+<td>Security Update</td>
+<td>2026-09-11</td>
+</tr>
+</tbody></table></div>
+</div></details>
+</section>
+<section id="section-5" class="report-section">
+<div class="section-head"><div class="section-kicker">Section 05</div><h2 class="section-title">Storage</h2>
+<p class="section-intro">Disks, volumes, paths, and storage configuration.</p></div>
+<div class="section-toolbar"><div class="section-stats"></div><div class="section-actions"><button type="button" class="quiet-button" data-details-action="expand">Expand section</button><button type="button" class="quiet-button" data-details-action="collapse">Collapse section</button></div></div>
+<details open id="section-5-sub-1" class="dataset" data-default-open="false" data-title="Disks"><summary><span class="dataset-title">Disks</span><span class="dataset-count">4 rows</span></summary><div class="dataset-body">
+<div class="table-wrap" tabindex="0" aria-label="Disks"><table class=""><thead><tr>
+<th scope="col" data-original-label="Number">Number</th>
+<th scope="col" data-original-label="FriendlyName">Friendly Name</th>
+<th scope="col" data-original-label="Size">Size</th>
+<th scope="col" data-original-label="PartitionStyle">Partition Style</th>
+<th scope="col" data-original-label="BusType">Bus Type</th>
+<th scope="col" data-original-label="Status">Status</th>
+</tr></thead><tbody>
+<tr>
+<td>0</td>
+<td>BOSS-N1 Boot</td>
+<td>480 GB</td>
+<td>GPT</td>
+<td>SATA</td>
+<td>Online</td>
+</tr>
+<tr>
+<td>1</td>
+<td>EXAMPLE iSCSI LUN CSV1</td>
+<td>8 TB</td>
+<td>GPT</td>
+<td>iSCSI</td>
+<td>Online</td>
+</tr>
+<tr>
+<td>2</td>
+<td>EXAMPLE iSCSI LUN CSV2</td>
+<td>8 TB</td>
+<td>GPT</td>
+<td>iSCSI</td>
+<td>Online</td>
+</tr>
+<tr>
+<td>3</td>
+<td>EXAMPLE iSCSI LUN Witness</td>
+<td>1 GB</td>
+<td>GPT</td>
+<td>iSCSI</td>
+<td>Online</td>
+</tr>
+</tbody></table></div>
+</div></details>
+<details open id="section-5-sub-2" class="dataset" data-default-open="false" data-title="Volumes"><summary><span class="dataset-title">Volumes</span><span class="dataset-count">5 rows</span></summary><div class="dataset-body">
+<div class="table-wrap" tabindex="0" aria-label="Volumes"><table class=""><thead><tr>
+<th scope="col" data-original-label="DriveLetter">Drive Letter</th>
+<th scope="col" data-original-label="Label">Label</th>
+<th scope="col" data-original-label="FileSystem">File System</th>
+<th scope="col" data-original-label="Size">Size</th>
+<th scope="col" data-original-label="Free">Free</th>
+</tr></thead><tbody>
+<tr>
+<td>C:</td>
+<td>OS</td>
+<td>NTFS</td>
+<td>479 GB</td>
+<td>402 GB</td>
+</tr>
+<tr>
+<td></td>
+<td>CSV1</td>
+<td>CSVFS</td>
+<td>8 TB</td>
+<td>4.9 TB</td>
+</tr>
+<tr>
+<td></td>
+<td>CSV2</td>
+<td>CSVFS</td>
+<td>8 TB</td>
+<td>6.1 TB</td>
+</tr>
+<tr>
+<td></td>
+<td>Recovery</td>
+<td>NTFS</td>
+<td>750 MB</td>
+<td>95 MB</td>
+</tr>
+<tr>
+<td></td>
+<td>EFI</td>
+<td>FAT32</td>
+<td>100 MB</td>
+<td>68 MB</td>
+</tr>
+</tbody></table></div>
+</div></details>
+</section>
+<section id="section-6" class="report-section">
+<div class="section-head"><div class="section-kicker">Section 06</div><h2 class="section-title">Network</h2>
+<p class="section-intro">IP addressing, routing, adapters, and listening services.</p></div>
+<div class="section-toolbar"><div class="section-stats"></div><div class="section-actions"><button type="button" class="quiet-button" data-details-action="expand">Expand section</button><button type="button" class="quiet-button" data-details-action="collapse">Collapse section</button></div></div>
+<details open id="section-6-sub-1" class="dataset" data-default-open="true" data-title="Network adapters"><summary><span class="dataset-title">Network adapters</span><span class="dataset-count">6 rows</span></summary><div class="dataset-body">
+<div class="table-wrap" tabindex="0" aria-label="Network adapters"><table class=""><thead><tr>
+<th scope="col" data-original-label="Name">Name</th>
+<th scope="col" data-original-label="Description">Description</th>
+<th scope="col" data-original-label="LinkSpeed">Link Speed</th>
+<th scope="col" data-original-label="MacAddress">Mac Address</th>
+<th scope="col" data-original-label="Status">Status</th>
+</tr></thead><tbody>
+<tr>
+<td>SLOT 1 Port 1</td>
+<td>Example 25GbE Adapter #1</td>
+<td>25 Gbps</td>
+<td>00-15-5D-0A-01-01</td>
+<td>Up</td>
+</tr>
+<tr>
+<td>SLOT 1 Port 2</td>
+<td>Example 25GbE Adapter #2</td>
+<td>25 Gbps</td>
+<td>00-15-5D-0A-01-02</td>
+<td>Up</td>
+</tr>
+<tr>
+<td>SLOT 3 Port 1</td>
+<td>Example 10GbE Adapter #1</td>
+<td>10 Gbps</td>
+<td>00-15-5D-0A-03-01</td>
+<td>Up</td>
+</tr>
+<tr>
+<td>SLOT 3 Port 2</td>
+<td>Example 10GbE Adapter #2</td>
+<td>10 Gbps</td>
+<td>00-15-5D-0A-03-02</td>
+<td>Up</td>
+</tr>
+<tr>
+<td>vEthernet (Management)</td>
+<td>Hyper-V Virtual Ethernet Adapter</td>
+<td>50 Gbps</td>
+<td>00-15-5D-0A-10-01</td>
+<td>Up</td>
+</tr>
+<tr>
+<td>vEthernet (LiveMigration)</td>
+<td>Hyper-V Virtual Ethernet Adapter</td>
+<td>50 Gbps</td>
+<td>00-15-5D-0A-10-02</td>
+<td>Up</td>
+</tr>
+</tbody></table></div>
+</div></details>
+<details open id="section-6-sub-2" class="dataset" data-default-open="false" data-title="IP configuration"><summary><span class="dataset-title">IP configuration</span><span class="dataset-count">5 rows</span></summary><div class="dataset-body">
+<div class="table-wrap" tabindex="0" aria-label="IP configuration"><table class=""><thead><tr>
+<th scope="col" data-original-label="InterfaceAlias">Interface Alias</th>
+<th scope="col" data-original-label="IPAddress">IP Address</th>
+<th scope="col" data-original-label="PrefixLength">Prefix Length</th>
+<th scope="col" data-original-label="Gateway">Gateway</th>
+<th scope="col" data-original-label="DNS">DNS</th>
+</tr></thead><tbody>
+<tr>
+<td>vEthernet (Management)</td>
+<td>192.0.2.40</td>
+<td>24</td>
+<td>192.0.2.1</td>
+<td>192.0.2.21, 192.0.2.22</td>
+</tr>
+<tr>
+<td>vEthernet (LiveMigration)</td>
+<td>10.0.30.21</td>
+<td>24</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>vEthernet (Cluster)</td>
+<td>10.0.31.21</td>
+<td>24</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>SLOT 3 Port 1</td>
+<td>10.0.40.21</td>
+<td>24</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>SLOT 3 Port 2</td>
+<td>10.0.41.21</td>
+<td>24</td>
+<td></td>
+<td></td>
+</tr>
+</tbody></table></div>
+</div></details>
+<details open id="section-6-sub-3" class="dataset" data-default-open="false" data-title="Listening ports"><summary><span class="dataset-title">Listening ports</span><span class="dataset-count">7 rows</span></summary><div class="dataset-body">
+<div class="table-wrap" tabindex="0" aria-label="Listening ports"><table class=""><thead><tr>
+<th scope="col" data-original-label="LocalPort">Local Port</th>
+<th scope="col" data-original-label="Protocol">Protocol</th>
+<th scope="col" data-original-label="Process">Process</th>
+<th scope="col" data-original-label="Service">Service</th>
+</tr></thead><tbody>
+<tr>
+<td>135</td>
+<td>TCP</td>
+<td>svchost</td>
+<td>RpcSs</td>
+</tr>
+<tr>
+<td>445</td>
+<td>TCP</td>
+<td>System</td>
+<td>LanmanServer</td>
+</tr>
+<tr>
+<td>2179</td>
+<td>TCP</td>
+<td>vmms</td>
+<td>vmms</td>
+</tr>
+<tr>
+<td>3343</td>
+<td>UDP</td>
+<td>clussvc</td>
+<td>ClusSvc</td>
+</tr>
+<tr>
+<td>3389</td>
+<td>TCP</td>
+<td>svchost</td>
+<td>TermService</td>
+</tr>
+<tr>
+<td>5985</td>
+<td>TCP</td>
+<td>System</td>
+<td>WinRM</td>
+</tr>
+<tr>
+<td>6600</td>
+<td>TCP</td>
+<td>vmms</td>
+<td>Live migration</td>
+</tr>
+</tbody></table></div>
+</div></details>
+</section>
+<section id="section-7" class="report-section">
+<div class="section-head"><div class="section-kicker">Section 07</div><h2 class="section-title">Services and Scheduled Tasks</h2>
+<p class="section-intro">Windows services, dependencies, and scheduled tasks.</p></div>
+<div class="section-toolbar"><div class="section-stats"></div><div class="section-actions"><button type="button" class="quiet-button" data-details-action="expand">Expand section</button><button type="button" class="quiet-button" data-details-action="collapse">Collapse section</button></div></div>
+<details open id="section-7-sub-1" class="dataset" data-default-open="true" data-title="Automatic services"><summary><span class="dataset-title">Automatic services</span><span class="dataset-count">6 rows</span></summary><div class="dataset-body">
+<div class="table-wrap" tabindex="0" aria-label="Automatic services"><table class=""><thead><tr>
+<th scope="col" data-original-label="Name">Name</th>
+<th scope="col" data-original-label="DisplayName">Display Name</th>
+<th scope="col" data-original-label="Status">Status</th>
+<th scope="col" data-original-label="StartType">Start Type</th>
+</tr></thead><tbody>
+<tr>
+<td>vmms</td>
+<td>Hyper-V Virtual Machine Management</td>
+<td>Running</td>
+<td>Automatic</td>
+</tr>
+<tr>
+<td>ClusSvc</td>
+<td>Cluster Service</td>
+<td>Running</td>
+<td>Automatic</td>
+</tr>
+<tr>
+<td>MSiSCSI</td>
+<td>Microsoft iSCSI Initiator Service</td>
+<td>Running</td>
+<td>Automatic</td>
+</tr>
+<tr>
+<td>WinRM</td>
+<td>Windows Remote Management (WS-Management)</td>
+<td>Running</td>
+<td>Automatic</td>
+</tr>
+<tr>
+<td>W32Time</td>
+<td>Windows Time</td>
+<td>Running</td>
+<td>Automatic</td>
+</tr>
+<tr>
+<td>Spooler</td>
+<td>Print Spooler</td>
+<td>Stopped</td>
+<td>Disabled</td>
+</tr>
+</tbody></table></div>
+</div></details>
+<details open id="section-7-sub-2" class="dataset" data-default-open="false" data-title="Scheduled tasks"><summary><span class="dataset-title">Scheduled tasks</span><span class="dataset-count">2 rows</span></summary><div class="dataset-body">
+<div class="table-wrap" tabindex="0" aria-label="Scheduled tasks"><table class=""><thead><tr>
+<th scope="col" data-original-label="TaskName">Task Name</th>
+<th scope="col" data-original-label="State">State</th>
+<th scope="col" data-original-label="LastRunTime">Last Run Time</th>
+<th scope="col" data-original-label="NextRunTime">Next Run Time</th>
+</tr></thead><tbody>
+<tr>
+<td>Cluster-Aware Updating self-updating run</td>
+<td>Ready</td>
+<td>2026-11-14 02:00</td>
+<td>2026-12-12 02:00</td>
+</tr>
+<tr>
+<td>Backup - nightly VM export check</td>
+<td>Ready</td>
+<td>2026-11-28 01:30</td>
+<td>2026-11-29 01:30</td>
+</tr>
+</tbody></table></div>
+</div></details>
+</section>
+<section id="section-8" class="report-section">
+<div class="section-head"><div class="section-kicker">Section 08</div><h2 class="section-title">Applications</h2>
+<p class="section-intro">Installed software, data sources, and application folders.</p></div>
+<div class="section-toolbar"><div class="section-stats"></div><div class="section-actions"><button type="button" class="quiet-button" data-details-action="expand">Expand section</button><button type="button" class="quiet-button" data-details-action="collapse">Collapse section</button></div></div>
+<details open id="section-8-sub-1" class="dataset" data-default-open="true" data-title="Installed applications"><summary><span class="dataset-title">Installed applications</span><span class="dataset-count">5 rows</span></summary><div class="dataset-body">
+<div class="table-wrap" tabindex="0" aria-label="Installed applications"><table class=""><thead><tr>
+<th scope="col" data-original-label="Name">Name</th>
+<th scope="col" data-original-label="Version">Version</th>
+<th scope="col" data-original-label="Publisher">Publisher</th>
+</tr></thead><tbody>
+<tr>
+<td>Example Systems Server Administrator</td>
+<td>11.0.1</td>
+<td>Example Systems</td>
+</tr>
+<tr>
+<td>Example Storage Multipath DSM</td>
+<td>4.2.0</td>
+<td>Example Storage</td>
+</tr>
+<tr>
+<td>Example Backup Agent</td>
+<td>12.1.4</td>
+<td>Example Backup Software</td>
+</tr>
+<tr>
+<td>Microsoft Visual C++ 2015-2022 Redistributable (x64)</td>
+<td>14.40.33816</td>
+<td>Microsoft Corporation</td>
+</tr>
+<tr>
+<td>Windows Admin Center</td>
+<td>2410</td>
+<td>Microsoft Corporation</td>
+</tr>
+</tbody></table></div>
+</div></details>
+</section>
+<section id="section-9" class="report-section">
+<div class="section-head"><div class="section-kicker">Section 09</div><h2 class="section-title">Security</h2>
+<p class="section-intro">Local accounts, policy, audit, and firewall configuration.</p></div>
+<div class="section-toolbar"><div class="section-stats"></div><div class="section-actions"><button type="button" class="quiet-button" data-details-action="expand">Expand section</button><button type="button" class="quiet-button" data-details-action="collapse">Collapse section</button></div></div>
+<details open id="section-9-sub-1" class="dataset" data-default-open="true" data-title="Local administrators"><summary><span class="dataset-title">Local administrators</span><span class="dataset-count">3 rows</span></summary><div class="dataset-body">
+<div class="table-wrap" tabindex="0" aria-label="Local administrators"><table class=""><thead><tr>
+<th scope="col" data-original-label="Member">Member</th>
+<th scope="col" data-original-label="Type">Type</th>
+<th scope="col" data-original-label="Source">Source</th>
+</tr></thead><tbody>
+<tr>
+<td>CORP\Domain Admins</td>
+<td>Group</td>
+<td>Domain</td>
+</tr>
+<tr>
+<td>CORP\HV-Admins</td>
+<td>Group</td>
+<td>Domain</td>
+</tr>
+<tr>
+<td>HV01\Administrator</td>
+<td>User</td>
+<td>Local (disabled)</td>
+</tr>
+</tbody></table></div>
+</div></details>
+<details open id="section-9-sub-2" class="dataset" data-default-open="false" data-title="Firewall profiles"><summary><span class="dataset-title">Firewall profiles</span><span class="dataset-count">3 rows</span></summary><div class="dataset-body">
+<div class="table-wrap" tabindex="0" aria-label="Firewall profiles"><table class=""><thead><tr>
+<th scope="col" data-original-label="Profile">Profile</th>
+<th scope="col" data-original-label="Enabled">Enabled</th>
+<th scope="col" data-original-label="DefaultInbound">Default Inbound</th>
+<th scope="col" data-original-label="DefaultOutbound">Default Outbound</th>
+</tr></thead><tbody>
+<tr>
+<td>Domain</td>
+<td>True</td>
+<td>Block</td>
+<td>Allow</td>
+</tr>
+<tr>
+<td>Private</td>
+<td>True</td>
+<td>Block</td>
+<td>Allow</td>
+</tr>
+<tr>
+<td>Public</td>
+<td>True</td>
+<td>Block</td>
+<td>Allow</td>
+</tr>
+</tbody></table></div>
+</div></details>
+</section>
+<section id="section-10" class="report-section">
+<div class="section-head"><div class="section-kicker">Section 10</div><h2 class="section-title">Shares</h2>
+<p class="section-intro">SMB configuration, shares, and permissions.</p></div>
+<div class="section-toolbar"><div class="section-stats"></div><div class="section-actions"><button type="button" class="quiet-button" data-details-action="expand">Expand section</button><button type="button" class="quiet-button" data-details-action="collapse">Collapse section</button></div></div>
+<details open id="section-10-sub-1" class="dataset" data-default-open="true" data-title="SMB shares"><summary><span class="dataset-title">SMB shares</span><span class="dataset-count">4 rows</span></summary><div class="dataset-body">
+<div class="table-wrap" tabindex="0" aria-label="SMB shares"><table class=""><thead><tr>
+<th scope="col" data-original-label="Name">Name</th>
+<th scope="col" data-original-label="Path">Path</th>
+<th scope="col" data-original-label="Description">Description</th>
+</tr></thead><tbody>
+<tr>
+<td>ADMIN$</td>
+<td>C:\Windows</td>
+<td>Remote Admin</td>
+</tr>
+<tr>
+<td>C$</td>
+<td>C:\</td>
+<td>Default share</td>
+</tr>
+<tr>
+<td>ClusterStorage$</td>
+<td>C:\ClusterStorage</td>
+<td>Cluster Shared Volumes Default Share</td>
+</tr>
+<tr>
+<td>IPC$</td>
+<td></td>
+<td>Remote IPC</td>
+</tr>
+</tbody></table></div>
+</div></details>
+</section>
+<section id="section-11" class="report-section">
+<div class="section-head"><div class="section-kicker">Section 11</div><h2 class="section-title">Role-Specific Configuration</h2>
+<p class="section-intro">Configuration for the server roles detected during collection.</p></div>
+<div class="section-toolbar"><div class="section-stats"></div><div class="section-actions"><button type="button" class="quiet-button" data-details-action="expand">Expand section</button><button type="button" class="quiet-button" data-details-action="collapse">Collapse section</button></div></div>
+<div class="subsection-group">
+<h3 id="section-11-sub-1" class="subsection-anchor">Hyper-V</h3>
+<details open id="section-11-sub-2" class="dataset" data-default-open="true" data-title="Virtual switches"><summary><span class="dataset-title">Virtual switches</span><span class="dataset-count">1 row</span></summary><div class="dataset-body">
+<div class="table-wrap" tabindex="0" aria-label="Virtual switches"><table class=""><thead><tr>
+<th scope="col" data-original-label="Name">Name</th>
+<th scope="col" data-original-label="SwitchType">Switch Type</th>
+<th scope="col" data-original-label="EmbeddedTeaming">Embedded Teaming</th>
+<th scope="col" data-original-label="NetAdapters">Net Adapters</th>
+</tr></thead><tbody>
+<tr>
+<td>SET-vSwitch0</td>
+<td>External</td>
+<td>True</td>
+<td>SLOT 1 Port 1, SLOT 1 Port 2</td>
+</tr>
+</tbody></table></div>
+</div></details>
+<details open id="section-11-sub-3" class="dataset" data-default-open="false" data-title="Virtual machines"><summary><span class="dataset-title">Virtual machines</span><span class="dataset-count">6 rows</span></summary><div class="dataset-body">
+<div class="table-wrap" tabindex="0" aria-label="Virtual machines"><table class=""><thead><tr>
+<th scope="col" data-original-label="Name">Name</th>
+<th scope="col" data-original-label="State">State</th>
+<th scope="col" data-original-label="Generation">Generation</th>
+<th scope="col" data-original-label="ProcessorCount">Processor Count</th>
+<th scope="col" data-original-label="MemoryAssigned">Memory Assigned</th>
+<th scope="col" data-original-label="Uptime">Uptime</th>
+</tr></thead><tbody>
+<tr>
+<td>WEB01</td>
+<td>Running</td>
+<td>2</td>
+<td>2</td>
+<td>4 GB</td>
+<td>3.11:02</td>
+</tr>
+<tr>
+<td>WEB02</td>
+<td>Running</td>
+<td>2</td>
+<td>2</td>
+<td>4 GB</td>
+<td>3.11:02</td>
+</tr>
+<tr>
+<td>MON01</td>
+<td>Running</td>
+<td>2</td>
+<td>2</td>
+<td>8 GB</td>
+<td>1.02:41</td>
+</tr>
+<tr>
+<td>PRINT01</td>
+<td>Off</td>
+<td>2</td>
+<td>2</td>
+<td>0 GB</td>
+<td>00:00:00</td>
+</tr>
+<tr>
+<td>BR-APP01</td>
+<td>Running</td>
+<td>2</td>
+<td>2</td>
+<td>8 GB</td>
+<td>0.20:13</td>
+</tr>
+<tr>
+<td>LAB-TEST01</td>
+<td>Off</td>
+<td>2</td>
+<td>2</td>
+<td>0 GB</td>
+<td>00:00:00</td>
+</tr>
+</tbody></table></div>
+</div></details>
+</div>
+<div class="subsection-group">
+<h3 id="section-11-sub-4" class="subsection-anchor">Failover clustering</h3>
+<details open id="section-11-sub-5" class="dataset" data-default-open="false" data-title="Cluster nodes"><summary><span class="dataset-title">Cluster nodes</span><span class="dataset-count">3 rows</span></summary><div class="dataset-body">
+<div class="table-wrap" tabindex="0" aria-label="Cluster nodes"><table class=""><thead><tr>
+<th scope="col" data-original-label="Name">Name</th>
+<th scope="col" data-original-label="State">State</th>
+<th scope="col" data-original-label="DynamicWeight">Dynamic Weight</th>
+</tr></thead><tbody>
+<tr>
+<td>HV01</td>
+<td>Up</td>
+<td>1</td>
+</tr>
+<tr>
+<td>HV02</td>
+<td>Up</td>
+<td>1</td>
+</tr>
+<tr>
+<td>HV03</td>
+<td>Up</td>
+<td>1</td>
+</tr>
+</tbody></table></div>
+</div></details>
+<details open id="section-11-sub-6" class="dataset" data-default-open="false" data-title="Cluster Shared Volumes"><summary><span class="dataset-title">Cluster Shared Volumes</span><span class="dataset-count">2 rows</span></summary><div class="dataset-body">
+<div class="table-wrap" tabindex="0" aria-label="Cluster Shared Volumes"><table class=""><thead><tr>
+<th scope="col" data-original-label="Name">Name</th>
+<th scope="col" data-original-label="State">State</th>
+<th scope="col" data-original-label="Path">Path</th>
+<th scope="col" data-original-label="Owner">Owner</th>
+</tr></thead><tbody>
+<tr>
+<td>CSV1</td>
+<td>Online</td>
+<td>C:\ClusterStorage\Volume1</td>
+<td>HV01</td>
+</tr>
+<tr>
+<td>CSV2</td>
+<td>Online</td>
+<td>C:\ClusterStorage\Volume2</td>
+<td>HV02</td>
+</tr>
+</tbody></table></div>
+</div></details>
+<details open id="section-11-sub-7" class="dataset dataset-text" data-default-open="false" data-title="Cluster quorum"><summary><span class="dataset-title">Cluster quorum</span><span class="dataset-count">Text output</span></summary><div class="dataset-body">
+<pre>Cluster        : HVCLU01
+QuorumResource : Cloud Witness
+QuorumType     : NodeAndCloudMajority</pre>
+</div></details>
+</div>
+</section>
+<section id="section-12" class="report-section">
+<div class="section-head"><div class="section-kicker">Section 12</div><h2 class="section-title">Event Summary</h2>
+<p class="section-intro">Recent critical, error, and warning events.</p></div>
+<div class="section-toolbar"><div class="section-stats"></div><div class="section-actions"><button type="button" class="quiet-button" data-details-action="expand">Expand section</button><button type="button" class="quiet-button" data-details-action="collapse">Collapse section</button></div></div>
+<details open id="section-12-sub-1" class="dataset" data-default-open="true" data-title="Recent errors and warnings"><summary><span class="dataset-title">Recent errors and warnings</span><span class="dataset-count">2 rows</span></summary><div class="dataset-body">
+<div class="table-wrap" tabindex="0" aria-label="Recent errors and warnings"><table class=""><thead><tr>
+<th scope="col" data-original-label="TimeCreated">Time Created</th>
+<th scope="col" data-original-label="Log">Log</th>
+<th scope="col" data-original-label="Id">Id</th>
+<th scope="col" data-original-label="Level">Level</th>
+<th scope="col" data-original-label="Message">Message</th>
+</tr></thead><tbody>
+<tr>
+<td>2026-11-27 23:10</td>
+<td>System</td>
+<td>1135</td>
+<td>Warning</td>
+<td>Cluster node HV03 was removed from the active failover cluster membership for 14 seconds.</td>
+</tr>
+<tr>
+<td>2026-11-26 04:12</td>
+<td>Hyper-V-VMMS</td>
+<td>16010</td>
+<td>Warning</td>
+<td>The operation failed because the file was not found (checkpoint of LAB-TEST01).</td>
+</tr>
+</tbody></table></div>
+</div></details>
+</section>
+<section id="section-13" class="report-section">
+<div class="section-head"><div class="section-kicker">Section 13</div><h2 class="section-title">Recovery and Migration Notes</h2>
+<p class="section-intro">Review the requirements before planning migration or recovery.</p></div>
+<div class="section-toolbar"><div class="section-stats"></div><div class="section-actions"><button type="button" class="quiet-button" data-details-action="expand">Expand section</button><button type="button" class="quiet-button" data-details-action="collapse">Collapse section</button></div></div>
+<p class="info"><strong>Record the cluster name, IP address, quorum witness and CSV layout before rebuilding any node.</strong></p>
+<ul>
+<li>Live migration network: 10.0.30.0/24 on vEthernet (LiveMigration).</li>
+<li>iSCSI portals: 10.0.40.10 and 10.0.41.10 (two paths per LUN).</li>
+</ul>
+</section>
+<section id="section-14" class="report-section">
+<div class="section-head"><div class="section-kicker">Section 14</div><h2 class="section-title">Collection Appendix</h2>
+<p class="section-intro">Collection results and supporting export references.</p></div>
+<div class="section-toolbar"><div class="section-stats"></div><div class="section-actions"><button type="button" class="quiet-button" data-details-action="expand">Expand section</button><button type="button" class="quiet-button" data-details-action="collapse">Collapse section</button></div></div>
+<details open id="section-14-sub-1" class="dataset dataset-long" data-default-open="false" data-title="Collector execution status"><summary><span class="dataset-title">Collector execution status</span><span class="dataset-count">28 rows</span></summary><div class="dataset-body">
+<div class="table-wrap" tabindex="0" aria-label="Collector execution status"><table class=""><thead><tr>
+<th scope="col" data-original-label="Collector">Collector</th>
+<th scope="col" data-original-label="Status">Status</th>
+<th scope="col" data-original-label="Seconds">Seconds</th>
+</tr></thead><tbody>
+<tr>
+<td>System identity</td>
+<td><span class="status status-success">Success</span></td>
+<td>1</td>
+</tr>
+<tr>
+<td>Operating system</td>
+<td><span class="status status-success">Success</span></td>
+<td>8</td>
+</tr>
+<tr>
+<td>Hardware</td>
+<td><span class="status status-success">Success</span></td>
+<td>15</td>
+</tr>
+<tr>
+<td>Firmware and BIOS</td>
+<td><span class="status status-success">Success</span></td>
+<td>3</td>
+</tr>
+<tr>
+<td>Processors</td>
+<td><span class="status status-success">Success</span></td>
+<td>10</td>
+</tr>
+<tr>
+<td>Memory</td>
+<td><span class="status status-success">Success</span></td>
+<td>17</td>
+</tr>
+<tr>
+<td>Disks</td>
+<td><span class="status status-success">Success</span></td>
+<td>5</td>
+</tr>
+<tr>
+<td>Volumes</td>
+<td><span class="status status-success">Success</span></td>
+<td>12</td>
+</tr>
+<tr>
+<td>Network adapters</td>
+<td><span class="status status-success">Success</span></td>
+<td>19</td>
+</tr>
+<tr>
+<td>IP configuration</td>
+<td><span class="status status-success">Success</span></td>
+<td>7</td>
+</tr>
+<tr>
+<td>Routes</td>
+<td><span class="status status-success">Success</span></td>
+<td>14</td>
+</tr>
+<tr>
+<td>DNS client</td>
+<td><span class="status status-success">Success</span></td>
+<td>2</td>
+</tr>
+<tr>
+<td>Listening ports</td>
+<td><span class="status status-success">Success</span></td>
+<td>9</td>
+</tr>
+<tr>
+<td>Roles and features</td>
+<td><span class="status status-success">Success</span></td>
+<td>16</td>
+</tr>
+<tr>
+<td>Hotfixes</td>
+<td><span class="status status-success">Success</span></td>
+<td>4</td>
+</tr>
+<tr>
+<td>Services</td>
+<td><span class="status status-success">Success</span></td>
+<td>11</td>
+</tr>
+<tr>
+<td>Scheduled tasks</td>
+<td><span class="status status-success">Success</span></td>
+<td>18</td>
+</tr>
+<tr>
+<td>Installed applications</td>
+<td><span class="status status-success">Success</span></td>
+<td>6</td>
+</tr>
+<tr>
+<td>Local users and groups</td>
+<td><span class="status status-success">Success</span></td>
+<td>13</td>
+</tr>
+<tr>
+<td>Firewall</td>
+<td><span class="status status-success">Success</span></td>
+<td>1</td>
+</tr>
+<tr>
+<td>SMB shares</td>
+<td><span class="status status-success">Success</span></td>
+<td>8</td>
+</tr>
+<tr>
+<td>Share permissions</td>
+<td><span class="status status-success">Success</span></td>
+<td>15</td>
+</tr>
+<tr>
+<td>Hyper-V</td>
+<td><span class="status status-success">Success</span></td>
+<td>3</td>
+</tr>
+<tr>
+<td>Failover clustering</td>
+<td><span class="status status-success">Success</span></td>
+<td>10</td>
+</tr>
+<tr>
+<td>Event logs</td>
+<td><span class="status status-success">Success</span></td>
+<td>17</td>
+</tr>
+<tr>
+<td>Certificates</td>
+<td><span class="status status-success">Success</span></td>
+<td>5</td>
+</tr>
+<tr>
+<td>Printers</td>
+<td><span class="status status-warning">Unavailable</span></td>
+<td>12</td>
+</tr>
+<tr>
+<td>Time service</td>
+<td><span class="status status-success">Success</span></td>
+<td>19</td>
+</tr>
+</tbody></table></div>
+</div></details>
+</section></div><footer class="footer-note">Sensitive infrastructure documentation. This inventory is a configuration snapshot, not a backup. Supporting exports retain raw data and reusable artifacts.</footer></main></div></div>
+<script>
+(function () {
+    'use strict';
+    var root = document.documentElement;
+    var content = document.querySelector('.report-content');
+    var nav = document.getElementById('report-nav');
+    var sections = Array.prototype.slice.call(document.querySelectorAll('.report-section'));
+    var buttons = Array.prototype.slice.call(document.querySelectorAll('.section-main-button'));
+    var details = Array.prototype.slice.call(document.querySelectorAll('details.dataset'));
+    var summaryId = root.getAttribute('data-default-section');
+    var currentIndex = 0, matches = [], matchIndex = -1, printState = null, lastQuery = '', absentCount = 0;
+    function byId(id) { return document.getElementById(id); }
+    function toArray(list) { return Array.prototype.slice.call(list); }
+    function formatNumber(value) { return String(value).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
+    function plural(count, one, many) { return formatNumber(count) + ' ' + (count === 1 ? one : many); }
+    function cleanTitle(text) { return String(text || '').replace(/^\s+|\s+$/g, '').replace(/^\d+(\.\d+)*\.?\s+/, ''); }
+    function parentSection(element) {
+        while (element && element !== document) {
+            if (element.classList && element.classList.contains('report-section')) { return element; }
+            element = element.parentNode;
+        }
+        return null;
+    }
+    function openParents(element) {
+        while (element && element !== document) {
+            if (element.tagName === 'DETAILS') { element.open = true; }
+            element = element.parentNode;
+        }
+    }
+    function indexById(id) {
+        for (var i=0; i<buttons.length; i++) { if (buttons[i].getAttribute('data-section') === id) { return i; } }
+        return -1;
+    }
+    function keepNavButtonVisible(button) {
+        if (!nav || !button || nav.offsetParent === null || nav.clientHeight === 0) { return; }
+        var top = button.offsetTop, bottom = top + button.offsetHeight;
+        if (top < nav.scrollTop + 8) { nav.scrollTop = Math.max(0, top - 24); }
+        else if (bottom > nav.scrollTop + nav.clientHeight - 8) { nav.scrollTop = bottom - nav.clientHeight + 24; }
+    }
+    function markSubsectionLink(anchor) {
+        var links = document.querySelectorAll('.subsection-nav-button');
+        for (var k=0; k<links.length; k++) { links[k].classList.toggle('active', !!anchor && links[k].getAttribute('data-anchor') === anchor); }
+    }
+    function activate(index, updateHash, anchor) {
+        if (!buttons.length) { return; }
+        currentIndex = Math.max(0, Math.min(index, buttons.length-1));
+        var selectedId = buttons[currentIndex].getAttribute('data-section');
+        for (var i=0; i<sections.length; i++) {
+            var selected = sections[i].id === selectedId;
+            sections[i].classList.toggle('active', selected);
+            sections[i].setAttribute('aria-hidden', selected ? 'false' : 'true');
+        }
+        for (var j=0; j<buttons.length; j++) {
+            var active = j === currentIndex;
+            buttons[j].classList.toggle('active', active);
+            buttons[j].setAttribute('aria-current', active ? 'page' : 'false');
+            buttons[j].parentNode.classList.toggle('active', active);
+        }
+        markSubsectionLink(anchor);
+        byId('section-label').textContent = buttons[currentIndex].getAttribute('data-title') + ' / ' + (currentIndex+1) + ' of ' + buttons.length;
+        byId('previous-section').disabled = currentIndex === 0;
+        byId('next-section').disabled = currentIndex === buttons.length-1;
+        if (updateHash) {
+            try { window.history.replaceState(null, '', '#' + (anchor || selectedId)); }
+            catch (error) { window.location.hash = anchor || selectedId; }
+        }
+        if (anchor) {
+            var target = byId(anchor);
+            if (target) { openParents(target); target.scrollIntoView(true); }
+        } else if (content) { content.scrollTop = 0; }
+        root.classList.remove('nav-open');
+        byId('toggle-report-nav').setAttribute('aria-expanded', 'false');
+        keepNavButtonVisible(buttons[currentIndex]);
+    }
+    function revealElement(element) {
+        var section = parentSection(element);
+        if (!section) { return; }
+        var panel=element.closest&&element.closest('details.dataset');
+        if(panel&&panel.clearTableFilter){panel.clearTableFilter();}
+        var index = indexById(section.id);
+        if (index >= 0 && index !== currentIndex) { activate(index, false, ''); }
+        openParents(element);
+        try { element.scrollIntoView({block:'center',inline:'nearest'}); }
+        catch (error) { element.scrollIntoView(true); }
+    }
+    function revealId(id) {
+        var element = byId(id);
+        if (!element) { return; }
+        var section = parentSection(element);
+        if (section) { activate(indexById(section.id), true, element === section ? '' : id); }
+    }
+
+    // Search -------------------------------------------------------------
+    function clearSearch() {
+        var marks = document.querySelectorAll('mark.report-match');
+        for (var i=0; i<marks.length; i++) {
+            var parent = marks[i].parentNode;
+            parent.replaceChild(document.createTextNode(marks[i].textContent), marks[i]);
+            parent.normalize();
+        }
+        matches = []; matchIndex = -1; lastQuery = '';
+        root.classList.remove('search-active');
+        byId('report-search-prev').disabled = true;
+        byId('report-search-next').disabled = true;
+        byId('report-search-message').textContent = 'Search every section, including collapsed details.';
+    }
+    function showMatch(index) {
+        if (!matches.length) { return; }
+        if (matchIndex >= 0) { matches[matchIndex].classList.remove('report-current'); }
+        matchIndex = (index + matches.length) % matches.length;
+        matches[matchIndex].classList.add('report-current');
+        revealElement(matches[matchIndex]);
+        var section = parentSection(matches[matchIndex]), button = section ? buttons[indexById(section.id)] : null;
+        byId('report-search-message').textContent = 'Match ' + (matchIndex+1) + ' of ' + matches.length + ' across the full report' + (button ? ' \u2014 ' + button.getAttribute('data-title') : '') + '.';
+    }
+    function search() {
+        clearSearch();
+        var query = byId('report-search-input').value.replace(/^\s+|\s+$/g, '');
+        if (!query) { return; }
+        root.classList.add('search-active'); lastQuery = query;
+        var lowerQuery = query.toLowerCase(), nodes = [];
+        for (var i=0; i<sections.length; i++) {
+            var walker = document.createTreeWalker(sections[i], NodeFilter.SHOW_TEXT, {acceptNode:function(node) {
+                var tag = node.parentNode && node.parentNode.nodeName;
+                if (node.parentElement.closest('.dataset-tools,.section-actions,.section-toolbar,.section-overview,.copy-feedback') || tag === 'SCRIPT' || tag === 'STYLE' || (tag === 'BUTTON' && !node.parentElement.classList.contains('table-sort')) || tag === 'MARK') { return NodeFilter.FILTER_REJECT; }
+                return node.nodeValue.toLowerCase().indexOf(lowerQuery) >= 0 ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+            }}, false);
+            var node; while ((node = walker.nextNode())) { nodes.push(node); }
+        }
+        for (var n=0; n<nodes.length; n++) {
+            var text = nodes[n].nodeValue, lower = text.toLowerCase(), offset=0, at=lower.indexOf(lowerQuery), fragment=document.createDocumentFragment();
+            while (at >= 0) {
+                if (at > offset) { fragment.appendChild(document.createTextNode(text.substring(offset,at))); }
+                var mark = document.createElement('mark'); mark.className='report-match';
+                mark.appendChild(document.createTextNode(text.substr(at,query.length))); fragment.appendChild(mark);
+                matches.push(mark); offset=at+query.length; at=lower.indexOf(lowerQuery,offset);
+            }
+            if (offset < text.length) { fragment.appendChild(document.createTextNode(text.substring(offset))); }
+            nodes[n].parentNode.replaceChild(fragment,nodes[n]);
+        }
+        if (!matches.length) { byId('report-search-message').textContent='No matches for "' + query + '".'; return; }
+        byId('report-search-prev').disabled=false; byId('report-search-next').disabled=false; showMatch(0);
+    }
+
+    // Print: every collapsible panel (datasets and "No data" groups) opens.
+    function preparePrint() {
+        if (printState) { return; }
+        printState = toArray(document.querySelectorAll('details')).map(function(detail) { return [detail, detail.open]; });
+        for (var i=0; i<printState.length; i++) { printState[i][0].open=true; }
+    }
+    function restorePrint() {
+        if (!printState) { return; }
+        for (var i=0; i<printState.length; i++) { printState[i][0].open=printState[i][1]; }
+        printState=null;
+        root.classList.remove('print-section');
+    }
+
+    // Right-align columns whose populated cells are all numeric (counts, sizes,
+    // percentages). Presentation only: cell text is never changed.
+    var numericCell = /^[-+]?(\d{1,3}(,\d{3})+|\d+)(\.\d+)?\s?(%|[KMGT]i?B|bytes|ms|s|sec)?$/i;
+    function alignNumericColumns(table) {
+        var head = table.tHead && table.tHead.rows[0], body = table.tBodies[0];
+        if (!head || !body || !body.rows.length) { return; }
+        for (var c=0; c<head.cells.length; c++) {
+            if (/version|build|\bid\b|year|phone|port/i.test(head.cells[c].getAttribute('data-original-label') || head.cells[c].textContent)) { continue; }
+            var seen = 0, numeric = true;
+            for (var r=0; r<body.rows.length && numeric; r++) {
+                var cell = body.rows[r].cells[c]; if (!cell) { continue; }
+                var value = cell.textContent.replace(/^\s+|\s+$/g, '');
+                if (!value) { continue; }
+                seen++; numeric = numericCell.test(value);
+            }
+            if (seen && numeric) {
+                head.cells[c].classList.add('num');
+                for (var n=0; n<body.rows.length; n++) { if (body.rows[n].cells[c]) { body.rows[n].cells[c].classList.add('num'); } }
+            }
+        }
+    }
+    function issueCounts(container) {
+        return {errors:container.querySelectorAll('td .status-error').length, warnings:container.querySelectorAll('td .status-warning').length};
+    }
+    function issueDescription(counts) {
+        return (counts.errors ? counts.errors + (counts.errors === 1 ? ' failure or high-severity item' : ' failures or high-severity items') : '') + (counts.errors && counts.warnings ? ' and ' : '') + (counts.warnings ? counts.warnings + (counts.warnings === 1 ? ' warning' : ' warnings') : '');
+    }
+    // Count items that need attention in each section so the navigation shows
+    // where to look first. Badges live in the navigation, outside searchable
+    // and copyable section content.
+    function addReviewBadges() {
+        for (var i=0; i<buttons.length; i++) {
+            var section = byId(buttons[i].getAttribute('data-section'));
+            if (!section) { continue; }
+            var counts = issueCounts(section), total = counts.errors + counts.warnings;
+            if (!total) { continue; }
+            var badge = document.createElement('span');
+            badge.className = 'nav-badge' + (counts.errors ? ' nav-badge-error' : '');
+            badge.textContent = String(total);
+            badge.title = issueDescription(counts); badge.setAttribute('aria-label', issueDescription(counts));
+            buttons[i].appendChild(badge);
+        }
+    }
+
+    // Copy ---------------------------------------------------------------
+    // Read DOM text, not innerText: collapsed panels, horizontal scrolling and
+    // search marks must never omit or change the copied report values.
+    function tableText(table) {
+        return Array.prototype.map.call(table.rows,function(row) {
+            return Array.prototype.map.call(row.cells,function(cell) {
+                var value=cell.textContent;
+                return /[\t\r\n"]/.test(value) ? '"'+value.replace(/"/g,'""')+'"' : value;
+            }).join('\t');
+        }).join('\r\n');
+    }
+    function partsText(item) {
+        return Array.prototype.filter.call(item.children,function(part){return part.tagName!=='BUTTON';}).map(function(part){return part.textContent;}).join(': ');
+    }
+    function reportText(container) {
+        var chunks=[];
+        function visit(node) {
+            if (node.nodeType !== 1 || node.matches('button,.dataset-tools,.section-toolbar,.section-overview,.copy-feedback,.review-links,.role-list,.health-legend,.health-bar')) { return; }
+            if (node.tagName === 'TABLE') { chunks.push(tableText(node)); return; }
+            if (node.tagName === 'SUMMARY') {
+                var title=node.querySelector('.dataset-title'),count=node.querySelector('.dataset-count');
+                chunks.push((title?title.textContent:node.textContent)+(count?' ('+count.textContent+')':''));return;
+            }
+            if (node.matches('.facts,.metrics')) { chunks.push(Array.prototype.map.call(node.children,partsText).join('\r\n'));return; }
+            if (node.matches('.health-figure')) {
+                var percent=node.querySelector('.health-percent'),caption=node.querySelector('.health-caption');
+                chunks.push('Collection health: '+(percent?percent.textContent:'')+(caption?' '+caption.textContent:''));return;
+            }
+            if (node.matches('h1,h2,h3,h4,p,li,pre')) { chunks.push(node.textContent); return; }
+            for (var i=0;i<node.children.length;i++) { visit(node.children[i]); }
+        }
+        visit(container); return chunks.join('\r\n\r\n');
+    }
+    var coverActions=document.querySelector('.cover-actions')||document.querySelector('.report-brand');
+    var copyFeedback=document.createElement('div');
+    copyFeedback.className='copy-feedback';copyFeedback.setAttribute('role','status');copyFeedback.setAttribute('aria-live','polite');
+    var copyPanel=document.createElement('div');copyPanel.className='copy-panel';copyPanel.hidden=true;
+    copyPanel.setAttribute('role','region');copyPanel.setAttribute('aria-label','Manual report copy');
+    var copyHelp=document.createElement('p');copyHelp.textContent='Automatic copy is unavailable. The complete text is selected below. Press Ctrl+C (Command+C on Mac), then Close.';
+    var copyArea=document.createElement('textarea');copyArea.readOnly=true;copyArea.setAttribute('aria-label','Complete report text to copy');
+    var copyClose=document.createElement('button');copyClose.type='button';copyClose.className='quiet-button';copyClose.textContent='Close';
+    copyPanel.appendChild(copyHelp);copyPanel.appendChild(copyArea);copyPanel.appendChild(copyClose);document.body.appendChild(copyPanel);
+    var copyOrigin=null,copyRequest=0;
+    function closeCopy() { copyPanel.hidden=true;copyArea.value='';if(copyOrigin){copyOrigin.focus();} }
+    copyClose.addEventListener('click',closeCopy);
+    copyPanel.addEventListener('keydown',function(event){if(event.key==='Escape'){event.preventDefault();closeCopy();}});
+    function copyText(text,button) {
+        // Keep the selected text available if either the Clipboard API or the
+        // older local-file fallback is blocked by browser/iframe policy.
+        copyOrigin=button;copyFeedback.textContent='';var request=++copyRequest;copyPanel.hidden=true;copyArea.value='';
+        function fallback() {
+            if(request!==copyRequest){return;}
+            copyArea.value=text;copyPanel.hidden=false;copyArea.focus();copyArea.select();
+            var copied=false;try { copied=document.execCommand('copy'); } catch(error) { /* manual copy remains available */ }
+            if(copied){closeCopy();copyFeedback.textContent='Copied complete text.';}
+            else{copyFeedback.textContent='Use the selected text in the manual copy panel.';}
+        }
+        if(navigator.clipboard && navigator.clipboard.writeText) {
+            try { navigator.clipboard.writeText(text).then(function(){if(request===copyRequest){copyFeedback.textContent='Copied complete text.';}},fallback); }
+            catch(error){fallback();}
+        } else { fallback(); }
+    }
+    function copyButton(label,container,getText) {
+        var button=document.createElement('button');button.type='button';button.className='quiet-button copy-action';button.textContent=label;
+        button.addEventListener('click',function(){copyText(getText(),button);});container.appendChild(button);return button;
+    }
+    // This control remains available in the embedded viewer as well as saved HTML.
+    copyButton('Copy full report',coverActions,function(){
+        return document.querySelector('h1').textContent+'\r\n'+document.querySelector('.subtitle').textContent+'\r\n\r\n'+sections.map(reportText).join('\r\n\r\n');
+    });
+    coverActions.appendChild(copyFeedback);
+    for(var cs=0;cs<sections.length;cs++) {
+        (function(section){
+            var actions=section.querySelector('.section-actions');
+            copyButton('Copy section',actions,function(){return reportText(section);});
+            var print=document.createElement('button');print.type='button';print.className='quiet-button print-action';print.textContent='Print section';
+            print.addEventListener('click',function(){var index=indexById(section.id);if(index>=0){activate(index,false,'');}preparePrint();root.classList.add('print-section');window.print();});
+            actions.appendChild(print);
+        }(sections[cs]));
+    }
+
+    // Tables -------------------------------------------------------------
+    function enhanceTable(panel,table,toolbar) {
+        var rows=Array.prototype.slice.call(table.tBodies[0].rows),searchRows=null;
+        var filterLabel=document.createElement('label');filterLabel.className='table-filter';filterLabel.textContent='Filter rows ';
+        var filter=document.createElement('input');filter.type='search';filter.placeholder='Find in this table';filter.setAttribute('aria-label','Filter rows in '+panel.getAttribute('data-title'));
+        filterLabel.appendChild(filter);toolbar.appendChild(filterLabel);
+        var count=document.createElement('span');count.className='table-filter-count';count.setAttribute('role','status');count.setAttribute('aria-live','polite');toolbar.appendChild(count);
+        function applyFilter() {
+            var query=filter.value.trim().toLowerCase(),shown=0;
+            if(query&&!searchRows){searchRows=rows.map(function(row){return row.textContent.toLowerCase();});}
+            for(var i=0;i<rows.length;i++){rows[i].hidden=!!query&&searchRows[i].indexOf(query)<0;if(!rows[i].hidden){shown++;}}
+            count.textContent=query?shown+' of '+rows.length+' rows shown. Copy table includes all rows.':'';
+        }
+        filter.addEventListener('input',applyFilter);
+        panel.clearTableFilter=function(){if(filter.value){filter.value='';applyFilter();}};
+        var headers=Array.prototype.slice.call(table.tHead.rows[0].cells),sortColumn=-1,sortDirection=0;
+        var collator=typeof Intl!=='undefined'&&Intl.Collator?new Intl.Collator(undefined,{numeric:true,sensitivity:'base'}):null;
+        headers.forEach(function(header,index){
+            var label=header.textContent,button=document.createElement('button');button.type='button';button.className='table-sort';button.textContent=label;
+            button.setAttribute('aria-label','Sort by '+label);header.textContent='';header.appendChild(button);header.setAttribute('aria-sort','none');
+            button.addEventListener('click',function(){
+                sortDirection=sortColumn===index?(sortDirection+1)%3:1;sortColumn=index;
+                headers.forEach(function(h,i){h.setAttribute('aria-sort',i===index&&sortDirection?(sortDirection===1?'ascending':'descending'):'none');});
+                var ordered=rows.map(function(row,original){return {row:row,original:original,value:row.cells[index].textContent};});
+                if(sortDirection){ordered.sort(function(a,b){var result=collator?collator.compare(a.value,b.value):a.value.localeCompare(b.value);return (sortDirection===1?result:-result)||a.original-b.original;});}
+                var fragment=document.createDocumentFragment();ordered.forEach(function(item){fragment.appendChild(item.row);});table.tBodies[0].appendChild(fragment);
+            });
+        });
+    }
+    function enhanceDataset(panel) {
+        var body=panel.querySelector('.dataset-body'),table=panel.querySelector('table'),pre=panel.querySelector('pre');
+        var toolbar=document.createElement('div');toolbar.className='dataset-tools';body.insertBefore(toolbar,body.firstChild);
+        copyButton(table?'Copy table': 'Copy text',toolbar,function(){return table?tableText(table):pre?pre.textContent:reportText(body);});
+        if(!table&&!pre&&panel.querySelector('.empty-data')){panel.classList.add('dataset-empty');}
+        if(!table){return;}
+        var rows=toArray(table.tBodies[0].rows),labels=toArray(table.tHead.rows[0].cells).map(function(cell){return cell.getAttribute('data-original-label')||cell.textContent;});
+        // Two-column name/value lists are styled as property sheets (still compact
+        // rows with optional wrapping); a single wide record is transposed visually.
+        // Table rows, cells and order are unchanged.
+        if(labels.length===2&&/^value$/i.test(labels[1])){table.classList.add('kv-table');panel.classList.add('dataset-properties');}
+        else if(rows.length===1&&labels.length>=3){table.classList.add('record-table');panel.classList.add('dataset-properties');table.style.gridTemplateRows='repeat('+labels.length+', auto)';}
+        alignNumericColumns(table);
+        var counts=issueCounts(panel);
+        // Header flags are buttons: each click opens the dataset and jumps to the
+        // next failed/high-severity row (red) or warning row (amber). Their labels
+        // are CSS-generated so search and copy keep returning only source data.
+        var summaryCount=panel.querySelector('summary .dataset-count');
+        [['error',counts.errors,' error',' errors',{errors:counts.errors,warnings:0}],['warning',counts.warnings,' warning',' warnings',{errors:0,warnings:counts.warnings}]].forEach(function(kind){
+            if(!kind[1]){return;}
+            var flag=document.createElement('button'),cursor=-1;flag.type='button';flag.className='dataset-flag dataset-flag-'+kind[0];
+            var about=issueDescription(kind[4]);
+            flag.setAttribute('data-label',kind[1]+(kind[1]===1?kind[2]:kind[3]));flag.title=about+'. Click to jump to '+(kind[1]===1?'it':'the next one')+'.';flag.setAttribute('aria-label',about+'. Jump to '+(kind[1]===1?'it':'the next one')+'.');
+            flag.addEventListener('click',function(event){
+                // Inside <summary>: do not let the click toggle the dataset closed.
+                event.preventDefault();event.stopPropagation();
+                var cells=panel.querySelectorAll('td .status-'+kind[0]);if(!cells.length){return;}
+                if(panel.clearTableFilter){panel.clearTableFilter();}
+                openParents(panel);
+                var marked=panel.querySelectorAll('tr.issue-focus');for(var m=0;m<marked.length;m++){marked[m].classList.remove('issue-focus');}
+                cursor=(cursor+1)%cells.length;
+                var row=cells[cursor].closest('tr');row.classList.add('issue-focus');
+                try { row.scrollIntoView({block:'center',inline:'nearest'}); } catch (error) { row.scrollIntoView(true); }
+            });
+            summaryCount.parentNode.insertBefore(flag,summaryCount);
+        });
+        if(table.classList.contains('record-table')){return;}
+        var wrap=document.createElement('button');wrap.type='button';wrap.className='quiet-button';wrap.textContent='Wrap values';wrap.setAttribute('aria-pressed','false');
+        wrap.addEventListener('click',function(){var on=panel.classList.toggle('wrap-values');wrap.setAttribute('aria-pressed',String(on));wrap.textContent=on?'Compact rows':'Wrap values';});toolbar.appendChild(wrap);
+        var hint=document.createElement('span');hint.className='table-hint';hint.textContent='Select text to copy a value. Copy table includes all rows.';toolbar.appendChild(hint);
+        if(rows.length>1){enhanceTable(panel,table,toolbar);}
+    }
+    for(var cd=0;cd<details.length;cd++) { enhanceDataset(details[cd]); }
+    for (var d=0; d<details.length; d++) { details[d].open=details[d].getAttribute('data-default-open') === 'true'; }
+
+    // Hierarchy ----------------------------------------------------------
+    // Put actionable findings in the summary's attention panel without
+    // changing the underlying blocks or their original section/anchor identities.
+    var summarySection=byId(summaryId);
+    if(summarySection){
+        var attentionItems=summarySection.querySelector('.attention-items');
+        var priorityPanels=summarySection.querySelectorAll('.dataset-priority');
+        for(var p=0;attentionItems&&p<priorityPanels.length;p++){ attentionItems.appendChild(priorityPanels[p]); }
+    }
+    // Datasets that returned nothing move into one quiet group per section or
+    // subsection. They stay in the DOM for search, copy and print.
+    var defaultEmptyMessage='No data was collected or the component is not present.';
+    function groupEmptyDatasets(container) {
+        var empties=toArray(container.children).filter(function(child){return child.tagName==='DETAILS'&&child.classList.contains('dataset-empty');});
+        if(!empties.length){return;}
+        absentCount++;
+        var group=document.createElement('details');group.className='absent-group';group.id='no-data-'+absentCount;
+        var summary=document.createElement('summary');
+        var title=document.createElement('span');title.className='dataset-title';title.textContent='No data collected';
+        var count=document.createElement('span');count.className='dataset-count';count.textContent=plural(empties.length,'dataset','datasets');
+        summary.appendChild(title);summary.appendChild(count);group.appendChild(summary);
+        var body=document.createElement('div');body.className='absent-body';
+        var note=document.createElement('p');note.className='absent-note';
+        note.textContent='These datasets were checked but returned no rows. The component may be absent or unconfigured, or its collector may have failed; see the collection results.';
+        body.appendChild(note);
+        var list=document.createElement('div');list.className='absent-list';
+        // Only explanations that differ from the standard "no data" text start open.
+        empties.forEach(function(panel){var message=panel.querySelector('.empty-data');panel.open=!!message&&message.textContent!==defaultEmptyMessage;list.appendChild(panel);});
+        body.appendChild(list);group.appendChild(body);container.appendChild(group);
+    }
+    function addOverviewItem(list,panel) {
+        var item=document.createElement('li'),button=document.createElement('button'),counts=issueCounts(panel);
+        button.type='button';button.className='overview-item'+(counts.errors?' has-error':(counts.warnings?' has-warning':''));
+        button.setAttribute('data-anchor',panel.id);button.textContent=panel.getAttribute('data-title');
+        var countText=panel.querySelector('summary .dataset-count').textContent.replace(/\d{4,}/g,formatNumber);
+        button.setAttribute('data-count',countText);button.setAttribute('aria-label',panel.getAttribute('data-title')+', '+countText+(counts.errors||counts.warnings?', '+issueDescription(counts):''));
+        item.appendChild(button);list.appendChild(item);
+    }
+    function buildOverview(section) {
+        var panels=toArray(section.querySelectorAll('details.dataset'));
+        var withData=panels.filter(function(panel){return !panel.classList.contains('dataset-empty');});
+        var rows=0;withData.forEach(function(panel){var table=panel.querySelector('table');if(table){rows+=table.tBodies[0].rows.length;}});
+        var stats=section.querySelector('.section-stats');
+        if(stats&&panels.length){
+            var parts=[plural(panels.length,'dataset','datasets')];
+            if(withData.length!==panels.length){parts.push(formatNumber(withData.length)+' with data');}
+            if(rows){parts.push(plural(rows,'table row','table rows'));}
+            var counts=issueCounts(section);if(counts.errors+counts.warnings){parts.push(formatNumber(counts.errors+counts.warnings)+' to review');}
+            stats.setAttribute('data-stats',parts.join(' \u00b7 '));
+        }
+        if(section.id===summaryId||panels.length<4){return;}
+        var overview=document.createElement('nav');overview.className='section-overview';overview.setAttribute('aria-label','In this section');
+        var containers=[section].concat(toArray(section.querySelectorAll('.subsection-group')));
+        containers.forEach(function(container){
+            var heading=container===section?null:container.querySelector('.subsection-anchor');
+            var owned=panels.filter(function(panel){var group=panel.closest('.subsection-group');return container===section?!group:group===container;});
+            var filled=owned.filter(function(panel){return !panel.classList.contains('dataset-empty');});
+            if(!owned.length&&!heading){return;}
+            var block=document.createElement('div');block.className='overview-group';
+            if(heading){var title=document.createElement('button');title.type='button';title.className='overview-group-title';title.setAttribute('data-anchor',heading.id);title.textContent=cleanTitle(heading.textContent);block.appendChild(title);}
+            var list=document.createElement('ul');list.className='overview-list';
+            filled.forEach(function(panel){addOverviewItem(list,panel);});
+            var absent=null;for(var c=0;c<container.children.length;c++){if(container.children[c].classList.contains('absent-group')){absent=container.children[c];}}
+            if(absent&&owned.length>filled.length){
+                var item=document.createElement('li'),button=document.createElement('button');button.type='button';button.className='overview-item overview-absent';
+                button.setAttribute('data-anchor',absent.id);button.textContent=plural(owned.length-filled.length,'dataset','datasets')+' with no data';
+                item.appendChild(button);list.appendChild(item);
+            }
+            if(list.children.length){block.appendChild(list);}
+            if(block.children.length){overview.appendChild(block);}
+        });
+        if(!overview.children.length){return;}
+        if(overview.children.length===1){overview.classList.add('section-overview-single');}
+        var toolbar=section.querySelector('.section-toolbar');
+        toolbar.parentNode.insertBefore(overview,toolbar.nextSibling);
+    }
+    for(var gs=0;gs<sections.length;gs++){
+        var section=sections[gs];
+        groupEmptyDatasets(section);
+        var groups=section.querySelectorAll('.subsection-group');
+        for(var gg=0;gg<groups.length;gg++){groupEmptyDatasets(groups[gg]);}
+        buildOverview(section);
+    }
+
+    // Navigation and interaction -----------------------------------------
+    for (var b=0; b<buttons.length; b++) {
+        (function(index) { buttons[index].addEventListener('click',function() { activate(index,true,''); }); }(b));
+    }
+    document.addEventListener('click',function(event) {
+        var target=event.target&&event.target.closest?event.target.closest('[data-anchor]'):null;
+        if(!target||target.tagName!=='BUTTON'){return;}
+        event.preventDefault();revealId(target.getAttribute('data-anchor'));
+    });
+    var expandButtons = document.querySelectorAll('[data-details-action]');
+    for (var e=0; e<expandButtons.length; e++) {
+        (function(button) { button.addEventListener('click',function() {
+            var section=parentSection(button), panels=section.querySelectorAll('details');
+            for (var i=0; i<panels.length; i++) { panels[i].open=button.getAttribute('data-details-action') === 'expand'; }
+        }); }(expandButtons[e]));
+    }
+    byId('previous-section').addEventListener('click',function() { activate(currentIndex-1,true,''); });
+    byId('next-section').addEventListener('click',function() { activate(currentIndex+1,true,''); });
+    byId('toggle-report-nav').addEventListener('click',function() {
+        var open=root.classList.toggle('nav-open'); this.setAttribute('aria-expanded',open ? 'true' : 'false');
+    });
+    byId('report-search-form').addEventListener('submit',function(event) {
+        event.preventDefault();
+        var query = byId('report-search-input').value.replace(/^\s+|\s+$/g, '');
+        if (query && query === lastQuery && matches.length) { showMatch(matchIndex+1); } else { search(); }
+    });
+    byId('report-search-input').addEventListener('keydown',function(event) {
+        if (event.key === 'Enter' && event.shiftKey && matches.length) { event.preventDefault(); showMatch(matchIndex-1); }
+        else if (event.key === 'Escape' && (this.value || matches.length)) { event.preventDefault(); event.stopPropagation(); clearSearch(); this.value=''; }
+    });
+    function isTyping(target) { var tag=(target&&target.nodeName||'').toLowerCase(); return tag==='input'||tag==='textarea'||tag==='select'||!!(target&&target.isContentEditable); }
+    document.addEventListener('keydown',function(event) {
+        if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey || isTyping(event.target) || !copyPanel.hidden) { return; }
+        var input = byId('report-search-input');
+        if (event.key === '/' && input.offsetParent !== null) { event.preventDefault(); input.focus(); input.select(); }
+        else if (event.key === ']') { event.preventDefault(); activate(currentIndex+1,true,''); }
+        else if (event.key === '[') { event.preventDefault(); activate(currentIndex-1,true,''); }
+    });
+    // Highlight the subsection currently at the top of the reading pane.
+    var spyPending=false;
+    function updateSpy() {
+        spyPending=false;
+        if(!content||!buttons.length){return;}
+        var links=buttons[currentIndex].parentNode.querySelectorAll('.subsection-nav-button'),limit=content.getBoundingClientRect().top+96,best=null,bestTop=-Infinity;
+        if(content.scrollTop<8){markSubsectionLink('');return;}
+        for(var i=0;i<links.length;i++){
+            var target=byId(links[i].getAttribute('data-anchor'));
+            if(!target||target.offsetParent===null){continue;}
+            var top=target.getBoundingClientRect().top;
+            if(top<=limit&&top>bestTop){best=links[i];bestTop=top;}
+        }
+        markSubsectionLink(best?best.getAttribute('data-anchor'):'');
+    }
+    // One floating control copies the single value under the pointer. It lives
+    // outside the tables, so cell text, search and Copy table are unchanged.
+    var copyLayout=document.querySelector('.report-layout');
+    if (copyLayout && content) {
+        var cellCopy=document.createElement('button'),cellTarget=null;
+        cellCopy.type='button';cellCopy.className='cell-copy';cellCopy.textContent='Copy';cellCopy.hidden=true;cellCopy.setAttribute('aria-label','Copy this value');
+        copyLayout.appendChild(cellCopy);
+        var hideCellCopy=function(){cellCopy.hidden=true;cellTarget=null;};
+        copyLayout.addEventListener('mouseover',function(event){
+            if(event.target===cellCopy){return;}
+            var cell=event.target.closest?event.target.closest('tbody td,.fact-value'):null;
+            if(!cell||!cell.textContent.replace(/\s+/g,'')){hideCellCopy();return;}
+            var box=cell.getBoundingClientRect(),frame=copyLayout.getBoundingClientRect();
+            cellTarget=cell;cellCopy.style.top=(box.top-frame.top+1)+'px';
+            cellCopy.style.left=Math.max(0,Math.min(box.right,frame.right-18)-frame.left-48)+'px';cellCopy.hidden=false;
+        });
+        copyLayout.addEventListener('mouseleave',hideCellCopy);
+        content.addEventListener('scroll',hideCellCopy,{passive:true});
+        cellCopy.addEventListener('click',function(){if(cellTarget){copyText(cellTarget.textContent,cellCopy);}});
+    }
+    if (content) {
+        var toTop=document.createElement('button');toTop.type='button';toTop.className='back-to-top';toTop.textContent='Back to top';toTop.hidden=true;
+        toTop.addEventListener('click',function(){content.scrollTop=0;var heading=document.querySelector('.report-section.active .section-title');if(heading){heading.setAttribute('tabindex','-1');heading.focus({preventScroll:true});}});
+        document.querySelector('.report-layout').appendChild(toTop);
+        content.addEventListener('scroll',function(){toTop.hidden=content.scrollTop<400;if(!spyPending){spyPending=true;window.requestAnimationFrame(updateSpy);}},{passive:true});
+    }
+    byId('report-search-prev').addEventListener('click',function() { showMatch(matchIndex-1); });
+    byId('report-search-next').addEventListener('click',function() { showMatch(matchIndex+1); });
+    byId('report-search-clear').addEventListener('click',function() { clearSearch(); byId('report-search-input').value=''; });
+    byId('report-print').addEventListener('click',function() { window.print(); });
+    window.addEventListener('beforeprint',preparePrint); window.addEventListener('afterprint',restorePrint);
+    window.addEventListener('hashchange',function() { revealId(window.location.hash.substring(1)); });
+    // The native viewer uses this to expose search hits inside collapsed panels.
+    window.SICMReport = {revealElement:revealElement,preparePrint:preparePrint,restorePrint:restorePrint};
+    addReviewBadges();
+    root.classList.add('report-js');
+    var requested = window.location.hash.substring(1);
+    if (requested && byId(requested)) { revealId(requested); }
+    else { activate(indexById(summaryId),false,''); }
+}());
+
+</script>
+</body></html>

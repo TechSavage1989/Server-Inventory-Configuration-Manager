@@ -67,7 +67,7 @@ const (
 	lrLoadFromFile = 0x0010
 )
 
-//go:embed Export-ServerInventory.ps1 Run-Inventory.ps1 Restore-ServerConfiguration.ps1 Migrate-FileShares.ps1 Invoke-ShareMigrationRemote.ps1 Migrate-VmGuest.ps1 Build-ReceiverMedia.ps1 index.html favicon.ico app-icon.png assets/icons/server-inventory.svg
+//go:embed Export-ServerInventory.ps1 Run-Inventory.ps1 Restore-ServerConfiguration.ps1 Export-MigrationBundle.ps1 Migrate-FileShares.ps1 Invoke-ShareMigrationRemote.ps1 Migrate-VmGuest.ps1 Build-ReceiverMedia.ps1 index.html favicon.ico app-icon.png assets/icons/server-inventory.svg
 var embeddedPayloads embed.FS
 
 var (
@@ -120,6 +120,19 @@ type collectionOptions struct {
 	EventLogDays            int      `json:"eventLogDays"`
 	AclExportTimeoutSeconds int      `json:"aclExportTimeoutSeconds"`
 	IncludeSensitive        bool     `json:"includeSensitive"`
+	// The migration bundle (bundle.go). Its passphrase is a separate field of
+	// the start request so it can never reach the saved choices.
+	MigrationBundle      bool `json:"migrationBundle"`
+	BundleWebContent     bool `json:"bundleWebContent"`
+	BundleContentLimitGB int  `json:"bundleContentLimitGB"`
+}
+
+// collectionStartRequest is what /api/start receives: the choices, plus the
+// bundle passphrase that lives only for this collection.
+type collectionStartRequest struct {
+	collectionOptions
+	BundlePassphrase        string `json:"bundlePassphrase"`
+	BundlePassphraseConfirm string `json:"bundlePassphraseConfirm"`
 }
 
 type logEntry struct {
@@ -162,6 +175,8 @@ type stateResponse struct {
 	DocxReportPath          string                 `json:"docxReportPath"`
 	HtmlReportPath          string                 `json:"htmlReportPath"`
 	SummaryTextPath         string                 `json:"summaryTextPath"`
+	Bundle                  string                 `json:"bundle"`
+	BundleFailed            bool                   `json:"bundleFailed"`
 	LauncherLogPath         string                 `json:"launcherLogPath"`
 	DiagnosticPath          string                 `json:"diagnosticPath"`
 	LoadedReportAvailable   bool                   `json:"loadedReportAvailable"`
@@ -229,6 +244,10 @@ type internalState struct {
 	LauncherLogPath string
 	DiagnosticPath  string
 	CancelRequested bool
+	// Bundle is what the migration bundle step reported; BundleFailed marks
+	// a bundle that was asked for and not written.
+	Bundle       string
+	BundleFailed bool
 }
 
 type application struct {
@@ -1381,6 +1400,8 @@ func (a *application) snapshot(since int) stateResponse {
 		DocxReportPath:          a.state.DocxReportPath,
 		HtmlReportPath:          a.state.HtmlReportPath,
 		SummaryTextPath:         a.state.SummaryTextPath,
+		Bundle:                  a.state.Bundle,
+		BundleFailed:            a.state.BundleFailed,
 		LauncherLogPath:         a.state.LauncherLogPath,
 		DiagnosticPath:          a.state.DiagnosticPath,
 		LoadedReportAvailable:   strings.TrimSpace(a.loadedReportPath) != "",
@@ -1568,12 +1589,34 @@ func (a *application) handleStart(response http.ResponseWriter, request *http.Re
 		writeJSON(response, http.StatusMethodNotAllowed, map[string]any{"ok": false, "error": "POST is required."})
 		return
 	}
-	var options collectionOptions
+	var startRequest collectionStartRequest
 	decoder := json.NewDecoder(io.LimitReader(request.Body, 64*1024))
-	if err := decoder.Decode(&options); err != nil {
+	if err := decoder.Decode(&startRequest); err != nil {
 		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "The collection settings were invalid: " + err.Error()})
 		return
 	}
+	options := startRequest.collectionOptions
+	bundlePassphrase, bundleConfirm := startRequest.BundlePassphrase, startRequest.BundlePassphraseConfirm
+	startRequest.BundlePassphrase, startRequest.BundlePassphraseConfirm = "", ""
+	if options.MigrationBundle {
+		if !a.admin {
+			writeJSON(response, http.StatusForbidden, map[string]any{"ok": false, "error": "Preparing a package for a new server needs administrator rights, because it exports certificates with their private keys and the IIS passwords. Run the application as administrator, or turn that option off."})
+			return
+		}
+		if err := checkBundlePassphrase(bundlePassphrase, bundleConfirm); err != nil {
+			writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": err.Error()})
+			return
+		}
+		limit, err := normalizeBundleLimit(options.BundleContentLimitGB)
+		if err != nil {
+			writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": err.Error()})
+			return
+		}
+		options.BundleContentLimitGB = limit
+	} else {
+		bundlePassphrase = ""
+	}
+	bundleConfirm = ""
 	if options.EventLogDays == 0 {
 		options.EventLogDays = 30
 	}
@@ -1674,7 +1717,7 @@ func (a *application) handleStart(response http.ResponseWriter, request *http.Re
 	a.completedCollectors = make(map[string]bool)
 	a.mu.Unlock()
 
-	go a.runCollection(options, packageName, runID)
+	go a.runCollection(options, packageName, runID, bundlePassphrase)
 	writeJSON(response, http.StatusAccepted, map[string]any{"ok": true, "runId": runID, "packagePath": packagePath, "preferencesSaved": preferenceErr == nil})
 }
 
@@ -2032,6 +2075,9 @@ func (a *application) markSuccess(finalLogPath string) {
 	a.state.Status = "success"
 	a.state.Phase = "Inventory complete"
 	a.state.Message = "The consolidated reports and supporting package passed validation."
+	if a.state.Bundle != "" {
+		a.state.Message += " " + a.state.Bundle
+	}
 	a.state.CurrentStep = "Open the engineering report or summary to review the server inventory and configuration information."
 	a.state.Progress = 100
 	a.state.EndedAt = time.Now()
@@ -2090,7 +2136,7 @@ func (a *application) startAndStream(command *exec.Cmd) error {
 	return waitErr
 }
 
-func (a *application) runCollection(options collectionOptions, packageName, runID string) {
+func (a *application) runCollection(options collectionOptions, packageName, runID, bundlePassphrase string) {
 	a.mu.Lock()
 	launcherLogPath := a.state.LauncherLogPath
 	packagePath := a.state.PackagePath
@@ -2258,6 +2304,10 @@ func (a *application) runCollection(options collectionOptions, packageName, runI
 		return
 	}
 	a.logLauncher("Consolidated Word report, HTML report, text summary, completion marker, inventory folder, ZIP archive, and checksum were validated.")
+	if options.MigrationBundle {
+		a.runMigrationBundleStep(packagePath, zipPath, options, bundlePassphrase)
+		bundlePassphrase = ""
+	}
 	a.logLauncher("Collection completed successfully.")
 	a.closeLauncherLog()
 
