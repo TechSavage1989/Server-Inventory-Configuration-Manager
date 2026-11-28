@@ -194,7 +194,7 @@ try {
                 $text = $_.Exception.Message
                 if ($text -match 'credential is invalid|user name or password|logon failure|access is denied') { throw }
                 if ((Get-Date) -gt $deadline) { throw ('The VM did not answer within ' + [int]($WaitSeconds / 60) + ' minutes: ' + $text) }
-                if ($tries -eq 1 -or $tries % 8 -eq 0) { Write-Log ('Waiting for Windows in the VM to start (' + $text + ').') }
+                if ($tries -eq 1 -or $tries % 4 -eq 0) { Write-Log ('Waiting for Windows in the VM to start (' + $text + ').') }
                 Start-Sleep -Seconds 15
             }
         }
