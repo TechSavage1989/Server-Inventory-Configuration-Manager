@@ -46,7 +46,7 @@ tickers.push(function(){
 });
 
 /* ---------- restore ---------- */
-function restoreScan(path,q){var r=S.restore,pp=(q&&q.passphrase)||'';if(pp){r.unlocked=pp.length>=12;r.wrong=!r.unlocked;}var ok=!!r.unlocked;var ch=(q&&q.changes)||{};var ip=(ch.ip&&ch.ip['10.0.0.5'])||'192.0.2.21';var drv=(ch.path&&ch.path['E:'])||'D:';
+function restoreScan(path,q,noFiles){var r=S.restore,pp=(q&&q.passphrase)||'';if(pp){r.unlocked=pp.length>=12;r.wrong=!r.unlocked;}var ok=!!r.unlocked;var ch=(q&&q.changes)||{};var ip=(ch.ip&&ch.ip['10.0.0.5'])||'192.0.2.21';var drv=(ch.path&&ch.path['E:'])||'D:';
  function it(id,title,detail,o){return Object.assign({id:id,title:title,detail:detail||'',available:true,blockedReason:'',defaultSelected:true},o||{});}
  function cmp(id,title,desc,impact,items,warn){return {id:id,title:title,description:desc,impact:impact,available:true,blockedReason:'',warnings:warn||[],items:items};}
  var lock=ok?{}:{available:false,blockedReason:'Unlock the migration bundle with its passphrase first.'};
@@ -59,7 +59,11 @@ function restoreScan(path,q){var r=S.restore,pp=(q&&q.passphrase)||'';if(pp){r.u
  cmp('accounts','Local users and groups','Local users, local groups and group members of the old server.','high',[it('accounts:user:svcweb','svcweb','Local user',{needsSecret:'account:svcweb',secretLabel:'Password for FS-OLD-07\\svcweb',secretOptional:true}),it('accounts:group:WebEditors','WebEditors','Local group, 3 members')],['Old SIDs in permissions and policies become this server\'s.']),
  cmp('shares','File shares','Share names, folders, settings and share permissions.','normal',[it('shares:Finance','Finance',drv+'\\Data\\Finance'),it('shares:Projects','Projects',drv+'\\Data\\Projects')]),
  cmp('certificates','Certificates','Certificates with their private keys, and public certificates missing from this server\'s stores.','high',[it('certificates:shop','CN=shop.example.com','With private key, LocalMachine\\My',lock)]),
- cmp('iis','IIS web server','Website files, sites, bindings, application pools, applications and virtual directories.','high',[it('iis','IIS configuration','2 sites, 3 application pools, website files (1.4 GB)',ok?{}:{detail:'2 sites, 3 application pools; passwords need the bundle unlocked'})],['HTTPS bindings use '+ip+'.']),
+ cmp('iis','IIS web server','Website files, sites, bindings, application pools, applications and virtual directories.','high',[it('iis','IIS configuration','2 sites, 3 application pools',ok?{}:{detail:'2 sites, 3 application pools; passwords need the bundle unlocked'})].concat(noFiles?[]:[it('iis:files:1','Website files: '+drv+'\\Sites\\intranet','118.4 MB, copied with their permissions'),it('iis:files:2','Website files: '+drv+'\\Sites\\shop','36.6 MB, copied with their permissions')]),['HTTPS bindings use '+ip+'.']),
+ cmp('dns','DNS server','Missing zones, conditional forwarders and forwarders.','normal',[it('dns:forwarders','Forwarders','192.0.2.53, 198.51.100.53, then root hints'),it('dns:zone:partner.example.com','partner.example.com','Conditional forwarder to 198.51.100.10')]),
+ cmp('dhcp','DHCP Server','Scopes, options, reservations, exclusions, policies and leases.','high',[it('dhcp','DHCP configuration and leases','DHCP-Configuration-and-Leases.xml'),it('dhcp:authorize','Authorize this server in Active Directory','The old server was authorized as fs-old-07.example.com')]),
+ cmp('firewall','Windows Firewall','Firewall rules, IPsec rules and profile settings.','high',[it('firewall','Windows Firewall policy','Windows-Firewall-Policy.wfw')]),
+ cmp('registry','Registry settings','Exported registry branches such as TLS (SCHANNEL), Remote Desktop, SMB and role settings.','high',[it('registry:SCHANNEL.reg','SCHANNEL.reg','HKLM\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL',{defaultSelected:false})]),
  cmp('tasks','Scheduled tasks','Custom scheduled tasks (Microsoft tasks are not included).','normal',[it('tasks:nightly','Nightly export','Runs as FS-OLD-07\\svcweb',{needsSecret:'account:svcweb',secretLabel:'Password for FS-OLD-07\\svcweb',secretOptional:false})]),
  cmp('printers','Printers and print drivers','Print queues, printer drivers, ports and print processors (PrintBRM).','normal',[it('printers','4 print queues and their ports','')]),
  {id:'nps',title:'Network Policy Server (NPS)',description:'RADIUS clients, policies and server settings.',impact:'high',available:false,blockedReason:'The full NPS export was not selected when the package was collected.',warnings:[],items:[it('nps','Full NPS configuration','',{available:false,blockedReason:'The full NPS export was not selected when the package was collected.'})]}]};}
@@ -67,7 +71,7 @@ var rs=null;
 on(/^\/api\/restore\/(browse|scan|start|cancel)$/,function(q){
  var a=q.match[1],r=S.restore;
  if(a==='browse'){return ok({selected:true,path:'D:\\Restore\\FS-OLD-07_2026-11-21_0914'});}
- if(a==='scan'){r.status='scanning';r.message='Checking the package against its manifest.';r.packagePath=q.data.packagePath;if(q.data.packagePath!==r.lastPath){r.unlocked=false;r.wrong=false;r.lastPath=q.data.packagePath;}var keep=r.scan;if(!keep){r.scan=null;}var d=q.data;X.later(keep?500:1800,function(){r.status='ready';r.message='The package is verified. Choose what to restore.';r.scan=restoreScan(d.packagePath,d);});return ok();}
+ if(a==='scan'){r.status='scanning';r.message='Checking the package against its manifest.';r.packagePath=q.data.packagePath;if(q.data.packagePath!==r.lastPath){r.unlocked=false;r.wrong=false;r.lastPath=q.data.packagePath;}var keep=r.scan;if(!keep){r.scan=null;}var d=q.data;X.later(keep?500:1800,function(){r.status='ready';r.message='The package is verified. Choose what to restore.';r.scan=r.live&&S.serverMove.selection?liveScan(S.serverMove.selection,String(S.serverMove.old).split('.')[0].toUpperCase(),r.target,d.packagePath):restoreScan(d.packagePath,d,false);});return ok();}
  if(a==='start'){var sc=r.scan,items=[];(q.data.selections||q.data.components||[]).forEach(function(sel){var c=(sc.components||[]).filter(function(x){return x.id===sel.id;})[0];if(!c){return;}(sel.items||[]).forEach(function(id){var it=c.items.filter(function(x){return x.id===id;})[0];if(it){items.push({component:c.id,id:id,title:c.title+': '+it.title,status:'waiting',message:''});}});});
   if(!items.length){return bad('Choose at least one item to restore.');}
   Object.assign(r,{status:'running',message:'Restoring '+items.length+' item(s). Each item\'s current configuration is saved first.',items:items,logs:[],startedAtUnixMs:now(),endedAtUnixMs:0,cancelRequested:false,rollbackPath:'C:\\Users\\admin\\AppData\\Local\\Server Inventory Configuration Manager\\Restore-Rollback\\'+stamp().replace(/[: ]/g,'-')});
@@ -85,19 +89,56 @@ tickers.push(function(){
 
 /* ---------- move a server live (Restore tab) ---------- */
 S.serverMove={status:'idle',logs:[]};
-on(/^\/api\/servermove\/(read|sites|forget)$/,function(q){
+// What the old server has: listed by Look at the old server, picked before
+// anything is read or copied. Only the picks are copied.
+function liveDiscovery(old){var up=String(old).split('.')[0].toUpperCase();return {computer:up,osCaption:'Microsoft Windows Server 2016 Standard',
+ features:[{name:'Web-Server',displayName:'Web Server (IIS)'},{name:'Web-Asp-Net45',displayName:'ASP.NET 4.6'},{name:'Web-Windows-Auth',displayName:'Windows Authentication'},{name:'FS-DFS-Namespace',displayName:'DFS Namespaces'},{name:'Print-Server',displayName:'Print Server'}],
+ users:[{name:'svcweb',fullName:'Web service account',disabled:false},{name:'kiosk',fullName:'',disabled:true}],groups:[{name:'WebEditors',builtIn:false,members:3},{name:'Administrators',builtIn:true,members:2}],
+ shares:[{name:'Finance',path:'E:\\Data\\Finance'},{name:'Projects',path:'E:\\Data\\Projects'}],
+ iis:{installed:true,sites:[{name:'Intranet',bindings:['http *:80:intranet.example.com']},{name:'Shop',bindings:['https 10.0.0.5:443:shop.example.com']}],appPools:3,roots:[{path:'E:\\Sites\\intranet',sizeBytes:124151398,reason:''},{path:'E:\\Sites\\shop',sizeBytes:38377882,reason:''},{path:'C:\\Windows\\web',sizeBytes:0,reason:'The folder is inside C:\\Windows, so it is never copied.'}]},
+ certificates:[{thumbprint:'3F2A9C41D0E7B5',subject:'CN=shop.example.com',friendlyName:'Shop TLS',notAfter:'2027-06-30',exportable:true,usedBy:['IIS site Shop']},{thumbprint:'91BC7E0042AA13',subject:'CN=legacy.example.com',friendlyName:'',notAfter:'2027-01-31',exportable:false,usedBy:[]}],
+ dns:{installed:true,forwarders:['192.0.2.53','198.51.100.53'],zones:[{name:'partner.example.com',type:'Forwarder'}]},dhcp:{installed:true,authorized:true},warnings:[]};}
+// The restore check of a live copy lists only what was picked.
+function liveScan(sel,short,target,pkg){var full=restoreScan(pkg,null,false),want={};
+ (sel.features||[]).forEach(function(n){want['features:'+n]=1;});(sel.users||[]).forEach(function(n){want['accounts:user:'+n]=1;});(sel.groups||[]).forEach(function(n){want['accounts:group:'+n]=1;});
+ (sel.shares||[]).forEach(function(n){want['shares:'+n]=1;});if((sel.certificates||[]).length){want['certificates:shop']=1;}if(sel.iis){want.iis=1;}
+ (sel.webRoots||[]).forEach(function(p){if(/intranet/i.test(p)){want['iis:files:1']=1;}if(/shop/i.test(p)){want['iis:files:2']=1;}});
+ if(sel.dnsForwarders){want['dns:forwarders']=1;}(sel.dnsZones||[]).forEach(function(n){want['dns:zone:'+n]=1;});if(sel.dhcp){want['dhcp:authorize']=1;}
+ var names={'features:Web-Asp-Net45':'ASP.NET 4.6','features:Web-Windows-Auth':'Windows Authentication','accounts:user:kiosk':'kiosk'};
+ full.components=full.components.filter(function(c){return ['features','accounts','shares','certificates','iis','dns','dhcp'].indexOf(c.id)>=0;}).map(function(c){
+  var items=c.items.filter(function(i){return want[i.id];});
+  Object.keys(want).forEach(function(k){if(names[k]&&k.indexOf(c.id==='accounts'?'accounts:':c.id+':')===0&&!items.some(function(i){return i.id===k;})){items.push({id:k,title:names[k],detail:c.id==='accounts'?'Local user, disabled on the old server':'Installed on the old server, not here',available:true,blockedReason:'',defaultSelected:true});}});
+  return Object.assign({},c,{items:items});}).filter(function(c){return c.items.length;});
+ full.sourceComputer=short;full.currentComputer=String(target).split('.')[0].toUpperCase();full.mappings=full.mappings.filter(function(x){return x.kind==='ip'||(sel.webRoots||[]).length||(sel.shares||[]).length;});return full;}
+on(/^\/api\/servermove\/(discover|read|sites|forget)$/,function(q){
  var a=q.match[1],m=S.serverMove,d=q.data||{};
+ if(a==='discover'){
+  if(!d.old){return bad('Type the old server\'s name.');}
+  var same=m.old&&String(m.old).toLowerCase()===String(d.old).toLowerCase();
+  if(!same){S.serverMove=m={status:'idle',logs:[]};}
+  Object.assign(m,{status:'discovering',step:'discover',message:'Looking at '+d.old+'.',old:d.old,oldUser:d.oldUser||m.oldUser||''});m.logs=(m.logs||[]).concat([{index:(m.logs||[]).length+1,text:stamp()+' [INFO] Looking at what '+d.old+' has. Nothing is copied or changed.'}]);
+  X.later(1800,function(){m.discovery=liveDiscovery(d.old);m.discoveredAt=stamp();m.status=m.read?'ready':'picking';m.step=m.read?'check':'pick';m.message='Pick what to move from '+d.old+'.';
+   m.logs.push({index:m.logs.length+1,text:stamp()+' [INFO] Found 5 role(s) and feature(s), 2 local user(s), 2 share(s), 2 IIS site(s), 2 certificate(s) and 3 website folder(s).'});});
+  return J(202,{ok:true});
+ }
  if(a==='read'){
   if(!d.old){return bad('Type the old server\'s name.');}
+  if(!m.discovery||String(m.old).toLowerCase()!==String(d.old).toLowerCase()){return J(409,{ok:false,error:'Look at '+d.old+' first, then pick what to move.'});}
+  var sel=d.selection||{},count=0;['features','webRoots','certificates','users','groups','shares','dnsZones'].forEach(function(k){count+=(sel[k]||[]).length;});['iis','dnsForwarders','dhcp'].forEach(function(k){if(sel[k]){count++;}});
+  if(!count){return bad('Pick at least one thing to move.');}
+  if((sel.webRoots||[]).length&&!sel.iis){return bad('Website files go with IIS sites and app pools: pick IIS too, or untick the website folders.');}
   var target=d.newIsHere?X.COMPUTER:(d['new']||'');if(!target){return bad('Type the new server\'s name.');}
   var short=String(d.old).split('.')[0].toUpperCase(),pkg=(d.newIsHere?'C:\\Users\\admin\\AppData\\Local\\Server Inventory Configuration Manager\\Server-Move\\':'C:\\ProgramData\\Server Inventory and Migration Manager\\Server-Move\\')+short+'_TO_'+String(target).split('.')[0].toUpperCase()+'\\Package\\'+short+'_ServerInventory_20261128_101500';
-  Object.assign(m,{status:'reading',step:'read',message:'Reading '+d.old+'.',old:d.old,'new':target,newIsHere:!!d.newIsHere,oldUser:d.oldUser||'',newUser:d.newUser||'',includeFiles:!!d.includeFiles,limitGB:d.limitGB||10,read:null,sites:[],stoppedSites:m.stoppedSites||[],logs:[{index:1,text:stamp()+' [INFO] Connecting to '+d.old+' through PowerShell remoting.'}]});
-  X.later(1500,function(){m.status='copying';m.message='Copying the package to '+target+'.';m.logs.push({index:2,text:stamp()+' [INFO] Saving the IIS configuration.'},{index:3,text:stamp()+' [INFO] Copying website files from D:\\Sites\\shop'});});
+  var bytes=0;(sel.webRoots||[]).forEach(function(p){(m.discovery.iis.roots||[]).forEach(function(r){if(r.path===p){bytes+=r.sizeBytes;}});});
+  Object.assign(m,{status:'reading',step:'read',message:'Reading '+d.old+'.','new':target,newIsHere:!!d.newIsHere,oldUser:d.oldUser||'',newUser:d.newUser||'',includeFiles:(sel.webRoots||[]).length>0,selection:sel,limitGB:d.limitGB||10,read:null,sites:[],stoppedSites:m.stoppedSites||[]});
+  m.logs=[{index:1,text:stamp()+' [INFO] Connecting to '+d.old+' through PowerShell remoting.'},{index:2,text:stamp()+' [GUI] Reading '+d.old+': only the '+count+' item(s) picked.'}];
+  X.later(1500,function(){m.status='copying';m.message='Copying the package to '+target+'.';if(sel.iis){m.logs.push({index:3,text:stamp()+' [INFO] Saving the IIS configuration.'});}else{m.logs.push({index:3,text:stamp()+' [INFO] IIS was not picked, so its configuration is not read.'});}(sel.webRoots||[]).forEach(function(p,i){m.logs.push({index:4+i,text:stamp()+' [INFO] Copying website files from '+p});});});
   X.later(3200,function(){m.status='ready';m.step='check';m.message='Copied. Checking the package on '+target+'.';m.packagePath=pkg;m.readAt='2026-11-28 10:15:00';
-   m.read={features:14,localUsers:2,localGroups:1,shares:1,iisSites:2,siteNames:['Default Web Site','Shop'],certificatesInBundle:1,certificatesLeftOut:0,iisPasswords:2,webContentFolders:2,warnings:[],sizeBytes:162529280};m.sites=m.read.siteNames.slice();
-   m.logs.push({index:4,text:stamp()+' [INFO] The package is on '+target+'. Checking what can be restored there.'});
-   var r=S.restore;r.live=true;r.target=target;r.status='scanning';r.packagePath=pkg;r.scan=null;
-   X.later(1500,function(){var sc=restoreScan(pkg);sc.sourceComputer=short;sc.currentComputer=String(target).split('.')[0].toUpperCase();r.status='ready';r.message='Choose what to restore.';r.scan=sc;});});
+   var sites=sel.iis?['Intranet','Shop']:[];
+   m.read={features:(sel.features||[]).length,localUsers:(sel.users||[]).length,localGroups:(sel.groups||[]).length,shares:(sel.shares||[]).length,iisSites:sites.length,siteNames:sites,certificatesInBundle:(sel.certificates||[]).length,certificatesLeftOut:0,iisPasswords:sel.iis?2:0,webContentFolders:(sel.webRoots||[]).length,warnings:[],sizeBytes:bytes+2097152};m.sites=sites.slice();
+   m.logs.push({index:m.logs.length+1,text:stamp()+' [INFO] The package is on '+target+'. Checking what can be restored there.'});
+   var r=S.restore;r.live=true;r.target=target;r.status='scanning';r.packagePath=pkg;r.scan=null;r.unlocked=true;
+   X.later(1500,function(){r.status='ready';r.message='Choose what to restore.';r.scan=liveScan(sel,short,target,pkg);});});
   return J(202,{ok:true});
  }
  if(a==='sites'){if(d.action==='stop'){m.stoppedSites=(m.sites||[]).slice();m.message='Stopped '+m.stoppedSites.length+' site(s) on '+m.old+'.';}else{m.message='Started '+(m.stoppedSites||[]).length+' site(s) on '+m.old+' again.';m.stoppedSites=[];}return J(202,{ok:true});}

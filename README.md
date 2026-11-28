@@ -70,7 +70,7 @@ Try it in a browser, no install: the **[live demo](https://migrationmanager.tech
 ### Restore
 
 <table>
-  <tr><td width="50%"><b>Choose what to restore, with each blocked item's reason</b><br><img src="docs/images/restore-choose.png" alt="Choose what to restore, with each blocked item's reason" width="440"></td><td width="50%"><b>Restore progress, one item at a time</b><br><img src="docs/images/restore-progress.png" alt="Restore progress, one item at a time" width="440"></td></tr>
+  <tr><td width="50%"><b>Choose what to restore by category, nothing ticked for you, with each blocked item's reason</b><br><img src="docs/images/restore-choose.png" alt="Choose what to restore by category, with each blocked item's reason" width="440"></td><td width="50%"><b>Restore progress, one item at a time</b><br><img src="docs/images/restore-progress.png" alt="Restore progress, one item at a time" width="440"></td></tr>
   <tr><td colspan="2"><b>Restore onto a new server: unlock the migration bundle, map the old server's addresses and drives to this one, and type each account's password</b><br><img src="docs/images/restore-new-server.png" alt="Restore tab with the migration bundle unlocked, Changes for this server mapping 10.0.0.5 and drive E: to this server, and a password field for a local account" width="880"></td></tr>
 </table>
 
@@ -268,7 +268,9 @@ On the new server, open the package on the **Restore** tab and type the passphra
 
 ### Moving a server live
 
-The **Restore** tab can also take the old server's roles straight from it: choose **Restore from: Another server, live**, type the old server, choose the new server (this one or another), and **Read the old server and copy**. The app reads the old server through PowerShell remoting (nothing is installed on it), builds the same migration bundle with a passphrase it makes and keeps in memory, copies it to the new server, and checks it there; then choose the items and restore as usual. **Read and copy again** brings over only what changed. When the new server is ready, **Stop the sites on the old server** stops its IIS sites so nothing changes there any more; **Start them again** is the way back, and **Finish and remove the copies** cleans up both servers.
+The **Restore** tab can also take the old server's roles straight from it: choose **Restore from: Another server, live**, type the old server and **Look at the old server**. The app lists what it has (roles and features, IIS sites, website folders with their sizes, certificates, local users and groups, shares, DNS and DHCP) through PowerShell remoting, with nothing installed on it and nothing ticked. Pick what to move in each category (**Select all** picks everything), choose the new server (this one or another), and **Copy what I picked**: only the picks go into the migration bundle, sealed with a passphrase the app makes and keeps in memory, copied to the new server and checked there; then restore as usual. **Copy again** brings over only what changed. When the new server is ready, **Stop the sites on the old server** stops its IIS sites so nothing changes there any more; **Start them again** is the way back, and **Finish and remove the copies** cleans up both servers.
+
+<p align="center"><b>Move a server live: look at the old server, then pick what moves</b><br><img src="docs/images/restore-live-pick.png" alt="Move a server live: the old server's roles, sites, website folders and certificates listed, with only the picked ones copied" width="900"></p>
 
 New migration offers the same move as *A Windows server's roles* → *A new Windows server*, with the steps in order: **Move a server live** reads the old server while it runs, and **Restore a package on a new server** uses a package collected with *Prepare this package for a new server*. **Continue in Restore** opens the Restore tab on the chosen source.
 
