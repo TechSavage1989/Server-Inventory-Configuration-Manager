@@ -41,13 +41,16 @@ type hvBuildStepInfo struct {
 
 // hvBuildCheckIPv4CIDR checks "10.0.0.11/24".
 func hvBuildCheckIPv4CIDR(value string) (string, error) {
+	// The mask may be typed in full or as a prefix length (parseIPv4WithMask);
+	// the plan keeps address/prefix.
 	value = strings.TrimSpace(value)
-	ip, network, err := net.ParseCIDR(value)
-	if err != nil || ip.To4() == nil {
-		return "", fmt.Errorf("%q is not an IPv4 address with a prefix length, such as 10.0.20.11/24", value)
+	address, ones, err := parseIPv4WithMask(value)
+	if err != nil {
+		return "", err
 	}
-	ones, _ := network.Mask.Size()
-	if ones < 8 || ones > 30 || ip.Equal(network.IP) {
+	ip := net.ParseIP(address)
+	network := ip.Mask(net.CIDRMask(ones, 32))
+	if ones < 8 || ones > 30 || ip.Equal(network) {
 		return "", fmt.Errorf("%q is not a usable host address", value)
 	}
 	return ip.To4().String() + "/" + strconv.Itoa(ones), nil
@@ -884,7 +887,7 @@ if (Test-RestartPending) {
 func hvBuildNetworkScript(plan hvBuildPlan, node hvBuildNode) string {
 	var s strings.Builder
 	s.WriteString(`
-if (-not (Get-Command New-VMSwitch -ErrorAction SilentlyContinue)) { Block 'Install roles first: the Hyper-V module is missing (and restart the node).' }
+if (-not (Get-Command -Module Hyper-V -Name New-VMSwitch -ErrorAction SilentlyContinue)) { Block 'Install roles first: the Hyper-V module is missing (and restart the node).' }
 else {
 $build = Get-Build
 `)
@@ -893,7 +896,7 @@ $build = Get-Build
 		fmt.Fprintf(&s, `
 $swName = %s
 $wanted = %s
-$existing = Get-VMSwitch -Name $swName -ErrorAction SilentlyContinue
+$existing = Hyper-V\Get-VMSwitch -Name $swName -ErrorAction SilentlyContinue
 if ($existing) {
     $have = @($existing.NetAdapterInterfaceDescriptions) + @($existing.NetAdapterInterfaceDescription) | Where-Object { $_ }
     $want = @($wanted | ForEach-Object { $a = Get-NetAdapter -Name $_ -ErrorAction SilentlyContinue; if ($a) { $a.InterfaceDescription } })
@@ -915,19 +918,19 @@ if ($existing) {
         if ($build -ge 14393) {
             Plan-Change ('Create the Switch Embedded Teaming switch ' + $swName + ' on ' + ($wanted -join ', ') + ' (load balancing ' + $x.lb + $(if ($x.mgmt) { ', the host keeps a network adapter on it' } else { '' }) + ')') {
                 param($x)
-                New-VMSwitch -Name $x.name -NetAdapterName $x.adapters -EnableEmbeddedTeaming $true -AllowManagementOS $x.mgmt -MinimumBandwidthMode Weight | Out-Null
-                Set-VMSwitchTeam -Name $x.name -LoadBalancingAlgorithm $x.lb
+                Hyper-V\New-VMSwitch -Name $x.name -NetAdapterName $x.adapters -EnableEmbeddedTeaming $true -AllowManagementOS $x.mgmt -MinimumBandwidthMode Weight | Out-Null
+                Hyper-V\Set-VMSwitchTeam -Name $x.name -LoadBalancingAlgorithm $x.lb
             } $x
         } elseif ($wanted.Count -gt 1) {
             Plan-Change ('Create the NIC team Team-' + $swName + ' on ' + ($wanted -join ', ') + ' (switch independent, dynamic) and the switch ' + $swName + ' on it' + $(if ($x.mgmt) { ', the host keeps a network adapter on it' } else { '' })) {
                 param($x)
                 New-NetLbfoTeam -Name ('Team-' + $x.name) -TeamMembers $x.adapters -TeamingMode SwitchIndependent -LoadBalancingAlgorithm Dynamic -Confirm:$false | Out-Null
-                New-VMSwitch -Name $x.name -NetAdapterName ('Team-' + $x.name) -AllowManagementOS $x.mgmt -MinimumBandwidthMode Weight | Out-Null
+                Hyper-V\New-VMSwitch -Name $x.name -NetAdapterName ('Team-' + $x.name) -AllowManagementOS $x.mgmt -MinimumBandwidthMode Weight | Out-Null
             } $x
         } else {
             Plan-Change ('Create the switch ' + $swName + ' on ' + $wanted[0] + $(if ($x.mgmt) { ', the host keeps a network adapter on it' } else { '' })) {
                 param($x)
-                New-VMSwitch -Name $x.name -NetAdapterName $x.adapters[0] -AllowManagementOS $x.mgmt -MinimumBandwidthMode Weight | Out-Null
+                Hyper-V\New-VMSwitch -Name $x.name -NetAdapterName $x.adapters[0] -AllowManagementOS $x.mgmt -MinimumBandwidthMode Weight | Out-Null
             } $x
         }
         if ($x.mgmt) {
@@ -939,9 +942,9 @@ if ($existing) {
 `, vmPSQuote(sw.Name), psList(adapters), psBool(sw.ManagementOS), vmPSQuote(sw.LoadBalancing))
 		if sw.ManagementOS && sw.ManagementVLAN != "" {
 			fmt.Fprintf(&s, `
-$vlan = Get-VMNetworkAdapterVlan -ManagementOS -VMNetworkAdapterName %[1]s -ErrorAction SilentlyContinue
+$vlan = Hyper-V\Get-VMNetworkAdapterVlan -ManagementOS -VMNetworkAdapterName %[1]s -ErrorAction SilentlyContinue
 if (-not $vlan -or [int]$vlan.AccessVlanId -ne %[2]s) {
-    Plan-Change ('Tag the host''s management adapter on ' + %[1]s + ' with VLAN ' + %[2]s + ' (the switch ports must be trunks that carry it)') { param($x) Set-VMNetworkAdapterVlan -ManagementOS -VMNetworkAdapterName $x.name -Access -VlanId $x.vlan } @{ name = %[1]s; vlan = %[2]s }
+    Plan-Change ('Tag the host''s management adapter on ' + %[1]s + ' with VLAN ' + %[2]s + ' (the switch ports must be trunks that carry it)') { param($x) Hyper-V\Set-VMNetworkAdapterVlan -ManagementOS -VMNetworkAdapterName $x.name -Access -VlanId $x.vlan } @{ name = %[1]s; vlan = %[2]s }
 }
 `, vmPSQuote(sw.Name), sw.ManagementVLAN)
 		}
@@ -970,9 +973,9 @@ foreach ($adapterName in %s) {
 		fmt.Fprintf(&s, `
 $nicName = %[1]s
 $alias = 'vEthernet (' + $nicName + ')'
-$vnic = Get-VMNetworkAdapter -ManagementOS -Name $nicName -ErrorAction SilentlyContinue
+$vnic = Hyper-V\Get-VMNetworkAdapter -ManagementOS -Name $nicName -ErrorAction SilentlyContinue
 if (-not $vnic) {
-    Plan-Change ('Add the host network adapter ' + $nicName + ' (' + %[3]s + ') on switch ' + %[2]s) { param($x) Add-VMNetworkAdapter -ManagementOS -Name $x.name -SwitchName $x.switch } @{ name = $nicName; switch = %[2]s }
+    Plan-Change ('Add the host network adapter ' + $nicName + ' (' + %[3]s + ') on switch ' + %[2]s) { param($x) Hyper-V\Add-VMNetworkAdapter -ManagementOS -Name $x.name -SwitchName $x.switch } @{ name = $nicName; switch = %[2]s }
 } elseif ($vnic.SwitchName -ne %[2]s) {
     Note ('Host adapter ' + $nicName + ' already exists on switch ' + $vnic.SwitchName + '; it is left as it is.')
 }
@@ -980,13 +983,13 @@ if (-not $vnic) {
 		if nic.VLAN != "" {
 			fmt.Fprintf(&s, `
 $vlan = $null
-if ($vnic) { $vlan = Get-VMNetworkAdapterVlan -ManagementOS -VMNetworkAdapterName $nicName -ErrorAction SilentlyContinue }
-if (-not $vlan -or [int]$vlan.AccessVlanId -ne %[1]s) { Plan-Change ('Put ' + $nicName + ' on VLAN %[1]s') { param($x) Set-VMNetworkAdapterVlan -ManagementOS -VMNetworkAdapterName $x -Access -VlanId %[1]s } $nicName }
+if ($vnic) { $vlan = Hyper-V\Get-VMNetworkAdapterVlan -ManagementOS -VMNetworkAdapterName $nicName -ErrorAction SilentlyContinue }
+if (-not $vlan -or [int]$vlan.AccessVlanId -ne %[1]s) { Plan-Change ('Put ' + $nicName + ' on VLAN %[1]s') { param($x) Hyper-V\Set-VMNetworkAdapterVlan -ManagementOS -VMNetworkAdapterName $x -Access -VlanId %[1]s } $nicName }
 `, nic.VLAN)
 		}
 		fmt.Fprintf(&s, `
-if (-not (Test-HasAddress $alias %[1]s)) { Plan-Change ('Give ' + $alias + ' the address ' + %[1]s + '/%[2]s (not registered in DNS)') { param($x) Set-StaticAddress $x } @{ alias = $alias; ip = %[1]s; prefix = %[2]s } }
-`, vmPSQuote(address), prefix)
+if (-not (Test-HasAddress $alias %[1]s)) { Plan-Change ('Give ' + $alias + ' the address ' + %[1]s + ' / %[3]s (/%[2]s), not registered in DNS') { param($x) Set-StaticAddress $x } @{ alias = $alias; ip = %[1]s; prefix = %[2]s } }
+`, vmPSQuote(address), prefix, hvBuildMaskOf(prefix))
 		if jumbo {
 			s.WriteString(`
 $value = -1
@@ -1025,8 +1028,8 @@ if (-not $adapter) { Block ('There is no physical adapter named ' + $adapterName
 else {
     $binding = Get-NetAdapterBinding -Name $adapterName -ComponentID vms_pp -ErrorAction SilentlyContinue
     if ($binding -and $binding.Enabled) { Block ($adapterName + ' belongs to a virtual switch; iSCSI needs its own adapters.') }
-    if (-not (Test-HasAddress $adapterName %[2]s)) { Plan-Change ('Give ' + $adapterName + ' the address ' + %[2]s + '/%[3]s for iSCSI (not registered in DNS)') { param($x) Set-StaticAddress $x } @{ alias = $adapterName; ip = %[2]s; prefix = %[3]s } }
-`, vmPSQuote(nic.Adapter), vmPSQuote(address), prefix)
+    if (-not (Test-HasAddress $adapterName %[2]s)) { Plan-Change ('Give ' + $adapterName + ' the address ' + %[2]s + ' / %[4]s (/%[3]s) for iSCSI, not registered in DNS') { param($x) Set-StaticAddress $x } @{ alias = $adapterName; ip = %[2]s; prefix = %[3]s } }
+`, vmPSQuote(nic.Adapter), vmPSQuote(address), prefix, hvBuildMaskOf(prefix))
 			if storage.Jumbo {
 				s.WriteString(`    $value = Get-JumboValue $adapterName
     if ($value -ge 0 -and $value -lt 9000) { Plan-Change ('Turn on jumbo frames (9014) on ' + $adapterName) { param($n) Set-NetAdapterAdvancedProperty -Name $n -RegistryKeyword '*JumboPacket' -RegistryValue 9014 } $adapterName }
@@ -1354,6 +1357,16 @@ if ($quorum) {
 	return s.String()
 }
 
+// hvBuildMaskOf gives the dotted subnet mask of a prefix length typed as
+// text, for the change list (masks are shown in full, netmask.go).
+func hvBuildMaskOf(prefix string) string {
+	n, err := strconv.Atoi(prefix)
+	if err != nil {
+		return ""
+	}
+	return ipv4MaskText(n)
+}
+
 // hvBuildSubnet returns the network of an address/prefix as text.
 func hvBuildSubnet(cidr string) (string, string) {
 	_, network, err := net.ParseCIDR(cidr)
@@ -1397,7 +1410,7 @@ $migrationIds = @()
 $usedNames = @($networks | ForEach-Object { $_.Name })
 foreach ($want in $wanted) {
     $network = $networks | Where-Object { $_.Address -eq $want.address -and $_.AddressMask -eq $want.mask } | Select-Object -First 1
-    if (-not $network) { Note ('No cluster network uses ' + $want.address + '/' + $want.mask + ' (for ' + $want.name + ') yet.'); continue }
+    if (-not $network) { Note ('No cluster network uses ' + $want.address + ' / ' + $want.mask + ' (for ' + $want.name + ') yet.'); continue }
     if ($want.migration) { $migrationIds += [string]$network.Id }
     $x = @{ cluster = $clusterName; address = $want.address; mask = $want.mask; name = $want.name; role = $want.role }
     if ($network.Name -ne $want.name) {
@@ -1440,15 +1453,15 @@ func hvBuildHostSettingsScript(plan hvBuildPlan) string {
 		}
 	}
 	fmt.Fprintf(&s, `
-if (-not (Get-Command Get-VMHost -ErrorAction SilentlyContinue)) { Block 'Install roles first: the Hyper-V module is missing (and restart the node).' }
+if (-not (Get-Command -Module Hyper-V -Name Get-VMHost -ErrorAction SilentlyContinue)) { Block 'Install roles first: the Hyper-V module is missing (and restart the node).' }
 else {
-$vmHost = Get-VMHost
+$vmHost = Hyper-V\Get-VMHost
 $x = @{ auth = %[1]s; max = %[2]d; storage = %[3]d; performance = %[4]s }
-if (-not $vmHost.VirtualMachineMigrationEnabled) { Plan-Change 'Turn on live migration' { Enable-VMMigration } }
-if ([string]$vmHost.VirtualMachineMigrationAuthenticationType -ne $x.auth) { Plan-Change ('Use ' + $x.auth + ' authentication for live migration') { param($x) Set-VMHost -VirtualMachineMigrationAuthenticationType $x.auth } $x }
-if ([int]$vmHost.MaximumVirtualMachineMigrations -ne $x.max) { Plan-Change ('Allow ' + $x.max + ' simultaneous live migrations') { param($x) Set-VMHost -MaximumVirtualMachineMigrations $x.max } $x }
-if ([int]$vmHost.MaximumStorageMigrations -ne $x.storage) { Plan-Change ('Allow ' + $x.storage + ' simultaneous storage migrations') { param($x) Set-VMHost -MaximumStorageMigrations $x.storage } $x }
-if ($vmHost.PSObject.Properties['VirtualMachineMigrationPerformanceOption'] -and [string]$vmHost.VirtualMachineMigrationPerformanceOption -ne $x.performance) { Plan-Change ('Use ' + $x.performance + ' for live migration traffic') { param($x) Set-VMHost -VirtualMachineMigrationPerformanceOption $x.performance } $x }
+if (-not $vmHost.VirtualMachineMigrationEnabled) { Plan-Change 'Turn on live migration' { Hyper-V\Enable-VMMigration } }
+if ([string]$vmHost.VirtualMachineMigrationAuthenticationType -ne $x.auth) { Plan-Change ('Use ' + $x.auth + ' authentication for live migration') { param($x) Hyper-V\Set-VMHost -VirtualMachineMigrationAuthenticationType $x.auth } $x }
+if ([int]$vmHost.MaximumVirtualMachineMigrations -ne $x.max) { Plan-Change ('Allow ' + $x.max + ' simultaneous live migrations') { param($x) Hyper-V\Set-VMHost -MaximumVirtualMachineMigrations $x.max } $x }
+if ([int]$vmHost.MaximumStorageMigrations -ne $x.storage) { Plan-Change ('Allow ' + $x.storage + ' simultaneous storage migrations') { param($x) Hyper-V\Set-VMHost -MaximumStorageMigrations $x.storage } $x }
+if ($vmHost.PSObject.Properties['VirtualMachineMigrationPerformanceOption'] -and [string]$vmHost.VirtualMachineMigrationPerformanceOption -ne $x.performance) { Plan-Change ('Use ' + $x.performance + ' for live migration traffic') { param($x) Hyper-V\Set-VMHost -VirtualMachineMigrationPerformanceOption $x.performance } $x }
 `, vmPSQuote(settings.MigrationAuth), settings.MaxMigrations, settings.MaxStorageMigrations, vmPSQuote(settings.Performance))
 	if settings.MigrationAuth == "Kerberos" {
 		s.WriteString("Note 'Kerberos live migration outside the cluster needs constrained delegation for each node in Active Directory (Microsoft Virtual System Migration Service and cifs). Moves inside a failover cluster do not.'\n")
@@ -1456,9 +1469,9 @@ if ($vmHost.PSObject.Properties['VirtualMachineMigrationPerformanceOption'] -and
 	if !plan.Cluster.Enabled && len(subnets) > 0 {
 		fmt.Fprintf(&s, `
 $subnets = %s
-if ($vmHost.UseAnyNetworkForMigration) { Plan-Change 'Live migrate only over the chosen networks' { Set-VMHost -UseAnyNetworkForMigration $false } }
-$have = @(Get-VMMigrationNetwork -ErrorAction SilentlyContinue | ForEach-Object { $_.Subnet })
-foreach ($subnet in $subnets) { if ($have -notcontains $subnet) { Plan-Change ('Add ' + $subnet + ' as a live migration network') { param($n) Add-VMMigrationNetwork $n } $subnet } }
+if ($vmHost.UseAnyNetworkForMigration) { Plan-Change 'Live migrate only over the chosen networks' { Hyper-V\Set-VMHost -UseAnyNetworkForMigration $false } }
+$have = @(Hyper-V\Get-VMMigrationNetwork -ErrorAction SilentlyContinue | ForEach-Object { $_.Subnet })
+foreach ($subnet in $subnets) { if ($have -notcontains $subnet) { Plan-Change ('Add ' + $subnet + ' as a live migration network') { param($n) Hyper-V\Add-VMMigrationNetwork $n } $subnet } }
 `, psList(subnets))
 	}
 	for _, folder := range []struct{ path, property, flag, what string }{
@@ -1471,7 +1484,7 @@ foreach ($subnet in $subnets) { if ($have -notcontains $subnet) { Plan-Change ('
 		fmt.Fprintf(&s, `
 $folder = %[1]s
 if (-not (Test-Path -LiteralPath $folder -PathType Container)) { Plan-Change ('Create the folder ' + $folder) { param($p) New-Item -ItemType Directory -Path $p -Force | Out-Null } $folder }
-if ([string]$vmHost.%[2]s -ne $folder) { Plan-Change ('Make ' + $folder + ' the default %[4]s folder') { param($p) Set-VMHost -%[3]s $p } $folder }
+if ([string]$vmHost.%[2]s -ne $folder) { Plan-Change ('Make ' + $folder + ' the default %[4]s folder') { param($p) Hyper-V\Set-VMHost -%[3]s $p } $folder }
 `, vmPSQuote(folder.path), folder.property, folder.flag, folder.what)
 	}
 	s.WriteString("}\n")

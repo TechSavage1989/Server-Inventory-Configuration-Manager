@@ -81,6 +81,9 @@ type rbSource struct {
 	// AdapterRecord is the JSON file the cutover saved before it set the old
 	// VM's adapters to not connect; empty when it did not.
 	AdapterRecord string `json:"adapterRecord,omitempty"`
+	// NameRecord is the JSON file the cutover saved before it renamed the
+	// old VM MIGRATED - DO NOT POWER ON; empty when it did not.
+	NameRecord string `json:"nameRecord,omitempty"`
 	// Agent and Job name an agent replication job (kind agent).
 	Agent    string   `json:"agent,omitempty"`
 	Job      string   `json:"job,omitempty"`
@@ -174,6 +177,10 @@ type rbOps interface {
 	// ReconnectSource puts the old VM's adapters back from the record and
 	// returns how many it changed.
 	ReconnectSource(ctx context.Context, rec *rbRecord, log func(string)) (int, error)
+	// RenameSource gives the old VM its own name (and note) back when the
+	// cutover renamed it, and says whether it changed anything. It runs
+	// before the other source steps, which find the VM by that name.
+	RenameSource(ctx context.Context, rec *rbRecord, log func(string)) (bool, error)
 	// StartSource starts the old VM.
 	StartSource(ctx context.Context, rec *rbRecord, log func(string)) error
 	// RollbackAgent asks an agent to start the services the cutover stopped
@@ -280,6 +287,9 @@ func rbPlanSteps(rec rbRecord, options rbOptions) []rbStep {
 	steps = append(steps, rbStep{Key: "stop", Title: stop}, rbStep{Key: "check", Title: "Check the new VM is off before anything else happens, so its addresses are never used twice"})
 	switch rec.Source.Kind {
 	case "vmware", "hyperv":
+		if rec.Source.Kind == "vmware" && rec.Source.NameRecord != "" && (options.Reconnect || options.Start) {
+			steps = append(steps, rbStep{Key: "name", Title: "Rename the old VM back to " + rec.Source.Name + " and take out the note saying it was migrated"})
+		}
 		if rec.Source.Kind == "vmware" && options.Reconnect {
 			title := "Put the old VM's network adapters back as they were before the cutover"
 			if rec.Source.AdapterRecord == "" {
@@ -388,6 +398,18 @@ func rbRun(ctx context.Context, rec rbRecord, options rbOptions, ops rbOps, log 
 	}
 	switch rec.Source.Kind {
 	case "vmware", "hyperv":
+		if index("name") >= 0 {
+			renamed, err := ops.RenameSource(ctx, &rec, log)
+			if err != nil {
+				mark("name", rbStepFailed, "The old VM was not renamed back: "+err.Error()+".")
+				return finish(rbStatePartial, "The new VM is off, but the old VM still has its MIGRATED name. Rename it back to "+rec.Source.Name+" in vSphere (the record is "+rec.Source.NameRecord+"), then roll back again.")
+			}
+			text := "The old VM is called " + rec.Source.Name + " again."
+			if renamed {
+				text = "Renamed the old VM back to " + rec.Source.Name + " and took out the migrated note."
+			}
+			mark("name", rbStepOK, text)
+		}
 		if index("network") >= 0 {
 			changed, err := ops.ReconnectSource(ctx, &rec, log)
 			if err != nil {
@@ -716,37 +738,37 @@ func rbHyperVStopScript(id, name string, turnOff bool) string {
 	line := func(format string, args ...interface{}) { fmt.Fprintf(&s, format+"\n", args...) }
 	line("$ErrorActionPreference = 'Stop'")
 	line("Import-Module Hyper-V")
-	line("$vm = Get-VM -Id %s -ErrorAction SilentlyContinue", vmPSQuote(id))
+	line("$vm = Hyper-V\\Get-VM -Id %s -ErrorAction SilentlyContinue", vmPSQuote(id))
 	line("if (-not $vm) { throw ('The new VM is not on ' + $env:COMPUTERNAME + ': it was removed, or it runs on another node of the cluster. Turn it off where it runs, then roll back again.') }")
 	line("if ($vm.Name -ne %s) { throw ('The VM with this ID is now named ' + $vm.Name + '; it was not changed.') }", vmPSQuote(name))
-	line("foreach ($adapter in @(Get-VMNetworkAdapter -VM $vm)) { Write-Output ('RB-ADAPTER' + [char]9 + $adapter.Name + [char]9 + [string]$adapter.SwitchName) }")
-	line("if ([string]$vm.AutomaticStartAction -ne 'Nothing') { Write-Output ('RB-STARTACTION ' + [string]$vm.AutomaticStartAction); Set-VM -VM $vm -AutomaticStartAction Nothing }")
+	line("foreach ($adapter in @(Hyper-V\\Get-VMNetworkAdapter -VM $vm)) { Write-Output ('RB-ADAPTER' + [char]9 + $adapter.Name + [char]9 + [string]$adapter.SwitchName) }")
+	line("if ([string]$vm.AutomaticStartAction -ne 'Nothing') { Write-Output ('RB-STARTACTION ' + [string]$vm.AutomaticStartAction); Hyper-V\\Set-VM -VM $vm -AutomaticStartAction Nothing }")
 	line("if ($vm.State -eq 'Running') {")
-	line("  $shutdown = @(Get-VMIntegrationService -VM $vm | Where-Object { [string]$_.Id -like '*%s*' -and $_.Enabled })", rbHyperVShutdownService)
+	line("  $shutdown = @(Hyper-V\\Get-VMIntegrationService -VM $vm | Where-Object { [string]$_.Id -like '*%s*' -and $_.Enabled })", rbHyperVShutdownService)
 	line("  if ($shutdown.Count -gt 0) {")
 	line("    Write-Output 'Asking Windows in the new VM to shut down.'")
-	line("    try { Stop-VM -VM $vm -Force -AsJob | Out-Null } catch { Write-Output ('The guest did not take the shutdown request: ' + $_.Exception.Message) }")
+	line("    try { Hyper-V\\Stop-VM -VM $vm -Force -AsJob | Out-Null } catch { Write-Output ('The guest did not take the shutdown request: ' + $_.Exception.Message) }")
 	line("    $deadline = (Get-Date).AddSeconds(%d)", int(rbShutdownWait/time.Second))
-	line("    while ((Get-Date) -lt $deadline -and (Get-VM -Id $vm.Id).State -ne 'Off') { Start-Sleep -Seconds 5 }")
+	line("    while ((Get-Date) -lt $deadline -and (Hyper-V\\Get-VM -Id $vm.Id).State -ne 'Off') { Start-Sleep -Seconds 5 }")
 	line("  } else { Write-Output 'The new VM has no shutdown integration service.' }")
 	line("}")
-	line("if ((Get-VM -Id $vm.Id).State -ne 'Off') {")
+	line("if ((Hyper-V\\Get-VM -Id $vm.Id).State -ne 'Off') {")
 	if turnOff {
 		line("  Write-Output 'Turning the new VM off.'")
-		line("  Stop-VM -VM $vm -TurnOff -Force")
+		line("  Hyper-V\\Stop-VM -VM $vm -TurnOff -Force")
 	} else {
-		line("  throw ('The new VM did not shut down within ten minutes (it is ' + [string](Get-VM -Id $vm.Id).State + ')')")
+		line("  throw ('The new VM did not shut down within ten minutes (it is ' + [string](Hyper-V\\Get-VM -Id $vm.Id).State + ')')")
 	}
 	line("}")
-	line("Get-VMNetworkAdapter -VM $vm | Disconnect-VMNetworkAdapter")
-	line("Write-Output ('RB-STATE ' + [string](Get-VM -Id $vm.Id).State)")
+	line("Hyper-V\\Get-VMNetworkAdapter -VM $vm | Hyper-V\\Disconnect-VMNetworkAdapter")
+	line("Write-Output ('RB-STATE ' + [string](Hyper-V\\Get-VM -Id $vm.Id).State)")
 	return s.String()
 }
 
 // rbHyperVStateScript reads the new VM's state again, by ID and name.
 func rbHyperVStateScript(id, name string) string {
 	return "$ErrorActionPreference = 'Stop'\nImport-Module Hyper-V\n" +
-		"$vm = Get-VM -Id " + vmPSQuote(id) + " -ErrorAction SilentlyContinue\n" +
+		"$vm = Hyper-V\\Get-VM -Id " + vmPSQuote(id) + " -ErrorAction SilentlyContinue\n" +
 		"if (-not $vm) { throw 'The new VM is not on this host any more.' }\n" +
 		"if ($vm.Name -ne " + vmPSQuote(name) + ") { throw ('The VM with this ID is now named ' + $vm.Name) }\n" +
 		"Write-Output ('RB-STATE ' + [string]$vm.State)\n"

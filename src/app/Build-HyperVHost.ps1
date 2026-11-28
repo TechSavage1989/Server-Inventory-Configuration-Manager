@@ -101,10 +101,10 @@ $readNode = {
         }
         $result.adapters = @($adapters)
     } catch { [void]$warnings.Add('Network adapters: ' + $_.Exception.Message) }
-    if (Get-Command Get-VMSwitch -ErrorAction SilentlyContinue) {
+    if (Get-Command -Module Hyper-V -Name Get-VMSwitch -ErrorAction SilentlyContinue) {
         try {
-            $result.switches = @(Get-VMSwitch | ForEach-Object { @{ name = [string]$_.Name; type = [string]$_.SwitchType; adapters = @(@($_.NetAdapterInterfaceDescriptions) + @($_.NetAdapterInterfaceDescription) | Where-Object { $_ } | ForEach-Object { [string]$_ }); embedded = [bool]$_.EmbeddedTeamingEnabled } })
-            $result.hostNics = @(Get-VMNetworkAdapter -ManagementOS | ForEach-Object {
+            $result.switches = @(Hyper-V\Get-VMSwitch | ForEach-Object { @{ name = [string]$_.Name; type = [string]$_.SwitchType; adapters = @(@($_.NetAdapterInterfaceDescriptions) + @($_.NetAdapterInterfaceDescription) | Where-Object { $_ } | ForEach-Object { [string]$_ }); embedded = [bool]$_.EmbeddedTeamingEnabled } })
+            $result.hostNics = @(Hyper-V\Get-VMNetworkAdapter -ManagementOS | ForEach-Object {
                 $alias = 'vEthernet (' + [string]$_.Name + ')'
                 $ips = @(Get-NetIPAddress -InterfaceAlias $alias -AddressFamily IPv4 -ErrorAction SilentlyContinue | Where-Object { $_.PrefixOrigin -ne 'WellKnown' } | ForEach-Object { $_.IPAddress + '/' + $_.PrefixLength })
                 $gateway = [bool](Get-NetRoute -InterfaceAlias $alias -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue)
@@ -147,11 +147,11 @@ $readTemplate = {
     $byDescription = @{}
     foreach ($adapter in $physical) { $byDescription[[string]$adapter.InterfaceDescription] = $adapter }
     $jumboOf = { param($name) $p = Get-NetAdapterAdvancedProperty -Name $name -RegistryKeyword '*JumboPacket' -ErrorAction SilentlyContinue; if ($p) { return [int]([string]$p.RegistryValue) } ; return 0 }
-    if (Get-Command Get-VMSwitch -ErrorAction SilentlyContinue) {
+    if (Get-Command -Module Hyper-V -Name Get-VMSwitch -ErrorAction SilentlyContinue) {
         $result.hyperV = $true
         try {
             $switches = New-Object System.Collections.ArrayList
-            foreach ($sw in @(Get-VMSwitch)) {
+            foreach ($sw in @(Hyper-V\Get-VMSwitch)) {
                 $descriptions = @(@($sw.NetAdapterInterfaceDescriptions) + @($sw.NetAdapterInterfaceDescription) | Where-Object { $_ } | ForEach-Object { [string]$_ } | Select-Object -Unique)
                 $names = New-Object System.Collections.ArrayList
                 $speeds = New-Object System.Collections.ArrayList
@@ -173,28 +173,28 @@ $readTemplate = {
                     }
                 }
                 $lb = ''
-                if ($sw.EmbeddedTeamingEnabled) { try { $lb = [string](Get-VMSwitchTeam -Name $sw.Name).LoadBalancingAlgorithm } catch { } }
+                if ($sw.EmbeddedTeamingEnabled) { try { $lb = [string](Hyper-V\Get-VMSwitchTeam -Name $sw.Name).LoadBalancingAlgorithm } catch { } }
                 [void]$switches.Add(@{ name = [string]$sw.Name; type = [string]$sw.SwitchType; embedded = [bool]$sw.EmbeddedTeamingEnabled; team = $team; adapters = @($names); speedsMb = @($speeds); loadBalancing = $lb; managementOs = [bool]$sw.AllowManagementOS; jumbo = $jumbo })
             }
             $result.switches = @($switches)
-            $result.hostNics = @(Get-VMNetworkAdapter -ManagementOS | ForEach-Object {
+            $result.hostNics = @(Hyper-V\Get-VMNetworkAdapter -ManagementOS | ForEach-Object {
                 $alias = 'vEthernet (' + [string]$_.Name + ')'
                 $vlan = ''
-                try { $v = Get-VMNetworkAdapterVlan -ManagementOS -VMNetworkAdapterName $_.Name | Select-Object -First 1; if ([string]$v.OperationMode -eq 'Access') { $vlan = [string]$v.AccessVlanId } } catch { }
+                try { $v = Hyper-V\Get-VMNetworkAdapterVlan -ManagementOS -VMNetworkAdapterName $_.Name | Select-Object -First 1; if ([string]$v.OperationMode -eq 'Access') { $vlan = [string]$v.AccessVlanId } } catch { }
                 $ips = @(Get-NetIPAddress -InterfaceAlias $alias -AddressFamily IPv4 -ErrorAction SilentlyContinue | Where-Object { $_.PrefixOrigin -ne 'WellKnown' } | ForEach-Object { $_.IPAddress + '/' + $_.PrefixLength })
                 $gateway = [bool](Get-NetRoute -InterfaceAlias $alias -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue)
                 @{ name = [string]$_.Name; switch = [string]$_.SwitchName; vlan = $vlan; ips = $ips; gateway = $gateway }
             })
         } catch { [void]$warnings.Add('Virtual switches: ' + $_.Exception.Message) }
         try {
-            $vmHost = Get-VMHost
+            $vmHost = Hyper-V\Get-VMHost
             $performance = ''
             if ($vmHost.PSObject.Properties['VirtualMachineMigrationPerformanceOption']) { $performance = [string]$vmHost.VirtualMachineMigrationPerformanceOption }
             $result.host = @{
                 migrationEnabled = [bool]$vmHost.VirtualMachineMigrationEnabled; auth = [string]$vmHost.VirtualMachineMigrationAuthenticationType
                 max = [int]$vmHost.MaximumVirtualMachineMigrations; maxStorage = [int]$vmHost.MaximumStorageMigrations; performance = $performance
                 vmPath = [string]$vmHost.VirtualMachinePath; vhdPath = [string]$vmHost.VirtualHardDiskPath; useAnyNetwork = [bool]$vmHost.UseAnyNetworkForMigration
-                migrationNetworks = @(Get-VMMigrationNetwork -ErrorAction SilentlyContinue | ForEach-Object { [string]$_.Subnet })
+                migrationNetworks = @(Hyper-V\Get-VMMigrationNetwork -ErrorAction SilentlyContinue | ForEach-Object { [string]$_.Subnet })
             }
         } catch { [void]$warnings.Add('Live migration settings: ' + $_.Exception.Message) }
     }

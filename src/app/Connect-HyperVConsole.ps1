@@ -76,6 +76,11 @@ if ($Mode -eq 'Files') {
         $local = [string]$given.local
         $guest = [string]$given.guest
         $given = $null
+        # PowerShell Direct looks the VM up with an unqualified Get-VM; on a
+        # host with VMware PowerCLI that can be PowerCLI's. Use Hyper-V's.
+        Import-Module Hyper-V -ErrorAction Stop
+        $found = Get-Command Get-VM -ErrorAction SilentlyContinue
+        if (-not $found -or [string]$found.ModuleName -ne 'Hyper-V') { Set-Item -Path function:global:Get-VM -Value { Hyper-V\Get-VM @args } }
         $session = New-PSSession -VMId $VMId -Credential $credential
         try {
             if ($direction -eq 'to') {
@@ -135,6 +140,10 @@ try {
     exit 1
 }
 
+$script:Settings = $null
+$script:LastHash = ''
+$script:Hasher = [System.Security.Cryptography.SHA1]::Create()
+
 function Get-Settings {
     return Get-FirstCim -Class 'Msvm_VirtualSystemSettingData' -Filter ("VirtualSystemIdentifier='" + $VMId + "' AND VirtualSystemType='Microsoft:Hyper-V:System:Realized'")
 }
@@ -149,6 +158,7 @@ function Get-Info {
         if ([int]$video.CurrentVerticalResolution -gt 0) { $height = [int]$video.CurrentVerticalResolution }
     }
     $settings = Get-Settings
+    $script:Settings = $settings
     $generation = 0
     if ($settings -and [string]$settings.VirtualSystemSubType -match 'Type-(\d)') { $generation = [int]$Matches[1] }
     # A synthetic mouse (generation 2, or generation 1 with integration
@@ -191,13 +201,31 @@ while ($true) {
         switch ([string]$request.op) {
             'info' { Write-Answer (Get-Info) }
             'frame' {
-                $settings = Get-Settings
-                if (-not $settings) { throw 'The VM settings could not be read.' }
+                # The settings object is read once (and again with info or
+                # after a failure), and an unchanged picture is answered with
+                # same:true from its hash: re-reading the settings and turning
+                # megabytes of picture into JSON on every frame made the
+                # console lag by seconds.
+                if (-not $script:Settings) { $script:Settings = Get-Settings }
+                if (-not $script:Settings) { throw 'The VM settings could not be read.' }
                 $w = [uint16]$request.w; $h = [uint16]$request.h
-                $result = Invoke-Method -Instance $service -Name 'GetVirtualSystemThumbnailImage' -Arguments @{ TargetSystem = $settings; WidthPixels = $w; HeightPixels = $h }
+                try {
+                    $result = Invoke-Method -Instance $service -Name 'GetVirtualSystemThumbnailImage' -Arguments @{ TargetSystem = $script:Settings; WidthPixels = $w; HeightPixels = $h }
+                } catch {
+                    $script:Settings = $null
+                    throw
+                }
                 $data = [byte[]]$result.ImageData
                 if (-not $data -or $data.Length -lt 2) { throw 'Hyper-V sent no picture. The VM may be starting or turned off.' }
-                Write-Answer @{ ok = $true; w = [int]$w; h = [int]$h; data = [Convert]::ToBase64String($data) }
+                $hash = [Convert]::ToBase64String($script:Hasher.ComputeHash($data)) + ':' + $w + 'x' + $h
+                if ($hash -eq $script:LastHash -and -not $request.full) {
+                    [Console]::Out.WriteLine('{"ok":true,"same":true}')
+                } else {
+                    $script:LastHash = $hash
+                    # Base64 needs no JSON escaping, so the line is written as is.
+                    [Console]::Out.WriteLine('{"ok":true,"w":' + [int]$w + ',"h":' + [int]$h + ',"data":"' + [Convert]::ToBase64String($data) + '"}')
+                }
+                [Console]::Out.Flush()
             }
             'key' {
                 $method = 'ReleaseKey'

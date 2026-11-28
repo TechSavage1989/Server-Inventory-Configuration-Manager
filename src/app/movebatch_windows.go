@@ -36,6 +36,7 @@ func (a *application) startPlans() {
 	}
 	runner := newMBRunner(filepath.Join(a.vmwareRoot(), "migration-plans.json"), &mbHostTarget{a: a})
 	runner.log = func(text string) { a.vmwareLog("Plan: %s", text) }
+	runner.logVM = func(vm, text string) { a.vmLogFiles().Write(vm, text) }
 	runner.ready = a.mbReady
 	runner.guard = a.prodGuard
 	runner.locate = func(plan *mbPlan, vm *mbVM) pgSlotKeys {
@@ -254,7 +255,7 @@ func (t *mbHostTarget) Create(ctx context.Context, plan *mbPlan, vm *mbVM, resul
 	if hyperV.ClusterResult != "" {
 		notes = append(notes, hyperV.ClusterResult)
 	}
-	notes = append(notes, a.afterCutover(ctx, m, id, "", plan.Settings.StartVMs, plan.Settings.DisconnectSource, plan.Settings.FixUp,
+	notes = append(notes, a.afterCutover(ctx, m, id, "", plan.Settings.StartVMs, plan.Settings.DisconnectSource, plan.Settings.KeepSourceName, plan.Settings.FixUp,
 		vmConnectOptions{Server: server, User: user, Password: password, Thumbprint: thumbprint, UserAgent: displayName + " " + appVersion, AppVersion: appVersion},
 		filepath.Join(a.vmwareRoot(), safeName(strings.ToLower(plan.Server)), "Move"), plan.Name, log)...)
 	return id, notes, nil
@@ -319,11 +320,11 @@ func (t *mbHostTarget) EndTest(ctx context.Context, plan *mbPlan, vm *mbVM, log 
 	script := ""
 	if test.VMID == "" {
 		// The VM's ID is unknown: never remove a VM by name.
-		script = fmt.Sprintf("Import-Module Hyper-V\nif (Get-VM -Name %s -ErrorAction SilentlyContinue) { throw ('A VM named ' + %s + ' exists but this application did not record its ID; remove it in Hyper-V Manager, then end the test again.') }\n", vmPSQuote(test.Name), vmPSQuote(test.Name))
+		script = fmt.Sprintf("Import-Module Hyper-V\nif (Hyper-V\\Get-VM -Name %s -ErrorAction SilentlyContinue) { throw ('A VM named ' + %s + ' exists but this application did not record its ID; remove it in Hyper-V Manager, then end the test again.') }\n", vmPSQuote(test.Name), vmPSQuote(test.Name))
 	}
 	script += replFailoverEndScript(replFailover{VMID: test.VMID, Name: test.Name, Copies: test.Copies, Children: test.Children}, test.Folder)
 	if test.VMID == "" {
-		script = strings.Replace(script, "$vm = Get-VM -Id ''", "$vm = $null", 1)
+		script = strings.Replace(script, "$vm = Hyper-V\\Get-VM -Id ''", "$vm = $null", 1)
 	}
 	log("Removing the test VM " + test.Name + " and its test disks.")
 	if _, err := vmRunPowerShell(script); err != nil {

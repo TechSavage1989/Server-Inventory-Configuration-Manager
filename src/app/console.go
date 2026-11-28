@@ -21,9 +21,11 @@ import (
 	"image"
 	"image/png"
 	"net/http"
+	"runtime"
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 	"unicode/utf8"
 )
@@ -252,9 +254,22 @@ func (f *consoleFrame) takeTiles(v *consoleViewer, sent *[]uint32, sentW, sentH 
 		pix        []uint32
 	}
 	var changed []pending
+	// Neighbouring changed tiles of a row travel as one strip: a whole
+	// screen is then about 17 pictures instead of 500, which the window
+	// decodes and draws far faster.
+	flush := func(ty, th, x0, x1 int) {
+		tw := x1 - x0
+		pix := make([]uint32, tw*th)
+		for row := 0; row < th; row++ {
+			copy(pix[row*tw:(row+1)*tw], f.pix[(ty+row)*width+x0:])
+			copy((*sent)[(ty+row)*width+x0:(ty+row)*width+x1], pix[row*tw:(row+1)*tw])
+		}
+		changed = append(changed, pending{x0, ty, tw, th, pix})
+	}
 	x0, y0 := dirty.Min.X/consoleTileSize*consoleTileSize, dirty.Min.Y/consoleTileSize*consoleTileSize
 	for ty := y0; ty < dirty.Max.Y; ty += consoleTileSize {
 		th := cnMin(consoleTileSize, height-ty)
+		run := -1
 		for tx := x0; tx < dirty.Max.X; tx += consoleTileSize {
 			tw := cnMin(consoleTileSize, width-tx)
 			differs := false
@@ -267,30 +282,60 @@ func (f *consoleFrame) takeTiles(v *consoleViewer, sent *[]uint32, sentW, sentH 
 					}
 				}
 			}
-			if !differs {
+			if differs {
+				if run < 0 {
+					run = tx
+				}
 				continue
 			}
-			pix := make([]uint32, tw*th)
-			for row := 0; row < th; row++ {
-				copy(pix[row*tw:(row+1)*tw], f.pix[(ty+row)*width+tx:])
-				copy((*sent)[(ty+row)*width+tx:(ty+row)*width+tx+tw], pix[row*tw:(row+1)*tw])
+			if run >= 0 {
+				flush(ty, th, run, tx)
+				run = -1
 			}
-			changed = append(changed, pending{tx, ty, tw, th, pix})
+		}
+		if run >= 0 {
+			flush(ty, th, run, cnMin(width, (dirty.Max.X+consoleTileSize-1)/consoleTileSize*consoleTileSize))
 		}
 	}
 	f.mu.Unlock()
-	encoder := png.Encoder{CompressionLevel: png.BestSpeed}
-	for _, c := range changed {
-		img := image.NewNRGBA(image.Rect(0, 0, c.w, c.h))
-		for i, p := range c.pix {
-			img.Pix[i*4], img.Pix[i*4+1], img.Pix[i*4+2], img.Pix[i*4+3] = byte(p>>16), byte(p>>8), byte(p), 255
-		}
-		var buffer bytes.Buffer
-		if err := encoder.Encode(&buffer, img); err != nil {
-			continue
-		}
-		tiles = append(tiles, consoleTile{X: c.x, Y: c.y, W: c.w, H: c.h, PNG: base64.StdEncoding.EncodeToString(buffer.Bytes())})
+	// Encode the strips side by side on every processor.
+	tiles = make([]consoleTile, len(changed))
+	ok := make([]bool, len(changed))
+	workers := cnMin(runtime.NumCPU(), len(changed))
+	next := int32(-1)
+	var wg sync.WaitGroup
+	for w := 0; w < workers; w++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			encoder := png.Encoder{CompressionLevel: png.BestSpeed}
+			for {
+				i := int(atomic.AddInt32(&next, 1))
+				if i >= len(changed) {
+					return
+				}
+				c := changed[i]
+				img := image.NewNRGBA(image.Rect(0, 0, c.w, c.h))
+				for j, p := range c.pix {
+					img.Pix[j*4], img.Pix[j*4+1], img.Pix[j*4+2], img.Pix[j*4+3] = byte(p>>16), byte(p>>8), byte(p), 255
+				}
+				var buffer bytes.Buffer
+				if err := encoder.Encode(&buffer, img); err != nil {
+					continue
+				}
+				tiles[i] = consoleTile{X: c.x, Y: c.y, W: c.w, H: c.h, PNG: base64.StdEncoding.EncodeToString(buffer.Bytes())}
+				ok[i] = true
+			}
+		}()
 	}
+	wg.Wait()
+	kept := tiles[:0]
+	for i, t := range tiles {
+		if ok[i] {
+			kept = append(kept, t)
+		}
+	}
+	tiles = kept
 	return tiles, resized, width, height
 }
 
@@ -779,10 +824,16 @@ var consoleSleep = func(ctx context.Context, d time.Duration) error {
 // Shift where a US keyboard needs it, at the pace consoleTypePaceFor gives.
 // Carriage returns are dropped so a pasted Windows line ending is one Enter.
 func consoleTypeKeys(ctx context.Context, backend consoleBackend, text string, delay time.Duration) error {
+	return consoleTypeKeysWith(ctx, backend, text, delay, consoleTypeMinGap)
+}
+
+// consoleTypeKeysWith is consoleTypeKeys with a console's own least gap
+// between characters.
+func consoleTypeKeysWith(ctx context.Context, backend consoleBackend, text string, delay, minGap time.Duration) error {
 	if !utf8.ValidString(text) {
 		return errors.New("the text is not valid UTF-8")
 	}
-	pace := consoleTypePaceFor(delay, consoleTypeMinGap)
+	pace := consoleTypePaceFor(delay, minGap)
 	for _, keysym := range consoleModifierKeysyms {
 		if err := backend.Key(keysym, false); err != nil {
 			return err

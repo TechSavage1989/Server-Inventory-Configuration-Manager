@@ -107,3 +107,59 @@ func TestGuestRemoteRunsTheEngineThroughPowerShellRemoting(t *testing.T) {
 		t.Fatalf("per-run folders were left behind: %v", temp)
 	}
 }
+
+// A Hyper-V host with VMware PowerCLI installed: PowerCLI's Get-VM sits
+// earlier on PSModulePath than Hyper-V's. PowerShell Direct must never reach
+// it (MATCHC-DC02, 2026-11-28: every try answered "You are not currently
+// connected to any servers"). The runner has no Hyper-V role, so the run
+// fails, but with Hyper-V's own error, never the fake PowerCLI's.
+func TestPowerShellDirectNeverUsesPowerCLIsGetVM(t *testing.T) {
+	folder := t.TempDir()
+	script := filepath.Join(folder, guestRemoteScriptName)
+	engine := filepath.Join(folder, guestEngineName)
+	if err := os.WriteFile(script, guestRemoteScriptData, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := writeEmbeddedFile(guestEngineName, engine); err != nil {
+		t.Fatal(err)
+	}
+	const marker = "FAKE-POWERCLI: You are not currently connected to any servers."
+	modules := filepath.Join(folder, "Modules")
+	fake := filepath.Join(modules, "VMware.VimAutomation.Core")
+	if err := os.MkdirAll(fake, 0700); err != nil {
+		t.Fatal(err)
+	}
+	module := "function Get-VM { throw '" + marker + "' }\nfunction Get-VMHost { throw '" + marker + "' }\nExport-ModuleMember -Function Get-VM, Get-VMHost\n"
+	if err := os.WriteFile(filepath.Join(fake, "VMware.VimAutomation.Core.psm1"), []byte(module), 0600); err != nil {
+		t.Fatal(err)
+	}
+	manifest := "@{ RootModule = 'VMware.VimAutomation.Core.psm1'; ModuleVersion = '13.0.0'; GUID = 'f3a9b1c2-0d4e-4f5a-9b6c-7d8e9f0a1b2c'; FunctionsToExport = @('Get-VM', 'Get-VMHost') }\n"
+	if err := os.WriteFile(filepath.Join(fake, "VMware.VimAutomation.Core.psd1"), []byte(manifest), 0600); err != nil {
+		t.Fatal(err)
+	}
+	// The fake really does shadow Get-VM without the guard.
+	probe := exec.Command(powershellPath(), "-NoLogo", "-NoProfile", "-NonInteractive", "-Command", "try { Get-VM -Id ([guid]::NewGuid()) } catch { $_.Exception.Message }")
+	probe.Env = append(os.Environ(), "PSModulePath="+modules+";"+os.Getenv("PSModulePath"))
+	shadow, _ := probe.CombinedOutput()
+	if !strings.Contains(string(shadow), "FAKE-POWERCLI") {
+		t.Logf("the fake module did not shadow Get-VM here (Hyper-V module first?):\n%s", shadow)
+	}
+	for _, transport := range []string{"direct", "hostdirect"} {
+		result := filepath.Join(folder, transport+".json")
+		arguments := []string{"-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "RemoteSigned", "-File", script, "-Transport", transport, "-Mode", "Status", "-EnginePath", engine, "-ResultPath", result, "-VMName", "SIMM-NO-SUCH-VM", "-VMId", "6f1d2c3b-4a59-4e7f-8a1b-2c3d4e5f6a7b", "-CredentialFromInput"}
+		if transport == "hostdirect" {
+			arguments = append(arguments, "-HostName", "localhost")
+		}
+		command := exec.Command(powershellPath(), arguments...)
+		command.Env = append(os.Environ(), "PSModulePath="+modules+";"+os.Getenv("PSModulePath"))
+		command.Stdin = strings.NewReader(`{"user":"EXAMPLE\\tester","password":"Synthetic-Pw-1"}` + "\n")
+		output, _ := command.CombinedOutput()
+		data, _ := os.ReadFile(result)
+		if strings.Contains(string(output), "FAKE-POWERCLI") || strings.Contains(string(data), "FAKE-POWERCLI") {
+			t.Fatalf("%s: PowerShell Direct reached PowerCLI's Get-VM:\n%s\n%s", transport, output, data)
+		}
+		if len(data) == 0 {
+			t.Fatalf("%s: no result:\n%s", transport, output)
+		}
+	}
+}

@@ -213,7 +213,7 @@ func writeVMwareInventoryOutputs(folder string, inventory *vmInventory) (string,
 			diskRows = append(diskRows, []string{vm.Name, disk.Label, gib(disk.CapacityBytes), disk.Provisioning, disk.RDM, disk.Mode, disk.Sharing, disk.Controller, fmt.Sprintf("%d:%d", disk.Bus, disk.Unit), disk.BusSharing, disk.Datastore, disk.File, vm.Host, vm.Cluster})
 		}
 		for _, nic := range vm.NICs {
-			nicRows = append(nicRows, []string{vm.Name, nic.Label, nic.AdapterType, nic.Network, nic.MAC, strconv.FormatBool(nic.ManualMAC), strconv.FormatBool(nic.Connected), strings.Join(nic.IPAddresses, "; "), strconv.FormatBool(nic.Static), vm.Host, vm.Cluster})
+			nicRows = append(nicRows, []string{vm.Name, nic.Label, nic.AdapterType, nic.Network, nic.MAC, strconv.FormatBool(nic.ManualMAC), strconv.FormatBool(nic.Connected), strings.Join(ipMaskList(nic.IPAddresses), "; "), strconv.FormatBool(nic.Static), vm.Host, vm.Cluster})
 		}
 		for _, snapshot := range vm.Snapshots {
 			snapshotRows = append(snapshotRows, []string{vm.Name, snapshot.Name, snapshot.Created.Format(time.RFC3339), strconv.FormatBool(snapshot.Quiesced), strconv.Itoa(snapshot.Depth)})

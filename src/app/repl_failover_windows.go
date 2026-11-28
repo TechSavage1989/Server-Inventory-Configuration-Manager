@@ -58,7 +58,7 @@ func replHoldReason(f replFailover) string {
 }
 
 func replHyperVSwitches() ([]replSwitch, error) {
-	out, err := vmRunPowerShell("Import-Module Hyper-V; $s = @(Get-VMSwitch | ForEach-Object { [pscustomobject]@{ name = $_.Name; type = [string]$_.SwitchType } }); [Console]::Out.Write((ConvertTo-Json -InputObject $s -Compress))")
+	out, err := vmRunPowerShell("Import-Module Hyper-V; $s = @(Hyper-V\\Get-VMSwitch | ForEach-Object { [pscustomobject]@{ name = $_.Name; type = [string]$_.SwitchType } }); [Console]::Out.Write((ConvertTo-Json -InputObject $s -Compress))")
 	if err != nil {
 		return nil, err
 	}
@@ -290,7 +290,7 @@ func (a *application) replEndFailoverLocked(list []replFailover, index int, stor
 	} else {
 		// A production VM is never removed here; it is only forgotten
 		// once it no longer uses the copies.
-		out, err := vmRunPowerShell("Import-Module Hyper-V; if (Get-VM -Id " + vmPSQuote(f.VMID) + " -ErrorAction SilentlyContinue) { [Console]::Out.Write('present') }")
+		out, err := vmRunPowerShell("Import-Module Hyper-V; if (Hyper-V\\Get-VM -Id " + vmPSQuote(f.VMID) + " -ErrorAction SilentlyContinue) { [Console]::Out.Write('present') }")
 		if err != nil {
 			return http.StatusBadRequest, err
 		}

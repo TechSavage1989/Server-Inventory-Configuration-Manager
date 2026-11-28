@@ -115,14 +115,16 @@ type hypervDiskReport struct {
 }
 
 type hypervNICReport struct {
-	Name       string   `json:"name"`
-	MAC        string   `json:"mac"`
-	StaticMAC  bool     `json:"staticMac"`
-	Legacy     bool     `json:"legacy"`
-	Switch     string   `json:"switch"`
-	Connected  bool     `json:"connected"`
-	VLAN       int      `json:"vlan"`
-	Addresses  []string `json:"addresses"`
+	Name      string   `json:"name"`
+	MAC       string   `json:"mac"`
+	StaticMAC bool     `json:"staticMac"`
+	Legacy    bool     `json:"legacy"`
+	Switch    string   `json:"switch"`
+	Connected bool     `json:"connected"`
+	VLAN      int      `json:"vlan"`
+	Addresses []string `json:"addresses"`
+	// Subnets holds each address's mask (dotted for IPv4), in the same order.
+	Subnets    []string `json:"subnets,omitempty"`
 	DHCP       bool     `json:"dhcp"`
 	GuestKnown bool     `json:"guestKnown"`
 }
@@ -386,7 +388,7 @@ func hypervInventoryFromReport(report hypervReport, local bool, now time.Time, v
 				kind = "Legacy (emulated)"
 			}
 			entry := vmNIC{Label: adapter, AdapterType: kind, MAC: hypervMAC(nic.MAC), ManualMAC: nic.StaticMAC, Connected: nic.Connected && nic.Switch != "",
-				IPAddresses: append([]string{}, nic.Addresses...), Static: nic.GuestKnown && !nic.DHCP, GuestKnown: nic.GuestKnown}
+				IPAddresses: hypervAddressList(nic), Static: nic.GuestKnown && !nic.DHCP, GuestKnown: nic.GuestKnown}
 			if nic.Switch != "" {
 				network := addNetwork(nic.Switch, nic.VLAN)
 				entry.Network = network.Name
@@ -447,4 +449,18 @@ func parseHypervResult(data []byte) (*hypervReport, error) {
 		return nil, fmt.Errorf("the Hyper-V host's report could not be read: %v", err)
 	}
 	return &report, nil
+}
+
+// hypervAddressList pairs each guest address with its subnet so the
+// inventory shows it with its mask, as VMware's does (netmask.go).
+func hypervAddressList(nic hypervNICReport) []string {
+	out := make([]string, 0, len(nic.Addresses))
+	for i, address := range nic.Addresses {
+		mask := ""
+		if i < len(nic.Subnets) {
+			mask = nic.Subnets[i]
+		}
+		out = append(out, ipCIDRText(address, mask))
+	}
+	return out
 }

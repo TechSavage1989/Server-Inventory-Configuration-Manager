@@ -15,6 +15,7 @@ type rbFakeOps struct {
 	state     string
 	stateErr  error
 	reconnect error
+	rename    error
 	start     error
 	agent     error
 }
@@ -33,6 +34,13 @@ func (f *rbFakeOps) NewState(ctx context.Context, rec *rbRecord) (string, error)
 func (f *rbFakeOps) ReconnectSource(ctx context.Context, rec *rbRecord, log func(string)) (int, error) {
 	f.calls = append(f.calls, "reconnect")
 	return 2, f.reconnect
+}
+func (f *rbFakeOps) RenameSource(ctx context.Context, rec *rbRecord, log func(string)) (bool, error) {
+	if rec.Source.NameRecord == "" {
+		return false, nil
+	}
+	f.calls = append(f.calls, "rename")
+	return f.rename == nil, f.rename
 }
 func (f *rbFakeOps) StartSource(ctx context.Context, rec *rbRecord, log func(string)) error {
 	f.calls = append(f.calls, "start")
@@ -280,5 +288,30 @@ func TestReplicationJobRollbackStartsTheStoppedServicesAndPauses(t *testing.T) {
 		if job.Spec.ID == id && (job.Status.State != replStatePaused || !job.Status.RescanNext) {
 			t.Fatalf("a rolled back job is paused and rescans first: %+v", job.Status)
 		}
+	}
+}
+
+// A renamed old VM gets its name back before anything that finds it by name,
+// and a failed rename leaves it off and unchanged otherwise.
+func TestRollbackRenamesTheOldVMBackFirst(t *testing.T) {
+	rec := rbSample()
+	rec.Source.NameRecord = "C:\\records\\APP01-name.json"
+	ops := &rbFakeOps{state: "off"}
+	ended := rbRun(context.Background(), rec, rbOptions{TurnOff: true, Reconnect: true, Start: true}, ops, nil)
+	if strings.Join(ops.calls, ",") != "stop,state,rename,reconnect,start" || ended.State != rbStateDone {
+		t.Fatalf("wrong order: %v %s", ops.calls, ended.State)
+	}
+	ops = &rbFakeOps{state: "off", rename: errors.New("vSphere refused")}
+	ended = rbRun(context.Background(), rec, rbOptions{TurnOff: true, Reconnect: true, Start: true}, ops, nil)
+	if ended.State != rbStatePartial || strings.Contains(strings.Join(ops.calls, ","), "start") || !strings.Contains(ended.Message, "MIGRATED") {
+		t.Fatalf("a failed rename must stop before the old VM starts: %v %+v", ops.calls, ended)
+	}
+	if strings.Contains(strings.Join((&rbFakeOps{}).calls, ","), "rename") {
+		t.Fatal("unreachable")
+	}
+	ops = &rbFakeOps{state: "off"}
+	rbRun(context.Background(), rbSample(), rbOptions{TurnOff: true, Reconnect: true, Start: true}, ops, nil)
+	if strings.Contains(strings.Join(ops.calls, ","), "rename") {
+		t.Fatalf("a VM the cutover did not rename is not renamed: %v", ops.calls)
 	}
 }

@@ -305,7 +305,7 @@ function Read-Host-Inventory {
         $ports = @($syntheticPorts | Where-Object { [string]$_.InstanceID -match $current }) + @($emulatedPorts | Where-Object { [string]$_.InstanceID -match $current })
         foreach ($port in $ports) {
             $legacy = $port.CimClass.CimClassName -eq 'Msvm_EmulatedEthernetPortSettingData'
-            $nic = @{ name = [string]$port.ElementName; mac = [string]$port.Address; staticMac = [bool]$port.StaticMacAddress; legacy = $legacy; switch = ''; connected = $false; vlan = 0; addresses = @(); dhcp = $true; guestKnown = $false }
+            $nic = @{ name = [string]$port.ElementName; mac = [string]$port.Address; staticMac = [bool]$port.StaticMacAddress; legacy = $legacy; switch = ''; connected = $false; vlan = 0; addresses = @(); subnets = @(); dhcp = $true; guestKnown = $false }
             foreach ($connection in $connections) {
                 if ((Get-PathInstanceID ([string]$connection.Parent)) -ne [string]$port.InstanceID) { continue }
                 $nic.connected = [int]$connection.EnabledState -ne 3
@@ -322,7 +322,14 @@ function Read-Host-Inventory {
                 if ([string]$config.InstanceID -like ('*' + $portId)) {
                     $nic.guestKnown = $true
                     $nic.dhcp = [bool]$config.DHCPEnabled
-                    $nic.addresses = @($config.IPAddresses | Where-Object { $_ })
+                    # Subnets lists each address's mask in the same order (dotted for IPv4).
+                    $allAddresses = @($config.IPAddresses); $allSubnets = @($config.Subnets)
+                    $nic.addresses = @(); $nic.subnets = @()
+                    for ($i = 0; $i -lt $allAddresses.Count; $i++) {
+                        if (-not $allAddresses[$i]) { continue }
+                        $nic.addresses += [string]$allAddresses[$i]
+                        if ($i -lt $allSubnets.Count) { $nic.subnets += [string]$allSubnets[$i] } else { $nic.subnets += '' }
+                    }
                 }
             }
             $vm.nics += $nic
