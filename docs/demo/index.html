@@ -10641,6 +10641,8 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
       navigator.clipboard.readText().then(function(t){cnTypeClipboard(s,t);},function(){cnPasteNote(s,'','The clipboard could not be read. Use Paste as typing and paste into its box.');});
     },300);
   }
+  // Typing must start only after the key releases already queued (Ctrl from Ctrl+V) reach the VM.
+  function cnAfterInput(s,fn){var until=Date.now()+3000;(function wait(){if((!s.queue.length&&!s.inflight&&!s.flushTimer)||Date.now()>until){fn();return;}setTimeout(wait,20);})();}
   function cnPasteNote(s,note,error){s.pasteNote=note;s.lastError=error;cnRenderStatus();}
   function cnTypeClipboard(s,text){
     if(!cnLive(s)){return;}
@@ -10650,10 +10652,10 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     if(n>20000){cnPasteNote(s,'','Your clipboard holds '+n+' characters; Ctrl+V types at most 20000. Use Paste as typing for part of it.');return;}
     var sp=byId('cnPasteSpeed'),delay=sp?Number(sp.value):15;
     cnPasteNote(s,'Ctrl+V: typing '+n+' character'+(n===1?'':'s')+' from your clipboard','');
-    request('POST','/api/console/type',{id:s.id,text:text,delayMs:delay},function(err,data){
+    cnAfterInput(s,function(){request('POST','/api/console/type',{id:s.id,text:text,delayMs:delay},function(err,data){
       if(err||!data.ok){cnPasteNote(s,'',(data&&data.error)||err);return;}
       s.canvas.focus();
-    });
+    });});
   }
   function cnKeyEvent(s,e,down){
     if(!cnLive(s)){e.preventDefault();e.stopPropagation();return;}
@@ -10766,7 +10768,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   function cnNative(kind){
     var s=cnCurrent();if(!s){return;}
     s.lastError='';s.nativeNote='Opening '+kind+'\u2026';cnRenderStatus();
-    request('POST','/api/console/native',{kind:kind,target:s.target},function(err,data){s.nativeNote='';s.lastError=(err||!data.ok)?((data&&data.error)||err):'';if(!s.lastError){s.nativeNote='Opened in its own window.';}cnRenderStatus();});
+    request('POST','/api/console/native',{kind:kind,target:s.target},function(err,data){s.nativeNote='';s.lastError=(err||!data.ok)?((data&&data.error)||err):'';if(!s.lastError){s.nativeNote=(data.note||'Opened in its own window.')+(kind==='enhanced'&&s.view&&s.view.caps.enhancedWhy?' '+s.view.caps.enhancedWhy:'');}cnRenderStatus();});
   }
   function cnRenderStatus(){
     var box=byId('cnStatus'),s=cnCurrent();box.textContent='';if(!s){return;}
@@ -10801,7 +10803,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
       type.addEventListener('click',function(){
         if(s.view.typing){request('POST','/api/console/type',{id:s.id,stop:true},function(){});return;}
         var text=ta.value;if(ec.checked){text+='\n';}if(!text){byId('cnPasteMsg').textContent='Type or paste the text first.';return;}
-        byId('cnPasteMsg').textContent='';s.pasteNote='';request('POST','/api/console/type',{id:s.id,text:text,delayMs:Number(speed.value)},function(err,data){if(err||!data.ok){byId('cnPasteMsg').textContent=(data&&data.error)||err;return;}if(cc.checked){ta.value='';}s.canvas.focus();});
+        byId('cnPasteMsg').textContent='';s.pasteNote='';cnAfterInput(s,function(){request('POST','/api/console/type',{id:s.id,text:text,delayMs:Number(speed.value)},function(err,data){if(err||!data.ok){byId('cnPasteMsg').textContent=(data&&data.error)||err;return;}if(cc.checked){ta.value='';}s.canvas.focus();});});
       });
       go.appendChild(type);
       if(caps.clipToGuest){var asClip=el('button','','Send as the VM\'s clipboard');asClip.type='button';asClip.title='Offers the text to the VM as the console\'s clipboard. Only some platforms pass it on; typing always works.';asClip.addEventListener('click',function(){request('POST','/api/console/type',{id:s.id,text:ta.value,clipboard:true},function(err,data){byId('cnPasteMsg').textContent=(err||!data.ok)?((data&&data.error)||err):'Sent.';});});go.appendChild(asClip);}
@@ -10874,6 +10876,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
       cap(caps.clipFrom?'yes':'part','Clipboard out of the VM',caps.clipFromWhy||'');
       cap(caps.filesTo?'yes':'no','Files into the VM',caps.filesTo?(caps.filesHow||''):(caps.filesWhy||''));
       cap(caps.filesFrom?'yes':'no','Files out of the VM',caps.filesFrom?(caps.filesHow||''):(caps.filesWhy||''));
+      if(caps.enhancedWhy){cap('no','Enhanced session',caps.enhancedWhy);}
       if(vmArr(caps.native).length){cap('yes','Platform\'s own console','Also opens in its own window from the toolbar: '+vmArr(caps.native).map(function(k){return {vmrc:'VMware Remote Console',vmconnect:'Virtual Machine Connection',enhanced:'Enhanced session'}[k]||k;}).join(', ')+'.');}
       side.appendChild(ul2);
       vmArr(caps.notes).forEach(function(n){side.appendChild(el('p','cn-note',n));});
