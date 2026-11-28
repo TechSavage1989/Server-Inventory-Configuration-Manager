@@ -1,6 +1,6 @@
 ## Unreleased: browser demo and feature tour on GitHub Pages — 2026-11-28
 
-- `docs/demo/` runs the real interface on a simulated backend with fictional data; `docs/tour/` is the annotated feature tour; `docs/index.html` links both. Served by GitHub Pages from `docs/` once the owner turns Pages on (Settings > Pages > Deploy from a branch, `main`, `/docs`). Docs only: no version change, no release.
+- `docs/demo/` runs the real interface on a simulated backend with fictional data; `docs/tour/` is the annotated feature tour; `docs/index.html` links both. Served by GitHub Pages from `docs/` once the owner turns Pages on (Settings > Pages: `main`, `/docs`, custom domain migrationmanager.techsavage3d.com from `docs/CNAME`, set 2026-11-28). Docs only: no version change, no release.
 - Refresh the demo page with `python scripts/build_demo.py` after interface changes (rule 71). Tested in Chromium: every tool opens without errors; collection, New migration to a started plan, rollback and the VM console were clicked through.
 
 ## 3.3.1 release preparation — 2026-11-28

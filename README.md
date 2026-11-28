@@ -37,7 +37,7 @@ A portable **Windows x64 application** for collecting server inventory, exportin
 
 ## Screenshots
 
-Try it in a browser, no install: the **[live demo](https://techsavage1989.github.io/Server-Inventory-Configuration-Manager/demo/)** runs the real interface on fictional data, so every tool can be clicked and its jobs progress live; nothing touches a real server. The **[feature tour](https://techsavage1989.github.io/Server-Inventory-Configuration-Manager/tour/)** walks through each part with annotated screenshots.
+Try it in a browser, no install: the **[live demo](https://migrationmanager.techsavage3d.com/demo/)** runs the real interface on fictional data, so every tool can be clicked and its jobs progress live; nothing touches a real server. The **[feature tour](https://migrationmanager.techsavage3d.com/tour/)** walks through each part with annotated screenshots.
 
 ### Capture
 
