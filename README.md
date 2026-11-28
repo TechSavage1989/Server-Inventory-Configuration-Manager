@@ -21,7 +21,7 @@
 
 A portable **Windows x64 application** for collecting server inventory, exporting supported configurations, reviewing clear, searchable reports, restoring configuration, moving file shares to a new server, moving VMs off VMware or Hyper-V to Hyper-V, Scale Computing HyperCore, Nutanix AHV, Proxmox VE, Azure, Amazon EC2 or a physical server, converting virtual disks between VMDK, VHDX, VHD, qcow2 and raw, and replicating whole running servers to their new machines until cutover.
 
-Version 3.3 brings all of that together in **Migration and replication**: **New migration** walks you from picking VMs to cutover on one set of screens, **Migration plans** keep many VMs in sync with changed-block tracking, **All jobs and servers** shows and acts on every server at once, and you can open a **VM console**, **roll back** a cutover, keep **production space and bandwidth protected**, **build or join a Hyper-V cluster** from the VMware data, and **move SQL Server databases** with their logins and jobs, all from the same window.
+Version 3.3 brings all of that together in **Migration and replication**: **New migration** walks you from picking VMs to cutover on one set of screens, **Migration plans** keep many VMs in sync with changed-block tracking, **All jobs and servers** shows and acts on every server at once, and you can open a **VM console**, **roll back** a cutover, keep **production space and bandwidth protected**, **build or join a Hyper-V cluster** from the VMware data, **move SQL Server databases** with their logins and jobs, and **restore a server's roles onto a new server** with its certificates, accounts, shares and IIS sites, all from the same window.
 
 ## Features
 
@@ -71,6 +71,7 @@ Try it in a browser, no install: the **[live demo](https://migrationmanager.tech
 
 <table>
   <tr><td width="50%"><b>Choose what to restore, with each blocked item's reason</b><br><img src="docs/images/restore-choose.png" alt="Choose what to restore, with each blocked item's reason" width="440"></td><td width="50%"><b>Restore progress, one item at a time</b><br><img src="docs/images/restore-progress.png" alt="Restore progress, one item at a time" width="440"></td></tr>
+  <tr><td colspan="2"><b>Restore onto a new server: unlock the migration bundle, map the old server's addresses and drives to this one, and type each account's password</b><br><img src="docs/images/restore-new-server.png" alt="Restore tab with the migration bundle unlocked, Changes for this server mapping 10.0.0.5 and drive E: to this server, and a password field for a local account" width="880"></td></tr>
 </table>
 
 ### Migration and replication
