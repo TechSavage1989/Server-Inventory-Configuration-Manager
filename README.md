@@ -279,6 +279,8 @@ On the new server, open the package on the **Restore** tab and type the passphra
 
 The **Restore** tab can also take the old server's roles straight from it: choose **Restore from: Another server, live**, type the old server, choose the new server (this one or another), and **Read the old server and copy**. The app reads the old server through PowerShell remoting (nothing is installed on it), builds the same migration bundle with a passphrase it makes and keeps in memory, copies it to the new server, and checks it there; then choose the items and restore as usual. **Read and copy again** brings over only what changed. When the new server is ready, **Stop the sites on the old server** stops its IIS sites so nothing changes there any more; **Start them again** is the way back, and **Finish and remove the copies** cleans up both servers.
 
+New migration offers the same move as *A Windows server's roles* → *A new Windows server*, with the steps in order: **Move a server live** reads the old server while it runs, and **Restore a package on a new server** uses a package collected with *Prepare this package for a new server*. **Continue in Restore** opens the Restore tab on the chosen source.
+
 ## Move SQL databases to a new SQL Server
 
 **Move SQL databases** (in **Migration and replication**, or New migration's *SQL Server databases*) moves databases rather than the whole server. Type the old and new SQL Servers and **Read both servers**: reading changes nothing. Connect as your current sign-in (it needs sysadmin on both), a different Windows account (used on the SQL Server's own computer through PowerShell remoting) or a SQL Server login. Passwords are kept in memory only.
