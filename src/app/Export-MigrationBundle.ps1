@@ -515,12 +515,14 @@ try {
 
     Write-Log 'INFO' 'Reading roles and features.'
     $facts = Get-MachineFacts
-    $features = Get-InstalledFeatureNames
+    # @(): a function returns a one-item list as the item itself, and foreach
+    # over a single [ordered] dictionary walks its keys instead.
+    $features = @(Get-InstalledFeatureNames)
     Write-Log 'INFO' 'Reading local users and groups.'
     $accounts = Get-LocalAccounts
     Write-Log 'INFO' 'Reading file shares.'
-    $shares = Get-ShareDefinitions
-    $tasks = Get-TaskAccounts
+    $shares = @(Get-ShareDefinitions)
+    $tasks = @(Get-TaskAccounts)
     Write-Log 'INFO' 'Reading DNS and DHCP settings.'
     $dns = Get-DnsSettings
     $dhcp = Get-DhcpSettings
@@ -530,16 +532,16 @@ try {
 
     $usedBy = @{}
     foreach ($site in $iis.sites) { foreach ($binding in $site.bindings) { if ($binding.certificateHash) { if (-not $usedBy.ContainsKey($binding.certificateHash)) { $usedBy[$binding.certificateHash] = @() }; $usedBy[$binding.certificateHash] += ('IIS site ' + $site.name + ' (' + $binding.bindingInformation + ')') } } }
-    $certificates = Get-CertificateFacts -UsedBy $usedBy
+    $certificates = @(Get-CertificateFacts -UsedBy $usedBy)
     $secrets = @{ schema = 1; pfx = @{}; iisPasswords = @() }
     foreach ($certificate in $certificates) {
         if (Test-Canceled) { throw 'Stopped by the operator.' }
-        if (-not $certificate.exportable) { $certificate.reason = 'Its private key is marked not exportable. Export it from where it was issued, or issue a new certificate for the new server.'; continue }
-        try {
+        if (-not $certificate.exportable) { $certificate.reason = 'Its private key is marked not exportable. Export it from where it was issued, or issue a new certificate for the new server.' }
+        else { try {
             $secrets.pfx[$certificate.thumbprint] = Export-CertificatePfx -Certificate $certificate -WorkFolder $workFolder
             $certificate.inBundle = $true
         }
-        catch { $certificate.reason = 'Its private key could not be exported: ' + $_.Exception.Message }
+        catch { $certificate.reason = 'Its private key could not be exported: ' + $_.Exception.Message } }
         if (-not $certificate.inBundle) { Add-Warning ('Certificate ' + $certificate.subject + ' (' + $certificate.thumbprint + ') is not in the bundle. ' + $certificate.reason) }
     }
     $iis.passwordsInBundle = 0
@@ -553,7 +555,7 @@ try {
     }
 
     $content = @()
-    if ($iis.installed -and $IncludeWebContent -and $iis.contentRoots.Count) { $content = Copy-WebContent -Roots $iis.contentRoots -Destination $bundleFolder }
+    if ($iis.installed -and $IncludeWebContent -and $iis.contentRoots.Count) { $content = @(Copy-WebContent -Roots $iis.contentRoots -Destination $bundleFolder) }
     elseif ($iis.installed -and $iis.contentRoots.Count) {
         foreach ($root in $iis.contentRoots) { $content += [ordered]@{ index = 0; path = $root; folder = ''; aclFile = ''; sizeBytes = [long]0; included = $false; reason = 'Website files were not chosen for the bundle.' } }
     }

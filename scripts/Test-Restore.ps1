@@ -342,7 +342,8 @@ $sealedText = [Text.Encoding]::ASCII.GetString($sealed)
 Assert (-not $sealedText.Contains($passphrase) -and -not $sealedText.Contains('MII')) 'Secrets file holds neither the passphrase nor readable PFX data'
 $bundleText = Get-Content -LiteralPath (Join-Path $bundleFolder 'Bundle.json') -Raw
 Assert (-not $bundleText.Contains($passphrase) -and -not $bundleText.Contains($userPassword)) 'Bundle settings hold no passphrase or password'
-Assert (@(Get-ChildItem -LiteralPath $bundleFolder -Recurse -File -Include '*.pfx').Count -eq 0) 'No PFX file is left in the bundle'
+# Not -Include: Windows PowerShell 5.1 ignores it together with -LiteralPath.
+Assert (@(Get-ChildItem -LiteralPath $bundleFolder -Recurse -File | Where-Object { $_.Extension -eq '.pfx' }).Count -eq 0) 'No PFX file is left in the bundle'
 $bundleData = $bundleText | ConvertFrom-Json
 Assert (@($bundleData.certificates | Where-Object { $_.thumbprint -eq $keyThumbprint -and $_.inBundle }).Count -eq 1) 'The certificate with its private key is in the bundle'
 
