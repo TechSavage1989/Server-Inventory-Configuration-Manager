@@ -12,7 +12,14 @@
   <a href="#screenshots">Screenshots</a> ·
   <a href="#updates-and-settings">Updates</a> ·
   <a href="#development">Development</a> ·
-  <a href="https://migrationmanager.techsavage3d.com/demo/">Live demo</a>
+  <a href="https://migrationmanager.techsavage3d.com/demo/">Live demo</a> ·
+  <a href="https://migrationmanager.techsavage3d.com/tour/">Feature tour</a>
+</p>
+
+<p align="center">
+  <a href="https://migrationmanager.techsavage3d.com/demo/"><strong>▶ Try the live demo in your browser</strong></a> &nbsp;|&nbsp;
+  <a href="https://migrationmanager.techsavage3d.com/tour/"><strong>Take the feature tour</strong></a><br>
+  <sub>No install. The demo runs the real interface on fictional data, and nothing touches a real server.</sub>
 </p>
 
 <p align="center">
