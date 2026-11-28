@@ -264,3 +264,19 @@ func TestPreflightErrorsAreOneLineWithTheDetailKept(t *testing.T) {
 		t.Fatalf("report row keeps the raw error: %q", rows[len(rows)-1][1])
 	}
 }
+
+func TestPreflightUnreachableOnlyHoldsVMsNamedLikeARole(t *testing.T) {
+	failed := &vmPreflight{CheckedAt: vmTestNow, Computer: "desk21-cpa01.example.com", Via: "winrm", Checks: []string{"dc", "sql"}, Error: "Connecting to remote server desk21-cpa01.example.com failed: The client cannot connect to the destination specified in the request."}
+	desk := vmMachine{Name: "DESK21-CPA01", GuestID: "windows9Server64Guest", GuestOS: "Microsoft Windows Server 2016 (64-bit)", Preflight: failed}
+	if codes := preflightCodesOf(preflightFindingsFor(desk)); codes["preflight-failed"] != vmSeverityInfo {
+		t.Fatalf("an unreachable VM not named like a DC or SQL Server must only be a note: %v", codes)
+	}
+	sql := desk
+	sql.Name = "SQL01"
+	if codes := preflightCodesOf(preflightFindingsFor(sql)); codes["preflight-failed"] != vmSeverityWarning {
+		t.Fatalf("an unreachable VM named like a SQL Server stays a review item: %v", codes)
+	}
+	if codes := preflightCodesOf(preflightFindings(failed)); codes["preflight-failed"] != vmSeverityWarning {
+		t.Fatalf("the check's own findings are unchanged: %v", codes)
+	}
+}
