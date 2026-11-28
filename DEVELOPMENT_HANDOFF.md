@@ -1,10 +1,16 @@
 ## 3.3.3-test.1 test build preparation — 2026-11-28
 
-The owner approved a test build to go with stable 3.3.2 ("yes", 2026-11-28). `test` merged `release/next` (3.3.2 content; the four conflicting files took `release/next`'s side because everything in `test` was already there). `appVersion` is 3.3.3-test.1, `collectorVersion` and `$scriptVersion` are 3.3.3 (rule 61), `release/VERSION` is 3.3.3-test.1, notes in `docs/release-notes/3.3.3-test.1.md`. It is numbered above 3.3.2 so Test-channel installs are offered it rather than staying on 3.3.0-test.5.
+The owner approved a test build to go with stable 3.3.2 ("yes", 2026-11-28). `test` merged `release/next` (3.3.2 content; the four conflicting files took `release/next`'s side because everything in `test` was already there). `appVersion` is 3.3.3-test.1, `collectorVersion` and `$scriptVersion` are 3.3.3 (rule 61), `release/VERSION` is 3.3.3-test.1, notes in `docs/release-notes/3.3.3-test.1.md`. It also carries #254 (Move a server live, rule 75), which reached `test` after 3.3.2's batch; it is test-only for now. It is numbered above 3.3.2 so Test-channel installs are offered it rather than staying on 3.3.0-test.5.
 
 ## 3.3.2 release preparation — 2026-11-28
 
 The owner approved publishing 3.3.2 and a matching test build once role restores were in ("yes", 2026-11-28). 3.3.2 carries #235 (Move SQL databases, rule 72), #234 (restore collection packages fully on a new server, rule 74), #238 (read-ahead copies, free-space skip for sends and P2V, compressed VDDK, receiver and file share transfers, rule 73) and the README updates #237, #241 and #244. `appVersion`, `collectorVersion` and the collector's `$scriptVersion` are 3.3.2; notes in `docs/release-notes/3.3.2.md`; the published-upgrade check starts from 3.3.1 (#242). The matching test build is 3.3.3-test.1 from `test` (same features; numbered above 3.3.2 so Test-channel installs are offered it, rule 61).
+
+## Unreleased: move a server live from the old server to the new one — 2026-11-28
+
+- Owner said yes to the full IIS server-to-server move (phase 2 of the new-server restore). The Restore tab now has **Restore from: Another server, live**: it reads the old server over PowerShell remoting into a package there (migration bundle with a random passphrase kept in memory only, IIS configuration backup, website files), copies it to the new server with Robocopy (only changes on a second read), then checks and restores it inside the new server (or on this computer) with the usual restore steps. Cutover stops the old IIS sites; Start them again is the way back; Finish removes both packages.
+- New `Invoke-ServerMoveRemote.ps1` (signed, RemoteSigned); both engines gained `-Embedded -LogPath` (and `-Passphrase` / `-SecretsJson`); rules in `servermove.go`, Windows side `servermove_windows.go`, AGENTS rule 75, EDR-EXCLUSIONS updated.
+- Tests: `go test -run TestServerMove ./src/app`; `TestServerMoveReadsAndChecksAServerThroughRemoting` (Windows, WinRM to localhost); workspace check "Move a server live". Not field-validated on two real servers.
 
 ## Unreleased: restore collection packages fully on a new server — 2026-11-28
 
