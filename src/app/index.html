@@ -288,7 +288,8 @@ button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visi
 .export-panel > summary { cursor:pointer; list-style-position:outside; margin-left:calc(16*var(--sp)); }
 .export-panel > summary .scope-panel-head { display:inline-flex; width:calc(100% - 8px); vertical-align:top; }
 .export-panel:not([open]) .category-grid { display:none; }
-.sensitive-inline { width:100%; padding:0; margin-top:calc(16*var(--sp)); }.option-inner { min-height:0; }.option-desc { max-width:760px; }
+.sensitive-inline { width:100%; padding:0; margin-top:calc(16*var(--sp)); }
+.bundle-fields{display:flex;flex-wrap:wrap;gap:calc(12*var(--sp));align-items:flex-end;margin-top:calc(12*var(--sp))}.bundle-field{display:flex;flex-direction:column;gap:calc(4*var(--sp));font-size:max(10.5px,calc(12*var(--fz)));color:var(--muted);min-width:220px;flex:0 1 280px}.bundle-field input{width:100%}.bundle-check{display:flex;align-items:center;gap:calc(8*var(--sp));font-size:max(10.5px,calc(13*var(--fz)))}.bundle-check input[type=checkbox]{flex:0 0 auto}.bundle-check input[type=number]{width:80px;margin:0 calc(4*var(--sp))}.bundle-why{min-height:1.4em;margin-top:calc(6*var(--sp));font-size:max(10.5px,calc(12*var(--fz)));color:var(--muted)}.bundle-why.warn{color:var(--warning,#d39b2a)}.bundle-card .option-inner.enabled{border-color:var(--accent)}.option-inner { min-height:0; }.option-desc { max-width:760px; }
 .setup-action-bar { flex-wrap:wrap; gap:calc(8*var(--sp)); }.setup-action-bar .scope-note { flex:1 1 210px; }.setup-actions { display:flex; gap:calc(8*var(--sp)); flex-wrap:wrap; }
 #selectionSummary { display:block; font-size:max(10.5px,calc(12*var(--fz))); color:#34465f; font-weight:600; margin-bottom:2px; }
 .app-notice { flex:none; margin:0 0 calc(10*var(--sp)); padding:calc(10*var(--sp)) calc(12*var(--sp)); border:1px solid #bfd0e5; border-radius:8px; background:#eff6ff; color:#1e467a; display:flex; align-items:center; justify-content:space-between; gap:calc(10*var(--sp)); font-size:max(10.5px,calc(12*var(--fz))); }
@@ -383,6 +384,12 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
 .rb-slot{display:inline-flex;gap:6px;align-items:center;margin-left:6px}.rb-slot:empty{display:none}.vm-move .rb-slot,.vm-move-target .rb-slot{display:flex;margin:calc(8*var(--sp)) 0 0}
 .rb-dialog .rb-order{margin:calc(10*var(--sp)) 0 0;font-weight:600}.rb-dialog .rb-window{font-size:max(10.5px,calc(12.5*var(--fz)))}.rb-options{margin-top:calc(8*var(--sp));padding-top:calc(6*var(--sp));border-top:1px solid #e3e8f0}
 .rb-signin{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:calc(10*var(--sp));padding:calc(8*var(--sp));border:1px solid #f0cf8a;border-radius:8px;background:#fff9ea}.rb-signin input{min-width:0;flex:1 1 140px}
+.restore-bundle{margin-top:calc(14*var(--sp));border:1px solid #b9d3f2;border-radius:10px;padding:calc(11*var(--sp)) calc(12*var(--sp));background:#f7fbff;display:flex;flex-direction:column;gap:calc(10*var(--sp))}
+.restore-bundle-head{display:flex;flex-wrap:wrap;gap:calc(6*var(--sp)) calc(12*var(--sp));align-items:baseline;font-size:max(10.5px,calc(13*var(--fz)))}.restore-bundle-head span{color:#52647c;font-size:max(10.5px,calc(12*var(--fz)))}.restore-bundle-head span.bad{color:#8c2626;font-weight:600}.restore-bundle-head span.good{color:#1d6b43;font-weight:600}
+.restore-bundle-unlock{display:flex;flex-wrap:wrap;gap:calc(10*var(--sp));align-items:flex-end}
+.restore-subhead{font-weight:700;font-size:max(10.5px,calc(12.5*var(--fz)));color:#23334b;margin-bottom:calc(4*var(--sp))}
+.restore-map{width:100%;border-collapse:collapse;font-size:max(10.5px,calc(12*var(--fz)))}.restore-map th{text-align:left;color:#52647c;font-weight:600;padding:calc(4*var(--sp)) calc(8*var(--sp));border-bottom:1px solid #dbe3ed}.restore-map td{padding:calc(5*var(--sp)) calc(8*var(--sp));border-bottom:1px solid #edf1f6;vertical-align:top}.restore-map select{min-width:140px;max-width:100%}.restore-map .why{color:#596b80}
+.restore-pw-row{display:flex;flex-wrap:wrap;gap:calc(6*var(--sp)) calc(12*var(--sp));align-items:center;margin-top:calc(6*var(--sp));font-size:max(10.5px,calc(12*var(--fz)))}.restore-pw-row>span{flex:0 1 320px;min-width:0;overflow-wrap:anywhere}.restore-pw-row input{flex:0 1 240px;min-width:0}.restore-pw-row small{color:#596b80;flex:1 1 200px}
 .restore-components{margin-top:calc(14*var(--sp));display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:calc(10*var(--sp))}
 .restore-component{border:1px solid #dbe3ed;border-radius:10px;padding:calc(11*var(--sp)) calc(12*var(--sp));background:#fff;min-width:0}
 .restore-component.selected{border-color:#a6c3f1;background:#f7faff}.restore-component.unavailable{background:#f8fafc}
@@ -1113,6 +1120,13 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
 
             <div class="option-card sensitive-inline"><div class="option-inner" id="cardSensitive"><div class="option-head"><div class="option-title">Allow sensitive exports</div><label class="toggle"><input id="includeSensitive" type="checkbox" aria-label="Allow sensitive exports"><span class="slider"></span></label></div><div class="option-desc">Required for explicitly selected exports that can contain reusable secrets, such as a complete NPS configuration. Passwords, private certificate keys, DPAPI secrets and SQL credentials are never automatically collected.</div></div></div>
             <div class="warning-box" id="sensitiveWarning">Sensitive exports are disabled. Normal inventory and safe configuration exports do not require this option.</div>
+            <div class="option-card sensitive-inline bundle-card"><div class="option-inner" id="cardBundle"><div class="option-head"><div class="option-title">Prepare this package for a new server</div><label class="toggle"><input id="migrationBundle" type="checkbox" aria-label="Prepare this package for a new server"><span class="slider"></span></label></div><div class="option-desc">Adds a migration bundle so the Restore tab on a different server can rebuild this one's roles working: roles and features, local users and groups, file shares, certificates with their private keys, IIS with its passwords, HTTPS bindings and website files. Certificates and passwords are encrypted with a passphrase you choose; it is never saved, so keep it with your migration notes. Needs administrator rights.</div>
+              <div class="bundle-fields" id="bundleFields">
+                <label class="bundle-field"><span>Passphrase (at least 12 characters)</span><input type="password" id="bundlePassphrase" autocomplete="new-password" maxlength="256" spellcheck="false"></label>
+                <label class="bundle-field"><span>Type it again</span><input type="password" id="bundlePassphraseConfirm" autocomplete="new-password" maxlength="256" spellcheck="false"></label>
+                <label class="bundle-check"><input type="checkbox" id="bundleWebContent" checked><span>Include website files, up to <input type="number" id="bundleContentLimit" min="1" max="2048" step="1" value="10" aria-label="Website files limit in GB"> GB</span></label>
+              </div>
+              <div class="bundle-why" id="bundleWhy" role="status"></div></div></div>
           </div>
           <div class="restore-alert busy-notice hidden" id="configLockNotice" role="status"><span id="configLockText"></span><button class="secondary-button hidden" id="configLockOpen" type="button"></button></div>
           <div class="action-bar setup-action-bar"><div class="scope-note"><span id="selectionSummary"></span><span id="scopeHint">Selections are recorded in the report.</span></div><div class="setup-actions"><button class="secondary-button" id="saveChoicesButton" type="button">Save choices</button><button class="primary-button" id="startButton" type="button">Start collection</button></div></div>
@@ -1128,6 +1142,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
         <div class="status-header"><div class="status-left"><div class="status-indicator" id="statusIndicator"></div><div><div class="status-title" id="statusTitle">Ready</div><div class="status-message" id="statusMessage">No collection is running.</div></div></div><div class="elapsed" id="elapsedTime">00:00:00</div></div>
         <div class="progress-track" id="collectionProgress" role="progressbar" aria-label="Estimated collection progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="progress-fill" id="progressFill"></div></div>
         <div class="current-step" id="currentStep">No active collector.</div>
+        <div class="restore-alert hidden" id="bundleNotice" role="status"></div>
         <div class="warning-box hidden" id="aclExportPanel" role="status" aria-live="polite"><strong id="aclExportTitle">Recursive permissions export</strong><div id="aclExportDetails"></div><div class="helper" id="aclExportHelp">This is one collection stage, not an estimate of files remaining. You can skip remaining recursive permission exports without stopping other inventory.</div><button class="secondary-button" id="skipACLButton" type="button">Skip remaining ACL exports</button></div>
         <div class="metric-row"><div class="metric metric-action" role="button" tabindex="0" data-log-filter="all" title="Show the whole log"><div class="metric-label">Estimated progress</div><div class="metric-value" id="progressValue">0%</div></div><div class="metric metric-action" role="button" tabindex="0" data-log-filter="all" title="Show every section in the log"><div class="metric-label">Sections processed</div><div class="metric-value" id="completedValue">0</div></div><div class="metric metric-action" role="button" tabindex="0" data-log-filter="issues" title="Show warnings and errors in the log"><div class="metric-label">Warnings</div><div class="metric-value" id="warningValue">0</div></div><div class="metric metric-action" role="button" tabindex="0" data-log-filter="error" title="Show errors in the log"><div class="metric-label">Errors</div><div class="metric-value" id="errorValue">0</div></div></div>
         <div class="log-toolbar"><div class="log-title">Execution log</div><div class="log-tools"><input id="logSearch" type="search" placeholder="Find in log" aria-label="Find in execution log"><select id="logLevel" aria-label="Log level"><option value="all">All messages</option><option value="issues">Warnings and errors</option><option value="error">Errors only</option></select><label><input id="followLog" type="checkbox" checked> Follow live</label><button class="secondary-button" id="nextIssueButton" type="button" disabled title="Jump to the next warning or error">Next issue</button><button class="secondary-button" id="copyLogButton" type="button" disabled title="Copy the messages currently shown">Copy</button><button class="secondary-button" id="clearLogButton" type="button">Clear view</button></div></div><div class="log-meta"><span id="logCount" role="status">No messages yet</span><span>Filtering does not change saved logs.</span></div><div class="log-view" id="logView" tabindex="0" aria-label="Execution log"></div>
@@ -1160,11 +1175,19 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
               <div class="restore-alert danger hidden" id="restoreMismatch" role="alert"></div>
               <div class="restore-alert hidden" id="restoreIntegrityNotice"></div>
               <div class="restore-alert danger hidden" id="restoreAdminNotice"><strong>Run the application as administrator to restore.</strong> You can review the package, but restoring configuration needs administrator rights.</div>
+              <div class="restore-bundle hidden" id="restoreBundle">
+                <div class="restore-bundle-head"><strong>Migration bundle</strong><span id="restoreBundleState"></span></div>
+                <div class="restore-bundle-unlock" id="restoreUnlockRow"><label class="bundle-field"><span>Bundle passphrase</span><input type="password" id="restorePassphrase" autocomplete="off" maxlength="256" spellcheck="false"></label><button class="secondary-button" id="restoreUnlock" type="button">Unlock</button></div>
+                <div class="restore-changes" id="restoreChanges"></div>
+                <div class="restore-passwords" id="restorePasswords"></div>
+                <div id="restoreBundleNotes"></div>
+              </div>
               <div class="restore-components" id="restoreComponents"></div>
             </div>
           </div>
           <div class="hidden" id="restoreProgress">
             <div class="status-header"><div class="status-left"><div class="status-indicator" id="restoreIndicator"></div><div><div class="status-title" id="restoreRunTitle">Restoring configuration</div><div class="restore-run-message" id="restoreRunMessage"></div></div></div><div class="elapsed" id="restoreElapsed">00:00:00</div></div>
+            <div class="restore-alert hidden" id="restoreRestart" role="status"><strong>Restart this server to finish.</strong> Roles and features were installed that Windows completes at the next restart. Restart when it suits you, then check the restored roles.</div>
             <div class="restore-run-items" id="restoreRunItems"></div>
             <div class="log-toolbar restore-log-toolbar"><div class="log-title">Restore log</div></div>
             <div class="log-view restore-log" id="restoreLog" tabindex="0" aria-label="Restore log"></div>
@@ -2230,13 +2253,13 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   var logLines = [], scopeSearchWasOpen = false, previousScopeQuery = '';
   var coreCategories = ['Hardware','OperatingSystem','Storage','Networking','WindowsFeaturesRoles','Services','InstalledSoftware','WindowsUpdate','LocalAccounts','Security','TimeNTP','WindowsServerBackup'];
   function notice(message,error){byId('appNoticeText').textContent=message;byId('appNotice').className='app-notice'+(error?' error':'');}
-  function choices(){var inv=getCheckedValues('input[data-inventory]'),days=Number(byId('eventDays').value);if(inv.indexOf('EventLogs')<0&&(!Number.isInteger(days)||days<1||days>365)){days=30;}return {outputRoot:byId('outputPath').value.trim(),inventoryCategories:inv,exportCategories:getCheckedValues('input[data-export]'),eventLogDays:days,aclExportTimeoutSeconds:Number(byId('aclExportTimeout').value),includeSensitive:byId('includeSensitive').checked};}
+  function choices(){var inv=getCheckedValues('input[data-inventory]'),days=Number(byId('eventDays').value);if(inv.indexOf('EventLogs')<0&&(!Number.isInteger(days)||days<1||days>365)){days=30;}return {outputRoot:byId('outputPath').value.trim(),inventoryCategories:inv,exportCategories:getCheckedValues('input[data-export]'),eventLogDays:days,aclExportTimeoutSeconds:Number(byId('aclExportTimeout').value),includeSensitive:byId('includeSensitive').checked,migrationBundle:byId('migrationBundle').checked,bundleWebContent:byId('bundleWebContent').checked,bundleContentLimitGB:Number(byId('bundleContentLimit').value)};}
   function markChoicesDirty(){var invalid=document.querySelectorAll('#configBody [aria-invalid]');for(var i=0;i<invalid.length;i++){invalid[i].removeAttribute('aria-invalid');}preferencesDirty=true;byId('preferencesStatus').textContent='Unsaved choices';updateRevertButton();}
   function savedOptions(){return latestState&&latestState.collectionPreferences&&latestState.collectionPreferences.options||null;}
   function updateRevertButton(){byId('revertChoicesButton').classList.toggle('hidden',!(preferencesDirty&&savedOptions()));}
   function applySavedOptions(saved){
     setCheckedValues('input[data-export]',[]);setCheckedValues('input[data-inventory]',saved.inventoryCategories||[]);setCheckedValues('input[data-export]',(saved.exportCategories||[]).filter(function(v){return v!=='NPS';}));
-    byId('outputPath').value=saved.outputRoot||byId('outputPath').value;byId('eventDays').value=saved.eventLogDays||30;byId('aclExportTimeout').value=saved.aclExportTimeoutSeconds||120;byId('includeSensitive').checked=false;syncCategoryState();
+    byId('outputPath').value=saved.outputRoot||byId('outputPath').value;byId('eventDays').value=saved.eventLogDays||30;byId('aclExportTimeout').value=saved.aclExportTimeoutSeconds||120;byId('includeSensitive').checked=false;byId('migrationBundle').checked=false;syncCategoryState();
   }
   function revertChoices(){
     var saved=savedOptions();if(!saved||configurationBusy||(latestState&&latestState.running)){return;}
@@ -2251,6 +2274,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     else if(!Number.isInteger(value.eventLogDays)||value.eventLogDays<1||value.eventLogDays>365){bad='Event history must be a whole number from 1 to 365 days.';field=byId('eventDays');}
     else if(!Number.isInteger(value.aclExportTimeoutSeconds)||value.aclExportTimeoutSeconds<30||value.aclExportTimeoutSeconds>3600){bad='Recursive ACL export timeout must be a whole number from 30 to 3600 seconds per share.';field=byId('aclExportTimeout');byId('exportPanel').open=true;}
     else if(value.exportCategories.indexOf('NPS')>=0&&!value.includeSensitive){bad='Enable Allow sensitive exports for NPS full export, or deselect that export.';field=byId('includeSensitive');}
+    else if(value.migrationBundle&&value.bundleWebContent&&(!Number.isInteger(value.bundleContentLimitGB)||value.bundleContentLimitGB<1||value.bundleContentLimitGB>2048)){bad='The website files limit must be a whole number from 1 to 2048 GB.';field=byId('bundleContentLimit');}
     if(bad){notice(bad,true);field.setAttribute('aria-invalid','true');field.focus();return null;}
     return value;
   }
@@ -2537,12 +2561,32 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     byId('scopeHint').textContent=exp.indexOf('SharesPermissions')>=0?'Recursive permission exports can take longer on large shares.':'HTML, Word, text summary and a ZIP package are generated.';
     byId('inventoryCount').textContent=inv.length+' selected'; byId('exportCount').textContent=exp.length+' selected';
     byId('cardSensitive').className='option-inner'+(byId('includeSensitive').checked?' enabled':'');
+    syncBundleCard();
     byId('sensitiveWarning').innerHTML=byId('includeSensitive').checked?'<strong>Sensitive exports allowed.</strong> Only explicitly selected sensitive export modules will use this permission. Protect the resulting package accordingly.':'Sensitive exports are disabled. Normal inventory and safe configuration exports do not require this option.';
     var eventSelected=inv.indexOf('EventLogs')>=0; byId('eventDays').disabled=!eventSelected||configurationBusy||!!(latestState&&latestState.running);
     byId('eventDays').title=eventSelected?'':'Select Event-log summaries to change the history window.';
     var invNodes=document.querySelectorAll('input[data-inventory]');
     for(var ii=0;ii<invNodes.length;ii++){var label=invNodes[ii].parentNode;if(label&&label.classList){label.classList.toggle('has-export',exp.indexOf(invNodes[ii].value)>=0);}}
     syncGroups();
+  }
+  // The migration bundle's fields stay in place and turn off with the option,
+  // so turning it on never moves the rest of the page (rule 51).
+  function bundleProblem(){
+    if(!byId('migrationBundle').checked){return '';}
+    var p=byId('bundlePassphrase').value,c=byId('bundlePassphraseConfirm').value;
+    if(latestState&&!latestState.isAdministrator){return 'Run the application as administrator to prepare a package for a new server.';}
+    if(!getCheckedValues('input[data-export]').length){return 'Select the configuration exports to restore under Optional configuration exports; the bundle adds to them.';}
+    if(Array.from(p).length<12){return 'Type a passphrase of at least 12 characters.';}
+    if(/[\r\n]/.test(p)){return 'The passphrase cannot contain line breaks.';}
+    if(p!==c){return 'The two passphrase entries do not match.';}
+    return '';
+  }
+  function syncBundleCard(){
+    var on=byId('migrationBundle').checked,locked=configurationBusy||!!(latestState&&latestState.running);
+    byId('cardBundle').className='option-inner'+(on?' enabled':'');
+    ['bundlePassphrase','bundlePassphraseConfirm','bundleWebContent'].forEach(function(id){byId(id).disabled=!on||locked;});
+    byId('bundleContentLimit').disabled=!on||locked||!byId('bundleWebContent').checked;
+    var why=bundleProblem(),box=byId('bundleWhy');box.textContent=on?(why||'The passphrase is ready. You will need it on the new server.'):'';box.className='bundle-why'+(why?' warn':'');
   }
   function syncGroups(){
     var groups=document.querySelectorAll('.category-group');
@@ -4043,7 +4087,8 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     }
     byId('serverName').textContent=state.computerName||'This server'; byId('adminState').textContent=state.isAdministrator?'Administrator':'Not elevated';byId('elevationBadge').textContent=state.isAdministrator?'Administrator':'Not running as administrator';byId('elevationBadge').classList.toggle('warn',!state.isAdministrator);byId('elevationBadge').title=state.isAdministrator?'The application runs with administrator rights on this computer.':'Some collections, restores and migrations need administrator rights. Start the application with Run as administrator.'; byId('powerShellState').textContent=state.powerShellVersion||'Available';
     setConfigDisabled(!!state.running); updateWorkflow(state);
-    byId('statusTitle').textContent=state.phase||'Ready'; byId('statusMessage').textContent=state.message||''; byId('currentStep').textContent=state.currentStep||'No active collector.';
+    byId('statusTitle').textContent=state.phase||'Ready'; byId('statusMessage').textContent=state.message||'';
+    var bn=byId('bundleNotice');bn.textContent=state.bundle||'';bn.className='restore-alert'+(state.bundleFailed?' danger':'')+(state.bundle?'':' hidden'); byId('currentStep').textContent=state.currentStep||'No active collector.';
     byId('collectionProgress').setAttribute('aria-valuenow',String(state.progress||0));
     byId('progressValue').textContent=(state.progress||0)+'%'; byId('completedValue').textContent=String(state.completedSteps||0); byId('warningValue').textContent=String(state.warningCount||0); byId('errorValue').textContent=String(state.errorCount||0);
     var fill=byId('progressFill'); fill.style.width=(state.progress||0)+'%'; fill.className='progress-fill'+(state.status==='success'?' success':(state.status==='failed'?' failed':''));
@@ -4106,9 +4151,11 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   function browseFolder(){ request('POST','/api/browse',{},function(err,data){if(err){notice(err,true);return;}if(data.path){byId('outputPath').value=data.path;markChoicesDirty();}}); }
   function startCollection(){
     if(configurationBusy||byId('startButton').disabled){return;}var body=validateChoices();if(!body){return;}
+    if(body.migrationBundle){var bp=bundleProblem();if(bp){notice(bp,true);byId('bundlePassphrase').focus();return;}body.bundlePassphrase=byId('bundlePassphrase').value;body.bundlePassphraseConfirm=byId('bundlePassphraseConfirm').value;}
     if(body.includeSensitive&&!window.confirm('Sensitive role exports can contain reusable secrets. Continue only if the output location is appropriately protected.')){return;}
     configurationBusy=true;setConfigDisabled(true);
     request('POST','/api/start',body,function(err,data){configurationBusy=false;setConfigDisabled(!!(latestState&&latestState.running));if(err){notice(err,true);return;}
+      byId('bundlePassphrase').value='';byId('bundlePassphraseConfirm').value='';
       clearLogs();lastLogIndex=0;switchTab('collection');preferencesDirty=false;if(latestState){latestState.running=true;}setConfigDisabled(true);
       if(data.preferencesSaved===false){notice('Collection started, but choices could not be saved for next time.',true);}else{byId('preferencesStatus').textContent='Choices saved for next time';byId('appNotice').classList.add('hidden');}
     });
@@ -4142,6 +4189,8 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   }
 
   var tabButtons=document.querySelectorAll('.tab-button'); for(var i=0;i<tabButtons.length;i++){tabButtons[i].addEventListener('click',function(){switchTab(this.getAttribute('data-tab'));});}
+  ['migrationBundle','bundleWebContent'].forEach(function(id){byId(id).addEventListener('change',syncBundleCard);});
+  ['bundlePassphrase','bundlePassphraseConfirm','bundleContentLimit'].forEach(function(id){byId(id).addEventListener('input',syncBundleCard);});
   var categoryInputs=document.querySelectorAll('input[data-inventory],input[data-export],#includeSensitive'); for(var ci=0;ci<categoryInputs.length;ci++){categoryInputs[ci].addEventListener('change',function(){
     if(this.hasAttribute('data-inventory')&&!this.checked){var partner=document.querySelector('input[data-export][value="'+this.value+'"]');if(partner){partner.checked=false;}}
     syncCategoryState();markChoicesDirty();
@@ -4254,6 +4303,10 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   // The server owns restore state (state.restore); this view keeps only the
   // current selection, rebuilt whenever a different package scan arrives.
   var restoreScanKey='',restoreSelection={},restoreShowChooser=false,restoreLogKey='',restoreRunKey='',restoreBusy=false;
+  // Restoring onto a different server (migration bundle): the changes for
+  // this server and the typed passwords live only in this page and the
+  // request that starts the restore; they are never saved.
+  var restoreChangeMap={ip:{},path:{}},restorePasswordValues={},restorePackageKey='',restorePwKey='';
   var restoreStatusLabels={pending:'Waiting',snapshot:'Saving rollback',restoring:'Restoring',succeeded:'Restored',failed:'Failed',skipped:'Skipped',canceled:'Stopped'};
   function restoreIsRunning(r){return !!(r&&r.status==='running');}
   function restoreFinished(r){return !!(r&&(r.status==='succeeded'||r.status==='failed'||r.status==='canceled'));}
@@ -4542,6 +4595,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
       var summary=card.querySelector('[data-restore-summary]');if(summary){summary.textContent=on+' of '+items.length+' items selected';}
     });}
     plan=restoreSelectedPlan();plan.forEach(function(entry){count+=entry.items.length;});
+    renderRestorePasswords(scan,plan);
     byId('restoreSelectionSummary').textContent=count?(count===1?'1 item':count+' items')+' in '+(plan.length===1?'1 component':plan.length+' components')+' selected.':'No items selected.';
     updateRestoreButtons();
   }
@@ -4559,6 +4613,56 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     byId('restoreOpenRollback').classList.toggle('hidden',!(r.rollbackPath&&!running&&progressView));
     byId('restoreAgainButton').classList.toggle('hidden',!(progressView&&restoreFinished(r)));
     byId('restoreBody').className='card-body'+(locked&&!progressView?' locked':'');
+    byId('restoreUnlock').disabled=locked;byId('restorePassphrase').disabled=locked;
+    Array.prototype.forEach.call(document.querySelectorAll('[data-restore-map],[data-restore-secret]'),function(x){x.disabled=locked;});
+  }
+  function buildRestoreBundle(scan){
+    var b=scan.bundle||{},box=byId('restoreBundle'),r=restoreState()||{};box.classList.toggle('hidden',!b.present);if(!b.present){return;}
+    var st=byId('restoreBundleState'),ok=b.passphrase==='ok';
+    st.textContent=(b.createdAt?'Made '+b.createdAt+'. ':'')+(b.message||'');st.className=ok?'good':(b.passphrase==='wrong'||b.passphrase==='damaged'?'bad':'');
+    byId('restoreUnlockRow').classList.toggle('hidden',ok);byId('restorePassphrase').value='';
+    var ch=byId('restoreChanges');ch.textContent='';
+    var maps=vmArr(scan.mappings);
+    if(maps.length){
+      ch.appendChild(el('div','restore-subhead','Changes for this server'));
+      ch.appendChild(el('div','migrate-help','Addresses and drives the old server used that this server does not have. Each is filled in with the closest match here; change any of them and the package is checked again.'));
+      var t=el('table','restore-map'),head=el('tr','');['Old server','This server','Used by','Why this choice'].forEach(function(h){head.appendChild(el('th','',h));});t.appendChild(head);
+      maps.forEach(function(m){var tr=el('tr',''),sel=document.createElement('select'),kind=m.kind==='ip'?'ip':'path';
+        sel.setAttribute('data-restore-map',kind+'|'+m.from);sel.setAttribute('aria-label',(kind==='ip'?'Address on this server for ':'Drive on this server for ')+m.from);
+        vmArr(m.options).forEach(function(o){var label=o==='*'?'All addresses (*)':o;sel.appendChild(new Option(label,o));});sel.value=m.to;
+        sel.addEventListener('change',function(){restoreChangeMap[kind][m.from]=sel.value;rescanRestorePackage();});
+        tr.appendChild(el('td','vm-mono',m.from));var td=el('td','');td.appendChild(sel);tr.appendChild(td);
+        tr.appendChild(el('td','',vmArr(m.usedBy).join(', ')));tr.appendChild(el('td','why',(m.to===m.suggested?'Suggested: ':'Set by you. Suggested: '+(m.suggested==='*'?'All addresses':m.suggested)+'. ')+(m.to===m.suggested?(m.why||''):'')));t.appendChild(tr);});
+      ch.appendChild(t);
+    }
+    restorePwKey='';
+    var notes=byId('restoreBundleNotes');notes.textContent='';
+    var nm=vmArr(scan.notMovable);
+    if(nm.length){var d=el('div','restore-alert info');d.appendChild(el('strong','','Not moved by a package: '));var ul=el('ul','restore-warnings');nm.forEach(function(n){ul.appendChild(el('li','',n.role+': '+n.guidance));});d.appendChild(ul);notes.appendChild(d);}
+    var w=vmArr(b.warnings);
+    if(w.length){var d2=el('details','restore-items'),sm=el('summary','',w.length===1?'1 note from when the bundle was made':w.length+' notes from when the bundle was made');d2.appendChild(sm);var ul2=el('ul','restore-warnings');w.forEach(function(x){ul2.appendChild(el('li','',x));});d2.appendChild(ul2);notes.appendChild(d2);}
+  }
+  // Passwords the selected items need (local users, scheduled tasks), one
+  // field per account. Built again only when the needed accounts change, so
+  // typing is never interrupted by the page's refresh.
+  function restoreNeededSecrets(scan,plan){
+    var need=[],seen={};(plan||[]).forEach(function(entry){(entry.component.items||[]).forEach(function(i){if(i.needsSecret&&entry.items.indexOf(i.id)>=0){if(seen[i.needsSecret]){if(!i.secretOptional){seen[i.needsSecret].optional=false;}return;}seen[i.needsSecret]={key:i.needsSecret,label:i.secretLabel||i.needsSecret,optional:!!i.secretOptional};need.push(seen[i.needsSecret]);}});});
+    return need;
+  }
+  function renderRestorePasswords(scan,plan){
+    var box=byId('restorePasswords'),need=scan?restoreNeededSecrets(scan,plan):[],key=JSON.stringify(need);
+    if(key===restorePwKey){return;}restorePwKey=key;box.textContent='';if(!need.length){return;}
+    box.appendChild(el('div','restore-subhead','Passwords for the selected items'));
+    need.forEach(function(n){var row=el('label','restore-pw-row'),input=document.createElement('input');
+      input.type='password';input.maxLength=256;input.autocomplete='new-password';input.setAttribute('data-restore-secret',n.key);input.value=restorePasswordValues[n.key]||'';input.setAttribute('aria-label',n.label);
+      input.addEventListener('input',function(){restorePasswordValues[n.key]=input.value;});
+      row.appendChild(el('span','',n.label));row.appendChild(input);row.appendChild(el('small','',n.optional?'Optional: leave it empty and the account is created turned off with a random password.':'Needed: Windows asks for it to run the task as that account.'));box.appendChild(row);});
+  }
+  function restoreChangesBody(){return {ip:restoreChangeMap.ip,path:restoreChangeMap.path};}
+  function rescanRestorePackage(passphrase){
+    var r=restoreState()||{},scan=restoreScan(),path=r.packagePath||(scan&&scan.packagePath);if(!path||restoreLocked()){return;}
+    restoreBusy=true;restoreLocalStatus(passphrase?'Checking the passphrase…':'Checking the package with these changes…',false);updateRestoreButtons();
+    request('POST','/api/restore/scan',{packagePath:path,passphrase:passphrase||'',changes:restoreChangesBody()},function(err){restoreBusy=false;restoreLocalStatus(err||'',!!err);updateRestoreButtons();});
   }
   function renderRestoreSummary(scan){
     byId('restoreSource').textContent=scan.sourceComputer||'Unknown';byId('restoreCollected').textContent=scan.collectedAt||'Unknown';
@@ -4609,9 +4713,17 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     var scan=restoreScan();
     if(scan){
       var key=JSON.stringify(scan);
-      if(key!==restoreScanKey){restoreScanKey=key;restoreSelection={};buildRestoreComponents(scan);}
+      if(key!==restoreScanKey){
+        // A new check of the same package (a changed mapping or an unlock)
+        // keeps the ticks of items that are still available.
+        var samePackage=restorePackageKey===scan.packagePath,keep=samePackage?restoreSelection:{};restoreScanKey=key;restoreSelection={};
+        if(!samePackage){restorePackageKey=scan.packagePath;restoreChangeMap={ip:{},path:{}};restorePasswordValues={};}
+        buildRestoreComponents(scan);buildRestoreBundle(scan);
+        (scan.components||[]).forEach(function(c){var old=keep[c.id];if(!old){return;}var map={},any=false;restoreItemsOf(c).forEach(function(i){if(i.available&&old[i.id]){map[i.id]=true;any=true;}});if(any){restoreSelection[c.id]=map;}});
+      }
       renderRestoreSummary(scan);byId('restoreSummary').classList.remove('hidden');
     }else{restoreScanKey='';restoreSelection={};byId('restoreComponents').textContent='';byId('restoreSummary').classList.add('hidden');}
+    byId('restoreRestart').classList.toggle('hidden',!r.restartNeeded);
     if(showProgress){renderRestoreProgress(r);}
     syncRestoreChecks();
   }
@@ -4619,7 +4731,8 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   function scanRestorePackage(path){
     if(!path||restoreLocked()){return;}
     restoreBusy=true;restoreShowChooser=true;restoreLocalStatus('Reading the package…',false);byId('restorePackagePath').textContent=path;updateRestoreButtons();
-    request('POST','/api/restore/scan',{packagePath:path},function(err){restoreBusy=false;restoreLocalStatus(err||'',!!err);updateRestoreButtons();});
+    if(path!==restorePackageKey){restoreChangeMap={ip:{},path:{}};}
+    request('POST','/api/restore/scan',{packagePath:path,changes:path===restorePackageKey?restoreChangesBody():{ip:{},path:{}}},function(err){restoreBusy=false;restoreLocalStatus(err||'',!!err);updateRestoreButtons();});
   }
   function browseRestorePackage(){
     if(restoreLocked()){return;}
@@ -4640,6 +4753,8 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
       list.appendChild(li);
       (c.warnings||[]).forEach(function(w){if(!seen[w]){seen[w]=true;warnings.appendChild(el('li','',w));}});
     });
+    var moved=vmArr(scan.mappings).filter(function(m){return m.from!==m.to;}).map(function(m){return m.from+' \u2192 '+(m.to==='*'?'all addresses':m.to);});
+    if(moved.length){var li2=el('li','');li2.appendChild(el('strong','','Changes for this server'));li2.appendChild(document.createTextNode(': '+moved.join(', ')));list.appendChild(li2);}
     byId('restoreDialogWarningsBlock').classList.toggle('hidden',!warnings.children.length);
     var mismatch=byId('restoreDialogMismatch');mismatch.textContent='This package came from '+(scan.sourceComputer||'another server')+'; you are restoring onto '+(scan.currentComputer||'this server')+'.';mismatch.classList.toggle('hidden',scan.sameComputer!==false);
     byId('restoreConfirmLabel').textContent="Type this server's name to confirm: "+(scan.currentComputer||'');
@@ -4655,18 +4770,22 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   function startRestore(){
     var scan=restoreScan(),plan=restoreSelectedPlan(),r=restoreState()||{};
     if(!scan||!plan.length||!restoreConfirmMatches()||restoreBusy||restoreLocked()){return;}
-    var body={packagePath:r.packagePath||scan.packagePath||'',components:plan.map(function(entry){return {id:entry.component.id,items:entry.items};}),confirmComputerName:cfmStyle()==='typed'?trimText(byId('restoreConfirmInput').value):String(scan.currentComputer)};
+    var body={packagePath:r.packagePath||scan.packagePath||'',components:plan.map(function(entry){return {id:entry.component.id,items:entry.items};}),confirmComputerName:cfmStyle()==='typed'?trimText(byId('restoreConfirmInput').value):String(scan.currentComputer),changes:restoreChangesBody(),passwords:{}};
+    restoreNeededSecrets(scan,plan).forEach(function(n){if(restorePasswordValues[n.key]){body.passwords[n.key]=restorePasswordValues[n.key];}});
     restoreBusy=true;byId('restoreConfirmButton').disabled=true;byId('restoreDialogCancel').disabled=true;byId('restoreConfirmInput').disabled=true;byId('restoreConfirmTick').disabled=true;byId('restoreDialogError').classList.add('hidden');
     request('POST','/api/restore/start',body,function(err){
       restoreBusy=false;byId('restoreDialogCancel').disabled=false;byId('restoreConfirmInput').disabled=false;byId('restoreConfirmTick').disabled=false;
       if(err){var box=byId('restoreDialogError');box.textContent=err;box.classList.remove('hidden');byId('restoreConfirmButton').disabled=!restoreConfirmMatches();return;}
-      closeRestoreDialog();restoreShowChooser=false;restoreRunKey='';restoreLogKey='';
+      closeRestoreDialog();restoreShowChooser=false;restoreRunKey='';restoreLogKey='';restorePasswordValues={};restorePwKey='';
       if(latestState&&latestState.restore){latestState.restore.status='running';latestState.restore.items=[];latestState.restore.logs=[];latestState.restore.message='Starting the restore…';renderRestore(latestState);setConfigDisabled(!!latestState.running);}
     });
   }
   byId('restoreUseLatest').addEventListener('click',function(){var r=restoreState();scanRestorePackage(r&&r.packages&&r.packages.lastCollection);});
   byId('restoreUseLoaded').addEventListener('click',function(){var r=restoreState();scanRestorePackage(r&&r.packages&&r.packages.loadedReport);});
   byId('restoreBrowse').addEventListener('click',browseRestorePackage);
+  function unlockRestoreBundle(){var p=byId('restorePassphrase').value;if(!p){byId('restorePassphrase').focus();return;}byId('restorePassphrase').value='';rescanRestorePackage(p);}
+  byId('restoreUnlock').addEventListener('click',unlockRestoreBundle);
+  byId('restorePassphrase').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();unlockRestoreBundle();}});
   byId('restoreReviewButton').addEventListener('click',openRestoreDialog);
   byId('restoreConfirmInput').addEventListener('input',function(){byId('restoreConfirmButton').disabled=!restoreConfirmMatches()||restoreBusy;});
   byId('restoreConfirmTick').addEventListener('change',function(){byId('restoreConfirmButton').disabled=!restoreConfirmMatches()||restoreBusy;});

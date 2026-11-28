@@ -242,19 +242,28 @@ The **Restore** tab puts configuration from an inventory package back onto a ser
 | DHCP Server | Scopes, options, reservations, policies and leases; server options, classes and option definitions | `Import-DhcpServer` (on Windows Server 2016+, scopes only, with server settings applied separately because the import's NAP settings are refused) |
 | Network Policy Server | RADIUS clients, shared secrets and policies (only from packages collected with sensitive exports allowed) | `Import-NpsConfiguration` |
 | Printers and print drivers | Print queues, drivers, ports and processors | PrintBRM |
-| IIS | Sites, bindings, application pools, applications | `appcmd restore backup` |
-| DNS | Primary zones missing from this server, with their records | DNS Server cmdlets |
+| Roles and features | Windows roles and features the old server had and this one lacks, installed first (migration bundle) | `Install-WindowsFeature` |
+| Local users and groups | Local users (with a password you type, or created turned off), local groups and members (migration bundle) | ADSI |
+| File shares | Share names, folders, settings and share permissions (migration bundle) | `New-SmbShare` |
+| IIS | Sites, bindings, application pools, applications; with a migration bundle also website files, application pool and virtual directory passwords and HTTPS certificate bindings, adjusted to this server's addresses and drives | `appcmd restore backup`, IIS's own API, `netsh http add sslcert` |
+| DNS | Primary zones missing from this server, with their records; with a migration bundle also forwarders and secondary, stub and conditional forwarder zones | DNS Server cmdlets |
 | Group Policy | Domain GPOs from Backup-GPO (nothing selected by default) | `Restore-GPO` / `Import-GPO` |
 | Windows Firewall | All rules and profile settings | `netsh advfirewall import` |
-| Certificates | Public certificates missing from their original store | `Import-Certificate` |
-| Scheduled tasks | Custom tasks (not tasks that store a password) | `Register-ScheduledTask` |
+| Certificates | Public certificates missing from their original store; with a migration bundle also certificates with their private keys | `Import-Certificate`, `Import-PfxCertificate` |
+| Scheduled tasks | Custom tasks; with a migration bundle also tasks that run as an account with a stored password (you type it) | `Register-ScheduledTask` |
 | Share permissions | Complete recursive NTFS permission saves | `icacls /restore` |
 | Registry settings | Exported HKLM branches such as TLS, Remote Desktop and SMB (nothing selected by default) | `reg import` |
 | Local security policy | Password, lockout and audit policy, security options, user rights | `secedit /configure` |
 
 Restoring needs administrator rights. Review each component's warnings, select the items you need, and confirm. Components run in a fixed, safe order and the restore stops at the first failure. Before each item changes anything, its current configuration is saved to a rollback folder under `%LOCALAPPDATA%\Server Inventory Configuration Manager\Restore-Rollback\`, with an `UNDO.txt` in each component folder; **Open rollback folder** goes straight to it. **Stop after this item** never interrupts an item part way through. Collection, updates and closing the app wait until a restore finishes.
 
-Device drivers other than print drivers, Active Directory, SQL Server, RRAS, AD CS and Hyper-V are not restored; the package keeps their reference exports. Private keys were never exported, so certificates that need one must come from a protected PFX. Restoring onto a different server shows extra warnings for each component.
+Device drivers other than print drivers, Active Directory, SQL Server, RRAS, AD CS and Hyper-V are not restored; the package keeps their reference exports, and the Restore tab says how each is moved instead. Restoring onto a different server shows extra warnings for each component.
+
+### Restoring onto a new server
+
+To rebuild a server's roles on different hardware or a new VM, tick **Prepare this package for a new server** on **Discovery → This server** before collecting, and type a passphrase (at least 12 characters). The package then gets a migration bundle (`09-Migration-Bundle`): the roles and features installed, local users and groups, file shares, certificates with their private keys, the passwords IIS keeps encrypted, HTTPS bindings, website files (up to the size you set) and more DNS and DHCP settings. Certificates and passwords are encrypted with the passphrase (AES-256 with a key derived from it, checked with HMAC-SHA256); the passphrase itself is never saved, so keep it with your migration notes and protect the package like a backup that holds private keys.
+
+On the new server, open the package on the **Restore** tab and type the passphrase. **Changes for this server** lists the old server's IP addresses and drives that this server lacks, each filled in with the closest match here and changeable; IIS bindings, website folders, share folders and permissions follow them, and the old server's local account names and SIDs become this server's. Type a password for each local user and for scheduled tasks that run as one. Roles and features are installed first in the same restore, so items that need a role are offered even before it is installed; if Windows needs a restart to finish, the restore says so.
 
 ## Move SQL databases to a new SQL Server
 

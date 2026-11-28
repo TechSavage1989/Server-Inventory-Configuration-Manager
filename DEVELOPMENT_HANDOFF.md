@@ -1,3 +1,10 @@
+## Unreleased: restore collection packages fully on a new server — 2026-11-28
+
+- Owner asked whether IIS restores fully working and then for every movable role to restore working on a different server. Audit result: firewall, registry, GPO, printers and NPS already moved; DHCP, DNS, tasks, ACLs, security policy and IIS were partial; roles, local accounts, shares and private keys were missing.
+- New: **Prepare this package for a new server** on Collection writes `09-Migration-Bundle` (Export-MigrationBundle.ps1, signed) with secrets encrypted by a passphrase that is never saved. The Restore tab unlocks it, shows **Changes for this server** (old addresses and drives mapped to this server's, auto-filled and editable) and asks for local user and task passwords. New restore components: Roles and features, Local users and groups, File shares; IIS gets website files, passwords and HTTPS bindings; certificates with private keys; SID and account mapping for ACLs, security policy and tasks; DNS forwarders and other zone types; DHCP authorization. AGENTS rule 74.
+- Tests: `bundle_test.go`, `restore_plan_test.go`, two workspace checks, and a bundle round trip in `scripts/Test-Restore.ps1` (CI job `restore`). Not field-validated on two real servers.
+- Ships in the release after 3.3.1 (stable and test), per the owner; merged once 3.3.1 was published.
+
 ## Unreleased: less data and less time for every copy — 2026-11-28
 
 - Copy engine reads and hashes ahead of writing (`vmCopyReadChunks`), Send disks and P2V conversion skip free NTFS space (`vmSkipFreeSpace`), VDDK reads ask for FastLZ compression, receivers advertise `deflate` and platform/remote Hyper-V sinks compress when they do, file share copies add Robocopy `/COMPRESS` where supported. AGENTS rule 73.
