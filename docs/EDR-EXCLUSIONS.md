@@ -233,7 +233,19 @@ Nothing is installed or started on either SQL Server.
 | `Invoke-SqlMigration.ps1 -Mode Dns`: `Invoke-Command -ComputerName <DNS server>` running the DnsServer cmdlets on one CNAME and `setspn` for the alias | The DNS server, only when an alias is moved | Points the alias at the new server and back on Roll back |
 | `BACKUP DATABASE` / `BACKUP LOG` and `RESTORE` by the SQL Server services to the backup share | Both SQL Servers | The copy itself; files are written by the SQL Server service accounts, not by this application |
 
-### VM console
+### Move a domain controller
+
+Nothing is installed or started on either domain controller, and no DC is
+ever copied or cloned.
+
+| Behaviour | Where | Why |
+| --- | --- | --- |
+| `powershell.exe -ExecutionPolicy RemoteSigned -File Invoke-DcMigration.ps1 -Mode ReadOld\|ReadNew\|Step\|Rollback` (signed script, never Bypass, no encoded command), input as one JSON line on standard input | The admin computer running the application | Reads both servers and runs each step |
+| `Invoke-Command -ComputerName` over WinRM (TCP 5985, Kerberos), running in `wsmprovhost.exe` | The old DC, the new server, the other DCs and DHCP servers | Runs the in-box AD DS cmdlets (`Install-WindowsFeature AD-Domain-Services`, `Test-`/`Install-ADDSDomainController`, `Move-ADDirectoryServerOperationMasterRole`, `Uninstall-ADDSDomainController`), `Add-Computer` for a workgroup server, DnsServer and DhcpServer cmdlets, `w32tm`, `dcdiag` and `repadmin` with the typed Domain Admin account passed to each cmdlet's own `-Credential` (no CredSSP) |
+| `Restart-Computer -Wait -For WinRM` from the admin computer | The new server after joining and promotion, the old server after demotion | Windows needs a restart for each; the admin computer is never restarted |
+| WMI `Win32_NetworkAdapterConfiguration.SetDNSServerSearchOrder` or `Set-DnsClientServerAddress`, and `New-NetIPAddress`/`Remove-NetIPAddress`, `ipconfig /registerdns` and a Netlogon restart, inside the WinRM session | The other DCs; both servers when the old address moves | Points DNS clients at the new DC and, if chosen, gives the new DC the old DC's address |
+| `Remove-ADObject` on the old DC's NTDS settings and server objects, run on the new DC | Active Directory, only when the old DC is marked dead | Metadata cleanup of a DC that will never start again |
+
 
 The console window shows a VM's screen inside the application. Nothing is
 installed or started in the VM.

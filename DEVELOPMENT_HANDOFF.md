@@ -1,3 +1,9 @@
+## Unreleased: move a domain controller — 2026-11-28
+
+- Owner asked for a DC-specific build and migration feature: build a new DC from an existing one, promotion, FSMO transfer and demotion of the old one. Owner chose to offer both address options per plan (take over the old IP, the default, or keep the new address and repoint clients). Rule 77.
+- New tool **Move a domain controller** (`#tabDc`, ids `dc*`, Move servers group) and New migration source *A domain controller* (target *A new domain controller*, mode `dcmove`, guide flow `dcs`). Rules and runner in untagged `dcmig.go`/`dcmig_runner.go` (fake `dcHost` in `dcmig_test.go`), Windows side `dcmig_windows.go` (`/api/dc/`), engine `Invoke-DcMigration.ps1` (signed in `release.yml`). Demo backend `docs/demo/src/04-dc.js`.
+- Tests: `go test -run DC ./src/app`; `TestDCMigrationScriptReadsTheRunnerThroughRemoting` (Windows, WinRM to localhost: ReadNew of the runner, no secret in the output); workspace check "Move a domain controller" and New migration's guide check. Not field-validated: promotion, role transfer, DHCP repointing, demotion, metadata cleanup and the address swap on a real domain.
+
 ## Unreleased: choose what to restore and what a live move copies — 2026-11-28
 - Owner: "can you choose between what you want to restore?", then "I don't think forcing all the server roles to migrate without choice was ever my intention". AGENTS rule 76.
 - Restore tab: **What to restore / What to move** lists categories with Select all and Select none; nothing is ticked for you. Package restores tick each chosen category's default items once checked (GPO, registry and policy stay unticked).

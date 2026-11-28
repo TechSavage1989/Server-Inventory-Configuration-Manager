@@ -317,7 +317,10 @@ type application struct {
 	preflight preflightRuntime
 	// sqlmig is Move SQL databases (sqlmig_windows.go); its passwords stay
 	// in memory only.
-	sqlmig    sqlRuntime
+	sqlmig sqlRuntime
+	// dcmig is Move a domain controller (dcmig_windows.go); its passwords
+	// stay in memory only.
+	dcmig     dcRuntime
 	plans     mbRuntime
 	vmReceive vmReceiverRuntime
 	transfers *vmTransferBoard
@@ -2003,6 +2006,10 @@ func (a *application) handleShutdown(response http.ResponseWriter, request *http
 		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "The application cannot close while a SQL Server cutover, test or rollback runs. Wait for it to finish."})
 		return
 	}
+	if a.dcBusy() {
+		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "The application cannot close while a domain controller step runs (promotion, role moves, demotion or a roll back). Wait for it to finish."})
+		return
+	}
 	if running {
 		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "The application cannot close while collection is running. Cancel the collection first."})
 		return
@@ -2498,6 +2505,8 @@ func (a *application) serve(listener net.Listener) error {
 	go a.startPlans()
 	go a.startSQL()
 	mux.HandleFunc("/api/sql/", a.handleSQL)
+	go a.startDCMig()
+	mux.HandleFunc("/api/dc/", a.handleDC)
 	go a.runMigrateScheduler()
 	go a.resumeVMReceiver()
 	mux.HandleFunc("/api/hvremote/", a.handleHVRemote)
