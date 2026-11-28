@@ -64,6 +64,20 @@ $script:EngineVersion = 1
 $script:CaptureName = 'Guest-Capture.json'
 $script:RollbackName = 'Network-Rollback.json'
 
+# Subnet masks are shown in full (owner, 2026-11-28): 10.0.0.11 / 255.255.255.0 (/24).
+function Format-AddressWithMask {
+    param([string]$Address, $PrefixLength)
+    $prefix = -1
+    if (-not [int]::TryParse([string]$PrefixLength, [ref]$prefix)) { return $Address }
+    if ($Address -match ':' -or $prefix -lt 0 -or $prefix -gt 32) { return ($Address + '/' + $prefix) }
+    $octets = @()
+    for ($i = 0; $i -lt 4; $i++) {
+        $bits = [Math]::Min(8, [Math]::Max(0, $prefix - (8 * $i)))
+        $octets += [string](256 - [Math]::Pow(2, 8 - $bits))
+    }
+    return ($Address + ' / ' + ($octets -join '.') + ' (/' + $prefix + ')')
+}
+
 function Write-GuestLog {
     param([string]$Message, [string]$Level = 'INFO')
     $line = (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') + ' [' + $Level + '] ' + $Message
@@ -637,7 +651,7 @@ function Set-AdapterConfiguration {
     foreach ($address in @($Config.Addresses | Where-Object { $_.Origin -eq 'Manual' })) {
         $family = if ([string]$address.Address -match ':') { 'IPv6' } else { 'IPv4' }
         New-NetIPAddress -InterfaceIndex $InterfaceIndex -AddressFamily $family -IPAddress ([string]$address.Address) -PrefixLength ([int]$address.PrefixLength) -ErrorAction Stop | Out-Null
-        Write-GuestLog ('Added ' + $address.Address + '/' + $address.PrefixLength + '.')
+        Write-GuestLog ('Added ' + (Format-AddressWithMask $address.Address $address.PrefixLength) + '.')
     }
     if (-not $RestoreDhcp) {
         foreach ($gateway in @($Config.Gateways)) {
@@ -1165,7 +1179,7 @@ function Invoke-AutoFixup {
                     if ($pair.Target.Name -ne $pair.Source.Name -and $pair.Source.Name -notmatch '^Network adapter \d+$') {
                         try { Rename-NetAdapter -Name $pair.Target.Name -NewName $pair.Source.Name -ErrorAction Stop } catch { Write-GuestLog ('The adapter kept its name ' + $pair.Target.Name + ': ' + $_.Exception.Message) 'WARN' }
                     }
-                    $done += ((@($pair.Source.Addresses | Where-Object { $_.Origin -eq 'Manual' } | ForEach-Object { $_.Address + '/' + $_.PrefixLength })) -join ', ')
+                    $done += ((@($pair.Source.Addresses | Where-Object { $_.Origin -eq 'Manual' } | ForEach-Object { Format-AddressWithMask $_.Address $_.PrefixLength })) -join ', ')
                 }
                 # Windows marks an address another computer answers for as
                 # Duplicate and does not use it.

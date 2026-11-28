@@ -10,7 +10,7 @@ $tokens=$null;$errors=$null
 $ast=[Management.Automation.Language.Parser]::ParseFile((Join-Path $root 'src/app/Export-ServerInventory.ps1'),[ref]$tokens,[ref]$errors)
 if($errors.Count){throw ($errors -join '; ')}
 $definitions=@($ast.FindAll({param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst]},$true))
-foreach($name in @('Save-ObjectData','ConvertTo-ReportAtomicText','ConvertTo-ReportText','ConvertTo-ReportMultilineText','Get-ReportPropertyValue','Get-ReportCellText','Get-ReportData','Add-ReportTitle','Add-ReportHeading','Add-ReportTable','ConvertTo-HtmlText','ConvertTo-HtmlMultilineText','Write-ConsolidatedHtmlReport','Write-DocxTextRun','Write-DocxParagraph','Write-DocxTable','Write-ConsolidatedDocxReport')){
+foreach($name in @('ConvertTo-SubnetMaskText','Save-ObjectData','ConvertTo-ReportAtomicText','ConvertTo-ReportText','ConvertTo-ReportMultilineText','Get-ReportPropertyValue','Get-ReportCellText','Get-ReportData','Add-ReportTitle','Add-ReportHeading','Add-ReportTable','ConvertTo-HtmlText','ConvertTo-HtmlMultilineText','Write-ConsolidatedHtmlReport','Write-DocxTextRun','Write-DocxParagraph','Write-DocxTable','Write-ConsolidatedDocxReport')){
  $f=$definitions|Where-Object{$_.Name -eq $name}|Select-Object -First 1
  if(-not $f){throw "Missing function $name"};Invoke-Expression $f.Extent.Text
 }
@@ -96,7 +96,7 @@ $modern=Test-Profile -Addresses @(
  [pscustomobject]@{InterfaceAlias='Ethernet0';AddressFamily='IPv4';Dhcp='Disabled'},
  [pscustomobject]@{InterfaceAlias='Loopback Pseudo-Interface 1';AddressFamily='IPv4';Dhcp='Disabled'}
 ) -Activation @([pscustomobject]@{Name='Windows(R), ServerStandard edition';Description='Windows(R) Operating System, VOLUME_KMSCLIENT channel';LicenseStatus=1;GracePeriodRemaining=259200;PartialProductKey='XXXXX'})
-Assert-Equal $modern.IPv4 '192.0.2.10/24 (Ethernet0)' 'Profile IPv4 skips loopback and APIPA'
+Assert-Equal $modern.IPv4 '192.0.2.10 / 255.255.255.0 (/24) (Ethernet0)' 'Profile IPv4 skips loopback and APIPA'
 Assert-Equal $modern.IPv6 '2001:db8::10/64 (Ethernet0)' 'Profile IPv6 skips link-local'
 Assert-Equal $modern.Gateway '192.0.2.1 (Ethernet0)' 'Profile default gateway skips on-link and empty IPv6 routes'
 Assert-Equal $modern.Dns '192.0.2.53; 192.0.2.54' 'Profile DNS servers for addressed IPv4 interfaces'
