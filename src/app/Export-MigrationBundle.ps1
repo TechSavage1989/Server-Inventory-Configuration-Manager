@@ -525,9 +525,11 @@ try {
     if (-not (Test-Path -LiteralPath (Join-Path $package '00-Summary') -PathType Container)) { throw 'The package folder was not found.' }
     $bundleFolder = Join-Path $package '09-Migration-Bundle'
     if (Test-Path -LiteralPath $bundleFolder) { throw 'The package already has a migration bundle.' }
-    $passphrase = ''
+    # PowerShell variable names ignore case: $passphrase IS the -Passphrase
+    # parameter, so it is only read from standard input when not embedded.
     if ($Embedded) { $passphrase = [string]$Passphrase }
     else {
+        $passphrase = ''
         $line = [Console]::In.ReadLine()
         if ($line) { try { $passphrase = [string](ConvertFrom-Json -InputObject $line).passphrase } catch { } }
         $line = $null
