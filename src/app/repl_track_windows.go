@@ -788,3 +788,67 @@ func replPlanTrackedRound(ctx context.Context, trackDir, job string, numbers []i
 	}
 	return nil
 }
+
+// vmSkipFreeSpace shows the free clusters of each simple NTFS volume of the
+// opened disks as zeros without reading them, as replication rounds do
+// (vmFreeZeroReader), and leaves out the shadow copy storage files. It
+// returns, per disk, the byte ranges that hold data: the clusters in use and
+// everything outside those volumes. A volume whose bitmap cannot be read is
+// read in full. Free space then costs no disk reads, travels as a hash only
+// and stays unallocated in the copy, so a one-off send or a P2V conversion
+// moves only the data in use.
+func vmSkipFreeSpace(ctx context.Context, set *vmAgentDiskSet, numbers []int, log func(string)) map[int][]vmCopyRange {
+	if log == nil {
+		log = func(string) {}
+	}
+	used := map[int][]vmCopyRange{}
+	for _, number := range numbers {
+		source, _ := set.Sources[number].(*vmCompositeSource)
+		if source == nil {
+			continue
+		}
+		handled, inUse := []vmCopyRange{}, []vmCopyRange{}
+		for _, info := range set.Volumes[number] {
+			device := set.Shadows[info.Name]
+			if info.FileSystem != "NTFS" || info.Kind != "simple" || device == "" {
+				continue
+			}
+			label := strings.Join(info.Mounts, ", ")
+			if label == "" {
+				label = info.Name
+			}
+			shadow, err := replOpenVolume(device)
+			if err != nil {
+				log(fmt.Sprintf("%s: reading every cluster (%v).", label, err))
+				continue
+			}
+			clusterSize, clusters, err := replNTFSGeometry(shadow)
+			var bitmap []byte
+			if err == nil {
+				bitmap, err = replVolumeBitmap(shadow, clusters)
+			}
+			windows.CloseHandle(shadow)
+			if err == nil && clusterSize*clusters > info.Length {
+				err = errors.New("the file system is larger than its partition")
+			}
+			if err != nil {
+				log(fmt.Sprintf("%s: reading every cluster (%v).", label, err))
+				continue
+			}
+			if _, scan, err := replScanLocations(ctx, device, nil); err == nil {
+				bitmap = replClearRuns(bitmap, clusters, scan.DiffArea)
+			}
+			if !source.WrapOverlay(info.Start, func(r io.ReaderAt) io.ReaderAt {
+				return &vmFreeZeroReader{Reader: r, Bitmap: bitmap, ClusterSize: clusterSize, Clusters: clusters}
+			}) {
+				continue
+			}
+			runs := replVolumeToDisk(info.Start, clusterSize, replAllocatedRuns(bitmap, clusters))
+			handled = append(handled, vmCopyRange{Start: info.Start, Length: info.Length})
+			inUse = append(inUse, runs...)
+			log(fmt.Sprintf("%s: %s in use of %s; free space is skipped.", label, vmFormatBytes(replRangeBytes(runs)), vmFormatBytes(info.Length)))
+		}
+		used[number] = replMergeRanges(append(inUse, replOutside(source.Size(), handled)...))
+	}
+	return used
+}
