@@ -384,6 +384,8 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
 .rb-slot{display:inline-flex;gap:6px;align-items:center;margin-left:6px}.rb-slot:empty{display:none}.vm-move .rb-slot,.vm-move-target .rb-slot{display:flex;margin:calc(8*var(--sp)) 0 0}
 .rb-dialog .rb-order{margin:calc(10*var(--sp)) 0 0;font-weight:600}.rb-dialog .rb-window{font-size:max(10.5px,calc(12.5*var(--fz)))}.rb-options{margin-top:calc(8*var(--sp));padding-top:calc(6*var(--sp));border-top:1px solid #e3e8f0}
 .rb-signin{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:calc(10*var(--sp));padding:calc(8*var(--sp));border:1px solid #f0cf8a;border-radius:8px;background:#fff9ea}.rb-signin input{min-width:0;flex:1 1 140px}
+.restore-from{display:flex;flex-wrap:wrap;align-items:center;gap:calc(6*var(--sp)) calc(16*var(--sp));margin-bottom:calc(10*var(--sp))}.restore-from label{display:inline-flex;align-items:center;gap:calc(6*var(--sp));font-size:max(10.5px,calc(13*var(--fz)))}.restore-from .field-label{margin:0}.restore-from input[type=radio]{flex:0 0 auto}
+.restore-live{display:flex;flex-direction:column;gap:calc(10*var(--sp))}.restore-live-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:calc(12*var(--sp))}.restore-live-side{border:1px solid var(--line,#d8dee8);border-radius:10px;padding:calc(10*var(--sp)) calc(12*var(--sp));display:flex;flex-direction:column;gap:calc(8*var(--sp))}.restore-live-side .bundle-field{flex:none;min-width:0}.restore-live-files{display:flex;flex-wrap:wrap;align-items:flex-end;gap:calc(12*var(--sp))}.restore-live-files .bundle-limit{min-width:0;flex:0 0 110px}.restore-live-actions{display:flex;flex-wrap:wrap;align-items:center;gap:calc(8*var(--sp))}.restore-live-why{min-height:1.4em;font-size:max(10.5px,calc(12*var(--fz)));color:var(--muted)}.restore-live-summary{border:1px solid #b9d3f2;border-radius:10px;padding:calc(10*var(--sp)) calc(12*var(--sp));background:#f7fbff;font-size:max(10.5px,calc(13*var(--fz)))}.restore-live-summary ul{margin:calc(4*var(--sp)) 0 0;padding-left:calc(18*var(--sp))}.restore-live-cutover{display:flex;flex-direction:column;gap:calc(8*var(--sp))}#rlLog{max-height:calc(220*var(--fz))}
 .restore-bundle{margin-top:calc(14*var(--sp));border:1px solid #b9d3f2;border-radius:10px;padding:calc(11*var(--sp)) calc(12*var(--sp));background:#f7fbff;display:flex;flex-direction:column;gap:calc(10*var(--sp))}
 .restore-bundle-head{display:flex;flex-wrap:wrap;gap:calc(6*var(--sp)) calc(12*var(--sp));align-items:baseline;font-size:max(10.5px,calc(13*var(--fz)))}.restore-bundle-head span{color:#52647c;font-size:max(10.5px,calc(12*var(--fz)))}.restore-bundle-head span.bad{color:#8c2626;font-weight:600}.restore-bundle-head span.good{color:#1d6b43;font-weight:600}
 .restore-bundle-unlock{display:flex;flex-wrap:wrap;gap:calc(10*var(--sp));align-items:flex-end}
@@ -1163,13 +1165,42 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
 
     <section class="tab-panel" id="tabRestore" role="tabpanel" aria-labelledby="tabButtonRestore">
       <div class="restore-wrap"><div class="card">
-        <div class="card-header"><div><div class="card-title">Restore configuration</div><div class="card-subtitle">Restore configuration exports from an inventory package onto this server. Nothing changes until you review and confirm.</div></div></div>
+        <div class="card-header"><div><div class="card-title">Restore configuration</div><div class="card-subtitle">Restore configuration exports from an inventory package onto this server, or move a server's roles live from an old server to a new one. Nothing changes until you review and confirm.</div></div></div>
         <div class="card-body" id="restoreBody">
           <div id="restoreChooser">
-            <div class="field-label" id="restorePackageLabel">Inventory package</div>
-            <div class="restore-source-actions" role="group" aria-labelledby="restorePackageLabel"><button class="secondary-button" id="restoreUseLatest" type="button" disabled>Use latest collection</button><button class="secondary-button" id="restoreUseLoaded" type="button" disabled>Use loaded report</button><button class="secondary-button" id="restoreBrowse" type="button">Browse for package folder&hellip;</button></div>
-            <div class="restore-path" id="restorePackagePath">No package selected. Choose the inventory package folder that holds the configuration exports.</div>
-            <div class="restore-status" id="restoreStatus" role="status" aria-live="polite"></div>
+            <div class="restore-from" role="radiogroup" aria-labelledby="restoreFromLabel"><span class="field-label" id="restoreFromLabel">Restore from</span><label><input type="radio" name="restoreFrom" id="restoreFromPackage" checked><span>A package folder</span></label><label><input type="radio" name="restoreFrom" id="restoreFromLive"><span>Another server, live (move it to a new server)</span></label></div>
+            <div id="restorePackageSource">
+              <div class="field-label" id="restorePackageLabel">Inventory package</div>
+              <div class="restore-source-actions" role="group" aria-labelledby="restorePackageLabel"><button class="secondary-button" id="restoreUseLatest" type="button" disabled>Use latest collection</button><button class="secondary-button" id="restoreUseLoaded" type="button" disabled>Use loaded report</button><button class="secondary-button" id="restoreBrowse" type="button">Browse for package folder&hellip;</button></div>
+              <div class="restore-path" id="restorePackagePath">No package selected. Choose the inventory package folder that holds the configuration exports.</div>
+            </div>
+            <div class="restore-live hidden" id="restoreLive">
+              <div class="restore-live-grid">
+                <div class="restore-live-side"><div class="restore-subhead">Old server</div>
+                  <label class="bundle-field"><span>Computer or DNS name</span><input type="text" id="rlOld" maxlength="253" autocomplete="off" spellcheck="false" placeholder="web01.example.com"></label>
+                  <div id="rlOldAccount"></div>
+                  <div class="vm-two" id="rlOldFields"><label class="bundle-field"><span>User</span><input type="text" id="rlOldUser" maxlength="256" autocomplete="off" spellcheck="false" placeholder="DOMAIN\admin"></label><label class="bundle-field"><span>Password</span><input type="password" id="rlOldPassword" maxlength="256" autocomplete="off"></label></div>
+                </div>
+                <div class="restore-live-side"><div class="restore-subhead">New server</div>
+                  <div class="restore-from" role="radiogroup" aria-label="New server"><label><input type="radio" name="rlNewWhere" id="rlNewHere" checked><span>This server (<span id="rlHereName"></span>)</span></label><label><input type="radio" name="rlNewWhere" id="rlNewOther"><span>Another server</span></label></div>
+                  <label class="bundle-field" id="rlNewField"><span>Computer or DNS name</span><input type="text" id="rlNew" maxlength="253" autocomplete="off" spellcheck="false" placeholder="web02.example.com"></label>
+                  <div id="rlNewAccount"></div>
+                  <div class="vm-two" id="rlNewFields"><label class="bundle-field"><span>User</span><input type="text" id="rlNewUser" maxlength="256" autocomplete="off" spellcheck="false" placeholder="DOMAIN\admin"></label><label class="bundle-field"><span>Password</span><input type="password" id="rlNewPassword" maxlength="256" autocomplete="off"></label></div>
+                </div>
+              </div>
+              <div class="restore-live-files"><label class="bundle-check"><input type="checkbox" id="rlFiles" checked><span>Copy the website files with their permissions</span></label><label class="bundle-field bundle-limit"><span>Up to (GB)</span><input type="number" id="rlLimit" min="1" max="2048" value="10"></label></div>
+              <div class="restore-live-actions"><button class="primary-button" id="rlRead" type="button">Read the old server and copy</button><span class="restore-live-why" id="rlWhy"></span></div>
+              <div class="restore-status" id="rlStatus" role="status" aria-live="polite"></div>
+              <div class="restore-live-summary hidden" id="rlSummary"></div>
+              <div class="restore-live-cutover hidden" id="rlCutover">
+                <div class="restore-subhead">Cutover</div>
+                <div class="migrate-help">Stop the IIS sites on the old server once the new server is restored and tested, so nothing changes there after the last copy. Read and copy again to bring over files changed since the first copy (only changes are sent). Starting them again is the way back.</div>
+                <div class="restore-live-actions"><button class="secondary-button" id="rlStopSites" type="button">Stop the sites on the old server&hellip;</button><button class="secondary-button" id="rlStartSites" type="button">Start them again</button><button class="secondary-button" id="rlForget" type="button">Finish and remove the copies</button></div>
+                <div class="restore-live-why" id="rlStopped"></div>
+              </div>
+              <details class="restore-items" id="rlLogBox"><summary>Move log</summary><div class="log-view restore-log" id="rlLog" tabindex="0" aria-label="Move log"></div></details>
+            </div>
+<div class="restore-status" id="restoreStatus" role="status" aria-live="polite"></div>
             <div class="hidden" id="restoreSummary">
               <div class="restore-facts"><div><span class="restore-fact-label">Source server</span><span class="restore-fact-value" id="restoreSource"></span></div><div><span class="restore-fact-label">Collected</span><span class="restore-fact-value" id="restoreCollected"></span></div><div><span class="restore-fact-label">Restoring onto</span><span class="restore-fact-value" id="restoreTarget"></span></div><div><span class="restore-fact-label">Package integrity</span><span class="restore-fact-value" id="restoreIntegrity"></span></div></div>
               <div class="restore-alert danger hidden" id="restoreMismatch" role="alert"></div>
@@ -4669,7 +4700,8 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   function rescanRestorePackage(passphrase){
     var r=restoreState()||{},scan=restoreScan(),path=r.packagePath||(scan&&scan.packagePath);if(!path||restoreLocked()){return;}
     restoreBusy=true;restoreLocalStatus(passphrase?'Checking the passphrase…':'Checking the package with these changes…',false);updateRestoreButtons();
-    request('POST','/api/restore/scan',{packagePath:path,passphrase:passphrase||'',changes:restoreChangesBody()},function(err){restoreBusy=false;restoreLocalStatus(err||'',!!err);updateRestoreButtons();});
+    var body={packagePath:path,passphrase:passphrase||'',changes:restoreChangesBody()};if(r.live){body.live=true;}
+    request('POST','/api/restore/scan',body,function(err){restoreBusy=false;restoreLocalStatus(err||'',!!err);updateRestoreButtons();});
   }
   function renderRestoreSummary(scan){
     byId('restoreSource').textContent=scan.sourceComputer||'Unknown';byId('restoreCollected').textContent=scan.collectedAt||'Unknown';
@@ -4678,7 +4710,9 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     if(scan.sameComputer===false){mismatch.appendChild(el('strong','','Different server. '));mismatch.appendChild(document.createTextNode('This package came from '+(scan.sourceComputer||'another server')+'; you are restoring onto '+(scan.currentComputer||'this server')+'. Check that every item applies to this server.'));}
     mismatch.classList.toggle('hidden',scan.sameComputer!==false);
     var integrity=byId('restoreIntegrityNotice');integrity.textContent=scan.manifestMessage||'';integrity.className='restore-alert'+(scan.manifestVerified?' ok':'')+(scan.manifestMessage?'':' hidden');
-    byId('restoreAdminNotice').classList.toggle('hidden',!!scan.isAdministrator);
+    var rs=restoreState()||{},adminNote=byId('restoreAdminNotice');adminNote.classList.toggle('hidden',!!scan.isAdministrator);
+    adminNote.textContent='';if(rs.live&&rs.target&&!scan.isAdministrator){adminNote.appendChild(el('strong','','The account used for '+rs.target+' is not an administrator there. '));adminNote.appendChild(document.createTextNode('Read and copy again with an administrator of the new server.'));}
+    else{adminNote.appendChild(el('strong','','Run the application as administrator to restore.'));adminNote.appendChild(document.createTextNode(' You can review the package, but restoring configuration needs administrator rights.'));}
   }
   function renderRestoreProgress(r){
     var items=r.items||[],host=byId('restoreRunItems'),key=JSON.stringify(items);
@@ -4707,6 +4741,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   }
   function renderRestore(state){
     var r=state.restore||{status:'idle',packages:{},items:[],logs:[]};
+    renderRestoreLive(state);
     byId('restoreTabBadge').textContent={running:'Running',succeeded:'Done',failed:'Failed',scanfailed:'Failed',canceled:'Stopped',scanning:'Reading'}[r.status]||'Ready';
     if(r.status==='running'){restoreShowChooser=false;}
     var showProgress=(restoreIsRunning(r)||restoreFinished(r))&&!restoreShowChooser;
@@ -4805,6 +4840,115 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     request('POST','/api/restore/cancel',{},function(err){if(err){button.disabled=false;notice(err,true);return;}if(latestState&&latestState.restore){latestState.restore.cancelRequested=true;}updateRestoreButtons();});
   });
   byId('restoreOpenRollback').addEventListener('click',function(){openKind('restorerollback');});
+  // Move a server live (rule 75): read the old server through PowerShell
+  // remoting into a package there, copy it with Robocopy to the new server
+  // (or this one), then check and restore it with the steps below, inside
+  // the new server. The bundle passphrase is made by the application for
+  // each read and never shown.
+  var rlLogKey='',rlBusyLocal=false;
+  function rlState(){return (latestState&&latestState.serverMove)||{status:'idle'};}
+  function rlRunning(){var s=rlState().status;return rlBusyLocal||s==='reading'||s==='copying'||s==='sites'||s==='cleaning';}
+  function restoreLiveChosen(){return byId('restoreFromLive').checked;}
+  function rlNewHere(){return byId('rlNewHere').checked;}
+  function setRestoreFrom(live){
+    byId('restoreFromLive').checked=!!live;byId('restoreFromPackage').checked=!live;
+    byId('restorePackageSource').classList.toggle('hidden',!!live);byId('restoreLive').classList.toggle('hidden',!live);
+  }
+  var rlOldSign=signInChoice({key:'servermoveOld',idPrefix:'rlOld',label:'Connect to the old server as',held:function(){return !!rlState().oldUser;},fields:[byId('rlOldFields')],clear:function(){byId('rlOldUser').value='';byId('rlOldPassword').value='';},locked:rlRunning,focus:function(){return byId('rlOldUser');},onCurrent:function(){syncRlButtons();},onOther:function(){syncRlButtons();},keep:true});
+  byId('rlOldAccount').appendChild(rlOldSign.el);
+  var rlNewSign=signInChoice({key:'servermoveNew',idPrefix:'rlNew',label:'Connect to the new server as',held:function(){var m=rlState();return !!m.newUser&&!m.newIsHere;},fields:[byId('rlNewFields')],clear:function(){byId('rlNewUser').value='';byId('rlNewPassword').value='';},locked:rlRunning,focus:function(){return byId('rlNewUser');},onCurrent:function(){syncRlButtons();},onOther:function(){syncRlButtons();},keep:true});
+  byId('rlNewAccount').appendChild(rlNewSign.el);
+  function rlWhyNot(){
+    var restoreR=restoreState()||{};
+    if(rlRunning()){return 'A move step is running.';}
+    if(restoreIsRunning(restoreR)||restoreR.status==='scanning'){return 'Wait for the package check or restore to finish.';}
+    if(latestState&&latestState.running){return 'Wait for the collection to finish first.';}
+    if(migrateIsRunning()||vmwareIsRunning()||convertIsRunning()){return (busyWhy()||{text:'Another step is running.'}).text;}
+    if(!trimText(byId('rlOld').value)){return 'Type the old server’s name.';}
+    if(!rlOldSign.current()&&!trimText(byId('rlOldUser').value)){return 'Type the account for the old server, or use your current sign-in.';}
+    if(!rlNewHere()){
+      if(!trimText(byId('rlNew').value)){return 'Type the new server’s name.';}
+      if(!rlNewSign.current()&&!trimText(byId('rlNewUser').value)){return 'Type the account for the new server, or use your current sign-in.';}
+    }else if(latestState&&latestState.isAdministrator===false){return 'Run the application as administrator to restore onto this server.';}
+    return '';
+  }
+  function syncRlButtons(){
+    var why=rlWhyNot(),m=rlState();byId('rlRead').disabled=!!why;byId('rlWhy').textContent=why;
+    byId('rlRead').textContent=m.read&&m.status!=='failed'?'Read and copy again':'Read the old server and copy';
+    var rr=restoreState()||{},locked=rlRunning()||restoreBusy||restoreIsRunning(rr)||rr.status==='scanning';
+    ['rlOld','rlNew','rlOldUser','rlOldPassword','rlNewUser','rlNewPassword','rlFiles','rlLimit','rlNewHere','rlNewOther','restoreFromPackage','restoreFromLive'].forEach(function(id){byId(id).disabled=locked;});
+    byId('rlLimit').disabled=locked||!byId('rlFiles').checked;
+    byId('rlNewField').classList.toggle('hidden',rlNewHere());byId('rlNewAccount').classList.toggle('hidden',rlNewHere());
+    if(rlNewHere()){byId('rlNewFields').classList.add('hidden');}else{rlNewSign.refresh();}
+    var stopped=(m.stoppedSites||[]).length,sites=(m.sites||[]).length;
+    byId('rlStopSites').disabled=locked||!sites||stopped>=sites;byId('rlStartSites').disabled=locked||!stopped;byId('rlForget').disabled=locked||!!stopped;
+    byId('rlStopSites').textContent=sites?'Stop the '+(sites===1?'site':sites+' sites')+' on '+(m.old||'the old server')+'…':'Stop the sites on the old server…';
+  }
+  function renderRestoreLive(state){
+    var m=state.serverMove||{status:'idle'},r=state.restore||{};
+    byId('rlHereName').textContent=state.computerName||'';
+    if(!restoreLiveTouched&&(m.old||r.live)){restoreLiveTouched=true;setRestoreFrom(true);
+      byId('rlOld').value=m.old||'';if(m.newIsHere===false){byId('rlNewOther').checked=true;byId('rlNew').value=m.new||'';}
+      if(m.limitGB){byId('rlLimit').value=m.limitGB;}if(m.old){byId('rlFiles').checked=!!m.includeFiles;}
+      if(m.oldUser){byId('rlOldUser').value=m.oldUser;}if(m.newUser){byId('rlNewUser').value=m.newUser;}}
+    var st=byId('rlStatus');st.textContent=m.message||'';st.className='restore-status'+(m.status==='failed'?' error':'');
+    var sum=byId('rlSummary'),rd=m.read;sum.textContent='';sum.classList.toggle('hidden',!rd);
+    if(rd){
+      sum.appendChild(el('strong','','Read from '+m.old+(m.readAt?' at '+m.readAt:'')+'. '));
+      var parts=[];
+      parts.push(rd.iisSites===1?'1 IIS site':rd.iisSites+' IIS sites');
+      parts.push(rd.webContentFolders===1?'1 website folder':rd.webContentFolders+' website folders');
+      parts.push(rd.certificatesInBundle+' certificate'+(rd.certificatesInBundle===1?'':'s')+' with private keys'+(rd.certificatesLeftOut?' ('+rd.certificatesLeftOut+' left out)':''));
+      parts.push(rd.iisPasswords+' IIS password'+(rd.iisPasswords===1?'':'s'));
+      parts.push(rd.localUsers+' local user'+(rd.localUsers===1?'':'s')+' and '+rd.localGroups+' group'+(rd.localGroups===1?'':'s'));
+      parts.push(rd.shares+' file share'+(rd.shares===1?'':'s'));
+      parts.push(formatBytesShort(rd.sizeBytes)+' copied to '+(m.newIsHere?'this server':m.new));
+      sum.appendChild(document.createTextNode(parts.join(', ')+'.'));
+      var w=vmArr(rd.warnings);if(w.length){var d=el('details','restore-items');d.appendChild(el('summary','',w.length===1?'1 note from the read':w.length+' notes from the read'));var ul=el('ul','restore-warnings');w.forEach(function(x){ul.appendChild(el('li','',x));});d.appendChild(ul);sum.appendChild(d);}
+    }
+    byId('rlCutover').classList.toggle('hidden',!(rd&&(m.sites||[]).length));
+    var stopped=m.stoppedSites||[];byId('rlStopped').textContent=stopped.length?'Stopped on '+m.old+' by this move: '+stopped.join(', ')+'.':'';
+    var logs=m.logs||[],logKey=logs.length+':'+(logs.length?logs[logs.length-1].index:'');
+    if(logKey!==rlLogKey){rlLogKey=logKey;var log=byId('rlLog'),follow=log.scrollHeight-log.scrollTop-log.clientHeight<40;log.textContent='';
+      if(!logs.length){log.appendChild(el('div','log-empty','No move messages yet.'));}
+      logs.forEach(function(line){var u=String(line.text||'').toUpperCase();log.appendChild(el('div',u.indexOf('[ERROR]')>=0?'log-line-error':(u.indexOf('[WARN')>=0?'log-line-warn':''),line.text));});
+      if(follow){log.scrollTop=log.scrollHeight;}}
+    syncRlButtons();
+  }
+  var restoreLiveTouched=false;
+  function rlRead(){
+    if(rlWhyNot()){return;}
+    var here=rlNewHere(),body={old:trimText(byId('rlOld').value),oldUser:rlOldSign.current()?'':trimText(byId('rlOldUser').value),oldPassword:rlOldSign.current()?'':byId('rlOldPassword').value,
+      newIsHere:here,'new':here?'':trimText(byId('rlNew').value),newUser:here||rlNewSign.current()?'':trimText(byId('rlNewUser').value),newPassword:here||rlNewSign.current()?'':byId('rlNewPassword').value,
+      keepAccounts:true,includeFiles:byId('rlFiles').checked,limitGB:parseInt(byId('rlLimit').value,10)||10};
+    rlBusyLocal=true;syncRlButtons();restoreShowChooser=true;
+    request('POST','/api/servermove/read',body,function(err){
+      rlBusyLocal=false;byId('rlOldPassword').value='';byId('rlNewPassword').value='';
+      if(err){var st=byId('rlStatus');st.textContent=err;st.className='restore-status error';}
+      else if(latestState){latestState.serverMove=latestState.serverMove||{};latestState.serverMove.status='reading';latestState.serverMove.message='Reading '+body.old+'.';}
+      syncRlButtons();
+    });
+  }
+  function rlSites(action){
+    var m=rlState();if(!m.old){return;}
+    if(action==='start'){request('POST','/api/servermove/sites',{action:'start',confirm:m.old},function(err){if(err){notice(err,true);}});return;}
+    openMigrateDialog({title:'Stop the IIS sites on '+m.old,paragraphs:['These sites stop on the old server now, so visitors and changes go only to the new server once DNS or the load balancer points there. Nothing else on '+m.old+' changes. Start them again here to go back.'],list:(m.sites||[]).filter(function(n){return (m.stoppedSites||[]).indexOf(n)<0;}),
+      label:'Type the old server’s name to confirm',expected:m.old,button:'Stop the sites',understand:'I understand these sites stop on '+m.old+' now',path:'/api/servermove/sites',body:{action:'stop',sites:[]},field:'confirm'});
+  }
+  byId('restoreFromPackage').addEventListener('change',function(){restoreLiveTouched=true;setRestoreFrom(false);syncRlButtons();});
+  byId('restoreFromLive').addEventListener('change',function(){restoreLiveTouched=true;setRestoreFrom(true);syncRlButtons();});
+  ['rlNewHere','rlNewOther'].forEach(function(id){byId(id).addEventListener('change',function(){syncRlButtons();if(!rlNewHere()){byId('rlNew').focus();}});});
+  ['rlOld','rlNew','rlOldUser','rlNewUser'].forEach(function(id){byId(id).addEventListener('input',syncRlButtons);});
+  byId('rlFiles').addEventListener('change',syncRlButtons);
+  ['rlOld','rlNew','rlOldUser','rlOldPassword','rlNewUser','rlNewPassword'].forEach(function(id){byId(id).addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();rlRead();}});});
+  byId('rlRead').addEventListener('click',rlRead);
+  byId('rlStopSites').addEventListener('click',function(){rlSites('stop');});
+  byId('rlStartSites').addEventListener('click',function(){rlSites('start');});
+  byId('rlForget').addEventListener('click',function(){
+    cfmAsk({title:'Finish the move',text:'The packages on both servers (website files and sealed secrets) are removed. The restore’s rollback folders stay on the new server.',button:'Finish'},function(){
+      request('POST','/api/servermove/forget',{},function(err){if(err){notice(err,true);return;}rlLogKey='';});});
+  });
+
   byId('restoreAgainButton').addEventListener('click',function(){restoreShowChooser=true;if(latestState){renderRestore(latestState);}byId('restoreReviewButton').focus();});
   // ---- Migrate tab ---------------------------------------------------------
   // The server owns migration state (state.migrate). This view keeps only the

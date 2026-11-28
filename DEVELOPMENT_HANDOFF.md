@@ -1,3 +1,9 @@
+## Unreleased: move a server live from the old server to the new one — 2026-11-28
+
+- Owner said yes to the full IIS server-to-server move (phase 2 of the new-server restore). The Restore tab now has **Restore from: Another server, live**: it reads the old server over PowerShell remoting into a package there (migration bundle with a random passphrase kept in memory only, IIS configuration backup, website files), copies it to the new server with Robocopy (only changes on a second read), then checks and restores it inside the new server (or on this computer) with the usual restore steps. Cutover stops the old IIS sites; Start them again is the way back; Finish removes both packages.
+- New `Invoke-ServerMoveRemote.ps1` (signed, RemoteSigned); both engines gained `-Embedded -LogPath` (and `-Passphrase` / `-SecretsJson`); rules in `servermove.go`, Windows side `servermove_windows.go`, AGENTS rule 75, EDR-EXCLUSIONS updated.
+- Tests: `go test -run TestServerMove ./src/app`; `TestServerMoveReadsAndChecksAServerThroughRemoting` (Windows, WinRM to localhost); workspace check "Move a server live". Not field-validated on two real servers.
+
 ## Unreleased: restore collection packages fully on a new server — 2026-11-28
 
 - Owner asked whether IIS restores fully working and then for every movable role to restore working on a different server. Audit result: firewall, registry, GPO, printers and NPS already moved; DHCP, DNS, tasks, ACLs, security policy and IIS were partial; roles, local accounts, shares and private keys were missing.
