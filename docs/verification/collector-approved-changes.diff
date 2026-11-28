@@ -248,7 +248,18 @@
 +        # A unary-comma envelope is unwrapped once by the pipeline; the original
 +        # value (including an empty or cyclic collection) remains intact.
 +        return ,$property.Value
-@@ -2210 +2446,11 @@
+@@ -1318,0 +1555,10 @@
++}
++
++# Subnet masks are shown in full beside the prefix length (owner, 2026-11-28).
++function ConvertTo-SubnetMaskText {
++    param($PrefixLength, [string]$Address)
++    $prefix = -1
++    if ($Address -match ':' -or -not [int]::TryParse([string]$PrefixLength, [ref]$prefix) -or $prefix -lt 0 -or $prefix -gt 32) { return '' }
++    $octets = @()
++    for ($i = 0; $i -lt 4; $i++) { $bits = [Math]::Min(8, [Math]::Max(0, $prefix - (8 * $i))); $octets += [string](256 - [Math]::Pow(2, 8 - $bits)) }
++    return ($octets -join '.')
+@@ -2210 +2456,11 @@
 -            Write-DocxParagraph -Writer $Writer -Text $cellText -Style 'TableText'
 +            # Flat snapshot cells share one invariant paragraph/run format. Keep
 +            # WriteString for XML escaping/character validation, never raw data.
@@ -261,17 +272,20 @@
 +            else {
 +                Write-DocxParagraph -Writer $Writer -Text $cellText -Style 'TableText'
 +            }
-@@ -2692,0 +2939,6 @@
+@@ -2546,0 +2803 @@
++    $ipAddresses = @($ipAddresses | Where-Object { $null -ne $_ } | ForEach-Object { Add-Member -InputObject $_ -NotePropertyName SubnetMask -NotePropertyValue (ConvertTo-SubnetMaskText $_.PrefixLength ([string]$_.IPAddress)) -Force -PassThru })
+@@ -2692,0 +2950,6 @@
 +    # BEGIN APPROVED ACL EXPORT RECOVERY GAP
 +    if ($script:aclExportsIncompleteCount -gt 0) {
 +        Add-RoleRecoveryGap -List $recoveryGaps -Severity 'High' -Requirement 'Complete recursive NTFS ACL export' -Reason ('{0} recursive ACL export(s) were timed out, skipped, failed, or unfinished. Incomplete files are not complete backups.' -f $script:aclExportsIncompleteCount) -Action 'Review the ACL export results and mapping. Obtain and validate complete backups separately; do not restore .incomplete files.'
 +    }
 +    # END APPROVED ACL EXPORT RECOVERY GAP
 +
-@@ -2722 +2974 @@
+@@ -2722 +2985 @@
 -        [pscustomobject]@{ Purpose = 'Recursive NTFS ACL backups'; Path = (Join-Path $paths.Shares 'Recursive-ICACLS-Backups'); Caution = 'Test ICACLS restore against the correct root paths.' },
 +        [pscustomobject]@{ Purpose = 'Recursive NTFS ACL backups'; Path = (Join-Path $paths.Shares 'Recursive-ICACLS-Backups'); Caution = 'Review ICACLS-Mapping.csv: only Completed rows reference complete .acl files. Never restore .incomplete files. Test restore against the correct root paths.' },
-@@ -2734,0 +2987,58 @@
+@@ -2733,0 +2997,58 @@
++
 +    # BEGIN APPROVED PROFILE NETWORK AND ACTIVATION
 +    # Executive summary TCP/IP and activation facts, derived only from data
 +    # this collection already saved. Each value says plainly when nothing was
@@ -289,7 +303,7 @@
 +        $ip = [string]$address.IPAddress
 +        if ([string]::IsNullOrWhiteSpace($ip) -or $ip -match '^(127\.|169\.254\.|::1$|fe80:)') { continue }
 +        $text = $ip
-+        if (-not [string]::IsNullOrWhiteSpace([string]$address.PrefixLength)) { $text += '/' + [string]$address.PrefixLength }
++        if (-not [string]::IsNullOrWhiteSpace([string]$address.PrefixLength)) { $mask = ConvertTo-SubnetMaskText $address.PrefixLength $ip; if ($mask) { $text += ' / ' + $mask + ' (/' + [string]$address.PrefixLength + ')' } else { $text += '/' + [string]$address.PrefixLength } }
 +        if (-not [string]::IsNullOrWhiteSpace([string]$address.InterfaceAlias)) { $text += ' (' + [string]$address.InterfaceAlias + ')' }
 +        if ((& $profileIsIPv4 $address.AddressFamily) -or ($ip -notmatch ':')) { $profileIPv4 += $text; $profileAliases[[string]$address.InterfaceAlias] = $true }
 +        else { $profileIPv6 += $text }
@@ -329,8 +343,7 @@
 +    $activationEmpty = 'Not collected'
 +    if ((Test-Path -LiteralPath ($activationPath + '.csv')) -or (Test-Path -LiteralPath ($activationPath + '.clixml'))) { $activationEmpty = 'No Windows license with a product key found' }
 +    # END APPROVED PROFILE NETWORK AND ACTIVATION
-+
-@@ -2749,0 +3060,8 @@
+@@ -2749,0 +3071,8 @@
 +        # BEGIN APPROVED PROFILE NETWORK AND ACTIVATION ROWS
 +        [pscustomobject]@{ Field = 'Activation status'; Value = (& $profileText $profileActivation $activationEmpty) },
 +        [pscustomobject]@{ Field = 'IPv4 addresses'; Value = (& $profileText $profileIPv4 'None found') },
@@ -339,21 +352,27 @@
 +        [pscustomobject]@{ Field = 'Default gateway'; Value = (& $profileText $profileGateways 'None found') },
 +        [pscustomobject]@{ Field = 'DNS servers'; Value = (& $profileText $profileDns 'None found') },
 +        # END APPROVED PROFILE NETWORK AND ACTIVATION ROWS
-@@ -2952,0 +3205,4 @@
+@@ -2878 +3207 @@
+-    Add-ReportTable -Title 'IP addresses' -Rows ($ipAddresses | Where-Object { $_.IPAddress -notmatch '^fe80:' }) -Columns @('InterfaceAlias', 'AddressFamily', 'IPAddress', 'PrefixLength', 'PrefixOrigin', 'SuffixOrigin', 'AddressState', 'SkipAsSource') -MaxRows 3000
++    Add-ReportTable -Title 'IP addresses' -Rows ($ipAddresses | Where-Object { $_.IPAddress -notmatch '^fe80:' }) -Columns @('InterfaceAlias', 'AddressFamily', 'IPAddress', 'SubnetMask', 'PrefixLength', 'PrefixOrigin', 'SuffixOrigin', 'AddressState', 'SkipAsSource') -MaxRows 3000
+@@ -2952,0 +3282,4 @@
 +    # BEGIN APPROVED ACL EXPORT REPORT TABLE
 +    Add-ReportTable -Title 'Recursive NTFS ACL export results' -Rows @($script:aclExportResults) -Columns @('ShareName', 'SourcePath', 'Status', 'ElapsedSeconds', 'TimeoutSeconds', 'ExitCode', 'AclFile', 'Note') -MaxRows 3000 -EmptyMessage 'Recursive ACL exports were not selected, or no eligible shares were present.'
 +    if ($script:aclExportsIncompleteCount -gt 0) { Add-ReportParagraph -Text 'One or more recursive ACL exports are incomplete. See the per-share results and ICACLS-Mapping.csv before considering any restore.' -Warning }
 +    # END APPROVED ACL EXPORT REPORT TABLE
-@@ -2993,3 +3315,3 @@
+@@ -2993,3 +3326,3 @@
 -        Add-ReportTable -Title 'DHCP policies' -Rows (Get-ReportData -BasePath (Join-Path $paths.Roles 'DHCP\IPv4-Policies')) -MaxRows 10000
 -        Add-ReportTable -Title 'DHCP scope statistics' -Rows (Get-ReportData -BasePath (Join-Path $paths.Roles 'DHCP\IPv4-Scope-Statistics')) -MaxRows 5000
 -        Add-ReportTable -Title 'DHCP bindings' -Rows (Get-ReportData -BasePath (Join-Path $paths.Roles 'DHCP\IPv4-Bindings')) -MaxRows 1000
 +        Add-ReportTable -Title 'DHCP policies' -Rows (Get-ReportData -BasePath (Join-Path $paths.Roles 'DHCP\IPv4-Policies')) -Columns @('Name', 'ScopeId', 'Enabled', 'ProcessingOrder', 'Condition', 'LeaseDuration', 'Description') -MaxRows 10000
 +        Add-ReportTable -Title 'DHCP scope statistics' -Rows (Get-ReportData -BasePath (Join-Path $paths.Roles 'DHCP\IPv4-Scope-Statistics')) -Columns @('ScopeId', 'InUse', 'Free', 'PercentageInUse', 'Reserved', 'Pending', 'SuperscopeName') -MaxRows 5000
 +        Add-ReportTable -Title 'DHCP bindings' -Rows (Get-ReportData -BasePath (Join-Path $paths.Roles 'DHCP\IPv4-Bindings')) -Columns @('InterfaceAlias', 'IPAddress', 'SubnetMask', 'BindingState') -MaxRows 1000
-@@ -4555,0 +4812 @@
+@@ -3222 +3555 @@
+-        [void]$summaryBuilder.AppendLine('- ' + [string]$address.InterfaceAlias + ': ' + [string]$address.IPAddress + '/' + [string]$address.PrefixLength)
++        [void]$summaryBuilder.AppendLine('- ' + [string]$address.InterfaceAlias + ': ' + [string]$address.IPAddress + $(if ($address.SubnetMask) { ' / ' + [string]$address.SubnetMask + ' (/' + [string]$address.PrefixLength + ')' } else { '/' + [string]$address.PrefixLength }))
+@@ -4555,0 +4889 @@
 +    # BEGIN APPROVED ACL EXPORT INVOCATION
-@@ -4557,24 +4814,10 @@
+@@ -4557,24 +4891,10 @@
 -        $aclBackupFolder = Join-Path $paths.Shares 'Recursive-ICACLS-Backups'
 -        New-Item -Path $aclBackupFolder -ItemType Directory -Force | Out-Null
 -        $aclMappings = New-Object System.Collections.ArrayList
@@ -388,7 +407,7 @@
 +    throw 'An owned ACL export child or output stream could not be confirmed stopped. Collection stopped; no completion marker or ZIP will be created. Partial ACL files are incomplete.'
 +}
 +# END APPROVED ACL EXPORT TERMINATION GUARD
-@@ -5043 +5286,16 @@
+@@ -5043 +5363,16 @@
 -            Invoke-NativeCapture -Command $printBrm -Arguments @('-s', ('\\' + $env:COMPUTERNAME), '-b', '-f', $printerExport) -OutputFile (Join-Path $rolePath 'PrintBRM-Export.log')
 +            # BEGIN APPROVED PRINTBRM LOCAL EXPORT
 +            # PrintBrm -s \\server exits 0 without writing a file when no printer is
@@ -406,16 +425,16 @@
 +                Write-InventoryLog -Level 'WARN' -Message ('PrintBRM reported error ' + $Matches[0] + ' during the printer migration export; it may be incomplete. See Print-Server\PrintBRM-Export.log.')
 +            }
 +            # END APPROVED PRINTBRM LOCAL EXPORT
-@@ -5412 +5736 @@
+@@ -5412 +5747 @@
 -            Save-ObjectData -InputObject (Get-ADReplicationFailure -Target * -Scope Forest -ErrorAction SilentlyContinue) -BasePath (Join-Path $rolePath 'AD-Replication-Failures')
 +            Save-ObjectData -InputObject (Get-ADReplicationFailure -Target ([string]$forest.Name) -Scope Forest -ErrorAction SilentlyContinue) -BasePath (Join-Path $rolePath 'AD-Replication-Failures')
-@@ -5618 +5942 @@
+@@ -5618 +5953 @@
 -        $eventLogs = Get-WinEvent -ListLog * -ErrorAction SilentlyContinue |
 +        $eventLogs = Microsoft.PowerShell.Diagnostics\Get-WinEvent -ListLog * -ErrorAction SilentlyContinue |
-@@ -5623 +5947 @@
+@@ -5623 +5958 @@
 -            $events = Get-WinEvent -FilterHashtable @{
 +            $events = Microsoft.PowerShell.Diagnostics\Get-WinEvent -FilterHashtable @{
-@@ -5732,0 +5976,4 @@
+@@ -5732,0 +6068,4 @@
 +    # BEGIN APPROVED ACL EXPORT COMPLETION METADATA
 +    IncompleteAclExports = $script:aclExportsIncompleteCount
 +    AclExportStatus = $(if ($script:aclExportsIncompleteCount -gt 0) { 'Incomplete' } else { 'NoIncompleteExports' })

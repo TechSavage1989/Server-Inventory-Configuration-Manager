@@ -595,7 +595,7 @@ func dcCheckSettings(p *dcPlan) error {
 			return errors.New("type a free IPv4 address for the old server, which gives its address to the new DC")
 		}
 		if s.OldNewPrefix < 8 || s.OldNewPrefix > 30 {
-			return errors.New("the old server's new subnet prefix must be between 8 and 30")
+			return errors.New("the old server's new subnet mask must be between 255.0.0.0 (/8) and 255.255.255.252 (/30)")
 		}
 		if s.OldNewGateway != "" && !dcValidIPv4(s.OldNewGateway) {
 			return errors.New("the old server's new gateway is not an IPv4 address")

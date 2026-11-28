@@ -1916,7 +1916,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
               <div class="migrate-help" id="dcIpNote"></div>
               <div class="mp-three" id="dcSpare">
                 <label class="vm-field"><span>Spare address for the old server <span data-dc-tag="oldNewAddress"></span></span><input id="dcSpareAddr" type="text" maxlength="15" spellcheck="false" autocomplete="off" placeholder="192.0.2.250"></label>
-                <label class="vm-field">Prefix length<input id="dcSparePrefix" type="text" maxlength="2" spellcheck="false" autocomplete="off"></label>
+                <label class="vm-field">Subnet mask<input id="dcSparePrefix" type="text" maxlength="18" spellcheck="false" autocomplete="off" placeholder="255.255.255.0 or /24"></label>
                 <label class="vm-field">Gateway<input id="dcSpareGw" type="text" maxlength="15" spellcheck="false" autocomplete="off"></label>
               </div>
               <div class="hb-why" data-dc-why="oldNewAddress"></div>
@@ -3054,8 +3054,11 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   function hbSection(parent,title,where,help){var box=el('div','hb-section'),head=el('div','hb-section-head');head.appendChild(el('strong','',title));if(where){head.appendChild(el('span','vm-step-where',where));}box.appendChild(head);if(help){box.appendChild(el('div','migrate-help',help));}parent.appendChild(box);return box;}
   function hbInput(obj,key,label,options){options=options||{};var wrap=el('label','vm-field hb-field'),input=document.createElement('input');input.type=options.type||'text';input.maxLength=options.max||260;input.autocomplete='off';input.spellcheck=false;if(options.id){input.id=options.id;}if(options.placeholder){input.placeholder=options.placeholder;}
     var value=obj[key];input.value=options.list?vmArr(value).join(', '):(value===undefined||value===null?'':String(value));
+    // ipMask fields show the full subnet mask and accept it typed either way;
+    // the plan keeps address/prefix.
+    if(options.ipMask){var shown=ipMaskParse(input.value);if(shown){input.value=shown.text;}}
     var sug=hbSugParts(wrap,label,options.sug);
-    input.addEventListener('input',function(){var raw=input.value;obj[key]=options.list?raw.split(/[,;\s]+/).filter(function(x){return x;}):(options.number?(parseInt(raw,10)||0):raw);sug.mine();hbTouch();if(options.input){options.input(raw);}});
+    input.addEventListener('input',function(){var raw=input.value,parsed=options.ipMask?ipMaskParse(raw):null;obj[key]=options.list?raw.split(/[,;\s]+/).filter(function(x){return x;}):(options.number?(parseInt(raw,10)||0):(parsed?parsed.cidr:raw));sug.mine();hbTouch();if(options.input){options.input(raw);}});
     if(options.change){input.addEventListener('change',function(){options.change(input.value);});}
     wrap.appendChild(input);sug.why();return wrap;}
   // hbSugParts writes a field's label with its Suggested or Set by you tag;
@@ -3075,7 +3078,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     hbPlan.nodes.forEach(function(n){n.switches=n.switches||{};if(n.switches.hasOwnProperty(oldName)){n.switches[newName]=n.switches[oldName];delete n.switches[oldName];}});
     vmArr(hbPlan.hostNics).forEach(function(h){if(h.switch===oldName){h.switch=newName;}});vmArr(hbPlan.networks).forEach(function(n){if(n.switch===oldName){n.switch=newName;}});}
   function hbRenameNIC(oldName,newName){if(!hbPlan||!oldName||oldName===newName){return;}hbPlan.nodes.forEach(function(n){n.hostIps=n.hostIps||{};if(n.hostIps.hasOwnProperty(oldName)){n.hostIps[newName]=n.hostIps[oldName];delete n.hostIps[oldName];}});}
-  function hbAdapterLabel(a){var bits=[];if(a.mac){bits.push(hbMac(a.mac));}if(a.speedBits){bits.push(a.speedBits>=1e9?Math.round(a.speedBits/1e9)+' Gbps':Math.round(a.speedBits/1e6)+' Mbps');}if(a.status){bits.push(a.status);}vmArr(a.ips).forEach(function(ip){bits.push(ip);});if(a.switchBound){bits.push('in a virtual switch');}return a.name+(bits.length?' ('+bits.join(', ')+')':'');}
+  function hbAdapterLabel(a){var bits=[];if(a.mac){bits.push(hbMac(a.mac));}if(a.speedBits){bits.push(a.speedBits>=1e9?Math.round(a.speedBits/1e9)+' Gbps':Math.round(a.speedBits/1e6)+' Mbps');}if(a.status){bits.push(a.status);}vmArr(a.ips).forEach(function(ip){bits.push(ipMaskText(ip));});if(a.switchBound){bits.push('in a virtual switch');}return a.name+(bits.length?' ('+bits.join(', ')+')':'');}
   function hbMac(m){return String(m||'').toUpperCase().replace(/:/g,'-');}
   // Suggested values (2026-11-27, owner: "it must drive as much as
   // possible", "everything that's automatically filled must still be
@@ -3093,7 +3096,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   function hbWhy(o,k,text){if(!Object.prototype.hasOwnProperty.call(o,'_why')){Object.defineProperty(o,'_why',{value:{},enumerable:false,writable:true});}if(text!==undefined){o._why[k]=text;}return o._why[k]||'';}
   function hbTag(o,k){if(hbIsSug(o,k)){var t=el('span','hb-tag hb-tag-sug',/^ip:|^cluster\.addresses/.test(k)?'Suggested: check it is free':'Suggested');var r=hbWhy(o,k);if(r){t.title=r;}return t;}if(hbIsMine(o,k)){return el('span','hb-tag hb-tag-mine','Set by you');}return null;}
   function hbWhyLine(o,k){var r=hbIsSug(o,k)?hbWhy(o,k):'';return r?el('div','hb-why',r):null;}
-  function hbIpParse(text){var m=/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})(?:\/(\d{1,2}))?$/.exec(trimText(text));if(!m){return null;}var n=(((+m[1])*256+(+m[2]))*256+(+m[3]))*256+(+m[4]),p=m[5]?+m[5]:24;if(p<8||p>30){return null;}var size=Math.pow(2,32-p);return {n:n,p:p,net:n-(n%size),size:size};}
+  function hbIpParse(text){var full=ipMaskParse(text);if(full){text=full.cidr;}var m=/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})(?:\/(\d{1,2}))?$/.exec(trimText(text));if(!m){return null;}var n=(((+m[1])*256+(+m[2]))*256+(+m[3]))*256+(+m[4]),p=m[5]?+m[5]:24;if(p<8||p>30){return null;}var size=Math.pow(2,32-p);return {n:n,p:p,net:n-(n%size),size:size};}
   function hbIpText(n){return [Math.floor(n/16777216)%256,Math.floor(n/65536)%256,Math.floor(n/256)%256,n%256].join('.');}
   // hbNextFree is the next address after the highest known one in the
   // subnet of sample (wrapping to the bottom), skipping every known one.
@@ -3169,7 +3172,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
       var rb=hbButton('Read nodes','',function(){hbReadNodes();});rb.setAttribute('data-hb-readnodes','1');hbOff(rb,!node.name);line.appendChild(rb);box.appendChild(line);box.appendChild(typed());parent.appendChild(box);return;}
     var grid=el('div','hb-ports');adapters.forEach(function(a){var wrap=el('label','vm-check hb-port'),input=document.createElement('input');input.type='checkbox';input.checked=selected.indexOf(a.name)>=0;input.setAttribute('data-hb-port',a.name);
       input.addEventListener('change',function(){var list=vmArr(node.switches[sw.name]).filter(function(x){return x!==a.name;});if(input.checked){list.push(a.name);}node.switches[sw.name]=list;hbMine(node,key);hbTouch();hbRenderEditor();});
-      var text=el('span','hb-port-text');text.appendChild(el('strong','',a.name));var bits=[];if(a.speedBits){bits.push(hbSpeedText(hbSpeedMb(a)));}bits.push(a.status==='Up'?'connected':(a.status?String(a.status).toLowerCase():'unknown'));if(a.mac){bits.push(hbMac(a.mac));}vmArr(a.ips).forEach(function(ip){bits.push(ip);});if(a.vlanId>0){bits.push('VLAN '+a.vlanId);}if(a.gateway){bits.push('management address');}
+      var text=el('span','hb-port-text');text.appendChild(el('strong','',a.name));var bits=[];if(a.speedBits){bits.push(hbSpeedText(hbSpeedMb(a)));}bits.push(a.status==='Up'?'connected':(a.status?String(a.status).toLowerCase():'unknown'));if(a.mac){bits.push(hbMac(a.mac));}vmArr(a.ips).forEach(function(ip){bits.push(ipMaskText(ip));});if(a.vlanId>0){bits.push('VLAN '+a.vlanId);}if(a.gateway){bits.push('management address');}
       var other='';scan:for(var name in node.switches){if(node.switches.hasOwnProperty(name)&&name!==sw.name&&vmArr(node.switches[name]).indexOf(a.name)>=0){other=name;break scan;}}if(other){bits.push('chosen for '+other);}else if(a.switchBound){bits.push('in a virtual switch');}
       text.appendChild(el('span','hb-port-bits',bits.join(' · ')));wrap.appendChild(input);wrap.appendChild(text);if(a.status!=='Up'){wrap.classList.add('hb-port-down');}grid.appendChild(wrap);});
     box.appendChild(grid);var why=hbWhyLine(node,key);if(why){box.appendChild(why);}
@@ -3294,7 +3297,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     plan.hostNics.forEach(function(nic,index){var card=el('div','hb-card');var grid=el('div','hb-grid'),oldName=nic.name;
       grid.appendChild(hbInput(nic,'name','Name',{max:64,change:function(value){hbRenameNIC(oldName,trimText(value));hbRenderEditor();}}));grid.appendChild(hbSelect(nic,'role','Traffic',[['livemigration','Live migration'],['cluster','Cluster'],['storage','Storage (SMB)']]));
       grid.appendChild(hbSelect(nic,'switch','Switch',plan.switches.map(function(sw){return [sw.name,sw.name];})));grid.appendChild(hbInput(nic,'vlan','VLAN',{max:4,placeholder:'untagged'}));card.appendChild(grid);
-      var ips=el('div','hb-grid');plan.nodes.forEach(function(node,ni){if(node.later){return;}ips.appendChild(hbInput(node.hostIps,nic.name,'Address on '+(node.name||'node '+(ni+1)),{max:18,placeholder:'address/prefix',sug:{o:node,k:'ip:'+nic.name}}));});if(plan.existing&&plan.existing.hostIps&&plan.existing.hostIps[nic.name]){ips.appendChild(el('div','hb-why','The existing nodes use '+plan.existing.hostIps[nic.name]+'.'));}card.appendChild(ips);
+      var ips=el('div','hb-grid');plan.nodes.forEach(function(node,ni){if(node.later){return;}ips.appendChild(hbInput(node.hostIps,nic.name,'Address on '+(node.name||'node '+(ni+1)),{max:40,ipMask:true,placeholder:'address / subnet mask',sug:{o:node,k:'ip:'+nic.name}}));});if(plan.existing&&plan.existing.hostIps&&plan.existing.hostIps[nic.name]){ips.appendChild(el('div','hb-why','The existing nodes use '+ipMaskText(plan.existing.hostIps[nic.name])+'.'));}card.appendChild(ips);
       var rm=el('div','hb-actions');rm.appendChild(hbButton('Remove adapter','',function(){plan.hostNics.splice(index,1);plan.nodes.forEach(function(n){delete n.hostIps[nic.name];});hbTouch();hbRenderEditor();}));card.appendChild(rm);net.appendChild(card);});
     var hrow=el('div','hb-actions');hrow.appendChild(hbButton('Add host adapter','hbAddNIC',function(){var used={};plan.hostNics.forEach(function(h){used[h.name]=true;});var name=used.LiveMigration?(used.Cluster?'Adapter'+(plan.hostNics.length+1):'Cluster'):'LiveMigration';plan.hostNics.push({name:name,switch:plan.switches[0]?plan.switches[0].name:'',vlan:'',role:name==='Cluster'?'cluster':'livemigration'});hbTouch();hbRenderEditor();}));net.appendChild(hrow);
     if(plan.networks.length){net.appendChild(el('div','vm-subhead','VM networks'));net.appendChild(el('div','migrate-help','Each VMware port group becomes a switch and VLAN for the VMs that move. Use for Move VMs writes this into the migration plan\'s network map.'));
@@ -3313,7 +3316,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
       plan.nodes.forEach(function(node,ni){if(node.later){return;}var card=el('div','hb-card');var ch=el('div','hb-card-head');ch.appendChild(el('strong','',node.name||'Node '+(ni+1)));var tg=hbTag(node,'storage');if(tg){ch.appendChild(tg);}card.appendChild(ch);
         var read=hbFacts(node.name),adapters=read&&read.ok&&read.facts?vmArr(read.facts.adapters):[],mine=function(){hbMine(node,'storage');};
         node.storage.forEach(function(nic,i){var g=el('div','hb-grid');if(adapters.length){g.appendChild(hbSelect(nic,'adapter','Adapter',[['','Choose']].concat(adapters.map(function(a){return [a.name,hbAdapterLabel(a)];})),{change:mine}));}else{g.appendChild(hbInput(nic,'adapter','Adapter',{max:128,placeholder:'Port name',input:mine}));}
-          g.appendChild(hbInput(nic,'ip','Address',{max:18,placeholder:'address/prefix',input:mine}));g.appendChild(hbButton('Remove','',function(){node.storage.splice(i,1);mine();hbTouch();hbRenderEditor();}));card.appendChild(g);});
+          g.appendChild(hbInput(nic,'ip','Address',{max:40,ipMask:true,placeholder:'address / subnet mask',input:mine}));g.appendChild(hbButton('Remove','',function(){node.storage.splice(i,1);mine();hbTouch();hbRenderEditor();}));card.appendChild(g);});
         var sw3=hbWhyLine(node,'storage');if(sw3){card.appendChild(sw3);}
         if(!node.storage.length&&vmArr(node.sourceIscsi).length){card.appendChild(el('div','hb-why','Under ESXi: '+vmArr(node.sourceIscsi).join(', ')+'.'));}
         var r=el('div','hb-actions');r.appendChild(hbButton('Add iSCSI adapter','',function(){node.storage.push({adapter:'',ip:''});mine();hbTouch();hbRenderEditor();}));card.appendChild(r);sto.appendChild(card);});}
@@ -4486,6 +4489,14 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   // A package folder.
   function restoreScanOther(){var r=restoreState();return !!(restoreScan()&&!!(r&&r.live)!==restoreLiveChosen());}
   function restoreLocked(){var r=restoreState();return restoreBusy||restoreIsRunning(r)||!!(r&&r.status==='scanning')||!!(latestState&&latestState.running)||migrateIsRunning()||vmwareIsRunning()||convertIsRunning();}
+  // Subnet masks are shown in full everywhere (owner, 2026-11-28; AGENTS rule
+  // 78): ipMaskText shows 192.168.120.11/23 as 192.168.120.11 / 255.255.254.0
+  // (/23), and ipMaskParse reads an address with its mask typed either way.
+  // netmask.go has the same rules for reports, runbooks and logs.
+  function ipMaskOf(p){p=+p;if(!(p>=0&&p<=32)||Math.floor(p)!==p){return '';}var out=[];for(var i=0;i<4;i++){var b=Math.min(8,Math.max(0,p-i*8));out.push(256-Math.pow(2,8-b));}return out.join('.');}
+  function ipPrefixOf(text){var t=String(text==null?'':text).replace(/^\s+|\s+$/g,'').replace(/^\/\s*/,'');if(!t){return -1;}if(t.indexOf('.')<0){return /^\d{1,2}$/.test(t)&&+t<=32?+t:-1;}var m=/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(t);if(!m){return -1;}var bits='';for(var i=1;i<5;i++){if(+m[i]>255){return -1;}bits+=('00000000'+(+m[i]).toString(2)).slice(-8);}if(/01/.test(bits)){return -1;}return bits.indexOf('0')<0?32:bits.indexOf('0');}
+  function ipMaskParse(text){var m=/^(\d{1,3}(?:\.\d{1,3}){3})\s*(?:\/\s*|\s+(?:mask\s+)?)(\d{1,3}(?:\.\d{1,3}){3}|\/?\d{1,2})(?:\s*\(\s*(\/?\d{1,2})\s*\))?$/.exec(String(text==null?'':text).replace(/^\s+|\s+$/g,'').toLowerCase());if(!m){return null;}var octets=m[1].split('.').map(Number);if(octets.some(function(o){return o>255;})){return null;}var p=ipPrefixOf(m[2]);if(p<0||(m[3]&&m[2].indexOf('.')>=0&&ipPrefixOf(m[3])!==p)){return null;}var ip=octets.join('.');return {ip:ip,prefix:p,mask:ipMaskOf(p),cidr:ip+'/'+p,text:ip+' / '+ipMaskOf(p)};}
+  function ipMaskText(text){var s=String(text==null?'':text);if(s.indexOf('/')<0||s.indexOf(':')>=0){return s;}var x=ipMaskParse(s);return x?x.text+' (/'+x.prefix+')':s;}
   function trimText(value){return String(value||'').replace(/^\s+|\s+$/g,'');}
   function restoreItemsOf(component){
     var items=component.items||[];
@@ -6568,7 +6579,10 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     parent.appendChild(b);return b;
   }
   function vmStats(parent){var s=el('div','vm-stats');parent.appendChild(s);return s;}
-  function vmIpList(vm){var seen={},out=[];if(vm.ipAddress){seen[vm.ipAddress]=true;out.push(vm.ipAddress);}vmArr(vm.nics).forEach(function(n){vmArr(n.ipAddresses).forEach(function(ip){if(!seen[ip]){seen[ip]=true;out.push(ip);}});});return out;}
+  // vmIpList lists a VM's addresses once each: the guest's primary address
+  // (no prefix) is replaced by the adapter's address/prefix for the same
+  // address, so 192.168.120.11 and 192.168.120.11/23 show as one line.
+  function vmIpList(vm){var seen={},out=[],key=function(ip){return String(ip).split('/')[0].toLowerCase();};vmArr(vm.nics).forEach(function(n){vmArr(n.ipAddresses).forEach(function(ip){var k=key(ip);if(!seen.hasOwnProperty(k)){seen[k]=out.length;out.push(ip);}});});if(vm.ipAddress){var k=key(vm.ipAddress);if(seen.hasOwnProperty(k)){out.unshift(out.splice(seen[k],1)[0]);}else{out.unshift(vm.ipAddress);}}return out;}
   function vmToolsText(vm){
     if(vm.source==='hyperv'){return vmJoin([{ok:'responding',noContact:'not answering',lostCommunication:'lost contact',disabled:'turned off',degraded:'degraded'}[vm.integrationServices]||vm.integrationServices,vm.integrationVersion?'version '+vm.integrationVersion:''],', ')||'Unknown';}
     return vmJoin([vm.toolsStatus,vm.toolsVersion?'version '+vm.toolsVersion:'',vm.toolsRunning?'running':''],', ')||'Not reported';
@@ -6580,7 +6594,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     return {list:list,more:findings.length-shown};
   }
   function renderVmSummaryTab(box,vm){
-    var r=vmReadiness(vm),dc=vm.datacenter,w=vmWords(),disks=vmArr(vm.disks),nics=vmArr(vm.nics),ips=vmIpList(vm),grid=vmCards(box);
+    var r=vmReadiness(vm),dc=vm.datacenter,w=vmWords(),disks=vmArr(vm.disks),nics=vmArr(vm.nics),ips=vmIpList(vm).map(ipMaskText),grid=vmCards(box);
     var guest=vmCard(grid,'Guest OS');
     guest.appendChild(vmKv([['Power status',vm.template?'Template':(vmPower(vm)||'Unknown')],['Guest OS',vm.guestOsRunning||vm.guestOs||'Unknown'],[w.tools,vmToolsText(vm)],['DNS name',vm.guestHostName],
       ['IP addresses',ips.length?vmLines(ips):''],['Encryption',vm.encrypted?(vm.source==='hyperv'?'Shielded':'Encrypted'):'Not encrypted'],['Secure boot and TPM',vmJoin([vm.secureBoot?'Secure Boot':'',vm.vtpm?'virtual TPM':''],', ')||'None']]));
@@ -6651,7 +6665,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     var dc=vm.datacenter,nics=vmArr(vm.nics);
     vmDrawerSection(box,'Network adapters',vmPlural(nics.length,'adapter')).appendChild(vmTreeTable(['Adapter',vmIsHyperV()?'Switch':'Network','MAC','Addresses'],nics.map(function(n){var tr=el('tr','');
       vmCell(tr,n.label+(n.adapterType?' ('+n.adapterType+')':'')+(n.connected?'':', disconnected'));vmCell(tr,vmNetworkLink(dc,n.network)||'No network');vmCell(tr,(n.mac||'')+(n.manualMac?' (manual)':''));
-      vmCell(tr,vmArr(n.ipAddresses).join(', ')+(n.static?' (static)':''));return tr;})));
+      vmCell(tr,vmArr(n.ipAddresses).map(ipMaskText).join(', ')+(n.static?' (static)':''));return tr;})));
     var nets=vmScope({kind:'folder'},{vms:[vm]}).networks;
     if(nets.length){vmDrawerSection(box,vmWords().networks,vmPlural(nets.length,vmWords().network)).appendChild(vmNetworkTable(nets));}
   }
@@ -6751,7 +6765,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   function vmDatastoreFacts(n){var d=n.ds,used=d.capacityBytes?Math.round((d.capacityBytes-d.freeBytes)*100/d.capacityBytes):0;
     return vmKv([['Type',d.type],['Capacity',formatBytesShort(d.capacityBytes)+(d.capacityBytes?' ('+used+'% used)':'')],['Free',formatBytesShort(d.freeBytes)],['Provisioned',formatBytesShort(d.provisionedBytes)],
       ['Shared',d.shared?'Yes':'No'],['Accessible',d.accessible===false?'No':'Yes'],['Mounted on',vmNodes(vmArr(d.hosts).map(function(h){return vmHostLink(d.datacenter,h);}),'not reported (read the inventory again to include it)')],['URL',d.url]]);}
-  function vmNicRows(nics){return nics.map(function(r){var tr=el('tr','');vmCell(tr,vmVmLink(r.vm));vmCell(tr,vmHostLink(r.vm.datacenter,r.vm.host));vmCell(tr,r.nic.label+(r.nic.adapterType?' ('+r.nic.adapterType+')':''));vmCell(tr,r.nic.mac||'');vmCell(tr,r.nic.connected?'Yes':'No');vmCell(tr,vmArr(r.nic.ipAddresses).join(', ')+(r.nic.static?' (static)':''));return tr;});}
+  function vmNicRows(nics){return nics.map(function(r){var tr=el('tr','');vmCell(tr,vmVmLink(r.vm));vmCell(tr,vmHostLink(r.vm.datacenter,r.vm.host));vmCell(tr,r.nic.label+(r.nic.adapterType?' ('+r.nic.adapterType+')':''));vmCell(tr,r.nic.mac||'');vmCell(tr,r.nic.connected?'Yes':'No');vmCell(tr,vmArr(r.nic.ipAddresses).map(ipMaskText).join(', ')+(r.nic.static?' (static)':''));return tr;});}
   function vmTreeTable(headers,rows){
     var wrap=el('div','vm-table-wrap'),table=el('table','vm-table'),head=el('tr','');
     headers.forEach(function(h){head.appendChild(el('th','',h));});var thead=el('thead','');thead.appendChild(head);table.appendChild(thead);
@@ -6763,7 +6777,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   function vmLines(nodes){var f=document.createDocumentFragment();nodes.forEach(function(t){var line=el('div','');if(typeof t==='string'){line.textContent=t;}else{line.appendChild(t);}f.appendChild(line);});return f;}
   function vmDiskLine(vm,d){var f=document.createDocumentFragment();f.appendChild(document.createTextNode(d.label+' '+formatBytesShort(d.capacityBytes)));
     if(d.datastore){f.appendChild(document.createTextNode(' on '));f.appendChild(vmDatastoreLink(vm.datacenter,d.datastore));if(d.rdm){f.appendChild(document.createTextNode(' (RDM)'));}}else if(d.rdm){f.appendChild(document.createTextNode(' (raw device)'));}return f;}
-  function vmNicLine(vm,n){var f=document.createDocumentFragment(),ips=vmArr(n.ipAddresses);if(n.network){f.appendChild(vmNetworkLink(vm.datacenter,n.network));}else{f.appendChild(document.createTextNode('No network'));}if(ips.length){f.appendChild(document.createTextNode(' '+ips.join(', ')));}return f;}
+  function vmNicLine(vm,n){var f=document.createDocumentFragment(),ips=vmArr(n.ipAddresses);if(n.network){f.appendChild(vmNetworkLink(vm.datacenter,n.network));}else{f.appendChild(document.createTextNode('No network'));}if(ips.length){f.appendChild(document.createTextNode(' '+ips.map(ipMaskText).join(', ')));}return f;}
   function vmVmRows(vms){
     return vms.map(function(vm){var tr=el('tr',''),name=vmCell(tr,vmVmLink(vm));if(vm.template){name.appendChild(el('span','vm-sub','Template'));}
       vmCell(tr,vmPower(vm));vmCell(tr,vm.guestOsRunning||vm.guestOs||'Unknown');vmCell(tr,vm.cpus+' vCPU, '+formatBytesShort((Number(vm.memoryMb)||0)*1048576));
@@ -8022,7 +8036,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
       vmGuest=data.result||null;renderVmGuest();
     });
   }
-  function vmAddressText(adapter){return vmArr(adapter.Addresses).map(function(a){return a.Address+'/'+a.PrefixLength;}).join(', ');}
+  function vmAddressText(adapter){return vmArr(adapter.Addresses).map(function(a){return ipMaskText(a.Address+'/'+a.PrefixLength);}).join(', ');}
   function vmCheckRow(host,label,detail,checked,attr,value,onChange){
     var row=el('label','vm-check'),box=document.createElement('input');box.type='checkbox';box.checked=!!checked;box.setAttribute(attr,value);box.addEventListener('change',function(){onChange(box.checked);syncVmGuestButtons();});
     var text=el('span','',label);if(detail){text.appendChild(el('span','vm-sub',detail));}row.appendChild(box);row.appendChild(text);host.appendChild(row);
@@ -11486,7 +11500,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     ['schema','naming','pdc','rid','infrastructure'].forEach(function(r){var owner=(old.roleOwners||{})[r]||'';var l=el('label','vm-check'),i=document.createElement('input'),t=el('span','',(names[r]||r)+(owner?' (now on '+owner.split('.')[0]+')':''));i.type='checkbox';i.setAttribute('data-dc-role',r);i.checked=vmArr(s.moveRoles).indexOf(r)>=0;l.appendChild(i);l.appendChild(t);roles.appendChild(l);});
     byId('dcNtp').value=s.ntpServer||'';byId('dcForwarders').value=vmArr(s.forwarders).join(', ');
     byId(s.ipMode==='repoint'?'dcIpRepoint':'dcIpTakeover').checked=true;
-    byId('dcSpareAddr').value=s.oldNewAddress||'';byId('dcSparePrefix').value=s.oldNewPrefix?String(s.oldNewPrefix):'';byId('dcSpareGw').value=s.oldNewGateway||'';
+    byId('dcSpareAddr').value=s.oldNewAddress||'';byId('dcSparePrefix').value=s.oldNewPrefix?ipMaskOf(s.oldNewPrefix):'';byId('dcSpareGw').value=s.oldNewGateway||'';
     byId('dcRepoint').checked=!!s.repoint;byId('dcOldDead').checked=!!s.oldDead;
     if(f.plan){byId('dcName').value=f.plan.name;byId('dcWave').value=String(f.plan.wave||0);}
     else{byId('dcName').value=(old.name||'')+' to '+(tgt.name||'');byId('dcWave').value='0';}
@@ -11498,7 +11512,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     return {site:byId('dcSite').value,installDns:byId('dcInstallDns').checked,globalCatalog:byId('dcGc').checked,replicateFrom:byId('dcReplFrom').value,
       databasePath:trimText(byId('dcDbPath').value),logPath:trimText(byId('dcLogPath').value),sysvolPath:trimText(byId('dcSysvolPath').value),moveRoles:roles,
       ntpServer:trimText(byId('dcNtp').value),forwarders:byId('dcForwarders').value.split(/[,;\s]+/).map(trimText).filter(function(x){return x;}),
-      ipMode:byId('dcIpRepoint').checked?'repoint':'takeover',oldNewAddress:trimText(byId('dcSpareAddr').value),oldNewPrefix:parseInt(byId('dcSparePrefix').value,10)||0,oldNewGateway:trimText(byId('dcSpareGw').value),
+      ipMode:byId('dcIpRepoint').checked?'repoint':'takeover',oldNewAddress:trimText(byId('dcSpareAddr').value),oldNewPrefix:Math.max(0,ipPrefixOf(byId('dcSparePrefix').value)),oldNewGateway:trimText(byId('dcSpareGw').value),
       repoint:byId('dcRepoint').checked,oldDead:byId('dcOldDead').checked,suggested:sug,why:base.why||{}};
   }
   function dcTags(f){

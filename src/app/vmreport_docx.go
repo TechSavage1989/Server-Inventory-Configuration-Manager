@@ -820,7 +820,7 @@ func vmDocxNetworks(d *vmDocx, model *vmReportModel) {
 		}
 		rows = nil
 		for _, nic := range item.Adapters {
-			rows = append(rows, []vmDocxCell{{XML: d.link(nic.VMAnchor, nic.VM)}, {XML: dxText(nic.NIC.Label)}, {XML: dxText(nic.NIC.MAC)}, {XML: dxText(vmYesNo(nic.NIC.Connected))}, {XML: dxText(strings.Join(nic.NIC.IPAddresses, ", ") + map[bool]string{true: " (static)"}[nic.NIC.Static])}})
+			rows = append(rows, []vmDocxCell{{XML: d.link(nic.VMAnchor, nic.VM)}, {XML: dxText(nic.NIC.Label)}, {XML: dxText(nic.NIC.MAC)}, {XML: dxText(vmYesNo(nic.NIC.Connected))}, {XML: dxText(strings.Join(ipMaskList(nic.NIC.IPAddresses), ", ") + map[bool]string{true: " (static)"}[nic.NIC.Static])}})
 		}
 		d.table([]int{22, 18, 20, 10, 30}, []string{"VM", "Adapter", "MAC", "Connected", "Guest addresses"}, rows)
 	}
@@ -875,7 +875,7 @@ func vmDocxVMs(d *vmDocx, model *vmReportModel) {
 		if len(vm.NICs) > 0 {
 			rows = nil
 			for _, nic := range vm.NICs {
-				rows = append(rows, []vmDocxCell{{XML: dxText(nic.NIC.Label)}, {XML: dxText(nic.NIC.AdapterType)}, {XML: d.link(nic.NetworkAnchor, nic.NIC.Network)}, {XML: dxText(nic.NIC.MAC)}, {XML: dxText(strings.Join(nic.NIC.IPAddresses, ", ") + map[bool]string{true: " (static)"}[nic.NIC.Static])}})
+				rows = append(rows, []vmDocxCell{{XML: dxText(nic.NIC.Label)}, {XML: dxText(nic.NIC.AdapterType)}, {XML: d.link(nic.NetworkAnchor, nic.NIC.Network)}, {XML: dxText(nic.NIC.MAC)}, {XML: dxText(strings.Join(ipMaskList(nic.NIC.IPAddresses), ", ") + map[bool]string{true: " (static)"}[nic.NIC.Static])}})
 			}
 			d.table([]int{18, 12, 24, 20, 26}, []string{"Adapter", "Type", words.Network, "MAC", "Guest addresses"}, rows)
 		}
