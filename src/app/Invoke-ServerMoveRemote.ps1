@@ -1,6 +1,6 @@
 param(
     [Parameter(Mandatory = $true)][string]$Target,
-    [Parameter(Mandatory = $true)][ValidateSet('Read', 'Prepare', 'Scan', 'Restore', 'StopSites', 'StartSites', 'Clean')][string]$Mode,
+    [Parameter(Mandatory = $true)][ValidateSet('Discover', 'Read', 'Prepare', 'Scan', 'Restore', 'StopSites', 'StartSites', 'Clean')][string]$Mode,
     [Parameter(Mandatory = $true)][string]$ResultPath,
     [Parameter(Mandatory = $true)][string]$WorkName,
     [string]$EnginePath = '',
@@ -16,6 +16,9 @@ param(
 # accounts, file shares and the other items a migration bundle carries) from
 # an old server to a new one, live, run from an admin computer (2026-11-28,
 # owner request; AGENTS rule 75).
+# Discover lists what the old server has (the bundle engine with -ListOnly:
+# nothing is copied or exported) so the operator picks what to move first;
+# Read then carries only the picked items (rule 76).
 # Read runs the migration bundle engine (Export-MigrationBundle.ps1) inside
 # the OLD server and builds a package there with the IIS configuration
 # backup; the application then copies that package to the new server with
@@ -88,7 +91,7 @@ $prepare = {
 # backup is made by appcmd under this run's own name and deleted again, the
 # way the collector does it; nothing else on the server changes.
 $read = {
-    param([string]$EngineText, [string]$Work, [string]$Run, [string]$Name, [string]$Passphrase, [bool]$Include, [int]$Limit)
+    param([string]$EngineText, [string]$Work, [string]$Run, [string]$Name, [string]$Passphrase, [bool]$Include, [int]$Limit, [string]$SelectionText)
     $ErrorActionPreference = 'Stop'
     $log = Join-Path $Run 'Engine.log'
     $encoding = New-Object System.Text.UTF8Encoding($false)
@@ -103,7 +106,10 @@ $read = {
     New-Item -ItemType Directory -Path (Join-Path $package '00-Summary') -Force | Out-Null
     [IO.File]::WriteAllText((Join-Path $package '00-Summary\Live-Move.txt'), ('Package read live from {0} at {1} by Server Inventory and Migration Manager for a move to another server.' -f $env:COMPUTERNAME, (Get-Date -Format 'yyyy-MM-dd HH:mm:ss')), $encoding)
     $appCmd = Join-Path $env:SystemRoot 'System32\inetsrv\appcmd.exe'
-    if (Test-Path -LiteralPath $appCmd) {
+    $wantIis = $true
+    if ($SelectionText) { $wantIis = [bool](ConvertFrom-Json -InputObject $SelectionText).iis }
+    if (-not $wantIis) { & $say 'INFO' 'IIS was not picked, so its configuration is not read.' }
+    elseif (Test-Path -LiteralPath $appCmd) {
         & $say 'INFO' 'Saving the IIS configuration.'
         $backupName = 'SIMM_ServerMove_' + $Run.Substring($Run.Length - 12)
         $previous = $ErrorActionPreference
@@ -136,6 +142,7 @@ $read = {
     $engine = [scriptblock]::Create($EngineText)
     $arguments = @{ PackagePath = $package; ResultPath = $resultFile; CancelPath = (Join-Path $Run 'Stop-Requested'); LogPath = $log; Embedded = $true; Passphrase = $Passphrase; WebContentLimitGB = $Limit }
     if ($Include) { $arguments['IncludeWebContent'] = $true }
+    if ($SelectionText) { $arguments['SelectionJson'] = $SelectionText }
     $Passphrase = $null
     $output = @(& $engine @arguments)
     $arguments = $null
@@ -146,6 +153,21 @@ $read = {
     $size = [long]0
     foreach ($file in @(Get-ChildItem -LiteralPath $package -Recurse -File -Force -ErrorAction SilentlyContinue)) { $size += $file.Length }
     return @{ exitCode = $code; result = $result; package = $package; sizeBytes = $size }
+}
+
+# Runs inside the old server: the bundle engine lists what the server has.
+# Nothing is copied, exported or changed.
+$discover = {
+    param([string]$EngineText, [string]$Run)
+    $ErrorActionPreference = 'Stop'
+    $resultFile = Join-Path $Run 'Result.json'
+    $engine = [scriptblock]::Create($EngineText)
+    $output = @(& $engine -ListOnly -ResultPath $resultFile -LogPath (Join-Path $Run 'Engine.log') -Embedded)
+    $code = 3
+    if ($output.Count -and $output[$output.Count - 1] -is [int]) { $code = [int]$output[$output.Count - 1] }
+    $result = ''
+    if (Test-Path -LiteralPath $resultFile) { $result = [IO.File]::ReadAllText($resultFile) }
+    return @{ exitCode = $code; result = $result }
 }
 
 # Runs inside the new server: the restore engine as a script block.
@@ -312,10 +334,15 @@ try {
     }
     else {
         if (-not $engineText) { throw 'The engine was not given.' }
-        if (-not $PackageName) { throw 'The package name was not given.' }
+        if (-not $PackageName -and $Mode -ne 'Discover') { throw 'The package name was not given.' }
         $main = New-PSSession @sessionArguments
         $sessions += $main
-        if ($Mode -eq 'Read') { $job = Invoke-Command -Session $main -ScriptBlock $read -ArgumentList @($engineText, [string]$info.work, [string]$info.run, $PackageName, $passphrase, [bool]$IncludeWebContent, $WebContentLimitGB) -AsJob }
+        if ($Mode -eq 'Discover') { $job = Invoke-Command -Session $main -ScriptBlock $discover -ArgumentList @($engineText, [string]$info.run) -AsJob }
+        elseif ($Mode -eq 'Read') {
+            $selectionText = ''
+            if ($planText -ne '{}') { $plan = ConvertFrom-Json -InputObject $planText; if ($plan.selection) { $selectionText = ConvertTo-Json -InputObject $plan.selection -Depth 4 -Compress } }
+            $job = Invoke-Command -Session $main -ScriptBlock $read -ArgumentList @($engineText, [string]$info.work, [string]$info.run, $PackageName, $passphrase, [bool]$IncludeWebContent, $WebContentLimitGB, $selectionText) -AsJob
+        }
         else { $job = Invoke-Command -Session $main -ScriptBlock $restore -ArgumentList @($engineText, $Mode, [string]$info.work, [string]$info.run, $PackageName, $secrets, $planText) -AsJob }
         $passphrase = $null
         $secrets = $null

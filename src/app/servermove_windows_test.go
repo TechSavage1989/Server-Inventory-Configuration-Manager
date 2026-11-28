@@ -67,7 +67,27 @@ func TestServerMoveReadsAndChecksAServerThroughRemoting(t *testing.T) {
 	}
 	defer run("Clean", "", "", nil)
 
-	reply, output := run("Read", bundle, passphrase, nil, "-WebContentLimitGB", "1")
+	// Discover only lists (rule 76): nothing is in the package afterwards.
+	reply, output := run("Discover", bundle, "", nil)
+	if reply.ExitCode != 0 {
+		t.Fatalf("Discover failed (%d):\n%s", reply.ExitCode, output)
+	}
+	found, err := smParseDiscovery(reply)
+	if err != nil {
+		t.Fatalf("%v\n%s", err, output)
+	}
+	if len(found.Features) < 2 || found.Features[0].DisplayName == "" {
+		t.Fatalf("discovery listed features %+v\n%s", found.Features, output)
+	}
+	if entries, _ := os.ReadDir(filepath.Join(os.Getenv("ProgramData"), "Server Inventory and Migration Manager", "Server-Move", work, "Package")); len(entries) != 0 {
+		t.Fatalf("Discover wrote into the package folder: %v", entries)
+	}
+	// Read carries only what was picked: one feature, no IIS.
+	selection, _, err := smCleanSelection(smSelection{Features: []string{found.Features[0].Name}}, found, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reply, output = run("Read", bundle, passphrase, map[string]any{"selection": selection}, "-WebContentLimitGB", "1")
 	if reply.ExitCode != 0 {
 		t.Fatalf("Read failed (%d):\n%s", reply.ExitCode, output)
 	}
@@ -79,6 +99,20 @@ func TestServerMoveReadsAndChecksAServerThroughRemoting(t *testing.T) {
 		t.Fatalf("read %+v, package %q\n%s", read, reply.Package, output)
 	}
 	packagePath := reply.Package
+	if read.Features != 1 || read.IISSites != 0 {
+		t.Fatalf("the read carried %d feature(s) and %d IIS site(s), want only the one picked\n%s", read.Features, read.IISSites, output)
+	}
+	if _, err := os.Stat(filepath.Join(packagePath, `08-Role-Specific\IIS`)); err == nil {
+		t.Fatal("IIS was not picked but its configuration was saved")
+	}
+	var written struct {
+		AllFeatures []string `json:"allFeatures"`
+		Picked      bool     `json:"picked"`
+	}
+	data, _ := os.ReadFile(filepath.Join(packagePath, `09-Migration-Bundle\Bundle.json`))
+	if err := json.Unmarshal(stripUTF8BOM(data), &written); err != nil || !written.Picked || len(written.AllFeatures) != len(found.Features) {
+		t.Fatalf("Bundle.json picked %v, allFeatures %d of %d: %v", written.Picked, len(written.AllFeatures), len(found.Features), err)
+	}
 	for _, name := range []string{"SHA256-Manifest.csv", `00-Summary\Live-Move.txt`, `09-Migration-Bundle\Bundle.json`, `09-Migration-Bundle\Secrets.simmsec`} {
 		if _, err := os.Stat(filepath.Join(reply.Package, name)); err != nil {
 			t.Fatalf("the package has no %s: %v", name, err)
