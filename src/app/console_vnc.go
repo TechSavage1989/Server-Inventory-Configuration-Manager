@@ -36,6 +36,40 @@ type consoleRFBBackend struct {
 	client     *rfbClient
 	closeExtra func()
 	once       sync.Once
+	mu         sync.Mutex
+	encodings  []string
+	onCaps     func(change func(*consoleCaps))
+}
+
+// consolePictureNote starts the note that says how the picture arrives.
+const consolePictureNote = "The picture arrives as "
+
+func (b *consoleRFBBackend) watchCaps(update func(change func(*consoleCaps))) {
+	b.mu.Lock()
+	b.onCaps = update
+	b.mu.Unlock()
+}
+
+// noteEncoding adds an encoding the server used to the console's notes, so
+// a slow console shows whether its platform sends compressed pictures.
+func (b *consoleRFBBackend) noteEncoding(name string) {
+	b.mu.Lock()
+	b.encodings = append(b.encodings, name)
+	note := consolePictureNote + strings.Join(b.encodings, ", ") + "."
+	update := b.onCaps
+	b.mu.Unlock()
+	if update == nil {
+		return
+	}
+	update(func(caps *consoleCaps) {
+		notes := make([]string, 0, len(caps.Notes)+1)
+		for _, n := range caps.Notes {
+			if !strings.HasPrefix(n, consolePictureNote) {
+				notes = append(notes, n)
+			}
+		}
+		caps.Notes = append(notes, note)
+	})
 }
 
 func newConsoleRFBBackend(conn io.ReadWriteCloser, password string, frame *consoleFrame, closeExtra func()) (*consoleRFBBackend, error) {
@@ -47,7 +81,9 @@ func newConsoleRFBBackend(conn io.ReadWriteCloser, password string, frame *conso
 		}
 		return nil, err
 	}
-	return &consoleRFBBackend{client: client, closeExtra: closeExtra}, nil
+	b := &consoleRFBBackend{client: client, closeExtra: closeExtra}
+	client.onEncoding = b.noteEncoding
+	return b, nil
 }
 
 // bind sends the cursor shape and the guest's clipboard to the session.
