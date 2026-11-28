@@ -1,3 +1,9 @@
+## Unreleased: Move SQL databases — 2026-11-28
+
+- New tool **Move SQL databases** (Migration and replication > Move servers, and New migration's source *SQL Server databases*). Reads both SQL Servers, suggests per database backup and restore, log shipping or a distributed availability group (only for databases already in an AG, owner decision), carries logins with SIDs and passwords, Agent jobs, operators, linked servers and chosen server settings, tests, cuts over (now or scheduled), moves a DNS alias and rolls back. Rule 72.
+- Engine `src/app/Invoke-SqlMigration.ps1` (signed, RemoteSigned), rules in `sqlmig*.go`, endpoints `/api/sql/*` in `sqlmig_windows.go`.
+- Tests: `go test -run TestSQL ./src/app` (fakes, any platform); CI job `sqlmig` runs `TestSQLMigrationOnLocalDB` with two LocalDB instances on Windows; workspace checks "Move SQL databases" and New migration's guide. Not field-validated against real SQL Server instances, availability groups or DNS.
+
 ## Unreleased: less data and less time for every copy — 2026-11-28
 
 - Copy engine reads and hashes ahead of writing (`vmCopyReadChunks`), Send disks and P2V conversion skip free NTFS space (`vmSkipFreeSpace`), VDDK reads ask for FastLZ compression, receivers advertise `deflate` and platform/remote Hyper-V sinks compress when they do, file share copies add Robocopy `/COMPRESS` where supported. AGENTS rule 73.
