@@ -244,6 +244,26 @@ func (p *vmPreflight) sqlServer() bool {
 
 var preflightDFSRStates = map[int]string{0: "uninitialized", 1: "initialized", 2: "initial sync", 3: "auto recovery", 4: "normal", 5: "in error"}
 
+// preflightFindingsFor is preflightFindings for one VM. A check that could
+// not reach a VM whose name does not look like a domain controller or a SQL
+// Server is only a note (2026-11-28, owner: desktops reported as SQL and DC
+// items to review because WinRM did not answer): nothing says it holds either
+// role, so an unreachable check is no reason to hold its wave. A VM named like
+// one keeps the review item, because the check is what would find a problem.
+func preflightFindingsFor(vm vmMachine) []vmFinding {
+	findings := preflightFindings(vm.Preflight)
+	if len(findings) == 0 || len(preflightLikelyRole(vm)) > 0 {
+		return findings
+	}
+	for i := range findings {
+		if findings[i].Code == "preflight-failed" {
+			findings[i].Severity = vmSeverityInfo
+			findings[i].Message += ". Its name does not look like a domain controller or a SQL Server, so this does not hold its cutover."
+		}
+	}
+	return findings
+}
+
 // preflightFindings turns a check into readiness findings. They are the same
 // for every target.
 func preflightFindings(p *vmPreflight) []vmFinding {
@@ -603,7 +623,7 @@ func summarizePreflight(inventory *vmInventory) preflightSummary {
 		if vm.Preflight.sqlServer() {
 			summary.SQL++
 		}
-		for _, finding := range preflightFindings(vm.Preflight) {
+		for _, finding := range preflightFindingsFor(vm) {
 			if finding.Severity != vmSeverityInfo {
 				summary.Issues++
 			}
