@@ -130,3 +130,68 @@ func TestServerMoveRunnerUsesOnlyPowerShellRemoting(t *testing.T) {
 		}
 	}
 }
+
+func smTestDiscovery(t *testing.T) *smDiscovery {
+	t.Helper()
+	text := `{"status":"succeeded","computer":"WEB01","features":[{"name":"Web-Server","displayName":"Web Server (IIS)"},{"name":"DHCP","displayName":"DHCP Server"}],
+	"users":[{"name":"svc-shop"}],"groups":[{"name":"Shop Editors"},{"name":"Administrators","builtIn":true,"members":2}],"shares":[{"name":"Data","path":"D:\\Data"}],
+	"iis":{"installed":true,"sites":[{"name":"Shop"}],"appPools":2,"roots":[{"path":"D:\\Sites\\Shop","sizeBytes":1073741824},{"path":"D:\\Sites\\Big","sizeBytes":12884901888},{"path":"C:\\Windows\\web","reason":"The folder is inside C:\\Windows, so it is never copied."}]},
+	"certificates":[{"thumbprint":"AA11","exportable":true},{"thumbprint":"BB22","exportable":false}],
+	"dns":{"installed":true,"forwarders":["192.0.2.53"],"zones":[{"name":"partner.example.com","type":"Secondary"}]},"dhcp":{"installed":true,"authorized":true}}`
+	d, err := smParseDiscovery(smRunnerReply{Result: "\ufeff" + text})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return d
+}
+
+func TestServerMoveSelectionKeepsOnlyWhatTheOldServerListed(t *testing.T) {
+	d := smTestDiscovery(t)
+	if d.Computer != "WEB01" || len(d.Features) != 2 || len(d.IIS.Roots) != 3 || d.Warnings == nil {
+		t.Fatalf("discovery = %+v", d)
+	}
+	picked, size, err := smCleanSelection(smSelection{
+		Features: []string{"web-server", "Web-Server", "NotThere"}, IIS: true, WebRoots: []string{`d:\sites\shop`, `C:\Windows\web`},
+		Certificates: []string{"aa11", "BB22"}, Users: []string{"SVC-SHOP", "ghost"}, Groups: []string{"administrators"},
+		Shares: []string{"data"}, DNSForwarders: true, DNSZones: []string{"partner.example.com", "other.example.com"}, DHCP: true,
+	}, d, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := smSelection{Features: []string{"Web-Server"}, IIS: true, WebRoots: []string{`D:\Sites\Shop`}, Certificates: []string{"AA11"},
+		Users: []string{"svc-shop"}, Groups: []string{"Administrators"}, Shares: []string{"Data"}, DNSForwarders: true, DNSZones: []string{"partner.example.com"}, DHCP: true}
+	if got, _ := json.Marshal(picked); string(got) != string(smJSON(want)) {
+		t.Fatalf("picked = %s", got)
+	}
+	if size != 1<<30 || picked.Count() != 10 {
+		t.Fatalf("size %d count %d", size, picked.Count())
+	}
+}
+
+func smJSON(v any) []byte { data, _ := json.Marshal(v); return data }
+
+func TestServerMoveSelectionRefusals(t *testing.T) {
+	d := smTestDiscovery(t)
+	if _, _, err := smCleanSelection(smSelection{IIS: true}, nil, 10); err == nil || !strings.Contains(err.Error(), "Look at the old server first") {
+		t.Fatalf("no discovery: %v", err)
+	}
+	if _, _, err := smCleanSelection(smSelection{Features: []string{"Nope"}}, d, 10); err == nil || !strings.Contains(err.Error(), "at least one") {
+		t.Fatalf("empty: %v", err)
+	}
+	if _, _, err := smCleanSelection(smSelection{WebRoots: []string{`D:\Sites\Shop`}}, d, 10); err == nil || !strings.Contains(err.Error(), "pick IIS too") {
+		t.Fatalf("files without IIS: %v", err)
+	}
+	if _, _, err := smCleanSelection(smSelection{IIS: true, WebRoots: []string{`D:\Sites\Big`}}, d, 10); err == nil || !strings.Contains(err.Error(), "more than the 10 GB limit") {
+		t.Fatalf("over the limit: %v", err)
+	}
+	if _, size, err := smCleanSelection(smSelection{IIS: true, WebRoots: []string{`D:\Sites\Big`}}, d, 20); err != nil || size != 12<<30 {
+		t.Fatalf("raised limit: %v %d", err, size)
+	}
+	if _, err := smParseDiscovery(smRunnerReply{Result: `{"status":"failed","message":"Access is denied."}`}); err == nil || err.Error() != "Access is denied." {
+		t.Fatalf("failed list: %v", err)
+	}
+	empty := smSelection{}
+	if got := string(smJSON(empty)); !strings.Contains(got, `"features":null`) {
+		t.Fatalf("zero selection json %s", got)
+	}
+}
