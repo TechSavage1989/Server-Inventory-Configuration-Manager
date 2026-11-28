@@ -83,6 +83,21 @@ only when an operator starts them, on the computer running the console.
 
 ### Move file shares between two other servers
 
+On the **Restore** tab, **Restore from: Another server, live** moves a
+server's roles (IIS sites and files, certificates, local accounts, shares
+and the rest of the migration bundle) from an old server to a new one and
+installs nothing on either server:
+
+| Behaviour | Where | Why |
+| --- | --- | --- |
+| `powershell.exe -ExecutionPolicy RemoteSigned -File Invoke-ServerMoveRemote.ps1 -InputFromStdin` (signed script, never Bypass, no hidden-window or encoded-command flags; the account, the generated bundle passphrase and the restore's passwords arrive as one JSON line on standard input) | Admin computer (or the new server) | Opens two PowerShell remoting sessions to one server: one runs the bundle engine (old server) or the restore engine (new server) as script block text, the other reads its log every 2 seconds and passes Stop |
+| `Invoke-Command -ComputerName <old server>`, then `appcmd add backup` under the run's own name, a copy of it, and `appcmd delete backup` of that same name | Old server | The IIS configuration backup the restore uses, made the way the collector makes it |
+| `robocopy.exe /B` of website folders into the package, `icacls /save` of their permissions, `Export-PfxCertificate` of exportable certificates to a work folder protected to SYSTEM and Administrators that is always deleted | Old server | The migration bundle engine, as for **Prepare this package for a new server** |
+| `appcmd stop site` / `appcmd start site` for the named sites only, when the operator chooses Stop the sites or Start them again | Old server | Cutover and the way back |
+| `robocopy.exe /MIR` from `\\<old>\C$\ProgramData\Server Inventory and Migration Manager\Server-Move\<move>\Package` to the same folder on the new server, with `WNetAddConnection2` to each server's `IPC$` only when a different account was typed | Admin computer | Copies the package (only changes on a second copy) |
+| The restore engine's usual tools (`Install-WindowsFeature`, ADSI, `New-SmbShare`, `Import-PfxCertificate`, `appcmd restore backup`, `netsh http add sslcert`, `robocopy.exe`, `icacls /restore`) started from `wsmprovhost.exe` | New server | The restore, exactly as on the Restore tab of that server |
+| Data files only in `%ProgramData%\Server Inventory and Migration Manager\Server-Move\<OLD>_TO_<NEW>` (protected to SYSTEM and Administrators): the package (secrets sealed with a passphrase that exists only in the application's memory), restore rollback folders and a per-run folder that is removed | Both servers | Finish removes both packages |
+
 From an admin computer, **Move file shares** with **New server: Another server**
 installs nothing on either server:
 
