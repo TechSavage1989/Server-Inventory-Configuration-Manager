@@ -31,29 +31,6 @@ var hvBuildScriptData []byte
 
 const hvBuildScriptName = "Build-HyperVHost.ps1"
 
-// hvStrings reads a JSON string list that PowerShell may have written as a
-// single string or null.
-type hvStrings []string
-
-func (s *hvStrings) UnmarshalJSON(data []byte) error {
-	var list []string
-	if err := json.Unmarshal(data, &list); err == nil {
-		*s = list
-		return nil
-	}
-	var single string
-	if err := json.Unmarshal(data, &single); err == nil {
-		if single == "" {
-			*s = hvStrings{}
-		} else {
-			*s = hvStrings{single}
-		}
-		return nil
-	}
-	*s = hvStrings{}
-	return nil
-}
-
 type hvBuildAdapterFacts struct {
 	Name        string    `json:"name"`
 	Description string    `json:"description"`
@@ -62,6 +39,8 @@ type hvBuildAdapterFacts struct {
 	SpeedBits   uint64    `json:"speedBits"`
 	IPs         hvStrings `json:"ips"`
 	SwitchBound bool      `json:"switchBound"`
+	Gateway     bool      `json:"gateway"`
+	VlanID      int       `json:"vlanId"`
 }
 
 type hvBuildSwitchFacts struct {
@@ -103,8 +82,10 @@ type hvBuildNodeFacts struct {
 	Adapters          []hvBuildAdapterFacts `json:"adapters"`
 	Switches          []hvBuildSwitchFacts  `json:"switches"`
 	HostNICs          []struct {
-		Name   string `json:"name"`
-		Switch string `json:"switch"`
+		Name    string    `json:"name"`
+		Switch  string    `json:"switch"`
+		IPs     hvStrings `json:"ips"`
+		Gateway bool      `json:"gateway"`
 	} `json:"hostNics"`
 	Disks     []hvBuildDiskFacts `json:"disks"`
 	Initiator string             `json:"initiator"`
@@ -183,6 +164,7 @@ type hvBuildRuntime struct {
 	password string
 	cloudKey string
 	facts    *hvBuildFacts
+	existing *hvBuildExistingRead
 	results  map[string]*hvBuildStepResult
 	saved    []string
 	message  string
@@ -197,6 +179,7 @@ type hvBuildStateResponse struct {
 	Revision string                        `json:"revision"`
 	Steps    []hvBuildStepInfo             `json:"steps"`
 	Facts    *hvBuildFacts                 `json:"facts"`
+	Existing *hvBuildExistingRead          `json:"existing"`
 	Results  map[string]*hvBuildStepResult `json:"results"`
 	User     string                        `json:"user"`
 	HasKey   bool                          `json:"hasCloudKey"`
@@ -219,7 +202,7 @@ func (a *application) hvBuildStateLocked() *hvBuildStateResponse {
 	if r.saved == nil {
 		r.saved = a.hvBuildSavedNames()
 	}
-	response := &hvBuildStateResponse{Plan: r.plan, Facts: r.facts, Results: r.results, User: r.user, HasKey: r.cloudKey != "", Saved: r.saved, Message: r.message, Failed: r.failed, Folder: r.folder, Report: r.report, Serial: r.serial, Steps: []hvBuildStepInfo{}}
+	response := &hvBuildStateResponse{Plan: r.plan, Facts: r.facts, Existing: r.existing, Results: r.results, User: r.user, HasKey: r.cloudKey != "", Saved: r.saved, Message: r.message, Failed: r.failed, Folder: r.folder, Report: r.report, Serial: r.serial, Steps: []hvBuildStepInfo{}}
 	response.Here, _ = os.Hostname()
 	if r.plan != nil {
 		response.Revision = hvBuildRevision(*r.plan)
@@ -284,6 +267,8 @@ func (a *application) handleHVBuild(response http.ResponseWriter, request *http.
 		a.handleHVBuildAccount(response, request)
 	case "read":
 		a.handleHVBuildRead(response, request)
+	case "readexisting":
+		a.handleHVBuildReadExisting(response, request)
 	case "preview":
 		a.handleHVBuildStep(response, request, false)
 	case "apply":
@@ -301,12 +286,16 @@ func (a *application) handleHVBuildSuggest(response http.ResponseWriter, request
 		// Reuse drafts the nodes as the ESXi hosts rebuilt in place, in
 		// the order of the rolling plan's stages.
 		Reuse bool `json:"reuse"`
+		// Existing matches the draft to the Hyper-V cluster or host read
+		// with Read existing; NoVMware drafts from it alone.
+		Existing bool `json:"existing"`
+		NoVMware bool `json:"noVmware"`
 	}
 	if !decodeVMwareRequest(response, request, &input) {
 		return
 	}
 	a.mu.Lock()
-	inventory, busy, migration, busyText := a.vmware.inventory, a.vmwareBusyLocked(), a.vmware.plan, a.vmwareBusyTextLocked()
+	inventory, busy, migration, busyText, existing := a.vmware.inventory, a.vmwareBusyLocked(), a.vmware.plan, a.vmwareBusyTextLocked(), a.hvBuild.existing
 	a.mu.Unlock()
 	if busy {
 		hvBuildFail(response, http.StatusConflict, busyText+" Wait for it to finish first.")
@@ -320,10 +309,29 @@ func (a *application) handleHVBuildSuggest(response http.ResponseWriter, request
 			}
 		}
 	}
-	plan, err := hvBuildSuggestFor(inventory, strings.TrimSpace(input.Cluster), input.Reuse, order)
-	if err != nil {
-		hvBuildFail(response, http.StatusBadRequest, err.Error())
+	if input.Existing && existing == nil {
+		hvBuildFail(response, http.StatusBadRequest, "Read the existing Hyper-V cluster or host first.")
 		return
+	}
+	var base *hvBuildPlan
+	if !input.NoVMware || !input.Existing {
+		drafted, err := hvBuildSuggestFor(inventory, strings.TrimSpace(input.Cluster), input.Reuse, order)
+		if err != nil {
+			hvBuildFail(response, http.StatusBadRequest, err.Error())
+			return
+		}
+		base = &drafted
+	}
+	plan := hvBuildPlan{}
+	if input.Existing {
+		adopted, err := hvBuildAdopt(base, *existing)
+		if err != nil {
+			hvBuildFail(response, http.StatusBadRequest, err.Error())
+			return
+		}
+		plan = adopted
+	} else {
+		plan = *base
 	}
 	writeJSON(response, http.StatusOK, map[string]any{"ok": true, "plan": plan})
 }
@@ -543,12 +551,12 @@ func (a *application) handleHVBuildRead(response http.ResponseWriter, request *h
 	}
 	computers := []string{}
 	for _, node := range plan.Nodes {
-		if node.Name != "" {
+		if node.Name != "" && !node.Later {
 			computers = append(computers, node.Name)
 		}
 	}
 	if len(computers) == 0 {
-		hvBuildFail(response, http.StatusBadRequest, "Type the nodes' names first.")
+		hvBuildFail(response, http.StatusBadRequest, "Type the nodes' names first (nodes still waiting to be converted are not read).")
 		return
 	}
 	if status, message := a.startVMwareAction("hvbuild"); status != 0 {
@@ -592,6 +600,103 @@ func (a *application) handleHVBuildRead(response http.ResponseWriter, request *h
 			}
 			message = err.Error()
 			a.hvBuild.message, a.hvBuild.failed = message, true
+		}
+		a.hvBuild.serial++
+		a.mu.Unlock()
+		a.vmwareLog("%s", message)
+		a.finishVMwareAction(idle, message)
+	}()
+	writeJSON(response, http.StatusAccepted, map[string]any{"ok": true})
+}
+
+// handleHVBuildReadExisting reads an existing Hyper-V cluster (through one
+// of its nodes) or standalone host so the plan can match it. It changes
+// nothing.
+func (a *application) handleHVBuildReadExisting(response http.ResponseWriter, request *http.Request) {
+	var input struct {
+		Name string `json:"name"`
+		// Kind is join or takein.
+		Kind string `json:"kind"`
+	}
+	if !decodeVMwareRequest(response, request, &input) {
+		return
+	}
+	names := []string{}
+	for _, part := range strings.FieldsFunc(input.Name, func(r rune) bool { return r == ',' || r == ';' || r == ' ' }) {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		if !hvRemoteNodePattern.MatchString(part) {
+			hvBuildFail(response, http.StatusBadRequest, part+" is not a valid computer or DNS name.")
+			return
+		}
+		names = append(names, part)
+	}
+	if len(names) == 0 {
+		hvBuildFail(response, http.StatusBadRequest, "Type the cluster's name or one of its nodes.")
+		return
+	}
+	if len(names) > hvBuildMaxNodes {
+		hvBuildFail(response, http.StatusBadRequest, fmt.Sprintf("Type at most %d hosts.", hvBuildMaxNodes))
+		return
+	}
+	kind := "takein"
+	if input.Kind == "join" {
+		kind = "join"
+		names = names[:1]
+	}
+	a.mu.Lock()
+	user, password := a.hvBuild.user, a.hvBuild.password
+	a.mu.Unlock()
+	if status, message := a.startVMwareAction("hvbuild"); status != 0 {
+		hvBuildFail(response, status, message)
+		return
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	idle := a.vmwareIdleStatus()
+	a.mu.Lock()
+	a.vmware.cancel = cancel
+	a.vmware.status = "hvbuilding"
+	a.vmware.message = "Reading " + names[0] + "."
+	a.mu.Unlock()
+	a.vmwareLog("Reading the existing Hyper-V %s through PowerShell remoting.", names[0])
+	go func() {
+		defer cancel()
+		var answer struct {
+			ReadFrom     string               `json:"readFrom"`
+			Template     *hvBuildTemplate     `json:"template"`
+			Cluster      *hvBuildClusterFacts `json:"cluster"`
+			ClusterError string               `json:"clusterError"`
+		}
+		err := a.runHVBuild(ctx, "ReadExisting", names[:1], "", nil, false, false, user, password, "", &answer)
+		message := ""
+		a.mu.Lock()
+		switch {
+		case err != nil:
+			if errors.Is(err, context.Canceled) {
+				err = errors.New("Stopped. Nothing was changed.")
+			}
+			message = hvRemoteFriendlyError(err.Error())
+			if kind == "join" {
+				message += " If you typed the cluster's name, type one of its nodes instead."
+			}
+			a.hvBuild.message, a.hvBuild.failed = message, true
+		case answer.Template == nil:
+			message = names[0] + " answered without its setup."
+			a.hvBuild.message, a.hvBuild.failed = message, true
+		default:
+			read := &hvBuildExistingRead{Kind: kind, Names: names, ReadFrom: answer.ReadFrom, Template: answer.Template, Cluster: answer.Cluster, At: time.Now()}
+			a.hvBuild.existing = read
+			if answer.Cluster != nil {
+				message = fmt.Sprintf("Read cluster %s (%d nodes) through %s.", answer.Cluster.Name, len(answer.Cluster.Nodes), vmNonEmpty(answer.ReadFrom, names[0]))
+			} else {
+				message = "Read " + vmNonEmpty(answer.Template.Computer, names[0]) + "."
+				if answer.ClusterError != "" {
+					message += " Its cluster could not be read: " + hvRemoteFriendlyError(answer.ClusterError)
+				}
+			}
+			a.hvBuild.message, a.hvBuild.failed = message, answer.ClusterError != ""
 		}
 		a.hvBuild.serial++
 		a.mu.Unlock()

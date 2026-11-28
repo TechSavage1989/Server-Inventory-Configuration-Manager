@@ -437,6 +437,37 @@ func decodeVMwareRequest(response http.ResponseWriter, request *http.Request, va
 	return true
 }
 
+// vmwareOutputRoot is the collection output folder.
+func (a *application) vmwareOutputRoot() string {
+	a.mu.Lock()
+	root := a.defaultOutputRoot
+	a.mu.Unlock()
+	if strings.TrimSpace(root) == "" {
+		root = defaultOutputRoot()
+	}
+	return root
+}
+
+// vmwareDiscoveryFolderLocked is the one folder a read of server writes to
+// (vmDiscoveryFolder): the folder already open for that server, else
+// <output folder>\<prefix>_<server>.
+func (a *application) vmwareDiscoveryFolderLocked(root, prefix, server string) string {
+	current := ""
+	if a.vmware.inventory != nil {
+		current = a.vmware.inventory.Server
+	}
+	return vmDiscoveryFolder(root, prefix+"_"+safeName(server), server, current, a.vmware.outputFolder)
+}
+
+// writeDiscoveryOutputs writes an inventory's reports into its one folder,
+// keeping the inventory they replace in the folder's History.
+func writeDiscoveryOutputs(folder string, inventory *vmInventory) (string, error) {
+	if err := vmKeepDiscoveryHistory(folder); err != nil {
+		return "", err
+	}
+	return writeVMwareInventoryOutputs(folder, inventory)
+}
+
 // vmwareOutputFolder is a new folder in the collection output folder.
 func (a *application) vmwareOutputFolder(prefix string) string {
 	a.mu.Lock()
@@ -646,8 +677,22 @@ func (a *application) startVMwareConnect(endpoint *url.URL, user, password, thum
 			}
 		}
 		a.applySavedPreflight(inventory)
-		folder := a.vmwareOutputFolder("VMware_" + safeName(inventory.Server))
-		report, writeErr := writeVMwareInventoryOutputs(folder, inventory)
+		root := a.vmwareOutputRoot()
+		a.mu.Lock()
+		folder := a.vmwareDiscoveryFolderLocked(root, "VMware", inventory.Server)
+		a.mu.Unlock()
+		// A sign-in made by the application itself (remembered sign-ins
+		// after a restart) only refreshes the session: it writes no folder
+		// or report. The folder keeps the reports of the last read.
+		report, writeErr := "", error(nil)
+		if auto {
+			report = existingFile(filepath.Join(folder, vmReadinessReport))
+			if report == "" {
+				folder = ""
+			}
+		} else {
+			report, writeErr = writeDiscoveryOutputs(folder, inventory)
+		}
 		plan := a.loadVMwarePlan(inventory)
 		a.mu.Lock()
 		a.vmware.server, a.vmware.account, a.vmware.password = endpoint.Host, user, signIn
@@ -855,7 +900,7 @@ func (a *application) handleVMwareExportPlan(response http.ResponseWriter, reque
 		return
 	}
 	if folder == "" {
-		folder = a.vmwareOutputFolder("VMware_" + safeName(inventory.Server))
+		folder = filepath.Join(a.vmwareOutputRoot(), "VMware_"+safeName(inventory.Server))
 	}
 	runbook, planCSV, err := writeVMwarePlanOutputs(folder, inventory, *plan)
 	if err != nil {
