@@ -6,13 +6,22 @@
 <p align="center"><strong>Discover servers and virtual estates, plan the move, then migrate, replicate or restore them with one portable app.</strong></p>
 
 <p align="center">
+  <a href="https://migrationmanager.techsavage3d.com/demo/"><img src="https://img.shields.io/badge/%E2%96%B6%20Try%20the%20live%20demo-in%20your%20browser-2563eb?style=for-the-badge" alt="Try the live demo in your browser" height="40"></a>
+  &nbsp;
+  <a href="https://migrationmanager.techsavage3d.com/tour/"><img src="https://img.shields.io/badge/Take%20the%20feature%20tour-every%20tool%2C%20step%20by%20step-0f766e?style=for-the-badge" alt="Take the feature tour" height="40"></a>
+  <br>
+  <sub>No install needed. The demo runs the real interface on fictional data, and nothing touches a real server.</sub>
+</p>
+
+<p align="center">
   <a href="https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/latest">Download</a> ·
   <a href="#getting-started">Get started</a> ·
   <a href="#features">Features</a> ·
   <a href="#screenshots">Screenshots</a> ·
   <a href="#updates-and-settings">Updates</a> ·
   <a href="#development">Development</a> ·
-  <a href="https://migrationmanager.techsavage3d.com/demo/">Live demo</a>
+  <a href="https://migrationmanager.techsavage3d.com/demo/">Live demo</a> ·
+  <a href="https://migrationmanager.techsavage3d.com/tour/">Feature tour</a>
 </p>
 
 <p align="center">
@@ -21,7 +30,7 @@
 
 A portable **Windows x64 application** for collecting server inventory, exporting supported configurations, reviewing clear, searchable reports, restoring configuration, moving file shares to a new server, moving VMs off VMware or Hyper-V to Hyper-V, Scale Computing HyperCore, Nutanix AHV, Proxmox VE, Azure, Amazon EC2 or a physical server, converting virtual disks between VMDK, VHDX, VHD, qcow2 and raw, and replicating whole running servers to their new machines until cutover.
 
-Version 3.3 brings all of that together in **Migration and replication**: **New migration** walks you from picking VMs to cutover on one set of screens, **Migration plans** keep many VMs in sync with changed-block tracking, **All jobs and servers** shows and acts on every server at once, and you can open a **VM console**, **roll back** a cutover, keep **production space and bandwidth protected**, **build or join a Hyper-V cluster** from the VMware data, and **move SQL Server databases** with their logins and jobs, all from the same window.
+Version 3.3 brings all of that together in **Migration and replication**: **New migration** walks you from picking VMs to cutover on one set of screens, **Migration plans** keep many VMs in sync with changed-block tracking, **All jobs and servers** shows and acts on every server at once, and you can open a **VM console**, **roll back** a cutover, keep **production space and bandwidth protected**, **build or join a Hyper-V cluster** from the VMware data, **move SQL Server databases** with their logins and jobs, and **restore a server's roles onto a new server** with its certificates, accounts, shares and IIS sites, all from the same window.
 
 ## Features
 
@@ -71,6 +80,7 @@ Try it in a browser, no install: the **[live demo](https://migrationmanager.tech
 
 <table>
   <tr><td width="50%"><b>Choose what to restore, with each blocked item's reason</b><br><img src="docs/images/restore-choose.png" alt="Choose what to restore, with each blocked item's reason" width="440"></td><td width="50%"><b>Restore progress, one item at a time</b><br><img src="docs/images/restore-progress.png" alt="Restore progress, one item at a time" width="440"></td></tr>
+  <tr><td colspan="2"><b>Restore onto a new server: unlock the migration bundle, map the old server's addresses and drives to this one, and type each account's password</b><br><img src="docs/images/restore-new-server.png" alt="Restore tab with the migration bundle unlocked, Changes for this server mapping 10.0.0.5 and drive E: to this server, and a password field for a local account" width="880"></td></tr>
 </table>
 
 ### Migration and replication

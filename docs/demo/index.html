@@ -1004,7 +1004,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     <div class="update-banner hidden" id="updateBanner" role="region" aria-label="Application update">
       <div class="update-copy">
         <div class="update-title" id="updateTitle">Update status</div>
-        <div class="update-status" id="updateStatus">Installed v3.3.1. Update checks begin after startup.</div>
+        <div class="update-status" id="updateStatus">Installed v3.3.2. Update checks begin after startup.</div>
         <ul class="update-notes hidden" id="updateNotes"></ul>
       </div>
       <div class="update-actions">
@@ -2090,7 +2090,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
       </div></div>
     </section>
 
-    <div class="footer status-bar" role="contentinfo"><span class="brand status-brand"><span class="brand-mark" aria-hidden="true"><img src="app-icon.svg" alt="" width="16" height="16"></span><span class="brand-title">Server Inventory and Migration Manager</span></span><span class="status-item" id="statusConnection" title="This window is connected to the application running on this computer. If the application closes, this turns red."><span class="badge-dot"></span>Connected</span><span class="status-item" id="elevationBadge" title="Whether the application runs with administrator rights on this computer">Checking access</span><span class="status-versions">Interface <strong>v3.3.1</strong> · Collector <strong>v3.3.1</strong></span><span class="status-note">Everything stays on this computer; no server inventory is uploaded.</span><button class="link-button shortcuts-link" id="shortcutsButton" type="button" aria-haspopup="dialog">Keyboard shortcuts</button></div>
+    <div class="footer status-bar" role="contentinfo"><span class="brand status-brand"><span class="brand-mark" aria-hidden="true"><img src="app-icon.svg" alt="" width="16" height="16"></span><span class="brand-title">Server Inventory and Migration Manager</span></span><span class="status-item" id="statusConnection" title="This window is connected to the application running on this computer. If the application closes, this turns red."><span class="badge-dot"></span>Connected</span><span class="status-item" id="elevationBadge" title="Whether the application runs with administrator rights on this computer">Checking access</span><span class="status-versions">Interface <strong>v3.3.2</strong> · Collector <strong>v3.3.2</strong></span><span class="status-note">Everything stays on this computer; no server inventory is uploaded.</span><button class="link-button shortcuts-link" id="shortcutsButton" type="button" aria-haspopup="dialog">Keyboard shortcuts</button></div>
   </div>
 </div>
 <dialog class="shortcuts-dialog" id="shortcutsDialog" aria-labelledby="shortcutsTitle">
@@ -2218,8 +2218,8 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   <div class="shortcuts-head"><h2 id="aboutTitle">About and updates</h2><button class="secondary-button" id="aboutClose" type="button">Close</button></div>
   <div class="about-body">
     <div class="about-name">Server Inventory and Migration Manager</div>
-    <div class="about-versions">Interface v3.3.1 · Collector v3.3.1</div>
-    <div class="about-update" id="aboutUpdate" role="status" aria-live="polite"><div class="update-title" id="aboutUpdateTitle">Update status</div><div class="update-status" id="aboutUpdateStatus">Installed v3.3.1.</div></div>
+    <div class="about-versions">Interface v3.3.2 · Collector v3.3.2</div>
+    <div class="about-update" id="aboutUpdate" role="status" aria-live="polite"><div class="update-title" id="aboutUpdateTitle">Update status</div><div class="update-status" id="aboutUpdateStatus">Installed v3.3.2.</div></div>
     <div class="about-actions"><button class="secondary-button" id="updateCheckButton" type="button">Check for updates</button><button class="primary-button hidden" id="aboutShowUpdate" type="button">Show update</button></div>
     <div class="helper" id="aboutChannel">Update channel: Stable. Change it in Help, Settings.</div>
     <div class="helper">Updates are checked automatically while the application is open. Nothing is downloaded or installed until you choose to.</div>
@@ -2498,7 +2498,13 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   ];
   // The full text behind a one-line message (a finding's detail, such as a
   // remote error), folded under Details so a list stays one line per item.
-  function detailFold(parent,text){text=trimText(text||'');if(!text){return null;}var d=el('details','err-detail'),sm=el('summary','','Details');d.appendChild(sm);d.appendChild(el('pre','selectable',text));parent.appendChild(d);return d;}
+  // keepOpen keeps a <details> open or closed across the page's redraws
+  // (2026-11-28, owner: Details under a wave's SQL and DC items opened and
+  // closed again a second later, when the plan refreshed). Give every
+  // <details> built by a render that runs on a poll a stable key.
+  var keptOpen={};
+  function keepOpen(d,key,dflt){if(!key){return d;}d.open=keptOpen.hasOwnProperty(key)?keptOpen[key]:!!dflt;d.addEventListener('toggle',function(){keptOpen[key]=d.open;});return d;}
+  function detailFold(parent,text,key){text=trimText(text||'');if(!text){return null;}var d=el('details','err-detail'),sm=el('summary','','Details');d.appendChild(sm);d.appendChild(el('pre','selectable',text));keepOpen(d,'fold:'+(key||text));parent.appendChild(d);return d;}
   function errorExplain(text){text=String(text||'');for(var i=0;i<errorCatalog.length;i++){if(errorCatalog[i].re.test(text)){return errorCatalog[i];}}return null;}
   function errorHelp(text,ctx){
     var e=errorExplain(text);if(!e){return null;}ctx=ctx||{};
@@ -4605,7 +4611,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
       if(c.warnings&&c.warnings.length){var ul=el('ul','restore-warnings');c.warnings.forEach(function(w){ul.appendChild(el('li','',w));});card.appendChild(ul);}
       var items=c.items||[];
       if(items.length>1){
-        var details=el('details','restore-items'),summary=el('summary','');summary.setAttribute('data-restore-summary',c.id);details.appendChild(summary);
+        var details=keepOpen(el('details','restore-items'),'restore:'+c.id),summary=el('summary','');summary.setAttribute('data-restore-summary',c.id);details.appendChild(summary);
         items.forEach(function(item){
           var row=el('label','restore-item'+(item.available?'':' unavailable')),check=document.createElement('input'),text=el('span','');
           check.type='checkbox';check.setAttribute('data-restore-item',item.id);check.setAttribute('data-restore-parent',c.id);
@@ -4678,7 +4684,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     var nm=vmArr(scan.notMovable);
     if(nm.length){var d=el('div','restore-alert info');d.appendChild(el('strong','','Not moved by a package: '));var ul=el('ul','restore-warnings');nm.forEach(function(n){ul.appendChild(el('li','',n.role+': '+n.guidance));});d.appendChild(ul);notes.appendChild(d);}
     var w=vmArr(b.warnings);
-    if(w.length){var d2=el('details','restore-items'),sm=el('summary','',w.length===1?'1 note from when the bundle was made':w.length+' notes from when the bundle was made');d2.appendChild(sm);var ul2=el('ul','restore-warnings');w.forEach(function(x){ul2.appendChild(el('li','',x));});d2.appendChild(ul2);notes.appendChild(d2);}
+    if(w.length){var d2=keepOpen(el('details','restore-items'),'restore:notes'),sm=el('summary','',w.length===1?'1 note from when the bundle was made':w.length+' notes from when the bundle was made');d2.appendChild(sm);var ul2=el('ul','restore-warnings');w.forEach(function(x){ul2.appendChild(el('li','',x));});d2.appendChild(ul2);notes.appendChild(d2);}
   }
   // Passwords the selected items need (local users, scheduled tasks), one
   // field per account. Built again only when the needed accounts change, so
@@ -7386,7 +7392,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
         card.appendChild(el('div','vm-sub',rep.wave?('Wave '+rep.wave+': '+(vmArr(rep.waveVms).join(', ')||'no VMs left on these hosts')):'Moves no wave.'));
         var sides=el('div','vm-stage-sides');sides.appendChild(vmSideBox(src+' hosts left'+(st.host?' once '+st.host+' is empty':''),st.host||rep.source?rep.source:null));sides.appendChild(vmSideBox(vmTargetName(vmTarget())+' nodes after the wave',rep.target));card.appendChild(sides);
         vmArr(rep.notes).forEach(function(n){card.appendChild(el('div','migrate-detail',n));});
-        var det=document.createElement('details'),sum=document.createElement('summary');sum.textContent='Steps ('+vmArr(rep.steps).length+')';det.appendChild(sum);var ol=el('ol','');vmArr(rep.steps).forEach(function(x){ol.appendChild(el('li','',x));});det.appendChild(ol);card.appendChild(det);
+        var det=keepOpen(document.createElement('details'),'stage:'+i+':'+(st.host||'')),sum=document.createElement('summary');sum.textContent='Steps ('+vmArr(rep.steps).length+')';det.appendChild(sum);var ol=el('ol','');vmArr(rep.steps).forEach(function(x){ol.appendChild(el('li','',x));});det.appendChild(ol);card.appendChild(det);
       }else{card.appendChild(el('div','vm-sub','Save the plan to check this stage on both sides.'));}
       box.appendChild(card);
     });
@@ -10770,7 +10776,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
       var card=el('div','mp-go');card.setAttribute('data-mp-go',String(w));
       var head=el('div','mp-go-head');head.appendChild(el('strong','',(w?'Wave '+w:'No wave')+' · '+vmPlural(vms.length,'VM')));
       head.appendChild(el('span','mp-chip '+(block?'danger':(warn?'warning':'good')),block?'Not yet':(warn?'Check first':'Go')));card.appendChild(head);
-      var ul=el('ul');checks.forEach(function(c){var li=el('li',c.kind,c.text);if(c.untested){var mk=el('button','link-button','I tested '+(c.untested.length>1?'these':'it'));mk.type='button';mk.setAttribute('data-mp-marktested',c.untested.join(','));mk.title='Records a test you ran another way (ended by an older or stable version, or outside this plan). It changes nothing else.';li.appendChild(document.createTextNode(' '));li.appendChild(mk);}if(c.items){var sub=el('ul','mp-go-items');c.items.forEach(function(it){var x=el('li','',it.text);detailFold(x,it.detail);sub.appendChild(x);});li.appendChild(sub);}ul.appendChild(li);});card.appendChild(ul);
+      var ul=el('ul');checks.forEach(function(c){var li=el('li',c.kind,c.text);if(c.untested){var mk=el('button','link-button','I tested '+(c.untested.length>1?'these':'it'));mk.type='button';mk.setAttribute('data-mp-marktested',c.untested.join(','));mk.title='Records a test you ran another way (ended by an older or stable version, or outside this plan). It changes nothing else.';li.appendChild(document.createTextNode(' '));li.appendChild(mk);}if(c.items){var sub=el('ul','mp-go-items');c.items.forEach(function(it){var x=el('li','',it.text);detailFold(x,it.detail,'mpgo:'+p.id+':'+w+':'+it.text);sub.appendChild(x);});li.appendChild(sub);}ul.appendChild(li);});card.appendChild(ul);
       var b=el('button',block?'secondary-button':'primary-button','Cut over '+(w?'wave '+w:'these VMs')+'…');b.type='button';b.setAttribute('data-mp-gowave',String(w));b.disabled=block||mpBusy;b.title=block?'Fix the items marked with a cross first.':'Selects the '+vmPlural(vms.length,'VM')+' of this wave for the cutover below';card.appendChild(b);
       rows.appendChild(card);
     });
@@ -10960,11 +10966,11 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     if(v.errors&&v.errors.objects){box.appendChild(errLine('Instance objects could not be read: '+v.errors.objects,'restore-alert','sqobjerr'));}
     if(v.errors&&v.errors.jobs){box.appendChild(el('div','vm-note',v.errors.jobs));}
     var cfg=vmArr(v.config);
-    if(cfg.length){var d=el('details','sq-config');d.appendChild(el('summary','','Server settings that differ ('+cfg.length+')'));cfg.forEach(function(x){var l=el('label','vm-check'),i=document.createElement('input');i.type='checkbox';i.checked=!!x.default;i.setAttribute('data-sq-config',x.name);l.appendChild(i);l.appendChild(el('span','',x.name+': '+x.old+' on the old server, '+x.new+' on the new one'));d.appendChild(l);});box.appendChild(d);}
+    if(cfg.length){var d=keepOpen(el('details','sq-config'),'sqconfig');d.appendChild(el('summary','','Server settings that differ ('+cfg.length+')'));cfg.forEach(function(x){var l=el('label','vm-check'),i=document.createElement('input');i.type='checkbox';i.checked=!!x.default;i.setAttribute('data-sq-config',x.name);l.appendChild(i);l.appendChild(el('span','',x.name+': '+x.old+' on the old server, '+x.new+' on the new one'));d.appendChild(l);});box.appendChild(d);}
     var items=vmArr(v.objects);
     if(items.length){
       var groups={create:[],exists:[],manual:[],conflict:[],skip:[]};items.forEach(function(it){(groups[it.action]||groups.skip).push(it);});
-      var dd=el('details','sq-object-list');dd.appendChild(el('summary','',formatCount(groups.create.length)+' to create, '+formatCount(groups.exists.length)+' already there, '+formatCount(groups.manual.length+groups.conflict.length)+' by hand'));
+      var dd=keepOpen(el('details','sq-object-list'),'sqobjects');dd.appendChild(el('summary','',formatCount(groups.create.length)+' to create, '+formatCount(groups.exists.length)+' already there, '+formatCount(groups.manual.length+groups.conflict.length)+' by hand'));
       [['create','Created on the new server'],['conflict','Different on the new server: left as it is'],['manual','Move by hand'],['exists','Already on the new server'],['skip','Not copied']].forEach(function(g){var list=groups[g[0]];if(!list.length){return;}dd.appendChild(el('div','sq-object-head',g[1]));var ul=el('ul','sq-object-items');list.forEach(function(it){ul.appendChild(el('li','selectable',it.kind+' '+it.name+(it.detail?': '+it.detail:'')));});dd.appendChild(ul);});
       box.appendChild(dd);
     }
@@ -11087,7 +11093,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
         var ab=el('button','secondary-button',st2&&mpTime(st2.changedAt)&&!mpTime(st2.restored)?'Point it back':'Move the alias now');ab.type='button';ab.setAttribute('data-sq-act',st2&&mpTime(st2.changedAt)&&!mpTime(st2.restored)?'unalias':'alias');ab.setAttribute('data-sq-for',p.id);al.appendChild(ab);card.appendChild(al);
       }
       vmArr(p.dags).forEach(function(l){if(!mpTime(l.cutAt)||mpTime(l.removed)){return;}var row=el('div','sq-alias-row');row.appendChild(el('span','','The distributed availability group '+l.name+' still links the old and new availability groups, so Roll back can fail back. Remove it once the new server is kept.'));var b=el('button','secondary-button','Remove '+l.name);b.type='button';b.setAttribute('data-sq-act','finishdag');b.setAttribute('data-sq-ag',l.sourceAg);b.setAttribute('data-sq-for',p.id);row.appendChild(b);card.appendChild(row);});
-      if(p.objectsNote){var on=el('details','sq-objects-done');on.appendChild(el('summary','',p.objectsNote));var ul=el('ul','sq-object-items');vmArr(p.objectItems).forEach(function(it){ul.appendChild(el('li','selectable',it.kind+' '+it.name+': '+it.action+(it.detail?' ('+it.detail+')':'')));});on.appendChild(ul);card.appendChild(on);}
+      if(p.objectsNote){var on=keepOpen(el('details','sq-objects-done'),'sqdone:'+p.id);on.appendChild(el('summary','',p.objectsNote));var ul=el('ul','sq-object-items');vmArr(p.objectItems).forEach(function(it){ul.appendChild(el('li','selectable',it.kind+' '+it.name+': '+it.action+(it.detail?' ('+it.detail+')':'')));});on.appendChild(ul);card.appendChild(on);}
       if(p.note){card.appendChild(errLine(p.note,'vm-note','sqpn:'+p.id));}
       var del=el('button','link-button','Delete this plan…');del.type='button';del.setAttribute('data-sq-act','delete');del.setAttribute('data-sq-for',p.id);card.appendChild(del);
       box.appendChild(card);

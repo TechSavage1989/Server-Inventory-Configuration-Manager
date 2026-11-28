@@ -1458,6 +1458,8 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   const item=w3.locator('.mp-go-items li');assert.equal(await item.count(),1);
   assert.equal(await item.evaluate(li=>li.firstChild.textContent),'SQL01: SQL and DC checks: couldn\'t reach sql01.example.com over WinRM (TCP 5985). (2026-11-27 06:33)');
   assert(!await item.locator('pre').isVisible(),'the raw error is folded');await item.locator('summary').click();assert.equal(await item.locator('pre').textContent(),raw,'Details shows the full error');
+  // Details stays open through the plan's refreshes (3.3.1: it opened and closed again a second later).
+  await f.page.waitForTimeout(4500);assert(await item.locator('details').evaluate(d=>d.open),'Details stays open after the plan refreshes');assert(await item.locator('pre').isVisible());
   assert.equal(await w3.locator('.mp-chip').textContent(),'Check first');
   assert.deepEqual(f.errors,[]);assert.deepEqual(f.dialogs,[]);
  }finally{await f.close();}});

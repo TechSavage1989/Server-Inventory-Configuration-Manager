@@ -828,7 +828,7 @@ func assessVM(vm vmMachine, target string, now time.Time) vmReadiness {
 	if !powered && !vm.Template {
 		add(vmSeverityInfo, "powered-off", "The VM is powered off: a good first test migration.", "")
 	}
-	result.Findings = append(result.Findings, preflightFindings(vm.Preflight)...)
+	result.Findings = append(result.Findings, preflightFindingsFor(vm)...)
 
 	sort.SliceStable(result.Findings, func(i, j int) bool {
 		return vmSeverityRank(result.Findings[i].Severity) > vmSeverityRank(result.Findings[j].Severity)
