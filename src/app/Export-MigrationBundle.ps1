@@ -7,7 +7,16 @@ param(
     [switch]$IncludeWebContent,
     # Website files larger than this in total are left out and listed.
     [ValidateRange(1, 2048)][int]$WebContentLimitGB = 10,
-    [string]$CancelPath
+    [string]$CancelPath,
+    # A live move between servers (Invoke-ServerMoveRemote.ps1) runs this
+    # engine inside the old server as a script block: -Embedded returns the
+    # exit code instead of ending the session, lines go to -LogPath (read by
+    # a second session), and -Passphrase replaces standard input, which a
+    # remote script block does not have. The passphrase travels inside the
+    # encrypted remoting session only, never on a command line.
+    [string]$LogPath,
+    [switch]$Embedded,
+    [string]$Passphrase
 )
 
 # Writes the migration bundle of an inventory package: what the restore needs
@@ -30,7 +39,11 @@ param(
 $ErrorActionPreference = 'Stop'
 try { [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false) } catch { }
 
-function Write-Line { param([string]$Text) [Console]::Out.WriteLine($Text); [Console]::Out.Flush() }
+function Write-Line {
+    param([string]$Text)
+    if ($LogPath) { [System.IO.File]::AppendAllText($LogPath, $Text + "`r`n", (New-Object System.Text.UTF8Encoding($false))); return }
+    [Console]::Out.WriteLine($Text); [Console]::Out.Flush()
+}
 function Write-Log { param([string]$Level, [string]$Message) Write-Line ('{0} [{1}] {2}' -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $Level, $Message) }
 
 function Write-Utf8File {
@@ -512,10 +525,15 @@ try {
     if (-not (Test-Path -LiteralPath (Join-Path $package '00-Summary') -PathType Container)) { throw 'The package folder was not found.' }
     $bundleFolder = Join-Path $package '09-Migration-Bundle'
     if (Test-Path -LiteralPath $bundleFolder) { throw 'The package already has a migration bundle.' }
-    $line = [Console]::In.ReadLine()
-    $passphrase = ''
-    if ($line) { try { $passphrase = [string](ConvertFrom-Json -InputObject $line).passphrase } catch { } }
-    $line = $null
+    # PowerShell variable names ignore case: $passphrase IS the -Passphrase
+    # parameter, so it is only read from standard input when not embedded.
+    if ($Embedded) { $passphrase = [string]$Passphrase }
+    else {
+        $passphrase = ''
+        $line = [Console]::In.ReadLine()
+        if ($line) { try { $passphrase = [string](ConvertFrom-Json -InputObject $line).passphrase } catch { } }
+        $line = $null
+    }
     if ($passphrase.Length -lt 12) { throw 'The bundle passphrase must be at least 12 characters.' }
     New-Item -Path $bundleFolder -ItemType Directory -Force | Out-Null
     # Plain PFX files and keys exist only here, in a folder only SYSTEM and
@@ -600,7 +618,7 @@ try {
 
     $summary = [ordered]@{
         status = 'succeeded'; bundlePath = $bundleFolder; features = $features.Count; localUsers = @($accounts.users).Count; localGroups = @($accounts.groups).Count
-        shares = @($shares | Where-Object { -not $_.special }).Count; iisSites = @($iis.sites).Count
+        shares = @($shares | Where-Object { -not $_.special }).Count; iisSites = @($iis.sites).Count; siteNames = @($iis.sites | ForEach-Object { [string]$_.name })
         certificatesInBundle = @($certificates | Where-Object { $_.inBundle }).Count; certificatesLeftOut = @($certificates | Where-Object { -not $_.inBundle }).Count
         iisPasswords = [int]$iis.passwordsInBundle; webContentFolders = @($content | Where-Object { $_.included }).Count; warnings = @($script:Warnings)
     }
@@ -618,4 +636,5 @@ catch {
 finally {
     if ($workFolder -and (Test-Path -LiteralPath $workFolder)) { Remove-Item -LiteralPath $workFolder -Recurse -Force -ErrorAction SilentlyContinue }
 }
+if ($Embedded) { return $exitCode }
 exit $exitCode

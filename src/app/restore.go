@@ -60,6 +60,10 @@ type restoreStateResponse struct {
 	// HasPassphrase says a bundle passphrase is held for this package (never
 	// the passphrase).
 	HasPassphrase bool `json:"hasPassphrase"`
+	// Live: the package is a live move's copy (Restore tab, "Another
+	// server, live"); Target names the server it restores onto.
+	Live   bool   `json:"live"`
+	Target string `json:"target"`
 }
 
 type restoreRuntime struct {
@@ -84,6 +88,10 @@ type restoreRuntime struct {
 	passphrase    string
 	changes       restoreChanges
 	restartNeeded bool
+	// remote is set when the package is a live move's copy on another
+	// server: the check and the restore run inside that server
+	// (servermove_windows.go).
+	remote *smRestoreTarget
 }
 
 // Caller holds a.mu.
@@ -126,6 +134,8 @@ func (a *application) restoreSnapshotLocked() restoreStateResponse {
 		RollbackPath:    a.restore.rollbackPath,
 		RestartNeeded:   a.restore.restartNeeded,
 		HasPassphrase:   a.restore.passphrase != "",
+		Live:            a.serverMove.packagePath != "" && strings.EqualFold(a.restore.packagePath, a.serverMove.packagePath),
+		Target:          restoreTargetName(a.restore.remote, a.computerName),
 		CancelRequested: a.restore.cancelAsked && a.restore.status == "running",
 		StartedAtUnixMs: toMillis(a.restore.startedAt),
 		EndedAtUnixMs:   toMillis(a.restore.endedAt),
@@ -333,9 +343,21 @@ func (a *application) handleRestoreScan(response http.ResponseWriter, request *h
 		// Passphrase: typed now; empty keeps the one held for this package.
 		Passphrase string         `json:"passphrase"`
 		Changes    restoreChanges `json:"changes"`
+		// Live: check the live move's copy again (a changed mapping).
+		Live bool `json:"live"`
 	}
 	if err := json.NewDecoder(io.LimitReader(request.Body, restoreSecretsRequestLimit)).Decode(&input); err != nil {
 		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "The restore request was invalid."})
+		return
+	}
+	if input.Live {
+		input.Passphrase = ""
+		if err := a.startServerMoveScan(input.Changes); err != nil {
+			status := http.StatusConflict
+			writeJSON(response, status, map[string]any{"ok": false, "error": err.Error()})
+			return
+		}
+		writeJSON(response, http.StatusAccepted, map[string]any{"ok": true})
 		return
 	}
 	packagePath, err := cleanPackagePath(input.PackagePath)
@@ -389,6 +411,15 @@ func (a *application) handleRestoreScan(response http.ResponseWriter, request *h
 		a.restore.message = "Choose what to restore."
 	}()
 	writeJSON(response, http.StatusAccepted, map[string]any{"ok": true})
+}
+
+// scanRestorePackageAt checks a package on this computer (remote nil) or a
+// live move's copy inside another server.
+func (a *application) scanRestorePackageAt(packagePath, passphrase string, changes restoreChanges, remote *smRestoreTarget) (*restoreScan, error) {
+	if remote != nil {
+		return a.runRemoteRestoreScan(remote, passphrase, changes)
+	}
+	return a.scanRestorePackage(packagePath, passphrase, changes)
 }
 
 func (a *application) scanRestorePackage(packagePath, passphrase string, changes restoreChanges) (*restoreScan, error) {
@@ -473,18 +504,44 @@ func (a *application) handleRestoreStart(response http.ResponseWriter, request *
 		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "The restore request was invalid."})
 		return
 	}
-	if !a.admin {
-		writeJSON(response, http.StatusForbidden, map[string]any{"ok": false, "error": "Restoring needs administrator rights. Close the application and run it as administrator."})
-		return
+	a.mu.Lock()
+	remote := a.restore.remote
+	remoteScan := a.restore.scan
+	live := a.serverMoveOwnsLocked(input.PackagePath)
+	a.mu.Unlock()
+	if remote != nil {
+		// A live move restores inside the new server: the check there said
+		// whether the account is an administrator, and the confirmation names
+		// that server.
+		if remoteScan == nil || !live {
+			writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "Check the package on the new server again before restoring."})
+			return
+		}
+		if !remoteScan.IsAdministrator {
+			writeJSON(response, http.StatusForbidden, map[string]any{"ok": false, "error": "The account used for " + remote.Server + " is not an administrator there."})
+			return
+		}
+		if !smSameServer(strings.TrimSpace(input.ConfirmComputerName), remoteScan.CurrentComputer) {
+			writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "Confirm with the new server's name, " + remoteScan.CurrentComputer + "."})
+			return
+		}
+	} else {
+		if !a.admin {
+			writeJSON(response, http.StatusForbidden, map[string]any{"ok": false, "error": "Restoring needs administrator rights. Close the application and run it as administrator."})
+			return
+		}
+		if !strings.EqualFold(strings.TrimSpace(input.ConfirmComputerName), a.computerName) {
+			writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "Type this server's name, " + a.computerName + ", to confirm the restore."})
+			return
+		}
 	}
-	if !strings.EqualFold(strings.TrimSpace(input.ConfirmComputerName), a.computerName) {
-		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "Type this server's name, " + a.computerName + ", to confirm the restore."})
-		return
-	}
-	packagePath, err := cleanPackagePath(input.PackagePath)
-	if err != nil {
-		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": err.Error()})
-		return
+	packagePath := strings.TrimSpace(input.PackagePath)
+	if remote == nil {
+		var err error
+		if packagePath, err = cleanPackagePath(input.PackagePath); err != nil {
+			writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": err.Error()})
+			return
+		}
 	}
 	if !a.beginCriticalOperation() {
 		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "An update is being installed."})
@@ -516,6 +573,14 @@ func (a *application) handleRestoreStart(response http.ResponseWriter, request *
 		fail(http.StatusConflict, "A disk conversion is running. Wait for it to finish before restoring.")
 		return
 	}
+	if a.serverMoveBusyLocked() {
+		fail(http.StatusConflict, "A server move step is running. Wait for it to finish before restoring.")
+		return
+	}
+	if a.restore.remote != remote {
+		fail(http.StatusConflict, "Check the package again before restoring.")
+		return
+	}
 	if a.restore.scan == nil || !strings.EqualFold(a.restore.packagePath, packagePath) {
 		fail(http.StatusConflict, "Check this package again before restoring.")
 		return
@@ -540,7 +605,13 @@ func (a *application) handleRestoreStart(response http.ResponseWriter, request *
 	passphrase := a.restore.passphrase
 	stamp := time.Now().Format("20060102_150405")
 	rollback := filepath.Join(a.update.appDataRoot, "Restore-Rollback", stamp+"_"+safeName(scan.PackageName))
+	if remote != nil {
+		// The rollback folder is on the new server (the runner reports it);
+		// this computer keeps the log.
+		rollback = filepath.Join(a.update.appDataRoot, "Restore-Rollback", stamp+"_"+safeName(scan.PackageName)+"_on_"+safeName(smShortName(remote.Server)))
+	}
 	a.restore = restoreRuntime{
+		remote:       remote,
 		status:       "running",
 		message:      fmt.Sprintf("Restoring %d item(s).", total),
 		packagePath:  packagePath,
@@ -618,6 +689,21 @@ func (a *application) runRestore(packagePath string, selections []restoreSelecti
 	a.restoreLog("Package: %s", packagePath)
 	a.restoreLog("Rollback folder: %s", rollback)
 	a.logUpdate("Restore started from %s; rollback folder %s", packagePath, rollback)
+	a.mu.Lock()
+	remote := a.restore.remote
+	a.mu.Unlock()
+	if remote != nil {
+		a.restoreLog("Restoring onto %s through PowerShell remoting.", remote.Server)
+		code, remoteRollback, err := a.runRemoteRestore(remote, map[string]any{"components": selections, "mappings": changes}, passphrase, passwords, cancelPath)
+		if remoteRollback != "" {
+			a.mu.Lock()
+			a.restore.rollbackPath = remoteRollback
+			a.mu.Unlock()
+			a.restoreLog("Rollback folder on %s: %s", remote.Server, remoteRollback)
+		}
+		a.finishRestoreRun(code, err)
+		return
+	}
 	command := exec.Command(a.powerShellPath, "-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
 		"-File", script, "-Mode", "Restore", "-PackagePath", packagePath, "-PlanPath", planPath, "-RollbackPath", rollback, "-CancelPath", cancelPath, "-SecretsFromInput")
 	command.Stdin = restoreSecretsInput(passphrase, passwords)
@@ -629,9 +715,6 @@ func (a *application) runRestore(packagePath string, selections []restoreSelecti
 		a.applyRestoreLineLocked(line)
 		a.mu.Unlock()
 	})
-	a.mu.Lock()
-	final := a.restore.finalEvent
-	a.mu.Unlock()
 	exitCode := 0
 	if waitErr != nil {
 		var exitErr *exec.ExitError
@@ -641,6 +724,15 @@ func (a *application) runRestore(packagePath string, selections []restoreSelecti
 			exitCode = -1
 		}
 	}
+	a.finishRestoreRun(exitCode, waitErr)
+}
+
+// finishRestoreRun turns the engine's exit code and final event into the
+// restore's end state.
+func (a *application) finishRestoreRun(exitCode int, waitErr error) {
+	a.mu.Lock()
+	final := a.restore.finalEvent
+	a.mu.Unlock()
 	switch {
 	case exitCode == 0 && final == "succeeded":
 		a.finishRestore("succeeded", "Restore complete. The configuration saved before each change is in the rollback folder.")
@@ -732,4 +824,12 @@ func restoreSecretsInput(passphrase string, passwords map[string]string) io.Read
 	}
 	data, _ := json.Marshal(map[string]any{"passphrase": passphrase, "passwords": passwords})
 	return strings.NewReader(string(data) + "\n")
+}
+
+// restoreTargetName is the server a restore changes.
+func restoreTargetName(remote *smRestoreTarget, here string) string {
+	if remote != nil {
+		return remote.Server
+	}
+	return here
 }
