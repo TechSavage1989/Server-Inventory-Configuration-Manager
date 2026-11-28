@@ -210,10 +210,10 @@ func (a *application) guestAutoTarget(vm vmMachine, hyperVID, host string) (gues
 // back puts them back exactly), then the automatic fix-up of the new VM in
 // the background. plan names the migration plan ("" for Move VMs). It
 // returns notes for the move result; nothing here fails the cutover.
-func (a *application) afterCutover(ctx context.Context, vm vmMachine, hyperVID, host string, started, disconnect, fixUp bool, options vmConnectOptions, recordFolder, plan string, log func(string)) []string {
+func (a *application) afterCutover(ctx context.Context, vm vmMachine, hyperVID, host string, started, disconnect, keepName, fixUp bool, options vmConnectOptions, recordFolder, plan string, log func(string)) []string {
 	notes := []string{}
-	adapterRecord := ""
-	defer func() { a.recordVMCutover(vm, hyperVID, host, plan, adapterRecord) }()
+	adapterRecord, nameRecord := "", ""
+	defer func() { a.recordVMCutover(vm, hyperVID, host, plan, adapterRecord, nameRecord) }()
 	if disconnect && vm.Source != vmSourceHyperV {
 		changed, record, err := vmDisconnectSourceAdaptersRecord(ctx, options, vm.ID, vm.Name, recordFolder, log)
 		adapterRecord = record
@@ -222,6 +222,19 @@ func (a *application) afterCutover(ctx context.Context, vm vmMachine, hyperVID, 
 			notes = append(notes, "The old VM's network adapters were not disconnected: "+err.Error()+".")
 		case changed > 0:
 			notes = append(notes, fmt.Sprintf("The old VM's %d network adapter(s) were set to not connect.", changed))
+		}
+	}
+	if !keepName && vm.Source != vmSourceHyperV {
+		target := host
+		if target == "" {
+			target = "Hyper-V host " + a.computerName
+		}
+		newName, record, err := vmMarkSourceMigrated(ctx, options, vm.ID, vm.Name, target, recordFolder, log)
+		nameRecord = record
+		if err != nil {
+			notes = append(notes, "The old VM was not renamed: "+err.Error()+".")
+		} else {
+			notes = append(notes, "The old VM was renamed "+newName+" and given a note saying it was migrated.")
 		}
 	}
 	for _, note := range notes {
@@ -268,17 +281,18 @@ func (a *application) startAutoFixup(vm vmMachine, hyperVID, host string, again 
 	if target.Mode == "hostdirect" {
 		via = "PowerShell Direct through " + target.Host
 	}
-	a.fixups.Set(guestFixStatus{VM: vm.Name, HyperVID: hyperVID, Host: host, Via: via, State: guestFixWaiting, Message: "Waiting for Windows in " + vm.Name + " to start.", Started: time.Now().UTC()})
+	wait := guestAutoFixWait
+	if again {
+		wait = 3 * time.Minute
+	}
+	now := time.Now().UTC()
+	a.fixups.Set(guestFixStatus{VM: vm.Name, HyperVID: hyperVID, Host: host, Via: via, State: guestFixWaiting, Message: "Waiting for Windows in " + vm.Name + " to start.", Started: now, WaitUntil: now.Add(wait)})
 	go func() {
 		defer a.endCriticalOperation()
-		wait := guestAutoFixWait
-		if again {
-			wait = 3 * time.Minute
-		}
-		a.vmwareLog("Fixing up %s through %s once Windows answers.", vm.Name, via)
+		a.vmwareLogFor(vm.Name, "Fixing up %s through %s once Windows answers.", vm.Name, via)
 		raw, err := a.runGuestRemoteWith(target, "AutoFixup", plan, guestRemoteExtra{WaitSeconds: int(wait / time.Second), VMID: hyperVID, Started: func() {
 			a.fixups.Update(vm.Name, guestFixRunning, "Windows answers; fixing up "+vm.Name+".")
-		}})
+		}, Waiting: func(reason string) { a.fixups.Tried(vm.Name, reason) }, LogVM: vm.Name})
 		target.password = ""
 		var report *guestAutoFixReport
 		state := guestFixFailed
@@ -300,7 +314,7 @@ func (a *application) startAutoFixup(vm vmMachine, hyperVID, host string, again 
 			status.Steps = report.Steps
 		}
 		a.fixups.Set(status)
-		a.vmwareLog("%s", message)
+		a.vmwareLogFor(vm.Name, "%s", message)
 	}()
 	return nil
 }
@@ -311,6 +325,11 @@ type guestRemoteExtra struct {
 	VMID        string
 	// Started is called once the guest engine starts inside the VM.
 	Started func()
+	// Waiting is called with Windows' answer each time the wait for the
+	// VM logs a try that did not get in.
+	Waiting func(reason string)
+	// LogVM also writes every line to this VM's own log.
+	LogVM string
 }
 
 func (a *application) runGuestRemoteWith(target guestTarget, mode string, plan []byte, extra guestRemoteExtra) (json.RawMessage, error) {

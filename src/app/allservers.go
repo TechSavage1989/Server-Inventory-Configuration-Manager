@@ -329,7 +329,7 @@ func asPlanRow(plan mbPlanView, vm mbVMView, now time.Time) asRow {
 	case vm.State == mbDone:
 		row.State, row.Reason = asCutOver, "Cut over: the Hyper-V VM was created from the final copy."
 	case vm.State == mbCutting:
-		row.State, row.Reason = asCuttingOver, "The guest is shut down and the final copy is running."
+		row.State, row.Reason = asCuttingOver, asCutoverReason(vm.Live)
 	case vm.State == mbTesting || vm.Test != nil:
 		row.State, row.Reason = asTesting, "A test VM runs on differencing disks; syncs wait until the test ends."
 	case plan.Paused:
@@ -1095,4 +1095,19 @@ func asConsolesFor(row asRow, in asInput) []asConsole {
 		}
 	}
 	return list
+}
+
+// asCutoverReason says which step a plan VM's cutover is on.
+func asCutoverReason(live *mbLiveView) string {
+	if live != nil {
+		switch live.Phase {
+		case "shutdown":
+			return "The guest is being shut down before the final copy."
+		case "verify":
+			return fmt.Sprintf("The final copy is done; the new disks are being read back and checked (%d%%).", live.VerifyPercent)
+		case "create":
+			return "The final copy is verified; the new VM is being created."
+		}
+	}
+	return "The guest is shut down and the final copy is running."
 }

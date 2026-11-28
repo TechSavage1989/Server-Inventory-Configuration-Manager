@@ -197,7 +197,7 @@ func (t *mbHostTarget) remoteCreate(ctx context.Context, plan *mbPlan, vm *mbVM,
 	connect := vmConnectOptions{Server: a.vmware.server, User: a.vmware.account, Password: a.vmware.password, Thumbprint: a.vmware.thumbprint, UserAgent: displayName + " " + appVersion, AppVersion: appVersion}
 	a.mu.Unlock()
 	notes = append(notes, "Created on "+node+".")
-	notes = append(notes, a.afterCutover(ctx, m, result.HyperVID, node, plan.Settings.StartVMs, plan.Settings.DisconnectSource, plan.Settings.FixUp, connect,
+	notes = append(notes, a.afterCutover(ctx, m, result.HyperVID, node, plan.Settings.StartVMs, plan.Settings.DisconnectSource, plan.Settings.KeepSourceName, plan.Settings.FixUp, connect,
 		filepath.Join(a.vmwareRoot(), safeName(strings.ToLower(plan.Server)), "Move"), plan.Name, log)...)
 	return result.HyperVID, notes, nil
 }
@@ -301,11 +301,11 @@ func hvRemoteTestScript(hyperV *vmHyperVPlan, folder string, copies, children []
 func hvRemoteEndTestScript(test *mbTest) string {
 	script := ""
 	if test.VMID == "" {
-		script = fmt.Sprintf("Import-Module Hyper-V\nif (Get-VM -Name %s -ErrorAction SilentlyContinue) { throw ('A VM named ' + %s + ' exists but this application did not record its ID; remove it in Hyper-V Manager, then end the test again.') }\n", vmPSQuote(test.Name), vmPSQuote(test.Name))
+		script = fmt.Sprintf("Import-Module Hyper-V\nif (Hyper-V\\Get-VM -Name %s -ErrorAction SilentlyContinue) { throw ('A VM named ' + %s + ' exists but this application did not record its ID; remove it in Hyper-V Manager, then end the test again.') }\n", vmPSQuote(test.Name), vmPSQuote(test.Name))
 	}
 	script += replFailoverEndScript(replFailover{VMID: test.VMID, Name: test.Name, Copies: test.Copies, Children: test.Children}, test.Folder)
 	if test.VMID == "" {
-		script = strings.Replace(script, "$vm = Get-VM -Id ''", "$vm = $null", 1)
+		script = strings.Replace(script, "$vm = Hyper-V\\Get-VM -Id ''", "$vm = $null", 1)
 	}
 	return script
 }

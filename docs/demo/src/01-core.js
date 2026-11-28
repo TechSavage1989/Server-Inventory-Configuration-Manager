@@ -107,6 +107,13 @@ on('/api/open',function(q){
   demoToast('In the real application this opens '+what+' on this computer.');}
  return ok();
 });
+on('/api/vmlog',function(q){
+ var vm=q.method==='GET'?(q.query.get('vm')||''):String(q.data.vm||'');
+ if(q.method==='POST'){demoToast('In the real application Save as asks where to save '+(vm||'the VMware log')+' and writes it there.');return ok({cancelled:true});}
+ var name=vm||'VMware',base='C:\\Users\\admin\\AppData\\Local\\Server Inventory Configuration Manager\\Logs\\';
+ var lines=vm?['2026-11-27 21:10:04 Plan: '+vm+': Recorded '+vm+'\'s network settings from vCenter (1 adapter(s)).','2026-11-27 21:10:05 Plan: '+vm+': Taking the replication snapshot.','2026-11-27 21:10:06 Plan: '+vm+': Hard disk 1: reading through VDDK (nbdssl), only the blocks this round needs.','2026-11-27 21:10:31 Plan: '+vm+': Hard disk 1: changed copy finished, 1.2 GB read, 1.2 GB written.','2026-11-27 21:10:32 Plan: '+vm+': changed blocks through VDDK, 0.1 GB reported by change tracking, 1.2 GB read, 1.2 GB written in 26s.']:['2026-11-27 21:10:00 Plan: 3 VM(s) are due for a sync.','2026-11-27 21:10:32 Plan: APP01: changed blocks through VDDK, 1.2 GB read in 26s.'];
+ return ok({vm:vm,text:lines.join('\n')+'\n',path:vm?base+'VMs\\'+name+'.log':base+'VMware.log',exists:true});
+});
 on('/api/pick',function(q){var k=q.data.kind;return ok({selected:true,path:k==='remote'?'C:\\ClusterStorage\\Volume1\\Hyper-V':k==='file'?'D:\\Media\\SIMM-Receiver.iso':'D:\\Migration'});});
 on('/api/browse',function(){return ok({selected:true,path:'D:\\Reports'});});
 on('/api/browse-report',function(){S.loadedReportSerial++;S.loadedReportAvailable=true;S.loadedReportName='HV01_2026-11-27_1810';return ok({selected:true,path:S.loadedReportPath});});

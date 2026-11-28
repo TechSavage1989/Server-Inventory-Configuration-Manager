@@ -198,7 +198,7 @@ func (a *application) handleConvertForget(response http.ResponseWriter, request 
 
 // vmHyperVSwitches lists this computer's Hyper-V virtual switches.
 func vmHyperVSwitches() ([]vmTargetChoice, error) {
-	out, err := vmRunPowerShell("Import-Module Hyper-V; Get-VMSwitch | ForEach-Object { [Console]::Out.WriteLine($_.Name + [char]9 + [string]$_.SwitchType) }")
+	out, err := vmRunPowerShell("Import-Module Hyper-V; Hyper-V\\Get-VMSwitch | ForEach-Object { [Console]::Out.WriteLine($_.Name + [char]9 + [string]$_.SwitchType) }")
 	if err != nil {
 		return nil, err
 	}
