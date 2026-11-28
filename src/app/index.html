@@ -7427,7 +7427,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   // failover cluster (hyperv_remote*.go). Copies are written onto the node's
   // storage through its administrative share, or through a receiver started
   // on the node; the cutover creates the VM there. Nothing is installed.
-  var vmHvrSerial=-1,vmHvrForm={where:'',host:'',user:'',node:'',folder:'',vmFolder:'',path:'share',address:'',thumbprint:'',code:'',keepMac:false,start:true,disconnect:true,fixUp:true,cluster:false,quiesce:null};
+  var vmHvrSerial=-1,vmHvrForm={where:'',host:'',user:'',node:'',folder:'',vmFolder:'',path:'share',address:'',thumbprint:'',code:'',keepMac:false,start:true,disconnect:true,markSource:true,fixUp:true,cluster:false,quiesce:null};
   var vmHvrWorks='vCenter Server or ESXi 6.5, 6.7, 7.0 or 8.0 (ESXi with a vSphere license: the free ESXi Hypervisor\'s API is read-only) to Hyper-V on Windows Server 2012 R2, 2016, 2019, 2022 or 2025, or Hyper-V Server 2012 R2 to 2019: a standalone host, or a failover cluster with Cluster Shared Volumes. A virtual TPM needs Windows Server 2016 or later.';
   function vmHvrWhere(){var v=vmwareState()||{};if(vmHvrForm.where){return vmHvrForm.where;}return (v.hvRemote&&v.hvRemote.connected)||v.hyperVHere===false?'remote':'here';}
   function vmHvrInput(key,label,options){options=options||{};var wrap=el('label','vm-field'),input=document.createElement('input');input.type=options.type||'text';input.maxLength=options.max||260;input.autocomplete='off';input.spellcheck=false;input.setAttribute('data-hvr',key);if(options.placeholder){input.placeholder=options.placeholder;}
