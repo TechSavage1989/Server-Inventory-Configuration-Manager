@@ -90,6 +90,8 @@ async function fixture(browser,old=false){
   restore:{status:'idle',packages:{lastCollection:'',loadedReport:''},items:[],logs:[]},migrate:migrateIdle(),vmware:vmwareIdle(),convert:convertIdle()};
  const vm={inventory:null,plan:null,sizing:null,guest:null,compare:null};
  const rollbackCalls=[];
+ const sqlCalls=[];
+ const sqlFix=sqlFixture();
  const failover={failovers:[],copies:[{name:'APP01-disk0.vhdx',size:107374182400,complete:true,verified:false,round:'a1@2026-11-25T14:19:23Z',job:'a1',recoveryPoint:'2026-11-25T14:19:23Z',updated:'2026-11-25T14:20:00Z',busy:false,generation:2,machine:{name:'APP01',cpus:6,memoryMB:12288,firmware:'uefi',adapters:2}},{name:'APP01-disk1.vhdx',size:536870912000,complete:true,verified:false,round:'a1@2026-11-25T14:19:23Z',job:'a1',recoveryPoint:'2026-11-25T14:19:23Z',updated:'2026-11-25T14:20:00Z',busy:false,generation:1},{name:'SQL01-disk0.vhdx',size:107374182400,complete:false,verified:false,updated:'2026-11-25T14:20:00Z',busy:true,generation:1}]};
  const targetTest={running:false,log:[],error:'',tests:[]};
  const repl={ok:true,pushing:false,pushLog:[],pushResults:null,serial:0,isAdministrator:true,defaultPort:44390,agents:[],summary:{agents:0,unreachable:0,jobs:0,healthy:0,behind:0,failing:0,paused:0,cutOver:0,alerts:0}};
@@ -315,6 +317,22 @@ async function fixture(browser,old=false){
   }
   if(url.pathname==='/api/output-root'){let body='';for await(const chunk of req)body+=chunk;const data=JSON.parse(body);outputRootCalls.push(data);if(data.outputRoot==='Q:\\NoSuchDrive'){send(400,{ok:false,error:'Reports cannot be saved there: synthetic failure.'});return;}state.defaultOutputRoot=data.outputRoot;send(200,{ok:true,outputRoot:data.outputRoot,saved:true});return;}
   if(url.pathname==='/api/pick'){let body='';for await(const chunk of req)body+=chunk;const data=JSON.parse(body);pickCalls.push(data);if(pickReject){send(400,{ok:false,error:pickReject});return;}send(200,{ok:true,selected:true,path:data.kind==='remote'?'C:\\ClusterStorage\\Volume1\\Picked':data.kind==='file'?'E:\\Media\\receiver.iso':'E:\\Picked'});return;}
+  if(url.pathname.startsWith('/api/sql/')){
+   if(req.headers['x-app-token']!=='workspace-test'){send(403,{});return;}
+   const action=url.pathname.slice(9);let body='';for await(const chunk of req)body+=chunk;const data=body?JSON.parse(body):{};sqlCalls.push({action,body:data});
+   if(action==='state'){send(200,{ok:true,sql:sqlFix});return;}
+   if(action==='read'){sqlFix.read=sqlReadView();sqlFix.message='Read OLDSQL and NEWSQL.';send(202,{ok:true});return;}
+   if(action==='check'){send(200,{ok:true,findings:[{db:'Sales',severity:'warning',code:'compat',message:'Compatibility level 110 stays as it is on the new server.'}]});return;}
+   if(action==='checkfolder'){send(200,{ok:true,message:'Both SQL Server services can use '+data.backupPath+'.'});return;}
+   if(action==='create'){if(data.confirm!==data.name){send(400,{ok:false,error:'Confirm the plan\'s name to start it.'});return;}sqlFix.plans.push(sqlPlanFixture('q2',data.name,data.databases.map(d=>Object.assign(sqlDbFixture(d.name,d.method,'waiting'),{wave:d.wave}))));send(200,{ok:true,plan:'q2',findings:[]});return;}
+   if(action==='action'){const p=sqlFix.plans.find(x=>x.id===data.plan);if(!p){send(404,{ok:false,error:'That SQL plan no longer exists.'});return;}
+    if(['cutover','schedule','rollback'].includes(data.action)&&data.confirm!==String(data.names.length)){send(400,{ok:false,error:'Confirm '+data.names.length+'.'});return;}
+    if(data.action==='cutover'){p.databases.filter(d=>data.names.includes(d.name)).forEach(d=>{d.state='cutting';d.step='Backing up the tail of the log';});}
+    if(data.action==='test'){p.databases.filter(d=>data.names.includes(d.name)).forEach(d=>{d.test={name:d.name+'_TEST',id:7,created:'2026-11-28T10:00:00Z'};});}
+    if(data.action==='delete'){if(data.confirm!==p.name){send(400,{ok:false,error:'Confirm the plan name.'});return;}sqlFix.plans=sqlFix.plans.filter(x=>x!==p);}
+    send(200,{ok:true});return;}
+   send(200,{ok:true});return;
+  }
   if(url.pathname.startsWith('/api/rollback/')){
    if(req.headers['x-app-token']!=='workspace-test'){send(403,{});return;}
    const action=url.pathname.slice('/api/rollback/'.length);
@@ -335,8 +353,22 @@ async function fixture(browser,old=false){
  const url='http://127.0.0.1:'+server.address().port+'/';
  // A fixture that fails to load closes its own server and context; otherwise Node never exits and the job hangs until its timeout.
  try{await page.goto(url);await page.waitForFunction(()=>document.querySelector('#serverName').textContent==='SRV-DEMO-01');}catch(e){await context.close().catch(()=>{});server.close();throw new Error('Fixture page did not load ('+errors.concat(dialogs).join('; ')+'): '+e.message);}
- return {consoleCalls,consoleStreams,consoleOpt,page,context,state,profiles,profileCalls,rollbackCalls,uiCalls,vddkCalls,channelCalls,productionCalls,pickCalls,outputRootCalls,rejectPick(message){pickReject=message},vm,repl,plans,planCalls,servers,serverCalls,failover,receiverPair,targetTest,replCalls,vmwareCalls,convertCalls,rejectConvert(action,message){convertReject[action]=message},setConvertSize(size){convertSize=size},rejectVmware(action,message){vmwareReject[action]=message},logs,dialogs,errors,started,skipRequests,opens,restoreCalls,migrateCalls,rejectMigrate(action,message){migrateReject[action]=message},rejectRestore(message){restoreReject=message},get saved(){return saved},get saveCalls(){return saveCalls},reject(){rejectStart=true},async close(){assert.deepEqual(errors,[]);await context.close();await new Promise(r=>server.close(r));}};
+ return {sqlCalls,sqlFix,consoleCalls,consoleStreams,consoleOpt,page,context,state,profiles,profileCalls,rollbackCalls,uiCalls,vddkCalls,channelCalls,productionCalls,pickCalls,outputRootCalls,rejectPick(message){pickReject=message},vm,repl,plans,planCalls,servers,serverCalls,failover,receiverPair,targetTest,replCalls,vmwareCalls,convertCalls,rejectConvert(action,message){convertReject[action]=message},setConvertSize(size){convertSize=size},rejectVmware(action,message){vmwareReject[action]=message},logs,dialogs,errors,started,skipRequests,opens,restoreCalls,migrateCalls,rejectMigrate(action,message){migrateReject[action]=message},rejectRestore(message){restoreReject=message},get saved(){return saved},get saveCalls(){return saveCalls},reject(){rejectStart=true},async close(){assert.deepEqual(errors,[]);await context.close();await new Promise(r=>server.close(r));}};
 }
+// Move SQL databases: a synthetic read of two servers and one plan.
+function sqlDbFixture(name,method,state){return {name,method,wave:0,state,facts:{name},nextTry:'0001-01-01T00:00:00Z',seeded:state==='ready'||state==='done'?'2026-11-28T08:00:00Z':'0001-01-01T00:00:00Z',lastRound:state==='ready'?'2026-11-28T09:45:00Z':'0001-01-01T00:00:00Z',cutoverAt:'0001-01-01T00:00:00Z',cutAt:state==='done'?'2026-11-28T09:00:00Z':'0001-01-01T00:00:00Z',testedAt:'0001-01-01T00:00:00Z',rolledBackAt:'0001-01-01T00:00:00Z'};}
+function sqlPlanFixture(id,name,dbs){return {id,name,created:'2026-11-28T07:00:00Z',source:{server:'OLDSQL',auth:'current'},target:{server:'NEWSQL',auth:'current'},backupPath:'\\\\OLDSQL\\E$\\Backup\\SIMM',dataPath:'D:\\Data',logPath:'L:\\Logs',syncMinutes:15,concurrency:2,startAt:'0001-01-01T00:00:00Z',paused:false,objects:{logins:true,jobs:true},alias:{name:'sql-app',zone:'corp.example.com',dnsServer:'DC1',spn:true,atCutover:true},databases:dbs,objectsAt:'2026-11-28T07:01:00Z',objectsNote:'Created 12 logins and 3 jobs (turned off until cutover).',objectItems:[{kind:'login',name:'CORP\\app-svc',action:'created'}]};}
+function sqlInstanceFixture(server,dbs){return {server,machine:server,instanceName:'',serverName:server,version:'15.0.4385.2',major:15,edition:'Standard Edition (64-bit)',hadr:false,dataPath:'D:\\Data',logPath:'L:\\Logs',backupPath:'E:\\Backup',serviceAccount:'CORP\\sql-svc',dnsDomain:'corp.example.com',sysadmin:true,databases:dbs,readAt:'2026-11-28T09:30:00Z'};}
+function sqlReadView(){
+ const dbs=[{name:'Sales',state:'ONLINE',recovery:'FULL',dataMB:20480,logMB:2048},{name:'Archive',state:'ONLINE',recovery:'SIMPLE',dataMB:512,logMB:64},{name:'Orders',state:'ONLINE',recovery:'FULL',dataMB:4096,logMB:512,ag:'AG1'},{name:'master',state:'ONLINE',recovery:'SIMPLE',dataMB:6,logMB:2}];
+ return {source:sqlInstanceFixture('OLDSQL',dbs),target:sqlInstanceFixture('NEWSQL',[]),
+  choices:{Sales:{method:'logship',why:'Full recovery model: log shipping keeps the copy minutes behind, so the cutover is short.',available:['backup','logship'],unavailable:{dag:'It is not in an availability group.'}},Archive:{method:'backup',why:'Simple recovery model: backed up and restored at cutover.',available:['backup'],unavailable:{logship:'The simple recovery model keeps no log backups.',dag:'It is not in an availability group.'}},Orders:{method:'dag',why:'It is in the availability group AG1.',available:['backup','logship','dag'],unavailable:{}}},
+  reasons:{master:{off:'System database: its logins, jobs and linked servers move as instance objects.'}},
+  objects:[{kind:'login',name:'CORP\\app-svc',action:'create'},{kind:'login',name:'sa',action:'skip',detail:'Built in'},{kind:'linked',name:'ERP',action:'manual',detail:'Its password cannot be read.'}],
+  config:[{name:'max degree of parallelism',old:'4',new:'0',default:true}],counts:{logins:12,jobs:3,linked:1,operators:1},findings:[],
+  suggest:{backupPath:'\\\\OLDSQL\\E$\\Backup\\SIMM',backupWhy:'The old server\'s own backup folder through its administrative share.',dataPath:'D:\\Data',logPath:'L:\\Logs',pathWhy:'The new server\'s default data and log folders.',syncMinutes:15,syncWhy:'Every 15 minutes.',concurrency:2,aliasZone:'corp.example.com',objectsWhy:'Logins keep their SIDs and passwords.',disableJobs:true,disableJobWhy:'The old jobs are turned off at cutover.'},errors:{}};
+}
+function sqlFixture(){return {plans:[sqlPlanFixture('q1','Finance SQL',[sqlDbFixture('Payroll','logship','ready'),Object.assign(sqlDbFixture('Ledger','backup','failed'),{error:'The backup of Ledger failed: Operating system error 5 (Access is denied.) on \\\\OLDSQL\\E$\\Backup\\SIMM. Give the SQL Server service account write access to the folder and try again; nothing else was changed on either server.'})])],running:{},read:sqlReadView(),reading:false,message:'',failed:false,held:[],dnsUser:'',logs:['10:00:00  Finance SQL: shipped the log of Payroll (2 MB).'],ready:{},methods:{backup:'Backup and restore',logship:'Log shipping',dag:'Distributed availability group'},signedInAccount:'CORP\\admin',limits:{minSync:5,maxSync:1440}};}
 // Tools live in two tabs: Discovery (Alt+1) and Migration and replication (Alt+5).
 const discoveryTools=['server','environment'];
 // apartControls finds controls pulled apart on wide windows: a tick box or
@@ -1549,6 +1581,11 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   await f.page.locator('#nwNext').click();await f.page.waitForTimeout(200);
   assert(await f.page.locator('#tabMigrate').isVisible(),'Continue in opens Move file shares');assert(await f.page.locator('#migrateTargetOther').isChecked(),'Another server is preset');
   assert(await f.page.locator('#migrateTargetFields').isVisible(),'the new server fields show');
+  // SQL Server databases: one way, its steps, and the hand-off opens Move SQL databases.
+  await goTool(f,'wizard');await f.page.locator('[data-nw-step="0"]').click();await f.page.locator('[data-nw-source="sqldbs"]').click();await f.page.locator('#nwNext').click();await f.page.locator('[data-nw-target="sqlserver"]').click();await f.page.locator('#nwNext').click();
+  assert.deepEqual(await methods(),['sqlmove']);assert.equal(await f.page.locator('#gdPlanTitle').textContent(),'Moving SQL Server databases to a new SQL Server: the steps, in order');
+  assert((await f.page.locator('#gdSteps').textContent()).includes('Choose databases and how each moves'));
+  await f.page.locator('#nwNext').click();await f.page.waitForTimeout(200);assert(await f.page.locator('#tabSql').isVisible(),'Continue in opens Move SQL databases');
   await goTool(f,'wizard');
   f.state.vmware.hyperVHere=false;
   await f.page.locator('[data-nw-step="0"]').click();await f.page.locator('[data-nw-source="images"]').click();await f.page.locator('#nwNext').click();await f.page.locator('[data-nw-target="here"]').click();await f.page.locator('#nwNext').click();
@@ -2839,6 +2876,46 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   for(const size of [{width:1008,height:690}]){await f.page.setViewportSize(size);await f.page.locator('#helpMenuButton').click();await f.page.locator('#helpSettings').click();
    assert(await f.page.evaluate(()=>{const d=document.querySelector('#settingsDialog').getBoundingClientRect();return d.bottom<=innerHeight&&d.right<=innerWidth;}),'Settings fits at 1024x768');await f.page.locator('#settingsClose').click();}
   assert.deepEqual(f.errors,[]);assert.deepEqual(f.dialogs,[]);
+ }finally{await f.close();}});
+ await check('Move SQL databases: both servers are read, each database shows its suggested way with the reason, a changed way is marked Set by you, Start sends the plan confirmed, and a plan lists every database with its track and actions',async()=>{const f=await fixture(browser);try{
+  await goTool(f,'sqlmove');await f.page.waitForSelector('#sqDbRows [data-sq-db="Sales"]');
+  assert.equal(await f.page.locator('[data-sq-method="Sales"]').inputValue(),'logship');
+  assert.equal(await f.page.locator('[data-sq-method="Archive"]').inputValue(),'backup');
+  assert.equal(await f.page.locator('[data-sq-method="Orders"]').inputValue(),'dag');
+  assert(await f.page.locator('[data-sq-method="Archive"] option[value="logship"]').isDisabled(),'log shipping is off for a simple recovery database');
+  assert.equal(await f.page.locator('#sqDbRows [data-sq-db="master"]').count(),0,'system databases cannot be ticked');
+  assert.match(await f.page.locator('#sqOffTitle').textContent(),/1 database cannot move/);
+  assert.equal(await f.page.locator('#sqBackup').inputValue(),'\\\\OLDSQL\\E$\\Backup\\SIMM');
+  assert(await f.page.locator('#sqStart').isDisabled(),'Start waits for databases');
+  await f.page.locator('[data-sq-pick="Sales"]').check();await f.page.locator('[data-sq-pick="Orders"]').check();
+  await f.page.locator('[data-sq-method="Orders"]').selectOption('logship');
+  assert.match(await f.page.locator('#sqDbRows [data-sq-db="Orders"] .sq-tag').textContent(),/Set by you/);
+  assert.match(await f.page.locator('#sqDbRows [data-sq-db="Sales"] .sq-tag').textContent(),/Suggested/);
+  assert.match(await f.page.locator('#sqPickCount').textContent(),/2 databases chosen/);
+  await f.page.locator('#sqCheck').click();await f.page.waitForSelector('.sq-finding');
+  assert.match(await f.page.locator('#sqFindings').textContent(),/Compatibility level 110/);
+  await f.page.locator('#sqName').fill('Sales to NEWSQL');
+  await f.page.locator('#sqConfirm').fill('Sales to NEWSQL');
+  await f.page.locator('#sqStart').click();
+  await f.page.waitForFunction(()=>document.querySelectorAll('[data-sq-plan]').length===2);
+  const create=f.sqlCalls.find(c=>c.action==='create');
+  assert.equal(create.body.confirm,'Sales to NEWSQL');
+  assert.deepEqual(create.body.databases.map(d=>d.name+':'+d.method),['Sales:logship','Orders:logship']);
+  assert.equal(create.body.objects.logins,true);assert.equal(create.body.objects.disableSourceJobs,true);
+  assert.equal(create.body.backupPath,'\\\\OLDSQL\\E$\\Backup\\SIMM');
+  for(const c of f.sqlCalls){assert(!JSON.stringify(c.body).includes('"password"'),'no password field is sent');}
+  // The first plan: tracks, a long error folded, and cutover confirmed by the tick.
+  const plan=f.page.locator('[data-sq-plan="q1"]');
+  assert.equal(await plan.locator('.vm-track').count(),2);
+  assert.match(await plan.textContent(),/In sync/);
+  assert(await plan.locator('[data-sq-act="cutover"]').isDisabled(),'Cut over waits for ticked databases');
+  await plan.locator('[data-sq-row="q1"][data-sq-dbname="Payroll"]').check();
+  await plan.locator('#sqCut_q1').fill('1');
+  await plan.locator('[data-sq-act="cutover"]').click();
+  await f.page.waitForFunction(()=>/Cutting over/.test(document.querySelector('[data-sq-plan="q1"]').textContent));
+  const cut=f.sqlCalls.find(c=>c.action==='action'&&c.body.action==='cutover');
+  assert.deepEqual(cut.body.names,['Payroll']);assert.equal(cut.body.confirm,'1');
+  assert.deepEqual(f.errors,[]);
  }finally{await f.close();}});
  await check('Roll back: every cutover is listed with its window, the dialog turns the new VM off first, warns about lost data, asks for a vCenter sign-in when needed, a domain controller needs its own tick, and every other way of moving has its steps',async()=>{const f=await fixture(browser);try{
   const planned=[{key:'stop',title:'Shut the new VM down'},{key:'check',title:'Check the new VM is off'},{key:'network',title:'Put the adapters back'},{key:'start',title:'Start the old VM'}];
