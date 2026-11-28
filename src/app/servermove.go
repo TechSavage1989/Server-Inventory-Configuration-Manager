@@ -237,3 +237,206 @@ func smCheckLimit(value int) int {
 	}
 	return value
 }
+
+// What the old server has, listed by Discover before anything is read or
+// copied (2026-11-28, owner: "I don't think forcing all the server roles to
+// migrate without choice was ever my intention"; AGENTS rule 76). The
+// operator picks from it and Read carries only the picked items.
+type smDiscovery struct {
+	Computer  string `json:"computer"`
+	OSCaption string `json:"osCaption"`
+	Features  []struct {
+		Name        string `json:"name"`
+		DisplayName string `json:"displayName"`
+	} `json:"features"`
+	Users []struct {
+		Name     string `json:"name"`
+		FullName string `json:"fullName"`
+		Disabled bool   `json:"disabled"`
+	} `json:"users"`
+	Groups []struct {
+		Name    string `json:"name"`
+		BuiltIn bool   `json:"builtIn"`
+		Members int    `json:"members"`
+	} `json:"groups"`
+	Shares []struct {
+		Name string `json:"name"`
+		Path string `json:"path"`
+	} `json:"shares"`
+	IIS struct {
+		Installed bool `json:"installed"`
+		Sites     []struct {
+			Name     string   `json:"name"`
+			Bindings []string `json:"bindings"`
+		} `json:"sites"`
+		AppPools int `json:"appPools"`
+		Roots    []struct {
+			Path      string `json:"path"`
+			SizeBytes int64  `json:"sizeBytes"`
+			Reason    string `json:"reason"`
+		} `json:"roots"`
+	} `json:"iis"`
+	Certificates []struct {
+		Thumbprint   string   `json:"thumbprint"`
+		Subject      string   `json:"subject"`
+		FriendlyName string   `json:"friendlyName"`
+		NotAfter     string   `json:"notAfter"`
+		Exportable   bool     `json:"exportable"`
+		UsedBy       []string `json:"usedBy"`
+	} `json:"certificates"`
+	DNS struct {
+		Installed  bool     `json:"installed"`
+		Forwarders []string `json:"forwarders"`
+		Zones      []struct {
+			Name string `json:"name"`
+			Type string `json:"type"`
+		} `json:"zones"`
+	} `json:"dns"`
+	DHCP struct {
+		Installed  bool `json:"installed"`
+		Authorized bool `json:"authorized"`
+	} `json:"dhcp"`
+	Warnings []string `json:"warnings"`
+}
+
+// smSelection is what the operator picked to move. Names that the old
+// server did not list are dropped by smCleanSelection.
+type smSelection struct {
+	Features      []string `json:"features"`
+	IIS           bool     `json:"iis"`
+	WebRoots      []string `json:"webRoots"`
+	Certificates  []string `json:"certificates"`
+	Users         []string `json:"users"`
+	Groups        []string `json:"groups"`
+	Shares        []string `json:"shares"`
+	DNSForwarders bool     `json:"dnsForwarders"`
+	DNSZones      []string `json:"dnsZones"`
+	DHCP          bool     `json:"dhcp"`
+}
+
+// Count is how many items are picked.
+func (s smSelection) Count() int {
+	n := len(s.Features) + len(s.WebRoots) + len(s.Certificates) + len(s.Users) + len(s.Groups) + len(s.Shares) + len(s.DNSZones)
+	for _, on := range []bool{s.IIS, s.DNSForwarders, s.DHCP} {
+		if on {
+			n++
+		}
+	}
+	return n
+}
+
+// smParseDiscovery reads the bundle engine's list from a Discover reply.
+func smParseDiscovery(reply smRunnerReply) (*smDiscovery, error) {
+	var summary struct {
+		Status  string `json:"status"`
+		Message string `json:"message"`
+		smDiscovery
+	}
+	if strings.TrimSpace(reply.Result) == "" {
+		return nil, errors.New("the old server did not list what it has")
+	}
+	if err := json.Unmarshal(stripUTF8BOMBytes([]byte(reply.Result)), &summary); err != nil {
+		return nil, fmt.Errorf("the old server's list was invalid: %v", err)
+	}
+	if summary.Status != "succeeded" {
+		message := summary.Message
+		if message == "" {
+			message = "the old server could not be listed"
+		}
+		return nil, errors.New(message)
+	}
+	d := summary.smDiscovery
+	if d.Warnings == nil {
+		d.Warnings = []string{}
+	}
+	return &d, nil
+}
+
+// smPick keeps the names in wanted that are in known (any case), spelled as
+// known has them, once each.
+func smPick(wanted, known []string) []string {
+	index := map[string]string{}
+	for _, name := range known {
+		index[strings.ToLower(name)] = name
+	}
+	seen := map[string]bool{}
+	out := []string{}
+	for _, name := range wanted {
+		key := strings.ToLower(strings.TrimSpace(name))
+		if real, ok := index[key]; ok && !seen[key] {
+			seen[key] = true
+			out = append(out, real)
+		}
+	}
+	return out
+}
+
+// smCleanSelection checks a selection against what the old server listed
+// and the website files limit, and returns the bytes of website files it
+// copies. It refuses an empty selection and website folders without IIS.
+func smCleanSelection(s smSelection, d *smDiscovery, limitGB int) (smSelection, int64, error) {
+	if d == nil {
+		return smSelection{}, 0, errors.New("Look at the old server first, then pick what to move.")
+	}
+	var names []string
+	out := smSelection{}
+	for _, f := range d.Features {
+		names = append(names, f.Name)
+	}
+	out.Features = smPick(s.Features, names)
+	names = names[:0]
+	for _, u := range d.Users {
+		names = append(names, u.Name)
+	}
+	out.Users = smPick(s.Users, names)
+	names = names[:0]
+	for _, g := range d.Groups {
+		names = append(names, g.Name)
+	}
+	out.Groups = smPick(s.Groups, names)
+	names = names[:0]
+	for _, share := range d.Shares {
+		names = append(names, share.Name)
+	}
+	out.Shares = smPick(s.Shares, names)
+	names = names[:0]
+	for _, c := range d.Certificates {
+		if c.Exportable {
+			names = append(names, c.Thumbprint)
+		}
+	}
+	out.Certificates = smPick(s.Certificates, names)
+	names = names[:0]
+	for _, z := range d.DNS.Zones {
+		names = append(names, z.Name)
+	}
+	out.DNSZones = smPick(s.DNSZones, names)
+	out.DNSForwarders = s.DNSForwarders && len(d.DNS.Forwarders) > 0
+	out.DHCP = s.DHCP && d.DHCP.Authorized
+	out.IIS = s.IIS && d.IIS.Installed
+	var size int64
+	if len(s.WebRoots) > 0 {
+		if !out.IIS {
+			return smSelection{}, 0, errors.New("Website files go with IIS sites and app pools: pick IIS too, or untick the website folders.")
+		}
+		names = names[:0]
+		sizes := map[string]int64{}
+		for _, r := range d.IIS.Roots {
+			if r.Reason == "" {
+				names = append(names, r.Path)
+				sizes[strings.ToLower(r.Path)] = r.SizeBytes
+			}
+		}
+		out.WebRoots = smPick(s.WebRoots, names)
+		for _, root := range out.WebRoots {
+			size += sizes[strings.ToLower(root)]
+		}
+		if limit := int64(smCheckLimit(limitGB)) << 30; size > limit {
+			return smSelection{}, 0, fmt.Errorf("The website folders you picked hold %.1f GB, more than the %d GB limit. Raise the limit or pick fewer folders.", float64(size)/float64(1<<30), smCheckLimit(limitGB))
+		}
+	}
+	if out.Count() == 0 {
+		return smSelection{}, 0, errors.New("Pick at least one thing to move.")
+	}
+	return out, size, nil
+}

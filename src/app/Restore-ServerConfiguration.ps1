@@ -539,7 +539,11 @@ function Get-SidMap {
     $accounts = $script:Bundle.localAccounts
     $machine = [string]$accounts.machineSid
     if (-not $machine) { return $map }
-    foreach ($entry in @((Get-BundleList $accounts.users) + (Get-BundleList $accounts.groups))) {
+    # A bundle of picked items (rule 76) lists every account's SID in
+    # accountSids, so permissions still map for accounts that exist here.
+    $entries = @((Get-BundleList $accounts.users) + (Get-BundleList $accounts.groups))
+    if ($script:Bundle.accountSids) { $entries = @(Get-BundleList $script:Bundle.accountSids) }
+    foreach ($entry in $entries) {
         $old = [string]$entry.sid
         if (-not $old -or -not $old.StartsWith($machine + '-')) { continue }
         try {
@@ -560,7 +564,8 @@ function Convert-SidText {
 function Get-NotMovableRoles {
     # Roles a configuration package cannot move, with what to do instead.
     $names = @()
-    if ($script:Bundle) { $names = @(Get-BundleList $script:Bundle.features) }
+    if ($script:Bundle -and $script:Bundle.allFeatures) { $names = @(Get-BundleList $script:Bundle.allFeatures) }
+    elseif ($script:Bundle) { $names = @(Get-BundleList $script:Bundle.features) }
     else { $names = @(Import-PackageCsv '00-Summary\Installed-Server-Roles.csv' | ForEach-Object { [string]$_.Name }) }
     $guide = [ordered]@{
         'AD-Domain-Services' = 'Active Directory Domain Services: promote this server as an additional domain controller and let it replicate, then demote the old one. A package never carries the directory.'
