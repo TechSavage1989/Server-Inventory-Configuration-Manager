@@ -166,7 +166,7 @@ td b{font-weight:600}
 <header class="bar">
   <div class="brand">
     <div class="logo" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/><circle cx="7" cy="7" r=".8" fill="#fff"/><circle cx="7" cy="17" r=".8" fill="#fff"/></svg></div>
-    <div><b>Server Inventory and Migration Manager</b><span>Feature tour, version 3.3.0 · fictional sample data</span></div>
+    <div><b>Server Inventory and Migration Manager</b><span>Feature tour, version 3.3.3 · fictional sample data</span></div>
   </div>
   <div class="prog" aria-hidden="true"><div class="track"><div class="fill" id="fill"></div></div><span class="count" id="count">1 / 1</span></div>
   <div class="nav"><button class="btn" id="prev" type="button">← Back</button><button class="btn primary" id="next" type="button">Next →</button></div>
@@ -220,7 +220,7 @@ var intro={id:'start',group:'Start',title:'The tour',render:function(){
    '<div class="box"><dl><dt>VMs</dt><dd>APP01 · SQL01 · WEB02 · DC01 · FILE01 · PRINT01 · LEGACY03</dd><dt>Target</dt><dd>Hyper-V cluster HV01/HV02 with CSVs</dd></dl></div>'+
    '<div class="box"><dl><dt>Addresses</dt><dd>192.0.2.x, 198.51.100.x (documentation ranges)</dd><dt>Domain</dt><dd>example.com / EXAMPLE.TEST</dd></dl></div>'+
   '</div>'+
-  '<div class="cols"><div class="box say"><h3>How to use this tour</h3><ul><li>Use <b>Next</b> or the arrow keys to move between chapters.</li><li>Click a numbered pin on a screenshot, or press its number, to read what it shows.</li><li>Screenshots are real captures of the app with synthetic data. Pages marked <b>Illustration</b> are drawn for this tour because the feature has no published screenshot yet.</li><li>Some screenshots were captured on 3.2.x and show the older header bar; the screens themselves work the same in 3.3.0.</li></ul></div>'+
+  '<div class="cols"><div class="box say"><h3>How to use this tour</h3><ul><li>Use <b>Next</b> or the arrow keys to move between chapters.</li><li>Click a numbered pin on a screenshot, or press its number, to read what it shows.</li><li>Screenshots are real captures of the app with synthetic data. Pages marked <b>Illustration</b> are drawn for this tour because the feature has no published screenshot yet.</li><li>Some screenshots were captured on 3.2.x and show the older header bar; the screens themselves work the same in 3.3.3.</li></ul></div>'+
   '<div class="box guard"><h3>Ground rules the app follows everywhere</h3><ul><li>Reading vCenter, ESXi or Hyper-V changes nothing there.</li><li>Every changing step asks first (tick box, prompt or typed name, your choice in Help → Settings).</li><li>No forced power-off of a source VM, ever. Guests shut down through VMware Tools or the Hyper-V shutdown service.</li><li>Passwords stay in memory unless you opt in to remembered sign-ins, which are sealed with Windows DPAPI.</li></ul></div></div>';
   function step(n,b,s){return '<div class="step"><small>'+n+'</small><b>'+b+'</b><span>'+s+'</span></div>';}
   function row(a,b,c,d,e){return '<tr><td><b>'+a+'</b></td><td>'+b+'</td><td>'+c+'</td><td>'+d+'</td><td>'+e+'</td></tr>';}
@@ -307,8 +307,8 @@ var C=[intro,
        [55,55,'Errors explained','Plain-language explanation above the exact error, with a fix button such as Copy this VM again now.'],
        [32,85,'Ready to cut over? Wave by wave','Checks copies, failures, recent syncs, tests and SQL/DC findings per wave.'],
        [62,85,'Cut over wave 2','Selects that wave for the normal cutover and its confirmation.']],
- say:['Show WEB01\'s error: ESXi held the disk open, and the next round reads its snapshot through the export instead.','Point at the wave check: Wave 1 says "Not yet" and lists why; Wave 2 says "Go".','Mention changed-block reads: each disk says how it was read (VDDK, datastore, export or Hyper-V RCT) and why if it read in full.'],
- guard:['Up to 4 VMs copy at once per plan; failed rounds retry after 5, 10 and 20 minutes.','A failed cutover is never retried by itself, and the Hyper-V VM is created only after a successful verified final round.','After cutover the old VMware VM\'s adapters are set to not connect (default on), with their settings saved first.'],
+ say:['Show WEB01\'s error: ESXi held the disk open, and the next round reads its snapshot through the export instead.','Point at the wave check: Wave 1 says "Not yet" and lists why; Wave 2 says "Go".','Mention changed-block reads: each disk says how it was read (VDDK, datastore, export or Hyper-V RCT) and why if it read in full.','Open a VM\'s Log: its rounds, cutover, test and fix-up, live, with Copy all, Save as and Open log folder.'],
+ guard:['Up to 4 VMs copy at once per plan; failed rounds retry after 5, 10 and 20 minutes.','A failed cutover is never retried by itself, and the Hyper-V VM is created only after a successful verified final round.','After cutover the old VMware VM\'s adapters are set to not connect (default on), with their settings saved first.','The old VM is renamed MIGRATED - DO NOT POWER ON with a note; Roll back renames it back first.','A running cutover shows its phase (shutdown, copy, verify with its percentage, create), so a long verify never looks stuck.'],
  limits:['Plans run while the application is open on that host.','VMware changed-block reads while a VM runs need VDDK, which each operator downloads from Broadcom (its license forbids shipping it).']},
 {id:'rolling',group:'Plan and move',title:'Rolling ESXi to Hyper-V conversion',img:'vmware-rolling',where:'Plan and runbook (also New migration → When)',runs:'your admin computer',
  lede:'Convert existing ESXi hosts to Hyper-V on the same hardware, one host at a time: empty a host, rebuild it as a Hyper-V node, move the next wave onto it.',
@@ -337,6 +337,27 @@ var C=[intro,
  say:['Switch between "This computer is the Hyper-V host" and "Another Hyper-V host or cluster".','Show the alternate shots: remote cluster connection, and the HyperCore/Nutanix/Proxmox target panel.'],
  guard:['Only the app\'s own snapshot or checkpoint is created and always removed after the round.','Nothing is installed in the VM or copied to the Hyper-V host.','The VMware VM is left powered off and otherwise unchanged, so rollback is starting it.'],
  limits:['HyperCore, Nutanix and Proxmox clients are tested against fakes built from their public APIs, not yet real clusters.']},
+{id:'sql',group:'Plan and move',title:'Move SQL databases',img:'move-sql-databases',where:'Migration and replication → Move SQL databases',runs:'your admin computer; nothing installed on the SQL Servers',
+ lede:'Move databases to a new SQL Server with their logins, jobs and linked servers. Each database moves the way that suits it: log shipping, backup and restore at cutover, or a distributed availability group.',
+ pins:[[25,24,'Plan tiles','In sync, copying, testing, cut over and failed; each filters the list.'],
+       [55,34,'Status track','Copy, In sync, Tested, Cut over for each database, with the last log shipped.'],
+       [26,42,'Test, then cut over','Test makes a separate copy you can open; cutover takes a tail-log backup and brings the new copy online.'],
+       [56,48,'Move the alias','A DNS alias still pointing at the old server moves when the last database is cut over.'],
+       [82,45,'Roll back','The new copy is taken offline (never dropped) and the old database made writable again.']],
+ say:['Show that Finance and HR are kept minutes behind by log shipping while Reports copies at cutover.','Open the logins line: 14 logins kept their SIDs and passwords, and jobs stay off until cutover.'],
+ guard:['Nothing is installed on either SQL Server; batches run from this computer or through PowerShell remoting.','Passwords stay in memory only and are never written to plans or logs.','At most 4 databases work at once.'],
+ limits:['Not yet tested against real SQL Servers across a domain, distributed availability groups or DNS alias moves.']},
+{id:'dc',group:'Plan and move',title:'Move a domain controller',img:'move-domain-controller',where:'Migration and replication → Move a domain controller',runs:'your admin computer; nothing installed on the DCs',
+ lede:'Replace a domain controller: build a new DC like the old one, promote it, move the FSMO roles, time source, DNS and DHCP clients, then demote the old one.',
+ pins:[[32,30,'Build the new DC','Joins the domain if needed, adds AD DS, promotes and waits until it replicates and shares SYSVOL.'],
+       [58,26,'Move the roles','FSMO roles, the time source, then DHCP and DNS clients pointed at the new DC.'],
+       [84,26,'Retire the old DC','Demotes the old DC and, if chosen, moves its IP address to the new one.'],
+       [24,46,'Check the domain','Runs the DC checks on every DC; it runs again before each phase and stops on a blocker.'],
+       [41,49,'Schedule','Run a phase now or at a set time; a schedule that cannot start is cleared, never run late.'],
+       [45,53,'Roll back','Puts the recorded changes and roles back until the old DC is retired.']],
+ say:['Point at the build phase: done, and DC03 replicates with DC01 and DC02.','Mention the two address options: take over the old IP after retirement, or keep the new IP and repoint DHCP and the other DCs.'],
+ guard:['A domain controller is never copied, cloned or snapshotted; it is promoted fresh.','Every setting is suggested from the old DC with the reason, and stays editable.','Passwords stay in memory only.'],
+ limits:['Not yet tested on a real domain (promotion, role transfer, demotion and the address swap).']},
 {id:'servers',group:'Operate',title:'All jobs and servers',img:'all-jobs-and-servers',where:'Migration and replication → All jobs and servers',runs:'your admin computer, or the Hyper-V host',
  lede:'One list of every server and job, whatever moves it: agent replication, migration plans, Move VMs copies, conversions, restores and file share moves. Tick many and act at once.',
  pins:[[44,47,'One state for every method','Everything, not configured, agent no job, initial copy, in sync, failed, running. Tiles filter.'],
@@ -434,7 +455,7 @@ function illustration(kind){
     '<div class="ctabs"><span class="ctab on">APP01 · vc01.example.com</span><span class="ctab">APP01-TEST · HV01</span><span class="ctab">SQL01 · HV02</span></div>'+
     '<div class="ctool"><span class="hi">Ctrl+Alt+Del</span><span>Keys ▾</span><span>Ctrl</span><span>Alt</span><span>Win</span><span class="hi">Paste as typing</span><span>Copy out</span><span>Files</span><span>What works here</span><span>VMware Remote Console</span></div>'+
     '<div class="cscreen"><div class="signin"><div class="avatar"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.6"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg></div><b>EXAMPLE\\administrator</b><div class="pw">●●●●●●●●</div></div><span class="typing">Typing 14 characters… Stop</span></div>'+
-    '</div></div><div class="illus-note">Illustration drawn for this tour, not a screenshot. Layout and button names follow the 3.3.0 console window.</div>';}
+    '</div></div><div class="illus-note">Illustration drawn for this tour, not a screenshot. Layout and button names follow the 3.3.3 console window.</div>';}
   if(kind==='guard'){
     var W=640;function x(p){return 20+p*(W-40)/100;}
     return '<div class="ill"><div class="gauge"><svg viewBox="0 0 '+W+' 100" role="img" aria-label="Datastore free space with reserve and stop levels">'+
@@ -452,8 +473,8 @@ function illustration(kind){
     '<div class="hold"><b>Held</b><span>SQL01 waits: DS1 would drop below the 10% reserve with this round\'s snapshot. It retries by itself; nothing was changed on the VM.</span></div></div></div>'+
     '<div class="illus-note">Illustration drawn for this tour. The figures follow the app\'s default settings.</div>';}
   if(kind==='channels'){return '<div class="lanes" style="margin-top:12px">'+
-    '<div class="lane"><b>Stable</b> <span class="tag">default</span><div class="rel"><span>3.2.39</span><span>3.2.40</span><span>3.2.41</span><span class="cur">3.3.0</span></div></div>'+
-    '<div class="lane"><b>Test</b> <span class="tag warn">opt in</span><div class="rel"><span class="t">3.3.0-test.1</span><span class="t">…</span><span class="t">3.3.0-test.5</span><span class="cur">3.3.0</span></div><div style="font-size:13px;color:var(--muted);margin-top:6px">Test builds are signed prereleases. When the test line graduates it becomes the next stable release.</div></div>'+
+    '<div class="lane"><b>Stable</b> <span class="tag">default</span><div class="rel"><span>3.3.0</span><span>3.3.1</span><span>3.3.2</span><span class="cur">3.3.3</span></div></div>'+
+    '<div class="lane"><b>Test</b> <span class="tag warn">opt in</span><div class="rel"><span class="t">3.3.0-test.5</span><span class="t">…</span><span class="t">3.3.3-test.1</span><span class="cur">3.3.3</span></div><div style="font-size:13px;color:var(--muted);margin-top:6px">Test builds are signed prereleases. When the test line graduates it becomes the next stable release.</div></div>'+
     '<div class="signbox"><div><b>Signing</b>Azure Artifact Signing</div><div><b>Checked by</b>Get-AuthenticodeSignature, timestamped</div><div><b>Also signed</b>Embedded PowerShell scripts</div><div><b>Linux agent</b>published with its checksum</div></div></div>';}
   if(kind==='safety'){return '<div class="cols" style="margin-top:6px">'+
     '<div class="box guard"><h3>Never</h3><ul><li>Force a source VM off. Guests shut down through VMware Tools or the Hyper-V shutdown service only.</li><li>Install anything in a VM being moved by Move VMs or Migration plans. Fix-ups use PowerShell Direct or remoting.</li><li>Use CredSSP, encoded commands, scheduled tasks or WMI process creation (behaviours EDR flags).</li><li>Change vSphere beyond its own snapshot, the opt-in prepare steps and the opt-in adapter disconnect.</li><li>Download, install or restart an update on its own.</li><li>Upload inventory anywhere.</li></ul></div>'+
