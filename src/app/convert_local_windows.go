@@ -10,6 +10,7 @@ package main
 // same file copies only what changed. The disk is only ever read.
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
@@ -35,10 +36,13 @@ func vmLocalDiskNumber(path string) (int, bool) {
 type vmLocalDiskImage struct {
 	vmCopySource
 	info vmDiskInfo
+	// used holds the disk's data: NTFS clusters in use and everything
+	// outside its NTFS volumes (vmSkipFreeSpace); nil reads everything.
+	used []vmCopyRange
 }
 
 func (d *vmLocalDiskImage) Info() vmDiskInfo         { return d.info }
-func (d *vmLocalDiskImage) Allocated() []vmCopyRange { return nil }
+func (d *vmLocalDiskImage) Allocated() []vmCopyRange { return d.used }
 
 func vmLocalDiskInfo(number int, size int64) vmDiskInfo {
 	host, _ := os.Hostname()
@@ -65,7 +69,7 @@ func vmLocalDiskInfo(number int, size int64) vmDiskInfo {
 			info.Notes = append(info.Notes, fmt.Sprintf("%s (%s, %s): %s.", where, kind, vmFormatBytes(volume.Length), shadow))
 		}
 	}
-	info.Notes = append(info.Notes, "The computer keeps running. Every byte of the disk is read; empty space stays empty in the new file. Converting again into the same file copies only what changed since.")
+	info.Notes = append(info.Notes, "The computer keeps running. Only data in use is read: free space on NTFS volumes is skipped and stays empty in the new file. Converting again into the same file copies only what changed since.")
 	return info
 }
 
@@ -79,11 +83,16 @@ func openConvertSource(path string, log func(string)) (vmDiskImage, error) {
 	if !isAdministrator() {
 		return nil, fmt.Errorf("copying a disk of this computer needs the application to run as administrator")
 	}
-	source, _, err := openVMAgentDisk(number, false, log)
+	set, err := openVMAgentDisks([]int{number}, false, log)
 	if err != nil {
 		return nil, err
 	}
-	return &vmLocalDiskImage{vmCopySource: source, info: vmLocalDiskInfo(number, source.Size())}, nil
+	// Free NTFS clusters read as zeros without touching the disk, and the
+	// first pass reads only the data in use.
+	used := vmSkipFreeSpace(context.Background(), set, []int{number}, log)[number]
+	source := set.Sources[number].(*vmCompositeSource)
+	source.closers = append(set.shared, source.closers...) // closed last
+	return &vmLocalDiskImage{vmCopySource: source, info: vmLocalDiskInfo(number, source.Size()), used: used}, nil
 }
 
 // inspectLocalDisk reads a disk of this computer's size and partition table

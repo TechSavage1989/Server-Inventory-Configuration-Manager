@@ -63,7 +63,9 @@ func TestReceiverListsConnectedSendersAndFinishedCopies(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	watch := &vmWatchSource{vmCopySource: source, after: 6, look: receiver.Transfers}
+	// The engine reads up to vmCopyReadAhead+1 chunks ahead of what it has
+	// written, so look once well past that.
+	watch := &vmWatchSource{vmCopySource: source, after: 6 + vmCopyReadAhead + 1, look: receiver.Transfers}
 	if _, err = vmCopyTo(context.Background(), watch, sink, vmCopyOptions{ChunkSize: 1 << 20, Verify: true}); err != nil {
 		t.Fatal(err)
 	}
