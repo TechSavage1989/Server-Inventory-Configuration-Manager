@@ -1,7 +1,37 @@
+## 3.3.2 release preparation — 2026-11-28
+
+The owner approved publishing 3.3.2 and a matching test build once role restores were in ("yes", 2026-11-28). 3.3.2 carries #235 (Move SQL databases, rule 72), #234 (restore collection packages fully on a new server, rule 74), #238 (read-ahead copies, free-space skip for sends and P2V, compressed VDDK, receiver and file share transfers, rule 73) the README updates #237, #241, #244 and #246, and #249 (Details folds stay open through polls; unreachable SQL/DC checks hold only VMs named like a role). `appVersion`, `collectorVersion` and the collector's `$scriptVersion` are 3.3.2; notes in `docs/release-notes/3.3.2.md`; the published-upgrade check starts from 3.3.1 (#242). The matching test build is 3.3.3-test.1 from `test` (same features; numbered above 3.3.2 so Test-channel installs are offered it, rule 61).
+
+## Unreleased: restore collection packages fully on a new server — 2026-11-28
+
+- Owner asked whether IIS restores fully working and then for every movable role to restore working on a different server. Audit result: firewall, registry, GPO, printers and NPS already moved; DHCP, DNS, tasks, ACLs, security policy and IIS were partial; roles, local accounts, shares and private keys were missing.
+- New: **Prepare this package for a new server** on Collection writes `09-Migration-Bundle` (Export-MigrationBundle.ps1, signed) with secrets encrypted by a passphrase that is never saved. The Restore tab unlocks it, shows **Changes for this server** (old addresses and drives mapped to this server's, auto-filled and editable) and asks for local user and task passwords. New restore components: Roles and features, Local users and groups, File shares; IIS gets website files, passwords and HTTPS bindings; certificates with private keys; SID and account mapping for ACLs, security policy and tasks; DNS forwarders and other zone types; DHCP authorization. AGENTS rule 74.
+- Tests: `bundle_test.go`, `restore_plan_test.go`, two workspace checks, and a bundle round trip in `scripts/Test-Restore.ps1` (CI job `restore`). Not field-validated on two real servers.
+- Ships in the release after 3.3.1 (stable and test), per the owner; merged once 3.3.1 was published.
+
+## Unreleased: less data and less time for every copy — 2026-11-28
+
+- Copy engine reads and hashes ahead of writing (`vmCopyReadChunks`), Send disks and P2V conversion skip free NTFS space (`vmSkipFreeSpace`), VDDK reads ask for FastLZ compression, receivers advertise `deflate` and platform/remote Hyper-V sinks compress when they do, file share copies add Robocopy `/COMPRESS` where supported. AGENTS rule 73.
+- Tests: `go test -run 'TestCopyReadsAhead|TestCopyStops|TestPlatformReceiverSinks' ./src/app`. Not field-validated: VDDK FastLZ on real ESXi, Robocopy `/COMPRESS` between real servers, P2V free-space skip on a real server (covered by `TestConverterCopiesADiskOfThisComputer` on the runner).
+
+## Unreleased: Move SQL databases — 2026-11-28
+
+- New tool **Move SQL databases** (Migration and replication > Move servers, and New migration's source *SQL Server databases*). Reads both SQL Servers, suggests per database backup and restore, log shipping or a distributed availability group (only for databases already in an AG, owner decision), carries logins with SIDs and passwords, Agent jobs, operators, linked servers and chosen server settings, tests, cuts over (now or scheduled), moves a DNS alias and rolls back. Rule 72.
+- Engine `src/app/Invoke-SqlMigration.ps1` (signed, RemoteSigned), rules in `sqlmig*.go`, endpoints `/api/sql/*` in `sqlmig_windows.go`, demo backend `docs/demo/src/04-sql.js`.
+- Tests: `go test -run TestSQL ./src/app` (fakes, any platform); CI job `sqlmig` runs `TestSQLMigrationOnLocalDB` with two LocalDB instances on Windows; workspace checks "Move SQL databases" and New migration's guide. Not field-validated against real SQL Server instances, availability groups or DNS.
+
 ## Unreleased: browser demo and feature tour on GitHub Pages — 2026-11-28
 
 - `docs/demo/` runs the real interface on a simulated backend with fictional data; `docs/tour/` is the annotated feature tour; `docs/index.html` links both. Served by GitHub Pages from `docs/` once the owner turns Pages on (Settings > Pages: `main`, `/docs`, custom domain migrationmanager.techsavage3d.com from `docs/CNAME`, set 2026-11-28). Docs only: no version change, no release.
 - Refresh the demo page with `python scripts/build_demo.py` after interface changes (rule 71). Tested in Chromium: every tool opens without errors; collection, New migration to a started plan, rollback and the VM console were clicked through.
+
+## 3.3.1 published and verified — 2026-11-28
+
+- [Release v3.3.1](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.3.1) ("Server Inventory and Migration Manager 3.3.1"), tag and target commit `885cb586d6a033f04211940d2c9997a3ec0c765b`. Batch #233 (#224, #227, #230, #231, #226, #229, #232) reached `main` with a merge commit (`67dfdad`) after full CI, and #236 published. The owner asked for it on 2026-11-28 ("please build the next one with my requests", "and release when done", "no need for test build this time"); no test build was made.
+- The [release run](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/46097533968) passed: publish job 02:20–02:43 UTC, embedded scripts and EXE signed through Azure Artifact Signing over OIDC before the tests and checksum (Valid, timestamped); public feed and downloads verified.
+- The actual 3.3.0-to-3.3.1 upgrade (published signed 3.3.0 EXE through Download and Install, restart into 3.3.1, native health, settings, shortcut, timers, cleanup and rollback) passed in the same run, 02:43–02:56 UTC.
+- Stable EXE: 29,729,584 bytes; SHA-256 `a5cd1c2df2d9b7f6ffa2198d985a294af5411d6587286f47cc78bb10cdf19b8f` (matches the public feed). Linux agent `simm-agent-linux-amd64`: 13,725,696 bytes; SHA-256 `7c09d6f9ff7d54791fba86a9ed8c62e6ee8ec1588bce1c666b84aeaf7a394662`. All 14 assets are published.
+- Not field-tested: reading and joining a real Hyper-V cluster, port matching on real hardware, and the console typing, Hyper-V mouse and Enhanced session fixes on a real Hyper-V host or ESXi.
 
 ## 3.3.1 release preparation — 2026-11-28
 

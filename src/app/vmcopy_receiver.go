@@ -543,7 +543,9 @@ func (r *vmReceiver) ServeHTTP(w http.ResponseWriter, request *http.Request) {
 		// check it is talking to the node it chose. Both are shown only to a
 		// sender that knows the pairing code.
 		computer, _ := os.Hostname()
-		vmReceiverJSON(w, map[string]interface{}{"folder": r.folder != "", "folderPath": r.folder, "computer": computer, "disks": r.Disks()})
+		// deflate tells a sender it may compress chunks (enc=deflate);
+		// receivers that do not say so are sent chunks uncompressed.
+		vmReceiverJSON(w, map[string]interface{}{"folder": r.folder != "", "folderPath": r.folder, "computer": computer, "disks": r.Disks(), "deflate": true})
 	case "open":
 		r.open(w, request)
 	case "chunk":
@@ -919,6 +921,16 @@ func newVMRemoteSink(ctx context.Context, address, thumbprint, code, name string
 	}
 	sink.name = name
 	return sink, nil
+}
+
+// TakesDeflate reports whether the receiver says it inflates compressed
+// chunks. A receiver older than that answer, or one that cannot be asked,
+// is sent chunks uncompressed.
+func (s *vmRemoteSink) TakesDeflate() bool {
+	var answer struct {
+		Deflate bool `json:"deflate"`
+	}
+	return s.call(http.MethodGet, "disks", nil, nil, &answer) == nil && answer.Deflate
 }
 
 // vmReceiverListDisks asks a receiver which raw disks it writes.

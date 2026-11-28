@@ -84,12 +84,14 @@ const hvBuildExistingRead={kind:'join',names:['HVCLU01'],readFrom:'HV-HOST01.exa
 const hvBuildJoinPlan={schema:1,name:'Join HVCLU01',source:'vcenter.example.com',sourceCluster:'Prod',nodes:[{name:'HV2.example.com',esxi:'esx02.example.com',switches:{},hostIps:{},storage:[]},{name:'',esxi:'esx03.example.com',later:true,switches:{},hostIps:{},storage:[]}],switches:[{name:'SETswitch',from:['vSwitch0'],existing:true,managementOs:true,managementVlan:'',loadBalancing:'HyperVPort',mtu:1500,uplinkSpeedsMb:[25000,25000]}],hostNics:[{name:'LM',switch:'SETswitch',vlan:'30',role:'livemigration'}],networks:[],storage:{kind:'iscsi',mpio:true,portals:['10.0.40.5:3260'],targetFilter:'',jumbo:false,arrays:null,disks:[]},cluster:{enabled:true,join:true,name:'HVCLU01',addresses:[],witness:'disk',witnessShare:'',cloudAccount:'',storageTests:false},settings:{migrationAuth:'Kerberos',maxMigrations:2,maxStorageMigrations:2,performance:'Compression',vmPath:'',vhdPath:''},sizing:[],notes:['HV-HOST01 is already in HVCLU01 and is not changed.'],existing:{kind:'join',name:'HVCLU01',readFrom:'HV-HOST01.example.com',members:[{name:'HV-HOST01',state:'Up'}],witness:'Disk witness',hostIps:{LM:'10.0.30.11/24'},readAt:'2026-11-27T10:00:00Z'}};
 const hvBuildNodeFacts={ok:true,facts:{computer:'HV2',caption:'Windows Server 2022 Datacenter',build:20348,productType:3,partOfDomain:true,domain:'example.com',cores:32,memoryBytes:274877906944,virtualization:true,features:{'Hyper-V':'Installed','Failover-Clustering':'Available'},adapters:[{name:'Embedded 1',status:'Up',mac:'00-15-5D-00-00-01',speedBits:1000000000,ips:['192.0.2.52/24'],gateway:true,vlanId:0},{name:'SLOT 1 Port 1',status:'Up',mac:'00-15-5D-00-01-01',speedBits:25000000000,ips:[]},{name:'SLOT 1 Port 2',status:'Up',mac:'00-15-5D-00-01-02',speedBits:25000000000,ips:[]},{name:'SLOT 3 Port 1',status:'Up',mac:'00-15-5D-00-03-01',speedBits:10000000000,ips:['10.0.40.22/24']}],switches:[],hostNics:[],disks:[],initiator:'iqn.1991-05.com.microsoft:hv2.example.com',warnings:[]}};
 async function fixture(browser,old=false){
- let saved=null,started=[],saveCalls=0,rejectStart=false,skipRequests=[],opens=[],restoreReject=null,migrateReject={},vmwareReject={};const receiverPair={allowed:false};
+ let saved=null,started=[],saveCalls=0,rejectStart=false,skipRequests=[],opens=[],restoreReject=null,restoreScanExtra=null,migrateReject={},vmwareReject={};const receiverPair={allowed:false};
  const logs=[],dialogs=[],errors=[],restoreCalls={browse:0,scan:[],start:[],cancel:0,tokens:[]},migrateCalls=[],vmwareCalls=[],convertCalls=[],replCalls=[],planCalls=[],serverCalls=[];const servers={rows:[],summary:{total:0,states:{},scheduled:0,methods:{}},bulk:{running:false,action:'',total:0,results:[]},hyperVHere:true,isAdministrator:true,local:{hyperV:true,computer:'HV01',running:false,folder:'',defaultFolder:'C:\\ClusterStorage\\Volume1\\Hyper-V\\Received',port:44380,addresses:['192.0.2.40']}};const plans={plans:[],inventory:{open:true,server:'vc01.example.com',serverType:'vCenter Server',live:true}};let convertReject={},convertSize=0;const pickCalls=[],outputRootCalls=[],profileCalls=[],profiles=[];let pickReject='';
  const consoleCalls=[],consoleStreams=[],consoleOpt={needSignIn:'',caps:null};const uiCalls=[],vddkCalls=[],channelCalls=[],productionCalls=[];let vddk={folder:'',ready:false,loaded:false,message:'Off. Copies of running VMware VMs read whole disks through vSphere\'s export when the datastore refuses them.'};const state={ui:{schema:1,confirmStyle:'typed'},status:'idle',phase:'Ready',running:false,computerName:'SRV-DEMO-01',signedInAccount:'EXAMPLE\\operator',isAdministrator:true,powerShellVersion:'5.1',defaultOutputRoot:'C:\\Reports',update:{status:'current',title:'Up to date',message:'Installed v3.2.10. Latest v3.2.10.',canCheck:true},
   restore:{status:'idle',packages:{lastCollection:'',loadedReport:''},items:[],logs:[]},migrate:migrateIdle(),vmware:vmwareIdle(),convert:convertIdle()};
  const vm={inventory:null,plan:null,sizing:null,guest:null,compare:null};
  const rollbackCalls=[];
+ const sqlCalls=[];
+ const sqlFix=sqlFixture();
  const failover={failovers:[],copies:[{name:'APP01-disk0.vhdx',size:107374182400,complete:true,verified:false,round:'a1@2026-11-25T14:19:23Z',job:'a1',recoveryPoint:'2026-11-25T14:19:23Z',updated:'2026-11-25T14:20:00Z',busy:false,generation:2,machine:{name:'APP01',cpus:6,memoryMB:12288,firmware:'uefi',adapters:2}},{name:'APP01-disk1.vhdx',size:536870912000,complete:true,verified:false,round:'a1@2026-11-25T14:19:23Z',job:'a1',recoveryPoint:'2026-11-25T14:19:23Z',updated:'2026-11-25T14:20:00Z',busy:false,generation:1},{name:'SQL01-disk0.vhdx',size:107374182400,complete:false,verified:false,updated:'2026-11-25T14:20:00Z',busy:true,generation:1}]};
  const targetTest={running:false,log:[],error:'',tests:[]};
  const repl={ok:true,pushing:false,pushLog:[],pushResults:null,serial:0,isAdministrator:true,defaultPort:44390,agents:[],summary:{agents:0,unreachable:0,jobs:0,healthy:0,behind:0,failing:0,paused:0,cutOver:0,alerts:0}};
@@ -133,13 +135,14 @@ async function fixture(browser,old=false){
    const options=JSON.parse(body);
    if(url.pathname==='/api/start'){started.push(options);if(rejectStart){send(400,{error:'The output folder is not writable.'});return;}state.running=true;state.status='running';state.phase='Collecting';}
    else saveCalls++;
-   saved={schema:1,options:{...options,includeSensitive:false,exportCategories:options.exportCategories.filter(n=>n!=='NPS')}};
+   // Like preferences.go: the passphrase is not a saved option and the bundle is never remembered.
+   const {bundlePassphrase,bundlePassphraseConfirm,...kept}=options;saved={schema:1,options:{...kept,includeSensitive:false,migrationBundle:false,exportCategories:options.exportCategories.filter(n=>n!=='NPS')}};
    send(200,{ok:true,preferencesSaved:true});return;
   }
   if(url.pathname.startsWith('/api/restore/')){
    let body='';for await(const chunk of req)body+=chunk;restoreCalls.tokens.push(req.headers['x-app-token']);const data=body?JSON.parse(body):{},action=url.pathname.slice(13);
    if(action==='browse'){restoreCalls.browse++;send(200,{selected:true,path:'D:\\Restore\\FS-OLD-07'});return;}
-   if(action==='scan'){restoreCalls.scan.push(data);state.restore={...state.restore,status:'ready',packagePath:data.packagePath,scan:{...restoreScanFixture(),packagePath:data.packagePath}};send(200,{ok:true});return;}
+   if(action==='scan'){restoreCalls.scan.push(data);state.restore={...state.restore,status:'ready',packagePath:data.packagePath,scan:{...restoreScanFixture(),...(restoreScanExtra?restoreScanExtra(data):{}),packagePath:data.packagePath}};send(200,{ok:true});return;}
    if(action==='start'){restoreCalls.start.push(data);if(restoreReject){send(400,{error:restoreReject});return;}state.restore={...state.restore,status:'running',message:'Restoring.',startedAtUnixMs:Date.now(),rollbackPath:'',items:[],logs:[]};send(202,{ok:true});return;}
    if(action==='cancel'){restoreCalls.cancel++;state.restore.cancelRequested=true;send(202,{ok:true});return;}
   }
@@ -315,6 +318,22 @@ async function fixture(browser,old=false){
   }
   if(url.pathname==='/api/output-root'){let body='';for await(const chunk of req)body+=chunk;const data=JSON.parse(body);outputRootCalls.push(data);if(data.outputRoot==='Q:\\NoSuchDrive'){send(400,{ok:false,error:'Reports cannot be saved there: synthetic failure.'});return;}state.defaultOutputRoot=data.outputRoot;send(200,{ok:true,outputRoot:data.outputRoot,saved:true});return;}
   if(url.pathname==='/api/pick'){let body='';for await(const chunk of req)body+=chunk;const data=JSON.parse(body);pickCalls.push(data);if(pickReject){send(400,{ok:false,error:pickReject});return;}send(200,{ok:true,selected:true,path:data.kind==='remote'?'C:\\ClusterStorage\\Volume1\\Picked':data.kind==='file'?'E:\\Media\\receiver.iso':'E:\\Picked'});return;}
+  if(url.pathname.startsWith('/api/sql/')){
+   if(req.headers['x-app-token']!=='workspace-test'){send(403,{});return;}
+   const action=url.pathname.slice(9);let body='';for await(const chunk of req)body+=chunk;const data=body?JSON.parse(body):{};sqlCalls.push({action,body:data});
+   if(action==='state'){send(200,{ok:true,sql:sqlFix});return;}
+   if(action==='read'){sqlFix.read=sqlReadView();sqlFix.message='Read OLDSQL and NEWSQL.';send(202,{ok:true});return;}
+   if(action==='check'){send(200,{ok:true,findings:[{db:'Sales',severity:'warning',code:'compat',message:'Compatibility level 110 stays as it is on the new server.'}]});return;}
+   if(action==='checkfolder'){send(200,{ok:true,message:'Both SQL Server services can use '+data.backupPath+'.'});return;}
+   if(action==='create'){if(data.confirm!==data.name){send(400,{ok:false,error:'Confirm the plan\'s name to start it.'});return;}sqlFix.plans.push(sqlPlanFixture('q2',data.name,data.databases.map(d=>Object.assign(sqlDbFixture(d.name,d.method,'waiting'),{wave:d.wave}))));send(200,{ok:true,plan:'q2',findings:[]});return;}
+   if(action==='action'){const p=sqlFix.plans.find(x=>x.id===data.plan);if(!p){send(404,{ok:false,error:'That SQL plan no longer exists.'});return;}
+    if(['cutover','schedule','rollback'].includes(data.action)&&data.confirm!==String(data.names.length)){send(400,{ok:false,error:'Confirm '+data.names.length+'.'});return;}
+    if(data.action==='cutover'){p.databases.filter(d=>data.names.includes(d.name)).forEach(d=>{d.state='cutting';d.step='Backing up the tail of the log';});}
+    if(data.action==='test'){p.databases.filter(d=>data.names.includes(d.name)).forEach(d=>{d.test={name:d.name+'_TEST',id:7,created:'2026-11-28T10:00:00Z'};});}
+    if(data.action==='delete'){if(data.confirm!==p.name){send(400,{ok:false,error:'Confirm the plan name.'});return;}sqlFix.plans=sqlFix.plans.filter(x=>x!==p);}
+    send(200,{ok:true});return;}
+   send(200,{ok:true});return;
+  }
   if(url.pathname.startsWith('/api/rollback/')){
    if(req.headers['x-app-token']!=='workspace-test'){send(403,{});return;}
    const action=url.pathname.slice('/api/rollback/'.length);
@@ -335,8 +354,22 @@ async function fixture(browser,old=false){
  const url='http://127.0.0.1:'+server.address().port+'/';
  // A fixture that fails to load closes its own server and context; otherwise Node never exits and the job hangs until its timeout.
  try{await page.goto(url);await page.waitForFunction(()=>document.querySelector('#serverName').textContent==='SRV-DEMO-01');}catch(e){await context.close().catch(()=>{});server.close();throw new Error('Fixture page did not load ('+errors.concat(dialogs).join('; ')+'): '+e.message);}
- return {consoleCalls,consoleStreams,consoleOpt,page,context,state,profiles,profileCalls,rollbackCalls,uiCalls,vddkCalls,channelCalls,productionCalls,pickCalls,outputRootCalls,rejectPick(message){pickReject=message},vm,repl,plans,planCalls,servers,serverCalls,failover,receiverPair,targetTest,replCalls,vmwareCalls,convertCalls,rejectConvert(action,message){convertReject[action]=message},setConvertSize(size){convertSize=size},rejectVmware(action,message){vmwareReject[action]=message},logs,dialogs,errors,started,skipRequests,opens,restoreCalls,migrateCalls,rejectMigrate(action,message){migrateReject[action]=message},rejectRestore(message){restoreReject=message},get saved(){return saved},get saveCalls(){return saveCalls},reject(){rejectStart=true},async close(){assert.deepEqual(errors,[]);await context.close();await new Promise(r=>server.close(r));}};
+ return {sqlCalls,sqlFix,consoleCalls,consoleStreams,consoleOpt,page,context,state,profiles,profileCalls,rollbackCalls,uiCalls,vddkCalls,channelCalls,productionCalls,pickCalls,outputRootCalls,rejectPick(message){pickReject=message},vm,repl,plans,planCalls,servers,serverCalls,failover,receiverPair,targetTest,replCalls,vmwareCalls,convertCalls,rejectConvert(action,message){convertReject[action]=message},setConvertSize(size){convertSize=size},rejectVmware(action,message){vmwareReject[action]=message},logs,dialogs,errors,started,skipRequests,opens,restoreCalls,migrateCalls,rejectMigrate(action,message){migrateReject[action]=message},rejectRestore(message){restoreReject=message},setRestoreScan(fn){restoreScanExtra=fn},get saved(){return saved},get saveCalls(){return saveCalls},reject(){rejectStart=true},async close(){assert.deepEqual(errors,[]);await context.close();await new Promise(r=>server.close(r));}};
 }
+// Move SQL databases: a synthetic read of two servers and one plan.
+function sqlDbFixture(name,method,state){return {name,method,wave:0,state,facts:{name},nextTry:'0001-01-01T00:00:00Z',seeded:state==='ready'||state==='done'?'2026-11-28T08:00:00Z':'0001-01-01T00:00:00Z',lastRound:state==='ready'?'2026-11-28T09:45:00Z':'0001-01-01T00:00:00Z',cutoverAt:'0001-01-01T00:00:00Z',cutAt:state==='done'?'2026-11-28T09:00:00Z':'0001-01-01T00:00:00Z',testedAt:'0001-01-01T00:00:00Z',rolledBackAt:'0001-01-01T00:00:00Z'};}
+function sqlPlanFixture(id,name,dbs){return {id,name,created:'2026-11-28T07:00:00Z',source:{server:'OLDSQL',auth:'current'},target:{server:'NEWSQL',auth:'current'},backupPath:'\\\\OLDSQL\\E$\\Backup\\SIMM',dataPath:'D:\\Data',logPath:'L:\\Logs',syncMinutes:15,concurrency:2,startAt:'0001-01-01T00:00:00Z',paused:false,objects:{logins:true,jobs:true},alias:{name:'sql-app',zone:'corp.example.com',dnsServer:'DC1',spn:true,atCutover:true},databases:dbs,objectsAt:'2026-11-28T07:01:00Z',objectsNote:'Created 12 logins and 3 jobs (turned off until cutover).',objectItems:[{kind:'login',name:'CORP\\app-svc',action:'created'}]};}
+function sqlInstanceFixture(server,dbs){return {server,machine:server,instanceName:'',serverName:server,version:'15.0.4385.2',major:15,edition:'Standard Edition (64-bit)',hadr:false,dataPath:'D:\\Data',logPath:'L:\\Logs',backupPath:'E:\\Backup',serviceAccount:'CORP\\sql-svc',dnsDomain:'corp.example.com',sysadmin:true,databases:dbs,readAt:'2026-11-28T09:30:00Z'};}
+function sqlReadView(){
+ const dbs=[{name:'Sales',state:'ONLINE',recovery:'FULL',dataMB:20480,logMB:2048},{name:'Archive',state:'ONLINE',recovery:'SIMPLE',dataMB:512,logMB:64},{name:'Orders',state:'ONLINE',recovery:'FULL',dataMB:4096,logMB:512,ag:'AG1'},{name:'master',state:'ONLINE',recovery:'SIMPLE',dataMB:6,logMB:2}];
+ return {source:sqlInstanceFixture('OLDSQL',dbs),target:sqlInstanceFixture('NEWSQL',[]),
+  choices:{Sales:{method:'logship',why:'Full recovery model: log shipping keeps the copy minutes behind, so the cutover is short.',available:['backup','logship'],unavailable:{dag:'It is not in an availability group.'}},Archive:{method:'backup',why:'Simple recovery model: backed up and restored at cutover.',available:['backup'],unavailable:{logship:'The simple recovery model keeps no log backups.',dag:'It is not in an availability group.'}},Orders:{method:'dag',why:'It is in the availability group AG1.',available:['backup','logship','dag'],unavailable:{}}},
+  reasons:{master:{off:'System database: its logins, jobs and linked servers move as instance objects.'}},
+  objects:[{kind:'login',name:'CORP\\app-svc',action:'create'},{kind:'login',name:'sa',action:'skip',detail:'Built in'},{kind:'linked',name:'ERP',action:'manual',detail:'Its password cannot be read.'}],
+  config:[{name:'max degree of parallelism',old:'4',new:'0',default:true}],counts:{logins:12,jobs:3,linked:1,operators:1},findings:[],
+  suggest:{backupPath:'\\\\OLDSQL\\E$\\Backup\\SIMM',backupWhy:'The old server\'s own backup folder through its administrative share.',dataPath:'D:\\Data',logPath:'L:\\Logs',pathWhy:'The new server\'s default data and log folders.',syncMinutes:15,syncWhy:'Every 15 minutes.',concurrency:2,aliasZone:'corp.example.com',objectsWhy:'Logins keep their SIDs and passwords.',disableJobs:true,disableJobWhy:'The old jobs are turned off at cutover.'},errors:{}};
+}
+function sqlFixture(){return {plans:[sqlPlanFixture('q1','Finance SQL',[sqlDbFixture('Payroll','logship','ready'),Object.assign(sqlDbFixture('Ledger','backup','failed'),{error:'The backup of Ledger failed: Operating system error 5 (Access is denied.) on \\\\OLDSQL\\E$\\Backup\\SIMM. Give the SQL Server service account write access to the folder and try again; nothing else was changed on either server.'})])],running:{},read:sqlReadView(),reading:false,message:'',failed:false,held:[],dnsUser:'',logs:['10:00:00  Finance SQL: shipped the log of Payroll (2 MB).'],ready:{},methods:{backup:'Backup and restore',logship:'Log shipping',dag:'Distributed availability group'},signedInAccount:'CORP\\admin',limits:{minSync:5,maxSync:1440}};}
 // Tools live in two tabs: Discovery (Alt+1) and Migration and replication (Alt+5).
 const discoveryTools=['server','environment'];
 // apartControls finds controls pulled apart on wide windows: a tick box or
@@ -626,10 +659,10 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   assert(/Restore/.test(await f.page.locator('#shortcutsDialog').textContent()));
   assert(await f.page.locator('#restoreUseLatest').isDisabled());assert(await f.page.locator('#restoreUseLoaded').isDisabled());assert(await f.page.locator('#restoreReviewButton').isDisabled());assert(await f.page.locator('#restoreBrowse').isEnabled());
   f.state.restore.packages={lastCollection:'',loadedReport:'C:\\Reports\\Loaded'};await f.page.waitForTimeout(1100);assert(await f.page.locator('#restoreUseLatest').isDisabled());assert(await f.page.locator('#restoreUseLoaded').isEnabled());
-  await f.page.locator('#restoreUseLoaded').click();await f.page.waitForTimeout(1100);assert.deepEqual(f.restoreCalls.scan,[{packagePath:'C:\\Reports\\Loaded'}]);assert.deepEqual(f.dialogs,[]);
+  await f.page.locator('#restoreUseLoaded').click();await f.page.waitForTimeout(1100);assert.deepEqual(f.restoreCalls.scan,[{packagePath:'C:\\Reports\\Loaded',changes:{ip:{},path:{}}}]);assert.deepEqual(f.dialogs,[]);
  }finally{await f.close();}});
  await check('Restore package choice posts a scan and shows source, target, integrity, blocked roles and escaped warnings',async()=>{const f=await fixture(browser);try{
-  await loadRestore(f);assert.deepEqual(f.restoreCalls.scan,[{packagePath:latest}]);
+  await loadRestore(f);assert.deepEqual(f.restoreCalls.scan,[{packagePath:latest,changes:{ip:{},path:{}}}]);
   assert.equal(await f.page.locator('#restorePackagePath').textContent(),latest);assert.equal(await f.page.locator('#restoreSource').textContent(),'FS-OLD-07');assert.equal(await f.page.locator('#restoreTarget').textContent(),'SRV-DEMO-01');assert.equal(await f.page.locator('#restoreIntegrity').textContent(),'Verified');
   assert(/This package came from FS-OLD-07; you are restoring onto SRV-DEMO-01/.test(await f.page.locator('#restoreMismatch').textContent()));assert(await f.page.locator('#restoreMismatch').isVisible());assert(!await f.page.locator('#restoreAdminNotice').isVisible());
   const nps=f.page.locator('.restore-component[data-component="NPS"]');assert(await nps.locator('input[data-restore-component]').isDisabled());assert(/role is not installed/.test(await nps.locator('.restore-blocked').textContent()));
@@ -637,7 +670,7 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   assert(/<b>not markup<\/b>/.test(await f.page.locator('.restore-component[data-component="GPO"] .restore-warnings').textContent()));assert.equal(await f.page.locator('.restore-warnings b').count(),0);
   assert.equal(await f.page.locator('.restore-component[data-component="DHCP"] details').count(),0,'single-item components have no item list');
   await f.page.setViewportSize({width:1440,height:900});await f.page.locator('input[data-restore-component="DHCP"]').check();await f.page.locator('input[data-restore-component="Registry"]').check();await f.page.locator('.restore-component[data-component="Registry"] summary').click();await f.page.screenshot({path:out+'/restore-components-1440x900.png'});await f.page.locator('input[data-restore-component="DHCP"]').uncheck();await f.page.locator('input[data-restore-component="Registry"]').uncheck();
-  await f.page.locator('#restoreBrowse').click();await f.page.waitForTimeout(1100);assert.equal(f.restoreCalls.browse,1);assert.deepEqual(f.restoreCalls.scan[1],{packagePath:'D:\\Restore\\FS-OLD-07'});assert.equal(await f.page.locator('#restorePackagePath').textContent(),'D:\\Restore\\FS-OLD-07');
+  await f.page.locator('#restoreBrowse').click();await f.page.waitForTimeout(1100);assert.equal(f.restoreCalls.browse,1);assert.deepEqual(f.restoreCalls.scan[1],{packagePath:'D:\\Restore\\FS-OLD-07',changes:{ip:{},path:{}}});assert.equal(await f.page.locator('#restorePackagePath').textContent(),'D:\\Restore\\FS-OLD-07');
   assert(f.restoreCalls.tokens.every(t=>t==='workspace-test'));assert.deepEqual(f.dialogs,[]);
  }finally{await f.close();}});
  await check('Restore item and component checkboxes stay in sync and survive state polls',async()=>{const f=await fixture(browser);try{
@@ -648,6 +681,41 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   await f.page.waitForTimeout(1100);assert(await item('reg-spooler').isChecked(),'selection survives polls');assert(await card.locator('details').evaluate(e=>e.open),'item list stays open across polls');
   await item('reg-lanman').uncheck();await item('reg-spooler').uncheck();assert(!await parent.isChecked(),'unchecking every item unchecks the component');assert.equal(await f.page.locator('#restoreSelectionSummary').textContent(),'No items selected.');
   await item('reg-spooler').check();assert(await parent.isChecked());await parent.uncheck();assert(!await item('reg-spooler').isChecked());assert.deepEqual(f.dialogs,[]);
+ }finally{await f.close();}});
+ await check('Restore onto a new server: bundle passphrase, changes for this server and account passwords',async()=>{const f=await fixture(browser);try{
+  // Fictional bundle: the old server used 10.0.0.5 and drive E:, which this server lacks.
+  f.setRestoreScan(data=>{const ok=data.passphrase==='correct horse battery'||(data.passphrase===''&&f.restoreCalls.scan.some(x=>x.passphrase==='correct horse battery'));const ip=(data.changes&&data.changes.ip&&data.changes.ip['10.0.0.5'])||'192.0.2.9';
+   return {bundle:{present:true,usable:ok,passphrase:ok?'ok':(data.passphrase?'wrong':'none'),message:ok?'Unlocked: certificates and passwords can be restored.':(data.passphrase?'The passphrase is not right.':'Type the bundle passphrase to restore certificates and IIS passwords.'),createdAt:'2026-11-27 18:02',warnings:['Certificate CN=old.example.com is not in the bundle. Its private key is marked not exportable.']},
+    mappings:[{kind:'ip',from:'10.0.0.5',to:ip,suggested:'192.0.2.9',why:'The address on this server in the same network.',options:['*','192.0.2.9','192.0.2.10'],usedBy:['IIS site bindings']},{kind:'path',from:'E:',to:'D:',suggested:'D:',why:'E: does not exist here; D: is the largest data drive.',options:['C:','D:'],usedBy:['IIS site Shop','Share Finance']}],
+    notMovable:[{role:'SQL Server',guidance:'Move databases with backup and restore or a SQL migration tool.'}],
+    components:[...restoreScanFixture().components,{id:'accounts',title:'Local users and groups',description:'Local accounts of the old server.',impact:'normal',available:true,blockedReason:'',warnings:[],items:[{id:'accounts:user:svcweb',title:'svcweb',detail:'Local user',available:true,blockedReason:'',defaultSelected:true,needsSecret:'account:svcweb',secretLabel:'Password for FS-OLD-07\\svcweb',secretOptional:true}]},
+     {id:'tasks',title:'Scheduled tasks',description:'Task definitions.',impact:'normal',available:true,blockedReason:'',warnings:[],items:[{id:'tasks:nightly',title:'Nightly export',detail:'Runs as FS-OLD-07\\svcweb',available:true,blockedReason:'',defaultSelected:true,needsSecret:'account:svcweb',secretLabel:'Password for FS-OLD-07\\svcweb',secretOptional:false}]}]};});
+  f.state.restore.packages={lastCollection:latest,loadedReport:''};await f.page.keyboard.press('Alt+4');await f.page.waitForFunction(()=>!document.querySelector('#restoreUseLatest').disabled);await f.page.locator('#restoreUseLatest').click();await f.page.waitForFunction(()=>document.querySelectorAll('.restore-component').length===7);
+  assert(await f.page.locator('#restoreBundle').isVisible());assert(await f.page.locator('#restoreUnlockRow').isVisible());assert(/SQL Server: Move databases/.test(await f.page.locator('#restoreBundleNotes').textContent()));
+  assert.equal(await f.page.locator('[data-restore-map="ip|10.0.0.5"]').inputValue(),'192.0.2.9');assert.equal(await f.page.locator('[data-restore-map="path|E:"]').inputValue(),'D:');
+  await f.page.locator('#restorePassphrase').fill('wrong passphrase!!');await f.page.locator('#restoreUnlock').click();await f.page.waitForFunction(()=>/not right/.test(document.querySelector('#restoreBundleState').textContent));assert.equal(await f.page.locator('#restorePassphrase').inputValue(),'','the passphrase is cleared from the page');
+  await f.page.locator('#restorePassphrase').fill('correct horse battery');await f.page.keyboard.press('Enter');await f.page.waitForFunction(()=>/Unlocked/.test(document.querySelector('#restoreBundleState').textContent));assert(!await f.page.locator('#restoreUnlockRow').isVisible());
+  await pick(f,'Printers');await pick(f,'tasks');assert.equal(await f.page.locator('[data-restore-secret]').count(),1,'one field per account');
+  await f.page.locator('[data-restore-map="ip|10.0.0.5"]').selectOption('192.0.2.10');await f.page.waitForFunction(()=>/Set by you/.test(document.querySelector('#restoreChanges').textContent));assert.equal(await f.page.locator('[data-restore-map="ip|10.0.0.5"]').inputValue(),'192.0.2.10');
+  assert.deepEqual(f.restoreCalls.scan[f.restoreCalls.scan.length-1],{packagePath:latest,passphrase:'',changes:{ip:{'10.0.0.5':'192.0.2.10'},path:{}}});assert(/Set by you/.test(await f.page.locator('#restoreChanges').textContent()));
+  assert(await f.page.locator('input[data-restore-component="tasks"]').isChecked(),'ticks survive a new check of the same package');
+  await f.page.locator('[data-restore-secret="account:svcweb"]').fill('S3cret-for-test');await f.page.waitForTimeout(1100);assert.equal(await f.page.locator('[data-restore-secret="account:svcweb"]').inputValue(),'S3cret-for-test','typing survives polls');
+  await f.page.locator('#restoreReviewButton').click();assert(/Changes for this server: 10\.0\.0\.5 \u2192 192\.0\.2\.10, E: \u2192 D:/.test(await f.page.locator('#restoreDialogList').textContent()));
+  await f.page.locator('#restoreConfirmInput').fill('SRV-DEMO-01');await f.page.locator('#restoreConfirmButton').click();await f.page.waitForFunction(()=>!document.querySelector('#restoreDialog').open);
+  const body=f.restoreCalls.start[0];assert.deepEqual(body.changes,{ip:{'10.0.0.5':'192.0.2.10'},path:{}});assert.deepEqual(body.passwords,{'account:svcweb':'S3cret-for-test'});
+  f.state.restore.restartNeeded=true;await f.page.waitForTimeout(1100);assert(await f.page.locator('#restoreRestart').isVisible());assert.deepEqual(f.dialogs,[]);
+ }finally{await f.close();}});
+ await check('Collection: Prepare this package for a new server sends the passphrase once and never saves it',async()=>{const f=await fixture(browser);try{
+  await f.page.locator('#exportPanel').evaluate(e=>e.open=true);
+  assert(await f.page.locator('#bundlePassphrase').isDisabled(),'fields stay in place, turned off');const before=await f.page.locator('#startButton').boundingBox();
+  await f.page.locator('#migrationBundle').check({force:true});const after=await f.page.locator('#startButton').boundingBox();assert.equal(before.y,after.y,'turning the bundle on moves nothing');
+  assert(/at least 12/.test(await f.page.locator('#bundleWhy').textContent()));await f.page.locator('#startButton').click();assert.equal(f.started.length,0);
+  await f.page.locator('#bundlePassphrase').fill('correct horse battery');await f.page.locator('#bundlePassphraseConfirm').fill('correct horse batterz');assert(/do not match/.test(await f.page.locator('#bundleWhy').textContent()));
+  await f.page.locator('#bundlePassphraseConfirm').fill('correct horse battery');assert(/ready/.test(await f.page.locator('#bundleWhy').textContent()));
+  await f.page.locator('#startButton').click();await f.page.waitForFunction(()=>document.querySelector('#bundlePassphrase').value==='');
+  const sent=f.started[0];assert.equal(sent.migrationBundle,true);assert.equal(sent.bundlePassphrase,'correct horse battery');assert.equal(sent.bundleWebContent,true);assert.equal(sent.bundleContentLimitGB,10);
+  assert(!JSON.stringify(f.saved||{}).includes('horse'),'the passphrase is never saved');assert.equal(await f.page.locator('#migrationBundle').isChecked(),true,'the option stays for this session');
+  f.state.running=false;f.state.status='success';f.state.bundle='Migration bundle: 12 role(s) and feature(s), 2 certificate(s) with private keys.';await f.page.keyboard.press('Alt+2');await f.page.waitForTimeout(1100);assert(/Migration bundle: 12/.test(await f.page.locator('#bundleNotice').textContent()));assert.deepEqual(f.dialogs,[]);
  }finally{await f.close();}});
  await check('Review restore requires administrator rights, a selection and no running collection',async()=>{const f=await fixture(browser);try{
   await loadRestore(f);const review=f.page.locator('#restoreReviewButton');assert(await review.isDisabled());await pick(f,'Printers');assert(await review.isEnabled());
@@ -669,7 +737,7 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   await f.page.locator('#restoreConfirmInput').fill('srv-demo-01');assert(await confirm.isEnabled(),'case-insensitive match');
   f.rejectRestore('A collection is running. Wait for it to finish.');await confirm.click();await f.page.waitForFunction(()=>!document.querySelector('#restoreDialogError').classList.contains('hidden'));assert(await dialog.isVisible());assert.equal(await f.page.locator('#restoreDialogError').textContent(),'A collection is running. Wait for it to finish.');
   f.rejectRestore(null);await confirm.click();await f.page.waitForFunction(()=>!document.querySelector('#restoreDialog').open);
-  assert.deepEqual(f.restoreCalls.start[1],{packagePath:latest,components:[{id:'DHCP',items:['DHCP-config']},{id:'GPO',items:['GPO-all']},{id:'Registry',items:['reg-lanman','reg-spooler']}],confirmComputerName:'srv-demo-01'});
+  assert.deepEqual(f.restoreCalls.start[1],{packagePath:latest,components:[{id:'DHCP',items:['DHCP-config']},{id:'GPO',items:['GPO-all']},{id:'Registry',items:['reg-lanman','reg-spooler']}],confirmComputerName:'srv-demo-01',changes:{ip:{},path:{}},passwords:{}});
   assert(await f.page.locator('#restoreProgress').isVisible());assert(await f.page.locator('#restoreCancelButton').isVisible());await f.page.waitForTimeout(1100);assert.equal(await f.page.locator('#restoreTabBadge').textContent(),'Running');
   await f.page.keyboard.press('Alt+1');assert(await f.page.locator('#startButton').isDisabled(),'Start collection is locked during a restore');assert(await f.page.locator('#presetCore').isDisabled());
   await f.page.keyboard.press('Control+Enter');await f.page.waitForTimeout(300);assert.equal(f.started.length,0);assert.deepEqual(f.dialogs,[]);
@@ -798,8 +866,9 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   Object.assign(m,{running:false,action:'',status:'dfschecked',dfs:{available:true,message:'1 DFS link(s) point at the old server.',targets:[{namespacePath:'\\\\example.com\\Files\\Finance',target:'\\\\FS-OLD-07\\Finance',suggested:'\\\\SRV-DEMO-01\\Finance'}]}});await f.page.waitForTimeout(1100);
   assert.deepEqual(await f.page.locator('#migrateDfsResult td').allTextContents(),['\\\\example.com\\Files\\Finance','\\\\FS-OLD-07\\Finance','\\\\SRV-DEMO-01\\Finance']);
   await f.page.locator('#migrateAliasCheck').click();await f.page.waitForTimeout(300);assert.equal(migrateCalls(f,'alias-check').length,1);
-  Object.assign(m,{running:false,action:'',status:'aliaschecked',alias:{possible:false,reasons:['The old server FS-OLD-07 still answers on the network.'],oldName:'FS-OLD-07',oldFqdn:'fs-old-07.example.com',thisFqdn:'srv-demo-01.example.com'}});await f.page.waitForTimeout(1100);
-  assert(/still answers/.test(await f.page.locator('#migrateAliasResult').textContent()));assert(!await f.page.locator('#migrateAlias').isVisible(),'Add name waits for a passing check');
+  Object.assign(m,{running:false,action:'',status:'aliaschecked',alias:{possible:false,reasons:['The old server FS-OLD-07 still answers on the network.'],oldName:'FS-OLD-07',oldFqdn:'fs-old-07.example.com',thisFqdn:'srv-demo-01.example.com'}});
+  // Wait for the poll that carries the check, not a fixed 1.1 s: a loaded runner can miss one 1 s poll.
+  await f.page.waitForFunction(()=>/still answers/.test(document.querySelector('#migrateAliasResult').textContent),null,{timeout:10000});assert(!await f.page.locator('#migrateAlias').isVisible(),'Add name waits for a passing check');
   m.alias.possible=true;m.alias.reasons=[];await f.page.waitForTimeout(1100);assert(await f.page.locator('#migrateAlias').isVisible());
   await f.page.locator('#migrateAlias').click();const text=await f.page.locator('#migrateDialog').textContent();assert(text.includes('This changes DNS and Active Directory. It needs Domain Admin rights'));assert(text.includes('restarted'));
   await f.page.locator('#migrateConfirmInput').fill('FS-OLD-07');await f.page.locator('#migrateConfirmButton').click();await f.page.waitForFunction(()=>!document.querySelector('#migrateDialog').open);assert.deepEqual(migrateCalls(f,'alias').map(c=>c.body),[{confirmOldName:'FS-OLD-07'}]);
@@ -1353,6 +1422,8 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   const item=w3.locator('.mp-go-items li');assert.equal(await item.count(),1);
   assert.equal(await item.evaluate(li=>li.firstChild.textContent),'SQL01: SQL and DC checks: couldn\'t reach sql01.example.com over WinRM (TCP 5985). (2026-11-27 06:33)');
   assert(!await item.locator('pre').isVisible(),'the raw error is folded');await item.locator('summary').click();assert.equal(await item.locator('pre').textContent(),raw,'Details shows the full error');
+  // Details stays open through the plan's refreshes (3.3.1: it opened and closed again a second later).
+  await f.page.waitForTimeout(4500);assert(await item.locator('details').evaluate(d=>d.open),'Details stays open after the plan refreshes');assert(await item.locator('pre').isVisible());
   assert.equal(await w3.locator('.mp-chip').textContent(),'Check first');
   assert.deepEqual(f.errors,[]);assert.deepEqual(f.dialogs,[]);
  }finally{await f.close();}});
@@ -1551,6 +1622,11 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   await f.page.locator('#nwNext').click();await f.page.waitForTimeout(200);
   assert(await f.page.locator('#tabMigrate').isVisible(),'Continue in opens Move file shares');assert(await f.page.locator('#migrateTargetOther').isChecked(),'Another server is preset');
   assert(await f.page.locator('#migrateTargetFields').isVisible(),'the new server fields show');
+  // SQL Server databases: one way, its steps, and the hand-off opens Move SQL databases.
+  await goTool(f,'wizard');await f.page.locator('[data-nw-step="0"]').click();await f.page.locator('[data-nw-source="sqldbs"]').click();await f.page.locator('#nwNext').click();await f.page.locator('[data-nw-target="sqlserver"]').click();await f.page.locator('#nwNext').click();
+  assert.deepEqual(await methods(),['sqlmove']);assert.equal(await f.page.locator('#gdPlanTitle').textContent(),'Moving SQL Server databases to a new SQL Server: the steps, in order');
+  assert((await f.page.locator('#gdSteps').textContent()).includes('Choose databases and how each moves'));
+  await f.page.locator('#nwNext').click();await f.page.waitForTimeout(200);assert(await f.page.locator('#tabSql').isVisible(),'Continue in opens Move SQL databases');
   await goTool(f,'wizard');
   f.state.vmware.hyperVHere=false;
   await f.page.locator('[data-nw-step="0"]').click();await f.page.locator('[data-nw-source="images"]').click();await f.page.locator('#nwNext').click();await f.page.locator('[data-nw-target="here"]').click();await f.page.locator('#nwNext').click();
@@ -2841,6 +2917,46 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   for(const size of [{width:1008,height:690}]){await f.page.setViewportSize(size);await f.page.locator('#helpMenuButton').click();await f.page.locator('#helpSettings').click();
    assert(await f.page.evaluate(()=>{const d=document.querySelector('#settingsDialog').getBoundingClientRect();return d.bottom<=innerHeight&&d.right<=innerWidth;}),'Settings fits at 1024x768');await f.page.locator('#settingsClose').click();}
   assert.deepEqual(f.errors,[]);assert.deepEqual(f.dialogs,[]);
+ }finally{await f.close();}});
+ await check('Move SQL databases: both servers are read, each database shows its suggested way with the reason, a changed way is marked Set by you, Start sends the plan confirmed, and a plan lists every database with its track and actions',async()=>{const f=await fixture(browser);try{
+  await goTool(f,'sqlmove');await f.page.waitForSelector('#sqDbRows [data-sq-db="Sales"]');
+  assert.equal(await f.page.locator('[data-sq-method="Sales"]').inputValue(),'logship');
+  assert.equal(await f.page.locator('[data-sq-method="Archive"]').inputValue(),'backup');
+  assert.equal(await f.page.locator('[data-sq-method="Orders"]').inputValue(),'dag');
+  assert(await f.page.locator('[data-sq-method="Archive"] option[value="logship"]').isDisabled(),'log shipping is off for a simple recovery database');
+  assert.equal(await f.page.locator('#sqDbRows [data-sq-db="master"]').count(),0,'system databases cannot be ticked');
+  assert.match(await f.page.locator('#sqOffTitle').textContent(),/1 database cannot move/);
+  assert.equal(await f.page.locator('#sqBackup').inputValue(),'\\\\OLDSQL\\E$\\Backup\\SIMM');
+  assert(await f.page.locator('#sqStart').isDisabled(),'Start waits for databases');
+  await f.page.locator('[data-sq-pick="Sales"]').check();await f.page.locator('[data-sq-pick="Orders"]').check();
+  await f.page.locator('[data-sq-method="Orders"]').selectOption('logship');
+  assert.match(await f.page.locator('#sqDbRows [data-sq-db="Orders"] .sq-tag').textContent(),/Set by you/);
+  assert.match(await f.page.locator('#sqDbRows [data-sq-db="Sales"] .sq-tag').textContent(),/Suggested/);
+  assert.match(await f.page.locator('#sqPickCount').textContent(),/2 databases chosen/);
+  await f.page.locator('#sqCheck').click();await f.page.waitForSelector('.sq-finding');
+  assert.match(await f.page.locator('#sqFindings').textContent(),/Compatibility level 110/);
+  await f.page.locator('#sqName').fill('Sales to NEWSQL');
+  await f.page.locator('#sqConfirm').fill('Sales to NEWSQL');
+  await f.page.locator('#sqStart').click();
+  await f.page.waitForFunction(()=>document.querySelectorAll('[data-sq-plan]').length===2);
+  const create=f.sqlCalls.find(c=>c.action==='create');
+  assert.equal(create.body.confirm,'Sales to NEWSQL');
+  assert.deepEqual(create.body.databases.map(d=>d.name+':'+d.method),['Sales:logship','Orders:logship']);
+  assert.equal(create.body.objects.logins,true);assert.equal(create.body.objects.disableSourceJobs,true);
+  assert.equal(create.body.backupPath,'\\\\OLDSQL\\E$\\Backup\\SIMM');
+  for(const c of f.sqlCalls){assert(!JSON.stringify(c.body).includes('"password"'),'no password field is sent');}
+  // The first plan: tracks, a long error folded, and cutover confirmed by the tick.
+  const plan=f.page.locator('[data-sq-plan="q1"]');
+  assert.equal(await plan.locator('.vm-track').count(),2);
+  assert.match(await plan.textContent(),/In sync/);
+  assert(await plan.locator('[data-sq-act="cutover"]').isDisabled(),'Cut over waits for ticked databases');
+  await plan.locator('[data-sq-row="q1"][data-sq-dbname="Payroll"]').check();
+  await plan.locator('#sqCut_q1').fill('1');
+  await plan.locator('[data-sq-act="cutover"]').click();
+  await f.page.waitForFunction(()=>/Cutting over/.test(document.querySelector('[data-sq-plan="q1"]').textContent));
+  const cut=f.sqlCalls.find(c=>c.action==='action'&&c.body.action==='cutover');
+  assert.deepEqual(cut.body.names,['Payroll']);assert.equal(cut.body.confirm,'1');
+  assert.deepEqual(f.errors,[]);
  }finally{await f.close();}});
  await check('Roll back: every cutover is listed with its window, the dialog turns the new VM off first, warns about lost data, asks for a vCenter sign-in when needed, a domain controller needs its own tick, and every other way of moving has its steps',async()=>{const f=await fixture(browser);try{
   const planned=[{key:'stop',title:'Shut the new VM down'},{key:'check',title:'Check the new VM is off'},{key:'network',title:'Put the adapters back'},{key:'start',title:'Start the old VM'}];

@@ -74,6 +74,7 @@ function Test-CancelRequested { return [bool]($CancelPath -and (Test-Path -Liter
 $script:ComputerName = [string]$env:COMPUTERNAME
 if ($TargetName) { $script:ComputerName = ([string]$TargetName).Split('.')[0].ToUpperInvariant() }
 $script:Robocopy = Join-Path $env:SystemRoot 'System32\robocopy.exe'
+$script:RobocopyCompress = $null
 $script:SystemShares = @('NETLOGON', 'SYSVOL', 'PRINT$', 'FAX$', 'CERTENROLL', 'REMINST', 'WSUSCONTENT', 'WSUSTEMP', 'UPDATESERVICESPACKAGES')
 $script:ExcludedFolders = @('System Volume Information', '$RECYCLE.BIN', 'DfsrPrivate')
 
@@ -325,6 +326,20 @@ function Get-RobocopySummary {
     return $summary
 }
 
+function Test-RobocopyCompress {
+    # Robocopy on Windows Server 2022 and Windows 11 asks for SMB compression
+    # with /COMPRESS: files cross the network compressed when the old server
+    # supports it, and uncompressed otherwise. Older Robocopy refuses the
+    # switch, so it is added only when its help lists it.
+    if ($null -ne $script:RobocopyCompress) { return $script:RobocopyCompress }
+    $script:RobocopyCompress = $false
+    try {
+        $help = (& $script:Robocopy '/?' 2>$null) -join "`n"
+        if ($help -match '(?im)^\s*/COMPRESS\s') { $script:RobocopyCompress = $true }
+    } catch { $script:RobocopyCompress = $false }
+    return $script:RobocopyCompress
+}
+
 function Get-CommonRobocopyArguments {
     $arguments = @('/R:2', '/W:2', '/XJ', '/NP', '/BYTES', '/XD')
     $arguments += $script:ExcludedFolders
@@ -560,6 +575,7 @@ function Invoke-SyncShares {
             # /COPYALL keeps data, attributes, timestamps, NTFS permissions,
             # owner and auditing; /B uses backup rights to read every file.
             $options = @('/MIR', '/COPYALL', '/DCOPY:DAT', '/B', '/MT:16', '/NDL') + (Get-CommonRobocopyArguments)
+            if (Test-RobocopyCompress) { $options += '/COMPRESS' }
             # A bandwidth limit (the migration's or the console's, whichever
             # is lower now) applies to repeat copies, not the final pass at
             # cutover. Robocopy paces with an inter-packet gap after each

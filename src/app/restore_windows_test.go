@@ -208,7 +208,7 @@ func TestRestoreScanVerifiesPackageFilesWithRealEngine(t *testing.T) {
 
 	a := &application{powerShellPath: powerShell}
 	a.update.appDataRoot = filepath.Join(os.Getenv("LOCALAPPDATA"), appName)
-	scan, err := a.scanRestorePackage(root)
+	scan, err := a.scanRestorePackage(root, "", restoreChanges{})
 	if err != nil {
 		t.Fatal(err, a.restore.logs)
 	}
@@ -249,7 +249,7 @@ func TestRestoreScanVerifiesPackageFilesWithRealEngine(t *testing.T) {
 	if err := os.Remove(filepath.Join(root, "SHA256-Manifest.csv")); err != nil {
 		t.Fatal(err)
 	}
-	scan, err = a.scanRestorePackage(root)
+	scan, err = a.scanRestorePackage(root, "", restoreChanges{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -258,7 +258,7 @@ func TestRestoreScanVerifiesPackageFilesWithRealEngine(t *testing.T) {
 			t.Fatal("a package without a manifest offered a restore:", component.ID)
 		}
 	}
-	if _, err := a.scanRestorePackage(t.TempDir()); err == nil || !strings.Contains(err.Error(), "not an inventory package") {
+	if _, err := a.scanRestorePackage(t.TempDir(), "", restoreChanges{}); err == nil || !strings.Contains(err.Error(), "not an inventory package") {
 		t.Fatal("a folder that is not a package was accepted:", err)
 	}
 }

@@ -93,6 +93,21 @@ installs nothing on either server:
 | `WNetAddConnection2` to `\\<old server>\IPC$` with the typed account, removed when the run ends | New file server | Lets Robocopy read the old server's shares, because the admin computer's sign-in cannot be passed on (no CredSSP) |
 | Data files only in `%ProgramData%\Server Inventory and Migration Manager\File-Share-Migration\<old server>` (protected to SYSTEM and Administrators) and a per-run `Runs\<id>` folder that is removed | New file server | Copy logs, the saved old share permissions for Undo, and the run's engine text and result |
 
+### Prepare this package for a new server, and restoring it
+
+Collecting with **Prepare this package for a new server** runs one more signed
+script after the collector, and the Restore tab uses the same restore engine as
+before. Nothing is installed, no service or task is created, and nothing is
+sent anywhere:
+
+| Behaviour | Where | Why |
+| --- | --- | --- |
+| `powershell.exe -ExecutionPolicy RemoteSigned -File Export-MigrationBundle.ps1` (signed; the passphrase arrives as one JSON line on standard input) | Old server, as administrator | Writes the migration bundle into the package |
+| `Export-PfxCertificate` (or `X509Certificate2.Export`) for certificates in LocalMachine\My and WebHosting whose keys are exportable, each with a random password, to a folder protected to SYSTEM and Administrators that is deleted at once | Old server | Carries certificates with their private keys; the PFX bytes are kept only inside the passphrase-encrypted `Secrets.simmsec` |
+| Reads application pool, virtual directory and anonymous user passwords through `Microsoft.Web.Administration` (IIS's own API) | Old server | IIS keys never leave the server; the restore sets the passwords again through the same API, encrypted with the new server's keys |
+| `robocopy.exe /B` (backup mode) and `icacls /save` of the IIS website folders | Old server | Copies website files with their permissions into the package |
+| `Install-WindowsFeature`, ADSI `WinNT://` user and group creation, `New-SmbShare`, `Import-PfxCertificate`, `appcmd restore backup`, `netsh http add sslcert`, `robocopy.exe /B`, `icacls /restore` | New server, from the Restore tab as administrator | Re-creates what the operator ticked; each item's current state is saved to the rollback folder first |
+
 ### Prepare and fix up from outside the machine
 
 **Prepare and fix up** needs nothing installed in the machine being moved.
@@ -191,6 +206,17 @@ Writer is read as a service state). The account reaches PowerShell only as
 one JSON line on standard input and is kept in memory until **Use my Windows
 account** or exit. If your EDR watches remote PowerShell, allow
 `wsmprovhost.exe` running these read-only tools on the servers you check.
+
+### Move SQL databases
+
+Nothing is installed or started on either SQL Server.
+
+| Behaviour | Where | Why |
+| --- | --- | --- |
+| `powershell.exe -ExecutionPolicy RemoteSigned -File Invoke-SqlMigration.ps1 -Mode Batches` (signed script, never Bypass, no encoded command), input as one JSON line on standard input | The admin computer running the application | Runs T-SQL batches on the old and new SQL Servers (TCP 1433 or the instance's port) |
+| `Invoke-Command -ComputerName <SQL Server's computer>` over WinRM, only when a different Windows account is typed | The SQL Server's own computer | Runs the same T-SQL there as that account, because Windows cannot pass a typed account on through SQL Server otherwise |
+| `Invoke-SqlMigration.ps1 -Mode Dns`: `Invoke-Command -ComputerName <DNS server>` running the DnsServer cmdlets on one CNAME and `setspn` for the alias | The DNS server, only when an alias is moved | Points the alias at the new server and back on Roll back |
+| `BACKUP DATABASE` / `BACKUP LOG` and `RESTORE` by the SQL Server services to the backup share | Both SQL Servers | The copy itself; files are written by the SQL Server service accounts, not by this application |
 
 ### VM console
 
