@@ -502,6 +502,7 @@ func (a *application) handleConsoleNative(response http.ResponseWriter, request 
 		host = os.Getenv("COMPUTERNAME")
 	}
 	var err error
+	note := ""
 	switch input.Kind {
 	case "vmconnect":
 		if input.Target.Platform != "hyperv" {
@@ -529,6 +530,22 @@ func (a *application) handleConsoleNative(response http.ResponseWriter, request 
 			err = errors.New("Enhanced session opens Hyper-V VMs only")
 			break
 		}
+		// Virtual Machine Connection opens the enhanced session itself when
+		// the host and VM allow it (with its own display and sign-in
+		// prompts), so it is used when installed; otherwise Remote Desktop
+		// Connection opens the VM through an .rdp file.
+		if program := filepath.Join(system, "vmconnect.exe"); consoleGUIDPattern(strings.Trim(input.Target.ID, "{}")) {
+			if _, statErr := os.Stat(program); statErr == nil {
+				command := exec.Command(program, host, "-G", strings.Trim(input.Target.ID, "{}"))
+				allowForegroundHandoff()
+				err = command.Start()
+				if err == nil {
+					go func() { _ = command.Wait() }()
+					note = "Opened in Virtual Machine Connection, which uses the enhanced session when the host and VM allow it."
+				}
+				break
+			}
+		}
 		var text string
 		text, err = consoleEnhancedRDP(host, input.Target.ID)
 		if err != nil {
@@ -547,6 +564,7 @@ func (a *application) handleConsoleNative(response http.ResponseWriter, request 
 		err = command.Start()
 		if err == nil {
 			go func() { _ = command.Wait() }()
+			note = "Opened in Remote Desktop Connection. Sign in with an account that is a Hyper-V administrator on " + host + "."
 		}
 	case "vmrc":
 		if input.Target.Platform != "vmware" {
@@ -591,5 +609,5 @@ func (a *application) handleConsoleNative(response http.ResponseWriter, request 
 		writeJSON(response, http.StatusOK, map[string]any{"ok": false, "error": consoleSentence(err.Error())})
 		return
 	}
-	writeJSON(response, http.StatusOK, map[string]any{"ok": true})
+	writeJSON(response, http.StatusOK, map[string]any{"ok": true, "note": note})
 }

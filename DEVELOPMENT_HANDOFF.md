@@ -7,6 +7,14 @@
 
 The owner asked for the next stable release with their requests and no test build this round ("please build the next one with my requests", "and release when done", "no need for test build this time"). 3.3.1 carries #224 (one discovery folder per server, History inside, no folder for automatic sign-ins; also pins the disks and linuxagent CI jobs to ubuntu-24.04 because ubuntu-latest moved to 26.04 without qemu-utils) and #227 (Build Hyper-V hosts joins an existing cluster or takes in standalone hosts, Still ESXi nodes in a rolling conversion, auto-filled Suggested values). `appVersion`, `collectorVersion` and the collector's `$scriptVersion` are 3.3.1; notes in `docs/release-notes/3.3.1.md`; the published-upgrade check starts from 3.3.0. The `test` branch stays at 3.3.0-test.5 plus #225 and #228 (no test build).
 
+## Unreleased (for 3.3.1): VM console typing, Hyper-V clicks and Enhanced session — 2026-11-28
+
+- Owner report: Ctrl+V on Hyper-V and VMware dropped characters ("hubtech" typed as "ubtech" on a VMware sign-in screen), Hyper-V clicks did nothing, and Enhanced session did nothing.
+- Typing now releases every modifier first, waits 250 ms, holds each key 12 to 40 ms and paces characters (Hyper-V one `TypeText` call per character, at least 20 ms apart). The page sends the typing request only after its queued key releases reach the server.
+- Hyper-V clicks called `SetButton`, which `root\virtualization\v2` does not have; it is `SetButtonState(buttonIndex, isDown)`, and scrolling takes `scrollPositionDelta` (one notch is 120). The mouse and enhanced session availability are re-read every 5 seconds, with a PS/2 mouse fallback for generation 1.
+- Enhanced session opens Virtual Machine Connection when installed, otherwise an `.rdp` file with `negotiate security layer:i:0`, and explains host policy off or Windows not ready.
+- Tests: `TestTypingLetsGoOfModifiersAndHoldsEveryKey`, `TestHyperVConsoleFollowsTheMouseAndEnhancedSessionAsTheVMStarts`, updated RFB/Hyper-V/RDP tests and the VM console workspace check (Ctrl release reaches the server before the typing request). Not field-validated on a real Hyper-V host or ESXi.
+
 ## Unreleased: join converted hosts to an existing Hyper-V cluster, auto-filled choices — 2026-11-27
 
 - Owner: one of three ESXi hosts is already converted and clustered; the other two must be converted and joined. Build Hyper-V hosts' step 1 now chooses **A new cluster or hosts from the VMware data**, **Add hosts to an existing Hyper-V cluster** or **A new cluster with Hyper-V hosts I already have**. `ReadExisting` in `Build-HyperVHost.ps1` (read only, WinRM) reads the cluster's switches, VLANs, host adapters, iSCSI/FC storage, live migration settings, nodes, quorum, networks and CSVs; `hvBuildAdopt` (`hvbuild_join.go`) drafts the plan to match it. Join mode never creates a cluster and never touches quorum or cluster networks.
