@@ -1078,7 +1078,7 @@ func vmPDFNetworks(p *vmPDF) {
 		}
 		rows = nil
 		for _, nic := range item.Adapters {
-			rows = append(rows, []vmPDFCell{{Text: nic.VM, Anchor: nic.VMAnchor}, {Text: nic.NIC.Label}, {Text: nic.NIC.MAC}, {Text: vmYesNo(nic.NIC.Connected)}, {Text: strings.Join(nic.NIC.IPAddresses, ", ") + map[bool]string{true: " (static)"}[nic.NIC.Static]}})
+			rows = append(rows, []vmPDFCell{{Text: nic.VM, Anchor: nic.VMAnchor}, {Text: nic.NIC.Label}, {Text: nic.NIC.MAC}, {Text: vmYesNo(nic.NIC.Connected)}, {Text: strings.Join(ipMaskList(nic.NIC.IPAddresses), ", ") + map[bool]string{true: " (static)"}[nic.NIC.Static]}})
 		}
 		p.table([]float64{22, 18, 20, 10, 30}, []string{"VM", "Adapter", "MAC", "Connected", "Guest addresses"}, rows)
 	}
@@ -1134,7 +1134,7 @@ func vmPDFVMs(p *vmPDF) {
 		if len(vm.NICs) > 0 {
 			rows = nil
 			for _, nic := range vm.NICs {
-				rows = append(rows, []vmPDFCell{{Text: nic.NIC.Label}, {Text: nic.NIC.AdapterType}, {Text: nic.NIC.Network, Anchor: nic.NetworkAnchor}, {Text: nic.NIC.MAC}, {Text: strings.Join(nic.NIC.IPAddresses, ", ") + map[bool]string{true: " (static)"}[nic.NIC.Static]}})
+				rows = append(rows, []vmPDFCell{{Text: nic.NIC.Label}, {Text: nic.NIC.AdapterType}, {Text: nic.NIC.Network, Anchor: nic.NetworkAnchor}, {Text: nic.NIC.MAC}, {Text: strings.Join(ipMaskList(nic.NIC.IPAddresses), ", ") + map[bool]string{true: " (static)"}[nic.NIC.Static]}})
 			}
 			p.table([]float64{18, 12, 24, 20, 26}, []string{"Adapter", "Type", words.Network, "MAC", "Guest addresses"}, rows)
 		}

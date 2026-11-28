@@ -352,6 +352,17 @@ func (a *application) consoleOpenHyperV(target consoleTarget, frame *consoleFram
 	if err != nil {
 		return nil, consoleCaps{}, "", err
 	}
+	// A second helper with its own connection carries keys and the pointer,
+	// so input never waits behind a picture. Without it the console still
+	// works through the first one.
+	if input, err := a.consoleStartHyperV(host, strings.Trim(target.ID, "{}"), "Console", user, password, nil); err == nil {
+		var check consoleHVInfo
+		if err := input.call(map[string]any{"op": "info"}, &check); err == nil && check.OK {
+			backend.useInputLink(input)
+		} else {
+			input.close()
+		}
+	}
 	// A Hyper-V VM ID is a GUID, so it cannot point at another VM.
 	where := "Hyper-V host " + firstNonEmpty(info.Host, host, "this computer")
 	if local {

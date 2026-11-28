@@ -76,6 +76,10 @@ type mbSettings struct {
 	// DisconnectSource sets the old VMware VM's adapters to not connect
 	// after a successful cutover (recorded first, so it can be undone).
 	DisconnectSource bool `json:"disconnectSource"`
+	// KeepSourceName leaves the old VMware VM's name and note as they are;
+	// otherwise a successful cutover renames it "MIGRATED - DO NOT POWER ON
+	// - <name>" and adds a note (movebatch_mark.go), which Roll back undoes.
+	KeepSourceName bool `json:"keepSourceName,omitempty"`
 	// FixUp fixes each new VM up once it has started (guest_autofix.go):
 	// IP settings, hidden adapters, disks, VMware Tools and activation,
 	// with the guest account typed once in Move VMs or the plan.
@@ -553,6 +557,9 @@ type mbLive struct {
 	Started time.Time
 	Cutover bool
 	Disks   map[string]vmCopyProgress
+	// Creating is set once a cutover's final copy is done and the new VM
+	// is being created (with its cluster role and the old VM's adapters).
+	Creating bool
 }
 
 type mbLiveView struct {
@@ -563,6 +570,11 @@ type mbLiveView struct {
 	BytesPerSecond int64 `json:"bytesPerSecond"`
 	SecondsLeft    int64 `json:"secondsLeft"`
 	Elapsed        int64 `json:"elapsed"`
+	// Phase is what the round does now: shutdown (a cutover shutting the
+	// guest down before its final copy), copy, verify (reading the copy back,
+	// VerifyPercent) or create (making the new VM after a cutover).
+	Phase         string `json:"phase"`
+	VerifyPercent int    `json:"verifyPercent"`
 }
 
 func (l *mbLive) view(now time.Time) mbLiveView {
@@ -582,7 +594,39 @@ func (l *mbLive) view(now time.Time) mbLiveView {
 			v.SecondsLeft = int64(float64(v.Elapsed) * float64(chunks-done) / float64(done))
 		}
 	}
+	verifyTotal, verifyDone := 0, 0
+	for _, p := range l.Disks {
+		if p.VerifyTotal > 0 {
+			verifyTotal += p.VerifyTotal
+			verifyDone += p.VerifyDone
+		} else if p.Done >= p.Chunks && p.Chunks > 0 && l.Cutover {
+			// A disk whose verify has not started yet still counts.
+			verifyTotal += p.Chunks
+		}
+	}
+	switch {
+	case l.Creating:
+		v.Phase = "create"
+		v.SecondsLeft = 0
+	case verifyDone > 0 || (verifyTotal > 0 && anyVerifying(l.Disks)):
+		v.Phase = "verify"
+		v.VerifyPercent = verifyDone * 100 / verifyTotal
+		v.SecondsLeft = 0
+	case l.Cutover && chunks == 0:
+		v.Phase = "shutdown"
+	default:
+		v.Phase = "copy"
+	}
 	return v
+}
+
+func anyVerifying(disks map[string]vmCopyProgress) bool {
+	for _, p := range disks {
+		if p.VerifyTotal > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 // mbRunner owns the plans of this computer.
@@ -593,8 +637,10 @@ type mbRunner struct {
 	target mbTarget
 	// claim marks a sweep as copying, so steps that would change the same
 	// VMs or the session wait; it returns a reason when it cannot start.
-	claim     func(mbClaim) (release func(), reason string)
-	log       func(string)
+	claim func(mbClaim) (release func(), reason string)
+	log   func(string)
+	// logVM, when set, also gets each line about one VM (its own log).
+	logVM     func(vm, text string)
 	now       func() time.Time
 	live      map[string]*mbLive
 	throttles map[string]*vmThrottle
@@ -986,9 +1032,11 @@ func (r *mbRunner) SetMethod(id string, ids []string, method string) error {
 				}
 			}
 			r.log(fmt.Sprintf("%s: %s is now copied at its cutover, while shut down.", plan.Name, vm.Name))
+			r.vmOnly(vm.Name, "is now copied at its cutover, while shut down (plan "+plan.Name+").")
 		} else {
 			vm.SyncNow = true
 			r.log(fmt.Sprintf("%s: %s is now copied while it runs.", plan.Name, vm.Name))
+			r.vmOnly(vm.Name, "is now copied while it runs (plan "+plan.Name+").")
 		}
 	}
 	return r.saveLocked()
@@ -1212,7 +1260,7 @@ func (r *mbRunner) run(ctx context.Context, item mbWork) {
 	snapshot := *plan
 	vmCopy := *vm
 	r.mu.Unlock()
-	log := func(text string) { r.log(vmCopy.Name + ": " + text) }
+	log := func(text string) { r.logFor(vmCopy.Name, text) }
 	progress := func(disk string, p vmCopyProgress) {
 		r.mu.Lock()
 		if live := r.live[key]; live != nil {
@@ -1237,6 +1285,12 @@ func (r *mbRunner) run(ctx context.Context, item mbWork) {
 			log("Cutting over.")
 			result, err = r.target.Round(context.Background(), &snapshot, &vmCopy, true, nil, progress, log)
 			if err == nil {
+				r.mu.Lock()
+				if live := r.live[key]; live != nil {
+					live.Creating = true
+				}
+				r.mu.Unlock()
+				log("The final copy is verified; creating the new VM.")
 				created, notes, err = r.target.Create(context.Background(), &snapshot, &vmCopy, result, log)
 				if err != nil {
 					err = errors.New("the disks are copied and the source VM is shut down, but the new VM was not created: " + err.Error() + ". Start the source VM again to go back, or fix the cause and cut over again")
@@ -1282,14 +1336,14 @@ func (r *mbRunner) run(ctx context.Context, item mbWork) {
 		vm.Rounds++
 		vm.LastSync = finished.UTC()
 		vm.Notes = append(vm.Notes, notes...)
-		r.log(fmt.Sprintf("%s: cut over; the new VM was created.", vm.Name))
+		r.logFor(vm.Name, "cut over; the new VM was created.")
 	case err == nil:
 		vm.State, vm.Seeded, vm.Failures, vm.LastSync = mbReady, true, 0, finished.UTC()
 		vm.Disks = result.Disks
 		vm.Rounds++
 		vm.Held = ""
 		if result.Round != nil {
-			r.log(vm.Name + ": " + mbRoundSummary(vm))
+			r.logFor(vm.Name, mbRoundSummary(vm))
 		}
 	case !item.Cutover && pgHeld(err):
 		// Waiting for space: not a failure. It asks again in a while.
@@ -1298,7 +1352,7 @@ func (r *mbRunner) run(ctx context.Context, item mbWork) {
 			vm.State = mbReady
 		}
 		vm.Held, vm.HeldAt, vm.SyncNow = err.Error(), finished.UTC(), false
-		r.log(vm.Name + ": " + err.Error())
+		r.logFor(vm.Name, err.Error())
 	case errors.Is(err, context.Canceled):
 		// Paused: not a failure; the next round resumes.
 		vm.State = mbWaiting
@@ -1310,7 +1364,7 @@ func (r *mbRunner) run(ctx context.Context, item mbWork) {
 			vm.LastAttempt = vm.LastSync
 		}
 		vm.SyncNow = !plan.Paused
-		r.log(vm.Name + ": stopped; the next round resumes where this one stopped.")
+		r.logFor(vm.Name, "stopped; the next round resumes where this one stopped.")
 	default:
 		vm.State, vm.Error = mbFailed, err.Error()
 		vm.Failures++
@@ -1321,7 +1375,7 @@ func (r *mbRunner) run(ctx context.Context, item mbWork) {
 				vm.Notes = append(vm.Notes, finished.Local().Format("2006-01-02 15:04")+": the cutover stopped after the source was shut down.")
 			}
 		}
-		r.log(vm.Name + ": " + err.Error())
+		r.logFor(vm.Name, err.Error())
 	}
 }
 
@@ -1365,7 +1419,7 @@ func (r *mbRunner) StartTest(ctx context.Context, id, vmID string) error {
 	snapshot, vmCopy := *plan, *vm
 	r.saveLocked()
 	r.mu.Unlock()
-	test, err := r.target.StartTest(ctx, &snapshot, &vmCopy, func(text string) { r.log(vmCopy.Name + ": " + text) })
+	test, err := r.target.StartTest(ctx, &snapshot, &vmCopy, func(text string) { r.logFor(vmCopy.Name, text) })
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if test != nil {
@@ -1379,7 +1433,7 @@ func (r *mbRunner) StartTest(ctx context.Context, id, vmID string) error {
 		r.saveLocked()
 		return err
 	}
-	r.log(fmt.Sprintf("%s: test VM %s started with its network %s.", vm.Name, test.Name, map[bool]string{true: "on " + plan.Settings.TestSwitch, false: "disconnected"}[plan.Settings.TestSwitch != ""]))
+	r.logFor(vm.Name, fmt.Sprintf("test VM %s started with its network %s.", test.Name, map[bool]string{true: "on " + plan.Settings.TestSwitch, false: "disconnected"}[plan.Settings.TestSwitch != ""]))
 	return r.saveLocked()
 }
 
@@ -1398,13 +1452,13 @@ func (r *mbRunner) EndTest(ctx context.Context, id, vmID string) error {
 	}
 	snapshot, vmCopy := *plan, *vm
 	r.mu.Unlock()
-	if err := r.target.EndTest(ctx, &snapshot, &vmCopy, func(text string) { r.log(vmCopy.Name + ": " + text) }); err != nil {
+	if err := r.target.EndTest(ctx, &snapshot, &vmCopy, func(text string) { r.logFor(vmCopy.Name, text) }); err != nil {
 		return err
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	vm.Test, vm.State, vm.TestedAt = nil, mbReady, r.now()
-	r.log(vm.Name + ": test ended; the test VM and its test disks were removed and syncs resume.")
+	r.logFor(vm.Name, "test ended; the test VM and its test disks were removed and syncs resume.")
 	return r.saveLocked()
 }
 
@@ -1435,7 +1489,7 @@ func (r *mbRunner) MarkTested(id string, ids []string) error {
 	now := r.now()
 	for _, vm := range chosen {
 		vm.TestedAt = now
-		r.log(vm.Name + ": marked as tested.")
+		r.logFor(vm.Name, "marked as tested.")
 	}
 	return r.saveLocked()
 }
@@ -1517,5 +1571,18 @@ func (r *mbRunner) Loop(ctx context.Context) {
 			return
 		case <-ticker.C:
 		}
+	}
+}
+
+// logFor writes a line about one VM to the plan log and to that VM's log.
+func (r *mbRunner) logFor(vm, text string) {
+	r.log(vm + ": " + text)
+	r.vmOnly(vm, text)
+}
+
+// vmOnly writes a line to one VM's own log only.
+func (r *mbRunner) vmOnly(vm, text string) {
+	if r.logVM != nil {
+		r.logVM(vm, text)
 	}
 }

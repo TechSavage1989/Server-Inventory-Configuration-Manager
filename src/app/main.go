@@ -252,6 +252,8 @@ type internalState struct {
 }
 
 type application struct {
+	// vmLogs keeps the VMware log and each VM's own log on disk (vmlog.go).
+	vmLogs                *vmLogFiles
 	collectionPreferences *collectionPreferences
 	uiSettings            uiSettings
 	// prodGuard keeps production's space and bandwidth during copies
@@ -2465,6 +2467,7 @@ func (a *application) serve(listener net.Listener) error {
 	mux.HandleFunc("/api/cancel", a.handleCancel)
 	mux.HandleFunc("/api/skip-acl-export", a.handleSkipACLExport)
 	mux.HandleFunc("/api/open", a.handleOpen)
+	mux.HandleFunc("/api/vmlog", a.handleVMLog)
 	mux.HandleFunc("/api/restore/browse", a.handleRestoreBrowse)
 	mux.HandleFunc("/api/restore/scan", a.handleRestoreScan)
 	mux.HandleFunc("/api/restore/start", a.handleRestoreStart)

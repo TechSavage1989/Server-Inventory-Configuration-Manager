@@ -264,12 +264,12 @@ func replFailoverScript(plan *vmHyperVPlan, folder string, copies, children []st
 	var s strings.Builder
 	if len(children) > 0 {
 		s.WriteString("$ErrorActionPreference = 'Stop'\nImport-Module Hyper-V\n")
-		fmt.Fprintf(&s, "if (Get-VM -Name %s -ErrorAction SilentlyContinue) { throw ('A Hyper-V VM named ' + %s + ' already exists; nothing was changed.') }\n", vmPSQuote(plan.Name), vmPSQuote(plan.Name))
+		fmt.Fprintf(&s, "if (Hyper-V\\Get-VM -Name %s -ErrorAction SilentlyContinue) { throw ('A Hyper-V VM named ' + %s + ' already exists; nothing was changed.') }\n", vmPSQuote(plan.Name), vmPSQuote(plan.Name))
 		fmt.Fprintf(&s, "New-Item -ItemType Directory -Force -Path %s | Out-Null\n", vmPSQuote(filepath.Dir(children[0])))
 		for index, child := range children {
 			parent := filepath.Join(folder, copies[index])
 			fmt.Fprintf(&s, "if (Test-Path -LiteralPath %s) { throw ('The test disk ' + %s + ' already exists; end the earlier test first.') }\n", vmPSQuote(child), vmPSQuote(child))
-			fmt.Fprintf(&s, "New-VHD -Path %s -ParentPath %s -Differencing | Out-Null\n", vmPSQuote(child), vmPSQuote(parent))
+			fmt.Fprintf(&s, "Hyper-V\\New-VHD -Path %s -ParentPath %s -Differencing | Out-Null\n", vmPSQuote(child), vmPSQuote(parent))
 		}
 	}
 	s.WriteString(plan.Script())
@@ -284,16 +284,16 @@ func replFailoverEndScript(f replFailover, folder string) string {
 	line := func(format string, args ...interface{}) { fmt.Fprintf(&s, format+"\n", args...) }
 	line("$ErrorActionPreference = 'Stop'")
 	line("Import-Module Hyper-V")
-	line("$vm = Get-VM -Id %s -ErrorAction SilentlyContinue", vmPSQuote(f.VMID))
+	line("$vm = Hyper-V\\Get-VM -Id %s -ErrorAction SilentlyContinue", vmPSQuote(f.VMID))
 	line("if ($vm) {")
 	line("  if ($vm.Name -ne %s) { throw ('The VM with this ID is now named ' + $vm.Name + '; it was not removed.') }", vmPSQuote(f.Name))
-	line("  if ($vm.State -ne 'Off') { Stop-VM -VM $vm -TurnOff -Force }")
-	line("  Remove-VM -VM $vm -Force")
+	line("  if ($vm.State -ne 'Off') { Hyper-V\\Stop-VM -VM $vm -TurnOff -Force }")
+	line("  Hyper-V\\Remove-VM -VM $vm -Force")
 	line("}")
 	for index, child := range f.Children {
 		parent := filepath.Join(folder, f.Copies[index])
 		line("if (Test-Path -LiteralPath %s) {", vmPSQuote(child))
-		line("  $vhd = Get-VHD -Path %s", vmPSQuote(child))
+		line("  $vhd = Hyper-V\\Get-VHD -Path %s", vmPSQuote(child))
 		line("  if ($vhd.VhdType -ne 'Differencing' -or $vhd.ParentPath -ne %s) { throw ('%s is not the test disk this application made; it was left in place.') }", vmPSQuote(parent), strings.ReplaceAll(child, "'", "''"))
 		line("  Remove-Item -LiteralPath %s -Force", vmPSQuote(child))
 		line("}")

@@ -305,11 +305,38 @@ func (a *application) appendVMwareLogLocked(text string) {
 	if text == "" {
 		return
 	}
+	a.vmLogFilesLocked().Shared(text)
 	a.vmware.logs = append(a.vmware.logs, logEntry{Index: a.vmware.nextLog, Text: text})
 	a.vmware.nextLog++
 	if len(a.vmware.logs) > vmwareLogLimit {
 		a.vmware.logs = append([]logEntry{}, a.vmware.logs[len(a.vmware.logs)-vmwareLogLimit:]...)
 	}
+}
+
+// vmLogFilesLocked returns the logs kept on disk, once the application's
+// LocalAppData folder is known. Caller holds a.mu.
+func (a *application) vmLogFilesLocked() *vmLogFiles {
+	if a.vmLogs == nil && a.update.appDataRoot != "" {
+		a.vmLogs = newVMLogFiles(filepath.Join(a.update.appDataRoot, "Logs"))
+	}
+	return a.vmLogs
+}
+
+// vmLogFiles is vmLogFilesLocked for a caller that does not hold a.mu.
+func (a *application) vmLogFiles() *vmLogFiles {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.vmLogFilesLocked()
+}
+
+// vmwareLogFor writes a line to the VMware log and to one VM's own log.
+func (a *application) vmwareLogFor(vm, format string, values ...any) {
+	line := time.Now().Format("2006-01-02 15:04:05") + " " + fmt.Sprintf(format, values...)
+	a.mu.Lock()
+	a.appendVMwareLogLocked(line)
+	logs := a.vmLogFilesLocked()
+	a.mu.Unlock()
+	logs.Write(vm, line)
 }
 
 func (a *application) vmwareLog(format string, values ...any) {
@@ -1436,6 +1463,26 @@ func (a *application) handleVMwareCompare(response http.ResponseWriter, request 
 func (a *application) vmwareOpenTarget(kind string) (target string, folder bool, known bool) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	if strings.HasPrefix(kind, "vmlog:") {
+		// One VM's own log, by the VM's name: the file name is made safe
+		// by vmLogFileName, so it never points outside the logs folder.
+		logs := a.vmLogFilesLocked()
+		if logs == nil {
+			return "", false, true
+		}
+		return logs.Path(strings.TrimPrefix(kind, "vmlog:")), false, true
+	}
+	if kind == "vmlogfolder" || kind == "vmwarelogfile" {
+		logs := a.vmLogFilesLocked()
+		if logs == nil {
+			return "", false, true
+		}
+		if kind == "vmwarelogfile" {
+			return logs.SharedPath(), false, true
+		}
+		_ = os.MkdirAll(logs.Folder(), 0700)
+		return logs.Folder(), true, true
+	}
 	if strings.HasPrefix(kind, "rollbacklog:") {
 		// A rollback's own log, by its record's ID only (never a path from
 		// the page).
