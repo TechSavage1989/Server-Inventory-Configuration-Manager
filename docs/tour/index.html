@@ -211,6 +211,7 @@ var intro={id:'start',group:'Start',title:'The tour',render:function(){
    row('Replicate servers','Any running Windows or Linux server, physical or virtual','Hyper-V, HyperCore, Nutanix AHV, Proxmox VE, physical','<span class="chip">Agent on source</span><span class="chip live">Live</span>','The source is physical, on another hypervisor, has encrypted disks, or must stay minutes behind for days.')+
    row('Send disks by hand','A running Windows computer','Same targets as above','<span class="chip">Run inside source</span><span class="chip live">Live</span>','A one-off copy without installing a service.')+
    row('Convert disk images','VMDK, VHD, VHDX, qcow2, raw, or this computer\'s disks (P2V)','Hyper-V, ESXi/vCenter, HyperCore, Nutanix, Proxmox','<span class="chip">Agentless</span><span class="chip off">Offline</span>','The VM is shut down or exported and you have its disk files.')+
+   row('Move a server live','A running Windows server\'s roles: IIS sites and files, certificates, accounts, shares, DNS, DHCP','A new Windows server (this one or another)','<span class="chip">Agentless</span><span class="chip live">Live</span>','The old server keeps running and you pick which roles, sites, folders and accounts move; only those are copied.')+
    row('Move file shares','Windows file server shares, files and NTFS permissions','A new Windows file server (this one or another)','<span class="chip">Agentless</span><span class="chip live">Live</span>','Only the shares move, not the whole server.')+
   '</tbody></table></div>'+
   '<h3 style="margin-top:22px">The fictional estate used in every screenshot</h3>'+
@@ -244,14 +245,14 @@ var C=[intro,
        [80,5,'Search and copy','Search includes collapsed sections. Copy a value, a table, a section or the full report.']],
  say:['Open the report in the Report Viewer tab and search for a hotfix number or IP.','Show Print section and Print all: printing includes every retained row.','Mention it works fully offline, no external fonts or scripts.'],
  guard:['Self-contained HTML with a strict content security policy; no external requests.','Word and text outputs are produced alongside the HTML.']},
-{id:'restore',group:'Discover',title:'Restore configuration',img:'restore-choose',where:'Restore tab',runs:'the server receiving the configuration',
- lede:'Put DHCP, NPS, printers, IIS, DNS zones, GPOs, firewall rules, certificates, scheduled tasks, share permissions and registry settings back from a package, onto the same or a replacement server.',
+{id:'restore',group:'Discover',title:'Restore configuration',img:'restore-choose',alts:[['restore-live-pick','Move a server live: pick what to move']],where:'Restore tab',runs:'the server receiving the configuration',
+ lede:'Put DHCP, NPS, printers, IIS, DNS zones, GPOs, firewall rules, certificates, scheduled tasks, share permissions and registry settings back from a package, onto the same or a replacement server, or move a running server\'s roles live. You choose what moves: nothing is ticked for you.',
  pins:[[50,48,'Different server warning','The package came from FS-OLD-07 and is being restored onto FS-NEW-07. The app says so before anything else.'],
        [85,43,'Package integrity','Every file is checked against SHA256-Manifest.csv and checked again at restore time.'],
        [29,62,'Per-component impact','Each component says what it replaces and what it interrupts (the Print Spooler restarts, for example).'],
        [76,62,'Why something cannot restore','IIS is not installed here; NPS has no full export in this package. Nothing is silently skipped.'],
        [87,92,'Review restore','A review lists every change before you confirm.']],
- say:['Use "Use latest collection" on a lab server and walk through the review screen.','Point out GPO and registry items are never ticked by default.'],
+ say:['Use "Use latest collection" on a lab server, tick a few categories under What to restore and walk through the review screen.','Switch to Restore from: Another server, live, type web01.example.com and Look at the old server: every category lists what it has, none ticked. Pick a website folder and IIS is picked with it.','Point out GPO and registry items are never ticked by default, and Select all is one click when everything should move.'],
  guard:['The current configuration of each item is saved to a rollback folder before it is changed.','Components run in a fixed order and stop at the first failure.','Registry restores are HKLM only and never delete keys.']},
 {id:'vmware',group:'Discover',title:'VMware and Hyper-V inventory',img:'vmware-host',alts:[['vmware-vm-details','VM page'],['vmware-browse','VM list']],where:'Discovery → VMware and Hyper-V',runs:'your admin computer',
  lede:'Read vCenter, ESXi or a Hyper-V host or cluster and browse it like vSphere: hosts, VMs, storage and networks, each with its own page.',
