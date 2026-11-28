@@ -21,7 +21,7 @@
 
 A portable **Windows x64 application** for collecting server inventory, exporting supported configurations, reviewing clear, searchable reports, restoring configuration, moving file shares to a new server, moving VMs off VMware or Hyper-V to Hyper-V, Scale Computing HyperCore, Nutanix AHV, Proxmox VE, Azure, Amazon EC2 or a physical server, converting virtual disks between VMDK, VHDX, VHD, qcow2 and raw, and replicating whole running servers to their new machines until cutover.
 
-Version 3.3 brings all of that together in **Migration and replication**: **New migration** walks you from picking VMs to cutover on one set of screens, **Migration plans** keep many VMs in sync with changed-block tracking, **All jobs and servers** shows and acts on every server at once, and you can open a **VM console**, **roll back** a cutover, keep **production space and bandwidth protected**, **build or join a Hyper-V cluster** from the VMware data, and **move SQL Server databases** with their logins and jobs, all from the same window.
+Version 3.3 brings all of that together in **Migration and replication**: **New migration** walks you from picking VMs to cutover on one set of screens, **Migration plans** keep many VMs in sync with changed-block tracking, **All jobs and servers** shows and acts on every server at once, and you can open a **VM console**, **roll back** a cutover, keep **production space and bandwidth protected**, **build or join a Hyper-V cluster** from the VMware data, **move SQL Server databases** with their logins and jobs, and **restore a server's roles onto a new server** with its certificates, accounts, shares and IIS sites, all from the same window.
 
 ## Features
 
@@ -71,6 +71,7 @@ Try it in a browser, no install: the **[live demo](https://migrationmanager.tech
 
 <table>
   <tr><td width="50%"><b>Choose what to restore, with each blocked item's reason</b><br><img src="docs/images/restore-choose.png" alt="Choose what to restore, with each blocked item's reason" width="440"></td><td width="50%"><b>Restore progress, one item at a time</b><br><img src="docs/images/restore-progress.png" alt="Restore progress, one item at a time" width="440"></td></tr>
+  <tr><td colspan="2"><b>Restore onto a new server: unlock the migration bundle, map the old server's addresses and drives to this one, and type each account's password</b><br><img src="docs/images/restore-new-server.png" alt="Restore tab with the migration bundle unlocked, Changes for this server mapping 10.0.0.5 and drive E: to this server, and a password field for a local account" width="880"></td></tr>
 </table>
 
 ### Migration and replication
@@ -264,20 +265,6 @@ Device drivers other than print drivers, Active Directory, SQL Server, RRAS, AD 
 To rebuild a server's roles on different hardware or a new VM, tick **Prepare this package for a new server** on **Discovery → This server** before collecting, and type a passphrase (at least 12 characters). The package then gets a migration bundle (`09-Migration-Bundle`): the roles and features installed, local users and groups, file shares, certificates with their private keys, the passwords IIS keeps encrypted, HTTPS bindings, website files (up to the size you set) and more DNS and DHCP settings. Certificates and passwords are encrypted with the passphrase (AES-256 with a key derived from it, checked with HMAC-SHA256); the passphrase itself is never saved, so keep it with your migration notes and protect the package like a backup that holds private keys.
 
 On the new server, open the package on the **Restore** tab and type the passphrase. **Changes for this server** lists the old server's IP addresses and drives that this server lacks, each filled in with the closest match here and changeable; IIS bindings, website folders, share folders and permissions follow them, and the old server's local account names and SIDs become this server's. Type a password for each local user and for scheduled tasks that run as one. Roles and features are installed first in the same restore, so items that need a role are offered even before it is installed; if Windows needs a restart to finish, the restore says so.
-
-## Move SQL databases to a new SQL Server
-
-**Move SQL databases** (in **Migration and replication**, or New migration's *SQL Server databases*) moves databases rather than the whole server. Type the old and new SQL Servers and **Read both servers**: reading changes nothing. Connect as your current sign-in (it needs sysadmin on both), a different Windows account (used on the SQL Server's own computer through PowerShell remoting) or a SQL Server login. Passwords are kept in memory only.
-
-- **Each database gets a suggested way**, with the reason, and you can change it: **log shipping** for databases in the full recovery model (the copy stays minutes behind, so the cutover is short), **backup and restore at cutover** for the rest, and a **distributed availability group** for databases already in an availability group (SQL Server 2016 or later). Databases that cannot move (system databases, offline ones) are listed with why.
-- **Logins, jobs and server objects**: logins keep their SIDs and passwords, so applications sign in unchanged; Agent jobs are created turned off and turned on at cutover; operators and chosen server settings are copied; linked servers whose passwords cannot be read are listed to set by hand.
-- **Backup folder**: a share both SQL Server service accounts can reach. **Check backup folder** tests that before anything starts.
-- **Test** brings a copy online on the new server under another name while the log keeps shipping; **End test** removes only that copy.
-- **Cut over** (now or at a time): users are disconnected from the old database, the last changes are copied and the database comes online on the new server. The old database stays as it was at cutover (restoring or read-only), its jobs turned off.
-- **DNS alias** (optional): a CNAME such as `sql-app` moves to the new server when the last database is cut over, with its Kerberos SPNs.
-- **Roll back** takes the new copy offline (it is never deleted) and brings the old database back online. Changes made on the new server since the cutover are not on the old one.
-
-The plan runs while the application is open on that computer, like Migration plans.
 
 ## Move SQL databases to a new SQL Server
 
