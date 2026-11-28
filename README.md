@@ -37,6 +37,8 @@ A portable **Windows x64 application** for collecting server inventory, exportin
 
 ## Screenshots
 
+Try it in a browser, no install: the **[live demo](https://techsavage1989.github.io/Server-Inventory-Configuration-Manager/demo/)** runs the real interface on fictional data, so every tool can be clicked and its jobs progress live; nothing touches a real server. The **[feature tour](https://techsavage1989.github.io/Server-Inventory-Configuration-Manager/tour/)** walks through each part with annotated screenshots.
+
 ### Capture
 
 <table>
@@ -486,6 +488,8 @@ The application was renamed from Server Inventory Configuration Manager to **Ser
 ## Development
 
 Read [AGENTS.md](AGENTS.md) and [DEVELOPMENT_HANDOFF.md](DEVELOPMENT_HANDOFF.md) first. [docs/VALIDATION.md](docs/VALIDATION.md) records provenance, hosted test evidence, and field-testing limits. The maintained application preserves the original executable's collectors and behavior; `legacy` is historical material, not the build source.
+
+The browser demo in `docs/demo` is the real `src/app/index.html` with a simulated backend in `docs/demo/src` (fictional data only). After interface changes, run `python scripts/build_demo.py` to refresh it; `--check` fails when it is out of date. The feature tour is `docs/tour/index.html` and uses the screenshots in `docs/images`.
 
 <details>
 <summary><strong>Build, icon editing, and report-renderer notes</strong></summary>

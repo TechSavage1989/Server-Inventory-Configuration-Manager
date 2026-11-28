@@ -1,3 +1,8 @@
+## Unreleased: browser demo and feature tour on GitHub Pages — 2026-11-28
+
+- `docs/demo/` runs the real interface on a simulated backend with fictional data; `docs/tour/` is the annotated feature tour; `docs/index.html` links both. Served by GitHub Pages from `docs/` once the owner turns Pages on (Settings > Pages > Deploy from a branch, `main`, `/docs`). Docs only: no version change, no release.
+- Refresh the demo page with `python scripts/build_demo.py` after interface changes (rule 71). Tested in Chromium: every tool opens without errors; collection, New migration to a started plan, rollback and the VM console were clicked through.
+
 ## 3.3.1 release preparation — 2026-11-28
 
 The owner asked for the next stable release with their requests and no test build this round ("please build the next one with my requests", "and release when done", "no need for test build this time"). 3.3.1 carries #224 (one discovery folder per server, History inside, no folder for automatic sign-ins; also pins the disks and linuxagent CI jobs to ubuntu-24.04 because ubuntu-latest moved to 26.04 without qemu-utils) and #227 (Build Hyper-V hosts joins an existing cluster or takes in standalone hosts, Still ESXi nodes in a rolling conversion, auto-filled Suggested values). `appVersion`, `collectorVersion` and the collector's `$scriptVersion` are 3.3.1; notes in `docs/release-notes/3.3.1.md`; the published-upgrade check starts from 3.3.0. The `test` branch stays at 3.3.0-test.5 plus #225 and #228 (no test build).
