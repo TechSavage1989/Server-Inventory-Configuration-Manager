@@ -1974,7 +1974,9 @@ try {
         $scanPlan = New-Object PSObject
         if ($PlanPath -and (Test-Path -LiteralPath $PlanPath)) { $scanPlan = Get-Content -LiteralPath $PlanPath -Raw | ConvertFrom-Json }
         Set-PlanMappings -Plan $scanPlan
-        $mappings = @(Get-Mappings | ForEach-Object { $_.suggested = $_.to; $_.to = $script:Mappings[$_.kind][$_.from]; $_ })
+        # Not $mappings: PowerShell names ignore case, so at script level it
+        # would replace $script:Mappings that the components read.
+        $scanMappings = @(Get-Mappings | ForEach-Object { $_.suggested = $_.to; $_.to = $script:Mappings[$_.kind][$_.from]; $_ })
         $components = Get-AllComponents
         $result = @{
             packagePath = $script:Package; packageName = $identity.packageName
@@ -1986,7 +1988,7 @@ try {
                 passphrase = $script:PassphraseState; createdAt = $(if ($script:Bundle) { [string]$script:Bundle.createdAt } else { '' })
                 warnings = @($(if ($script:Bundle) { Get-BundleList $script:Bundle.warnings } else { @() }))
             }
-            mappings = $mappings; notMovable = @(Get-NotMovableRoles)
+            mappings = $scanMappings; notMovable = @(Get-NotMovableRoles)
         }
         if (-not $script:ManifestPresent) { foreach ($component in $result.components) { $component.available = $false; $component.blockedReason = $script:ManifestMessage; foreach ($item in $component.items) { $item.available = $false; $item.blockedReason = $script:ManifestMessage; $item.defaultSelected = $false } } }
         Write-Utf8File -Path $ResultPath -Text (ConvertTo-Json -InputObject $result -Depth 8)
