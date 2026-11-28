@@ -1,6 +1,6 @@
 ## 3.3.3 release preparation — 2026-11-28
 
-The owner approved publishing the next stable release on 2026-11-28 ("publish when ready", "no test, just stable"). 3.3.3 carries #251 and #255 (move a server live, rule 75), #258 (choose what to restore and what a live move copies, rule 76) and #260 (Move a domain controller, rule 77). `appVersion`, `collectorVersion` and the collector's `$scriptVersion` are 3.3.3; notes in `docs/release-notes/3.3.3.md`; the published-upgrade check starts from 3.3.2 (#257). No test build for this release.
+The owner approved publishing the next stable release on 2026-11-28 ("publish when ready", "no test, just stable"). 3.3.3 carries #251 and #255 (move a server live, rule 75), #258 (choose what to restore and what a live move copies, rule 76) and #260 (Move a domain controller, rule 77). The owner then held it for #265 (smooth consoles), #267 (Hyper-V commands name their module, rule 78), #268 (full subnet masks, renumbered rule 80), #270 (Hyper-V paste as key presses) and #272 (per-VM logs, cutover phase, MIGRATED marker, rule 79), and asked that every release update the README, tour and demo (rule 81). `appVersion`, `collectorVersion` and the collector's `$scriptVersion` are 3.3.3; notes in `docs/release-notes/3.3.3.md`; the published-upgrade check starts from 3.3.2 (#257). No test build for this release.
 
 ## Unreleased: move a domain controller — 2026-11-28
 
