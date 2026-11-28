@@ -392,6 +392,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
 .restore-subhead{font-weight:700;font-size:max(10.5px,calc(12.5*var(--fz)));color:#23334b;margin-bottom:calc(4*var(--sp))}
 .restore-map{width:100%;border-collapse:collapse;font-size:max(10.5px,calc(12*var(--fz)))}.restore-map th{text-align:left;color:#52647c;font-weight:600;padding:calc(4*var(--sp)) calc(8*var(--sp));border-bottom:1px solid #dbe3ed}.restore-map td{padding:calc(5*var(--sp)) calc(8*var(--sp));border-bottom:1px solid #edf1f6;vertical-align:top}.restore-map select{min-width:140px;max-width:100%}.restore-map .why{color:#596b80}
 .restore-pw-row{display:flex;flex-wrap:wrap;gap:calc(6*var(--sp)) calc(12*var(--sp));align-items:center;margin-top:calc(6*var(--sp));font-size:max(10.5px,calc(12*var(--fz)))}.restore-pw-row>span{flex:0 1 320px;min-width:0;overflow-wrap:anywhere}.restore-pw-row input{flex:0 1 240px;min-width:0}.restore-pw-row small{color:#596b80;flex:1 1 200px}
+.restore-what{border:1px solid var(--line,#d8dee8);border-radius:10px;padding:calc(10*var(--sp)) calc(12*var(--sp));margin-top:calc(10*var(--sp));display:flex;flex-direction:column;gap:calc(8*var(--sp))}.restore-what-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:calc(8*var(--sp))}.restore-what-actions{display:flex;gap:calc(6*var(--sp))}.restore-cats{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:calc(6*var(--sp)) calc(14*var(--sp))}.restore-cat{display:flex;flex-wrap:wrap;align-items:center;gap:calc(4*var(--sp)) calc(10*var(--sp));min-width:0;padding:calc(4*var(--sp)) 0}.restore-cat-head{display:flex;align-items:center;gap:calc(8*var(--sp));cursor:pointer;font-size:max(10.5px,calc(13*var(--fz)));min-width:0}.restore-cat-head input{width:15px;height:15px;flex:0 0 auto;margin:0;accent-color:#2563eb}.restore-cat-count{font-size:max(10.5px,calc(12*var(--fz)));color:var(--muted);min-height:1.4em;white-space:nowrap}.restore-cat-limit{display:flex;align-items:center;gap:calc(4*var(--sp));font-size:max(10.5px,calc(12*var(--fz)));color:var(--muted)}.restore-cat-limit input{width:70px}.restore-what:not(.live) .rl-only{display:none}.restore-cat{align-content:flex-start}.restore-cat-items{flex:1 0 100%;margin-top:calc(4*var(--sp))}.restore-cat-items>summary{cursor:pointer;font-size:max(10.5px,calc(12.5*var(--fz)));color:var(--muted,#5b6575)}.restore-cat-list{display:flex;flex-direction:column;gap:calc(3*var(--sp));max-height:calc(220*var(--fz));overflow:auto;padding:calc(4*var(--sp)) 0 0 calc(4*var(--sp))}.restore-cat-list label{display:flex;align-items:flex-start;gap:8px;font-size:max(10.5px,calc(13*var(--fz)))}.restore-cat-list label input{flex:0 0 auto;margin-top:2px}.restore-cat-list .rl-item-detail{color:var(--muted,#5b6575)}.restore-cat-list .rl-item-off{color:var(--muted,#5b6575)}
 .restore-components{margin-top:calc(14*var(--sp));display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:calc(10*var(--sp))}
 .restore-component{border:1px solid #dbe3ed;border-radius:10px;padding:calc(11*var(--sp)) calc(12*var(--sp));background:#fff;min-width:0}
 .restore-component.selected{border-color:#a6c3f1;background:#f7faff}.restore-component.unavailable{background:#f8fafc}
@@ -1174,6 +1175,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
               <div class="restore-source-actions" role="group" aria-labelledby="restorePackageLabel"><button class="secondary-button" id="restoreUseLatest" type="button" disabled>Use latest collection</button><button class="secondary-button" id="restoreUseLoaded" type="button" disabled>Use loaded report</button><button class="secondary-button" id="restoreBrowse" type="button">Browse for package folder&hellip;</button></div>
               <div class="restore-path" id="restorePackagePath">No package selected. Choose the inventory package folder that holds the configuration exports.</div>
             </div>
+            <div class="restore-what" id="restoreWhat" role="group" aria-labelledby="restoreWhatLabel"><div class="restore-what-head"><span class="restore-subhead" id="restoreWhatLabel">What to restore</span><span class="restore-what-actions"><button class="secondary-button" id="restoreCatsAll" type="button">Select all</button><button class="secondary-button" id="restoreCatsNone" type="button">Select none</button></span></div><div class="restore-cats" id="restoreCats"><div class="restore-cat" data-restore-cat-row="features"><label class="restore-cat-head"><input type="checkbox" data-restore-cat="features"><span class="restore-cat-name">Roles and features</span></label><span class="restore-cat-count" data-restore-cat-count="features"></span><details class="restore-cat-items rl-only" data-rl-items="features"><summary>Items</summary><div class="restore-cat-list" data-rl-list="features"></div></details></div><div class="restore-cat" data-restore-cat-row="iis"><label class="restore-cat-head"><input type="checkbox" data-restore-cat="iis"><span class="restore-cat-name">IIS sites, bindings and app pools</span></label><span class="restore-cat-count" data-restore-cat-count="iis"></span><details class="restore-cat-items rl-only" data-rl-items="iis"><summary>Items</summary><div class="restore-cat-list" data-rl-list="iis"></div></details></div><div class="restore-cat" data-restore-cat-row="webfiles"><label class="restore-cat-head"><input type="checkbox" data-restore-cat="webfiles" id="rlFiles"><span class="restore-cat-name">Website files with their permissions</span></label><label class="restore-cat-limit rl-only"><span>Up to</span><input type="number" id="rlLimit" min="1" max="2048" value="10" aria-label="Copy website files up to this many GB"><span>GB</span></label><span class="restore-cat-count" data-restore-cat-count="webfiles"></span><details class="restore-cat-items rl-only" data-rl-items="webfiles"><summary>Items</summary><div class="restore-cat-list" data-rl-list="webfiles"></div></details></div><div class="restore-cat" data-restore-cat-row="certificates"><label class="restore-cat-head"><input type="checkbox" data-restore-cat="certificates"><span class="restore-cat-name">Certificates with private keys</span></label><span class="restore-cat-count" data-restore-cat-count="certificates"></span><details class="restore-cat-items rl-only" data-rl-items="certificates"><summary>Items</summary><div class="restore-cat-list" data-rl-list="certificates"></div></details></div><div class="restore-cat" data-restore-cat-row="accounts"><label class="restore-cat-head"><input type="checkbox" data-restore-cat="accounts"><span class="restore-cat-name">Local users and groups</span></label><span class="restore-cat-count" data-restore-cat-count="accounts"></span><details class="restore-cat-items rl-only" data-rl-items="accounts"><summary>Items</summary><div class="restore-cat-list" data-rl-list="accounts"></div></details></div><div class="restore-cat" data-restore-cat-row="shares"><label class="restore-cat-head"><input type="checkbox" data-restore-cat="shares"><span class="restore-cat-name">File shares and permissions</span></label><span class="restore-cat-count" data-restore-cat-count="shares"></span><details class="restore-cat-items rl-only" data-rl-items="shares"><summary>Items</summary><div class="restore-cat-list" data-rl-list="shares"></div></details></div><div class="restore-cat" data-restore-cat-row="dns"><label class="restore-cat-head"><input type="checkbox" data-restore-cat="dns"><span class="restore-cat-name">DNS server</span></label><span class="restore-cat-count" data-restore-cat-count="dns"></span><details class="restore-cat-items rl-only" data-rl-items="dns"><summary>Items</summary><div class="restore-cat-list" data-rl-list="dns"></div></details></div><div class="restore-cat" data-restore-cat-row="dhcp"><label class="restore-cat-head"><input type="checkbox" data-restore-cat="dhcp"><span class="restore-cat-name">DHCP server</span></label><span class="restore-cat-count" data-restore-cat-count="dhcp"></span><details class="restore-cat-items rl-only" data-rl-items="dhcp"><summary>Items</summary><div class="restore-cat-list" data-rl-list="dhcp"></div></details></div><div class="restore-cat" data-restore-cat-row="other"><label class="restore-cat-head"><input type="checkbox" data-restore-cat="other"><span class="restore-cat-name">Other settings: firewall, tasks, printers, NPS, registry, policy</span></label><span class="restore-cat-count" data-restore-cat-count="other"></span><details class="restore-cat-items rl-only" data-rl-items="other"><summary>Items</summary><div class="restore-cat-list" data-rl-list="other"></div></details></div></div></div>
             <div class="restore-live hidden" id="restoreLive">
               <div class="restore-live-grid">
                 <div class="restore-live-side"><div class="restore-subhead">Old server</div>
@@ -1188,8 +1190,8 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
                   <div class="vm-two" id="rlNewFields"><label class="bundle-field"><span>User</span><input type="text" id="rlNewUser" maxlength="256" autocomplete="off" spellcheck="false" placeholder="DOMAIN\admin"></label><label class="bundle-field"><span>Password</span><input type="password" id="rlNewPassword" maxlength="256" autocomplete="off"></label></div>
                 </div>
               </div>
-              <div class="restore-live-files"><label class="bundle-check"><input type="checkbox" id="rlFiles" checked><span>Copy the website files with their permissions</span></label><label class="bundle-field bundle-limit"><span>Up to (GB)</span><input type="number" id="rlLimit" min="1" max="2048" value="10"></label></div>
-              <div class="restore-live-actions"><button class="primary-button" id="rlRead" type="button">Read the old server and copy</button><span class="restore-live-why" id="rlWhy"></span></div>
+              <div class="restore-live-actions" id="rlLookActions"><button class="secondary-button" id="rlLook" type="button">Look at the old server</button><span class="restore-live-why" id="rlLookWhy"></span></div>
+              <div class="restore-live-actions" id="rlActions"><button class="primary-button" id="rlRead" type="button">Copy what I picked</button><span class="restore-live-why" id="rlWhy"></span></div>
               <div class="restore-status" id="rlStatus" role="status" aria-live="polite"></div>
               <div class="restore-live-summary hidden" id="rlSummary"></div>
               <div class="restore-live-cutover hidden" id="rlCutover">
@@ -3830,10 +3832,10 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
       S('Point applications at the new server','admin','Change connection strings that name the old server, unless they use the alias this plan moved.',null,null,{manual:true});
     } else if(src==='serverroles'){
       S('Install Windows on the new server','admin','Install Windows Server on the new server (the same version as the old one or later), give it its own name and address and join it to the domain. Nothing of this application is installed on either server; both need PowerShell remoting (WinRM), which Windows Server turns on by default.',null,null,{manual:true});
-      S('Read the old server and copy','admin','In Restore, Restore from: Another server, live. Type the old server, choose the new one (this server or another) and Read the old server and copy. It reads IIS, certificates, shares, accounts and features, copies a package and the website files to the new server and checks it. Reading changes nothing on the old server.',gdRolesReadCheck,'restore',{restoreFrom:'live'});
+      S('Look at the old server and pick what to move','admin','In Restore, Restore from: Another server, live. Type the old server and Look at the old server: it lists its roles and features, IIS sites, website folders, certificates, local accounts, shares, DNS and DHCP, with nothing ticked. Pick what to move (Select all picks everything), choose the new server (this server or another) and Copy what I picked. Only the picks are copied and checked there. Nothing changes on the old server.',gdRolesReadCheck,'restore',{restoreFrom:'live'});
       S('Choose what to restore and restore it','admin','Review the items, the Changes for this server (addresses, drives and account names already mapped to the new server) and type a password for any account that needs one, then Restore. The new server\'s current settings are saved first, so the restore can be undone.',gdRolesRestoreCheck,'restore',{restoreFrom:'live'});
-      S('Test the new server','admin','Browse the sites on the new server by its own name or a hosts file entry, open the shares and check the services. Read the old server and copy again as often as you like: only files changed since the last copy are sent.',null,null,{manual:true});
-      S('Stop the sites on the old server','admin','Stop the sites on the old server (confirm when asked) so nothing changes there after the last copy, then read and copy once more. Start them again is the way back.',gdRolesStopCheck,'restore',{restoreFrom:'live'});
+      S('Test the new server','admin','Browse the sites on the new server by its own name or a hosts file entry, open the shares and check the services. Copy again as often as you like: only files changed since the last copy are sent.',null,null,{manual:true});
+      S('Stop the sites on the old server','admin','Stop the sites on the old server (confirm when asked) so nothing changes there after the last copy, then copy once more. Start them again is the way back.',gdRolesStopCheck,'restore',{restoreFrom:'live'});
       S('Point DNS or the load balancer at the new server','admin','Change the DNS records, load balancer pools and firewall rules that name the old server or its address. Then Finish removes both copies of the package.',null,null,{manual:true});
     } else if(src==='serverpkg'){
       S('Collect the old server with Prepare this package for a new server','source','Run this application as administrator on the old server. In Discovery, This server, tick Prepare this package for a new server, type a passphrase (you need it to restore) and start the collection. The package then also holds certificates with their keys, IIS passwords, accounts and website files.',null,'server',{manual:true});
@@ -3972,9 +3974,10 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   }
   function gdRolesReadCheck(){
     var m=(latestState&&latestState.serverMove)||{};
-    if(m.status==='reading'||m.status==='copying'){return gdInfo(m.message||'Reading the old server.');}
-    if(m.read){return gdOk('Read from '+m.old+(m.readAt?' at '+m.readAt:'')+'.');}
-    return gdInfo('Not read yet.');
+    if(m.status==='discovering'||m.status==='reading'||m.status==='copying'){return gdInfo(m.message||'Reading the old server.');}
+    if(m.read){return gdOk('Copied from '+m.old+(m.readAt?' at '+m.readAt:'')+'.');}
+    if(m.discovery){return gdInfo('Looked at '+m.old+'. Pick what to move, then Copy what I picked.');}
+    return gdInfo('Not looked at yet.');
   }
   function gdRolesRestoreCheck(){
     var r=(latestState&&latestState.restore)||{};
@@ -4394,6 +4397,10 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   function restoreFinished(r){return !!(r&&(r.status==='succeeded'||r.status==='failed'||r.status==='canceled'));}
   function restoreState(){return (latestState&&latestState.restore)||null;}
   function restoreScan(){var r=restoreState();return r&&r.scan&&r.status!=='scanning'?r.scan:null;}
+  // A package check belongs to the source it came from: a live move's copy
+  // is shown only under Another server, live, a package folder's only under
+  // A package folder.
+  function restoreScanOther(){var r=restoreState();return !!(restoreScan()&&!!(r&&r.live)!==restoreLiveChosen());}
   function restoreLocked(){var r=restoreState();return restoreBusy||restoreIsRunning(r)||!!(r&&r.status==='scanning')||!!(latestState&&latestState.running)||migrateIsRunning()||vmwareIsRunning()||convertIsRunning();}
   function trimText(value){return String(value||'').replace(/^\s+|\s+$/g,'');}
   function restoreItemsOf(component){
@@ -4418,6 +4425,131 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     var pick=defaults.length?defaults:items,map={};
     pick.forEach(function(item){map[item.id]=true;});
     if(pick.length){restoreSelection[component.id]=map;}
+  }
+  // What to restore (rule 76). Nothing is ticked for the operator: in a
+  // package restore the categories are chosen up front and, once the package
+  // is checked, tick and untick the matching items below (their item
+  // defaults, so GPO and registry items stay unticked). In a live move the
+  // old server is looked at first and each category lists what it has, to
+  // pick before anything is read or copied; only the picks are copied.
+  var restoreCatIds=['features','iis','webfiles','certificates','accounts','shares','dns','dhcp','other'];
+  var restoreCatOfComponent={features:'features',iis:'iis',certificates:'certificates',accounts:'accounts',shares:'shares',acls:'shares',dns:'dns',dhcp:'dhcp'};
+  function restoreCatOf(component,item){
+    var id=String(component.id||'').toLowerCase();
+    if(id==='iis'&&String(item.id||'').toLowerCase().indexOf('iis:files:')===0){return 'webfiles';}
+    return restoreCatOfComponent[id]||'other';
+  }
+  var restoreWant={};restoreCatIds.forEach(function(k){restoreWant[k]=false;});
+  // A newly checked package starts with the default items of the categories
+  // chosen; a live move's copy holds only what was picked, so all of it.
+  function restoreApplyWants(scan){
+    restoreSelection={};var live=!!((restoreState()||{}).live);
+    (scan.components||[]).forEach(function(c){if(!c.available){return;}
+      restoreItemsOf(c).forEach(function(i){if(i.available&&(live||(i.defaultSelected&&restoreWant[restoreCatOf(c,i)]))){setRestoreItem(c,i.id,true);}});});
+  }
+  function setRestoreCat(cat,on){
+    if(restoreLiveChosen()){rlPickCat(cat,on);return;}
+    restoreWant[cat]=!!on;
+    var scan=restoreScan();
+    if(scan){
+      var picks=[],all=[];
+      (scan.components||[]).forEach(function(c){if(!c.available){return;}restoreItemsOf(c).forEach(function(i){if(!i.available||restoreCatOf(c,i)!==cat){return;}all.push([c,i]);if(i.defaultSelected){picks.push([c,i]);}});});
+      if(!on){all.forEach(function(x){setRestoreItem(x[0],x[1].id,false);});}
+      else{(picks.length?picks:all).forEach(function(x){setRestoreItem(x[0],x[1].id,true);});}
+      syncRestoreChecks();
+    }else{syncRestoreCats();}
+  }
+  // ---- Live move picks: what the old server has (state.serverMove.discovery).
+  var rlPick={},rlPickKey='',rlListKey='';
+  function rlDiscovery(){var m=rlState();return m.discovery||null;}
+  function rlItemsFor(cat,d){
+    var out=[];if(!d){return out;}
+    var add=function(key,label,detail,why,size){out.push({key:key,label:label,detail:detail||'',why:why||'',size:size||0});};
+    if(cat==='features'){vmArr(d.features).forEach(function(f){add('f:'+f.name,f.displayName||f.name,f.displayName&&f.displayName!==f.name?f.name:'');});}
+    else if(cat==='iis'){if(d.iis&&d.iis.installed){var sites=vmArr(d.iis.sites);add('iis','IIS configuration',(sites.length===1?'1 site':sites.length+' sites')+(sites.length?': '+sites.map(function(x){return x.name;}).join(', '):'')+'; '+(d.iis.appPools===1?'1 app pool':(d.iis.appPools||0)+' app pools')+'. Sites, bindings and app pools move together.');}}
+    else if(cat==='webfiles'){vmArr(d.iis&&d.iis.roots).forEach(function(r){add('w:'+r.path,r.path,r.reason?'':formatBytesShort(r.sizeBytes),r.reason,r.sizeBytes);});}
+    else if(cat==='certificates'){vmArr(d.certificates).forEach(function(c){var used=vmArr(c.usedBy);add('c:'+c.thumbprint,c.friendlyName||c.subject||c.thumbprint,(c.friendlyName?c.subject+', ':'')+'expires '+c.notAfter+(used.length?', used by '+used.join(', '):''),c.exportable?'':'Its private key is marked not exportable, so it cannot be copied.');});}
+    else if(cat==='accounts'){vmArr(d.users).forEach(function(u){add('u:'+u.name,u.name,'Local user'+(u.fullName?', '+u.fullName:'')+(u.disabled?', disabled':''));});
+      vmArr(d.groups).forEach(function(g){add('g:'+g.name,g.name,g.builtIn?'Built-in group: its '+(g.members===1?'1 member':g.members+' members')+' are added':'Local group, '+(g.members===1?'1 member':g.members+' members'));});}
+    else if(cat==='shares'){vmArr(d.shares).forEach(function(x){add('s:'+x.name,x.name,x.path);});}
+    else if(cat==='dns'){if(d.dns&&d.dns.installed){var fw=vmArr(d.dns.forwarders);if(fw.length){add('dnsfwd','Forwarders',fw.join(', '));}vmArr(d.dns.zones).forEach(function(z){add('z:'+z.name,z.name,z.type+' zone');});}}
+    else if(cat==='dhcp'){if(d.dhcp&&d.dhcp.authorized){add('dhcp','Authorize the new server in Active Directory','The old server is authorized. Scopes and leases move with DHCP’s own export.');}}
+    return out;
+  }
+  function rlPickCat(cat,on){
+    if(rlRunning()){return;}
+    rlItemsFor(cat,rlDiscovery()).forEach(function(i){if(i.why){return;}if(on){rlPick[i.key]=true;}else{delete rlPick[i.key];}});
+    rlPickDepend(cat,on);syncRestoreCats();syncRlButtons();
+  }
+  // Website files go with IIS: picking a folder picks IIS, unpicking IIS
+  // unpicks the folders (like inventory and its export in Collection).
+  function rlPickDepend(cat,on){
+    if(cat==='webfiles'&&on&&rlCatCount('webfiles').on){if(rlItemsFor('iis',rlDiscovery()).length){rlPick.iis=true;}}
+    if(cat==='iis'&&!on){Object.keys(rlPick).forEach(function(k){if(k.indexOf('w:')===0){delete rlPick[k];}});}
+  }
+  function rlCatCount(cat){var t={avail:0,on:0,bytes:0};rlItemsFor(cat,rlDiscovery()).forEach(function(i){if(i.why){return;}t.avail++;if(rlPick[i.key]){t.on++;t.bytes+=Number(i.size)||0;}});return t;}
+  function rlSelection(){
+    var sel={features:[],iis:!!rlPick.iis,webRoots:[],certificates:[],users:[],groups:[],shares:[],dnsForwarders:!!rlPick.dnsfwd,dnsZones:[],dhcp:!!rlPick.dhcp};
+    var lists={'f:':'features','w:':'webRoots','c:':'certificates','u:':'users','g:':'groups','s:':'shares','z:':'dnsZones'};
+    Object.keys(rlPick).forEach(function(k){var list=lists[k.slice(0,2)];if(list&&rlPick[k]){sel[list].push(k.slice(2));}});
+    return sel;
+  }
+  function rlPickTotal(){var n=0;restoreCatIds.forEach(function(k){n+=rlCatCount(k).on;});return n;}
+  // Builds the item lists once per look at the old server; later renders
+  // only update ticks, so an open list stays open and scrolled.
+  function rlBuildLists(){
+    var m=rlState(),d=m.discovery,key=d?(m.old+'|'+m.discoveredAt):'';
+    if(key!==rlPickKey){
+      // A new look keeps picks that still exist; a move read earlier starts
+      // from what it carried.
+      var keep={};if(d){restoreCatIds.forEach(function(k){rlItemsFor(k,d).forEach(function(i){if(rlPick[i.key]&&!i.why){keep[i.key]=true;}});});}
+      if(d&&!rlPickKey&&m.selection){var sl=m.selection,mark=function(p,a){vmArr(a).forEach(function(n){keep[p+n]=true;});};mark('f:',sl.features);mark('w:',sl.webRoots);mark('c:',sl.certificates);mark('u:',sl.users);mark('g:',sl.groups);mark('s:',sl.shares);mark('z:',sl.dnsZones);if(sl.iis){keep.iis=true;}if(sl.dnsForwarders){keep.dnsfwd=true;}if(sl.dhcp){keep.dhcp=true;}}
+      rlPick=keep;rlPickKey=key;
+    }
+    if(key===rlListKey){return;}rlListKey=key;
+    restoreCatIds.forEach(function(cat){
+      var list=document.querySelector('[data-rl-list="'+cat+'"]');if(!list){return;}list.textContent='';
+      var items=rlItemsFor(cat,d);
+      if(!items.length){list.appendChild(el('div','rl-item-off',!d?'Look at the old server to list these.':(cat==='other'?'These are not read in a live move. Restore them from a package collected on the old server.':'The old server has none.')));return;}
+      items.forEach(function(i){
+        var lab=el('label',i.why?'rl-item-off':''),box=document.createElement('input');box.type='checkbox';box.setAttribute('data-rl-item',i.key);box.setAttribute('data-rl-cat',cat);
+        box.addEventListener('change',function(){if(this.checked){rlPick[i.key]=true;}else{delete rlPick[i.key];}rlPickDepend(cat,this.checked);syncRestoreCats();syncRlButtons();});
+        var text=el('span','');text.appendChild(el('span','',i.label));if(i.detail||i.why){text.appendChild(document.createTextNode(' '));text.appendChild(el('span','rl-item-detail',i.why||i.detail));}
+        lab.appendChild(box);lab.appendChild(text);list.appendChild(lab);
+      });
+    });
+  }
+  function syncRestoreCats(){
+    var scan=restoreScan(),live=restoreLiveChosen(),locked=restoreLocked()||rlRunning();
+    byId('restoreWhat').classList.toggle('live',live);
+    byId('restoreWhatLabel').textContent=live?'What to move':'What to restore';
+    if(live){
+      rlBuildLists();var d=rlDiscovery();
+      restoreCatIds.forEach(function(k){
+        var box=document.querySelector('input[data-restore-cat="'+k+'"]'),count=document.querySelector('[data-restore-cat-count="'+k+'"]'),t=rlCatCount(k),text;
+        if(!box){return;}
+        box.checked=t.on>0;box.indeterminate=t.on>0&&t.on<t.avail;box.disabled=locked||!t.avail;
+        if(!d){text='Look at the old server first';}
+        else if(k==='other'){text='Not moved live';}
+        else if(!t.avail){text='None on the old server';}
+        else{text=t.on+' of '+t.avail+' picked'+(k==='webfiles'&&t.on?', '+formatBytesShort(t.bytes):'');}
+        count.textContent=text;
+      });
+      Array.prototype.forEach.call(document.querySelectorAll('input[data-rl-item]'),function(box){var key=box.getAttribute('data-rl-item'),off=box.parentNode.classList.contains('rl-item-off');box.checked=!!rlPick[key];box.disabled=locked||off;});
+      byId('restoreCatsAll').disabled=locked||!d;byId('restoreCatsNone').disabled=locked||!d;
+      return;
+    }
+    var tally={};restoreCatIds.forEach(function(k){tally[k]={avail:0,on:0};});
+    if(scan){(scan.components||[]).forEach(function(c){var map=restoreSelection[c.id]||{};restoreItemsOf(c).forEach(function(i){if(!c.available||!i.available){return;}var t=tally[restoreCatOf(c,i)];t.avail++;if(map[i.id]){t.on++;}});});}
+    restoreCatIds.forEach(function(k){
+      var box=document.querySelector('input[data-restore-cat="'+k+'"]'),count=document.querySelector('[data-restore-cat-count="'+k+'"]'),t=tally[k],text='';
+      if(!box){return;}
+      if(scan&&t.avail){box.checked=t.on>0;box.indeterminate=t.on>0&&t.on<t.avail;box.disabled=locked;text=t.on+' of '+t.avail+' chosen';}
+      else if(scan){box.checked=false;box.indeterminate=false;box.disabled=true;text='None in this package';}
+      else{box.checked=!!restoreWant[k];box.indeterminate=false;box.disabled=locked;}
+      count.textContent=text;
+    });
+    byId('restoreCatsAll').disabled=locked;byId('restoreCatsNone').disabled=locked;
   }
   function setRestoreItem(component,itemId,on){
     var map=restoreSelection[component.id]||{},any=false;
@@ -4677,7 +4809,8 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
       var summary=card.querySelector('[data-restore-summary]');if(summary){summary.textContent=on+' of '+items.length+' items selected';}
     });}
     plan=restoreSelectedPlan();plan.forEach(function(entry){count+=entry.items.length;});
-    renderRestorePasswords(scan,plan);
+    renderRestorePasswords(scan,plan);syncRestoreCats();
+    if(restoreScanOther()){count=0;}
     byId('restoreSelectionSummary').textContent=count?(count===1?'1 item':count+' items')+' in '+(plan.length===1?'1 component':plan.length+' components')+' selected.':'No items selected.';
     updateRestoreButtons();
   }
@@ -4685,7 +4818,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     var r=restoreState()||{},scan=restoreScan(),running=restoreIsRunning(r),collecting=!!(latestState&&latestState.running);
     var progressView=!byId('restoreProgress').classList.contains('hidden'),packages=r.packages||{},locked=restoreLocked(),review=byId('restoreReviewButton');
     review.classList.toggle('hidden',progressView);
-    review.disabled=!scan||!scan.isAdministrator||!restoreSelectedPlan().length||running||collecting||restoreBusy||r.status==='scanning'||migrateIsRunning()||vmwareIsRunning()||convertIsRunning();
+    review.disabled=!scan||restoreScanOther()||!scan.isAdministrator||!restoreSelectedPlan().length||running||collecting||restoreBusy||r.status==='scanning'||migrateIsRunning()||vmwareIsRunning()||convertIsRunning();
     review.title=!scan?'Choose an inventory package first.':(!scan.isAdministrator?'Run the application as administrator to restore.':(collecting?'Wait for the collection to finish first.':(migrateIsRunning()?'Wait for the file migration step to finish first.':(vmwareIsRunning()?(busyWhy()||{text:'A VMware step is running.'}).text+' Wait for it to finish first.':(convertIsRunning()?'Wait for the disk conversion to finish first.':'')))));
     byId('restoreUseLatest').disabled=locked||!packages.lastCollection;byId('restoreUseLoaded').disabled=locked||!packages.loadedReport;byId('restoreBrowse').disabled=locked;
     byId('restoreUseLatest').title=packages.lastCollection||'No collection has finished yet.';
@@ -4805,9 +4938,10 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
         var samePackage=restorePackageKey===scan.packagePath,keep=samePackage?restoreSelection:{};restoreScanKey=key;restoreSelection={};
         if(!samePackage){restorePackageKey=scan.packagePath;restoreChangeMap={ip:{},path:{}};restorePasswordValues={};}
         buildRestoreComponents(scan);buildRestoreBundle(scan);
+        if(!samePackage){restoreApplyWants(scan);}
         (scan.components||[]).forEach(function(c){var old=keep[c.id];if(!old){return;}var map={},any=false;restoreItemsOf(c).forEach(function(i){if(i.available&&old[i.id]){map[i.id]=true;any=true;}});if(any){restoreSelection[c.id]=map;}});
       }
-      renderRestoreSummary(scan);byId('restoreSummary').classList.remove('hidden');
+      renderRestoreSummary(scan);byId('restoreSummary').classList.toggle('hidden',restoreScanOther());
     }else{restoreScanKey='';restoreSelection={};byId('restoreComponents').textContent='';byId('restoreSummary').classList.add('hidden');}
     byId('restoreRestart').classList.toggle('hidden',!r.restartNeeded);
     if(showProgress){renderRestoreProgress(r);}
@@ -4891,7 +5025,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   // each read and never shown.
   var rlLogKey='',rlBusyLocal=false;
   function rlState(){return (latestState&&latestState.serverMove)||{status:'idle'};}
-  function rlRunning(){var s=rlState().status;return rlBusyLocal||s==='reading'||s==='copying'||s==='sites'||s==='cleaning';}
+  function rlRunning(){var s=rlState().status;return rlBusyLocal||s==='discovering'||s==='reading'||s==='copying'||s==='sites'||s==='cleaning';}
   function restoreLiveChosen(){return byId('restoreFromLive').checked;}
   function rlNewHere(){return byId('rlNewHere').checked;}
   // New migration and its steps open Restore on the chosen source. A check
@@ -4900,18 +5034,25 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     var r=restoreState()||{};
     if(restoreIsRunning(r)||r.status==='scanning'||rlRunning()||byId('restoreFromLive').disabled){return;}
     restoreLiveTouched=true;setRestoreFrom(live);syncRlButtons();
-    var f=live?(trimText(byId('rlOld').value)?byId('rlRead'):byId('rlOld')):byId('restoreBrowse');
+    var f=live?(trimText(byId('rlOld').value)?(rlDiscovery()?byId('rlRead'):byId('rlLook')):byId('rlOld')):byId('restoreBrowse');
     if(f&&!f.disabled&&f.focus){f.focus();}
   }
   function setRestoreFrom(live){
     byId('restoreFromLive').checked=!!live;byId('restoreFromPackage').checked=!live;
     byId('restorePackageSource').classList.toggle('hidden',!!live);byId('restoreLive').classList.toggle('hidden',!live);
+    var what=byId('restoreWhat'),actions=byId('rlActions'),pkg=byId('restorePackageSource');
+    if(live){var look=byId('rlLookActions');if(look.nextSibling!==what){actions.parentNode.insertBefore(what,actions);}}
+    else if(pkg.nextSibling!==what){pkg.parentNode.insertBefore(what,pkg.nextSibling);}
+    byId('restoreSummary').classList.toggle('hidden',!restoreScan()||restoreScanOther());
+    if(typeof syncRestoreChecks==='function'&&restoreScan()){syncRestoreChecks();}else{syncRestoreCats();}
   }
   var rlOldSign=signInChoice({key:'servermoveOld',idPrefix:'rlOld',label:'Connect to the old server as',held:function(){return !!rlState().oldUser;},fields:[byId('rlOldFields')],clear:function(){byId('rlOldUser').value='';byId('rlOldPassword').value='';},locked:rlRunning,focus:function(){return byId('rlOldUser');},onCurrent:function(){syncRlButtons();},onOther:function(){syncRlButtons();},keep:true});
   byId('rlOldAccount').appendChild(rlOldSign.el);
   var rlNewSign=signInChoice({key:'servermoveNew',idPrefix:'rlNew',label:'Connect to the new server as',held:function(){var m=rlState();return !!m.newUser&&!m.newIsHere;},fields:[byId('rlNewFields')],clear:function(){byId('rlNewUser').value='';byId('rlNewPassword').value='';},locked:rlRunning,focus:function(){return byId('rlNewUser');},onCurrent:function(){syncRlButtons();},onOther:function(){syncRlButtons();},keep:true});
   byId('rlNewAccount').appendChild(rlNewSign.el);
-  function rlWhyNot(){
+  // Look at the old server needs only the old server; Copy what I picked
+  // also needs the new server, a look at the same old server and a pick.
+  function rlLookWhyNot(){
     var restoreR=restoreState()||{};
     if(rlRunning()){return 'A move step is running.';}
     if(restoreIsRunning(restoreR)||restoreR.status==='scanning'){return 'Wait for the package check or restore to finish.';}
@@ -4919,6 +5060,15 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     if(migrateIsRunning()||vmwareIsRunning()||convertIsRunning()){return (busyWhy()||{text:'Another step is running.'}).text;}
     if(!trimText(byId('rlOld').value)){return 'Type the old server’s name.';}
     if(!rlOldSign.current()&&!trimText(byId('rlOldUser').value)){return 'Type the account for the old server, or use your current sign-in.';}
+    return '';
+  }
+  function rlLookedAt(){var m=rlState(),old=trimText(byId('rlOld').value);return !!(m.discovery&&old&&(old.toLowerCase()===String(m.old||'').toLowerCase()||old.split('.')[0].toLowerCase()===String(m.old||'').split('.')[0].toLowerCase()));}
+  function rlWhyNot(){
+    var why=rlLookWhyNot();if(why){return why;}
+    if(!rlLookedAt()){return 'Look at '+(trimText(byId('rlOld').value)||'the old server')+' first, then pick what to move.';}
+    if(!rlPickTotal()){return 'Pick at least one thing to move.';}
+    var files=rlCatCount('webfiles'),limit=parseInt(byId('rlLimit').value,10)||10;
+    if(files.bytes>limit*1073741824){return 'The website folders you picked hold '+formatBytesShort(files.bytes)+', more than the '+limit+' GB limit.';}
     if(!rlNewHere()){
       if(!trimText(byId('rlNew').value)){return 'Type the new server’s name.';}
       if(!rlNewSign.current()&&!trimText(byId('rlNewUser').value)){return 'Type the account for the new server, or use your current sign-in.';}
@@ -4926,11 +5076,14 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     return '';
   }
   function syncRlButtons(){
-    var why=rlWhyNot(),m=rlState();byId('rlRead').disabled=!!why;byId('rlWhy').textContent=why;
-    byId('rlRead').textContent=m.read&&m.status!=='failed'?'Read and copy again':'Read the old server and copy';
+    var lookWhy=rlLookWhyNot(),why=rlWhyNot(),m=rlState(),n=rlPickTotal();
+    byId('rlLook').disabled=!!lookWhy;byId('rlLookWhy').textContent=lookWhy;
+    byId('rlLook').textContent=rlLookedAt()?'Look again':'Look at the old server';
+    byId('rlRead').disabled=!!why;byId('rlWhy').textContent=why;
+    byId('rlRead').textContent=(m.read&&m.status!=='failed'?'Copy again: ':'Copy what I picked: ')+(n===1?'1 item':n+' items');
     var rr=restoreState()||{},locked=rlRunning()||restoreBusy||restoreIsRunning(rr)||rr.status==='scanning';
-    ['rlOld','rlNew','rlOldUser','rlOldPassword','rlNewUser','rlNewPassword','rlFiles','rlLimit','rlNewHere','rlNewOther','restoreFromPackage','restoreFromLive'].forEach(function(id){byId(id).disabled=locked;});
-    byId('rlLimit').disabled=locked||!byId('rlFiles').checked;
+    ['rlOld','rlNew','rlOldUser','rlOldPassword','rlNewUser','rlNewPassword','rlLimit','rlNewHere','rlNewOther','restoreFromPackage','restoreFromLive'].forEach(function(id){byId(id).disabled=locked;});
+    syncRestoreCats();
     byId('rlNewField').classList.toggle('hidden',rlNewHere());byId('rlNewAccount').classList.toggle('hidden',rlNewHere());
     if(rlNewHere()){byId('rlNewFields').classList.add('hidden');}else{rlNewSign.refresh();}
     var stopped=(m.stoppedSites||[]).length,sites=(m.sites||[]).length;
@@ -4942,7 +5095,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     byId('rlHereName').textContent=state.computerName||'';
     if(!restoreLiveTouched&&(m.old||r.live)){restoreLiveTouched=true;setRestoreFrom(true);
       byId('rlOld').value=m.old||'';if(m.newIsHere===false){byId('rlNewOther').checked=true;byId('rlNew').value=m.new||'';}
-      if(m.limitGB){byId('rlLimit').value=m.limitGB;}if(m.old){byId('rlFiles').checked=!!m.includeFiles;}
+      if(m.limitGB){byId('rlLimit').value=m.limitGB;}
       if(m.oldUser){byId('rlOldUser').value=m.oldUser;}if(m.newUser){byId('rlNewUser').value=m.newUser;}}
     var st=byId('rlStatus');st.textContent=m.message||'';st.className='restore-status'+(m.status==='failed'?' error':'');
     var sum=byId('rlSummary'),rd=m.read;sum.textContent='';sum.classList.toggle('hidden',!rd);
@@ -4973,12 +5126,23 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     if(rlWhyNot()){return;}
     var here=rlNewHere(),body={old:trimText(byId('rlOld').value),oldUser:rlOldSign.current()?'':trimText(byId('rlOldUser').value),oldPassword:rlOldSign.current()?'':byId('rlOldPassword').value,
       newIsHere:here,'new':here?'':trimText(byId('rlNew').value),newUser:here||rlNewSign.current()?'':trimText(byId('rlNewUser').value),newPassword:here||rlNewSign.current()?'':byId('rlNewPassword').value,
-      keepAccounts:true,includeFiles:byId('rlFiles').checked,limitGB:parseInt(byId('rlLimit').value,10)||10};
+      keepAccounts:true,selection:rlSelection(),limitGB:parseInt(byId('rlLimit').value,10)||10};
     rlBusyLocal=true;syncRlButtons();restoreShowChooser=true;
     request('POST','/api/servermove/read',body,function(err){
       rlBusyLocal=false;byId('rlOldPassword').value='';byId('rlNewPassword').value='';
       if(err){var st=byId('rlStatus');st.textContent=err;st.className='restore-status error';}
       else if(latestState){latestState.serverMove=latestState.serverMove||{};latestState.serverMove.status='reading';latestState.serverMove.message='Reading '+body.old+'.';}
+      syncRlButtons();
+    });
+  }
+  function rlLook(){
+    if(rlLookWhyNot()){return;}
+    var body={old:trimText(byId('rlOld').value),oldUser:rlOldSign.current()?'':trimText(byId('rlOldUser').value),oldPassword:rlOldSign.current()?'':byId('rlOldPassword').value,keepAccounts:true};
+    rlBusyLocal=true;syncRlButtons();
+    request('POST','/api/servermove/discover',body,function(err){
+      rlBusyLocal=false;byId('rlOldPassword').value='';
+      if(err){var st=byId('rlStatus');st.textContent=err;st.className='restore-status error';}
+      else if(latestState){latestState.serverMove=latestState.serverMove||{};latestState.serverMove.status='discovering';latestState.serverMove.message='Looking at '+body.old+'.';}
       syncRlButtons();
     });
   }
@@ -4991,9 +5155,13 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   byId('restoreFromPackage').addEventListener('change',function(){restoreLiveTouched=true;setRestoreFrom(false);syncRlButtons();});
   byId('restoreFromLive').addEventListener('change',function(){restoreLiveTouched=true;setRestoreFrom(true);syncRlButtons();});
   ['rlNewHere','rlNewOther'].forEach(function(id){byId(id).addEventListener('change',function(){syncRlButtons();if(!rlNewHere()){byId('rlNew').focus();}});});
-  ['rlOld','rlNew','rlOldUser','rlNewUser'].forEach(function(id){byId(id).addEventListener('input',syncRlButtons);});
-  byId('rlFiles').addEventListener('change',syncRlButtons);
-  ['rlOld','rlNew','rlOldUser','rlOldPassword','rlNewUser','rlNewPassword'].forEach(function(id){byId(id).addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();rlRead();}});});
+  ['rlOld','rlNew','rlOldUser','rlNewUser','rlLimit'].forEach(function(id){byId(id).addEventListener('input',syncRlButtons);});
+  Array.prototype.forEach.call(document.querySelectorAll('input[data-restore-cat]'),function(box){box.addEventListener('change',function(){setRestoreCat(box.getAttribute('data-restore-cat'),box.checked);});});
+  byId('restoreCatsAll').addEventListener('click',function(){if(restoreLocked()||rlRunning()){return;}restoreCatIds.forEach(function(k){setRestoreCat(k,true);});});
+  byId('restoreCatsNone').addEventListener('click',function(){if(restoreLocked()||rlRunning()){return;}restoreCatIds.forEach(function(k){setRestoreCat(k,false);});});
+  ['rlOld','rlOldUser','rlOldPassword'].forEach(function(id){byId(id).addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();rlLook();}});});
+  ['rlNew','rlNewUser','rlNewPassword'].forEach(function(id){byId(id).addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();rlRead();}});});
+  byId('rlLook').addEventListener('click',rlLook);
   byId('rlRead').addEventListener('click',rlRead);
   byId('rlStopSites').addEventListener('click',function(){rlSites('stop');});
   byId('rlStartSites').addEventListener('click',function(){rlSites('start');});
