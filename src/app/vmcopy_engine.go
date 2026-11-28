@@ -337,7 +337,6 @@ func vmCopyTo(ctx context.Context, source vmCopySource, sink vmCopySink, options
 		}
 		selected = vmCopySelected(state, options.Ranges)
 	}
-	buffer := make([]byte, options.ChunkSize)
 	lastSave := time.Now()
 	sentBase := int64(0)
 	counter, counts := sink.(vmSentCounter)
@@ -355,6 +354,12 @@ func vmCopyTo(ctx context.Context, source vmCopySource, sink vmCopySink, options
 	// Report the size of the pass before any chunk, so a progress bar
 	// starts at zero with its total known.
 	report()
+	// The next chunks are read and hashed while the current one is written
+	// (vmCopyReadAhead), so a slow source and a slow target overlap instead
+	// of taking turns. Chunks are still written one at a time, in order, and
+	// only this loop changes the record.
+	chunks, stopReading := vmCopyReadChunks(ctx, source, state, selected, options)
+	defer stopReading()
 	for index := range state.Hashes {
 		if !selected[index] {
 			progress.Done++
@@ -364,24 +369,31 @@ func vmCopyTo(ctx context.Context, source vmCopySource, sink vmCopySink, options
 			sink.Checkpoint(state)
 			return nil, err
 		}
-		offset := int64(index) * options.ChunkSize
-		chunk := buffer[:vmChunkLength(state, index)]
-		if err := vmReadFull(ctx, source, chunk, offset, options.retryDelay); err != nil {
+		var item vmCopyChunk
+		select {
+		case item = <-chunks:
+		case <-ctx.Done():
 			sink.Checkpoint(state)
-			return nil, fmt.Errorf("reading the source at %s: %w", vmFormatBytes(offset), err)
+			return nil, ctx.Err()
 		}
+		if item.err != nil {
+			sink.Checkpoint(state)
+			return nil, item.err
+		}
+		if item.index != index {
+			sink.Checkpoint(state)
+			return nil, fmt.Errorf("internal error: chunk %d arrived for %d", item.index, index)
+		}
+		chunk, hash := item.data, item.hash
 		progress.BytesRead += int64(len(chunk))
-		hash := vmCopyZeroHash
-		if !vmIsZero(chunk) {
-			sum := sha256.Sum256(chunk)
-			hash = hex.EncodeToString(sum[:])
-		} else {
+		if hash == vmCopyZeroHash {
 			progress.Zero++
 		}
 		previous := state.Hashes[index]
 		if hash != previous {
 			written, err := sink.Write(index, chunk, hash)
 			if err != nil {
+				item.release()
 				sink.Checkpoint(state)
 				return nil, err
 			}
@@ -392,6 +404,7 @@ func vmCopyTo(ctx context.Context, source vmCopySource, sink vmCopySink, options
 			}
 			state.Hashes[index] = hash
 		}
+		item.release()
 		progress.Done++
 		if options.Activity != nil {
 			options.Activity("copying")
@@ -425,6 +438,72 @@ func vmCopyTo(ctx context.Context, source vmCopySource, sink vmCopySink, options
 	}
 	result.State, result.Progress = *final, progress
 	return result, nil
+}
+
+// vmCopyReadAhead is how many chunks are read and hashed ahead of the one
+// being written.
+const vmCopyReadAhead = 3
+
+// vmCopyChunk is one chunk read and hashed ahead of the writer.
+type vmCopyChunk struct {
+	index   int
+	data    []byte
+	hash    string
+	err     error
+	release func()
+}
+
+// vmCopyReadChunks reads the selected chunks in order on its own goroutine,
+// at most vmCopyReadAhead ahead of the writer. stop ends the reader and
+// waits for it, so the source is never read after vmCopyTo returns.
+func vmCopyReadChunks(ctx context.Context, source io.ReaderAt, state *vmCopyState, selected []bool, options vmCopyOptions) (<-chan vmCopyChunk, func()) {
+	readCtx, cancel := context.WithCancel(ctx)
+	out := make(chan vmCopyChunk, vmCopyReadAhead)
+	free := make(chan []byte, vmCopyReadAhead+1)
+	for i := 0; i < vmCopyReadAhead+1; i++ {
+		free <- make([]byte, state.ChunkSize)
+	}
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for index := range state.Hashes {
+			if !selected[index] {
+				continue
+			}
+			var buffer []byte
+			select {
+			case buffer = <-free:
+			case <-readCtx.Done():
+				return
+			}
+			offset := int64(index) * state.ChunkSize
+			chunk := buffer[:vmChunkLength(state, index)]
+			item := vmCopyChunk{index: index, data: chunk, release: func() { free <- buffer }}
+			if err := vmReadFull(readCtx, source, chunk, offset, options.retryDelay); err != nil {
+				if readCtx.Err() != nil && ctx.Err() == nil {
+					return // stopped by the writer
+				}
+				item.err = fmt.Errorf("reading the source at %s: %w", vmFormatBytes(offset), err)
+			} else if vmIsZero(chunk) {
+				item.hash = vmCopyZeroHash
+			} else {
+				sum := sha256.Sum256(chunk)
+				item.hash = hex.EncodeToString(sum[:])
+			}
+			select {
+			case out <- item:
+			case <-readCtx.Done():
+				return
+			}
+			if item.err != nil {
+				return
+			}
+		}
+	}()
+	return out, func() {
+		cancel()
+		<-done
+	}
 }
 
 func vmChunkLength(state *vmCopyState, index int) int64 {

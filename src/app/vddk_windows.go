@@ -30,7 +30,11 @@ import (
 const (
 	vddkCredUID          = 1
 	vddkFlagOpenReadOnly = 1 << 2
-	vddkTransport        = "nbdssl"
+	// vddkFlagOpenFastLZ asks the host to compress what NBD/NBDSSL sends
+	// (VIXDISKLIB_FLAG_OPEN_COMPRESSION_FASTLZ, VDDK 6.5 and later). It
+	// changes only how blocks travel; the disk is still opened read only.
+	vddkFlagOpenFastLZ = 1 << 5
+	vddkTransport      = "nbdssl"
 
 	// Offsets in VixDiskLibConnectParams (pack 4, 64-bit pointers).
 	vddkParamVMXSpec    = 0
@@ -475,7 +479,13 @@ func (s *vddkWindowsSession) Open(path string) (vddkDisk, error) {
 	}
 	path8 := append([]byte(path), 0)
 	var handle uintptr
-	r, _, _ := s.lib.procs["VixDiskLib_Open"].Call(s.conn, uintptr(unsafe.Pointer(&path8[0])), vddkFlagOpenReadOnly, uintptr(unsafe.Pointer(&handle)))
+	// Compressed first, so changed blocks cross the network smaller; a host
+	// that refuses compression is read uncompressed as before.
+	r, _, _ := s.lib.procs["VixDiskLib_Open"].Call(s.conn, uintptr(unsafe.Pointer(&path8[0])), vddkFlagOpenReadOnly|vddkFlagOpenFastLZ, uintptr(unsafe.Pointer(&handle)))
+	if r != 0 {
+		handle = 0
+		r, _, _ = s.lib.procs["VixDiskLib_Open"].Call(s.conn, uintptr(unsafe.Pointer(&path8[0])), vddkFlagOpenReadOnly, uintptr(unsafe.Pointer(&handle)))
+	}
 	if r != 0 {
 		return nil, fmt.Errorf("could not open %s: %v; VixDiskLib's own log is in %s", path, s.lib.errorFor(uint64(r)), vddkLogPath())
 	}
