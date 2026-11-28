@@ -1,0 +1,527 @@
+<meta charset="utf-8">
+<title>SIMM Feature Tour</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&display=swap">
+<style>
+/* Layout: sticky presenter bar, chapter rail on the left, one chapter on stage (screenshot with numbered callouts, then talking points). */
+:root{
+  --bg:#f3f5f8; --panel:#ffffff; --sunk:#e8ecf2; --line:#d5dbe4; --fg:#16202e; --muted:#566275;
+  --accent:#1f5fbf; --accent-soft:#e3ecfa; --accent-fg:#ffffff;
+  --ok:#1d7a4a; --ok-soft:#e1f3e9; --warn:#9a5b00; --warn-soft:#fbefd9; --bad:#b3261e; --bad-soft:#fbe4e2;
+  --pin:#e0592a; --shadow:0 1px 2px rgba(20,30,50,.06),0 8px 24px rgba(20,30,50,.07);
+  --f-display:"IBM Plex Sans Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0f141c; --panel:#161d28; --sunk:#1d2532; --line:#2b3545; --fg:#e6ebf2; --muted:#9aa6b8;
+  --accent:#6ea2f0; --accent-soft:#1c2a42; --accent-fg:#0b1220;
+  --ok:#5cc58c; --ok-soft:#15291f; --warn:#e3a94a; --warn-soft:#2c2213; --bad:#f08a80; --bad-soft:#321a19;
+  --pin:#f07a4a; --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.3); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f141c; --panel:#161d28; --sunk:#1d2532; --line:#2b3545; --fg:#e6ebf2; --muted:#9aa6b8;
+  --accent:#6ea2f0; --accent-soft:#1c2a42; --accent-fg:#0b1220;
+  --ok:#5cc58c; --ok-soft:#15291f; --warn:#e3a94a; --warn-soft:#2c2213; --bad:#f08a80; --bad-soft:#321a19;
+  --pin:#f07a4a; --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.3); color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.55}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:30;background:var(--panel)}
+a{color:var(--accent)}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--panel);border-bottom:1px solid var(--line);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:10px;
+  display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;min-width:0;flex:1 1 260px}
+.logo{width:30px;height:30px;border-radius:7px;background:var(--accent);display:grid;place-items:center;flex:none}
+.logo svg{width:18px;height:18px}
+.brand b{font-family:var(--f-display);font-size:17px;letter-spacing:.01em;display:block;line-height:1.15}
+.brand span{font-size:12.5px;color:var(--muted)}
+.prog{flex:1 1 220px;display:flex;align-items:center;gap:10px;min-width:0}
+.prog .track{flex:1;height:6px;background:var(--sunk);border-radius:3px;overflow:hidden}
+.prog .fill{height:100%;background:var(--accent);width:0;transition:width .25s}
+.prog .count{font-family:var(--f-mono);font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.nav{display:flex;gap:6px}
+.btn{border:1px solid var(--line);background:var(--panel);border-radius:6px;padding:6px 12px;cursor:pointer;font-size:14px;font-weight:500}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:default}
+.wrap{display:grid;grid-template-columns:270px minmax(0,1fr);gap:0;min-height:calc(100vh - 60px)}
+.rail{border-right:1px solid var(--line);background:var(--panel);padding:16px 10px 40px max(10px,env(safe-area-inset-left,0px));position:sticky;top:61px;align-self:start;max-height:calc(100vh - 61px);overflow:auto}
+.rail h4{font-family:var(--f-display);font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin:16px 8px 6px}
+.rail h4:first-child{margin-top:0}
+.rail button{display:flex;gap:9px;width:100%;text-align:left;border:0;background:none;padding:6px 8px;border-radius:6px;cursor:pointer;font-size:14px;line-height:1.3;align-items:baseline}
+.rail button .n{font-family:var(--f-mono);font-size:11.5px;color:var(--muted);width:20px;flex:none;font-variant-numeric:tabular-nums}
+.rail button:hover{background:var(--sunk)}
+.rail button[aria-current="true"]{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.rail button[aria-current="true"] .n{color:var(--accent)}
+.mobilenav{display:none}
+main{padding-block:26px 60px;padding-left:max(16px,min(4vw,48px));padding-right:max(16px,env(safe-area-inset-right,0px),min(4vw,48px));min-width:0}
+.eyebrow{font-family:var(--f-display);font-size:12.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);font-weight:700}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;line-height:1.15}
+h2{font-size:clamp(26px,3.2vw,34px);margin:4px 0 8px}
+h3{font-size:16px;letter-spacing:.01em;margin-bottom:8px}
+.lede{font-size:16.5px;color:var(--muted);max-width:75ch;margin:0 0 6px}
+.runs{display:inline-flex;gap:6px;flex-wrap:wrap;margin:8px 0 18px}
+.tag{font-size:12.5px;border:1px solid var(--line);background:var(--panel);border-radius:99px;padding:2px 10px;color:var(--muted)}
+.tag b{color:var(--fg);font-weight:600}
+.tag.ok{border-color:transparent;background:var(--ok-soft);color:var(--ok)}
+.tag.warn{border-color:transparent;background:var(--warn-soft);color:var(--warn)}
+.stage{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:22px;align-items:start}
+.shot{background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);overflow:hidden;min-width:0}
+.shotbar{display:flex;align-items:center;gap:8px;padding:7px 12px;border-bottom:1px solid var(--line);background:var(--sunk);font-size:12.5px;color:var(--muted);flex-wrap:wrap}
+.shotbar .dots{display:flex;gap:5px}.shotbar .dots i{width:9px;height:9px;border-radius:50%;background:var(--line);display:block}
+.shotbar .what{font-family:var(--f-mono);min-width:0;overflow-wrap:anywhere}
+.alts{margin-left:auto;display:flex;gap:4px;flex-wrap:wrap}
+.alts button{border:1px solid var(--line);background:var(--panel);border-radius:5px;font-size:12px;padding:2px 8px;cursor:pointer}
+.alts button[aria-pressed="true"]{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.frame{position:relative;max-width:100%}
+.frame img{display:block;width:100%;height:auto}
+.pin{position:absolute;transform:translate(-50%,-50%);width:28px;height:28px;border-radius:50%;background:var(--pin);color:#fff;border:2px solid #fff;
+  font-weight:700;font-size:13px;display:grid;place-items:center;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.35);padding:0;font-family:var(--f-mono)}
+.pin[aria-pressed="true"]{background:var(--accent);transform:translate(-50%,-50%) scale(1.15)}
+.pin::after{content:"";position:absolute;inset:-7px;border-radius:50%;border:2px solid var(--pin);opacity:.0;animation:ping 2.4s ease-out infinite}
+.pin[aria-pressed="true"]::after{border-color:var(--accent)}
+@keyframes ping{0%{opacity:.6;transform:scale(.7)}80%,100%{opacity:0;transform:scale(1.5)}}
+@media (prefers-reduced-motion:reduce){.pin::after{animation:none}.prog .fill{transition:none}}
+.notes{display:flex;flex-direction:column;gap:8px;min-width:0}
+.note{display:flex;gap:10px;align-items:flex-start;text-align:left;border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:10px 12px;cursor:pointer;width:100%}
+.note .k{flex:none;width:22px;height:22px;border-radius:50%;background:var(--pin);color:#fff;font-weight:700;font-size:12px;display:grid;place-items:center;font-family:var(--f-mono);margin-top:1px}
+.note b{display:block;font-size:14.5px;margin-bottom:2px}
+.note span{font-size:13.5px;color:var(--muted);line-height:1.45}
+.note[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.note[aria-pressed="true"] .k{background:var(--accent)}
+.illus-note{font-size:12.5px;color:var(--muted);padding:8px 12px;border-top:1px solid var(--line)}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin-top:24px}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px;min-width:0}
+.box ul,.box ol{margin:0;padding-left:20px}
+.box li{margin:4px 0;font-size:14.5px}
+.box.say h3{color:var(--accent)}
+.box.guard h3{color:var(--ok)}
+.box.limits h3{color:var(--warn)}
+.foot{display:flex;justify-content:space-between;gap:12px;margin-top:30px;flex-wrap:wrap}
+.foot .btn{padding:9px 14px}
+code,.mono{font-family:var(--f-mono);font-size:.92em}
+/* intro */
+.flow{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0 8px;align-items:stretch}
+.step{flex:1 1 120px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px;position:relative;min-width:0}
+.step small{font-family:var(--f-mono);color:var(--muted);font-size:11.5px}
+.step b{display:block;font-family:var(--f-display);font-size:16px}
+.step span{font-size:13px;color:var(--muted);display:block;line-height:1.4}
+.step.back{border-style:dashed}
+.matrix-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--panel);margin-top:10px}
+table{border-collapse:collapse;width:100%;min-width:760px;font-size:13.5px}
+th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{font-family:var(--f-display);font-size:12.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);background:var(--sunk)}
+tr:last-child td{border-bottom:0}
+td b{font-weight:600}
+.chip{display:inline-block;font-size:11.5px;border-radius:4px;padding:1px 6px;margin:1px 2px 1px 0;background:var(--sunk);color:var(--muted);white-space:nowrap}
+.chip.live{background:var(--ok-soft);color:var(--ok)}
+.chip.off{background:var(--warn-soft);color:var(--warn)}
+.scenario{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:14px}
+.scenario .box{padding:12px 14px}
+.scenario dt{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-family:var(--f-display)}
+.scenario dd{margin:0 0 8px;font-family:var(--f-mono);font-size:13px}
+/* illustrations */
+.ill{padding:18px;background:var(--sunk)}
+.console{background:#10151d;border-radius:8px;overflow:hidden;color:#e6ebf2;border:1px solid #2b3545}
+.ctabs{display:flex;gap:2px;background:#0b0f15;padding:6px 6px 0;flex-wrap:wrap}
+.ctab{font-size:12px;padding:5px 12px;border-radius:5px 5px 0 0;background:#1a212c;color:#9aa6b8;font-family:var(--f-mono)}
+.ctab.on{background:#232c3a;color:#e6ebf2}
+.ctool{display:flex;gap:6px;flex-wrap:wrap;padding:8px;background:#232c3a;border-bottom:1px solid #2b3545}
+.ctool span{font-size:12px;border:1px solid #3a4658;border-radius:5px;padding:3px 9px;background:#1a212c;white-space:nowrap}
+.ctool span.hi{border-color:#6ea2f0;color:#cfe0ff}
+.cscreen{aspect-ratio:16/9;max-width:100%;background:linear-gradient(160deg,#0b3a6e,#0a2a52 60%,#071d3a);display:grid;place-items:center;position:relative}
+.signin{text-align:center;color:#fff}
+.avatar{width:64px;height:64px;border-radius:50%;background:rgba(255,255,255,.18);margin:0 auto 10px;display:grid;place-items:center}
+.signin b{font-size:18px;display:block;margin-bottom:10px;font-weight:500}
+.pw{width:210px;max-width:60vw;height:30px;border-radius:3px;background:rgba(255,255,255,.92);margin:0 auto;display:flex;align-items:center;padding:0 10px;color:#333;font-size:18px;letter-spacing:3px}
+.typing{position:absolute;right:12px;bottom:10px;font-size:11.5px;background:rgba(0,0,0,.55);padding:4px 8px;border-radius:4px;font-family:var(--f-mono)}
+.gauge{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px}
+.gauge svg{width:100%;height:auto;display:block}
+.gauge text{font-family:var(--f-mono);font-size:11px;fill:var(--muted)}
+.gauge .lab{fill:var(--fg);font-family:var(--f-body);font-size:12px;font-weight:600}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12.5px;color:var(--muted);margin-top:4px}.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px}
+.hold{display:flex;gap:10px;align-items:flex-start;margin-top:12px;background:var(--warn-soft);color:var(--warn);border-radius:6px;padding:8px 12px;font-size:13.5px}
+.lanes{display:grid;gap:12px}
+.lane{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+.lane .rel{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.rel span{font-family:var(--f-mono);font-size:12.5px;border-radius:5px;padding:3px 8px;background:var(--sunk)}
+.rel span.cur{background:var(--accent);color:var(--accent-fg)}
+.rel span.t{background:var(--warn-soft);color:var(--warn)}
+.signbox{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-top:12px}
+.signbox div{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:8px 10px;font-size:13px}
+.signbox b{display:block;font-size:12px;color:var(--muted);font-weight:500}
+@media (max-width:1180px){.stage{grid-template-columns:minmax(0,1fr)}.notes{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}}
+@media (max-width:860px){
+  .wrap{grid-template-columns:minmax(0,1fr)}
+  .rail{display:none}
+  .mobilenav{display:block;margin-bottom:14px}
+  .mobilenav select{width:100%;font:inherit;padding:8px;border-radius:6px;border:1px solid var(--line);background:var(--panel);color:var(--fg)}
+  .pin{width:22px;height:22px;font-size:11px}
+}
+@media print{.bar,.rail,.mobilenav,.foot{display:none}.wrap{display:block}}
+</style>
+
+<header class="bar">
+  <div class="brand">
+    <div class="logo" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/><circle cx="7" cy="7" r=".8" fill="#fff"/><circle cx="7" cy="17" r=".8" fill="#fff"/></svg></div>
+    <div><b>Server Inventory and Migration Manager</b><span>Feature tour, version 3.3.0 · fictional sample data</span></div>
+  </div>
+  <div class="prog" aria-hidden="true"><div class="track"><div class="fill" id="fill"></div></div><span class="count" id="count">1 / 1</span></div>
+  <div class="nav"><button class="btn" id="prev" type="button">← Back</button><button class="btn primary" id="next" type="button">Next →</button></div>
+</header>
+
+<div class="wrap">
+  <nav class="rail" id="rail" aria-label="Chapters"></nav>
+  <main id="main">
+    <div class="mobilenav"><label for="jump" class="eyebrow">Chapter</label><select id="jump"></select></div>
+    <div id="chapter"></div>
+    <div class="foot"><button class="btn" id="prev2" type="button">← Back</button><button class="btn primary" id="next2" type="button">Next →</button></div>
+  </main>
+</div>
+
+<script>
+(function(){
+'use strict';
+var IMG='../images/';
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+
+var intro={id:'start',group:'Start',title:'The tour',render:function(){
+  return '<div class="eyebrow">Start here</div>'+
+  '<h2>One Windows app for discovery, migration planning and the move itself</h2>'+
+  '<p class="lede">Server Inventory and Migration Manager is a single portable, signed Windows EXE. It documents servers, reads VMware and Hyper-V estates, plans waves, copies VMs and whole servers while they run, cuts them over and can roll them back. Nothing is uploaded anywhere; everything runs on your own computers.</p>'+
+  '<div class="runs"><span class="tag"><b>Runs on</b> Windows Server 2012 or later, x64</span><span class="tag"><b>Interface</b> local browser window or built-in WebView2</span><span class="tag ok">Signed with Azure Artifact Signing</span></div>'+
+  '<h3>The lifecycle the app walks you through</h3>'+
+  '<div class="flow">'+
+   step('1','Discover','Document a server, or read vCenter, ESXi or Hyper-V')+
+   step('2','Assess','Readiness per VM and per target, with the fix for each finding')+
+   step('3','Plan','Waves, network map, sizing, new hosts, runbook')+
+   step('4','Copy and sync','Live copies; later rounds send only changed blocks')+
+   step('5','Test','Isolated test VM on differencing disks')+
+   step('6','Cut over','Guest shut down cleanly, final verified copy, new VM created')+
+   step('7','Fix up','IPs carried over, VMware Tools removed, Windows activated')+
+   '<div class="step back"><small>if needed</small><b>Roll back</b><span>New VM off and disconnected, original started again</span></div>'+
+  '</div>'+
+  '<h3 style="margin-top:22px">Which way of moving fits which job</h3>'+
+  '<p class="lede" style="font-size:14.5px">The app keeps several methods and labels each with what it works with and when to pick it. New migration recommends one and shows only its options.</p>'+
+  '<div class="matrix-wrap"><table><thead><tr><th>Method</th><th>From</th><th>To</th><th>How</th><th>Pick it when</th></tr></thead><tbody>'+
+   row('Migration plans','Many VMware or Hyper-V VMs','This Hyper-V host or its failover cluster, or a remote Hyper-V host or cluster','<span class="chip">Agentless</span><span class="chip live">Live</span>','Many VMs move on a schedule, stay in sync and cut over together in a maintenance window.')+
+   row('Move VMs','VMware (vCenter or ESXi) or Hyper-V VMs','Hyper-V, Scale HyperCore, Nutanix AHV, Proxmox VE, physical','<span class="chip">Agentless</span><span class="chip live">Live</span>','You want nothing installed in the VM: the hypervisor\'s own snapshot or checkpoint copies the disks while it runs.')+
+   row('Replicate servers','Any running Windows or Linux server, physical or virtual','Hyper-V, HyperCore, Nutanix AHV, Proxmox VE, physical','<span class="chip">Agent on source</span><span class="chip live">Live</span>','The source is physical, on another hypervisor, has encrypted disks, or must stay minutes behind for days.')+
+   row('Send disks by hand','A running Windows computer','Same targets as above','<span class="chip">Run inside source</span><span class="chip live">Live</span>','A one-off copy without installing a service.')+
+   row('Convert disk images','VMDK, VHD, VHDX, qcow2, raw, or this computer\'s disks (P2V)','Hyper-V, ESXi/vCenter, HyperCore, Nutanix, Proxmox','<span class="chip">Agentless</span><span class="chip off">Offline</span>','The VM is shut down or exported and you have its disk files.')+
+   row('Move file shares','Windows file server shares, files and NTFS permissions','A new Windows file server (this one or another)','<span class="chip">Agentless</span><span class="chip live">Live</span>','Only the shares move, not the whole server.')+
+  '</tbody></table></div>'+
+  '<h3 style="margin-top:22px">The fictional estate used in every screenshot</h3>'+
+  '<div class="scenario">'+
+   '<div class="box"><dl><dt>Source</dt><dd>vc01.example.com · vCenter 8.0</dd><dt>Hosts</dt><dd>esx01, esx02, esx03 in Prod-Cluster</dd></dl></div>'+
+   '<div class="box"><dl><dt>VMs</dt><dd>APP01 · SQL01 · WEB02 · DC01 · FILE01 · PRINT01 · LEGACY03</dd><dt>Target</dt><dd>Hyper-V cluster HV01/HV02 with CSVs</dd></dl></div>'+
+   '<div class="box"><dl><dt>Addresses</dt><dd>192.0.2.x, 198.51.100.x (documentation ranges)</dd><dt>Domain</dt><dd>example.com / EXAMPLE.TEST</dd></dl></div>'+
+  '</div>'+
+  '<div class="cols"><div class="box say"><h3>How to use this tour</h3><ul><li>Use <b>Next</b> or the arrow keys to move between chapters.</li><li>Click a numbered pin on a screenshot, or press its number, to read what it shows.</li><li>Screenshots are real captures of the app with synthetic data. Pages marked <b>Illustration</b> are drawn for this tour because the feature has no published screenshot yet.</li><li>Some screenshots were captured on 3.2.x and show the older header bar; the screens themselves work the same in 3.3.0.</li></ul></div>'+
+  '<div class="box guard"><h3>Ground rules the app follows everywhere</h3><ul><li>Reading vCenter, ESXi or Hyper-V changes nothing there.</li><li>Every changing step asks first (tick box, prompt or typed name, your choice in Help → Settings).</li><li>No forced power-off of a source VM, ever. Guests shut down through VMware Tools or the Hyper-V shutdown service.</li><li>Passwords stay in memory unless you opt in to remembered sign-ins, which are sealed with Windows DPAPI.</li></ul></div></div>';
+  function step(n,b,s){return '<div class="step"><small>'+n+'</small><b>'+b+'</b><span>'+s+'</span></div>';}
+  function row(a,b,c,d,e){return '<tr><td><b>'+a+'</b></td><td>'+b+'</td><td>'+c+'</td><td>'+d+'</td><td>'+e+'</td></tr>';}
+}};
+
+var C=[intro,
+{id:'this-server',group:'Discover',title:'Document a server',img:'hero',where:'Discovery → This server',runs:'the server being documented',
+ lede:'Pick what to capture and the app collects it into an HTML report, a Word document, a text summary and raw exports, all in one timestamped folder and ZIP.',
+ pins:[[9,12,'Discovery tools','This server documents the computer it runs on; VMware and Hyper-V reads whole estates. Each tool says where it runs.'],
+       [42,30,'Profiles','Maximum capture, Inventory only or Core server, then adjust. Your choices are remembered between runs.'],
+       [61,37,'Category search','Search by name or description (for example DNS or backup) without changing what is selected.'],
+       [44,48,'Grouped categories','34 inventory categories in groups, with +export where a configuration export can feed Restore later.'],
+       [91,94,'Start collection','Runs the built-in Windows PowerShell collector. Progress and a filterable log follow on the Collection tab.']],
+ say:['Show the profile buttons, then search "SQL" to show the search does not untick anything.','Point out "+ export": DHCP, NPS, print, IIS, DNS, firewall and registry exports are what Restore uses.','Start a collection on a lab server and switch to Collection to show the live log, Next issue and the warning/error filter.'],
+ guard:['Collection only reads.','Sensitive exports (NPS full export, permission saves) must be ticked again each session and are never remembered.','The collector is byte-pinned to the original v3.0.10 baseline and verified in CI.']},
+{id:'report',group:'Discover',title:'Server report',img:'report-executive-summary',where:'HTML report (also Word and text)',runs:'any computer, offline',
+ lede:'The report opens on an executive summary: who the server is, what roles it runs, how complete the collection was and what needs attention first.',
+ pins:[[35,36,'Server profile','OS, activation, addresses, gateway, DNS, DHCP or static, domain, memory and CPU on one card.'],
+       [83,34,'Collection health','Percentage of collectors that completed, with links straight to each issue and recovery gap.'],
+       [50,71,'Counts that jump','Every tile is a link to its dataset.'],
+       [44,80,'Needs attention','Failures and warnings stay expanded at the top; routine data expands on demand.'],
+       [80,5,'Search and copy','Search includes collapsed sections. Copy a value, a table, a section or the full report.']],
+ say:['Open the report in the Report Viewer tab and search for a hotfix number or IP.','Show Print section and Print all: printing includes every retained row.','Mention it works fully offline, no external fonts or scripts.'],
+ guard:['Self-contained HTML with a strict content security policy; no external requests.','Word and text outputs are produced alongside the HTML.']},
+{id:'restore',group:'Discover',title:'Restore configuration',img:'restore-choose',where:'Restore tab',runs:'the server receiving the configuration',
+ lede:'Put DHCP, NPS, printers, IIS, DNS zones, GPOs, firewall rules, certificates, scheduled tasks, share permissions and registry settings back from a package, onto the same or a replacement server.',
+ pins:[[50,48,'Different server warning','The package came from FS-OLD-07 and is being restored onto FS-NEW-07. The app says so before anything else.'],
+       [85,43,'Package integrity','Every file is checked against SHA256-Manifest.csv and checked again at restore time.'],
+       [29,62,'Per-component impact','Each component says what it replaces and what it interrupts (the Print Spooler restarts, for example).'],
+       [76,62,'Why something cannot restore','IIS is not installed here; NPS has no full export in this package. Nothing is silently skipped.'],
+       [87,92,'Review restore','A review lists every change before you confirm.']],
+ say:['Use "Use latest collection" on a lab server and walk through the review screen.','Point out GPO and registry items are never ticked by default.'],
+ guard:['The current configuration of each item is saved to a rollback folder before it is changed.','Components run in a fixed order and stop at the first failure.','Registry restores are HKLM only and never delete keys.']},
+{id:'vmware',group:'Discover',title:'VMware and Hyper-V inventory',img:'vmware-host',alts:[['vmware-vm-details','VM page'],['vmware-browse','VM list']],where:'Discovery → VMware and Hyper-V',runs:'your admin computer',
+ lede:'Read vCenter, ESXi or a Hyper-V host or cluster and browse it like vSphere: hosts, VMs, storage and networks, each with its own page.',
+ pins:[[29,61,'Inventory tree','Hosts and clusters, VMs, storage and networking views. Coloured dots show each VM\'s readiness.'],
+       [60,46,'Object pages with tabs','Summary, Monitor, Configure, VMs, Datastores, Networks. Every name links to its own page.'],
+       [52,64,'Host details','Hardware, ESXi build, management IP, cluster and license (keys masked to first and last group).'],
+       [83,76,'Related objects','Counts are buttons that open the tab they count.'],
+       [90,34,'Moving to','Pick the target platform; readiness, sizing and the runbook follow it.']],
+ say:['Read a lab vCenter and click from a host to a datastore to a VM and back (Escape goes back).','Switch "Moving to" between Hyper-V and Proxmox VE to show readiness change.'],
+ guard:['Reading changes nothing on vCenter, ESXi or Hyper-V.','Untrusted certificates are shown with their SHA-256 thumbprint and trusted only for that exact thumbprint.','Hyper-V is read through CIM/WMI only; the Hyper-V module is not needed.']},
+{id:'readiness',group:'Discover',title:'Readiness',img:'vmware-readiness',where:'Discovery → VMware and Hyper-V → VMs',runs:'your admin computer',
+ lede:'Every VM gets a readiness verdict for the chosen target with the first thing to fix. Tiles filter the list; bulk selection works across hosts, clusters, folders and waves.',
+ pins:[[40,41,'Clickable tiles','All VMs, Blocked, Review first, Ready. Each filters the list below.'],
+       [92,51,'Readiness report','Writes the HTML, Word and PDF reports for the whole inventory.'],
+       [57,71,'Select by','Tick by host, cluster, folder, wave, readiness or power, then act on all of them.'],
+       [88,85,'First thing to fix','For example "1 snapshot, the oldest 45 days old" or "Windows Server 2003 is not supported on Hyper-V".']],
+ say:['Click Blocked, then open LEGACY03 to show the reason and the ways out.','Show that a warning can be acknowledged per VM so a reviewed VM counts as ready.'],
+ guard:['Optional SQL Server and domain controller checks read a server over WinRM and change nothing (dcdiag, repadmin, SELECT queries only).','Blocked VMs can never be acknowledged into a plan.']},
+{id:'reports',group:'Discover',title:'Discovery and readiness reports',img:'vmware-report',where:'HTML, Word (.docx) and PDF',runs:'any computer',
+ lede:'One model, three outputs. The HTML report is interactive like the app; the Word and PDF versions have a linked contents page, bookmarks and the same colours.',
+ pins:[[10,50,'Inventory tree','Hosts, VMs, storage and networks, each with its own page in the report.'],
+       [55,37,'Overview tiles','15 VMs, 3 ready for Hyper-V, 8 to review, 2 blocked, 2 VMware system VMs not moved.'],
+       [62,70,'Readiness by target','One bar per platform: Hyper-V, HyperCore, Nutanix AHV, Proxmox VE, Azure, EC2, physical. Click a segment to list those VMs.'],
+       [92,4,'Print or save as PDF','Print CSS shows every page and tab. A separate PDF file is also written.']],
+ say:['Open the readiness report, click the red Blocked segment of the Hyper-V bar.','Open the Word version and click a VM name in the contents to jump to it.'],
+ guard:['No requests, no external files; one script allowed only by its exact hash.','Readable with scripts turned off.','License keys stay masked.']},
+
+{id:'wizard',group:'Plan and move',title:'New migration',img:'new-migration',alts:[['new-migration-steps','Step list for other ways']],where:'Migration and replication → New migration',runs:'the Hyper-V host, or an admin computer connected to it',
+ lede:'One sequence of screens: What, Where, How, When, Review, Status. Only the chosen method\'s options appear, and any fix a VM needs (snapshots, decryption, VDDK) is offered inside the step.',
+ pins:[[35,16,'Six steps','Next is disabled with the reason beside it. Finished steps show what you chose and open again on click.'],
+       [44,20,'This computer','Name, admin rights, Hyper-V host, inventory open, receiving. Facts open the matching tool.'],
+       [55,28,'What are you moving?','VMs, Windows or Linux servers (agent), file shares, or disk image files.'],
+       [50,48,'Sortable VM table','Search, Select by, Tick every ready VM. Readiness and notes per VM.'],
+       [45,54,'Folded away with the reason','LEGACY03 cannot be ticked: Windows Server 2003 is not supported on Hyper-V.'],
+       [91,93,'Next','Where asks for folders and the network map, filled in from the host. How recommends the method.']],
+ say:['Tick APP01 and WEB02, press Next and show the network map filled in from the host\'s switches.','On How, show only the chosen method\'s options; on When, show waves and a cutover time; on Review, show the checks.','Mention saved defaults per customer (folders, network map, sync interval, bandwidth; never a password).'],
+ guard:['Review blocks Start until every check passes, each with its fix inline.','VMware VMs with a virtual TPM need VDDK or "copy at cutover"; the wizard decides per VM and the batch mixes both.','Other sources and targets hand off with "Continue in" and list their steps, each naming the computer it runs on.']},
+{id:'wizard-status',group:'Plan and move',title:'Watching a migration',img:'new-migration-status',where:'New migration → Status',runs:'the Hyper-V host',
+ lede:'After Start the same screen shows the migration live: tiles, waves, seeding progress, test and cutover.',
+ pins:[[50,50,'Live tiles','VMs, waiting, copying, in sync, testing, cutover scheduled, cut over, failed. Click to filter.'],
+       [63,57,'Open in All servers','The same VMs in the console that shows every job and method.'],
+       [44,61,'Waves','Select a wave with one click. APP01 is in sync and can be tested.'],
+       [60,72,'Seeding progress','40 GB read at 100 MB/s, about 10 minutes left.'],
+       [78,80,'Cut over','Confirmation follows your Help → Settings choice: tick box (default), prompt, typed name or none.']],
+ say:['Press Test on APP01 to start NAME-TEST on an isolated copy.','Show the cutover tick text: it names exactly what will be shut down.'],
+ guard:['A test VM runs on differencing disks with adapters disconnected unless you pick a test switch, never with the source MAC or VLAN.','Syncs for a VM under test are held until End test.']},
+{id:'plans',group:'Plan and move',title:'Migration plans and waves',img:'migration-plans',where:'Migration and replication → Migration plans',runs:'the Hyper-V host (or an admin computer for a remote host or cluster)',
+ lede:'Seed many VMs from a start time, keep them in sync every 5 to 1440 minutes, test any VM, then cut over now or on a schedule, wave by wave.',
+ pins:[[22,7,'Activity strip','On every screen: what needs attention, copying and ready to cut over. Each count opens that list.'],
+       [45,34,'Plan tiles','Filter the VM list by state.'],
+       [42,47,'Status track','Copy, In sync, Tested, Cut over, Fixed up, with the next step in words.'],
+       [55,55,'Errors explained','Plain-language explanation above the exact error, with a fix button such as Copy this VM again now.'],
+       [32,85,'Ready to cut over? Wave by wave','Checks copies, failures, recent syncs, tests and SQL/DC findings per wave.'],
+       [62,85,'Cut over wave 2','Selects that wave for the normal cutover and its confirmation.']],
+ say:['Show WEB01\'s error: ESXi held the disk open, and the next round reads its snapshot through the export instead.','Point at the wave check: Wave 1 says "Not yet" and lists why; Wave 2 says "Go".','Mention changed-block reads: each disk says how it was read (VDDK, datastore, export or Hyper-V RCT) and why if it read in full.'],
+ guard:['Up to 4 VMs copy at once per plan; failed rounds retry after 5, 10 and 20 minutes.','A failed cutover is never retried by itself, and the Hyper-V VM is created only after a successful verified final round.','After cutover the old VMware VM\'s adapters are set to not connect (default on), with their settings saved first.'],
+ limits:['Plans run while the application is open on that host.','VMware changed-block reads while a VM runs need VDDK, which each operator downloads from Broadcom (its license forbids shipping it).']},
+{id:'rolling',group:'Plan and move',title:'Rolling ESXi to Hyper-V conversion',img:'vmware-rolling',where:'Plan and runbook (also New migration → When)',runs:'your admin computer',
+ lede:'Convert existing ESXi hosts to Hyper-V on the same hardware, one host at a time: empty a host, rebuild it as a Hyper-V node, move the next wave onto it.',
+ pins:[[25,47,'Suggest stages','Drafts one stage per host, least loaded first, with waves sized to what the rebuilt nodes can hold.'],
+       [27,54,'Fully editable stages','Change the host, the wave, reorder, add or remove stages, or move the wave before the host is emptied.'],
+       [45,63,'VMware side check','Will the remaining ESXi hosts hold the load with one host kept free (N+1)?'],
+       [78,63,'Hyper-V side check','Will the nodes rebuilt so far hold the wave? "Tight" says why.']],
+ say:['Press Suggest stages, then drag a VM to a different wave and watch the fit checks change.','Show that the stages feed Build Hyper-V hosts, Migration plans and the runbook.'],
+ guard:['Planning only: nothing changes on any host.','A host is rebuilt by at most one stage; the runbook adds a rollback step before each host is evacuated.'],
+ limits:['A real rolling conversion has not yet been field-validated end to end.']},
+{id:'hvbuild',group:'Plan and move',title:'Build Hyper-V hosts and clusters',img:'hyperv-build',where:'Migration and replication → Build Hyper-V hosts',runs:'your admin computer, changing the new nodes over WinRM',
+ lede:'Draft the new Hyper-V hosts or cluster from the VMware data: SET switches and VLANs, live migration network, iSCSI or Fibre Channel, Cluster Shared Volumes, quorum. Every step is previewed before you approve it.',
+ pins:[[32,51,'Steps with where they run','"On this computer" or "On each node" on every step.'],
+       [38,69,'Preview, then approve','Preview lists exactly what each node would change; Approve and apply makes only those changes.'],
+       [42,79,'Preview per node','HV1 and HV2 will install Hyper-V, Failover Clustering and Multipath I/O, then restart.'],
+       [91,64,'Changes to review','A finished step previews as "nothing to change".']],
+ say:['Draft plan from VMware, then Preview "Install roles" on two lab nodes.','Point out the plan carries the vMotion network as the live migration adapter.'],
+ guard:['Steps only add what is missing; they never remove or replace a switch, address, disk or cluster.','Apply needs a fresh preview of the same plan revision, checked by hash on each node.','Disks are touched only while RAW, never the boot or system disk.'],
+ limits:['Real nodes, SANs and clusters are not yet field-validated.']},
+{id:'movevms',group:'Plan and move',title:'Move VMs one at a time',img:'vmware-move-cluster',alts:[['move-vms-remote-hyperv','Remote host or cluster'],['vmware-move-target','HyperCore / Nutanix / Proxmox']],where:'Migration and replication → Move VMs',runs:'the Hyper-V host, or an admin computer connected to it',
+ lede:'Copy a VMware or Hyper-V VM while it runs, as often as you like, then cut over: the guest shuts down, the last changes are copied and verified, and the new VM is created.',
+ pins:[[48,45,'This host or a remote one','Run on the Hyper-V host, or from an admin computer over PowerShell remoting to a remote host or failover cluster.'],
+       [61,67,'Cluster Shared Volumes','Each CSV with free space. A copy that does not fit is refused before it starts.'],
+       [30,60,'Same inventory tree','The VM you picked in Discovery, with its readiness dot.'],
+       [55,88,'Quiesce and MAC options','VSS-quiesced snapshots through VMware Tools; keep the VMware MAC addresses if needed.']],
+ say:['Switch between "This computer is the Hyper-V host" and "Another Hyper-V host or cluster".','Show the alternate shots: remote cluster connection, and the HyperCore/Nutanix/Proxmox target panel.'],
+ guard:['Only the app\'s own snapshot or checkpoint is created and always removed after the round.','Nothing is installed in the VM or copied to the Hyper-V host.','The VMware VM is left powered off and otherwise unchanged, so rollback is starting it.'],
+ limits:['HyperCore, Nutanix and Proxmox clients are tested against fakes built from their public APIs, not yet real clusters.']},
+{id:'servers',group:'Operate',title:'All jobs and servers',img:'all-jobs-and-servers',where:'Migration and replication → All jobs and servers',runs:'your admin computer, or the Hyper-V host',
+ lede:'One list of every server and job, whatever moves it: agent replication, migration plans, Move VMs copies, conversions, restores and file share moves. Tick many and act at once.',
+ pins:[[44,47,'One state for every method','Everything, not configured, agent no job, initial copy, in sync, failed, running. Tiles filter.'],
+       [55,58,'Bulk actions','Install agents, create jobs, sync, pause, resume, test failover, set wave, cut over, cancel scheduled cutover.'],
+       [33,78,'Mixed methods','DC01 and PRINT01 in a migration plan; APP01 and SQL01 as agent replication jobs.'],
+       [56,87,'Plain reasons','"The last round failed: the receiver went away and stopped answering."'],
+       [86,78,'Wave and cutover','Cutover groups by wave with a stagger between them.']],
+ say:['Tick DC01 and APP01 (different methods) and press Sync now: each runs through its own method.','Point out a bulk action skips rows it does not apply to and says why, and never stops at one failure.'],
+ guard:['Cutover, test and end test confirm the number of servers.','Bulk actions use each method\'s own API; there is no second path that changes a job.']},
+{id:'replicate',group:'Operate',title:'Replicate whole servers',img:'replication-jobs',alts:[['receiver-discovery','Find receivers and pair'],['receive-transfers','Receiver progress']],where:'Migration and replication → Replicate servers',runs:'admin computer; agent on each source',
+ lede:'Double-Take style: an agent keeps every disk of any Windows or Linux server, physical or virtual, copied to its new machine a few minutes behind until you cut over.',
+ pins:[[30,42,'Runbook','Every job with its steps (test failover, cutover, verify, fail back) in HTML and Word.'],
+       [53,61,'Round progress','"Last round sent 256 MB of changes in 42 seconds. The copy matches the source."'],
+       [72,61,'Recovery point','2 minutes old; RPO alert after 15 minutes.'],
+       [35,71,'Initial copy complete','Test failover and Cut over appear right in the job row.'],
+       [40,88,'Job details','Receiver, schedule (every 5 minutes, compressed, bandwidth limited), rounds and logs.']],
+ say:['Show the alternate shot: Find receivers lists receivers on the network; pairing shows a six-digit check number on both screens.','Explain cutover: listed services stop, a verified final round runs, and any failure restarts the services and replication carries on.'],
+ guard:['No kernel driver: each round reads a fresh Volume Shadow Copy and sends only changed 4 MB chunks.','The agent runs no PowerShell, never deletes a shadow copy and is signed; docs list EDR exclusions for SentinelOne, Defender and CrowdStrike.','Agent keys are pinned by certificate thumbprint and stored sealed with DPAPI.'],
+ limits:['Push install across a real domain and striped/mirrored dynamic volumes on 2016 to 2022 still need field validation.']},
+{id:'rollback',group:'Operate',title:'Roll back a cutover',img:'roll-back',where:'Migration and replication → Roll back (and beside each cut-over VM)',runs:'the Hyper-V host or admin computer that cut it over',
+ lede:'If the migrated server does not work, bring the original back: the new VM is shut down and disconnected first, and only once it is confirmed off does the original start with its own disks, addresses and network.',
+ pins:[[50,33,'What is lost','Anything written on the new VM since the cutover is not on the old one.'],
+       [50,38,'Domain controller warning','A separate tick for USN rollback risk, in every confirmation style.'],
+       [50,48,'Steps in order','Shut down the new VM, read it again, put the old adapters back, start the original.'],
+       [64,70,'Roll back','Each rollback writes its own log.']],
+ say:['Open Roll back on DC01 to show the extra domain controller confirmation.','Scroll to "Every way of moving" to show written steps for methods without automatic rollback (P2V, conversions, file shares, rebuilt hosts).'],
+ guard:['The original is never renamed, annotated, deleted or changed inside; fix-ups happen only in the new VM.','The new VM, its disks and copies are never deleted by a rollback.']},
+{id:'convert',group:'Operate',title:'Convert disk images',img:'disk-converter',alts:[['disk-converter-send','Send to a host']],where:'Migration and replication → Convert disk images',runs:'any Windows computer that reaches the files',
+ lede:'StarWind-style V2V conversion between VMDK, VHD, VHDX, qcow2 and raw, merging snapshot chains, with Windows driver fix-ups and Send to a host as a new VM.',
+ pins:[[50,47,'Inspect first','Format, size, data to copy, files in the chain and firmware (UEFI or BIOS) before converting.'],
+       [49,52,'Chains merged','A two-disk VMware Workstation chain becomes one disk.'],
+       [55,62,'Seven outputs','VHDX, VHD dynamic or fixed, qcow2, VMDK sparse, VMDK ESXi flat, raw.'],
+       [25,88,'Resumable and repeatable','Stop and continue; converting again rewrites only what changed.']],
+ say:['Inspect a VMDK, convert to VHDX with verify ticked.','Show Send to a host: upload to Proxmox VE, Nutanix, HyperCore or vSphere and create the VM.','Mention P2V: pick "This computer..." to copy its own disks through shadow copies.'],
+ guard:['The source is only read; an existing file is never overwritten.','Every output format is cross-checked against qemu-img in CI.','Fix-ups change only the image, with a JSON record so Undo puts every value back.']},
+{id:'shares',group:'Operate',title:'Move file shares',img:'migrate-choose',alts:[['migrate-copy','Copy and cut over']],where:'Migration and replication → Move file shares',runs:'the new file server, or any admin computer',
+ lede:'Move shares, files, NTFS permissions and share settings from an old file server. Copy while users keep working, then cut over with one final pass.',
+ pins:[[46,44,'Per-share destination','New folder and share name per share, with Browse.'],
+       [40,51,'Permission warnings','Local accounts of the old server that do not exist here are named before copying.'],
+       [30,76,'System shares','NETLOGON and similar are listed but not ticked, with a warning.'],
+       [25,85,'Space check','Drive D needs about 250 GB, 373 GB free.'],
+       [43,93,'Check plan again','Precheck before any copy.']],
+ say:['Show "Keep copying until cutover" (every 15 to 1440 minutes).','Mention it can run between two other servers from an admin computer: the new server pulls from the old one with Robocopy, so files cross the network once.'],
+ guard:['Robocopy /MIR never runs into a destination holding files the migration did not create, unless you allow overwrite per share.','The old server changes only with the optional read-only step, and its permissions are saved first so Undo restores them.']},
+{id:'guard',group:'Operate',title:'Protect production while copying',ill:'guard',where:'Help → Settings → Protect production',runs:'every computer that copies',
+ lede:'Copies never eat the datastore space or bandwidth production needs. Rounds wait for room, running rounds stop before space runs out, and copies are capped and paced.',
+ pins:[],
+ points:[['Space before every snapshot','Before a running VM\'s snapshot or checkpoint, the app checks every datastore or volume it grows on. Default reserve: the larger of 10% or 50 GB, counting the expected growth of copies already running there.'],
+         ['Stop before it gets tight','While a round runs, free space is re-read. At 5% or 20 GB the round stops and removes its own snapshot.'],
+         ['A hold is not a failure','Held VMs show the reason and retry; nothing is changed on the VM while held. Cutovers are never held or stopped.'],
+         ['Copies at once','Defaults: 4 in total, 2 per source datastore, 2 per source host, 2 per destination host.'],
+         ['Bandwidth','A global limit applies on top of each plan\'s and each wave\'s limit, with a business-hours schedule. File share copies use Robocopy pacing.']],
+ say:['Open Help → Settings and show the reserve and copy limits.','Explain why: a forgotten snapshot filling a datastore is the classic way a migration takes production down.'],
+ guard:['Never takes a snapshot before the space check.','Replication agents check their own volumes before taking shadow copies.'],
+ limits:['Real datastore free space during concurrent snapshots is not yet field-validated.']},
+{id:'console',group:'Operate',title:'VM consoles',ill:'console',where:'Console button on VM pages, plan rows, All servers rows',runs:'your admin computer',
+ lede:'Open the console of a source, replicated, test or migrated VM inside the app, for VMware, Hyper-V, Proxmox VE, Nutanix AHV and Scale HyperCore, in one window with tabs.',
+ pins:[],
+ points:[['Every platform, one window','VMware WebMKS, Proxmox VE and Nutanix VNC proxies, HyperCore VNC, and Hyper-V through the host\'s WMI screen and keyboard (works before the VM has a network).'],
+         ['Keys','Ctrl+Alt+Del, a Keys menu (Win+R, Alt+Tab, F8, F12...) and sticky Ctrl, Alt and Win.'],
+         ['Paste as typing','Ctrl+V types your clipboard one key at a time, so it works on sign-in and recovery screens. Never logged.'],
+         ['Copy out','Select an area and Windows text recognition reads it on your computer, or read a text file from the VM through VMware Tools, the QEMU guest agent or PowerShell Direct.'],
+         ['Files','Copy one file in or out where the platform allows it. Existing files are never replaced.']],
+ say:['Open a console from a plan row, send Ctrl+Alt+Del and paste a password.','Use Copy out → Select an area on an ipconfig window.'],
+ guard:['No power buttons on purpose: forced power-off is not allowed anywhere in the app.','Uses the app\'s existing sign-ins only; the console never asks for or keeps a platform password.'],
+ limits:['Consoles, Copy out and paste are covered by synthetic tests; real vCenter, Hyper-V, Proxmox, Prism and HyperCore hosts are not yet validated.']},
+{id:'updates',group:'Operate',title:'Updates, channels and signing',img:'update-available',ill:'channels',where:'Help → About and updates, Help → Settings',runs:'every installed copy',
+ lede:'The portable EXE updates itself in place, only when you press Install. Every release, stable or test, is signed, and the old version is kept for automatic rollback.',
+ pins:[[50,22,'Update bar','Appears only when an update exists, with the first release-note bullets.'],
+       [94,22,'Download, then Install','Nothing downloads or installs by itself, and installing is blocked while a collection or migration step runs.']],
+ points:[['Stable and Test channels','Stable (default) never offers a test build. Opting in to Test offers the newer of a test or stable build; switching back offers stable even if its number is lower.'],
+         ['Verified before it runs','HTTPS host, exact repository path, size, SHA-256, PE structure, version metadata and the app\'s identity marker.'],
+         ['Health-checked install','The new version must open its window and report healthy, or the previous EXE is restored. Shortcuts and settings are kept.']],
+ say:['Show Help → Settings → Test channel.','Show the published release page: EXE, manifest, checksums and release notes.'],
+ guard:['Signed with Azure Artifact Signing; a release fails rather than ship unsigned.','Each stable release runs an automated upgrade from the previous version on a real Windows runner before it is called done.']},
+{id:'safety',group:'Wrap up',title:'Safety and honest limits',ill:'safety',
+ lede:'What the app will never do, and what has and has not been proven on real hardware.',pins:[]}
+];
+
+var groups=[];C.forEach(function(c){if(groups.indexOf(c.group)<0)groups.push(c.group);});
+var rail=document.getElementById('rail'),jump=document.getElementById('jump'),chap=document.getElementById('chapter');
+var cur=0,activePin=-1,altIdx=0;
+(function build(){
+  var h='';groups.forEach(function(g){h+='<h4>'+esc(g)+'</h4>';C.forEach(function(c,i){if(c.group===g){h+='<button type="button" data-i="'+i+'"><span class="n">'+String(i+1).padStart(2,'0')+'</span><span>'+esc(c.title)+'</span></button>';}});});
+  rail.innerHTML=h;
+  jump.innerHTML=C.map(function(c,i){return '<option value="'+i+'">'+(i+1)+'. '+esc(c.title)+'</option>';}).join('');
+})();
+rail.addEventListener('click',function(e){var b=e.target.closest('button[data-i]');if(b)go(+b.dataset.i);});
+jump.addEventListener('change',function(){go(+jump.value);});
+['prev','prev2'].forEach(function(id){document.getElementById(id).addEventListener('click',function(){go(cur-1);});});
+['next','next2'].forEach(function(id){document.getElementById(id).addEventListener('click',function(){go(cur+1);});});
+
+function illustration(kind){
+  if(kind==='console'){return '<div class="ill"><div class="console">'+
+    '<div class="ctabs"><span class="ctab on">APP01 · vc01.example.com</span><span class="ctab">APP01-TEST · HV01</span><span class="ctab">SQL01 · HV02</span></div>'+
+    '<div class="ctool"><span class="hi">Ctrl+Alt+Del</span><span>Keys ▾</span><span>Ctrl</span><span>Alt</span><span>Win</span><span class="hi">Paste as typing</span><span>Copy out</span><span>Files</span><span>What works here</span><span>VMware Remote Console</span></div>'+
+    '<div class="cscreen"><div class="signin"><div class="avatar"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.6"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg></div><b>EXAMPLE\\administrator</b><div class="pw">●●●●●●●●</div></div><span class="typing">Typing 14 characters… Stop</span></div>'+
+    '</div></div><div class="illus-note">Illustration drawn for this tour, not a screenshot. Layout and button names follow the 3.3.0 console window.</div>';}
+  if(kind==='guard'){
+    var W=640;function x(p){return 20+p*(W-40)/100;}
+    return '<div class="ill"><div class="gauge"><svg viewBox="0 0 '+W+' 100" role="img" aria-label="Datastore free space with reserve and stop levels">'+
+    '<text class="lab" x="20" y="18">DS1 · 2.0 TB datastore</text>'+
+    '<rect x="'+x(0)+'" y="34" width="'+(x(100)-x(0))+'" height="34" rx="4" fill="var(--sunk)" stroke="var(--line)"/>'+
+    '<rect x="'+x(0)+'" y="34" width="'+(x(78)-x(0))+'" height="34" rx="4" fill="var(--accent)" opacity=".75"/>'+
+    '<rect x="'+x(78)+'" y="34" width="'+(x(84)-x(78))+'" height="34" fill="var(--warn)" opacity=".75"/>'+
+    '<rect x="'+x(84)+'" y="34" width="'+(x(88)-x(84))+'" height="34" fill="var(--warn)" opacity=".4"/>'+
+    '<line x1="'+x(90)+'" x2="'+x(90)+'" y1="26" y2="76" stroke="var(--ok)" stroke-width="2" stroke-dasharray="4 3"/>'+
+    '<line x1="'+x(95)+'" x2="'+x(95)+'" y1="26" y2="76" stroke="var(--bad)" stroke-width="2"/>'+
+    '<text x="'+x(90)+'" y="22" text-anchor="middle" fill="var(--ok)">Reserve 10%</text>'+
+    '<text x="'+x(95)+'" y="92" text-anchor="middle" fill="var(--bad)">Stop 5%</text>'+
+    '</svg><div class="legend"><span><i style="background:var(--accent);opacity:.75"></i>Production data 78%</span><span><i style="background:var(--warn);opacity:.75"></i>Snapshots of copies already running</span><span><i style="background:var(--warn);opacity:.4"></i>This round\'s expected growth</span></div>'+
+    '<div class="legend" style="margin-top:4px">Defaults: reserve the larger of 10% or 50 GB · stop at the larger of 5% or 20 GB</div>'+
+    '<div class="hold"><b>Held</b><span>SQL01 waits: DS1 would drop below the 10% reserve with this round\'s snapshot. It retries by itself; nothing was changed on the VM.</span></div></div></div>'+
+    '<div class="illus-note">Illustration drawn for this tour. The figures follow the app\'s default settings.</div>';}
+  if(kind==='channels'){return '<div class="lanes" style="margin-top:12px">'+
+    '<div class="lane"><b>Stable</b> <span class="tag">default</span><div class="rel"><span>3.2.39</span><span>3.2.40</span><span>3.2.41</span><span class="cur">3.3.0</span></div></div>'+
+    '<div class="lane"><b>Test</b> <span class="tag warn">opt in</span><div class="rel"><span class="t">3.3.0-test.1</span><span class="t">…</span><span class="t">3.3.0-test.5</span><span class="cur">3.3.0</span></div><div style="font-size:13px;color:var(--muted);margin-top:6px">Test builds are signed prereleases. When the test line graduates it becomes the next stable release.</div></div>'+
+    '<div class="signbox"><div><b>Signing</b>Azure Artifact Signing</div><div><b>Checked by</b>Get-AuthenticodeSignature, timestamped</div><div><b>Also signed</b>Embedded PowerShell scripts</div><div><b>Linux agent</b>published with its checksum</div></div></div>';}
+  if(kind==='safety'){return '<div class="cols" style="margin-top:6px">'+
+    '<div class="box guard"><h3>Never</h3><ul><li>Force a source VM off. Guests shut down through VMware Tools or the Hyper-V shutdown service only.</li><li>Install anything in a VM being moved by Move VMs or Migration plans. Fix-ups use PowerShell Direct or remoting.</li><li>Use CredSSP, encoded commands, scheduled tasks or WMI process creation (behaviours EDR flags).</li><li>Change vSphere beyond its own snapshot, the opt-in prepare steps and the opt-in adapter disconnect.</li><li>Download, install or restart an update on its own.</li><li>Upload inventory anywhere.</li></ul></div>'+
+    '<div class="box"><h3>Always</h3><ul><li>Save the current state before changing it (restore, fix-up, adapters, permissions, guest settings).</li><li>Verify copies chunk by chunk with SHA-256.</li><li>Ask before any change, in the confirmation style you choose.</li><li>Say which computer each step runs on.</li><li>Keep passwords in memory; remembered sign-ins are opt in and DPAPI-sealed.</li></ul></div>'+
+    '<div class="box limits"><h3>Not yet proven on real hardware</h3><ul><li>HyperCore, Nutanix Prism and Proxmox VE clients (tested against fakes from their public APIs).</li><li>VM consoles, Copy out and guest file transfer on real hosts.</li><li>Hyper-V checkpoints, RCT and reference points on a real host.</li><li>Build Hyper-V hosts on real nodes and SANs; a full rolling conversion.</li><li>VDDK reads of a real VM with a virtual TPM.</li></ul></div></div>'+
+    '<div class="box" style="margin-top:16px"><h3>Where to get it</h3><p style="margin:0;font-size:14.5px">Releases and source: <a href="https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/latest" target="_blank" rel="noopener">github.com/TechSavage1989/Server-Inventory-Configuration-Manager</a>. One portable EXE; run it as administrator for collection, restore and migration steps. Before replicating, add the agent exclusions in <span class="mono">docs/EDR-EXCLUSIONS.md</span> to your endpoint protection.</p></div>';}
+  return '';
+}
+
+function render(){
+  var c=C[cur];activePin=-1;
+  if(c.render){chap.innerHTML=c.render();return after();}
+  var h='<div class="eyebrow">'+esc(c.group)+(c.where?' · '+esc(c.where):'')+'</div><h2>'+esc(c.title)+'</h2><p class="lede">'+esc(c.lede)+'</p>';
+  h+='<div class="runs">'+(c.runs?'<span class="tag"><b>Runs on</b> '+esc(c.runs)+'</span>':'')+'</div>';
+  if(c.id==='safety'){chap.innerHTML=h+illustration('safety');return after();}
+  var shots=c.img?[[c.img,'Overview']].concat(c.alts||[]):[];
+  var side='';
+  if(c.pins&&c.pins.length){side='<div class="notes" id="notes">'+c.pins.map(function(p,i){return '<button type="button" class="note" data-pin="'+i+'" aria-pressed="false"><span class="k">'+(i+1)+'</span><span><b>'+esc(p[2])+'</b><span>'+esc(p[3])+'</span></span></button>';}).join('')+'</div>';}
+  if(c.points){side=(side?side.replace(/<\/div>$/,''):'<div class="notes">')+c.points.map(function(p,i){return '<div class="note" style="cursor:default"><span class="k" style="background:var(--accent)">'+(i+1)+'</span><span><b>'+esc(p[0])+'</b><span>'+esc(p[1])+'</span></span></div>';}).join('')+'</div>';}
+  var main='';
+  if(shots.length){
+    var s=shots[Math.min(altIdx,shots.length-1)];
+    main='<div class="shot"><div class="shotbar"><span class="dots"><i></i><i></i><i></i></span><span class="what">'+esc(c.where||'')+'</span>'+
+      (shots.length>1?'<span class="alts" role="group" aria-label="Screens">'+shots.map(function(x,i){return '<button type="button" data-alt="'+i+'" aria-pressed="'+(i===altIdx)+'">'+esc(x[1])+'</button>';}).join('')+'</span>':'')+
+      '</div><div class="frame"><img src="'+IMG+s[0]+'.png" alt="'+esc(c.title+': '+s[1])+'" loading="eager">'+
+      (altIdx===0?(c.pins||[]).map(function(p,i){return '<button type="button" class="pin" data-pin="'+i+'" aria-pressed="false" style="left:'+p[0]+'%;top:'+p[1]+'%" aria-label="'+esc(p[2])+'">'+(i+1)+'</button>';}).join(''):'')+
+      '</div>'+(altIdx>0?'<div class="illus-note">Second screen for this chapter. Numbered pins are on the Overview screen.</div>':'')+'</div>';
+    if(c.ill==='channels'){main+=illustration('channels');}
+  } else if(c.ill){main='<div class="shot">'+illustration(c.ill)+'</div>';}
+  h+='<div class="stage"><div style="min-width:0">'+main+'</div>'+side+'</div>';
+  h+='<div class="cols">';
+  if(c.say)h+='<div class="box say"><h3>Show this</h3><ol>'+c.say.map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ol></div>';
+  if(c.guard)h+='<div class="box guard"><h3>Guard rails</h3><ul>'+c.guard.map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul></div>';
+  if(c.limits)h+='<div class="box limits"><h3>Good to know</h3><ul>'+c.limits.map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul></div>';
+  h+='</div>';
+  chap.innerHTML=h;after();
+}
+function after(){
+  rail.querySelectorAll('button').forEach(function(b){b.setAttribute('aria-current',String(+b.dataset.i===cur));});
+  jump.value=String(cur);
+  document.getElementById('fill').style.width=((cur)/(C.length-1)*100)+'%';
+  document.getElementById('count').textContent=(cur+1)+' / '+C.length;
+  ['prev','prev2'].forEach(function(id){document.getElementById(id).disabled=cur===0;});
+  ['next','next2'].forEach(function(id){document.getElementById(id).disabled=cur===C.length-1;});
+  var cb=rail.querySelector('[aria-current="true"]');if(cb&&cb.scrollIntoView){try{cb.scrollIntoView({block:'nearest'});}catch(e){}}
+}
+function setPin(i){
+  activePin=(activePin===i)?-1:i;
+  chap.querySelectorAll('[data-pin]').forEach(function(el){el.setAttribute('aria-pressed',String(+el.dataset.pin===activePin));});
+  if(activePin>=0){var n=chap.querySelector('.note[data-pin="'+activePin+'"]');if(n&&window.innerWidth<1180){try{n.scrollIntoView({block:'nearest',behavior:'smooth'});}catch(e){}}}
+}
+chap.addEventListener('click',function(e){
+  var a=e.target.closest('[data-alt]');if(a){altIdx=+a.dataset.alt;render();return;}
+  var p=e.target.closest('[data-pin]');if(p)setPin(+p.dataset.pin);
+});
+function go(i){
+  if(i<0||i>=C.length)return;cur=i;altIdx=0;render();
+  try{history.replaceState(null,'','#'+C[i].id);}catch(e){location.hash=C[i].id;}
+  window.scrollTo(0,0);
+}
+document.addEventListener('keydown',function(e){
+  if(e.target.closest&&e.target.closest('select,input,textarea'))return;
+  if(e.altKey||e.ctrlKey||e.metaKey)return;
+  if(e.key==='ArrowRight'||e.key==='PageDown'){go(cur+1);e.preventDefault();}
+  else if(e.key==='ArrowLeft'||e.key==='PageUp'){go(cur-1);e.preventDefault();}
+  else if(/^[1-9]$/.test(e.key)&&C[cur].pins&&C[cur].pins.length>=+e.key&&altIdx===0){setPin(+e.key-1);}
+});
+function fromHash(){var h=(location.hash||'').slice(1);var i=C.findIndex(function(c){return c.id===h;});cur=i<0?0:i;altIdx=0;render();}
+window.addEventListener('hashchange',function(){var h=location.hash.slice(1);if(C[cur].id!==h)fromHash();});
+fromHash();
+})();
+</script>
