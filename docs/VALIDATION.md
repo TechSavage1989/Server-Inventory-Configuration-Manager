@@ -1,3 +1,11 @@
+## 3.3.1 published and verified — 2026-11-28
+
+- [Release v3.3.1](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.3.1) ("Server Inventory and Migration Manager 3.3.1"), tag and target commit `885cb586d6a033f04211940d2c9997a3ec0c765b`. Batch #233 (#224, #227, #230, #231, #226, #229, #232) reached `main` with a merge commit (`67dfdad`) after full CI, and #236 published. The owner asked for it on 2026-11-28 ("please build the next one with my requests", "and release when done", "no need for test build this time"); no test build was made.
+- The [release run](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/46097533968) passed: publish job 02:20–02:43 UTC, embedded scripts and EXE signed through Azure Artifact Signing over OIDC before the tests and checksum (Valid, timestamped); public feed and downloads verified.
+- The actual 3.3.0-to-3.3.1 upgrade (published signed 3.3.0 EXE through Download and Install, restart into 3.3.1, native health, settings, shortcut, timers, cleanup and rollback) passed in the same run, 02:43–02:56 UTC.
+- Stable EXE: 29,729,584 bytes; SHA-256 `a5cd1c2df2d9b7f6ffa2198d985a294af5411d6587286f47cc78bb10cdf19b8f` (matches the public feed). Linux agent `simm-agent-linux-amd64`: 13,725,696 bytes; SHA-256 `7c09d6f9ff7d54791fba86a9ed8c62e6ee8ec1588bce1c666b84aeaf7a394662`. All 14 assets are published.
+- Not field-tested: reading and joining a real Hyper-V cluster, port matching on real hardware, and the console typing, Hyper-V mouse and Enhanced session fixes on a real Hyper-V host or ESXi.
+
 ## 3.3.0 published and verified — 2026-11-27
 
 - [Release v3.3.0](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.3.0) ("Server Inventory and Migration Manager 3.3.0"), tag and target commit `70454b04fe7302bf9b1e7bad9a728bd189b2a323`. It promotes the test line (3.3.0-test.5) to stable: #221 merged `test` into `release/next` with a merge commit and prepared 3.3.0, #220 recorded 3.2.41, the batch #222 reached `main` with a merge commit (`613ac94`) and #223 published. The owner asked for it on 2026-11-27 ("The next round I want the test moved to the stable release").
