@@ -6,6 +6,14 @@
 <p align="center"><strong>Discover servers and virtual estates, plan the move, then migrate, replicate or restore them with one portable app.</strong></p>
 
 <p align="center">
+  <a href="https://migrationmanager.techsavage3d.com/demo/"><img src="https://img.shields.io/badge/%E2%96%B6%20Try%20the%20live%20demo-in%20your%20browser-2563eb?style=for-the-badge" alt="Try the live demo in your browser" height="40"></a>
+  &nbsp;
+  <a href="https://migrationmanager.techsavage3d.com/tour/"><img src="https://img.shields.io/badge/Take%20the%20feature%20tour-every%20tool%2C%20step%20by%20step-0f766e?style=for-the-badge" alt="Take the feature tour" height="40"></a>
+  <br>
+  <sub>No install needed. The demo runs the real interface on fictional data, and nothing touches a real server.</sub>
+</p>
+
+<p align="center">
   <a href="https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/latest">Download</a> ·
   <a href="#getting-started">Get started</a> ·
   <a href="#features">Features</a> ·
@@ -14,12 +22,6 @@
   <a href="#development">Development</a> ·
   <a href="https://migrationmanager.techsavage3d.com/demo/">Live demo</a> ·
   <a href="https://migrationmanager.techsavage3d.com/tour/">Feature tour</a>
-</p>
-
-<p align="center">
-  <a href="https://migrationmanager.techsavage3d.com/demo/"><strong>▶ Try the live demo in your browser</strong></a> &nbsp;|&nbsp;
-  <a href="https://migrationmanager.techsavage3d.com/tour/"><strong>Take the feature tour</strong></a><br>
-  <sub>No install. The demo runs the real interface on fictional data, and nothing touches a real server.</sub>
 </p>
 
 <p align="center">
