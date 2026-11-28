@@ -35,6 +35,9 @@ func (l vmReceiverLink) sinkFactory(ctx context.Context, mapping []string) func(
 		if err != nil {
 			return nil, "", err
 		}
+		// Compress on the wire when the receiver can inflate: zero chunks
+		// already travel as a hash only, and data in use often halves.
+		sink.Compress = sink.TakesDeflate()
 		return sink, mapping[index] + " on " + l.Address, nil
 	}
 }

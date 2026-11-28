@@ -579,6 +579,11 @@ func (a *application) handleVMwareAgentSend(response http.ResponseWriter, reques
 		if set != nil {
 			defer set.Close()
 		}
+		if openErr == nil {
+			// Free NTFS clusters read as zeros without touching the disk,
+			// so only data in use is read and sent.
+			vmSkipFreeSpace(ctx, set, disks, log)
+		}
 		for _, disk := range disks {
 			result := vmAgentSendResult{Disk: disk, Name: names[disk]}
 			err := func() error {

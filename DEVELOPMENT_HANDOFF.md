@@ -4,6 +4,11 @@
 - Engine `src/app/Invoke-SqlMigration.ps1` (signed, RemoteSigned), rules in `sqlmig*.go`, endpoints `/api/sql/*` in `sqlmig_windows.go`.
 - Tests: `go test -run TestSQL ./src/app` (fakes, any platform); CI job `sqlmig` runs `TestSQLMigrationOnLocalDB` with two LocalDB instances on Windows; workspace checks "Move SQL databases" and New migration's guide. Not field-validated against real SQL Server instances, availability groups or DNS.
 
+## Unreleased: less data and less time for every copy — 2026-11-28
+
+- Copy engine reads and hashes ahead of writing (`vmCopyReadChunks`), Send disks and P2V conversion skip free NTFS space (`vmSkipFreeSpace`), VDDK reads ask for FastLZ compression, receivers advertise `deflate` and platform/remote Hyper-V sinks compress when they do, file share copies add Robocopy `/COMPRESS` where supported. AGENTS rule 73.
+- Tests: `go test -run 'TestCopyReadsAhead|TestCopyStops|TestPlatformReceiverSinks' ./src/app`. Not field-validated: VDDK FastLZ on real ESXi, Robocopy `/COMPRESS` between real servers, P2V free-space skip on a real server (covered by `TestConverterCopiesADiskOfThisComputer` on the runner).
+
 ## Unreleased: join converted hosts to an existing Hyper-V cluster, auto-filled choices — 2026-11-27
 
 - Owner: one of three ESXi hosts is already converted and clustered; the other two must be converted and joined. Build Hyper-V hosts' step 1 now chooses **A new cluster or hosts from the VMware data**, **Add hosts to an existing Hyper-V cluster** or **A new cluster with Hyper-V hosts I already have**. `ReadExisting` in `Build-HyperVHost.ps1` (read only, WinRM) reads the cluster's switches, VLANs, host adapters, iSCSI/FC storage, live migration settings, nodes, quorum, networks and CSVs; `hvBuildAdopt` (`hvbuild_join.go`) drafts the plan to match it. Join mode never creates a cluster and never touches quorum or cluster networks.
