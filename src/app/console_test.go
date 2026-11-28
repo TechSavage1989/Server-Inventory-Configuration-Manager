@@ -677,13 +677,16 @@ func TestHyperVConsoleShowsScreenshotsAndSendsKeyboardAndMouse(t *testing.T) {
 	link.mu.Lock()
 	defer link.mu.Unlock()
 	all := strings.Join(link.requests, "\n")
-	for _, want := range []string{`{"down":true,"op":"key","vk":65}`, `"op":"mouse","x":400,"y":300`, `{"buttons":[{"button":1,"down":true}]`, `{"op":"type","text":"A"}`, `{"op":"type","text":"b"}`, `{"down":true,"op":"key","vk":13}`, `{"op":"type","text":"c"}`, `{"op":"cad"}`} {
+	for _, want := range []string{`{"down":true,"op":"key","vk":65}`, `"op":"mouse","x":400,"y":300`, `{"buttons":[{"button":1,"down":true}]`, `{"down":true,"op":"key","vk":160}`, `{"down":true,"op":"key","vk":66}`, `{"down":false,"op":"key","vk":66}`, `{"down":true,"op":"key","vk":13}`, `{"down":true,"op":"key","vk":67}`, `{"op":"cad"}`} {
 		if !strings.Contains(all, want) {
 			t.Errorf("missing request %s in\n%s", want, all)
 		}
 	}
 	if strings.Count(all, `"vk":13`) != 2 {
 		t.Errorf("a pasted Windows line end must be one Enter:\n%s", all)
+	}
+	if strings.Contains(all, `"op":"type"`) {
+		t.Errorf("Hyper-V typing must press keys, not call TypeText:\n%s", all)
 	}
 }
 
