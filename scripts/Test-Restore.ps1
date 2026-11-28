@@ -314,7 +314,12 @@ function Invoke-WithInput([string]$Script, [string[]]$Arguments, [string]$Line, 
 }
 $bundleUser = 'SICMBundleUser'; $bundleGroup = 'SICMBundleGroup'; $bundleShare = 'SICMBundleShare'
 $userPassword = 'Bndl-' + [Guid]::NewGuid().ToString('N').Substring(0, 16) + '!a1'
-Invoke-Checked net.exe @('user', $bundleUser, $userPassword, '/add', '/comment:Synthetic bundle user')
+# ADSI, not net user: net asks Y/N for a password longer than 14 characters and fails without a console.
+$computerAdsi = [ADSI]('WinNT://' + $env:COMPUTERNAME + ',computer')
+$newUser = $computerAdsi.Create('User', $bundleUser)
+$newUser.SetPassword($userPassword)
+$newUser.Put('Description', 'Synthetic bundle user')
+$newUser.SetInfo()
 Invoke-Checked net.exe @('localgroup', $bundleGroup, '/add')
 Invoke-Checked net.exe @('localgroup', $bundleGroup, $bundleUser, '/add')
 $shareFolder = Join-Path $work 'BundleShare'
