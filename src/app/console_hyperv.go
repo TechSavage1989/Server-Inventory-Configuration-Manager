@@ -6,7 +6,7 @@ package main
 // this host and on a remote host: the screen from
 // Msvm_VirtualSystemManagementService.GetVirtualSystemThumbnailImage at the
 // guest's resolution, keys through Msvm_Keyboard (PressKey, ReleaseKey,
-// TypeText, TypeCtrlAltDel) and the pointer through Msvm_SyntheticMouse. It
+// TypeCtrlAltDel) and the pointer through Msvm_SyntheticMouse. It
 // works before the guest has a network (first boot after a cutover) and
 // changes no VM setting. Enhanced session (clipboard and drives through RDP)
 // and Virtual Machine Connection open as separate windows when wanted.
@@ -414,62 +414,26 @@ func (b *consoleHyperVBackend) Pointer(x, y int, buttons byte) error {
 }
 
 // consoleHVMinGap is the least time between characters typed into Hyper-V:
-// each one is a WMI call, and Msvm_Keyboard.TypeText given a whole string
-// types it faster than a sign-in screen takes it, dropping characters.
+// each key is a WMI call, and keys sent faster than a sign-in screen takes
+// them are dropped.
 const consoleHVMinGap = 20 * time.Millisecond
 
 // consoleHVModifierVKs are released before typing: generic, left and right
 // Shift, Ctrl and Alt, and both Windows keys.
 var consoleHVModifierVKs = []int{0x10, 0x11, 0x12, 0xA0, 0xA1, 0xA2, 0xA3, 0xA4, 0xA5, 0x5B, 0x5C}
 
-// TypeText lets go of every modifier, waits for the VM to see it, then types
-// one character per Msvm_Keyboard.TypeText call (which handles Shift itself),
-// and line ends, tabs and backspace as held keys.
+// TypeText lets go of every modifier (the generic Shift, Ctrl and Alt too,
+// which consoleTypeKeys does not name), then types every character as a held
+// key press through Msvm_Keyboard.PressKey and ReleaseKey, the same calls the
+// keyboard uses, with Shift held where a US keyboard needs it. It used
+// Msvm_Keyboard.TypeText, one call per character, until 2026-11-28: on the
+// owner's host (MATCHC-DC02, 3.3.3-test.1) neither Paste as typing nor
+// Ctrl+V typed anything while keys typed by hand did.
 func (b *consoleHyperVBackend) TypeText(ctx context.Context, text string, delay time.Duration) error {
-	text = strings.ReplaceAll(text, "\r\n", "\n")
-	pace := consoleTypePaceFor(delay, consoleHVMinGap)
-	for _, vk := range consoleHVModifierVKs {
+	for _, vk := range consoleHVModifierVKs[:3] {
 		_ = b.simple(map[string]any{"op": "key", "vk": vk, "down": false})
 	}
-	if err := consoleSleep(ctx, pace.Settle); err != nil {
-		return err
-	}
-	for _, r := range text {
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-		if r >= 0x20 && r <= 0x7e {
-			if err := b.simple(map[string]any{"op": "type", "text": string(r)}); err != nil {
-				return err
-			}
-		} else {
-			var vk int
-			switch r {
-			case '\n', '\r':
-				vk = 0x0D
-			case '\t':
-				vk = 0x09
-			case '\b':
-				vk = 0x08
-			default:
-				continue // Msvm_Keyboard types ASCII only
-			}
-			if err := b.simple(map[string]any{"op": "key", "vk": vk, "down": true}); err != nil {
-				return err
-			}
-			holdErr := consoleSleep(ctx, pace.Hold)
-			if err := b.simple(map[string]any{"op": "key", "vk": vk, "down": false}); err != nil {
-				return err
-			}
-			if holdErr != nil {
-				return holdErr
-			}
-		}
-		if err := consoleSleep(ctx, pace.Gap); err != nil {
-			return err
-		}
-	}
-	return nil
+	return consoleTypeKeysWith(ctx, b, text, delay, consoleHVMinGap)
 }
 
 func (b *consoleHyperVBackend) Special(name string) error {
@@ -509,7 +473,7 @@ func consoleHyperVCaps(info consoleHVInfo, local bool) consoleCaps {
 		Notes: []string{
 			"Shown through Hyper-V's own screen and keyboard interfaces (WMI), so it works before the VM has a network. The picture refreshes up to ten times a second, and at once after a key or click; a smooth, full-speed screen needs Enhanced session or Virtual Machine Connection.",
 		},
-		KeyboardNote: "Paste as typing sends plain text (ASCII) through Hyper-V's keyboard, as Virtual Machine Connection's Type clipboard text does.",
+		KeyboardNote: "Paste as typing presses each key through Hyper-V's keyboard, as if typed on a US keyboard, so it works on sign-in screens.",
 	}
 	caps.MouseWhy = consoleHVMouseWhy(info)
 	caps.EnhancedWhy = consoleHVEnhancedWhy(info)
