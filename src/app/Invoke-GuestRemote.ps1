@@ -137,22 +137,37 @@ try {
     $captureText = ''
     if ($CapturePath -and (Test-Path -LiteralPath $CapturePath)) { $captureText = [IO.File]::ReadAllText($CapturePath) }
     # Runs a script block inside the target through the chosen transport.
+    # PowerShell Direct (Invoke-Command -VMId or -VMName) looks the VM up
+    # with an unqualified Get-VM. VMware PowerCLI also has a Get-VM, and on a
+    # host where it is installed Windows can pick PowerCLI's, which answers
+    # "You are not currently connected to any servers" for ever. Importing
+    # Hyper-V first, and putting a Get-VM in front that always calls
+    # Hyper-V's, makes PowerShell Direct use the right one.
+    $useHyperVGetVM = {
+        Import-Module Hyper-V -ErrorAction Stop
+        $found = Get-Command Get-VM -ErrorAction SilentlyContinue
+        if (-not $found -or [string]$found.ModuleName -ne 'Hyper-V') {
+            Set-Item -Path function:global:Get-VM -Value { Hyper-V\Get-VM @args }
+        }
+    }
     $runInside = {
         param([scriptblock]$Block, [object[]]$BlockArguments)
         switch ($Transport) {
             'direct' {
                 if (-not (Get-Command Invoke-Command).Parameters.ContainsKey('VMName')) { throw 'PowerShell Direct needs Windows 10 or Windows Server 2016 or later on this Hyper-V host.' }
+                . $useHyperVGetVM
                 if ($VMId) { return Invoke-Command -VMId $VMId -Credential $guestCredential -ScriptBlock $Block -ArgumentList $BlockArguments -ErrorAction Stop }
                 return Invoke-Command -VMName $VMName -Credential $guestCredential -ScriptBlock $Block -ArgumentList $BlockArguments -ErrorAction Stop
             }
             'hostdirect' {
                 $relay = {
-                    param([string]$Name, [string]$Id, [System.Management.Automation.PSCredential]$Credential, [string]$Inner, [object[]]$InnerArguments)
+                    param([string]$Name, [string]$Id, [System.Management.Automation.PSCredential]$Credential, [string]$Inner, [object[]]$InnerArguments, [string]$UseHyperV)
                     if (-not (Get-Command Invoke-Command).Parameters.ContainsKey('VMName')) { throw ('PowerShell Direct needs Windows Server 2016 or later on ' + $env:COMPUTERNAME + '.') }
+                    . ([scriptblock]::Create($UseHyperV))
                     if ($Id) { return Invoke-Command -VMId $Id -Credential $Credential -ScriptBlock ([scriptblock]::Create($Inner)) -ArgumentList $InnerArguments -ErrorAction Stop }
                     Invoke-Command -VMName $Name -Credential $Credential -ScriptBlock ([scriptblock]::Create($Inner)) -ArgumentList $InnerArguments -ErrorAction Stop
                 }
-                $hostArguments = @($VMName, $VMId, $guestCredential, $Block.ToString(), $BlockArguments)
+                $hostArguments = @($VMName, $VMId, $guestCredential, $Block.ToString(), $BlockArguments, $useHyperVGetVM.ToString())
                 if ($hostCredential) { return Invoke-Command -ComputerName $HostName -Credential $hostCredential -ScriptBlock $relay -ArgumentList $hostArguments -ErrorAction Stop }
                 return Invoke-Command -ComputerName $HostName -ScriptBlock $relay -ArgumentList $hostArguments -ErrorAction Stop
             }
@@ -194,8 +209,8 @@ try {
                 param([string]$Name, [string]$Id)
                 Import-Module Hyper-V -ErrorAction Stop
                 $vm = $null
-                if ($Id) { $vm = Get-VM -Id $Id -ErrorAction Stop } else { $vm = Get-VM -Name $Name -ErrorAction Stop }
-                @(Get-VMNetworkAdapter -VM $vm | ForEach-Object { New-Object PSObject -Property @{ Name = [string]$_.Name; MacAddress = [string]$_.MacAddress } })
+                if ($Id) { $vm = Hyper-V\Get-VM -Id $Id -ErrorAction Stop } else { $vm = Hyper-V\Get-VM -Name $Name -ErrorAction Stop }
+                @(Hyper-V\Get-VMNetworkAdapter -VM $vm | ForEach-Object { New-Object PSObject -Property @{ Name = [string]$_.Name; MacAddress = [string]$_.MacAddress } })
             }
             $hostAdapters = @()
             if ($Transport -eq 'direct') { $hostAdapters = @(& $readAdapters $VMName $VMId) }
