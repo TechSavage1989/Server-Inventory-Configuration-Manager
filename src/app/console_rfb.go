@@ -3,27 +3,36 @@ package main
 // VM console (rule 68): an RFB (VNC) client for the consoles VMware
 // (WebMKS), Proxmox VE and Nutanix Prism serve. It decodes into the session's
 // framebuffer, which the console window shows; nothing here writes to disk.
-// Encodings: Raw, CopyRect, RRE, Hextile, ZRLE, with the Cursor and
-// DesktopSize pseudo-encodings. Security: None or VNC authentication.
+// Encodings: TightPNG (fill, JPEG and PNG rectangles), Raw, CopyRect, RRE,
+// Hextile, ZRLE, with the Cursor and DesktopSize pseudo-encodings and a JPEG
+// quality level. Security: None or VNC authentication.
 
 import (
 	"bufio"
+	"bytes"
 	"compress/zlib"
 	"crypto/des"
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"image"
+	"image/color"
+	"image/jpeg"
+	"image/png"
 	"io"
 	"strings"
 	"sync"
 )
 
 const (
-	rfbEncRaw         = 0
-	rfbEncCopyRect    = 1
-	rfbEncRRE         = 2
-	rfbEncHextile     = 5
-	rfbEncZRLE        = 16
+	rfbEncRaw      = 0
+	rfbEncCopyRect = 1
+	rfbEncRRE      = 2
+	rfbEncHextile  = 5
+	rfbEncZRLE     = 16
+	rfbEncTightPNG = -260
+	// rfbEncJPEGQuality asks for JPEG quality 8 of 0 to 9 (-32 + level).
+	rfbEncJPEGQuality = -24
 	rfbEncCursor      = -239
 	rfbEncDesktopSize = -223
 )
@@ -41,6 +50,16 @@ type rfbClient struct {
 	onCursor func(width, height, hotX, hotY int, rgba []byte)
 	onClip   func(text string)
 	onBell   func()
+	// onEncoding is called the first time the server sends a picture in an
+	// encoding, so the console can say how its picture arrives.
+	onEncoding func(name string)
+	seen       map[int32]bool
+}
+
+// rfbEncodingNames names the picture encodings for the console's notes.
+var rfbEncodingNames = map[int32]string{
+	rfbEncRaw: "Raw (uncompressed)", rfbEncCopyRect: "CopyRect", rfbEncRRE: "RRE",
+	rfbEncHextile: "Hextile", rfbEncZRLE: "ZRLE", rfbEncTightPNG: "TightPNG (JPEG and PNG)",
 }
 
 // rfbHandshake negotiates the version and security, then reads ServerInit
@@ -162,7 +181,10 @@ func rfbHandshake(conn io.ReadWriteCloser, password string, frame *consoleFrame)
 	frame.Resize(width, height)
 	// SetPixelFormat: 32 bpp, depth 24, little endian, true colour, shifts 16/8/0.
 	format := []byte{0, 0, 0, 0, 32, 24, 0, 1, 0, 255, 0, 255, 0, 255, 16, 8, 0, 0, 0, 0}
-	encodings := []int32{rfbEncZRLE, rfbEncHextile, rfbEncCopyRect, rfbEncRRE, rfbEncRaw, rfbEncCursor, rfbEncDesktopSize}
+	// TightPNG first: a server that offers it (ESXi's WebMKS, QEMU) sends
+	// changed areas as JPEG or PNG instead of far larger Hextile or Raw
+	// rectangles, which made the console slow over anything but a LAN.
+	encodings := []int32{rfbEncTightPNG, rfbEncZRLE, rfbEncHextile, rfbEncCopyRect, rfbEncRRE, rfbEncRaw, rfbEncCursor, rfbEncDesktopSize, rfbEncJPEGQuality}
 	set := make([]byte, 4+4*len(encodings))
 	set[0] = 2
 	binary.BigEndian.PutUint16(set[2:], uint16(len(encodings)))
@@ -380,6 +402,15 @@ func (c *rfbClient) readUpdate() error {
 }
 
 func (c *rfbClient) readRect(x, y, w, h int, encoding int32) error {
+	if name, ok := rfbEncodingNames[encoding]; ok && !c.seen[encoding] {
+		if c.seen == nil {
+			c.seen = map[int32]bool{}
+		}
+		c.seen[encoding] = true
+		if c.onEncoding != nil {
+			c.onEncoding(name)
+		}
+	}
 	switch encoding {
 	case rfbEncRaw:
 		data := make([]byte, w*h*4)
@@ -422,6 +453,8 @@ func (c *rfbClient) readRect(x, y, w, h int, encoding int32) error {
 		return c.readHextile(x, y, w, h)
 	case rfbEncZRLE:
 		return c.readZRLE(x, y, w, h)
+	case rfbEncTightPNG:
+		return c.readTightPNG(x, y, w, h)
 	case rfbEncCursor:
 		pixels := make([]byte, w*h*4)
 		if _, err := io.ReadFull(c.r, pixels); err != nil {
@@ -454,6 +487,117 @@ func (c *rfbClient) readRect(x, y, w, h int, encoding int32) error {
 		return fmt.Errorf("the console used encoding %d, which this application did not ask for", encoding)
 	}
 	return nil
+}
+
+// rfbTightMaxData limits one TightPNG picture; a full 8K screen as PNG fits.
+const rfbTightMaxData = 64 << 20
+
+// readTightPNG reads one TightPNG rectangle: a control byte whose high four
+// bits say fill (8), JPEG (9) or PNG (10), and whose low four bits only reset
+// zlib streams that TightPNG never uses. Basic (zlib) compression is not
+// allowed in TightPNG and is refused.
+func (c *rfbClient) readTightPNG(x, y, w, h int) error {
+	control, err := c.u8()
+	if err != nil {
+		return err
+	}
+	switch control >> 4 {
+	case 8:
+		// TPIXEL: the 32-bit little-endian pixel without its padding byte.
+		var b [3]byte
+		if _, err := io.ReadFull(c.r, b[:]); err != nil {
+			return err
+		}
+		c.frame.Fill(x, y, w, h, rfbColor(b[:]))
+		return nil
+	case 9, 10:
+		length, err := c.compactLength()
+		if err != nil {
+			return err
+		}
+		if length > rfbTightMaxData {
+			return errors.New("the console sent a picture that is too large")
+		}
+		data := make([]byte, length)
+		if _, err := io.ReadFull(c.r, data); err != nil {
+			return err
+		}
+		var img image.Image
+		if control>>4 == 9 {
+			img, err = jpeg.Decode(bytes.NewReader(data))
+		} else {
+			img, err = png.Decode(bytes.NewReader(data))
+		}
+		if err != nil {
+			return fmt.Errorf("the console sent a picture that could not be read: %v", err)
+		}
+		c.frame.SetPixels(x, y, w, h, rfbImagePixels(img, w, h))
+		return nil
+	}
+	return fmt.Errorf("the console sent a TightPNG rectangle of type %d, which TightPNG does not allow", control>>4)
+}
+
+// compactLength reads Tight's 1 to 3 byte length, 7 bits per byte.
+func (c *rfbClient) compactLength() (int, error) {
+	length := 0
+	for i := 0; i < 3; i++ {
+		b, err := c.u8()
+		if err != nil {
+			return 0, err
+		}
+		if i == 2 {
+			length |= int(b) << 14
+			break
+		}
+		length |= int(b&0x7f) << (7 * uint(i))
+		if b&0x80 == 0 {
+			break
+		}
+	}
+	return length, nil
+}
+
+// rfbImagePixels turns a decoded picture into w*h 0xRRGGBB pixels; areas
+// outside the picture stay black.
+func rfbImagePixels(img image.Image, w, h int) []uint32 {
+	pixels := make([]uint32, w*h)
+	bounds := img.Bounds()
+	switch src := img.(type) {
+	case *image.YCbCr:
+		for row := 0; row < h && row < bounds.Dy(); row++ {
+			for col := 0; col < w && col < bounds.Dx(); col++ {
+				px := bounds.Min.X + col
+				py := bounds.Min.Y + row
+				yi, ci := src.YOffset(px, py), src.COffset(px, py)
+				r, g, b := color.YCbCrToRGB(src.Y[yi], src.Cb[ci], src.Cr[ci])
+				pixels[row*w+col] = uint32(r)<<16 | uint32(g)<<8 | uint32(b)
+			}
+		}
+	case *image.NRGBA:
+		for row := 0; row < h && row < bounds.Dy(); row++ {
+			line := src.Pix[row*src.Stride:]
+			for col := 0; col < w && col < bounds.Dx(); col++ {
+				i := col * 4
+				pixels[row*w+col] = uint32(line[i])<<16 | uint32(line[i+1])<<8 | uint32(line[i+2])
+			}
+		}
+	case *image.RGBA:
+		for row := 0; row < h && row < bounds.Dy(); row++ {
+			line := src.Pix[row*src.Stride:]
+			for col := 0; col < w && col < bounds.Dx(); col++ {
+				i := col * 4
+				pixels[row*w+col] = uint32(line[i])<<16 | uint32(line[i+1])<<8 | uint32(line[i+2])
+			}
+		}
+	default:
+		for row := 0; row < h && row < bounds.Dy(); row++ {
+			for col := 0; col < w && col < bounds.Dx(); col++ {
+				r, g, b, _ := img.At(bounds.Min.X+col, bounds.Min.Y+row).RGBA()
+				pixels[row*w+col] = (r>>8)<<16 | (g>>8)<<8 | b>>8
+			}
+		}
+	}
+	return pixels
 }
 
 func (c *rfbClient) pixel() (uint32, error) {

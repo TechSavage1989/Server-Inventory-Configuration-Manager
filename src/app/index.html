@@ -11734,13 +11734,14 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     if(s.es){s.es.close();}
     var es=new EventSource('/api/console/stream?id='+encodeURIComponent(s.id)+'&token='+encodeURIComponent(token));s.es=es;
     es.addEventListener('size',function(e){var d=JSON.parse(e.data);s.canvas.width=d.w;s.canvas.height=d.h;s.ctx.fillStyle='#000';s.ctx.fillRect(0,0,d.w,d.h);if(s.key===cnActive){cnRenderStatus();}});
-    es.addEventListener('tiles',function(e){var tiles=JSON.parse(e.data);tiles.forEach(function(t){s.chain=s.chain.then(function(){return cnDecode(t.png);}).then(function(bmp){s.ctx.drawImage(bmp,t.x,t.y);if(bmp.close){bmp.close();}}).catch(function(){});});});
+    // Every picture of a batch decodes at once; they are drawn in order once the previous batch is drawn.
+    es.addEventListener('tiles',function(e){var tiles=JSON.parse(e.data),loads=tiles.map(cnDecode);s.chain=s.chain.then(function(){return Promise.all(loads);}).then(function(imgs){imgs.forEach(function(img,i){if(img){s.ctx.drawImage(img,tiles[i].x,tiles[i].y);}});}).catch(function(){});});
     es.addEventListener('cursor',function(e){var d=JSON.parse(e.data);s.canvas.style.cursor='url(data:image/png;base64,'+d.png+') '+d.hotX+' '+d.hotY+', default';});
     es.addEventListener('clip',function(e){var d=JSON.parse(e.data);s.clip=d.text||'';s.clipUnread=!(cnPanel==='clip'&&s.key===cnActive);cnRender();});
     es.addEventListener('state',function(e){var previous=s.view;s.view=JSON.parse(e.data);if(s.view.status!=='connected'){es.close();s.es=null;}if(!previous||JSON.stringify(previous)!==e.data){cnRender();}});
     es.onerror=function(){if(es.readyState===2){s.es=null;if(s.view&&s.view.status==='connected'){s.view.status='failed';s.view.message='The connection to the console was lost. Open it again.';}cnRender();}};
   }
-  function cnDecode(b64){var bin=atob(b64),bytes=new Uint8Array(bin.length);for(var i=0;i<bin.length;i++){bytes[i]=bin.charCodeAt(i);}return createImageBitmap(new Blob([bytes],{type:'image/png'}));}
+  function cnDecode(t){var img=new Image();img.src='data:image/png;base64,'+t.png;return (img.decode?img.decode():new Promise(function(ok,bad){img.onload=ok;img.onerror=bad;})).then(function(){return img;},function(){return null;});}
   function cnStopStreams(){cnSessions.forEach(function(s){if(s.es){s.es.close();s.es=null;}});}
   function cnShow(){var d=byId('consoleDialog');if(!d.open){try{d.showModal();}catch(e){d.setAttribute('open','');}}cnRender();}
   function cnHide(){var d=byId('consoleDialog');cnSessions.forEach(function(s){cnReleaseAll(s);});if(document.fullscreenElement){document.exitFullscreen().catch(function(){});}if(d.open){d.close();}cnRenderReopen();}
