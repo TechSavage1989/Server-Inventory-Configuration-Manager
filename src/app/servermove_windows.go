@@ -43,6 +43,10 @@ type smRuntime struct {
 	stoppedSites []string
 	logs         []logEntry
 	nextLog      int
+	// discovery is what Discover listed on old; selection what Read carries.
+	discovery    *smDiscovery
+	discoveredAt time.Time
+	selection    *smSelection
 	// passphrase seals this read's bundle secrets; memory only.
 	passphrase string
 }
@@ -67,6 +71,9 @@ type smStateResponse struct {
 	Sites        []string      `json:"sites"`
 	StoppedSites []string      `json:"stoppedSites"`
 	Logs         []logEntry    `json:"logs"`
+	Discovery    *smDiscovery  `json:"discovery"`
+	DiscoveredAt string        `json:"discoveredAt"`
+	Selection    *smSelection  `json:"selection"`
 }
 
 // smRestoreTarget is a restore that runs inside another server.
@@ -80,7 +87,7 @@ type smRestoreTarget struct {
 // Caller holds a.mu.
 func (a *application) serverMoveBusyLocked() bool {
 	switch a.serverMove.status {
-	case "reading", "copying", "sites", "cleaning":
+	case "discovering", "reading", "copying", "sites", "cleaning":
 		return true
 	}
 	return false
@@ -97,6 +104,10 @@ func (a *application) serverMoveSnapshotLocked() smStateResponse {
 	if !m.readAt.IsZero() {
 		readAt = m.readAt.Format("2006-01-02 15:04:05")
 	}
+	discoveredAt := ""
+	if !m.discoveredAt.IsZero() {
+		discoveredAt = m.discoveredAt.Format("2006-01-02 15:04:05")
+	}
 	sites := []string{}
 	if m.read != nil {
 		sites = append(sites, m.read.SiteNames...)
@@ -106,6 +117,7 @@ func (a *application) serverMoveSnapshotLocked() smStateResponse {
 		OldUser: m.oldAccount.User, NewUser: m.newAccount.User, IncludeFiles: m.includeFiles, LimitGB: m.limitGB,
 		PackageName: m.packageName, PackagePath: m.packagePath, ReadAt: readAt, Read: m.read, Sites: sites,
 		StoppedSites: append([]string{}, m.stoppedSites...), Logs: append([]logEntry{}, m.logs...),
+		Discovery: m.discovery, DiscoveredAt: discoveredAt, Selection: m.selection,
 	}
 }
 
@@ -180,7 +192,7 @@ func (a *application) runServerMoveRunner(server string, account smAccount, mode
 		}
 		return reply, fmt.Errorf("the step on %s did not finish: %v", server, waitErr)
 	}
-	if waitErr != nil && mode != "Scan" && mode != "Restore" && mode != "Read" {
+	if waitErr != nil && mode != "Scan" && mode != "Restore" && mode != "Read" && mode != "Discover" {
 		if lastError != "" {
 			return reply, errors.New(lastError)
 		}
@@ -208,8 +220,10 @@ func (a *application) handleServerMoveRead(response http.ResponseWriter, request
 		KeepAccounts bool   `json:"keepAccounts"`
 		IncludeFiles bool   `json:"includeFiles"`
 		LimitGB      int    `json:"limitGB"`
+		// Selection is what the operator picked from Discover (rule 76).
+		Selection *smSelection `json:"selection"`
 	}
-	if err := json.NewDecoder(io.LimitReader(request.Body, 64*1024)).Decode(&input); err != nil {
+	if err := json.NewDecoder(io.LimitReader(request.Body, 1024*1024)).Decode(&input); err != nil {
 		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "The move request was invalid."})
 		return
 	}
@@ -245,11 +259,29 @@ func (a *application) handleServerMoveRead(response http.ResponseWriter, request
 		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": refusal})
 		return
 	}
+	same := smSameServer(a.serverMove.old, old)
+	discovery := a.serverMove.discovery
+	if !same || discovery == nil {
+		a.mu.Unlock()
+		a.endCriticalOperation()
+		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "Look at " + old + " first, then pick what to move."})
+		return
+	}
+	var picked smSelection
+	if input.Selection != nil {
+		picked = *input.Selection
+	}
+	selection, _, err := smCleanSelection(picked, discovery, input.LimitGB)
+	if err != nil {
+		a.mu.Unlock()
+		a.endCriticalOperation()
+		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
 	oldAccount := smAccount{User: strings.TrimSpace(input.OldUser), Password: input.OldPassword}
 	newAccount := smAccount{User: strings.TrimSpace(input.NewUser), Password: input.NewPassword}
 	// An empty password with the same user keeps the account already held
 	// for the same server, so a second read needs no typing.
-	same := smSameServer(a.serverMove.old, old)
 	if input.KeepAccounts && same && oldAccount.User != "" && oldAccount.Password == "" && strings.EqualFold(a.serverMove.oldAccount.User, oldAccount.User) {
 		oldAccount = a.serverMove.oldAccount
 	}
@@ -270,11 +302,12 @@ func (a *application) handleServerMoveRead(response http.ResponseWriter, request
 	if !same || packageName == "" || !smSameServer(a.serverMove.new, newServer) {
 		packageName = smPackageName(old, time.Now())
 	}
-	logs, next := a.serverMove.logs, a.serverMove.nextLog
+	logs, next, discoveredAt := a.serverMove.logs, a.serverMove.nextLog, a.serverMove.discoveredAt
 	a.serverMove = smRuntime{
 		status: "reading", step: "read", message: "Reading " + old + ".", old: old, new: newServer, newIsHere: input.NewIsHere,
-		oldAccount: oldAccount, newAccount: newAccount, includeFiles: input.IncludeFiles, limitGB: smCheckLimit(input.LimitGB),
+		oldAccount: oldAccount, newAccount: newAccount, includeFiles: len(selection.WebRoots) > 0, limitGB: smCheckLimit(input.LimitGB),
 		packageName: packageName, passphrase: passphrase, logs: logs, nextLog: next,
+		discovery: discovery, discoveredAt: discoveredAt, selection: &selection,
 	}
 	// A new read starts a new check of the package.
 	if !a.restoreBusyLocked() {
@@ -327,12 +360,12 @@ func (a *application) runServerMoveRead() {
 		return
 	}
 	defer os.RemoveAll(directory)
-	a.serverMoveLog("Reading %s: IIS configuration, website files, certificates, accounts and the other roles a migration bundle carries.", m.old)
+	a.serverMoveLog("Reading %s: only the %d item(s) picked.", m.old, m.selection.Count())
 	extra := []string{"-WebContentLimitGB", fmt.Sprint(m.limitGB)}
 	if m.includeFiles {
 		extra = append(extra, "-IncludeWebContent")
 	}
-	reply, err := a.runServerMoveRunner(m.old, m.oldAccount, "Read", work, m.packageName, engine, nil, extra, smRunnerInput(m.oldAccount, m.passphrase, nil), "", apply)
+	reply, err := a.runServerMoveRunner(m.old, m.oldAccount, "Read", work, m.packageName, engine, map[string]any{"selection": m.selection}, extra, smRunnerInput(m.oldAccount, m.passphrase, nil), "", apply)
 	if err != nil {
 		a.serverMoveFail("Reading " + m.old + " failed: " + err.Error())
 		return
@@ -670,6 +703,7 @@ func (a *application) handleServerMoveForget(response http.ResponseWriter, reque
 			work := smWorkName(m.old, m.new)
 			discard := func(string) {}
 			_, _ = a.runServerMoveRunner(m.old, m.oldAccount, "Clean", work, "", "", nil, nil, smRunnerInput(m.oldAccount, "", nil), "", discard)
+			_, _ = a.runServerMoveRunner(m.old, m.oldAccount, "Clean", smDiscoverWork(m.old), "", "", nil, nil, smRunnerInput(m.oldAccount, "", nil), "", discard)
 			if m.newIsHere {
 				_ = os.RemoveAll(filepath.Join(a.update.appDataRoot, "Server-Move", work, "Package"))
 			} else if m.new != "" {
@@ -678,4 +712,111 @@ func (a *application) handleServerMoveForget(response http.ResponseWriter, reque
 		}()
 	}
 	writeJSON(response, http.StatusOK, map[string]any{"ok": true})
+}
+
+// smDiscoverWork names the folder Discover uses on the old server before the
+// new server is known.
+func smDiscoverWork(old string) string { return smWorkName(old, "PICK") }
+
+// handleServerMoveDiscover lists what the old server has (rule 76), so the
+// operator picks what to move before anything is read or copied. It only
+// reads.
+func (a *application) handleServerMoveDiscover(response http.ResponseWriter, request *http.Request) {
+	if !a.requireAuthorization(response, request) {
+		return
+	}
+	if request.Method != http.MethodPost {
+		writeJSON(response, http.StatusMethodNotAllowed, map[string]any{"ok": false, "error": "POST is required."})
+		return
+	}
+	var input struct {
+		Old          string `json:"old"`
+		OldUser      string `json:"oldUser"`
+		OldPassword  string `json:"oldPassword"`
+		KeepAccounts bool   `json:"keepAccounts"`
+	}
+	if err := json.NewDecoder(io.LimitReader(request.Body, 64*1024)).Decode(&input); err != nil {
+		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "The request was invalid."})
+		return
+	}
+	defer func() { input.OldPassword = "" }()
+	old, err := smCleanServer(input.Old, "old")
+	if err != nil {
+		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+	if smSameServer(old, a.computerName) {
+		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "The old server cannot be this computer."})
+		return
+	}
+	if !a.beginCriticalOperation() {
+		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "An update is being installed."})
+		return
+	}
+	a.mu.Lock()
+	if refusal := a.serverMoveRefusalLocked(); refusal != "" {
+		a.mu.Unlock()
+		a.endCriticalOperation()
+		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": refusal})
+		return
+	}
+	if len(a.serverMove.stoppedSites) > 0 && !smSameServer(a.serverMove.old, old) {
+		a.mu.Unlock()
+		a.endCriticalOperation()
+		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "Sites this move stopped on " + a.serverMove.old + " are still stopped. Start them again first."})
+		return
+	}
+	account := smAccount{User: strings.TrimSpace(input.OldUser), Password: input.OldPassword}
+	same := smSameServer(a.serverMove.old, old)
+	if input.KeepAccounts && same && account.User != "" && account.Password == "" && strings.EqualFold(a.serverMove.oldAccount.User, account.User) {
+		account = a.serverMove.oldAccount
+	}
+	if same {
+		// Looking again keeps the move (its package, sites and accounts);
+		// only the list and the picks change.
+		a.serverMove.oldAccount = account
+		a.serverMove.status, a.serverMove.step, a.serverMove.message = "discovering", "discover", "Looking at "+old+"."
+	} else {
+		logs, next := a.serverMove.logs, a.serverMove.nextLog
+		a.serverMove = smRuntime{status: "discovering", step: "discover", message: "Looking at " + old + ".", old: old, oldAccount: account, limitGB: smDefaultLimitGB, logs: logs, nextLog: next}
+		if !a.restoreBusyLocked() && a.restore.remote != nil {
+			a.restore = restoreRuntime{}
+		}
+	}
+	previous := a.serverMove
+	a.mu.Unlock()
+	go func() {
+		defer a.endCriticalOperation()
+		a.runServerMoveDiscover(previous)
+	}()
+	writeJSON(response, http.StatusAccepted, map[string]any{"ok": true})
+}
+
+func (a *application) runServerMoveDiscover(m smRuntime) {
+	apply := func(line string) { a.mu.Lock(); a.serverMoveLogLocked(line); a.mu.Unlock() }
+	directory, engine, err := a.prepareRestoreEngineNamed("Server-Move-Bundle-", bundleEngineName)
+	if err != nil {
+		a.serverMoveFail("The bundle engine could not be prepared: " + err.Error())
+		return
+	}
+	defer os.RemoveAll(directory)
+	a.serverMoveLog("Looking at what %s has. Nothing is copied or changed.", m.old)
+	reply, err := a.runServerMoveRunner(m.old, m.oldAccount, "Discover", smDiscoverWork(m.old), "", engine, nil, nil, smRunnerInput(m.oldAccount, "", nil), "", apply)
+	if err == nil {
+		var found *smDiscovery
+		if found, err = smParseDiscovery(reply); err == nil {
+			a.mu.Lock()
+			a.serverMove.discovery = found
+			a.serverMove.discoveredAt = time.Now()
+			if a.serverMove.read != nil {
+				a.serverMove.status, a.serverMove.step = "ready", "check"
+			} else {
+				a.serverMove.status, a.serverMove.step = "picking", "pick"
+			}
+			a.serverMove.message = "Pick what to move from " + m.old + "."
+			a.mu.Unlock()
+			return
+		}
+	}
+	a.serverMoveFail("Looking at " + m.old + " failed: " + err.Error())
 }
