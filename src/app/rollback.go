@@ -81,6 +81,9 @@ type rbSource struct {
 	// AdapterRecord is the JSON file the cutover saved before it set the old
 	// VM's adapters to not connect; empty when it did not.
 	AdapterRecord string `json:"adapterRecord,omitempty"`
+	// NameRecord is the JSON file the cutover saved before it renamed the
+	// old VM MIGRATED - DO NOT POWER ON; empty when it did not.
+	NameRecord string `json:"nameRecord,omitempty"`
 	// Agent and Job name an agent replication job (kind agent).
 	Agent    string   `json:"agent,omitempty"`
 	Job      string   `json:"job,omitempty"`
@@ -174,6 +177,10 @@ type rbOps interface {
 	// ReconnectSource puts the old VM's adapters back from the record and
 	// returns how many it changed.
 	ReconnectSource(ctx context.Context, rec *rbRecord, log func(string)) (int, error)
+	// RenameSource gives the old VM its own name (and note) back when the
+	// cutover renamed it, and says whether it changed anything. It runs
+	// before the other source steps, which find the VM by that name.
+	RenameSource(ctx context.Context, rec *rbRecord, log func(string)) (bool, error)
 	// StartSource starts the old VM.
 	StartSource(ctx context.Context, rec *rbRecord, log func(string)) error
 	// RollbackAgent asks an agent to start the services the cutover stopped
@@ -280,6 +287,9 @@ func rbPlanSteps(rec rbRecord, options rbOptions) []rbStep {
 	steps = append(steps, rbStep{Key: "stop", Title: stop}, rbStep{Key: "check", Title: "Check the new VM is off before anything else happens, so its addresses are never used twice"})
 	switch rec.Source.Kind {
 	case "vmware", "hyperv":
+		if rec.Source.Kind == "vmware" && rec.Source.NameRecord != "" && (options.Reconnect || options.Start) {
+			steps = append(steps, rbStep{Key: "name", Title: "Rename the old VM back to " + rec.Source.Name + " and take out the note saying it was migrated"})
+		}
 		if rec.Source.Kind == "vmware" && options.Reconnect {
 			title := "Put the old VM's network adapters back as they were before the cutover"
 			if rec.Source.AdapterRecord == "" {
@@ -388,6 +398,18 @@ func rbRun(ctx context.Context, rec rbRecord, options rbOptions, ops rbOps, log 
 	}
 	switch rec.Source.Kind {
 	case "vmware", "hyperv":
+		if index("name") >= 0 {
+			renamed, err := ops.RenameSource(ctx, &rec, log)
+			if err != nil {
+				mark("name", rbStepFailed, "The old VM was not renamed back: "+err.Error()+".")
+				return finish(rbStatePartial, "The new VM is off, but the old VM still has its MIGRATED name. Rename it back to "+rec.Source.Name+" in vSphere (the record is "+rec.Source.NameRecord+"), then roll back again.")
+			}
+			text := "The old VM is called " + rec.Source.Name + " again."
+			if renamed {
+				text = "Renamed the old VM back to " + rec.Source.Name + " and took out the migrated note."
+			}
+			mark("name", rbStepOK, text)
+		}
 		if index("network") >= 0 {
 			changed, err := ops.ReconnectSource(ctx, &rec, log)
 			if err != nil {

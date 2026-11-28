@@ -92,7 +92,10 @@ func (a *application) handleVMwareMove(response http.ResponseWriter, request *ht
 		// DisconnectSource sets the old VMware VM's adapters to not connect
 		// after the cutover; FixUp fixes the new VM up once it starts.
 		DisconnectSource bool `json:"disconnectSource"`
-		FixUp            bool `json:"fixUp"`
+		// KeepSourceName leaves the old VM's name and note unchanged
+		// (otherwise it is renamed MIGRATED - DO NOT POWER ON).
+		KeepSourceName bool `json:"keepSourceName"`
+		FixUp          bool `json:"fixUp"`
 		// EjectMedia: see vmReplicaOptions.EjectMedia.
 		EjectMedia bool `json:"ejectMedia"`
 	}
@@ -188,10 +191,10 @@ func (a *application) handleVMwareMove(response http.ResponseWriter, request *ht
 	a.vmware.moveError = ""
 	a.mu.Unlock()
 	a.moveStatusBegin(vm, input.Action, "create")
-	a.vmwareLog("%s", message)
+	a.vmwareLogFor(vm.Name, "%s", message)
 	go func() {
 		defer cancel()
-		log := func(text string) { a.vmwareLog("%s", text) }
+		log := func(text string) { a.vmwareLogFor(vm.Name, "%s", text) }
 		if input.Action == "cutover" {
 			for _, note := range switchNotes {
 				log(note)
@@ -219,7 +222,7 @@ func (a *application) handleVMwareMove(response http.ResponseWriter, request *ht
 			if err != nil {
 				err = errors.New("the disks are copied and the source VM is shut down, but the Hyper-V VM was not created: " + err.Error() + ". Start the source VM again to go back, or fix the cause and cut over again")
 			} else {
-				result.Notes = a.afterCutover(context.Background(), vm, result.HyperVID, "", input.Start, input.DisconnectSource, input.FixUp, connect, records, "", log)
+				result.Notes = a.afterCutover(context.Background(), vm, result.HyperVID, "", input.Start, input.DisconnectSource, input.KeepSourceName, input.FixUp, connect, records, "", log)
 			}
 		}
 		connect.Password = ""

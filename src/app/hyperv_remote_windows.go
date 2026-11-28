@@ -248,6 +248,7 @@ func (a *application) handleHVRemoteMove(response http.ResponseWriter, request *
 		Cluster    bool   `json:"cluster"`
 		// DisconnectSource and FixUp: as in handleVMwareMove.
 		DisconnectSource bool `json:"disconnectSource"`
+		KeepSourceName   bool `json:"keepSourceName"`
 		FixUp            bool `json:"fixUp"`
 		EjectMedia       bool `json:"ejectMedia"`
 		// Path is "share" (write over the node's administrative share) or
@@ -401,10 +402,10 @@ func (a *application) handleHVRemoteMove(response http.ResponseWriter, request *
 	a.vmware.moveError = ""
 	a.mu.Unlock()
 	a.moveStatusBegin(vm, input.Action, "create")
-	a.vmwareLog("%s", message)
+	a.vmwareLogFor(vm.Name, "%s", message)
 	go func() {
 		defer cancel()
-		log := func(text string) { a.vmwareLog("%s", text) }
+		log := func(text string) { a.vmwareLogFor(vm.Name, "%s", text) }
 		if input.Action == "cutover" {
 			for _, note := range switchNotes {
 				log(note)
@@ -418,7 +419,7 @@ func (a *application) handleHVRemoteMove(response http.ResponseWriter, request *
 			err = a.hvRemoteCreate(ctx, hv, vm, node, networks, options, result, log)
 			if err == nil {
 				result.Host = node
-				result.Notes = a.afterCutover(context.Background(), vm, result.HyperVID, node, input.Start, input.DisconnectSource, input.FixUp, connect,
+				result.Notes = a.afterCutover(context.Background(), vm, result.HyperVID, node, input.Start, input.DisconnectSource, input.KeepSourceName, input.FixUp, connect,
 					filepath.Join(a.vmwareRoot(), safeName(strings.ToLower(server)), "Move"), "", log)
 			}
 		}

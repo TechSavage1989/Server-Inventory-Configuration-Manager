@@ -324,7 +324,14 @@ button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visi
 
 /* Workspace polish: grouped categories, quick actions, shortcuts */
 .vm-ack{display:inline-block;margin-top:calc(3*var(--sp))}
-.vm-fixup{margin-top:calc(10*var(--sp));padding:calc(8*var(--sp)) calc(10*var(--sp));border:1px solid #dbe3ed;border-radius:8px;background:#fbfcfe}.vm-fixup.failed{border-color:#e7b4ae;background:#fdf6f5}.vm-fixup.done{border-color:#b9dcc4;background:#f5fbf7}.vm-fixup-head{display:flex;flex-wrap:wrap;gap:calc(6*var(--sp));align-items:baseline;font-size:max(10.5px,calc(12.5*var(--fz)))}.vm-ga{margin:calc(6*var(--sp)) 0}.vm-ga .vm-move-actions{margin-top:calc(10*var(--sp))}.vm-ga-remember{margin-top:calc(8*var(--sp))}.vm-ga .vm-field input{box-sizing:border-box}
+.vl-dialog{width:min(1100px,94vw);max-width:94vw}
+.vl-body{display:flex;flex-direction:column;gap:calc(8*var(--sp))}
+.vl-actions{display:flex;flex-wrap:wrap;align-items:center;gap:calc(8*var(--sp));margin:calc(4*var(--sp)) 0}
+.vl-follow{display:inline-flex;align-items:center;gap:6px}
+.vl-status{min-height:1.2em;color:var(--muted,#667)}
+.vl-path{font-size:max(10.5px,calc(12*var(--fz)));color:var(--muted,#667);word-break:break-all;min-height:1.2em}
+.vl-text{height:60vh;overflow:auto;white-space:pre-wrap;word-break:break-word;margin:0;user-select:text}
+.vm-fixup-wait,.vm-fixup-try{margin-top:calc(4*var(--sp));font-size:max(10.5px,calc(12.5*var(--fz)))}.vm-fixup{margin-top:calc(10*var(--sp));padding:calc(8*var(--sp)) calc(10*var(--sp));border:1px solid #dbe3ed;border-radius:8px;background:#fbfcfe}.vm-fixup.failed{border-color:#e7b4ae;background:#fdf6f5}.vm-fixup.done{border-color:#b9dcc4;background:#f5fbf7}.vm-fixup-head{display:flex;flex-wrap:wrap;gap:calc(6*var(--sp));align-items:baseline;font-size:max(10.5px,calc(12.5*var(--fz)))}.vm-ga{margin:calc(6*var(--sp)) 0}.vm-ga .vm-move-actions{margin-top:calc(10*var(--sp))}.vm-ga-remember{margin-top:calc(8*var(--sp))}.vm-ga .vm-field input{box-sizing:border-box}
 .mp-signin{display:flex;flex-direction:column;align-items:flex-start;gap:calc(6*var(--sp));margin:calc(8*var(--sp)) 0;padding:calc(10*var(--sp)) calc(12*var(--sp));border:1px solid #e0c98a;border-radius:8px;background:#fffaf0}.mp-signin.hidden{display:none}.mp-signin-remember{display:flex;gap:calc(6*var(--sp));align-items:flex-start;font-size:max(10.5px,calc(12*var(--fz)))}.mp-signin-remember input{flex:none;width:15px;height:15px;margin-top:2px}.vc-remember-list{display:flex;flex-direction:column;gap:calc(4*var(--sp))}.vc-remember-row{display:flex;gap:calc(8*var(--sp));align-items:center;flex-wrap:wrap}.mp-signin-row{display:flex;flex-wrap:wrap;gap:calc(8*var(--sp));align-items:center}.mp-signin-row input{width:16em;max-width:100%}
 .link-button{background:none;border:0;padding:2px calc(4*var(--sp));margin:0;color:#1f5fbf;font-weight:600;font-size:max(10.5px,calc(12*var(--fz)));cursor:pointer;border-radius:5px;text-decoration:underline;text-underline-offset:2px}.link-button:hover{color:#123f85}.link-button:focus-visible{outline:2px solid #2d6fd6;outline-offset:1px}.link-button:disabled{color:#94a0b3;cursor:default;text-decoration:none}
 .category-group{margin-top:calc(14*var(--sp))}.category-group+.category-group{margin-top:calc(16*var(--sp))}.category-group .category-grid{margin-top:calc(8*var(--sp))}.category-group-head{display:flex;align-items:center;gap:calc(10*var(--sp));padding-bottom:calc(6*var(--sp));border-bottom:1px solid #e3e8ef}.category-group-title{font-size:max(10.5px,calc(12*var(--fz)));font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#45526a}.category-group-count{font-size:max(10.5px,calc(12*var(--fz)));color:#6a7790;margin-right:auto}
@@ -926,7 +933,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
 }
 
 .rp-target{display:flex;flex-direction:column;gap:calc(4*var(--sp));margin:2px 0 calc(6*var(--sp))}.rp-folder-row{display:flex;gap:calc(6*var(--sp));align-items:center}.rp-folder-row input{flex:1 1 auto;min-width:0}.rp-folder-row button{min-width:0;width:auto;flex:0 0 auto}.as-body{display:flex;flex-direction:column;gap:calc(10*var(--sp));overflow-y:auto;overflow-x:hidden;min-height:0;flex:1 1 auto}.as-help{padding:calc(8*var(--sp)) calc(10*var(--sp));border:1px solid #dbe3ed;border-radius:8px;background:#fbfcfe}.as-summary{display:flex;flex-wrap:wrap;gap:calc(8*var(--sp))}.as-stat{min-width:86px;padding:calc(7*var(--sp)) calc(10*var(--sp));border:1px solid #dbe3ed;border-radius:9px;background:#fbfcfe;font:inherit;text-align:left;cursor:pointer;transition:border-color .15s,box-shadow .15s}.as-stat strong{display:block;font-size:max(10.5px,calc(17*var(--fz)));color:#1b2942}.as-stat span{font-size:max(10.5px,calc(11*var(--fz)));color:#52647c}.as-stat.good{border-color:#a7d8b8;background:#f2fbf5}.as-stat.warning{border-color:#f0cf8a;background:#fff9ea}.as-stat.danger{border-color:#f1b3ad;background:#fff4f3}.as-stat.active{border-color:#b9cdf2;background:#f5f8ff}.as-stat:hover{border-color:#9db8e6;box-shadow:0 1px 4px rgba(31,95,191,.14)}.as-stat:focus-visible{outline:2px solid #2d6fd6;outline-offset:2px}.as-stat[aria-pressed="true"]{border-color:#2563eb;box-shadow:inset 0 0 0 1px #2563eb;background:#f7faff}.as-toolbar{display:flex;flex-wrap:wrap;gap:calc(6*var(--sp)) calc(12*var(--sp));align-items:center}.as-toolbar input[type=search]{flex:1 1 220px;min-width:160px;max-width:420px}.as-inline{display:flex;align-items:center;gap:calc(6*var(--sp));font-size:max(10.5px,calc(12.5*var(--fz)));color:#334156}.as-inline select{width:auto;max-width:220px}.as-filter-bar{display:flex;flex-wrap:wrap;align-items:center;gap:calc(6*var(--sp)) calc(10*var(--sp));padding:calc(6*var(--sp)) calc(10*var(--sp));border:1px solid #c9d6ea;border-radius:8px;background:#f5f8fd;font-size:max(10.5px,calc(12.5*var(--fz)))}.as-actions{display:flex;flex-wrap:wrap;gap:calc(6*var(--sp));align-items:center}.as-actions button{min-width:0;width:auto;height:auto;min-height:calc(30*var(--fz));padding:2px calc(12*var(--sp));font-size:max(10.5px,calc(12.5*var(--fz)))}.as-why{min-height:1.45em;font-size:max(10.5px,calc(12*var(--fz)));color:#52647c}.as-form h4{margin:0 0 calc(4*var(--sp))}.as-three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:calc(8*var(--sp)) calc(12*var(--sp))}.as-narrow{max-width:260px}.as-preview{margin:calc(4*var(--sp)) 0;padding-left:calc(18*var(--sp));font-size:max(10.5px,calc(12.5*var(--fz)));color:#334156}.as-preview:empty{display:none}.as-results-head{display:flex;flex-wrap:wrap;gap:calc(8*var(--sp));align-items:center}.as-results-head h4{margin:0;flex:1 1 auto}.as-results-head button{min-width:0;width:auto;min-height:calc(28*var(--fz));padding:2px calc(12*var(--sp));font-size:max(10.5px,calc(12.5*var(--fz)))}.as-result-list{margin:calc(6*var(--sp)) 0 0;padding-left:calc(18*var(--sp));font-size:max(10.5px,calc(12.5*var(--fz)))}.as-result-list li.good{color:#1f6a3a}.as-result-list li.danger{color:#9b2c22}.as-log{max-height:160px;overflow:auto;margin:calc(6*var(--sp)) 0 0;padding:calc(6*var(--sp)) calc(8*var(--sp));border:1px solid #dbe3ed;border-radius:6px;background:#f8fafc;font-size:max(10.5px,calc(11.5*var(--fz)));white-space:pre-wrap}.as-table-wrap{overflow-x:auto;border:1px solid #e3e9f2;border-radius:8px;flex:0 0 auto}.as-table{min-width:760px}.as-table td{vertical-align:top}.as-table tr.chosen td{background:#f5f8ff}.as-name{font-weight:600;color:#1b2942}.as-sub{display:block;font-size:max(10.5px,calc(11.5*var(--fz)));color:#52647c;overflow-wrap:anywhere}.as-method{display:inline-block;margin-top:2px;padding:1px calc(7*var(--sp));border-radius:9px;background:#eef2f8;font-size:max(10.5px,calc(11*var(--fz)));color:#334156;white-space:nowrap}.as-chip{display:inline-block;padding:2px calc(8*var(--sp));border-radius:10px;border:1px solid #d6e0ee;background:#f5f8fd;font-size:max(10.5px,calc(11*var(--fz)));color:#334156;white-space:nowrap}.as-chip.good{border-color:#a7d8b8;background:#f2fbf5;color:#1f6a3a}.as-chip.warning{border-color:#f0cf8a;background:#fff9ea;color:#74551f}.as-chip.danger{border-color:#f1b3ad;background:#fff4f3;color:#9b2c22}.as-chip.active{border-color:#b9cdf2;background:#f5f8ff;color:#1f4fa8}.as-reason{display:block;margin-top:calc(3*var(--sp));font-size:max(10.5px,calc(11.5*var(--fz)));color:#52647c;max-width:340px;overflow-wrap:anywhere}.as-progress{min-width:150px}.as-bar{position:relative;height:10px;border-radius:5px;background:#e6ebf2;overflow:hidden}.as-bar-fill{display:block;height:100%;width:0;border-radius:5px;background:#7b8aa0;transition:width .4s}.as-bar.active .as-bar-fill{background:#2563eb}.as-bar.good .as-bar-fill{background:#1d8a52}.as-bar.danger .as-bar-fill{background:#c2413a}.as-progress-text{margin-top:calc(3*var(--sp));font-size:max(10.5px,calc(11.5*var(--fz)));color:#52647c}.as-late{color:#9b5b00}.as-table td button{min-width:0;width:auto;white-space:nowrap;min-height:calc(28*var(--fz));padding:2px calc(12*var(--sp));font-size:max(10.5px,calc(12*var(--fz)))}@media (max-width:900px){.as-three{grid-template-columns:1fr}}
-.mp-summary{display:flex;flex-wrap:wrap;gap:calc(8*var(--sp))}.mp-stat{min-width:86px;padding:calc(7*var(--sp)) calc(10*var(--sp));border:1px solid #dbe3ed;border-radius:9px;background:#fbfcfe}.mp-stat strong{display:block;font-size:max(10.5px,calc(17*var(--fz)));color:#1b2942}.mp-stat span{font-size:max(10.5px,calc(11*var(--fz)));color:#52647c}.mp-stat.good{border-color:#a7d8b8;background:#f2fbf5}.mp-stat.warning{border-color:#f0cf8a;background:#fff9ea}.mp-stat.danger{border-color:#f1b3ad;background:#fff4f3}.mp-stat{font:inherit;text-align:left;cursor:pointer;transition:border-color .15s,box-shadow .15s}.mp-stat:hover{border-color:#9db8e6;box-shadow:0 1px 4px rgba(31,95,191,.14)}.mp-stat:focus-visible{outline:2px solid #2d6fd6;outline-offset:2px}.mp-stat[aria-pressed="true"]{border-color:#2563eb;box-shadow:inset 0 0 0 1px #2563eb;background:#f7faff}.mp-filter-bar{display:flex;flex-wrap:wrap;align-items:center;gap:calc(6*var(--sp)) calc(10*var(--sp));margin:calc(4*var(--sp)) 0 calc(8*var(--sp));padding:calc(6*var(--sp)) calc(10*var(--sp));border:1px solid #c9d6ea;border-radius:8px;background:#f5f8fd;font-size:max(10.5px,calc(12.5*var(--fz)))}.mp-progress{min-width:190px}.mp-bar{position:relative;height:10px;border-radius:5px;background:#e6ebf2;overflow:hidden}.mp-bar-fill{display:block;height:100%;border-radius:5px;background:#7b8aa0;transition:width .4s}.mp-bar.active .mp-bar-fill{background:#2563eb}.mp-bar.good .mp-bar-fill{background:#1d8a52}.mp-bar.warning .mp-bar-fill{background:#d08a14}.mp-bar.danger .mp-bar-fill{background:#c2413a}.mp-progress-text{margin-top:calc(3*var(--sp));font-size:max(10.5px,calc(11.5*var(--fz)));color:#52647c}.mp-row-actions{display:flex;flex-wrap:wrap;gap:calc(6*var(--sp));margin-top:calc(6*var(--sp))}.mp-row-actions button{min-width:0;width:auto;min-height:calc(28*var(--fz));padding:calc(3*var(--sp)) calc(12*var(--sp));font-size:max(10.5px,calc(12*var(--fz)))}.mp-heading{margin:calc(4*var(--sp)) 0 0;font-size:max(10.5px,calc(14*var(--fz)));color:#1b2942}.mp-chip{display:inline-block;padding:2px calc(8*var(--sp));border-radius:10px;border:1px solid #d6e0ee;background:#f5f8fd;font-size:max(10.5px,calc(11*var(--fz)));color:#334156;white-space:nowrap}.mp-chip.good{border-color:#a7d8b8;background:#f2fbf5;color:#1f6a3a}.mp-chip.warning{border-color:#f0cf8a;background:#fff9ea;color:#74551f}.mp-chip.danger{border-color:#f1b3ad;background:#fff4f3;color:#9b2c22}
+.mp-summary{display:flex;flex-wrap:wrap;gap:calc(8*var(--sp))}.mp-stat{min-width:86px;padding:calc(7*var(--sp)) calc(10*var(--sp));border:1px solid #dbe3ed;border-radius:9px;background:#fbfcfe}.mp-stat strong{display:block;font-size:max(10.5px,calc(17*var(--fz)));color:#1b2942}.mp-stat span{font-size:max(10.5px,calc(11*var(--fz)));color:#52647c}.mp-stat.good{border-color:#a7d8b8;background:#f2fbf5}.mp-stat.warning{border-color:#f0cf8a;background:#fff9ea}.mp-stat.danger{border-color:#f1b3ad;background:#fff4f3}.mp-stat{font:inherit;text-align:left;cursor:pointer;transition:border-color .15s,box-shadow .15s}.mp-stat:hover{border-color:#9db8e6;box-shadow:0 1px 4px rgba(31,95,191,.14)}.mp-stat:focus-visible{outline:2px solid #2d6fd6;outline-offset:2px}.mp-stat[aria-pressed="true"]{border-color:#2563eb;box-shadow:inset 0 0 0 1px #2563eb;background:#f7faff}.mp-filter-bar{display:flex;flex-wrap:wrap;align-items:center;gap:calc(6*var(--sp)) calc(10*var(--sp));margin:calc(4*var(--sp)) 0 calc(8*var(--sp));padding:calc(6*var(--sp)) calc(10*var(--sp));border:1px solid #c9d6ea;border-radius:8px;background:#f5f8fd;font-size:max(10.5px,calc(12.5*var(--fz)))}.mp-progress{min-width:190px}.mp-bar{position:relative;height:10px;border-radius:5px;background:#e6ebf2;overflow:hidden}.mp-bar-fill{display:block;height:100%;border-radius:5px;background:#7b8aa0;transition:width .4s}.mp-bar.active .mp-bar-fill{background:#2563eb}.mp-bar.busy .mp-bar-fill{width:30%!important;transition:none;animation:mpBusy 1.6s linear infinite}@keyframes mpBusy{from{transform:translateX(-100%)}to{transform:translateX(340%)}}@media (prefers-reduced-motion:reduce){.mp-bar.busy .mp-bar-fill{animation:none;width:100%!important;opacity:.55}}.mp-bar.good .mp-bar-fill{background:#1d8a52}.mp-bar.warning .mp-bar-fill{background:#d08a14}.mp-bar.danger .mp-bar-fill{background:#c2413a}.mp-progress-text{margin-top:calc(3*var(--sp));font-size:max(10.5px,calc(11.5*var(--fz)));color:#52647c}.mp-row-actions{display:flex;flex-wrap:wrap;gap:calc(6*var(--sp));margin-top:calc(6*var(--sp))}.mp-row-actions button{min-width:0;width:auto;min-height:calc(28*var(--fz));padding:calc(3*var(--sp)) calc(12*var(--sp));font-size:max(10.5px,calc(12*var(--fz)))}.mp-heading{margin:calc(4*var(--sp)) 0 0;font-size:max(10.5px,calc(14*var(--fz)));color:#1b2942}.mp-chip{display:inline-block;padding:2px calc(8*var(--sp));border-radius:10px;border:1px solid #d6e0ee;background:#f5f8fd;font-size:max(10.5px,calc(11*var(--fz)));color:#334156;white-space:nowrap}.mp-chip.good{border-color:#a7d8b8;background:#f2fbf5;color:#1f6a3a}.mp-chip.warning{border-color:#f0cf8a;background:#fff9ea;color:#74551f}.mp-chip.danger{border-color:#f1b3ad;background:#fff4f3;color:#9b2c22}
 /* VM console window (rule 68): one window for every platform's console. */
 .cn-dialog{border:0;padding:0;margin:0;width:100vw;height:100vh;max-width:100vw;max-height:100vh;background:#0f172a;color:#e2e8f0;display:flex;flex-direction:column;overflow:hidden}
 .cn-dialog:not([open]){display:none}
@@ -1592,6 +1599,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
           </div>
           <details class="migrate-log-block" id="vmLogBlock">
             <summary>VMware log</summary>
+            <div class="vl-actions"><button class="secondary-button" type="button" data-vm-log="">Open the whole log&hellip;</button><button class="secondary-button" type="button" id="vmLogFolderButton">Open log folder</button><span class="vm-note">Every VM also has its own log: use Log on its row in Migration plans, Move VMs or All jobs and servers.</span></div>
             <div class="log-view migrate-log" id="vmLog" tabindex="0" aria-label="VMware log"></div>
           </details>
         </div>
@@ -1764,6 +1772,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
               <label><input type="checkbox" id="mpQuiesce"> Application-consistent copies (VMware Tools quiesces the guest)</label>
               <label><input type="checkbox" id="mpEject" checked> Eject CD/DVD and floppy images before copying (drives set to a client device, ISO path recorded first), so a missing ISO cannot stop vSphere's export</label>
               <label><input type="checkbox" id="mpDisconnect" checked> After cutover, set the old VMware VM's adapters to not connect (recorded first)</label>
+              <label><input type="checkbox" id="mpMarkSource" checked> After cutover, rename the old VMware VM "MIGRATED - DO NOT POWER ON - name" and add a note saying where it moved (Roll back renames it back)</label>
               <label><input type="checkbox" id="mpFixUp" checked> Fix each new VM up once Windows starts: IP settings, gateway and DNS from vCenter, VMware Tools, hidden adapters, disks and activation (needs Start)</label>
             </div>
             <div id="mpGaHost"></div>
@@ -2239,6 +2248,14 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   <div class="shortcuts-head"><h2 id="cfmDialogTitle">Are you sure?</h2></div>
   <div class="restore-dialog-body"><div id="cfmDialogText"></div><p class="cfm-hint">You can change how actions are confirmed in Help, Settings.</p></div>
   <div class="restore-dialog-actions"><button class="secondary-button" id="cfmDialogCancel" type="button">Cancel</button><button class="primary-button danger-primary" id="cfmDialogGo" type="button">Continue</button></div>
+</dialog>
+<dialog class="shortcuts-dialog vl-dialog" id="vmLogDialog" aria-labelledby="vmLogTitle">
+  <div class="shortcuts-head"><h2 id="vmLogTitle">Log</h2><button class="secondary-button" id="vmLogClose" type="button">Close</button></div>
+  <div class="about-body vl-body">
+    <div class="vl-actions"><button class="secondary-button" id="vmLogCopy" type="button">Copy all</button><button class="secondary-button" id="vmLogSave" type="button">Save as&hellip;</button><button class="secondary-button" id="vmLogFolder" type="button">Open log folder</button><label class="vl-follow"><input type="checkbox" id="vmLogFollow" checked> Follow new lines</label><span class="vl-status" id="vmLogStatus" aria-live="polite"></span></div>
+    <div class="vl-path selectable" id="vmLogPath"></div>
+    <pre class="log-view vl-text" id="vmLogText" tabindex="0" aria-label="Log"></pre>
+  </div>
 </dialog>
 <dialog class="shortcuts-dialog" id="settingsDialog" aria-labelledby="settingsTitle">
   <div class="shortcuts-head"><h2 id="settingsTitle">Settings</h2><button class="secondary-button" id="settingsClose" type="button">Close</button></div>
@@ -2766,6 +2783,28 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     byId('logCount').textContent='No warnings or errors match the current filter.';
   }
   function showLogFilter(level){byId('logLevel').value=level;byId('logSearch').value='';filterLogs();switchTab('collection');issueCursor=-1;nextIssue();}
+  // VM logs (vmlog.go): each VM's own log and the whole VMware log, kept
+  // on disk, opened from a Log button on the VM's row.
+  var vmLogOpen=null,vmLogTimer=null,vmLogLast='';
+  function vmLogButton(name){var b=el('button','secondary-button vl-button','Log');b.type='button';b.setAttribute('data-vm-log',String(name||''));b.title='Opens '+name+'\'s own log: every copy round, cutover, test and fix-up step, kept on this computer';return b;}
+  function vmLogStatus(text){byId('vmLogStatus').textContent=text||'';}
+  function vmLogLoad(){
+    if(vmLogOpen===null){return;}
+    var name=vmLogOpen;
+    request('GET','/api/vmlog'+(name?'?vm='+encodeURIComponent(name):''),null,function(err,data){
+      if(vmLogOpen!==name){return;}
+      if(err){vmLogStatus(String(err));return;}
+      var box=byId('vmLogText'),text=data.text||'';byId('vmLogPath').textContent=data.path||'';
+      if(text!==vmLogLast){var atEnd=box.scrollTop+box.clientHeight>=box.scrollHeight-8;vmLogLast=text;box.textContent=text||(data.exists?'':'Nothing has been logged for '+(name||'VMware')+' yet. Lines appear here as soon as it is copied, cut over, tested or fixed up.');if(byId('vmLogFollow').checked&&(atEnd||!box.dataset.loaded)){box.scrollTop=box.scrollHeight;}box.dataset.loaded='1';}
+    });
+  }
+  function openVmLog(name){
+    var d=byId('vmLogDialog');vmLogOpen=String(name||'');vmLogLast='';var box=byId('vmLogText');box.textContent='Loading\u2026';delete box.dataset.loaded;vmLogStatus('');
+    byId('vmLogTitle').textContent=vmLogOpen?'Log: '+vmLogOpen:'VMware log';
+    if(!d.open){if(d.showModal){d.showModal();}else{d.setAttribute('open','');}}
+    vmLogLoad();if(vmLogTimer){window.clearInterval(vmLogTimer);}vmLogTimer=window.setInterval(vmLogLoad,3000);
+  }
+  function closeVmLog(){var d=byId('vmLogDialog');vmLogOpen=null;if(vmLogTimer){window.clearInterval(vmLogTimer);vmLogTimer=null;}if(d.open){if(d.close){d.close();}else{d.removeAttribute('open');}}}
   function copyText(text,done){
     function fallback(){var area=document.createElement('textarea');area.value=text;area.setAttribute('readonly','');area.style.position='fixed';area.style.opacity='0';document.body.appendChild(area);area.select();var ok=false;try{ok=document.execCommand('copy');}catch(e){}document.body.removeChild(area);done(ok);}
     if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(text).then(function(){done(true);},fallback);}else{fallback();}
@@ -4456,7 +4495,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   document.addEventListener('keydown',function(e){
     if(uiLifecycle!=='active'||e.defaultPrevented){return;}
     if(byId('consoleDialog').open){return;}
-    if(byId('shortcutsDialog').open||byId('aboutDialog').open||byId('restoreDialog').open||byId('migrateDialog').open||byId('cfmDialog').open||byId('settingsDialog').open){return;}
+    if(byId('shortcutsDialog').open||byId('aboutDialog').open||byId('restoreDialog').open||byId('migrateDialog').open||byId('cfmDialog').open||byId('settingsDialog').open||byId('vmLogDialog').open){return;}
     var key=e.key||'',ctrl=e.ctrlKey||e.metaKey,typing=isTyping(e.target);
     if(e.altKey&&!ctrl&&/^[1-5]$/.test(key)){e.preventDefault();var tab=topTabs[Number(key)-1];switchTab(tab);byId('tabButton'+tab.charAt(0).toUpperCase()+tab.slice(1)).focus();return;}
     if(ctrl&&!e.altKey&&(key==='s'||key==='S')){e.preventDefault();if(activeTab==='setup'){saveChoices();}return;}
@@ -4834,6 +4873,13 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   });
   function closeSettings(){var d=byId('settingsDialog');if(d.close){d.close();}else{d.removeAttribute('open');}}
   byId('settingsClose').addEventListener('click',closeSettings);
+  byId('vmLogClose').addEventListener('click',closeVmLog);
+  byId('vmLogDialog').addEventListener('cancel',function(e){e.preventDefault();closeVmLog();});
+  byId('vmLogCopy').addEventListener('click',function(){var text=byId('vmLogText').textContent||'';copyText(text,function(ok){vmLogStatus(ok?'Copied '+text.split('\n').filter(Boolean).length+' lines.':'Could not copy: select the text and press Ctrl+C.');});});
+  byId('vmLogSave').addEventListener('click',function(){var name=vmLogOpen;vmLogStatus('Choose where to save it\u2026');request('POST','/api/vmlog',{vm:name||''},function(err,data){if(err){vmLogStatus(String(err));return;}vmLogStatus(data&&data.cancelled?'':'Saved to '+data.path);});});
+  function openLogFolder(){request('POST','/api/open',{kind:'vmlogfolder'},function(err){if(err){notice(err,true);}});}
+  byId('vmLogFolder').addEventListener('click',openLogFolder);byId('vmLogFolderButton').addEventListener('click',openLogFolder);
+  document.addEventListener('click',function(e){var t=e.target.closest&&e.target.closest('[data-vm-log]');if(t){e.preventDefault();openVmLog(t.getAttribute('data-vm-log'));}});
   byId('settingsDialog').addEventListener('click',function(e){if(e.target===this){closeSettings();}});
   byId('settingsDialog').addEventListener('change',function(e){
     var r=e.target;if(r.name!=='cfmStyle'){return;}var before=cfmStyle(),status=byId('settingsStatus');
@@ -5921,7 +5967,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     if((v.moveSerial||0)!==vmMoveSerial){vmMoveSerial=v.moveSerial||0;renderVmDetail();}
     if(v.target&&v.target.serial!==vmTargetSerial){vmTargetSerial=v.target.serial;renderVmDetail();}
     if(v.hvRemote&&v.hvRemote.serial!==vmHvrSerial){vmHvrSerial=v.hvRemote.serial;renderVmDetail();}
-    var fixKey=JSON.stringify([v.guestAuto||{},vmArr(v.fixups).map(function(f){return [f.vm,f.state,f.message,vmArr(f.steps).length];})]);if(fixKey!==vmFixKey){vmFixKey=fixKey;renderVmDetail();}
+    var fixKey=JSON.stringify([v.guestAuto||{},vmArr(v.fixups).map(function(f){return [f.vm,f.state,f.message,vmArr(f.steps).length,f.waitUntil,f.lastTry,f.lastTryAt,f.state==='waiting'?Math.floor(Date.now()/60000):0];})]);if(fixKey!==vmFixKey){vmFixKey=fixKey;renderVmDetail();}
     renderVmDiskCopy(state,v);renderVmRoles();renderVmMedia(v);renderVmMoveIntro();pfUpdate();
     var batchKey=JSON.stringify(v.prepareBatch||null),lockKey=vmLocked()+'|'+vmPlanLocked()+'|'+(v.canPrepare?1:0);if(batchKey!==vmBulkPollKey){vmBulkPollKey=batchKey;renderVmBulkBatch(v);}if(lockKey!==vmBulkLockKey){vmBulkLockKey=lockKey;renderVmBulk();}
     byId('vmGuestHere').textContent=vmComputer()?'This computer: '+vmComputer()+'.':'';
@@ -7079,7 +7125,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   // connect, then the new VM fixed up through PowerShell Direct once it
   // starts, with the guest administrator account typed once and held in
   // memory. vmAfterCutover adds the choices to a move form and returns them.
-  var vmFixKey='',vmAfterForm={disconnect:true,fixUp:true,start:true},vmGaForm={user:'',password:''};
+  var vmFixKey='',vmAfterForm={disconnect:true,markSource:true,fixUp:true,start:true},vmGaForm={user:'',password:''};
   function vmSwitchFor(network,hostSwitches){var map=vmArr(vmPlan&&vmPlan.networks).filter(function(m){return m.source===network;})[0],name=map&&trimText(map.targetName);if(name){return {name:name,auto:false};}
     var list=vmArr(hostSwitches),same=list.filter(function(x){return String(x).toLowerCase()===String(network||'').toLowerCase();})[0];if(same){return {name:same,auto:true};}if(list.length===1){return {name:list[0],auto:true};}return null;}
   function vmGuestAutoPanel(box,prefix){
@@ -7234,11 +7280,14 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     else if(p&&p.error){s.appendChild(el('div','migrate-detail warning',pfLast(vm)));}
     renderPreflightPanel(s,[vm],'pfVm');
   }
+  // vmMigratedName matches vmMigratedName in movebatch_mark.go.
+  function vmMigratedName(name){var p='MIGRATED - DO NOT POWER ON - ';name=String(name||'');if(name.indexOf(p)===0){return name;}return Array.from(p+name).slice(0,80).join('');}
   function vmAfterCutover(box,vm,form){
     form=form||vmAfterForm;var hv=vm.source==='hyperv',checks={};
     box.appendChild(el('div','vm-subhead','After the cutover'));
     var opts=[['start','Start the new Hyper-V VM',form.start]];
     if(!hv){opts.push(['disconnect','Set the old VMware VM\'s network adapters to not connect (recorded first), so its address is never used twice',form.disconnect]);
+      opts.push(['markSource','Rename the old VMware VM "'+vmMigratedName(vm.name)+'" and add a note saying where it moved (Roll back renames it back)',form.markSource]);
       opts.push(['fixUp','Fix the new VM up automatically once Windows starts: put back the static IP settings, gateway and DNS recorded from vCenter, remove VMware Tools and the hidden VMware adapters, bring data disks online and activate Windows',form.fixUp]);}
     opts.forEach(function(o){var label=el('label','vm-check'),input=document.createElement('input');input.type='checkbox';input.checked=!!o[2];input.setAttribute('data-vm-after',o[0]);input.addEventListener('change',function(){form[o[0]]=input.checked;sync();});checks[o[0]]=input;label.appendChild(input);label.appendChild(el('span','',o[1]));box.appendChild(label);});
     var note=el('div','migrate-detail');note.id='vmAfterNote';box.appendChild(note);
@@ -7251,9 +7300,17 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
       else if(fix){text='Nothing is installed in the old or the new VM: the settings were recorded from vCenter, and the fix-up runs through PowerShell Direct from the Hyper-V host.';}
       note.textContent=text;note.className='migrate-detail'+(warn?' warning':'');note.classList.toggle('hidden',!text);}
     sync();
-    return {start:function(){return checks.start.checked;},disconnect:function(){return !!(checks.disconnect&&checks.disconnect.checked);},fixUp:function(){return !!(checks.fixUp&&checks.fixUp.checked);},
-      steps:function(){var l=[];if(checks.disconnect&&checks.disconnect.checked){l.push('set the old VM\'s network adapters to not connect');}if(checks.fixUp&&checks.fixUp.checked&&checks.start.checked){l.push('once Windows starts, put the IP settings back and fix it up (VMware Tools, hidden adapters, disks, activation)');}return l;}};
+    return {start:function(){return checks.start.checked;},disconnect:function(){return !!(checks.disconnect&&checks.disconnect.checked);},keepName:function(){return !(checks.markSource&&checks.markSource.checked);},fixUp:function(){return !!(checks.fixUp&&checks.fixUp.checked);},
+      steps:function(){var l=[];if(checks.disconnect&&checks.disconnect.checked){l.push('set the old VM\'s network adapters to not connect');}if(checks.markSource&&checks.markSource.checked){l.push('rename the old VM '+vmMigratedName(vm.name)+' and add a note');}if(checks.fixUp&&checks.fixUp.checked&&checks.start.checked){l.push('once Windows starts, put the IP settings back and fix it up (VMware Tools, hidden adapters, disks, activation)');}return l;}};
   }
+  // vmFixWaitHint explains what PowerShell Direct answered while the
+  // fix-up waits for Windows in the new VM (Invoke-GuestRemote.ps1).
+  function vmFixWaitHint(t){t=String(t||'');
+    if(/credential is invalid|user name or password|logon failure|access is denied/i.test(t)){return 'The guest account was refused. A domain controller has no local accounts: enter a domain administrator (DOMAIN\\Administrator) in the guest account panel, then use Fix up now.';}
+    if(/unable to find a virtual machine|cannot find (a|the)? ?virtual machine|was not found/i.test(t)){return 'PowerShell Direct reaches only VMs running on this host. In a cluster, check in Failover Cluster Manager that this node owns the VM.';}
+    if(/not running|not in a valid state|is (off|stopped|saved)/i.test(t)){return 'The VM is not running. Start it in Hyper-V Manager or Failover Cluster Manager.';}
+    if(/PowerShell Direct|vmicvmsession|socket|cannot handle|session/i.test(t)){return 'Windows in the VM is still starting, or its Hyper-V PowerShell Direct Service is not running. It needs Windows Server 2016 or later in the VM; on older Windows, set the IP settings by hand from the VM console.';}
+    return '';}
   var vmFixStepLabels={done:'good',skipped:'',warning:'warning',failed:'danger'};
   var vmFixStateText={waiting:'Waiting for Windows to start',running:'Fixing up',done:'Fixed up',warning:'Fixed up, check the steps',failed:'Not fixed up',skipped:'Not fixed up'};
   function vmFixupStatus(box,name){
@@ -7263,6 +7320,10 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     var head=el('div','vm-fixup-head');head.appendChild(vmChip({waiting:'review',running:'review',done:'ready',warning:'review',failed:'blocked',skipped:'review'}[f.state]||'review'));head.lastChild.textContent=vmFixStateText[f.state]||f.state;
     head.appendChild(el('span','',' '+f.message));wrap.appendChild(head);
     if(f.state==='waiting'||f.state==='running'){wrap.appendChild(el('div','migrate-help','Through '+f.via+'. This can take several minutes while Windows sets up the new hardware.'));}
+    if(f.state==='waiting'){var since=mpTime(f.started)?Math.max(0,(Date.now()-new Date(f.started).getTime())/1000):0,until=mpTime(f.waitUntil);
+      wrap.appendChild(el('div','vm-fixup-wait','Waiting '+mpDuration(since)+' so far'+(until?' · gives up at '+until.slice(11)+', then Fix up now tries again':'')));
+      if(f.lastTry){var tried=el('div','vm-fixup-try');tried.appendChild(el('strong','','Last answer from the VM'+(mpTime(f.lastTryAt)?' ('+mpTime(f.lastTryAt).slice(11)+')':'')+': '));tried.appendChild(el('span','selectable',f.lastTry));wrap.appendChild(tried);
+        var hint=vmFixWaitHint(f.lastTry);if(hint){wrap.appendChild(el('div','migrate-detail warning',hint));}}}
     if(vmArr(f.steps).length){var ul=el('ul','vm-findings');vmArr(f.steps).forEach(function(s){ul.appendChild(el('li',vmFixStepLabels[s.status]||'',s.step+': '+s.message));});wrap.appendChild(ul);}
     if(f.state==='failed'||f.state==='skipped'||f.state==='warning'){var row=el('div','vm-move-actions');
       if(f.hyperVId&&(f.state!=='skipped'||(v.guestAuto&&v.guestAuto.hasPassword))){var again=el('button','secondary-button','Fix up now');again.type='button';again.setAttribute('data-vm-fixup-run',f.vm);again.addEventListener('click',function(){vmPost('/api/vmware/guest-auto/run',{vm:f.vm,hyperVId:f.hyperVId,host:f.host||''},null);});row.appendChild(again);}
@@ -7325,7 +7386,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     if(autoSw.length){section.appendChild(el('div','migrate-detail','Networks: '+autoSw.join(', ')+' (the same name, or the host\'s only switch; name another in the plan\'s network map to change it). VLANs come from the VMware port groups.'));}
     if(unmapped.length){section.appendChild(el('div','migrate-detail warning','No Hyper-V switch is named for '+unmapped.join(', ')+' in the plan\'s network map; those adapters are added disconnected.'));}
     var after=vmAfterCutover(section,vm);
-    var body=function(action){return {vmId:vm.id,action:action,copyFolder:trimText(folder.value),vmFolder:trimText(vmFolder.value),quiesce:!!(checks.quiesce&&checks.quiesce.checked),keepMac:checks.keepMac.checked,start:after.start(),cluster:!!(checks.cluster&&checks.cluster.checked),disconnectSource:after.disconnect(),fixUp:after.fixUp()};};var bodyNoMedia=body;body=function(action){var b=bodyNoMedia(action);if(checks.ejectMedia){b.ejectMedia=checks.ejectMedia.checked;}return b;};
+    var body=function(action){return {vmId:vm.id,action:action,copyFolder:trimText(folder.value),vmFolder:trimText(vmFolder.value),quiesce:!!(checks.quiesce&&checks.quiesce.checked),keepMac:checks.keepMac.checked,start:after.start(),cluster:!!(checks.cluster&&checks.cluster.checked),disconnectSource:after.disconnect(),keepSourceName:after.keepName(),fixUp:after.fixUp()};};var bodyNoMedia=body;body=function(action){var b=bodyNoMedia(action);if(checks.ejectMedia){b.ejectMedia=checks.ejectMedia.checked;}return b;};
     if(checks.cluster){checks.cluster.addEventListener('change',function(){kept.cluster=checks.cluster.checked;});}
     var row=el('div','vm-move-actions'),copy=el('button','secondary-button',last&&!last.cutover?'Copy changes\u2026':'Copy disks\u2026'),cut=el('button','secondary-button','Cut over\u2026');
     copy.type='button';copy.id='vmMoveCopy';copy.disabled=vmLocked()||notHost;cut.type='button';cut.id='vmMoveCutover';cut.disabled=vmLocked()||notHost;syncSpace();
@@ -7343,7 +7404,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     row.appendChild(copy);row.appendChild(cut);section.appendChild(row);
     section.appendChild(vmMoveProgressBox(vm));
     vmFixupStatus(section,vm.name);
-    section.appendChild(rbSlot(vm.name));
+    section.appendChild(rbSlot(vm.name));section.appendChild(vmLogButton(vm.name));
     var xfer=el('div','vm-transfers hidden');xfer.id='vmMoveTransfers';xfer.setAttribute('data-prefix','move-'+vm.id+'|');section.appendChild(xfer);
     box.appendChild(section);renderVmMoveTransfers(v);
   }
@@ -7426,7 +7487,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
       var off=vmLocked()||!v.canPrepare;copy.disabled=off||short;cut.disabled=off;}
     syncSpace();
     var target=function(){return (trimText(folder.value)||folder.placeholder)+' on '+(vmHvrForm.node||info.computer);};
-    var body=function(action){return {vmId:vm.id,action:action,node:vmHvrForm.node||info.computer,copyFolder:trimText(folder.value),vmFolder:trimText(vmFolder.value),path:vmHvrForm.path,address:trimText(vmHvrForm.address),thumbprint:vmThumbHex(vmHvrForm.thumbprint),code:trimText(vmHvrForm.code),quiesce:!!(checks.quiesce&&checks.quiesce.checked),keepMac:checks.keepMac.checked,start:after.start(),cluster:!!(checks.cluster&&checks.cluster.checked),disconnectSource:after.disconnect(),fixUp:after.fixUp()};};var bodyNoMedia=body;body=function(action){var b=bodyNoMedia(action);if(checks.ejectMedia){b.ejectMedia=checks.ejectMedia.checked;}return b;};
+    var body=function(action){return {vmId:vm.id,action:action,node:vmHvrForm.node||info.computer,copyFolder:trimText(folder.value),vmFolder:trimText(vmFolder.value),path:vmHvrForm.path,address:trimText(vmHvrForm.address),thumbprint:vmThumbHex(vmHvrForm.thumbprint),code:trimText(vmHvrForm.code),quiesce:!!(checks.quiesce&&checks.quiesce.checked),keepMac:checks.keepMac.checked,start:after.start(),cluster:!!(checks.cluster&&checks.cluster.checked),disconnectSource:after.disconnect(),keepSourceName:after.keepName(),fixUp:after.fixUp()};};var bodyNoMedia=body;body=function(action){var b=bodyNoMedia(action);if(checks.ejectMedia){b.ejectMedia=checks.ejectMedia.checked;}return b;};
     var sent=function(){vmHvrForm.code='';};
     copy.addEventListener('click',function(){
       openMigrateDialog({title:'Copy '+vm.name,path:'/api/hvremote/move',understand:'I understand '+vm.name+' gets a temporary snapshot in vSphere while it copies',field:'confirm',body:body('copy'),expected:vm.name,label:"Type the VM's name to confirm",button:'Copy disks',
@@ -7440,7 +7501,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     row.appendChild(copy);row.appendChild(cut);s4.appendChild(row);
     s4.appendChild(vmMoveProgressBox(vm));
     vmFixupStatus(s4,vm.name);
-    s4.appendChild(rbSlot(vm.name));
+    s4.appendChild(rbSlot(vm.name));s4.appendChild(vmLogButton(vm.name));
     var xfer=el('div','vm-transfers hidden');xfer.id='vmMoveTransfers';xfer.setAttribute('data-prefix','move-'+vm.id+'|');s4.appendChild(xfer);
   }
   // Move to HyperCore, Nutanix AHV, Proxmox VE or a physical server: the new
@@ -7558,7 +7619,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     copy.disabled=copy.disabled||!receiver||!(v.canPrepare||hv);cut.disabled=cut.disabled||!receiver||!(v.canPrepare||hv);
     row.appendChild(copy);row.appendChild(cut);mv.appendChild(row);
     mv.appendChild(vmMoveProgressBox(vm));
-    mv.appendChild(rbSlot(vm.name));
+    mv.appendChild(rbSlot(vm.name));mv.appendChild(vmLogButton(vm.name));
     var xfer=el('div','vm-transfers hidden');xfer.id='vmMoveTransfers';xfer.setAttribute('data-prefix','move-'+vm.id+'|');mv.appendChild(xfer);
     box.appendChild(section);renderVmMoveTransfers(v);
   }
@@ -9235,6 +9296,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     var wv=el('td');if(r.wave){wv.appendChild(el('span','','Wave '+r.wave));}if(asScheduled(r)){wv.appendChild(el('span','as-sub as-late','Cuts over '+mpTime(r.cutoverAt)));}tr.appendChild(wv);
     var op=el('td'),b=el('button','secondary-button',{job:'Open job',agent:'Open',plan:'Open plan',move:'Open in Move VMs',vm:'Open VM',task:'Open'}[r.kind]||'Open');b.type='button';b.setAttribute('data-as-open',r.key);op.appendChild(b);
     if(vmArr(r.consoles).length){var cbs=el('div','console-buttons');vmArr(r.consoles).forEach(function(c){cbs.appendChild(consoleButton(c.target,c.label+' console'));});op.appendChild(cbs);}
+    if(r.kind==='plan'||r.kind==='move'||r.kind==='vm'){op.appendChild(vmLogButton(r.name));}
     tr.appendChild(op);
     return tr;
   }
@@ -9468,7 +9530,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   // selection carried over, and says so.
   var nwStepNames=['What','Where','How','When','Review','Status'];
   var nw={step:0,reached:0,source:'',picks:{},methods:{},vddkFolder:'',vddkMsg:'',vddkBusy:false,filter:'',target:'',copyRoot:'',vmFolder:'',cluster:false,node:'',hvHost:'',hvUser:'',net:{},method:'',
-    opts:{syncMinutes:60,concurrency:2,quiesce:false,keepMac:true,startVms:true,disconnectSource:true,ejectMedia:true,fixUp:true,testSwitch:'',bizMbps:'0',offMbps:'0',bizStart:8,bizEnd:18,waveConc:0},
+    opts:{syncMinutes:60,concurrency:2,quiesce:false,keepMac:true,startVms:true,disconnectSource:true,markSource:true,ejectMedia:true,fixUp:true,testSwitch:'',bizMbps:'0',offMbps:'0',bizStart:8,bizEnd:18,waveConc:0},
     startMode:'now',startAt:'',waveMode:'',waves:{},cut:{},name:'',confirm:'',planId:'',busy:false,error:'',filled:'',statusFilter:'',statusKind:'',
     srv:{picks:{},folder:'',interval:15,rpo:'30',services:'',compress:true,shutdown:true,fullRead:false,live:false,limit:'0',biz:'0',bizStart:0,bizEnd:0,confirm:'',agents:[],hosts:'',user:'',watch:false,instError:'',action:'sync',cutAt:''}};
   var nwSwitches=null,nwSwitchesAsked=false,nwLastPoll=0,nwSig='',nwStatusSig='',nwRowsChosen={};
@@ -10066,6 +10128,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     if(isVMware){var withMedia=nwPickedVMs().filter(function(v){return vmArr(v.mediaImages).length>0;});
       if(withMedia.length){box.appendChild(nwCheck('nwEject','Eject the CD/DVD and floppy images of '+vmPlural(withMedia.length,'VM')+' ('+withMedia.map(function(v){return v.name+': '+vmArr(v.mediaImages).map(vmMediaShort).join(', ');}).join('; ')+') before copying: the drives are set to a client device, not connected, and each ISO path is recorded first. vSphere cannot copy a running VM whose drive names an ISO that no longer exists.',o.ejectMedia,function(on){o.ejectMedia=on;}));}
       box.appendChild(nwCheck('nwDisconnect','After cutover, set the old VMware VM\'s adapters to not connect (their settings are recorded first)',o.disconnectSource,function(on){o.disconnectSource=on;}));
+      box.appendChild(nwCheck('nwMarkSource','After cutover, rename the old VMware VM "MIGRATED - DO NOT POWER ON - name" and add a note saying where it moved (Roll back renames it back)',o.markSource,function(on){o.markSource=on;}));
       box.appendChild(nwCheck('nwFixUp','Fix each new VM up once Windows starts: put back the IP settings, gateway and DNS recorded from vCenter, remove VMware Tools and the hidden VMware adapters, bring data disks online and activate Windows (needs Start)',o.fixUp,function(on){o.fixUp=on;nwGaShow();}));
       var gaHost=el('div','');gaHost.id='nwGaHost';box.appendChild(gaHost);
       var nwGaShow=function(){gaHost.textContent='';if(o.fixUp){vmGuestAutoPanel(gaHost,'nwGa');}};nwGaShow();}
@@ -10169,7 +10232,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     row('What',vmPlural(picked.length,'VM')+' from '+(vmInventory&&vmInventory.server||'')+': '+picked.slice(0,12).map(function(vm){return vm.name;}).join(', ')+(picked.length>12?' and '+(picked.length-12)+' more':'')+' (about '+formatBytesShort(nwUsedBytes())+')',0);
     row('Where',(nwRemote()?'Hyper-V host '+(nw.node||'')+(nwHvr()&&nwHvr().info.cluster?' in cluster '+nwHvr().info.cluster:'')+', run from this computer ('+vmComputer()+')':'This Hyper-V host ('+vmComputer()+')')+(nw.cluster?', highly available in its cluster':'')+'. Disks in '+(nw.copyRoot||'the host\'s default folder')+'; VMs in '+(nw.vmFolder||'the host\'s default folder')+'.',1);
     row('Networks',nwNetworks().map(function(n){var mm=nwMap(n);return n.name+' to '+(mm.sw===null?'?':(mm.sw||'not connected'))+(mm.vlan?' VLAN '+mm.vlan:'');}).join('; ')||'None',1);
-    row('How',(m?m.name:'')+': sync every '+mpDuration(o.syncMinutes*60)+', '+o.concurrency+' at once'+(Number(o.bizMbps)||Number(o.offMbps)?', bandwidth limited':'')+(o.keepMac?', MAC addresses kept':'')+(o.startVms?', new VMs started':'')+(o.ejectMedia&&nwInvType()==='vmware'&&nwPickedVMs().some(function(v){return vmArr(v.mediaImages).length>0;})?', CD/DVD images ejected before copying':'')+(o.disconnectSource&&nwInvType()==='vmware'?', old adapters disconnected after cutover':'')+(o.fixUp&&o.startVms&&nwInvType()==='vmware'?', IP settings put back automatically':'')+(nwOfflineVMs().length?', '+vmPlural(nwOfflineVMs().length,'VM')+' copied at cutover while shut down ('+nwOfflineVMs().map(function(vm){return vm.name;}).join(', ')+')':'')+'.',2);
+    row('How',(m?m.name:'')+': sync every '+mpDuration(o.syncMinutes*60)+', '+o.concurrency+' at once'+(Number(o.bizMbps)||Number(o.offMbps)?', bandwidth limited':'')+(o.keepMac?', MAC addresses kept':'')+(o.startVms?', new VMs started':'')+(o.ejectMedia&&nwInvType()==='vmware'&&nwPickedVMs().some(function(v){return vmArr(v.mediaImages).length>0;})?', CD/DVD images ejected before copying':'')+(o.disconnectSource&&nwInvType()==='vmware'?', old adapters disconnected after cutover':'')+(o.markSource&&nwInvType()==='vmware'?', old VM renamed MIGRATED after cutover':'')+(o.fixUp&&o.startVms&&nwInvType()==='vmware'?', IP settings put back automatically':'')+(nwOfflineVMs().length?', '+vmPlural(nwOfflineVMs().length,'VM')+' copied at cutover while shut down ('+nwOfflineVMs().map(function(vm){return vm.name;}).join(', ')+')':'')+'.',2);
     var waves=nwWaveList();
     row('When','First copies '+(nw.startMode==='at'?'at '+nw.startAt.replace('T',' '):'now')+'. '+waves.map(function(w){var c=nw.cut[w]||{};return 'Wave '+w+' ('+nwPickedVMs().filter(function(vm){return nwWaveOf(vm.id)===w;}).length+'): '+(c.mode==='at'?'cut over at '+c.at.replace('T',' '):'cut over when you press Cut over');}).join('; ')+'.',3);
     box.appendChild(dl);
@@ -10275,7 +10338,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
       vmPlan.vms=vmArr(vmPlan.vms);
       picked.forEach(function(vm){var w=nwWaveOf(vm.id),e=vmPlanEntry(vm.id);if(!e){e={id:vm.id,name:vm.name,wave:0,hold:false,exclude:false,notes:''};vmPlan.vms.push(e);}if(e.wave!==w||e.hold||e.exclude){e.wave=w;e.hold=false;e.exclude=false;e.manual=true;}});
     }
-    var o=nw.opts,settings={syncMinutes:o.syncMinutes,concurrency:o.concurrency,copyRoot:trimText(nw.copyRoot),vmFolder:trimText(nw.vmFolder),testSwitch:o.testSwitch,keepMac:o.keepMac,startVms:o.startVms,cluster:!!nw.cluster,quiesce:nwInvType()==='vmware'&&o.quiesce,disconnectSource:nwInvType()==='vmware'&&o.disconnectSource,ejectMedia:nwInvType()==='vmware'&&o.ejectMedia,fixUp:nwInvType()==='vmware'&&o.startVms&&o.fixUp,
+    var o=nw.opts,settings={syncMinutes:o.syncMinutes,concurrency:o.concurrency,copyRoot:trimText(nw.copyRoot),vmFolder:trimText(nw.vmFolder),testSwitch:o.testSwitch,keepMac:o.keepMac,startVms:o.startVms,cluster:!!nw.cluster,quiesce:nwInvType()==='vmware'&&o.quiesce,disconnectSource:nwInvType()==='vmware'&&o.disconnectSource,keepSourceName:!o.markSource,ejectMedia:nwInvType()==='vmware'&&o.ejectMedia,fixUp:nwInvType()==='vmware'&&o.startVms&&o.fixUp,
       throttle:{businessMbps:Number(o.bizMbps)||0,limitMbps:Number(o.offMbps)||0,businessStart:o.bizStart,businessEnd:o.bizEnd}};
     if(o.waveConc>0){var wseen={};settings.waves=[];picked.forEach(function(vm){var w=nwWaveOf(vm.id);if(!wseen[w]){wseen[w]=true;settings.waves.push({wave:w,concurrency:Math.min(o.waveConc,o.concurrency),throttle:{limitMbps:0,businessMbps:0,businessStart:0,businessEnd:0}});}});}
     if(nw.startMode==='at'){settings.startAt=new Date(nw.startAt).toISOString();}
@@ -10730,6 +10793,16 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   function mpPlan(){var list=mpState?vmArr(mpState.plans):[];for(var i=0;i<list.length;i++){if(list[i].id===mpSelected){return list[i];}}return null;}
   function mpTime(t){if(!t||/^0001-/.test(t)){return '';}var d=new Date(t);if(isNaN(d.getTime())){return '';}var p=function(n){return (n<10?'0':'')+n;};return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes());}
   function mpLocalInput(t){var s=mpTime(t);return s?s.replace(' ','T'):'';}
+  // mpLivePhase says what a running round does now. After a cutover's final
+  // copy reaches 100% it reads the copy back (verify) and then creates the
+  // new VM, so those steps get their own words instead of a frozen 100%.
+  function mpLivePhase(l,seeded){var pct=l.percent||0,ph=l.phase||'copy',bits=[],text,busy=false,elapsed=l.elapsed?mpDuration(l.elapsed)+' so far':'';
+    if(ph==='shutdown'){text='Cutting over: shutting the guest down';pct=0;busy=true;}
+    else if(ph==='verify'){pct=l.verifyPercent||0;text='Cutting over: verifying the copy '+pct+'%';bits.push('Reading the new disks back to check every block');}
+    else if(ph==='create'){text='Cutting over: creating the new VM';pct=100;busy=true;bits.push('Final copy verified');}
+    else{text=(l.cutover?'Cutting over: final copy':(seeded?'Syncing':'Seeding'))+' '+pct+'%';bits.push(formatBytesShort(l.bytesRead)+' read');if(l.bytesPerSecond){bits.push(formatBytesShort(l.bytesPerSecond)+'/s');}if(l.secondsLeft){bits.push(mpDuration(l.secondsLeft)+' left');}}
+    if(ph!=='copy'&&elapsed){bits.push(elapsed);}
+    return {text:text,pct:pct,busy:busy,bits:bits};}
   function mpDuration(sec){sec=Math.round(Number(sec)||0);if(sec<60){return sec+' s';}if(sec<3600){return Math.round(sec/60)+' min';}var m=Math.round(sec%3600/60);return Math.floor(sec/3600)+' h'+(m?' '+m+' min':'');}
   function mpLoad(){mpLastPoll=Date.now();var q=mpSwitchesLoaded?'':'?switches=1';request('GET','/api/plans'+q,null,function(err,data){if(err){return;}mpState=data||{};if(!mpSwitchesLoaded&&mpState.switches){mpSwitchesLoaded=true;mpFillSwitches();}if(!mpSelected&&vmArr(mpState.plans).length){mpSelected=mpState.plans[0].id;}renderMp();});}
   function mpFillSwitches(){var sel=byId('mpTestSwitch'),keep=sel.value;while(sel.options.length>1){sel.remove(1);}vmArr(mpState.switches).forEach(function(s){sel.appendChild(new Option(s.name+' ('+s.type+')',s.name));});sel.value=keep;}
@@ -10912,7 +10985,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   function nwProfileCurrent(){var o=nw.opts,map=[];nwNetworks().forEach(function(n){var m=nwMap(n);if(m.sw!==null){map.push({source:n.name,sourceVlan:n.vlan||'',targetName:m.sw||'',targetVlan:m.vlan||''});}});
     return profileFromSettings({copyRoot:trimText(nw.copyRoot),vmFolder:trimText(nw.vmFolder),testSwitch:o.testSwitch,syncMinutes:o.syncMinutes,concurrency:o.concurrency,keepMac:o.keepMac,startVms:o.startVms,cluster:nw.cluster,quiesce:o.quiesce,ejectMedia:o.ejectMedia,disconnectSource:o.disconnectSource,fixUp:o.fixUp,throttle:{businessMbps:Number(o.bizMbps)||0,limitMbps:Number(o.offMbps)||0,businessStart:o.bizStart,businessEnd:o.bizEnd}},map);}
   function mpSettingsFromForm(){
-    var s={syncMinutes:Number(byId('mpSync').value),concurrency:Number(byId('mpConcurrency').value),copyRoot:trimText(byId('mpCopyRoot').value),vmFolder:trimText(byId('mpVMFolder').value),testSwitch:byId('mpTestSwitch').value,keepMac:byId('mpKeepMac').checked,startVms:byId('mpStartVMs').checked,cluster:byId('mpCluster').checked,quiesce:byId('mpQuiesce').checked,disconnectSource:byId('mpDisconnect').checked,ejectMedia:byId('mpEject').checked,fixUp:byId('mpFixUp').checked,
+    var s={syncMinutes:Number(byId('mpSync').value),concurrency:Number(byId('mpConcurrency').value),copyRoot:trimText(byId('mpCopyRoot').value),vmFolder:trimText(byId('mpVMFolder').value),testSwitch:byId('mpTestSwitch').value,keepMac:byId('mpKeepMac').checked,startVms:byId('mpStartVMs').checked,cluster:byId('mpCluster').checked,quiesce:byId('mpQuiesce').checked,disconnectSource:byId('mpDisconnect').checked,keepSourceName:!byId('mpMarkSource').checked,ejectMedia:byId('mpEject').checked,fixUp:byId('mpFixUp').checked,
       throttle:{businessMbps:Number(trimText(byId('mpBizMbps').value)||0),limitMbps:Number(trimText(byId('mpOffMbps').value)||0),businessStart:Number(byId('mpBizStart').value),businessEnd:Number(byId('mpBizEnd').value)},
       waves:mpWaveLimitsFromForm()};
     if(byId('mpStartMode').value==='at'&&byId('mpStartAt').value){s.startAt=new Date(byId('mpStartAt').value).toISOString();}
@@ -10923,7 +10996,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   function mpFillForm(p){
     var s=(p&&p.settings)||{};byId('mpName').value=p?p.name:'';
     byId('mpSync').value=String(s.syncMinutes||60);byId('mpConcurrency').value=String(s.concurrency||2);byId('mpCopyRoot').value=s.copyRoot||'';byId('mpVMFolder').value=s.vmFolder||'';byId('mpTestSwitch').value=s.testSwitch||'';
-    byId('mpKeepMac').checked=p?!!s.keepMac:true;byId('mpStartVMs').checked=p?!!s.startVms:true;byId('mpCluster').checked=!!s.cluster;byId('mpQuiesce').checked=!!s.quiesce;byId('mpDisconnect').checked=p?!!s.disconnectSource:true;byId('mpEject').checked=p?!!s.ejectMedia:true;byId('mpFixUp').checked=p?!!s.fixUp:true;var gaHost=byId('mpGaHost');gaHost.textContent='';vmGuestAutoPanel(gaHost,'mpGa');var ph=byId('mpProfileHost');ph.textContent='';if(!p||!p.id){ph.appendChild(profileBar('mpProfile',function(){return profileFromSettings(mpSettingsFromForm(),mpNetmapFromPlan());},mpUseProfile));}
+    byId('mpKeepMac').checked=p?!!s.keepMac:true;byId('mpStartVMs').checked=p?!!s.startVms:true;byId('mpCluster').checked=!!s.cluster;byId('mpQuiesce').checked=!!s.quiesce;byId('mpDisconnect').checked=p?!!s.disconnectSource:true;byId('mpMarkSource').checked=!s.keepSourceName;byId('mpEject').checked=p?!!s.ejectMedia:true;byId('mpFixUp').checked=p?!!s.fixUp:true;var gaHost=byId('mpGaHost');gaHost.textContent='';vmGuestAutoPanel(gaHost,'mpGa');var ph=byId('mpProfileHost');ph.textContent='';if(!p||!p.id){ph.appendChild(profileBar('mpProfile',function(){return profileFromSettings(mpSettingsFromForm(),mpNetmapFromPlan());},mpUseProfile));}
     mpRenderWaveLimits(vmArr(s.waves));byId('mpWaveLimits').open=vmArr(s.waves).length>0;
     var g=pgSettings();byId('mpGlobalNote').textContent=g&&g.bandwidth&&(g.bandwidth.limitMbps||g.bandwidth.businessMbps)?'This computer\'s own limit also applies to every plan (Help > Settings): '+pgDescribe(g.bandwidth)+'. Copies use the lower of the two.':'This computer has no bandwidth limit of its own (Help > Settings); only the plan\'s limit applies.';
     var t=s.throttle||{};byId('mpBizMbps').value=String(t.businessMbps||0);byId('mpOffMbps').value=String(t.limitMbps||0);byId('mpBizStart').value=String(p?t.businessStart||0:8);byId('mpBizEnd').value=String(p?t.businessEnd||0:18);
@@ -10992,8 +11065,8 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   }
   function mpStateCell(v){
     var td=el('td'),label=v.method==='offline'&&(v.state==='waiting'||v.state==='ready')?'Copies at cutover':(mpStateNames[v.state]||v.state);td.appendChild(planTrack(v,mpPlanOfVM(v)));
-    if(v.live){var pct=v.live.percent||0,box=el('div','mp-progress'),bar=el('div','mp-bar active'),fill=el('span','mp-bar-fill');fill.style.width=pct+'%';bar.appendChild(fill);box.appendChild(el('div','',(v.live.cutover?'Cutting over':(v.seeded?'Syncing':'Seeding'))+' '+pct+'%'));box.appendChild(bar);
-      var bits=[formatBytesShort(v.live.bytesRead)+' read'];if(v.live.bytesPerSecond){bits.push(formatBytesShort(v.live.bytesPerSecond)+'/s');}if(v.live.secondsLeft){bits.push(mpDuration(v.live.secondsLeft)+' left');}box.appendChild(el('div','mp-progress-text',bits.join(' · ')));td.appendChild(box);}
+    if(v.live){var ph=mpLivePhase(v.live,v.seeded),box=el('div','mp-progress'),bar=el('div','mp-bar active'+(ph.busy?' busy':'')),fill=el('span','mp-bar-fill');fill.style.width=ph.pct+'%';bar.appendChild(fill);box.appendChild(el('div','mp-phase',ph.text));box.appendChild(bar);
+      box.appendChild(el('div','mp-progress-text',ph.bits.join(' · ')));td.appendChild(box);}
     else{td.appendChild(el('span','mp-chip '+({ready:'good',done:'good',failed:'danger',testing:'warning'}[v.state]||''),label));}
     if(!v.live&&(v.held||v.waiting)){var hd=el('div','mp-held',v.held||v.waiting);td.appendChild(hd);if(v.held){var po=el('button','link-button','Production protection settings');po.type='button';po.setAttribute('data-pg-open','1');hd.appendChild(document.createTextNode(' '));hd.appendChild(po);}}
     if(v.method==='offline'&&v.state!=='done'){var on=el('div','vm-note','Copied at its cutover, while shut down: vSphere cannot read it while it runs, so it is off for its whole copy. ');if(v.state!=='cutting'){var lv=el('button','link-button','Copy it while it runs instead');lv.type='button';lv.setAttribute('data-mp-live',v.id);lv.title='Needs VDDK for a VM with a virtual TPM';on.appendChild(lv);}td.appendChild(on);}
@@ -11010,7 +11083,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     var actions=el('div','mp-row-actions');
     if(v.state==='ready'&&!mpTime(v.cutoverAt)){var t=el('button','secondary-button','Test');t.type='button';t.setAttribute('data-mp-test',v.id);t.title='Start '+v.name+'-TEST on differencing disks with its network '+(mpPlan().settings.testSwitch?'on '+mpPlan().settings.testSwitch:'disconnected');actions.appendChild(t);}
     if(v.test){var e=el('button','secondary-button','End test');e.type='button';e.setAttribute('data-mp-endtest',v.id);actions.appendChild(e);}
-    mpConsoleButtons(actions,v);
+    mpConsoleButtons(actions,v);actions.appendChild(vmLogButton(v.name));
     if(actions.childNodes.length){td.appendChild(actions);}
     return td;
   }
@@ -11026,7 +11099,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   function renderMpDetail(p){
     var s=p.settings;
     byId('mpDetailTitle').textContent=p.name+(p.paused?' (paused)':'');
-    byId('mpDetailSettings').textContent=p.server+(s.remoteHost?' to Hyper-V host '+(s.node||s.remoteHost)+(s.node&&s.node.toLowerCase()!==s.remoteHost.toLowerCase()?' in '+s.remoteHost:'')+', run from this computer':' to this Hyper-V host')+' · sync every '+mpDuration(s.syncMinutes*60)+' · '+s.concurrency+' at once · bandwidth '+p.throttle+(mpTime(s.startAt)?' · starts '+mpTime(s.startAt):'')+(s.cluster?' · highly available':'')+(s.disconnectSource?' · old VM disconnected after cutover':'')+(s.ejectMedia?' · CD/DVD images ejected before copying':'')+(s.fixUp?' · new VMs fixed up automatically':'');
+    byId('mpDetailSettings').textContent=p.server+(s.remoteHost?' to Hyper-V host '+(s.node||s.remoteHost)+(s.node&&s.node.toLowerCase()!==s.remoteHost.toLowerCase()?' in '+s.remoteHost:'')+', run from this computer':' to this Hyper-V host')+' · sync every '+mpDuration(s.syncMinutes*60)+' · '+s.concurrency+' at once · bandwidth '+p.throttle+(mpTime(s.startAt)?' · starts '+mpTime(s.startAt):'')+(s.cluster?' · highly available':'')+(s.disconnectSource?' · old VM disconnected after cutover':'')+(s.keepSourceName?'':' · old VM renamed MIGRATED after cutover')+(s.ejectMedia?' · CD/DVD images ejected before copying':'')+(s.fixUp?' · new VMs fixed up automatically':'');
     var sum=byId('mpSummary');sum.textContent='';
     mpTiles.forEach(function(t){var n=p.summary[t[0]]||0;var b=el('button','mp-stat'+(n&&t[2]?' '+t[2]:''));b.type='button';b.setAttribute('data-mp-filter',t[0]);b.setAttribute('aria-pressed',mpFilter===t[0]&&t[0]!=='total'?'true':'false');b.appendChild(el('strong','',formatCount(n)));b.appendChild(el('span','',t[1]));b.title='Show '+(t[0]==='total'?'every VM':t[1].toLowerCase()+' VMs');sum.appendChild(b);});
     byId('mpAdvice').textContent=mpAdvice(p);

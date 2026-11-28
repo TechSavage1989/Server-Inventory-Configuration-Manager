@@ -60,6 +60,18 @@ type vmCopyProgress struct {
 	// BytesSent is what crossed the network after compression, when the
 	// sink sends over a network.
 	BytesSent int64 `json:"bytesSent,omitempty"`
+	// VerifyDone and VerifyTotal count the chunks read back while a
+	// finished copy is verified; VerifyTotal is 0 until verify starts.
+	VerifyDone  int `json:"verifyDone,omitempty"`
+	VerifyTotal int `json:"verifyTotal,omitempty"`
+}
+
+type vmVerifyProgressKey struct{}
+
+// vmWithVerifyProgress gives vmVerifyCopy a function to report how many
+// chunks it has read back, so a long verify is not a silent 100%.
+func vmWithVerifyProgress(ctx context.Context, progress func(done, total int)) context.Context {
+	return context.WithValue(ctx, vmVerifyProgressKey{}, progress)
 }
 
 // vmSentCounter is a sink that counts the bytes it sent over the network.
@@ -432,7 +444,22 @@ func vmCopyTo(ctx context.Context, source vmCopySource, sink vmCopySink, options
 	if options.Activity != nil {
 		options.Activity("finishing")
 	}
-	final, err := sink.Finish(ctx, state, options.Verify)
+	finishCtx := ctx
+	if options.Verify {
+		lastReport := time.Time{}
+		finishCtx = vmWithVerifyProgress(ctx, func(done, total int) {
+			if options.Activity != nil {
+				options.Activity("verifying")
+			}
+			if done < total && time.Since(lastReport) < time.Second {
+				return
+			}
+			lastReport = time.Now()
+			progress.VerifyDone, progress.VerifyTotal = done, total
+			report()
+		})
+	}
+	final, err := sink.Finish(finishCtx, state, options.Verify)
 	if err != nil {
 		return nil, err
 	}
@@ -571,9 +598,17 @@ func vmReadFull(ctx context.Context, source io.ReaderAt, p []byte, offset int64,
 // chunk against the hash recorded when it was copied.
 func vmVerifyCopy(ctx context.Context, disk io.ReaderAt, state *vmCopyState) error {
 	buffer := make([]byte, state.ChunkSize)
+	report, _ := ctx.Value(vmVerifyProgressKey{}).(func(done, total int))
+	total := len(state.Hashes)
+	if report != nil {
+		report(0, total)
+	}
 	for index, want := range state.Hashes {
 		if err := ctx.Err(); err != nil {
 			return err
+		}
+		if report != nil && index > 0 && index%16 == 0 {
+			report(index, total)
 		}
 		offset := int64(index) * state.ChunkSize
 		length := state.ChunkSize
@@ -592,6 +627,9 @@ func vmVerifyCopy(ctx context.Context, disk io.ReaderAt, state *vmCopyState) err
 		if got != want {
 			return fmt.Errorf("verification failed at %s: the copy does not match the source", vmFormatBytes(offset))
 		}
+	}
+	if report != nil {
+		report(total, total)
 	}
 	return nil
 }

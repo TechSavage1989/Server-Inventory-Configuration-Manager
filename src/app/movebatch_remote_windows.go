@@ -197,7 +197,7 @@ func (t *mbHostTarget) remoteCreate(ctx context.Context, plan *mbPlan, vm *mbVM,
 	connect := vmConnectOptions{Server: a.vmware.server, User: a.vmware.account, Password: a.vmware.password, Thumbprint: a.vmware.thumbprint, UserAgent: displayName + " " + appVersion, AppVersion: appVersion}
 	a.mu.Unlock()
 	notes = append(notes, "Created on "+node+".")
-	notes = append(notes, a.afterCutover(ctx, m, result.HyperVID, node, plan.Settings.StartVMs, plan.Settings.DisconnectSource, plan.Settings.FixUp, connect,
+	notes = append(notes, a.afterCutover(ctx, m, result.HyperVID, node, plan.Settings.StartVMs, plan.Settings.DisconnectSource, plan.Settings.KeepSourceName, plan.Settings.FixUp, connect,
 		filepath.Join(a.vmwareRoot(), safeName(strings.ToLower(plan.Server)), "Move"), plan.Name, log)...)
 	return result.HyperVID, notes, nil
 }
