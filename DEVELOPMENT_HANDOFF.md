@@ -1,3 +1,7 @@
+## 3.3.2 release preparation — 2026-11-28
+
+The owner approved publishing 3.3.2 and a matching test build once role restores were in ("yes", 2026-11-28). 3.3.2 carries #235 (Move SQL databases, rule 72), #234 (restore collection packages fully on a new server, rule 74), #238 (read-ahead copies, free-space skip for sends and P2V, compressed VDDK, receiver and file share transfers, rule 73) and the README updates #237, #241 and #244. `appVersion`, `collectorVersion` and the collector's `$scriptVersion` are 3.3.2; notes in `docs/release-notes/3.3.2.md`; the published-upgrade check starts from 3.3.1 (#242). The matching test build is 3.3.3-test.1 from `test` (same features; numbered above 3.3.2 so Test-channel installs are offered it, rule 61).
+
 ## Unreleased: restore collection packages fully on a new server — 2026-11-28
 
 - Owner asked whether IIS restores fully working and then for every movable role to restore working on a different server. Audit result: firewall, registry, GPO, printers and NPS already moved; DHCP, DNS, tasks, ACLs, security policy and IIS were partial; roles, local accounts, shares and private keys were missing.
