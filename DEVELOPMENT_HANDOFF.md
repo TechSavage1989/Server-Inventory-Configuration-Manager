@@ -1,3 +1,8 @@
+## Unreleased: less data and less time for every copy — 2026-11-28
+
+- Copy engine reads and hashes ahead of writing (`vmCopyReadChunks`), Send disks and P2V conversion skip free NTFS space (`vmSkipFreeSpace`), VDDK reads ask for FastLZ compression, receivers advertise `deflate` and platform/remote Hyper-V sinks compress when they do, file share copies add Robocopy `/COMPRESS` where supported. AGENTS rule 73.
+- Tests: `go test -run 'TestCopyReadsAhead|TestCopyStops|TestPlatformReceiverSinks' ./src/app`. Not field-validated: VDDK FastLZ on real ESXi, Robocopy `/COMPRESS` between real servers, P2V free-space skip on a real server (covered by `TestConverterCopiesADiskOfThisComputer` on the runner).
+
 ## Unreleased: Move SQL databases — 2026-11-28
 
 - New tool **Move SQL databases** (Migration and replication > Move servers, and New migration's source *SQL Server databases*). Reads both SQL Servers, suggests per database backup and restore, log shipping or a distributed availability group (only for databases already in an AG, owner decision), carries logins with SIDs and passwords, Agent jobs, operators, linked servers and chosen server settings, tests, cuts over (now or scheduled), moves a DNS alias and rolls back. Rule 72.
