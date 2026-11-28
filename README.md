@@ -41,6 +41,7 @@ Version 3.3 brings all of that together in **Migration and replication**: **New 
 | Collect available server-role details without treating missing roles as present. | Open HTML offline, print retained report data, or use Word/text outputs. | Choose when to download, install, and restart. |
 | Export DHCP, NPS, print, IIS, DNS, firewall, registry and more for recovery. | See what a package can restore onto this server, and why anything cannot. | Restore chosen configuration with a rollback copy saved first. |
 | Move file shares from an old server: files, NTFS permissions and share settings. | Check space, folders and accounts before copying, and verify after cutover. | Copy while users keep working, then cut over with one final copy. |
+| Replace a domain controller: build a new DC like the old one, promote it, move the FSMO roles and time source, repoint DNS and DHCP, and demote the old one. | Every setting is suggested from the old DC with the reason, and the domain is checked before each phase. | Keep the old DC's IP address or the new one's, schedule each phase, and roll back until the old DC is retired. |
 | Move SQL Server databases to a new SQL Server with their logins (SIDs and passwords), Agent jobs and linked servers. | Each database gets a suggested way with the reason: backup and restore, log shipping or a distributed availability group. | Test a copy, cut over now or on schedule, move a DNS alias, and roll back to the old databases. |
 | Read a vCenter, ESXi or Hyper-V inventory and check each VM for Hyper-V, HyperCore, Nutanix AHV, Proxmox VE, Azure, EC2 or a physical server. | Plan waves, map networks and storage, check the new cluster's size or cloud quota, write a runbook. | Record a VM's settings before cutover, fix it up after, and compare before and after. |
 | Convert a VMDK, VHD, VHDX, qcow2 or raw disk to any of them, merging snapshot chains, add VirtIO or server drivers so Windows starts on its new platform, and send it straight to ESXi, Hyper-V, Proxmox VE, Nutanix or HyperCore as a new VM. Copy this computer's own disks the same way (P2V). | See the format, size, data and chain of a disk before converting it. | Stop and continue a conversion, or repeat it to copy only what changed. |
@@ -79,7 +80,7 @@ Try it in a browser, no install: the **[live demo](https://migrationmanager.tech
 ### Restore
 
 <table>
-  <tr><td width="50%"><b>Choose what to restore, with each blocked item's reason</b><br><img src="docs/images/restore-choose.png" alt="Choose what to restore, with each blocked item's reason" width="440"></td><td width="50%"><b>Restore progress, one item at a time</b><br><img src="docs/images/restore-progress.png" alt="Restore progress, one item at a time" width="440"></td></tr>
+  <tr><td width="50%"><b>Choose what to restore by category, nothing ticked for you, with each blocked item's reason</b><br><img src="docs/images/restore-choose.png" alt="Choose what to restore by category, with each blocked item's reason" width="440"></td><td width="50%"><b>Restore progress, one item at a time</b><br><img src="docs/images/restore-progress.png" alt="Restore progress, one item at a time" width="440"></td></tr>
   <tr><td colspan="2"><b>Restore onto a new server: unlock the migration bundle, map the old server's addresses and drives to this one, and type each account's password</b><br><img src="docs/images/restore-new-server.png" alt="Restore tab with the migration bundle unlocked, Changes for this server mapping 10.0.0.5 and drive E: to this server, and a password field for a local account" width="880"></td></tr>
 </table>
 
@@ -205,6 +206,7 @@ Every migration and replication tool lives in one **Migration and replication** 
 | Disks | **Start VMs from copies** | Test failover and the production VM on Hyper-V. | The Hyper-V host receiving the copies |
 | Disks | **Move file shares** | Shares, files and permissions to a new file server: this computer or another server. | The new file server, or any admin computer |
 | Move servers | **Move SQL databases** | Databases, logins, jobs and linked servers to a new SQL Server: backup and restore, log shipping or a distributed availability group. | Your admin computer; nothing installed on the SQL Servers |
+| Move servers | **Move a domain controller** | A new DC built like the old one, promoted, given the FSMO roles and DNS and DHCP clients, then the old DC demoted. | Your admin computer; nothing installed on the DCs |
 | Disks | **Convert disk images** | VMDK, VHD, VHDX, qcow2 and raw, with Windows fix-ups and Send to a host. | Any computer that reaches the files |
 | Any computer, nothing installed in the machine | **Prepare and fix up**, **Compare before and after** | Record settings, fix up the new machine (from vCenter, PowerShell Direct or PowerShell remoting; inside the machine as a fallback), and compare two inventories. | The Hyper-V host or your admin computer; any computer |
 
@@ -275,6 +277,14 @@ To rebuild a server's roles on different hardware or a new VM, tick **Prepare th
 
 On the new server, open the package on the **Restore** tab and type the passphrase. **Changes for this server** lists the old server's IP addresses and drives that this server lacks, each filled in with the closest match here and changeable; IIS bindings, website folders, share folders and permissions follow them, and the old server's local account names and SIDs become this server's. Type a password for each local user and for scheduled tasks that run as one. Roles and features are installed first in the same restore, so items that need a role are offered even before it is installed; if Windows needs a restart to finish, the restore says so.
 
+### Moving a server live
+
+The **Restore** tab can also take the old server's roles straight from it: choose **Restore from: Another server, live**, type the old server and **Look at the old server**. The app lists what it has (roles and features, IIS sites, website folders with their sizes, certificates, local users and groups, shares, DNS and DHCP) through PowerShell remoting, with nothing installed on it and nothing ticked. Pick what to move in each category (**Select all** picks everything), choose the new server (this one or another), and **Copy what I picked**: only the picks go into the migration bundle, sealed with a passphrase the app makes and keeps in memory, copied to the new server and checked there; then restore as usual. **Copy again** brings over only what changed. When the new server is ready, **Stop the sites on the old server** stops its IIS sites so nothing changes there any more; **Start them again** is the way back, and **Finish and remove the copies** cleans up both servers.
+
+<p align="center"><b>Move a server live: look at the old server, then pick what moves</b><br><img src="docs/images/restore-live-pick.png" alt="Move a server live: the old server's roles, sites, website folders and certificates listed, with only the picked ones copied" width="900"></p>
+
+New migration offers the same move as *A Windows server's roles* → *A new Windows server*, with the steps in order: **Move a server live** reads the old server while it runs, and **Restore a package on a new server** uses a package collected with *Prepare this package for a new server*. **Continue in Restore** opens the Restore tab on the chosen source.
+
 ## Move SQL databases to a new SQL Server
 
 **Move SQL databases** (in **Migration and replication**, or New migration's *SQL Server databases*) moves databases rather than the whole server. Type the old and new SQL Servers and **Read both servers**: reading changes nothing. Connect as your current sign-in (it needs sysadmin on both), a different Windows account (used on the SQL Server's own computer through PowerShell remoting) or a SQL Server login. Passwords are kept in memory only.
@@ -288,6 +298,16 @@ On the new server, open the package on the **Restore** tab and type the passphra
 - **Roll back** takes the new copy offline (it is never deleted) and brings the old database back online. Changes made on the new server since the cutover are not on the old one.
 
 The plan runs while the application is open on that computer, like Migration plans.
+
+## Replace a domain controller
+
+**Move a domain controller** (in **Migration and replication**, or New migration's *A domain controller*) replaces a domain controller with a new server you installed (Windows Server 2016 or later with a static address; joined to the domain, or in a workgroup and joined by the plan). Type the old DC and the new server and **Read both servers**: reading changes nothing. Your current sign-in can read and check the domain; building, moving the roles and retiring need a Domain Admin account, kept in memory only.
+
+- **Every setting is suggested from the old DC**, with the reason, and marked **Suggested** until you change it: site, DNS Server, global catalog, the DC to copy the directory from, the database, log and SYSVOL folders, the FSMO roles, the new PDC emulator's time source and the DNS forwarders.
+- **Address**: the new DC takes over the old DC's IP address after the old one is retired (pick this when devices have that address typed in; the old server gets a spare address you type), or keeps its own address while DHCP scopes and the other DCs are pointed at it.
+- **Check the domain** runs the domain controller checks on every DC (replication, SYSVOL, FSMO owners, time) and runs again before each phase; a failing replication or SYSVOL stops the plan before it changes anything.
+- **Build the new DC** joins the server if needed, adds AD DS, promotes it (it restarts once) and waits until it replicates and shares SYSVOL. **Move the roles** transfers the FSMO roles, sets the time source and repoints DHCP and DNS clients. **Retire the old DC** checks the domain through the new DC, then demotes the old one (or cleans up its records when it is dead) and moves the address if chosen. Each phase can run now or at a scheduled time.
+- **Roll back** puts the roles, DHCP, DNS client and time settings back until the old DC is retired; after that the tool lists the steps to go back. A domain controller is never copied or cloned.
 
 ## Move file shares to a new server
 

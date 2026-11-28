@@ -1,13 +1,30 @@
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory = $true)][string]$PackagePath,
+    [string]$PackagePath,
     [Parameter(Mandatory = $true)][string]$ResultPath,
     # Copy the files of IIS sites, applications and virtual directories, with
     # their NTFS permissions, into the bundle.
     [switch]$IncludeWebContent,
     # Website files larger than this in total are left out and listed.
     [ValidateRange(1, 2048)][int]$WebContentLimitGB = 10,
-    [string]$CancelPath
+    [string]$CancelPath,
+    # A live move between servers (Invoke-ServerMoveRemote.ps1) runs this
+    # engine inside the old server as a script block: -Embedded returns the
+    # exit code instead of ending the session, lines go to -LogPath (read by
+    # a second session), and -Passphrase replaces standard input, which a
+    # remote script block does not have. The passphrase travels inside the
+    # encrypted remoting session only, never on a command line.
+    [string]$LogPath,
+    [switch]$Embedded,
+    [string]$Passphrase,
+    # A live move first lists what the old server has (-ListOnly: nothing is
+    # copied or exported, no package is needed), then writes a bundle of only
+    # what the operator picked (-SelectionJson, rule 76): features, local
+    # users and groups, shares, certificates and website folders by name, IIS,
+    # DNS forwarders and zones and DHCP authorization. Without a selection
+    # everything is carried, as a collection's bundle always was.
+    [switch]$ListOnly,
+    [string]$SelectionJson
 )
 
 # Writes the migration bundle of an inventory package: what the restore needs
@@ -30,7 +47,11 @@ param(
 $ErrorActionPreference = 'Stop'
 try { [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false) } catch { }
 
-function Write-Line { param([string]$Text) [Console]::Out.WriteLine($Text); [Console]::Out.Flush() }
+function Write-Line {
+    param([string]$Text)
+    if ($LogPath) { [System.IO.File]::AppendAllText($LogPath, $Text + "`r`n", (New-Object System.Text.UTF8Encoding($false))); return }
+    [Console]::Out.WriteLine($Text); [Console]::Out.Flush()
+}
 function Write-Log { param([string]$Level, [string]$Message) Write-Line ('{0} [{1}] {2}' -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $Level, $Message) }
 
 function Write-Utf8File {
@@ -504,18 +525,89 @@ function Export-IisPasswords {
 
 # ------------------------------------------------------------------ main ----
 
+function Get-SelectionList {
+    param($Value)
+    if ($null -eq $Value) { return @() }
+    return @($Value | ForEach-Object { [string]$_ } | Where-Object { $_ })
+}
+
+function Test-Picked {
+    param([string[]]$List, [string]$Name)
+    foreach ($entry in $List) { if ([string]::Equals($entry, $Name, [System.StringComparison]::OrdinalIgnoreCase)) { return $true } }
+    return $false
+}
+
+function Write-Discovery {
+    # What the old server has, for the operator to pick from. Only reads.
+    $facts = Get-MachineFacts
+    $features = @()
+    if ((Get-Command Get-WindowsFeature -ErrorAction SilentlyContinue) -or (Get-Module -ListAvailable ServerManager)) {
+        try { Import-Module ServerManager -ErrorAction SilentlyContinue } catch { }
+        try { $features = @(Get-WindowsFeature | Where-Object { $_.Installed } | ForEach-Object { [ordered]@{ name = [string]$_.Name; displayName = [string]$_.DisplayName } }) } catch { Add-Warning ('Roles and features could not be read: ' + $_.Exception.Message) }
+    }
+    $accounts = Get-LocalAccounts
+    $users = @($accounts.users | Where-Object { -not $_.builtIn -and @('DefaultAccount', 'WDAGUtilityAccount', 'Guest') -notcontains [string]$_.name } | ForEach-Object { [ordered]@{ name = [string]$_.name; fullName = [string]$_.fullName; disabled = [bool]$_.disabled } })
+    $groups = @($accounts.groups | Where-Object { -not $_.builtIn -or @($_.members).Count } | ForEach-Object { [ordered]@{ name = [string]$_.name; builtIn = [bool]$_.builtIn; members = @($_.members).Count } })
+    $shares = @(Get-ShareDefinitions | Where-Object { -not $_.special } | ForEach-Object { [ordered]@{ name = [string]$_.name; path = [string]$_.path } })
+    $dns = Get-DnsSettings
+    $dhcp = Get-DhcpSettings
+    $iis = Get-IisSettings
+    $usedBy = @{}
+    foreach ($site in $iis.sites) { foreach ($binding in $site.bindings) { if ($binding.certificateHash) { if (-not $usedBy.ContainsKey($binding.certificateHash)) { $usedBy[$binding.certificateHash] = @() }; $usedBy[$binding.certificateHash] += ('IIS site ' + $site.name) } } }
+    $certificates = @(Get-CertificateFacts -UsedBy $usedBy | ForEach-Object { [ordered]@{ thumbprint = $_.thumbprint; subject = $_.subject; friendlyName = $_.friendlyName; notAfter = $_.notAfter; exportable = [bool]$_.exportable; usedBy = @($_.usedBy | Where-Object { $_ } | Select-Object -Unique) } })
+    $roots = @()
+    foreach ($root in $iis.contentRoots) {
+        $entry = [ordered]@{ path = $root; sizeBytes = [long]0; reason = '' }
+        $system = Test-SystemFolder -Path $root
+        if ($system) { $entry.reason = ('The folder is ' + $system + ', so it is never copied.') }
+        elseif (-not (Test-Path -LiteralPath $root -PathType Container)) { $entry.reason = 'The folder does not exist.' }
+        else { $entry.sizeBytes = Get-FolderSize -Path $root; if ($entry.sizeBytes -lt 0) { $entry.sizeBytes = 0; $entry.reason = 'The folder could not be read.' } }
+        $roots += $entry
+    }
+    $sites = @($iis.sites | ForEach-Object { [ordered]@{ name = [string]$_.name; bindings = @($_.bindings | ForEach-Object { [string]$_.protocol + ' ' + [string]$_.bindingInformation }) } })
+    $result = [ordered]@{
+        status = 'succeeded'; computer = $facts.computer; osCaption = $facts.osCaption
+        features = $features; users = $users; groups = $groups; shares = $shares
+        iis = [ordered]@{ installed = [bool]$iis.installed; sites = $sites; appPools = @($iis.appPools).Count; roots = $roots }
+        certificates = $certificates
+        dns = [ordered]@{ installed = [bool]$dns.installed; forwarders = @($dns.forwarders); zones = @($dns.zones | ForEach-Object { [ordered]@{ name = [string]$_.name; type = [string]$_.type } }) }
+        dhcp = [ordered]@{ installed = [bool]$dhcp.installed; authorized = [bool]$dhcp.authorized }
+        warnings = @($script:Warnings)
+    }
+    Write-Utf8File -Path $ResultPath -Text (ConvertTo-Json -InputObject $result -Depth 6)
+    Write-Log 'INFO' ('Found {0} role(s) and feature(s), {1} local user(s), {2} share(s), {3} IIS site(s), {4} certificate(s) and {5} website folder(s).' -f $features.Count, $users.Count, $shares.Count, $sites.Count, $certificates.Count, $roots.Count)
+}
+
 $exitCode = 0
 $bundleFolder = $null
 $workFolder = $null
+if ($ListOnly) {
+    try { Write-Discovery }
+    catch {
+        $exitCode = 1
+        Write-Log 'ERROR' $_.Exception.Message
+        try { Write-Utf8File -Path $ResultPath -Text (ConvertTo-Json -InputObject @{ status = 'failed'; message = $_.Exception.Message } -Compress) } catch { }
+    }
+    if ($Embedded) { return $exitCode }
+    exit $exitCode
+}
+$selection = $null
+if ($SelectionJson) { $selection = ConvertFrom-Json -InputObject $SelectionJson }
 try {
+    if (-not $PackagePath) { throw 'The package folder was not given.' }
     $package = [System.IO.Path]::GetFullPath($PackagePath).TrimEnd('\')
     if (-not (Test-Path -LiteralPath (Join-Path $package '00-Summary') -PathType Container)) { throw 'The package folder was not found.' }
     $bundleFolder = Join-Path $package '09-Migration-Bundle'
     if (Test-Path -LiteralPath $bundleFolder) { throw 'The package already has a migration bundle.' }
-    $line = [Console]::In.ReadLine()
-    $passphrase = ''
-    if ($line) { try { $passphrase = [string](ConvertFrom-Json -InputObject $line).passphrase } catch { } }
-    $line = $null
+    # PowerShell variable names ignore case: $passphrase IS the -Passphrase
+    # parameter, so it is only read from standard input when not embedded.
+    if ($Embedded) { $passphrase = [string]$Passphrase }
+    else {
+        $passphrase = ''
+        $line = [Console]::In.ReadLine()
+        if ($line) { try { $passphrase = [string](ConvertFrom-Json -InputObject $line).passphrase } catch { } }
+        $line = $null
+    }
     if ($passphrase.Length -lt 12) { throw 'The bundle passphrase must be at least 12 characters.' }
     New-Item -Path $bundleFolder -ItemType Directory -Force | Out-Null
     # Plain PFX files and keys exist only here, in a folder only SYSTEM and
@@ -543,10 +635,37 @@ try {
     Write-Log 'INFO' 'Reading IIS.'
     $iis = Get-IisSettings
     if (Test-Canceled) { throw 'Stopped by the operator.' }
+    # Every feature and local account SID stays listed (allFeatures,
+    # accountSids) so the restore can still name roles that move another way
+    # and map permissions of accounts that exist on the new server; only the
+    # picked ones are re-created.
+    $allFeatures = $features
+    $accountSids = @(@($accounts.users) + @($accounts.groups) | ForEach-Object { [ordered]@{ name = [string]$_.name; sid = [string]$_.sid } })
+    if ($selection) {
+        $pick = Get-SelectionList $selection.features
+        $features = @($features | Where-Object { Test-Picked $pick $_ })
+        $pickUsers = Get-SelectionList $selection.users
+        $pickGroups = Get-SelectionList $selection.groups
+        $accounts = @{ users = @($accounts.users | Where-Object { Test-Picked $pickUsers $_.name }); groups = @($accounts.groups | Where-Object { Test-Picked $pickGroups $_.name }); machineSid = $accounts.machineSid }
+        $pick = Get-SelectionList $selection.shares
+        $shares = @($shares | Where-Object { -not $_.special -and (Test-Picked $pick $_.name) })
+        $pickZones = Get-SelectionList $selection.dnsZones
+        if (-not $selection.dnsForwarders) { $dns.forwarders = @(); $dns.useRootHint = $true }
+        $dns.zones = @($dns.zones | Where-Object { Test-Picked $pickZones $_.name })
+        if (-not $selection.dnsForwarders -and -not $dns.zones.Count) { $dns.installed = $false }
+        if (-not $selection.dhcp) { $dhcp.authorized = $false }
+        if (-not $selection.iis) { $iis = [ordered]@{ installed = $false; configFolder = ''; encryptedValues = 0; sites = @(); appPools = @(); globalModules = @(); contentRoots = @() } }
+        else {
+            $pick = Get-SelectionList $selection.webRoots
+            $iis.contentRoots = @($iis.contentRoots | Where-Object { Test-Picked $pick $_ })
+        }
+        Write-Log 'INFO' ('Carrying what was picked: {0} role(s) and feature(s), {1} user(s), {2} group(s), {3} share(s), {4} website folder(s).' -f $features.Count, @($accounts.users).Count, @($accounts.groups).Count, $shares.Count, @($iis.contentRoots).Count)
+    }
 
     $usedBy = @{}
     foreach ($site in $iis.sites) { foreach ($binding in $site.bindings) { if ($binding.certificateHash) { if (-not $usedBy.ContainsKey($binding.certificateHash)) { $usedBy[$binding.certificateHash] = @() }; $usedBy[$binding.certificateHash] += ('IIS site ' + $site.name + ' (' + $binding.bindingInformation + ')') } } }
     $certificates = @(Get-CertificateFacts -UsedBy $usedBy)
+    if ($selection) { $pick = Get-SelectionList $selection.certificates; $certificates = @($certificates | Where-Object { Test-Picked $pick $_.thumbprint }) }
     $secrets = @{ schema = 1; pfx = @{}; iisPasswords = @() }
     foreach ($certificate in $certificates) {
         if (Test-Canceled) { throw 'Stopped by the operator.' }
@@ -587,7 +706,7 @@ try {
 
     $bundle = [ordered]@{
         schema = 1; createdAt = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss'); source = $facts
-        features = $features; localAccounts = $accounts; shares = $shares; tasks = $tasks; dns = $dns; dhcp = $dhcp; iis = $iis
+        features = $features; allFeatures = $allFeatures; accountSids = $accountSids; picked = [bool]$selection; localAccounts = $accounts; shares = $shares; tasks = $tasks; dns = $dns; dhcp = $dhcp; iis = $iis
         certificates = $certificates; warnings = @($script:Warnings)
     }
     Write-Utf8File -Path (Join-Path $bundleFolder 'Bundle.json') -Text (ConvertTo-Json -InputObject $bundle -Depth 10)
@@ -600,7 +719,7 @@ try {
 
     $summary = [ordered]@{
         status = 'succeeded'; bundlePath = $bundleFolder; features = $features.Count; localUsers = @($accounts.users).Count; localGroups = @($accounts.groups).Count
-        shares = @($shares | Where-Object { -not $_.special }).Count; iisSites = @($iis.sites).Count
+        shares = @($shares | Where-Object { -not $_.special }).Count; iisSites = @($iis.sites).Count; siteNames = @($iis.sites | ForEach-Object { [string]$_.name })
         certificatesInBundle = @($certificates | Where-Object { $_.inBundle }).Count; certificatesLeftOut = @($certificates | Where-Object { -not $_.inBundle }).Count
         iisPasswords = [int]$iis.passwordsInBundle; webContentFolders = @($content | Where-Object { $_.included }).Count; warnings = @($script:Warnings)
     }
@@ -618,4 +737,5 @@ catch {
 finally {
     if ($workFolder -and (Test-Path -LiteralPath $workFolder)) { Remove-Item -LiteralPath $workFolder -Recurse -Force -ErrorAction SilentlyContinue }
 }
+if ($Embedded) { return $exitCode }
 exit $exitCode

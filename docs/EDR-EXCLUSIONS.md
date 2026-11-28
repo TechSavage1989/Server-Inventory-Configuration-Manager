@@ -83,6 +83,21 @@ only when an operator starts them, on the computer running the console.
 
 ### Move file shares between two other servers
 
+On the **Restore** tab, **Restore from: Another server, live** moves a
+server's roles (IIS sites and files, certificates, local accounts, shares
+and the rest of the migration bundle) from an old server to a new one and
+installs nothing on either server:
+
+| Behaviour | Where | Why |
+| --- | --- | --- |
+| `powershell.exe -ExecutionPolicy RemoteSigned -File Invoke-ServerMoveRemote.ps1 -InputFromStdin` (signed script, never Bypass, no hidden-window or encoded-command flags; the account, the generated bundle passphrase and the restore's passwords arrive as one JSON line on standard input) | Admin computer (or the new server) | Opens two PowerShell remoting sessions to one server: one runs the bundle engine (old server) or the restore engine (new server) as script block text, the other reads its log every 2 seconds and passes Stop |
+| `Invoke-Command -ComputerName <old server>`, then `appcmd add backup` under the run's own name, a copy of it, and `appcmd delete backup` of that same name | Old server | The IIS configuration backup the restore uses, made the way the collector makes it |
+| `robocopy.exe /B` of website folders into the package, `icacls /save` of their permissions, `Export-PfxCertificate` of exportable certificates to a work folder protected to SYSTEM and Administrators that is always deleted | Old server | The migration bundle engine, as for **Prepare this package for a new server** |
+| `appcmd stop site` / `appcmd start site` for the named sites only, when the operator chooses Stop the sites or Start them again | Old server | Cutover and the way back |
+| `robocopy.exe /MIR` from `\\<old>\C$\ProgramData\Server Inventory and Migration Manager\Server-Move\<move>\Package` to the same folder on the new server, with `WNetAddConnection2` to each server's `IPC$` only when a different account was typed | Admin computer | Copies the package (only changes on a second copy) |
+| The restore engine's usual tools (`Install-WindowsFeature`, ADSI, `New-SmbShare`, `Import-PfxCertificate`, `appcmd restore backup`, `netsh http add sslcert`, `robocopy.exe`, `icacls /restore`) started from `wsmprovhost.exe` | New server | The restore, exactly as on the Restore tab of that server |
+| Data files only in `%ProgramData%\Server Inventory and Migration Manager\Server-Move\<OLD>_TO_<NEW>` (protected to SYSTEM and Administrators): the package (secrets sealed with a passphrase that exists only in the application's memory), restore rollback folders and a per-run folder that is removed | Both servers | Finish removes both packages |
+
 From an admin computer, **Move file shares** with **New server: Another server**
 installs nothing on either server:
 
@@ -218,7 +233,19 @@ Nothing is installed or started on either SQL Server.
 | `Invoke-SqlMigration.ps1 -Mode Dns`: `Invoke-Command -ComputerName <DNS server>` running the DnsServer cmdlets on one CNAME and `setspn` for the alias | The DNS server, only when an alias is moved | Points the alias at the new server and back on Roll back |
 | `BACKUP DATABASE` / `BACKUP LOG` and `RESTORE` by the SQL Server services to the backup share | Both SQL Servers | The copy itself; files are written by the SQL Server service accounts, not by this application |
 
-### VM console
+### Move a domain controller
+
+Nothing is installed or started on either domain controller, and no DC is
+ever copied or cloned.
+
+| Behaviour | Where | Why |
+| --- | --- | --- |
+| `powershell.exe -ExecutionPolicy RemoteSigned -File Invoke-DcMigration.ps1 -Mode ReadOld\|ReadNew\|Step\|Rollback` (signed script, never Bypass, no encoded command), input as one JSON line on standard input | The admin computer running the application | Reads both servers and runs each step |
+| `Invoke-Command -ComputerName` over WinRM (TCP 5985, Kerberos), running in `wsmprovhost.exe` | The old DC, the new server, the other DCs and DHCP servers | Runs the in-box AD DS cmdlets (`Install-WindowsFeature AD-Domain-Services`, `Test-`/`Install-ADDSDomainController`, `Move-ADDirectoryServerOperationMasterRole`, `Uninstall-ADDSDomainController`), `Add-Computer` for a workgroup server, DnsServer and DhcpServer cmdlets, `w32tm`, `dcdiag` and `repadmin` with the typed Domain Admin account passed to each cmdlet's own `-Credential` (no CredSSP) |
+| `Restart-Computer -Wait -For WinRM` from the admin computer | The new server after joining and promotion, the old server after demotion | Windows needs a restart for each; the admin computer is never restarted |
+| WMI `Win32_NetworkAdapterConfiguration.SetDNSServerSearchOrder` or `Set-DnsClientServerAddress`, and `New-NetIPAddress`/`Remove-NetIPAddress`, `ipconfig /registerdns` and a Netlogon restart, inside the WinRM session | The other DCs; both servers when the old address moves | Points DNS clients at the new DC and, if chosen, gives the new DC the old DC's address |
+| `Remove-ADObject` on the old DC's NTDS settings and server objects, run on the new DC | Active Directory, only when the old DC is marked dead | Metadata cleanup of a DC that will never start again |
+
 
 The console window shows a VM's screen inside the application. Nothing is
 installed or started in the VM.

@@ -14,6 +14,11 @@ function solidPNG(w,h,rgb){const zlib=require('zlib'),crcTable=[];for(let n=0;n<
  const rows=[];for(let y=0;y<h;y++){rows.push(0);for(let x=0;x<w;x++)rows.push(...rgb);}
  return Buffer.concat([Buffer.from([137,80,78,71,13,10,26,10]),chunk('IHDR',ihdr),chunk('IDAT',zlib.deflateSync(Buffer.from(rows))),chunk('IEND',Buffer.alloc(0))]).toString('base64');}
 // Synthetic restore scan: a different source server, one unavailable role, high-impact and domain-wide components and a multi-item registry export.
+function serverMoveDiscovery(){return {computer:'WEB01',osCaption:'Microsoft Windows Server 2016 Standard',features:[{name:'Web-Server',displayName:'Web Server (IIS)'},{name:'Web-Asp-Net45',displayName:'ASP.NET 4.6'},{name:'FileAndStorage-Services',displayName:'File and Storage Services'}],
+ users:[{name:'svc-shop',fullName:'Shop service',disabled:false}],groups:[{name:'Shop Editors',builtIn:false,members:1},{name:'Administrators',builtIn:true,members:2}],shares:[{name:'Data',path:'D:\\Data'}],
+ iis:{installed:true,sites:[{name:'Default Web Site',bindings:['http *:80:']},{name:'Shop',bindings:['https *:443:shop.example.com']}],appPools:2,roots:[{path:'C:\\inetpub\\wwwroot',sizeBytes:52428800,reason:''},{path:'D:\\Sites\\Shop',sizeBytes:1073741824,reason:''}]},
+ certificates:[{thumbprint:'AB12CD34',subject:'CN=shop.example.com',friendlyName:'',notAfter:'2027-06-30',exportable:true,usedBy:['IIS site Shop']},{thumbprint:'EF56AA78',subject:'CN=old.example.com',friendlyName:'',notAfter:'2027-01-31',exportable:false,usedBy:[]}],
+ dns:{installed:false,forwarders:[],zones:[]},dhcp:{installed:false,authorized:false},warnings:[]};}
 function restoreScanFixture(){return {sourceComputer:'FS-OLD-07',currentComputer:'SRV-DEMO-01',collectedAt:'2026-11-01 09:14',sameComputer:false,isAdministrator:true,manifestVerified:true,manifestMessage:'All 14 export files match the package manifest.',components:[
  {id:'DHCP',title:'DHCP Server',description:'Scopes, reservations, options and failover settings.',impact:'high',available:true,blockedReason:'',warnings:['Existing scopes with the same ID are replaced.'],items:[{id:'DHCP-config',title:'DHCP configuration',detail:'',available:true,blockedReason:'',defaultSelected:true}]},
  {id:'NPS',title:'Network Policy Server',description:'RADIUS clients and network policies.',impact:'high',available:false,blockedReason:'The Network Policy Server role is not installed on this server.',warnings:[],items:[{id:'NPS-config',title:'NPS configuration',detail:'',available:false,blockedReason:'The Network Policy Server role is not installed on this server.',defaultSelected:true}]},
@@ -85,12 +90,14 @@ const hvBuildJoinPlan={schema:1,name:'Join HVCLU01',source:'vcenter.example.com'
 const hvBuildNodeFacts={ok:true,facts:{computer:'HV2',caption:'Windows Server 2022 Datacenter',build:20348,productType:3,partOfDomain:true,domain:'example.com',cores:32,memoryBytes:274877906944,virtualization:true,features:{'Hyper-V':'Installed','Failover-Clustering':'Available'},adapters:[{name:'Embedded 1',status:'Up',mac:'00-15-5D-00-00-01',speedBits:1000000000,ips:['192.0.2.52/24'],gateway:true,vlanId:0},{name:'SLOT 1 Port 1',status:'Up',mac:'00-15-5D-00-01-01',speedBits:25000000000,ips:[]},{name:'SLOT 1 Port 2',status:'Up',mac:'00-15-5D-00-01-02',speedBits:25000000000,ips:[]},{name:'SLOT 3 Port 1',status:'Up',mac:'00-15-5D-00-03-01',speedBits:10000000000,ips:['10.0.40.22/24']}],switches:[],hostNics:[],disks:[],initiator:'iqn.1991-05.com.microsoft:hv2.example.com',warnings:[]}};
 async function fixture(browser,old=false){
  let saved=null,started=[],saveCalls=0,rejectStart=false,skipRequests=[],opens=[],restoreReject=null,restoreScanExtra=null,migrateReject={},vmwareReject={};const receiverPair={allowed:false};
- const logs=[],dialogs=[],errors=[],restoreCalls={browse:0,scan:[],start:[],cancel:0,tokens:[]},migrateCalls=[],vmwareCalls=[],convertCalls=[],replCalls=[],planCalls=[],serverCalls=[];const servers={rows:[],summary:{total:0,states:{},scheduled:0,methods:{}},bulk:{running:false,action:'',total:0,results:[]},hyperVHere:true,isAdministrator:true,local:{hyperV:true,computer:'HV01',running:false,folder:'',defaultFolder:'C:\\ClusterStorage\\Volume1\\Hyper-V\\Received',port:44380,addresses:['192.0.2.40']}};const plans={plans:[],inventory:{open:true,server:'vc01.example.com',serverType:'vCenter Server',live:true}};let convertReject={},convertSize=0;const pickCalls=[],outputRootCalls=[],profileCalls=[],profiles=[];let pickReject='';
+ const serverMoveCalls=[];const logs=[],dialogs=[],errors=[],restoreCalls={browse:0,scan:[],start:[],cancel:0,tokens:[]},migrateCalls=[],vmwareCalls=[],convertCalls=[],replCalls=[],planCalls=[],serverCalls=[];const servers={rows:[],summary:{total:0,states:{},scheduled:0,methods:{}},bulk:{running:false,action:'',total:0,results:[]},hyperVHere:true,isAdministrator:true,local:{hyperV:true,computer:'HV01',running:false,folder:'',defaultFolder:'C:\\ClusterStorage\\Volume1\\Hyper-V\\Received',port:44380,addresses:['192.0.2.40']}};const plans={plans:[],inventory:{open:true,server:'vc01.example.com',serverType:'vCenter Server',live:true}};let convertReject={},convertSize=0;const pickCalls=[],outputRootCalls=[],profileCalls=[],profiles=[];let pickReject='';
  const consoleCalls=[],consoleStreams=[],consoleOpt={needSignIn:'',caps:null};const uiCalls=[],vddkCalls=[],channelCalls=[],productionCalls=[];let vddk={folder:'',ready:false,loaded:false,message:'Off. Copies of running VMware VMs read whole disks through vSphere\'s export when the datastore refuses them.'};const state={ui:{schema:1,confirmStyle:'typed'},status:'idle',phase:'Ready',running:false,computerName:'SRV-DEMO-01',signedInAccount:'EXAMPLE\\operator',isAdministrator:true,powerShellVersion:'5.1',defaultOutputRoot:'C:\\Reports',update:{status:'current',title:'Up to date',message:'Installed v3.2.10. Latest v3.2.10.',canCheck:true},
   restore:{status:'idle',packages:{lastCollection:'',loadedReport:''},items:[],logs:[]},migrate:migrateIdle(),vmware:vmwareIdle(),convert:convertIdle()};
  const vm={inventory:null,plan:null,sizing:null,guest:null,compare:null};
  const rollbackCalls=[];
  const sqlCalls=[];
+ const dcCalls=[];
+ const dcFix=dcFixture();
  const sqlFix=sqlFixture();
  const failover={failovers:[],copies:[{name:'APP01-disk0.vhdx',size:107374182400,complete:true,verified:false,round:'a1@2026-11-25T14:19:23Z',job:'a1',recoveryPoint:'2026-11-25T14:19:23Z',updated:'2026-11-25T14:20:00Z',busy:false,generation:2,machine:{name:'APP01',cpus:6,memoryMB:12288,firmware:'uefi',adapters:2}},{name:'APP01-disk1.vhdx',size:536870912000,complete:true,verified:false,round:'a1@2026-11-25T14:19:23Z',job:'a1',recoveryPoint:'2026-11-25T14:19:23Z',updated:'2026-11-25T14:20:00Z',busy:false,generation:1},{name:'SQL01-disk0.vhdx',size:107374182400,complete:false,verified:false,updated:'2026-11-25T14:20:00Z',busy:true,generation:1}]};
  const targetTest={running:false,log:[],error:'',tests:[]};
@@ -138,6 +145,16 @@ async function fixture(browser,old=false){
    // Like preferences.go: the passphrase is not a saved option and the bundle is never remembered.
    const {bundlePassphrase,bundlePassphraseConfirm,...kept}=options;saved={schema:1,options:{...kept,includeSensitive:false,migrationBundle:false,exportCategories:options.exportCategories.filter(n=>n!=='NPS')}};
    send(200,{ok:true,preferencesSaved:true});return;
+  }
+  if(url.pathname.startsWith('/api/servermove/')){
+   let body='';for await(const chunk of req)body+=chunk;const data=body?JSON.parse(body):{},action=url.pathname.slice(16);serverMoveCalls.push({action,data});
+   if(action==='discover'){state.serverMove={...(state.serverMove||{}),status:'picking',step:'pick',message:'Pick what to move from '+data.old+'.',old:data.old,oldUser:data.oldUser,discoveredAt:'2026-11-28 10:10:00',discovery:serverMoveDiscovery(),logs:[]};send(202,{ok:true});return;}
+   if(action==='read'){const target=data.newIsHere?'SRV-DEMO-01':data.new,pkg=(data.newIsHere?'C:\\Users\\admin\\AppData\\Local\\Server Inventory Configuration Manager\\Server-Move\\WEB01_TO_SRV-DEMO-01':'C:\\ProgramData\\Server Inventory and Migration Manager\\Server-Move\\WEB01_TO_WEB02')+'\\Package\\WEB01_ServerInventory_20261128_101500';
+    state.serverMove={status:'ready',step:'check',message:'Copied. Checking the package on '+target+'.',old:data.old,new:target,newIsHere:!!data.newIsHere,oldUser:data.oldUser,newUser:data.newUser,includeFiles:!!(data.selection&&data.selection.webRoots.length),selection:data.selection,discovery:serverMoveDiscovery(),discoveredAt:'2026-11-28 10:10:00',limitGB:data.limitGB,packagePath:pkg,readAt:'2026-11-28 10:15:00',read:{features:12,localUsers:2,localGroups:1,shares:1,iisSites:2,siteNames:['Default Web Site','Shop'],certificatesInBundle:1,certificatesLeftOut:0,iisPasswords:2,webContentFolders:2,warnings:['Certificate CN=old.example.com is not in the bundle.'],sizeBytes:157286400},sites:['Default Web Site','Shop'],stoppedSites:[],logs:[{index:1,text:'2026-11-28 10:15:00 [INFO] Connected to WEB01.'}]};
+    state.restore={...state.restore,status:'ready',live:true,target,packagePath:pkg,scan:{...restoreScanFixture(),packagePath:pkg,sourceComputer:'WEB01',currentComputer:target,sameComputer:false}};send(202,{ok:true});return;}
+   if(action==='sites'){if(data.action==='stop'){state.serverMove.stoppedSites=state.serverMove.sites.slice();}else{state.serverMove.stoppedSites=[];}send(202,{ok:true});return;}
+   if(action==='forget'){state.serverMove={status:'idle',logs:[]};state.restore={...state.restore,status:'idle',live:false,scan:null,packagePath:''};send(200,{ok:true});return;}
+   send(404,{error:'unknown'});return;
   }
   if(url.pathname.startsWith('/api/restore/')){
    let body='';for await(const chunk of req)body+=chunk;restoreCalls.tokens.push(req.headers['x-app-token']);const data=body?JSON.parse(body):{},action=url.pathname.slice(13);
@@ -334,6 +351,19 @@ async function fixture(browser,old=false){
     send(200,{ok:true});return;}
    send(200,{ok:true});return;
   }
+  if(url.pathname.startsWith('/api/dc/')){
+   if(req.headers['x-app-token']!=='workspace-test'){send(403,{});return;}
+   const action=url.pathname.slice(8);let body='';for await(const chunk of req)body+=chunk;const data=body?JSON.parse(body):{};dcCalls.push({action,body:data});
+   if(action==='state'){send(200,{ok:true,dc:dcFix});return;}
+   if(action==='account'){if(data.dsrm){dcFix.hasDsrm=true;}if(data.password){dcFix.user=data.user;}send(200,{ok:true});return;}
+   if(action==='read'){Object.assign(dcFix,dcReadFixture());dcFix.message='Read DC01 and DC03.';send(202,{ok:true});return;}
+   if(action==='save'){const p=dcPlanFixture('d2',data.name,data.source,data.target);p.settings=data.settings;p.wave=data.wave;dcFix.plans.push(p);send(200,{ok:true,plan:p,checks:[]});return;}
+   const p=dcFix.plans.find(x=>x.id===data.id);
+   if(['run','rollback','delete'].includes(action)&&(!p||data.confirm!==p.name)){send(400,{ok:false,error:'Confirm the plan\'s name.'});return;}
+   if(action==='run'){dcFix.running[p.id]=data.phase;p.steps.health={state:'running'};send(202,{ok:true});return;}
+   if(action==='delete'){dcFix.plans=dcFix.plans.filter(x=>x!==p);send(200,{ok:true});return;}
+   send(200,{ok:true});return;
+  }
   if(url.pathname.startsWith('/api/rollback/')){
    if(req.headers['x-app-token']!=='workspace-test'){send(403,{});return;}
    const action=url.pathname.slice('/api/rollback/'.length);
@@ -354,7 +384,7 @@ async function fixture(browser,old=false){
  const url='http://127.0.0.1:'+server.address().port+'/';
  // A fixture that fails to load closes its own server and context; otherwise Node never exits and the job hangs until its timeout.
  try{await page.goto(url);await page.waitForFunction(()=>document.querySelector('#serverName').textContent==='SRV-DEMO-01');}catch(e){await context.close().catch(()=>{});server.close();throw new Error('Fixture page did not load ('+errors.concat(dialogs).join('; ')+'): '+e.message);}
- return {sqlCalls,sqlFix,consoleCalls,consoleStreams,consoleOpt,page,context,state,profiles,profileCalls,rollbackCalls,uiCalls,vddkCalls,channelCalls,productionCalls,pickCalls,outputRootCalls,rejectPick(message){pickReject=message},vm,repl,plans,planCalls,servers,serverCalls,failover,receiverPair,targetTest,replCalls,vmwareCalls,convertCalls,rejectConvert(action,message){convertReject[action]=message},setConvertSize(size){convertSize=size},rejectVmware(action,message){vmwareReject[action]=message},logs,dialogs,errors,started,skipRequests,opens,restoreCalls,migrateCalls,rejectMigrate(action,message){migrateReject[action]=message},rejectRestore(message){restoreReject=message},setRestoreScan(fn){restoreScanExtra=fn},get saved(){return saved},get saveCalls(){return saveCalls},reject(){rejectStart=true},async close(){assert.deepEqual(errors,[]);await context.close();await new Promise(r=>server.close(r));}};
+ return {serverMoveCalls,sqlCalls,sqlFix,dcCalls,dcFix,consoleCalls,consoleStreams,consoleOpt,page,context,state,profiles,profileCalls,rollbackCalls,uiCalls,vddkCalls,channelCalls,productionCalls,pickCalls,outputRootCalls,rejectPick(message){pickReject=message},vm,repl,plans,planCalls,servers,serverCalls,failover,receiverPair,targetTest,replCalls,vmwareCalls,convertCalls,rejectConvert(action,message){convertReject[action]=message},setConvertSize(size){convertSize=size},rejectVmware(action,message){vmwareReject[action]=message},logs,dialogs,errors,started,skipRequests,opens,restoreCalls,migrateCalls,rejectMigrate(action,message){migrateReject[action]=message},rejectRestore(message){restoreReject=message},setRestoreScan(fn){restoreScanExtra=fn},get saved(){return saved},get saveCalls(){return saveCalls},reject(){rejectStart=true},async close(){assert.deepEqual(errors,[]);await context.close();await new Promise(r=>server.close(r));}};
 }
 // Move SQL databases: a synthetic read of two servers and one plan.
 function sqlDbFixture(name,method,state){return {name,method,wave:0,state,facts:{name},nextTry:'0001-01-01T00:00:00Z',seeded:state==='ready'||state==='done'?'2026-11-28T08:00:00Z':'0001-01-01T00:00:00Z',lastRound:state==='ready'?'2026-11-28T09:45:00Z':'0001-01-01T00:00:00Z',cutoverAt:'0001-01-01T00:00:00Z',cutAt:state==='done'?'2026-11-28T09:00:00Z':'0001-01-01T00:00:00Z',testedAt:'0001-01-01T00:00:00Z',rolledBackAt:'0001-01-01T00:00:00Z'};}
@@ -370,6 +400,14 @@ function sqlReadView(){
   suggest:{backupPath:'\\\\OLDSQL\\E$\\Backup\\SIMM',backupWhy:'The old server\'s own backup folder through its administrative share.',dataPath:'D:\\Data',logPath:'L:\\Logs',pathWhy:'The new server\'s default data and log folders.',syncMinutes:15,syncWhy:'Every 15 minutes.',concurrency:2,aliasZone:'corp.example.com',objectsWhy:'Logins keep their SIDs and passwords.',disableJobs:true,disableJobWhy:'The old jobs are turned off at cutover.'},errors:{}};
 }
 function sqlFixture(){return {plans:[sqlPlanFixture('q1','Finance SQL',[sqlDbFixture('Payroll','logship','ready'),Object.assign(sqlDbFixture('Ledger','backup','failed'),{error:'The backup of Ledger failed: Operating system error 5 (Access is denied.) on \\\\OLDSQL\\E$\\Backup\\SIMM. Give the SQL Server service account write access to the folder and try again; nothing else was changed on either server.'})])],running:{},read:sqlReadView(),reading:false,message:'',failed:false,held:[],dnsUser:'',logs:['10:00:00  Finance SQL: shipped the log of Payroll (2 MB).'],ready:{},methods:{backup:'Backup and restore',logship:'Log shipping',dag:'Distributed availability group'},signedInAccount:'CORP\\admin',limits:{minSync:5,maxSync:1440}};}
+// Move a domain controller: a synthetic read of DC01 and DC03 and one plan half way.
+const dcNames={roles:{schema:'Schema master',naming:'Domain naming master',pdc:'PDC emulator',rid:'RID master',infrastructure:'Infrastructure master'},steps:{health:'Check the domain',join:'Join the domain',install:'Add AD DS',promote:'Promote',verify:'Check replication and SYSVOL',roles:'Move the FSMO roles',repoint:'Point DNS clients at the new DC',demote:'Demote the old DC',ipswap:'Move the old address'},phases:{build:'Build the new DC',cutover:'Move the roles',retire:'Retire the old DC',check:'Check the domain'},phaseSteps:{build:['health','join','install','promote','verify'],cutover:['health','roles','repoint'],retire:['health','demote','ipswap'],check:['health']},ipModes:{takeover:'Pick this when devices, printers or firewall rules have the old DC\'s IP address typed in.',repoint:'Pick this when the new DC is in another subnet, or you want both addresses to stay as they are.'}};
+function dcOldFixture(){return {name:'DC01',hostName:'dc01.corp.example.com',domain:'corp.example.com',netbios:'CORP',forest:'corp.example.com',domainMode:'Windows2016Domain',forestMode:'Windows2016Forest',site:'HQ',sites:['HQ','Branch'],os:'Windows Server 2016 Standard',osVersion:'10.0 (14393)',globalCatalog:true,readOnly:false,dnsServer:true,dhcpServer:false,roles:['pdc','rid','infrastructure'],roleOwners:{schema:'dc02.corp.example.com',naming:'dc02.corp.example.com',pdc:'dc01.corp.example.com',rid:'dc01.corp.example.com',infrastructure:'dc01.corp.example.com'},forwarders:['198.51.100.53'],zones:['corp.example.com'],addresses:[{interface:'Ethernet',index:4,address:'10.0.0.10',prefix:24,gateway:'10.0.0.1',dns:['10.0.0.11','127.0.0.1']}],ntpServer:'time.example.com,0x9',timeType:'NTP',sysvol:'DFSR',databasePath:'C:\\Windows\\NTDS',logPath:'C:\\Windows\\NTDS',sysvolPath:'C:\\Windows\\SYSVOL',dcs:[{name:'DC01',hostName:'dc01.corp.example.com',site:'HQ',address:'10.0.0.10',globalCatalog:true},{name:'DC02',hostName:'dc02.corp.example.com',site:'HQ',address:'10.0.0.11',globalCatalog:true}],dhcpServers:['dhcp01.corp.example.com'],otherRoles:[]};}
+function dcNewFixture(){return {name:'DC03',hostName:'dc03.corp.example.com',os:'Windows Server 2022 Standard',osVersion:'10.0 (20348)',domainJoined:true,domain:'corp.example.com',isDC:false,addsInstalled:false,dnsInstalled:false,pendingReboot:false,freeGB:88.4,addresses:[{interface:'Ethernet',index:6,address:'10.0.0.20',prefix:24,gateway:'10.0.0.1',dns:['10.0.0.10','10.0.0.11']}]};}
+function dcSettingsFixture(){return {site:'HQ',installDns:true,globalCatalog:true,replicateFrom:'dc01.corp.example.com',databasePath:'C:\\Windows\\NTDS',logPath:'C:\\Windows\\NTDS',sysvolPath:'C:\\Windows\\SYSVOL',moveRoles:['pdc','rid','infrastructure'],ntpServer:'time.example.com',forwarders:['198.51.100.53'],ipMode:'takeover',oldNewAddress:'',oldNewPrefix:24,oldNewGateway:'10.0.0.1',repoint:true,oldDead:false,suggested:{site:true,installDns:true,globalCatalog:true,replicateFrom:true,paths:true,moveRoles:true,ntpServer:true,forwarders:true,ipMode:true,oldNewAddress:true,repoint:true},why:{site:'The old DC is in site HQ, so the new one serves the same clients.',installDns:'The old DC is a DNS server.',globalCatalog:'The old DC is a global catalog.',replicateFrom:'The first copy of the directory comes from the old DC, which has passed the checks.',paths:'The same folders as on the old DC.',moveRoles:'Every FSMO role the old DC holds moves to the new one before it is demoted.',ntpServer:'The old PDC emulator takes its time from time.example.com; the new PDC uses the same source.',forwarders:'The same DNS forwarders as the old DC.',ipMode:'Devices with the old DC\'s address typed in keep working.',oldNewAddress:'Type a free address in the old DC\'s subnet for the old server; the new DC takes 10.0.0.10.',repoint:'DHCP scopes and the other DCs are pointed at the new DC\'s address.'}};}
+function dcPlanFixture(id,name,source,target){const st=s=>({state:s,started:'0001-01-01T00:00:00Z',ended:'0001-01-01T00:00:00Z'});return {id,name,created:'2026-11-28T08:00:00Z',source:source||'DC01',target:target||'DC03',user:'CORP\\admin',old:dcOldFixture(),new:dcNewFixture(),settings:dcSettingsFixture(),steps:{health:st('done'),join:st('skipped'),install:st('done'),promote:st('done'),verify:st('done'),roles:st('pending'),repoint:st('pending'),demote:st('pending'),ipswap:st('pending')},health:[{dc:'dc01.corp.example.com',checkedAt:'2026-11-28T09:00:00Z',findings:[]},{dc:'dc02.corp.example.com',checkedAt:'2026-11-28T09:00:00Z',findings:[]}],wave:1,rolledBackAt:'0001-01-01T00:00:00Z'};}
+function dcReadFixture(){return {readOld:dcOldFixture(),readNew:dcNewFixture(),readFor:['DC01','DC03'],suggest:dcSettingsFixture(),preview:[{severity:'info',code:'dc-new-older',message:'Nothing blocks this plan.',action:''}]};}
+function dcFixture(){return Object.assign({plans:[dcPlanFixture('d1','HQ DC refresh')],running:{},ready:{},checks:{d1:[]},rollback:{d1:''},guide:{d1:[]},readOld:null,readNew:null,readFor:['',''],reading:false,message:'',failed:false,user:'CORP\\admin',joinUser:'',hasDsrm:true,hasLocal:false,hasNewLocal:false,signedInAccount:'CORP\\admin',logs:['09:00:00  HQ DC refresh: DC03 is a domain controller and replicates.'],suggest:null,preview:[]},dcNames);}
 // Tools live in two tabs: Discovery (Alt+1) and Migration and replication (Alt+5).
 const discoveryTools=['server','environment'];
 // apartControls finds controls pulled apart on wide windows: a tick box or
@@ -650,7 +688,7 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   await f.page.waitForFunction(()=>document.querySelector('#copyReportPathButton').textContent==='Copied');assert.equal(await f.page.evaluate(()=>navigator.clipboard.readText()),f.state.loadedReportPath);assert.deepEqual(f.dialogs,[]);
  }finally{await f.close();}});
  const latest='C:\\Reports\\SRV-DEMO-01_20261101_0914';
- const loadRestore=async f=>{f.state.restore.packages={lastCollection:latest,loadedReport:''};await f.page.keyboard.press('Alt+4');await f.page.waitForFunction(()=>!document.querySelector('#restoreUseLatest').disabled);await f.page.locator('#restoreUseLatest').click();await f.page.waitForFunction(()=>document.querySelectorAll('.restore-component').length===5);};
+ const loadRestore=async f=>{f.state.restore.packages={lastCollection:latest,loadedReport:''};await f.page.keyboard.press('Alt+4');await f.page.waitForFunction(()=>!document.querySelector('#restoreUseLatest').disabled);await f.page.locator('#restoreUseLatest').click();await f.page.waitForFunction(()=>document.querySelectorAll('.restore-component').length===5);await f.page.locator('#restoreCatsNone').click();assert.equal(await f.page.locator('#restoreSelectionSummary').textContent(),'No items selected.');};
  const pick=async(f,id)=>{await f.page.locator('input[data-restore-component="'+id+'"]').check();};
  await check('Restore tab: Alt+4, arrow keys and the shortcuts list reach it; package buttons follow available packages',async()=>{const f=await fixture(browser);try{
   assert.equal(await f.page.locator('#restoreTabBadge').textContent(),'Ready');
@@ -681,6 +719,83 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   await f.page.waitForTimeout(1100);assert(await item('reg-spooler').isChecked(),'selection survives polls');assert(await card.locator('details').evaluate(e=>e.open),'item list stays open across polls');
   await item('reg-lanman').uncheck();await item('reg-spooler').uncheck();assert(!await parent.isChecked(),'unchecking every item unchecks the component');assert.equal(await f.page.locator('#restoreSelectionSummary').textContent(),'No items selected.');
   await item('reg-spooler').check();assert(await parent.isChecked());await parent.uncheck();assert(!await item('reg-spooler').isChecked());assert.deepEqual(f.dialogs,[]);
+ }finally{await f.close();}});
+ await check('What to restore: nothing is ticked for you; package categories pick their items once checked, and a live move looks at the old server first and copies only what was picked',async()=>{const f=await fixture(browser);try{
+  f.state.restore.packages={lastCollection:latest,loadedReport:''};await f.page.keyboard.press('Alt+4');
+  const cat=k=>f.page.locator('input[data-restore-cat="'+k+'"]'),count=k=>f.page.locator('[data-restore-cat-count="'+k+'"]');
+  assert(await f.page.locator('#restoreWhat').isVisible());assert.equal(await f.page.locator('#restoreWhatLabel').textContent(),'What to restore');
+  for(const k of ['features','iis','webfiles','certificates','accounts','shares','dns','dhcp','other'])assert(!await cat(k).isChecked(),k+' starts unticked');
+  await cat('dhcp').check();
+  const before=await f.page.locator('#restoreUseLatest').boundingBox();
+  await f.page.waitForFunction(()=>!document.querySelector('#restoreUseLatest').disabled);await f.page.locator('#restoreUseLatest').click();await f.page.waitForFunction(()=>document.querySelectorAll('.restore-component').length===5);
+  assert.deepEqual(await f.page.locator('#restoreUseLatest').boundingBox(),before,'checking the package moves nothing above it');
+  assert(await f.page.locator('input[data-restore-component="DHCP"]').isChecked(),'DHCP is ticked because its category was chosen');
+  assert(!await f.page.locator('input[data-restore-component="Printers"]').isChecked());assert(!await f.page.locator('input[data-restore-component="GPO"]').isChecked());
+  assert.equal(await count('dhcp').textContent(),'1 of 1 chosen');assert.equal(await count('dns').textContent(),'None in this package');assert(await cat('dns').isDisabled());
+  assert.equal(await f.page.locator('#restoreSelectionSummary').textContent(),'1 item in 1 component selected.');
+  await cat('other').check();assert(await f.page.locator('input[data-restore-component="Printers"]').isChecked());
+  assert.equal(await f.page.locator('.restore-component[data-component="Registry"] summary').textContent(),'1 of 3 items selected','a ticked category only picks default items');assert(await cat('other').evaluate(e=>e.indeterminate));
+  await f.page.locator('input[data-restore-component="DHCP"]').uncheck();assert(!await cat('dhcp').isChecked(),'the category follows its items');assert.equal(await count('dhcp').textContent(),'0 of 1 chosen');
+  assert.equal(await f.page.locator('#restoreCatsAll').textContent(),'Select all');
+  await f.page.locator('#restoreCatsAll').click();assert(await cat('dhcp').isChecked());await f.page.locator('#restoreCatsNone').click();assert.equal(await f.page.locator('#restoreSelectionSummary').textContent(),'No items selected.');
+  assert.equal(await f.page.evaluate(()=>localStorage.getItem('simm.restore.want')),null,'choices are not remembered as defaults');
+  // Live: look first, then pick, then copy only the picks.
+  await f.page.locator('#restoreFromLive').check();assert.equal(await f.page.locator('#restoreWhatLabel').textContent(),'What to move');
+  assert(await f.page.locator('#restoreSummary').isHidden(),'the package folder\'s check is not shown under a live move');assert(await f.page.locator('#restoreReviewButton').isDisabled());
+  assert.equal(await count('features').textContent(),'Look at the old server first');assert(await cat('features').isDisabled());assert(await f.page.locator('#restoreCatsAll').isDisabled());
+  const look=f.page.locator('#rlLook'),copy=f.page.locator('#rlRead');
+  assert(await look.isDisabled());await f.page.locator('#rlOld').fill('web01.example.com');assert(await look.isEnabled());
+  assert(await copy.isDisabled());assert.equal(await f.page.locator('#rlWhy').textContent(),'Look at web01.example.com first, then pick what to move.');
+  const y=async sel=>(await f.page.locator(sel).boundingBox()).y;assert(await y('#rlLook')<await y('#restoreWhat')&&await y('#restoreWhat')<await y('#rlRead'),'Look, then the picks, then Copy');
+  await look.click();await f.page.waitForTimeout(1100);
+  assert.deepEqual(f.serverMoveCalls[0],{action:'discover',data:{old:'web01.example.com',oldUser:'',oldPassword:'',keepAccounts:true}});
+  for(const k of ['features','iis','webfiles','certificates','accounts','shares'])assert(!await cat(k).isChecked(),k+' is listed but not ticked');
+  assert.equal(await count('features').textContent(),'0 of 3 picked');assert.equal(await count('certificates').textContent(),'0 of 1 picked');assert.equal(await count('dns').textContent(),'None on the old server');assert.equal(await count('other').textContent(),'Not moved live');
+  assert(await copy.isDisabled());assert.equal(await f.page.locator('#rlWhy').textContent(),'Pick at least one thing to move.');
+  const item=k=>f.page.locator('input[data-rl-item="'+k.replace(/\\/g,'\\\\')+'"]');
+  await f.page.locator('[data-rl-items="webfiles"] summary').click();await item('w:D:\\Sites\\Shop').check();
+  assert(await item('iis').isChecked(),'a website folder picks IIS with it');assert.equal(await count('webfiles').textContent(),'1 of 2 picked, 1.0 GB');
+  await f.page.waitForTimeout(1100);assert(await f.page.locator('[data-rl-items="webfiles"]').evaluate(e=>e.open),'an open list stays open across polls');assert(await item('w:D:\\Sites\\Shop').isChecked(),'picks survive polls');
+  await cat('iis').uncheck();assert(!await item('w:D:\\Sites\\Shop').isChecked(),'unpicking IIS unpicks its website files');
+  await f.page.locator('[data-rl-items="certificates"] summary').click();assert(await item('c:EF56AA78').isDisabled(),'a certificate whose key cannot be exported cannot be picked');assert(/not exportable/.test(await f.page.locator('[data-rl-list="certificates"]').textContent()));
+  await f.page.locator('#rlLimit').fill('1');await item('w:D:\\Sites\\Shop').check();await item('w:C:\\inetpub\\wwwroot').check();assert(await copy.isDisabled());assert(/more than the 1 GB limit/.test(await f.page.locator('#rlWhy').textContent()));
+  await f.page.locator('#rlLimit').fill('10');await cat('features').check();await f.page.locator('[data-rl-items="accounts"] summary').click();await item('u:svc-shop').check();
+  assert.equal(await copy.textContent(),'Copy what I picked: 7 items');assert(await copy.isEnabled());
+  await copy.click();await f.page.waitForTimeout(1100);
+  const sent=f.serverMoveCalls[1];assert.equal(sent.action,'read');
+  assert.deepEqual(sent.data.selection,{features:['Web-Server','Web-Asp-Net45','FileAndStorage-Services'],iis:true,webRoots:['D:\\Sites\\Shop','C:\\inetpub\\wwwroot'],certificates:[],users:['svc-shop'],groups:[],shares:[],dnsForwarders:false,dnsZones:[],dhcp:false});
+  assert.equal(sent.data.includeFiles,undefined);
+  await f.page.locator('#restoreFromPackage').check();assert(await f.page.locator('#rlLimit').isHidden(),'the size limit is only for a live move');assert(await f.page.locator('[data-rl-items="features"]').isHidden());
+  assert.deepEqual(f.dialogs,[]);
+ }finally{await f.close();}});
+ await check('Move a server live: read the old server, copy, check and restore on the new server, then stop and start its sites',async()=>{const f=await fixture(browser);try{
+  await f.page.locator('#tabButtonRestore').click();
+  assert(await f.page.locator('#restoreLive').isHidden());await f.page.locator('#restoreFromLive').check();
+  assert(await f.page.locator('#restorePackageSource').isHidden());assert(await f.page.locator('#restoreLive').isVisible());
+  const read=f.page.locator('#rlRead');assert(await read.isDisabled());assert.equal(await f.page.locator('#rlWhy').textContent(),'Type the old server\u2019s name.');
+  await f.page.locator('#rlOld').fill('web01.example.com');assert(await read.isDisabled());await f.page.locator('#rlLook').click();await f.page.waitForTimeout(1100);
+  await f.page.locator('#restoreCatsAll').click();assert(!await read.isDisabled());
+  assert(await f.page.locator('#rlNewField').isHidden());await f.page.locator('#rlNewOther').check();assert(await f.page.locator('#rlNewField').isVisible());assert(await read.isDisabled());
+  await f.page.locator('#rlNew').fill('WEB02');await f.page.locator('#rlNewSignInOther').check();assert(await read.isDisabled());
+  await f.page.locator('#rlNewUser').fill('EXAMPLE\\admin');await f.page.locator('#rlNewPassword').fill('Pass-for-test');await read.click();await f.page.waitForTimeout(1100);
+  const call=f.serverMoveCalls[1];assert.equal(call.action,'read');const {selection,...rest}=call.data;assert.deepEqual(rest,{old:'web01.example.com',oldUser:'',oldPassword:'',newIsHere:false,'new':'WEB02',newUser:'EXAMPLE\\admin',newPassword:'Pass-for-test',keepAccounts:true,limitGB:10});
+  assert.equal(selection.webRoots.length,2);assert.deepEqual(selection.certificates,['AB12CD34']);assert.deepEqual(selection.groups,['Shop Editors','Administrators']);
+  assert.equal(await f.page.locator('#rlNewPassword').inputValue(),'');
+  const summary=await f.page.locator('#rlSummary').textContent();assert(/Read from web01\.example\.com at 2026-11-28 10:15:00\. 2 IIS sites, 2 website folders, 1 certificate with private keys, 2 IIS passwords/.test(summary),summary);assert(/150 MB copied to WEB02/.test(summary),summary);
+  assert.equal(await f.page.locator('#restoreTarget').textContent(),'WEB02');assert(await f.page.locator('#restoreSummary').isVisible());
+  assert.equal(await read.textContent(),'Copy again: 11 items');
+  await f.page.locator('#restoreComponents input[type=checkbox]').first().check();await f.page.locator('#restoreReviewButton').click();
+  assert(/WEB02/.test(await f.page.locator('#restoreConfirmLabel').textContent()));await f.page.locator('#restoreConfirmInput').fill('web02');await f.page.locator('#restoreConfirmButton').click();await f.page.waitForTimeout(600);
+  assert.equal(f.restoreCalls.start[0].confirmComputerName,'web02');assert(/WEB01_ServerInventory_20261128_101500$/.test(f.restoreCalls.start[0].packagePath));
+  f.state.restore={...f.state.restore,status:'succeeded',endedAtUnixMs:Date.now()};await f.page.waitForTimeout(1100);
+  await f.page.locator('#restoreAgainButton').click().catch(()=>{});
+  const stop=f.page.locator('#rlStopSites');assert.equal(await stop.textContent(),'Stop the 2 sites on web01.example.com\u2026');assert(await f.page.locator('#rlStartSites').isDisabled());
+  await stop.click();assert(/Default Web Site/.test(await f.page.locator('#migrateDialogText').textContent()));await f.page.locator('#migrateConfirmInput').fill('web01.example.com');await f.page.locator('#migrateConfirmButton').click();await f.page.waitForTimeout(1100);
+  assert.deepEqual(f.serverMoveCalls[2],{action:'sites',data:{action:'stop',sites:[],confirm:'web01.example.com'}});
+  assert(/Stopped on web01\.example\.com by this move: Default Web Site, Shop\./.test(await f.page.locator('#rlStopped').textContent()));assert(await f.page.locator('#rlForget').isDisabled());
+  await f.page.locator('#rlStartSites').click();await f.page.waitForTimeout(1100);assert.deepEqual(f.serverMoveCalls[3],{action:'sites',data:{action:'start',confirm:'web01.example.com'}});
+  assert(!await f.page.locator('#rlForget').isDisabled());await f.page.locator('#rlForget').click();await f.page.waitForTimeout(1100);assert.equal(f.serverMoveCalls[4].action,'forget');assert(await f.page.locator('#rlSummary').isHidden());
+  assert.deepEqual(f.dialogs,[]);
  }finally{await f.close();}});
  await check('Restore onto a new server: bundle passphrase, changes for this server and account passwords',async()=>{const f=await fixture(browser);try{
   // Fictional bundle: the old server used 10.0.0.5 and drive E:, which this server lacks.
@@ -1627,6 +1742,23 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   assert.deepEqual(await methods(),['sqlmove']);assert.equal(await f.page.locator('#gdPlanTitle').textContent(),'Moving SQL Server databases to a new SQL Server: the steps, in order');
   assert((await f.page.locator('#gdSteps').textContent()).includes('Choose databases and how each moves'));
   await f.page.locator('#nwNext').click();await f.page.waitForTimeout(200);assert(await f.page.locator('#tabSql').isVisible(),'Continue in opens Move SQL databases');
+  // A domain controller: one way, its steps, and the hand-off opens Move a domain controller.
+  await goTool(f,'wizard');await f.page.locator('[data-nw-step="0"]').click();await f.page.locator('[data-nw-source="dcs"]').click();await f.page.locator('#nwNext').click();await f.page.locator('[data-nw-target="dcnew"]').click();await f.page.locator('#nwNext').click();
+  assert.deepEqual(await methods(),['dcmove']);assert.equal(await f.page.locator('#gdPlanTitle').textContent(),'Replacing a domain controller with a new one: the steps, in order');
+  {const t=await f.page.locator('#gdSteps').textContent();assert(t.includes('Check the domain')&&t.includes('Retire the old DC'),t);}
+  await f.page.locator('#nwNext').click();await f.page.waitForTimeout(200);assert(await f.page.locator('#tabDc').isVisible(),'Continue in opens Move a domain controller');
+  // A Windows server's roles: live or from a package, each with its steps; Continue in opens Restore on that source.
+  await goTool(f,'wizard');await f.page.locator('[data-nw-step="0"]').click();await f.page.locator('[data-nw-source="roles"]').click();await f.page.locator('#nwNext').click();await f.page.locator('[data-nw-target="winserver"]').click();await f.page.locator('#nwNext').click();
+  assert.deepEqual(await methods(),['servermove','restorepkg']);assert.equal(await f.page.locator('#gdPlanTitle').textContent(),'Moving a Windows server\'s roles to a new server, live: the steps, in order');
+  {const t=await f.page.locator('#gdSteps').textContent();assert(t.includes('Look at the old server and pick what to move')&&t.includes('Stop the sites on the old server'),t);}
+  assert.equal(await f.page.locator('#nwNext').textContent(),'Continue in Restore');
+  await f.page.locator('[data-nw-method="restorepkg"]').click();
+  {const t=await f.page.locator('#gdSteps').textContent();assert(t.includes('Prepare this package for a new server')&&t.includes('Check the package on the new server'),t);}
+  await f.page.locator('#nwNext').click();await f.page.waitForTimeout(200);
+  assert(await f.page.locator('#tabRestore').isVisible(),'Continue in opens Restore');assert(await f.page.locator('#restoreFromPackage').isChecked(),'a package is the source');
+  await goTool(f,'wizard');await f.page.locator('[data-nw-step="2"]').click();await f.page.locator('[data-nw-method="servermove"]').click();
+  {const step=f.page.locator('#gdSteps li.gd-step').filter({hasText:'Look at the old server and pick what to move'}).first();await step.locator('.gd-head').click();await step.locator('[data-gd-open]').click();}await f.page.waitForTimeout(200);
+  assert(await f.page.locator('#tabRestore').isVisible(),'the step opens Restore');assert(await f.page.locator('#restoreFromLive').isChecked(),'Another server, live is chosen');assert(await f.page.locator('#rlOld').isVisible());
   await goTool(f,'wizard');
   f.state.vmware.hyperVHere=false;
   await f.page.locator('[data-nw-step="0"]').click();await f.page.locator('[data-nw-source="images"]').click();await f.page.locator('#nwNext').click();await f.page.locator('[data-nw-target="here"]').click();await f.page.locator('#nwNext').click();
@@ -2956,6 +3088,44 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   await f.page.waitForFunction(()=>/Cutting over/.test(document.querySelector('[data-sq-plan="q1"]').textContent));
   const cut=f.sqlCalls.find(c=>c.action==='action'&&c.body.action==='cutover');
   assert.deepEqual(cut.body.names,['Payroll']);assert.equal(cut.body.confirm,'1');
+  assert.deepEqual(f.errors,[]);
+ }finally{await f.close();}});
+ await check('Move a domain controller: both servers are read, every setting of the new DC is suggested with its reason, a changed one is marked Set by you, Save sends the settings, and a plan shows its phases with the next one confirmed by the plan name',async()=>{const f=await fixture(browser);try{
+  await goTool(f,'dcmove');await f.page.waitForSelector('[data-dc-plan="d1"]');
+  const plan=f.page.locator('[data-dc-plan="d1"]');
+  assert.match(await plan.textContent(),/DC01 to DC03/);
+  assert(await plan.locator('[data-dc-act="run"][data-dc-phase="build"]').isDisabled(),'build is done');
+  assert(!(await plan.locator('[data-dc-act="run"][data-dc-phase="cutover"]').isDisabled()),'moving the roles is next');
+  assert(await plan.locator('[data-dc-act="run"][data-dc-phase="retire"]').isDisabled(),'retire waits');
+  assert.equal(await plan.locator('[data-dc-pass]').count(),0,'no password is asked for: the account and DSRM are held');
+  await plan.locator('[data-dc-act="run"][data-dc-phase="cutover"]').click();
+  await f.page.locator('#migrateConfirmInput').fill('HQ DC refresh');await f.page.locator('#migrateConfirmButton').click();
+  await f.page.waitForFunction(()=>/Running/.test(document.querySelector('[data-dc-plan="d1"]').textContent));
+  const run=f.dcCalls.find(c=>c.action==='run');assert.equal(run.body.confirm,'HQ DC refresh');assert.equal(run.body.phase,'cutover');
+  assert(await plan.locator('[data-dc-act="stop"]').isEnabled(),'Stop is offered while a step runs');
+  // A new plan.
+  await f.page.locator('#dcSrc').fill('DC01');await f.page.locator('#dcDst').fill('DC03');
+  await f.page.locator('#dcRead').click();await f.page.waitForSelector('#dcRest:not(.hidden)');
+  assert.equal(await f.page.locator('#dcSite').inputValue(),'HQ');
+  assert.equal(await f.page.locator('#dcReplFrom').inputValue(),'dc01.corp.example.com');
+  assert(await f.page.locator('#dcInstallDns').isChecked()&&await f.page.locator('#dcGc').isChecked());
+  assert(await f.page.locator('[data-dc-role="pdc"]').isChecked()&&!(await f.page.locator('[data-dc-role="schema"]').isChecked()));
+  assert(await f.page.locator('#dcIpTakeover').isChecked());
+  assert.match(await f.page.locator('#dcIpNote').textContent(),/typed in/);
+  assert.match(await f.page.locator('[data-dc-tag="site"]').textContent(),/Suggested/);
+  assert.match(await f.page.locator('[data-dc-why="site"]').textContent(),/site HQ/);
+  assert.match(await f.page.locator('#dcFacts').textContent(),/FSMO roles on it: PDC emulator, RID master, Infrastructure master/);
+  assert(await f.page.locator('#dcJoin').isHidden(),'no join account for a domain-joined server');
+  await f.page.locator('#dcSite').selectOption('Branch');
+  assert.match(await f.page.locator('[data-dc-tag="site"]').textContent(),/Set by you/);
+  await f.page.locator('#dcSpareAddr').fill('10.0.0.250');
+  await f.page.locator('#dcSave').click();
+  await f.page.waitForFunction(()=>document.querySelectorAll('[data-dc-plan]').length===2);
+  const save=f.dcCalls.find(c=>c.action==='save');
+  assert.equal(save.body.settings.site,'Branch');assert.equal(save.body.settings.suggested.site,false);assert.equal(save.body.settings.suggested.installDns,true);
+  assert.equal(save.body.settings.oldNewAddress,'10.0.0.250');assert.deepEqual(save.body.settings.moveRoles,['pdc','rid','infrastructure']);
+  assert.equal(save.body.name,'DC01 to DC03');
+  for(const c of f.dcCalls){assert(!JSON.stringify(c.body).match(/"password":"[^"]/),'no password is sent with the current sign-in');}
   assert.deepEqual(f.errors,[]);
  }finally{await f.close();}});
  await check('Roll back: every cutover is listed with its window, the dialog turns the new VM off first, warns about lost data, asks for a vCenter sign-in when needed, a domain controller needs its own tick, and every other way of moving has its steps',async()=>{const f=await fixture(browser);try{

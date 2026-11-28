@@ -35,8 +35,8 @@ const (
 	// displayName is the name people see.
 	appName            = "Server Inventory Configuration Manager"
 	displayName        = "Server Inventory and Migration Manager"
-	appVersion         = "3.3.2"
-	collectorVersion   = "3.3.2"
+	appVersion         = "3.3.3"
+	collectorVersion   = "3.3.3"
 	applicationPageCSP = "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; frame-src 'self'"
 	maximumCollectors  = 49
 
@@ -67,7 +67,7 @@ const (
 	lrLoadFromFile = 0x0010
 )
 
-//go:embed Export-ServerInventory.ps1 Run-Inventory.ps1 Restore-ServerConfiguration.ps1 Export-MigrationBundle.ps1 Migrate-FileShares.ps1 Invoke-ShareMigrationRemote.ps1 Migrate-VmGuest.ps1 Build-ReceiverMedia.ps1 index.html favicon.ico app-icon.png assets/icons/server-inventory.svg
+//go:embed Export-ServerInventory.ps1 Run-Inventory.ps1 Restore-ServerConfiguration.ps1 Export-MigrationBundle.ps1 Invoke-ServerMoveRemote.ps1 Migrate-FileShares.ps1 Invoke-ShareMigrationRemote.ps1 Migrate-VmGuest.ps1 Build-ReceiverMedia.ps1 index.html favicon.ico app-icon.png assets/icons/server-inventory.svg
 var embeddedPayloads embed.FS
 
 var (
@@ -187,6 +187,7 @@ type stateResponse struct {
 	LoadedReportName        string                 `json:"loadedReportName"`
 	LoadedReportSerial      uint64                 `json:"loadedReportSerial"`
 	Restore                 restoreStateResponse   `json:"restore"`
+	ServerMove              smStateResponse        `json:"serverMove"`
 	Migrate                 migrateStateResponse   `json:"migrate"`
 	VMware                  vmwareStateResponse    `json:"vmware"`
 	Convert                 convertStateResponse   `json:"convert"`
@@ -294,6 +295,7 @@ type application struct {
 	loadedReportName        string
 	loadedReportSerial      uint64
 	restore                 restoreRuntime
+	serverMove              smRuntime
 	migrate                 migrateRuntime
 	vmware                  vmwareRuntime
 	convert                 convertRuntime
@@ -315,7 +317,10 @@ type application struct {
 	preflight preflightRuntime
 	// sqlmig is Move SQL databases (sqlmig_windows.go); its passwords stay
 	// in memory only.
-	sqlmig    sqlRuntime
+	sqlmig sqlRuntime
+	// dcmig is Move a domain controller (dcmig_windows.go); its passwords
+	// stay in memory only.
+	dcmig     dcRuntime
 	plans     mbRuntime
 	vmReceive vmReceiverRuntime
 	transfers *vmTransferBoard
@@ -1412,6 +1417,7 @@ func (a *application) snapshot(since int) stateResponse {
 		LoadedReportName:        a.loadedReportName,
 		LoadedReportSerial:      a.loadedReportSerial,
 		Restore:                 a.restoreSnapshotLocked(),
+		ServerMove:              a.serverMoveSnapshotLocked(),
 		Migrate:                 a.migrateSnapshotLocked(),
 		VMware:                  a.vmwareSnapshotLocked(),
 		Convert:                 a.convertSnapshotLocked(),
@@ -2000,6 +2006,10 @@ func (a *application) handleShutdown(response http.ResponseWriter, request *http
 		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "The application cannot close while a SQL Server cutover, test or rollback runs. Wait for it to finish."})
 		return
 	}
+	if a.dcBusy() {
+		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "The application cannot close while a domain controller step runs (promotion, role moves, demotion or a roll back). Wait for it to finish."})
+		return
+	}
 	if running {
 		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "The application cannot close while collection is running. Cancel the collection first."})
 		return
@@ -2458,6 +2468,10 @@ func (a *application) serve(listener net.Listener) error {
 	mux.HandleFunc("/api/restore/browse", a.handleRestoreBrowse)
 	mux.HandleFunc("/api/restore/scan", a.handleRestoreScan)
 	mux.HandleFunc("/api/restore/start", a.handleRestoreStart)
+	mux.HandleFunc("/api/servermove/discover", a.handleServerMoveDiscover)
+	mux.HandleFunc("/api/servermove/read", a.handleServerMoveRead)
+	mux.HandleFunc("/api/servermove/sites", a.handleServerMoveSites)
+	mux.HandleFunc("/api/servermove/forget", a.handleServerMoveForget)
 	mux.HandleFunc("/api/restore/cancel", a.handleRestoreCancel)
 	mux.HandleFunc("/api/migrate/discover", a.handleMigrateDiscover)
 	mux.HandleFunc("/api/migrate/browse", a.handleMigrateBrowse)
@@ -2491,6 +2505,8 @@ func (a *application) serve(listener net.Listener) error {
 	go a.startPlans()
 	go a.startSQL()
 	mux.HandleFunc("/api/sql/", a.handleSQL)
+	go a.startDCMig()
+	mux.HandleFunc("/api/dc/", a.handleDC)
 	go a.runMigrateScheduler()
 	go a.resumeVMReceiver()
 	mux.HandleFunc("/api/hvremote/", a.handleHVRemote)
