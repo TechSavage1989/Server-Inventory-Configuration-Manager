@@ -1,3 +1,12 @@
+## 3.3.3 published and verified — 2026-11-28
+
+- [Release v3.3.3](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.3.3) ("Server Inventory and Migration Manager 3.3.3"), tag and target commit `872bbd39e19d612468e72dd836a2903d22b81d71`. Batches #263 (#251, #255, #258, #260, #262, #257; merge commit `bb47f09`) and #275 (#265, #267, #268, #270, #272, #273; merge commit `d8e106a`) reached `main` after full CI, and #264 published. The owner approved it on 2026-11-28 ("publish when ready", "no test, just stable") and held it for the field fixes in #275.
+- The [release run](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/46135533327) passed: publish job 10:30–10:54 UTC, embedded scripts and EXE signed through Azure Artifact Signing over OIDC before the tests and checksum (Valid, timestamped); public feed and downloads verified.
+- The actual 3.3.2-to-3.3.3 upgrade (published signed 3.3.2 EXE through Download and Install, restart into 3.3.3, native health, settings, shortcut, timers, cleanup and rollback) passed in the same run, 10:54–11:07 UTC.
+- Stable EXE: 31,242,536 bytes; SHA-256 `9888925744e32f62987e35779ed4cb3ed24de1b865e7a647cd36d9c763cb1d26` (matches the public feed). Linux agent `simm-agent-linux-amd64`: 13,750,272 bytes; SHA-256 `cdd93281f9ca3c5e3f32190fd3e3c87d02eedb1325e88f7d04611033bbe68687`. All 14 assets are published. No test build for this release (owner).
+- README, feature tour and demo updated for 3.3.3 (#276, rule 81).
+- Not field-tested: a live server move between two real servers; promotion, role transfer, demotion and the address swap on a real domain; the PowerCLI-shadowed Get-VM fix on the owner's Hyper-V host; Hyper-V console key presses and mouse buttons on a real host.
+
 ## 3.3.2 published and verified — 2026-11-28
 
 - [Release v3.3.2](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.3.2) ("Server Inventory and Migration Manager 3.3.2"), tag and target commit `04adee6c66f1aa325b5e8bfea32405eaf8df921b`. Batch #247 (#235, #234, #238, #237, #241, #244, #245, #246, #249, #252) reached `main` with a merge commit (`13fa718`) after full CI, and #253 published. The owner approved it on 2026-11-28 ("yes", to publishing 3.3.2 and a test build once role restores were in).
