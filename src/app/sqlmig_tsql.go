@@ -90,7 +90,7 @@ SELECT CONVERT(nvarchar(128), SERVERPROPERTY('MachineName')) AS machine,
   CONVERT(int, SERVERPROPERTY('EngineEdition')) AS engineEdition,
   CONVERT(nvarchar(128), SERVERPROPERTY('Collation')) AS collation,
   ISNULL(CONVERT(int, SERVERPROPERTY('IsHadrEnabled')), 0) AS hadr,
-  ISNULL(CONVERT(int, SERVERPROPERTY('IsClustered')), 0) AS clustered,
+  ISNULL(CONVERT(int, SERVERPROPERTY('IsClustered')), 0) AS [clustered],
   ISNULL(CONVERT(int, SERVERPROPERTY('FilestreamEffectiveLevel')), 0) AS filestream,
   @data AS dataPath, @log AS logPath, @backup AS backupPath,
   @svc AS serviceAccount, @agent AS agentAccount, @agentState AS agentState,
@@ -152,7 +152,7 @@ FROM sys.database_mirroring_endpoints e JOIN sys.tcp_endpoints t ON t.endpoint_i
 			clusterType = "ag.cluster_type_desc"
 		}
 		ags = `SET NOCOUNT ON;
-SELECT ag.name AS ag, ISNULL(ars.role_desc, N'') AS role, ` + clusterType + ` AS clusterType, ` + distributed + ` AS distributed,
+SELECT ag.name AS ag, ISNULL(ars.role_desc, N'') AS role, ` + clusterType + ` AS clusterType, ` + distributed + ` AS [distributed],
   (SELECT TOP 1 l.dns_name FROM sys.availability_group_listeners l WHERE l.group_id = ag.group_id) AS listener,
   (SELECT TOP 1 l.port FROM sys.availability_group_listeners l WHERE l.group_id = ag.group_id) AS listenerPort,
   adc.database_name AS db

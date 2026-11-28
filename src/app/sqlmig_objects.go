@@ -139,7 +139,7 @@ SELECT p.name, p.type, CONVERT(varchar(200), p.sid, 1) AS sid,
   CONVERT(varchar(600), CONVERT(varbinary(256), LOGINPROPERTY(p.name, 'PasswordHash')), 1) AS hash,
   p.default_database_name AS defaultDb, p.default_language_name AS language, p.is_disabled AS disabled,
   ISNULL(l.is_policy_checked, 0) AS policy, ISNULL(l.is_expiration_checked, 0) AS expiration,
-  CASE WHEN EXISTS (SELECT 1 FROM sys.server_permissions sp WHERE sp.grantee_principal_id = p.principal_id AND sp.type = 'COSQ' AND sp.state = 'D') THEN 1 ELSE 0 END AS deny
+  CASE WHEN EXISTS (SELECT 1 FROM sys.server_permissions sp WHERE sp.grantee_principal_id = p.principal_id AND sp.type = 'COSQ' AND sp.state = 'D') THEN 1 ELSE 0 END AS [deny]
 FROM sys.server_principals p LEFT JOIN sys.sql_logins l ON l.principal_id = p.principal_id
 WHERE p.type IN ('S', 'U', 'G') AND ` + sqlLoginFilter + ` ORDER BY p.name;`},
 		{On: on, Name: "role members", Kind: "members", Timeout: 120, SQL: `SET NOCOUNT ON;
