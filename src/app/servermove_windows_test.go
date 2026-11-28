@@ -112,8 +112,23 @@ func TestServerMoveReadsAndChecksAServerThroughRemoting(t *testing.T) {
 		t.Fatalf("a wrong passphrase gave %v, %+v\n%s", err, scan, output)
 	}
 
-	if reply, output := run("StopSites", "", "", map[string]any{"sites": []string{"Default Web Site"}}); !strings.Contains(output, "IIS is not installed") && len(reply.Changed) != 0 {
-		t.Fatalf("stopping sites without IIS did not refuse:\n%s", output)
+	// Hosted runners may have IIS: stopping then starting the default site
+	// proves both ways; without IIS both are refused.
+	sites := map[string]any{"sites": []string{"Default Web Site"}}
+	reply, output = run("StopSites", "", "", sites)
+	if strings.Contains(output, "IIS is not installed") {
+		if len(reply.Changed) != 0 {
+			t.Fatalf("stopping sites without IIS changed %v:\n%s", reply.Changed, output)
+		}
+	} else {
+		if len(reply.Failed) != 0 || len(reply.Changed) > 1 || len(reply.Changed) == 1 && reply.Changed[0] != "Default Web Site" {
+			t.Fatalf("stopping the default site gave changed %v, failed %v:\n%s", reply.Changed, reply.Failed, output)
+		}
+		stopped := len(reply.Changed)
+		reply, output = run("StartSites", "", "", sites)
+		if stopped == 1 && len(reply.Changed) != 1 || len(reply.Failed) != 0 {
+			t.Fatalf("starting the default site again gave changed %v, failed %v:\n%s", reply.Changed, reply.Failed, output)
+		}
 	}
 	run("Clean", "", "", nil)
 	if _, err := os.Stat(packagePath); err == nil {
