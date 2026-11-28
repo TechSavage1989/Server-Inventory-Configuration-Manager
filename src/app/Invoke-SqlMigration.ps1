@@ -75,7 +75,9 @@ $batchRunner = {
     else {
         $builder['Integrated Security'] = $true
     }
-    $batches = @(ConvertFrom-Json -InputObject $BatchesJson)
+    # Windows PowerShell 5.1 returns a JSON array as one object; ForEach-Object
+    # unrolls it so each batch is its own item.
+    $batches = @(ConvertFrom-Json -InputObject $BatchesJson | ForEach-Object { $_ })
     $results = New-Object System.Collections.ArrayList
     $connection = New-Object System.Data.SqlClient.SqlConnection($builder.ConnectionString)
     $builder = $null
@@ -261,7 +263,7 @@ try {
             $json = $null
             $text = [string]$text
             [void]$parts.Add($text)
-            $part = @(ConvertFrom-Json -InputObject $text)
+            $part = @(ConvertFrom-Json -InputObject $text | ForEach-Object { $_ })
             $stop = $false
             foreach ($r in $part) {
                 if (-not $r.ok) {
