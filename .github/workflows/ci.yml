@@ -320,6 +320,37 @@ jobs:
             build/migration-validation/*.log
             build/migration-validation/*.json
             build/migration-validation/checks.txt
+  sqlmig:
+    # Skipped for pull requests into release/next; the batch pull request runs it.
+    if: ${{ !startsWith(github.base_ref, 'release/') && github.base_ref != 'test' }}
+    # Real SQL Server database migration round trip between two LocalDB
+    # instances on the runner: read, copy a login with its SID and password,
+    # seed by log shipping, ship the log, test, cut over and roll back.
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.20.14'
+          cache: false
+      - name: Install SQL Server LocalDB when missing
+        shell: powershell
+        run: |
+          $found = Get-Command SqlLocalDB.exe -ErrorAction SilentlyContinue
+          if (-not $found) { $found = Get-ChildItem "$env:ProgramFiles\Microsoft SQL Server\*\Tools\Binn\SqlLocalDB.exe" -ErrorAction SilentlyContinue | Select-Object -First 1 }
+          if (-not $found) {
+            choco install sqllocaldb -y --no-progress
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+          Get-ChildItem "$env:ProgramFiles\Microsoft SQL Server\*\Tools\Binn\SqlLocalDB.exe" -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName }
+      - name: SQL migration round trip
+        shell: powershell
+        env:
+          SIMM_REQUIRE_LOCALDB: '1'
+        run: |
+          go test -v -count=1 -run 'TestSQL' ./src/app
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
   vmguest:
     # Skipped for pull requests into release/next; the batch pull request runs it.
     if: ${{ !startsWith(github.base_ref, 'release/') && github.base_ref != 'test' }}

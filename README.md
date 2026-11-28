@@ -28,6 +28,7 @@ A portable **Windows x64 application** for collecting server inventory, exportin
 | Collect available server-role details without treating missing roles as present. | Open HTML offline, print retained report data, or use Word/text outputs. | Choose when to download, install, and restart. |
 | Export DHCP, NPS, print, IIS, DNS, firewall, registry and more for recovery. | See what a package can restore onto this server, and why anything cannot. | Restore chosen configuration with a rollback copy saved first. |
 | Move file shares from an old server: files, NTFS permissions and share settings. | Check space, folders and accounts before copying, and verify after cutover. | Copy while users keep working, then cut over with one final copy. |
+| Move SQL Server databases to a new SQL Server with their logins (SIDs and passwords), Agent jobs and linked servers. | Each database gets a suggested way with the reason: backup and restore, log shipping or a distributed availability group. | Test a copy, cut over now or on schedule, move a DNS alias, and roll back to the old databases. |
 | Read a vCenter, ESXi or Hyper-V inventory and check each VM for Hyper-V, HyperCore, Nutanix AHV, Proxmox VE, Azure, EC2 or a physical server. | Plan waves, map networks and storage, check the new cluster's size or cloud quota, write a runbook. | Record a VM's settings before cutover, fix it up after, and compare before and after. |
 | Convert a VMDK, VHD, VHDX, qcow2 or raw disk to any of them, merging snapshot chains, add VirtIO or server drivers so Windows starts on its new platform, and send it straight to ESXi, Hyper-V, Proxmox VE, Nutanix or HyperCore as a new VM. Copy this computer's own disks the same way (P2V). | See the format, size, data and chain of a disk before converting it. | Stop and continue a conversion, or repeat it to copy only what changed. |
 | Put many VMware or Hyper-V VMs in one migration plan that seeds them from a start time and keeps them in sync on a schedule. | Watch every VM's state, progress, speed and time left, with tiles that filter to what is copying, in sync, testing or failed. | Test any VM on an isolated copy, then cut VMs over now or at a scheduled time, in wave order. |
@@ -181,6 +182,7 @@ Every migration and replication tool lives in one **Migration and replication** 
 | Disks | **Receive and send disks** | The receiver every copy goes to, receiver media, and Send by hand. | The receiving computer; Send inside the source |
 | Disks | **Start VMs from copies** | Test failover and the production VM on Hyper-V. | The Hyper-V host receiving the copies |
 | Disks | **Move file shares** | Shares, files and permissions to a new file server: this computer or another server. | The new file server, or any admin computer |
+| Move servers | **Move SQL databases** | Databases, logins, jobs and linked servers to a new SQL Server: backup and restore, log shipping or a distributed availability group. | Your admin computer; nothing installed on the SQL Servers |
 | Disks | **Convert disk images** | VMDK, VHD, VHDX, qcow2 and raw, with Windows fix-ups and Send to a host. | Any computer that reaches the files |
 | Any computer, nothing installed in the machine | **Prepare and fix up**, **Compare before and after** | Record settings, fix up the new machine (from vCenter, PowerShell Direct or PowerShell remoting; inside the machine as a fallback), and compare two inventories. | The Hyper-V host or your admin computer; any computer |
 
@@ -248,6 +250,20 @@ Device drivers other than print drivers, Active Directory, SQL Server, RRAS, AD 
 To rebuild a server's roles on different hardware or a new VM, tick **Prepare this package for a new server** on **Discovery → This server** before collecting, and type a passphrase (at least 12 characters). The package then gets a migration bundle (`09-Migration-Bundle`): the roles and features installed, local users and groups, file shares, certificates with their private keys, the passwords IIS keeps encrypted, HTTPS bindings, website files (up to the size you set) and more DNS and DHCP settings. Certificates and passwords are encrypted with the passphrase (AES-256 with a key derived from it, checked with HMAC-SHA256); the passphrase itself is never saved, so keep it with your migration notes and protect the package like a backup that holds private keys.
 
 On the new server, open the package on the **Restore** tab and type the passphrase. **Changes for this server** lists the old server's IP addresses and drives that this server lacks, each filled in with the closest match here and changeable; IIS bindings, website folders, share folders and permissions follow them, and the old server's local account names and SIDs become this server's. Type a password for each local user and for scheduled tasks that run as one. Roles and features are installed first in the same restore, so items that need a role are offered even before it is installed; if Windows needs a restart to finish, the restore says so.
+
+## Move SQL databases to a new SQL Server
+
+**Move SQL databases** (in **Migration and replication**, or New migration's *SQL Server databases*) moves databases rather than the whole server. Type the old and new SQL Servers and **Read both servers**: reading changes nothing. Connect as your current sign-in (it needs sysadmin on both), a different Windows account (used on the SQL Server's own computer through PowerShell remoting) or a SQL Server login. Passwords are kept in memory only.
+
+- **Each database gets a suggested way**, with the reason, and you can change it: **log shipping** for databases in the full recovery model (the copy stays minutes behind, so the cutover is short), **backup and restore at cutover** for the rest, and a **distributed availability group** for databases already in an availability group (SQL Server 2016 or later). Databases that cannot move (system databases, offline ones) are listed with why.
+- **Logins, jobs and server objects**: logins keep their SIDs and passwords, so applications sign in unchanged; Agent jobs are created turned off and turned on at cutover; operators and chosen server settings are copied; linked servers whose passwords cannot be read are listed to set by hand.
+- **Backup folder**: a share both SQL Server service accounts can reach. **Check backup folder** tests that before anything starts.
+- **Test** brings a copy online on the new server under another name while the log keeps shipping; **End test** removes only that copy.
+- **Cut over** (now or at a time): users are disconnected from the old database, the last changes are copied and the database comes online on the new server. The old database stays as it was at cutover (restoring or read-only), its jobs turned off.
+- **DNS alias** (optional): a CNAME such as `sql-app` moves to the new server when the last database is cut over, with its Kerberos SPNs.
+- **Roll back** takes the new copy offline (it is never deleted) and brings the old database back online. Changes made on the new server since the cutover are not on the old one.
+
+The plan runs while the application is open on that computer, like Migration plans.
 
 ## Move file shares to a new server
 

@@ -313,6 +313,9 @@ type application struct {
 	// preflight is the optional domain controller and SQL Server checks
 	// (preflight_windows.go); its password stays in memory only.
 	preflight preflightRuntime
+	// sqlmig is Move SQL databases (sqlmig_windows.go); its passwords stay
+	// in memory only.
+	sqlmig    sqlRuntime
 	plans     mbRuntime
 	vmReceive vmReceiverRuntime
 	transfers *vmTransferBoard
@@ -1993,6 +1996,10 @@ func (a *application) handleShutdown(response http.ResponseWriter, request *http
 	pushing := a.repl.pushing
 	failing := a.repl.failing
 	a.mu.Unlock()
+	if a.sqlBusy() {
+		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "The application cannot close while a SQL Server cutover, test or rollback runs. Wait for it to finish."})
+		return
+	}
 	if running {
 		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "The application cannot close while collection is running. Cancel the collection first."})
 		return
@@ -2482,6 +2489,8 @@ func (a *application) serve(listener net.Listener) error {
 	mux.HandleFunc("/api/plans", a.handlePlans)
 	mux.HandleFunc("/api/servers", a.handleServers)
 	go a.startPlans()
+	go a.startSQL()
+	mux.HandleFunc("/api/sql/", a.handleSQL)
 	go a.runMigrateScheduler()
 	go a.resumeVMReceiver()
 	mux.HandleFunc("/api/hvremote/", a.handleHVRemote)

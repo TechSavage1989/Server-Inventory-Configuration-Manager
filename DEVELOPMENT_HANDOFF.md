@@ -1,9 +1,17 @@
+<<<<<<< HEAD
 ## Unreleased: restore collection packages fully on a new server — 2026-11-28
 
 - Owner asked whether IIS restores fully working and then for every movable role to restore working on a different server. Audit result: firewall, registry, GPO, printers and NPS already moved; DHCP, DNS, tasks, ACLs, security policy and IIS were partial; roles, local accounts, shares and private keys were missing.
-- New: **Prepare this package for a new server** on Collection writes `09-Migration-Bundle` (Export-MigrationBundle.ps1, signed) with secrets encrypted by a passphrase that is never saved. The Restore tab unlocks it, shows **Changes for this server** (old addresses and drives mapped to this server's, auto-filled and editable) and asks for local user and task passwords. New restore components: Roles and features, Local users and groups, File shares; IIS gets website files, passwords and HTTPS bindings; certificates with private keys; SID and account mapping for ACLs, security policy and tasks; DNS forwarders and other zone types; DHCP authorization. AGENTS rule 72.
+- New: **Prepare this package for a new server** on Collection writes `09-Migration-Bundle` (Export-MigrationBundle.ps1, signed) with secrets encrypted by a passphrase that is never saved. The Restore tab unlocks it, shows **Changes for this server** (old addresses and drives mapped to this server's, auto-filled and editable) and asks for local user and task passwords. New restore components: Roles and features, Local users and groups, File shares; IIS gets website files, passwords and HTTPS bindings; certificates with private keys; SID and account mapping for ACLs, security policy and tasks; DNS forwarders and other zone types; DHCP authorization. AGENTS rule 73.
 - Tests: `bundle_test.go`, `restore_plan_test.go`, two workspace checks, and a bundle round trip in `scripts/Test-Restore.ps1` (CI job `restore`). Not field-validated on two real servers.
 - Targets the release after 3.3.1 (stable and test), per the owner; not merged before 3.3.1 is published.
+=======
+## Unreleased: Move SQL databases — 2026-11-28
+
+- New tool **Move SQL databases** (Migration and replication > Move servers, and New migration's source *SQL Server databases*). Reads both SQL Servers, suggests per database backup and restore, log shipping or a distributed availability group (only for databases already in an AG, owner decision), carries logins with SIDs and passwords, Agent jobs, operators, linked servers and chosen server settings, tests, cuts over (now or scheduled), moves a DNS alias and rolls back. Rule 72.
+- Engine `src/app/Invoke-SqlMigration.ps1` (signed, RemoteSigned), rules in `sqlmig*.go`, endpoints `/api/sql/*` in `sqlmig_windows.go`, demo backend `docs/demo/src/04-sql.js`.
+- Tests: `go test -run TestSQL ./src/app` (fakes, any platform); CI job `sqlmig` runs `TestSQLMigrationOnLocalDB` with two LocalDB instances on Windows; workspace checks "Move SQL databases" and New migration's guide. Not field-validated against real SQL Server instances, availability groups or DNS.
+>>>>>>> origin/release/next
 
 ## Unreleased: browser demo and feature tour on GitHub Pages — 2026-11-28
 

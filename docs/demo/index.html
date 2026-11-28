@@ -368,6 +368,13 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
 .restore-alert strong{font-weight:700}
 .busy-notice{display:flex;flex-wrap:wrap;align-items:center;gap:calc(6*var(--sp)) calc(10*var(--sp))}.busy-notice>span{flex:1 1 320px;min-width:0}.busy-notice .secondary-button{flex:0 0 auto}
 .restore-alert.info{border-color:#b9d3f2;background:#f1f7ff;color:#1f4f86}
+.sq-body{display:flex;flex-direction:column;gap:calc(10*var(--sp));overflow-y:auto;overflow-x:hidden;min-height:0;flex:1 1 auto}.sq-servers{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:calc(12*var(--sp))}.sq-server{border:1px solid #d9e1ec;border-radius:8px;padding:calc(10*var(--sp))}
+.sq-account{margin-top:calc(8*var(--sp))}.sq-auth-why,.sq-why{min-height:1.4em}.sq-auth-why{margin-top:calc(4*var(--sp))}
+.sq-facts{display:flex;flex-direction:column;gap:calc(4*var(--sp));margin:calc(8*var(--sp)) 0}.sq-table select{min-width:12em}.sq-table input[type=text]{width:100%;min-width:8em}.sq-table input.sq-wave[type=text]{width:4.5em;min-width:0}.sq-tag{margin-left:calc(6*var(--sp))}.sq-warn{color:#8a4b08}
+.sq-objects{display:flex;flex-direction:column;gap:calc(4*var(--sp))}.sq-obj-why{margin:0 0 calc(4*var(--sp)) 23px}.sq-object-head{font-weight:650;margin-top:calc(6*var(--sp))}.sq-object-items{margin:calc(2*var(--sp)) 0 0;padding-left:20px}
+.sq-findings{display:flex;flex-direction:column;gap:calc(4*var(--sp))}.sq-finding{display:flex;gap:calc(8*var(--sp));align-items:baseline}
+.sq-plans{display:flex;flex-direction:column;gap:calc(12*var(--sp))}.sq-plan-head{margin-bottom:calc(6*var(--sp))}.sq-signin{display:flex;flex-wrap:wrap;gap:calc(8*var(--sp));align-items:flex-end;margin-bottom:calc(8*var(--sp))}.sq-signin>div{flex-basis:100%}
+.sq-cut input[type=text]{width:6em}.sq-alias-row{display:flex;flex-wrap:wrap;gap:calc(8*var(--sp));align-items:center;margin-top:calc(8*var(--sp))}.sq-plan .link-button{align-self:flex-start;margin-top:calc(8*var(--sp))}
 .rb-body{display:flex;flex-direction:column;gap:calc(10*var(--sp))}.rb-heading{margin:calc(8*var(--sp)) 0 0;font-size:max(10.5px,calc(14*var(--fz)));color:#23334b}
 .rb-list{display:flex;flex-direction:column;gap:calc(8*var(--sp))}.rb-item{border:1px solid #dbe3ed;border-radius:8px;padding:calc(10*var(--sp)) calc(12*var(--sp));background:#fff}.rb-item.done{background:#f6fbf8}.rb-item.failed,.rb-item.partial{border-color:#f0cf8a}
 .rb-item-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:calc(6*var(--sp)) calc(10*var(--sp))}.rb-item-head strong{font-size:max(10.5px,calc(14*var(--fz)))}
@@ -1191,7 +1198,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     </section>
 
     <section class="tab-panel" id="tabMigration" role="tabpanel" aria-labelledby="tabButtonMigration">
-      <div class="tool-layout"><nav class="tool-nav" id="migrationNav" aria-label="Migration and replication tools"><div class="tool-group"><div class="tool-group-title">Start here</div><button class="tool-item tool-guide tool-wizard" type="button" data-tool="wizard" aria-pressed="false"><span class="tool-name">New migration</span><span class="tool-desc">Pick what you are moving, where it goes and when, on one set of screens. Start it and watch it here, or follow the steps for any other way.</span><span class="tool-runs"><b>Runs on</b> the Hyper-V host that will run the VMs</span></button><button class="tool-item" type="button" data-tool="servers" aria-pressed="false"><span class="tool-name">All jobs and servers<span class="tab-badge tool-badge hidden" id="serversBadge"></span></span><span class="tool-desc">Every server, VM and job being moved, replicated, converted or restored, with live status. Act on many at once.</span><span class="tool-runs"><b>Runs on</b> your admin computer, or the Hyper-V host for plans and tests</span></button><button class="tool-item" type="button" data-tool="rollback" aria-pressed="false"><span class="tool-name">Roll back<span class="tab-badge tool-badge hidden" id="rollbackBadge"></span></span><span class="tool-desc">The migrated server does not work? Turn the new VM off and start the original again, or follow the steps for any other way of moving.</span><span class="tool-runs"><b>Runs on</b> the Hyper-V host or admin computer that cut it over</span></button></div><div class="tool-section-title" id="toolsAdvancedTitle">Tools (advanced): each part on its own</div><div class="tool-group"><div class="tool-group-title">Plan</div><button class="tool-item" type="button" data-tool="plan" aria-pressed="false"><span class="tool-name">Plan and runbook</span><span class="tool-desc">Waves, network map and the runbook (HTML and Word).</span><span class="tool-runs"><b>Runs on</b> your admin computer</span></button><button class="tool-item" type="button" data-tool="hvbuild" aria-pressed="false"><span class="tool-name">Build Hyper-V hosts<span class="tab-badge tool-badge hidden" id="hvbuildBadge"></span></span><span class="tool-desc">Set up Hyper-V, switches, storage and a failover cluster from the VMware data.</span><span class="tool-runs"><b>Runs on</b> your admin computer, changing the new Hyper-V nodes</span></button></div><div class="tool-group"><div class="tool-group-title">Move servers</div><button class="tool-item" type="button" data-tool="movevms" aria-pressed="false"><span class="tool-name">Move VMs<span class="tab-badge tool-badge" id="movevmsBadge">Ready</span></span><span class="tool-desc">VMware or Hyper-V VMs, nothing installed in them. Copy, then cut over.</span><span class="tool-runs"><b>Runs on</b> the Hyper-V host or your admin computer</span></button><button class="tool-item" type="button" data-tool="plans" aria-pressed="false"><span class="tool-name">Migration plans<span class="tab-badge tool-badge hidden" id="plansBadge"></span></span><span class="tool-desc">Many VMs at once: scheduled seeding, automatic syncs, test and scheduled cutover.</span><span class="tool-runs"><b>Runs on</b> the Hyper-V host that will run the VMs</span></button><button class="tool-item" type="button" data-tool="replicate" aria-pressed="false"><span class="tool-name">Replicate servers<span class="tab-badge tool-badge" id="replicationTabBadge">Ready</span></span><span class="tool-desc">Any Windows or Linux server, physical or virtual, kept in sync by an agent until cutover.</span><span class="tool-runs"><b>Runs on</b> your admin computer; agent on each source server</span></button><button class="tool-item" type="button" data-tool="diskcopy" aria-pressed="false"><span class="tool-name">Receive and send disks<span class="tab-badge tool-badge" id="diskcopyBadge">Ready</span></span><span class="tool-desc">The receiver every copy goes to, and Send by hand without the agent.</span><span class="tool-runs"><b>Runs on</b> the receiving computer; Send inside the source</span></button><button class="tool-item" type="button" data-tool="failover" aria-pressed="false"><span class="tool-name">Start VMs from copies</span><span class="tool-desc">Test failover or the production VM on Hyper-V.</span><span class="tool-runs"><b>Runs on</b> the Hyper-V host receiving the copies</span></button><button class="tool-item" type="button" data-tool="shares" aria-pressed="false"><span class="tool-name">Move file shares<span class="tab-badge tool-badge" id="migrateTabBadge">Ready</span></span><span class="tool-desc">Shares, files and permissions from an old file server.</span><span class="tool-runs"><b>Runs on</b> the new file server, or any admin computer</span></button></div><div class="tool-group"><div class="tool-group-title">Disks</div><button class="tool-item" type="button" data-tool="convert" aria-pressed="false"><span class="tool-name">Convert disk images<span class="tab-badge tool-badge" id="convertTabBadge">Ready</span></span><span class="tool-desc">VMDK, VHD(X), qcow2, raw: convert, fix up drivers, send to a host, P2V.</span><span class="tool-runs"><b>Runs on</b> any Windows computer that reaches the files</span></button></div><div class="tool-group"><div class="tool-group-title">Inside the machine</div><button class="tool-item" type="button" data-tool="guest" aria-pressed="false"><span class="tool-name">Prepare and fix up</span><span class="tool-desc">Record settings before the move; fix the machine up after it, from outside.</span><span class="tool-runs"><b>Runs on</b> the Hyper-V host or admin computer; nothing in the machine</span></button><button class="tool-item" type="button" data-tool="compare" aria-pressed="false"><span class="tool-name">Compare before and after</span><span class="tool-desc">What changed between two inventories.</span><span class="tool-runs"><b>Runs on</b> any computer</span></button></div></nav>
+      <div class="tool-layout"><nav class="tool-nav" id="migrationNav" aria-label="Migration and replication tools"><div class="tool-group"><div class="tool-group-title">Start here</div><button class="tool-item tool-guide tool-wizard" type="button" data-tool="wizard" aria-pressed="false"><span class="tool-name">New migration</span><span class="tool-desc">Pick what you are moving, where it goes and when, on one set of screens. Start it and watch it here, or follow the steps for any other way.</span><span class="tool-runs"><b>Runs on</b> the Hyper-V host that will run the VMs</span></button><button class="tool-item" type="button" data-tool="servers" aria-pressed="false"><span class="tool-name">All jobs and servers<span class="tab-badge tool-badge hidden" id="serversBadge"></span></span><span class="tool-desc">Every server, VM and job being moved, replicated, converted or restored, with live status. Act on many at once.</span><span class="tool-runs"><b>Runs on</b> your admin computer, or the Hyper-V host for plans and tests</span></button><button class="tool-item" type="button" data-tool="rollback" aria-pressed="false"><span class="tool-name">Roll back<span class="tab-badge tool-badge hidden" id="rollbackBadge"></span></span><span class="tool-desc">The migrated server does not work? Turn the new VM off and start the original again, or follow the steps for any other way of moving.</span><span class="tool-runs"><b>Runs on</b> the Hyper-V host or admin computer that cut it over</span></button></div><div class="tool-section-title" id="toolsAdvancedTitle">Tools (advanced): each part on its own</div><div class="tool-group"><div class="tool-group-title">Plan</div><button class="tool-item" type="button" data-tool="plan" aria-pressed="false"><span class="tool-name">Plan and runbook</span><span class="tool-desc">Waves, network map and the runbook (HTML and Word).</span><span class="tool-runs"><b>Runs on</b> your admin computer</span></button><button class="tool-item" type="button" data-tool="hvbuild" aria-pressed="false"><span class="tool-name">Build Hyper-V hosts<span class="tab-badge tool-badge hidden" id="hvbuildBadge"></span></span><span class="tool-desc">Set up Hyper-V, switches, storage and a failover cluster from the VMware data.</span><span class="tool-runs"><b>Runs on</b> your admin computer, changing the new Hyper-V nodes</span></button></div><div class="tool-group"><div class="tool-group-title">Move servers</div><button class="tool-item" type="button" data-tool="movevms" aria-pressed="false"><span class="tool-name">Move VMs<span class="tab-badge tool-badge" id="movevmsBadge">Ready</span></span><span class="tool-desc">VMware or Hyper-V VMs, nothing installed in them. Copy, then cut over.</span><span class="tool-runs"><b>Runs on</b> the Hyper-V host or your admin computer</span></button><button class="tool-item" type="button" data-tool="plans" aria-pressed="false"><span class="tool-name">Migration plans<span class="tab-badge tool-badge hidden" id="plansBadge"></span></span><span class="tool-desc">Many VMs at once: scheduled seeding, automatic syncs, test and scheduled cutover.</span><span class="tool-runs"><b>Runs on</b> the Hyper-V host that will run the VMs</span></button><button class="tool-item" type="button" data-tool="replicate" aria-pressed="false"><span class="tool-name">Replicate servers<span class="tab-badge tool-badge" id="replicationTabBadge">Ready</span></span><span class="tool-desc">Any Windows or Linux server, physical or virtual, kept in sync by an agent until cutover.</span><span class="tool-runs"><b>Runs on</b> your admin computer; agent on each source server</span></button><button class="tool-item" type="button" data-tool="diskcopy" aria-pressed="false"><span class="tool-name">Receive and send disks<span class="tab-badge tool-badge" id="diskcopyBadge">Ready</span></span><span class="tool-desc">The receiver every copy goes to, and Send by hand without the agent.</span><span class="tool-runs"><b>Runs on</b> the receiving computer; Send inside the source</span></button><button class="tool-item" type="button" data-tool="failover" aria-pressed="false"><span class="tool-name">Start VMs from copies</span><span class="tool-desc">Test failover or the production VM on Hyper-V.</span><span class="tool-runs"><b>Runs on</b> the Hyper-V host receiving the copies</span></button><button class="tool-item" type="button" data-tool="shares" aria-pressed="false"><span class="tool-name">Move file shares<span class="tab-badge tool-badge" id="migrateTabBadge">Ready</span></span><span class="tool-desc">Shares, files and permissions from an old file server.</span><span class="tool-runs"><b>Runs on</b> the new file server, or any admin computer</span></button><button class="tool-item" type="button" data-tool="sqlmove" aria-pressed="false"><span class="tool-name">Move SQL databases<span class="tab-badge tool-badge hidden" id="sqlBadge"></span></span><span class="tool-desc">Databases, logins and jobs to a new SQL Server: backup and restore, log shipping or a distributed availability group.</span><span class="tool-runs"><b>Runs on</b> your admin computer; nothing installed on the SQL Servers</span></button></div><div class="tool-group"><div class="tool-group-title">Disks</div><button class="tool-item" type="button" data-tool="convert" aria-pressed="false"><span class="tool-name">Convert disk images<span class="tab-badge tool-badge" id="convertTabBadge">Ready</span></span><span class="tool-desc">VMDK, VHD(X), qcow2, raw: convert, fix up drivers, send to a host, P2V.</span><span class="tool-runs"><b>Runs on</b> any Windows computer that reaches the files</span></button></div><div class="tool-group"><div class="tool-group-title">Inside the machine</div><button class="tool-item" type="button" data-tool="guest" aria-pressed="false"><span class="tool-name">Prepare and fix up</span><span class="tool-desc">Record settings before the move; fix the machine up after it, from outside.</span><span class="tool-runs"><b>Runs on</b> the Hyper-V host or admin computer; nothing in the machine</span></button><button class="tool-item" type="button" data-tool="compare" aria-pressed="false"><span class="tool-name">Compare before and after</span><span class="tool-desc">What changed between two inventories.</span><span class="tool-runs"><b>Runs on</b> any computer</span></button></div></nav>
       <div class="tool-host" id="migrationHost"><div class="tool-current" id="migrationCurrent"></div>
     <div class="pg-banner hidden" id="pgBanner" role="status" aria-live="polite"><span id="pgBannerText"></span><button class="secondary-button" id="pgBannerOpen" type="button">Production protection settings</button></div>
     <section class="tool-pane" id="tabWizard" aria-labelledby="nwTitle">
@@ -1769,6 +1776,62 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
         </div>
       </div></div>
     </section>
+    <section class="tool-pane" id="tabSql" aria-label="Move SQL databases">
+      <div class="restore-wrap"><div class="card">
+        <div class="card-header"><div><div class="card-title">Move SQL databases</div><div class="card-subtitle">Move databases from one SQL Server to another, with their logins, jobs and linked servers. Each database moves the way that suits it: backup and restore at cutover, log shipping that keeps a copy minutes behind, or a distributed availability group for databases already in one. Nothing is installed on either server.</div></div></div>
+        <div class="card-body sq-body">
+          <div class="restore-alert danger hidden" id="sqError" role="alert"></div>
+          <div class="sq-plans" id="sqPlans" aria-label="SQL migration plans"></div>
+          <section class="migrate-card" id="sqNew" aria-labelledby="sqNewTitle">
+            <h4 id="sqNewTitle">New SQL migration</h4>
+            <h5 class="mp-heading">1. Servers</h5>
+            <div class="sq-servers">
+              <div class="sq-server" id="sqSrcBox"><label class="vm-field">Old SQL Server<input id="sqSrc" type="text" maxlength="260" spellcheck="false" autocomplete="off" placeholder="OLDSQL or OLDSQL\INSTANCE"></label><div class="sq-auth" id="sqSrcAuth"></div></div>
+              <div class="sq-server" id="sqDstBox"><label class="vm-field">New SQL Server<input id="sqDst" type="text" maxlength="260" spellcheck="false" autocomplete="off" placeholder="NEWSQL or NEWSQL\INSTANCE"></label><div class="sq-auth" id="sqDstAuth"></div></div>
+            </div>
+            <div class="vm-move-actions"><button class="primary-button" id="sqRead" type="button">Read both servers</button><span class="migrate-inline-status sq-why" id="sqReadStatus" role="status"></span></div>
+            <div id="sqRest" class="hidden">
+              <div class="sq-facts" id="sqFacts"></div>
+              <h5 class="mp-heading">2. Databases</h5>
+              <div class="vm-table-wrap sq-db-wrap"><table class="vm-table sq-table"><thead><tr><th class="vm-pick-col"><input type="checkbox" id="sqPickAll" aria-label="Tick every database that can move"></th><th>Database</th><th>Size</th><th>Recovery</th><th>How it moves</th><th>Wave</th><th>Name on the new server</th><th>Why</th></tr></thead><tbody id="sqDbRows"></tbody></table></div>
+              <details class="sq-off" id="sqOff"><summary id="sqOffTitle">Databases that cannot move</summary><div id="sqOffList"></div></details>
+              <div class="vm-note sq-why" id="sqPickCount"></div>
+              <h5 class="mp-heading">3. Logins, jobs and other server objects</h5>
+              <div class="sq-objects" id="sqObjects"></div>
+              <h5 class="mp-heading">4. Copy and cutover</h5>
+              <label class="vm-field">Backup folder both SQL Servers can reach<input id="sqBackup" data-browse="folder" data-browse-title="Choose the backup folder both SQL Servers can reach" type="text" maxlength="240" spellcheck="false" autocomplete="off" placeholder="\\fileserver\share\SQLMove"></label>
+              <div class="vm-move-actions"><button class="secondary-button" id="sqCheckFolder" type="button">Check backup folder</button><span class="migrate-inline-status sq-why" id="sqFolderStatus" role="status"></span></div>
+              <div class="mp-three">
+                <label class="vm-field">Data files on the new server<input id="sqDataPath" type="text" maxlength="240" spellcheck="false" autocomplete="off"></label>
+                <label class="vm-field">Log files on the new server<input id="sqLogPath" type="text" maxlength="240" spellcheck="false" autocomplete="off"></label>
+                <label class="vm-field">Ship the log every<select id="sqSync"><option value="5">5 minutes</option><option value="10">10 minutes</option><option value="15" selected>15 minutes</option><option value="30">30 minutes</option><option value="60">hour</option></select></label>
+              </div>
+              <div class="mp-three">
+                <label class="vm-field">Databases copied at once<select id="sqConcurrency"><option>1</option><option selected>2</option><option>3</option><option>4</option></select></label>
+                <label class="vm-field">Start the first copies<select id="sqStartMode"><option value="now">Now</option><option value="at">At a time I choose</option></select></label>
+                <label class="vm-field hidden" id="sqStartAtField">Start at (this computer's time)<input id="sqStartAt" type="datetime-local"></label>
+              </div>
+              <div class="vm-note sq-suggest" id="sqSuggestNote"></div>
+              <details class="sq-alias" id="sqAliasBox"><summary>Move a DNS alias at cutover (optional)</summary>
+                <p class="migrate-help">Applications that connect through an alias (a DNS CNAME such as sql-app) keep working without a change: the alias is pointed at the new server once every database is cut over, and Roll back points it back. The old server's own name is never changed.</p>
+                <div class="mp-three">
+                  <label class="vm-field">Alias<input id="sqAliasName" type="text" maxlength="200" spellcheck="false" autocomplete="off" placeholder="sql-app"></label>
+                  <label class="vm-field">DNS zone<input id="sqAliasZone" type="text" maxlength="200" spellcheck="false" autocomplete="off" placeholder="corp.example.com"></label>
+                  <label class="vm-field">DNS server<input id="sqAliasDns" type="text" maxlength="200" spellcheck="false" autocomplete="off" placeholder="DC1"></label>
+                </div>
+                <label class="vm-check"><input type="checkbox" id="sqAliasSpn" checked><span>Move the alias's Kerberos names (SPNs) to the new server's account</span></label>
+                <label class="vm-check"><input type="checkbox" id="sqAliasAuto" checked><span>Move the alias when the last database is cut over</span></label>
+              </details>
+              <h5 class="mp-heading">5. Review and start</h5>
+              <label class="vm-field">Plan name<input id="sqName" type="text" maxlength="100" spellcheck="false" autocomplete="off" placeholder="Finance SQL to NEWSQL"></label>
+              <div class="sq-findings" id="sqFindings" aria-live="polite"></div>
+              <div class="vm-move-actions sq-start"><button class="secondary-button" id="sqCheck" type="button">Check the plan</button><input id="sqConfirm" type="text" maxlength="100" spellcheck="false" autocomplete="off" aria-label="Type the plan name to start it"><button class="primary-button" id="sqStart" type="button">Start</button><span class="migrate-inline-status sq-why" id="sqStartStatus" role="status"></span></div>
+            </div>
+          </section>
+          <details class="sq-log"><summary>Activity</summary><pre class="log-view" id="sqLog"></pre></details>
+        </div>
+      </div></div>
+    </section>
     <section class="tool-pane" id="tabServers" aria-label="All jobs and servers">
       <div class="restore-wrap"><div class="card">
         <div class="card-header"><div><div class="card-title">All jobs and servers</div><div class="card-subtitle">Everything this console moves, replicates, converts or restores, in one list: agent replication jobs, Migration plans, Move VMs copies, disk conversions, restores and file share moves, servers with the agent but no job, and the VMs of the inventory read in Discovery that nothing moves yet. Tick as many as you like and act on them together; Open takes you to the tool with that job's own settings.</div></div></div>
@@ -2170,6 +2233,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
 <script src="src/02-server.js"></script>
 <script src="src/03-vmware.js"></script>
 <script src="src/04-migrate.js"></script>
+<script src="src/04-sql.js"></script>
 <script src="src/05-runtime.js"></script>
 <script>
 (function () {
@@ -2306,6 +2370,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     diskcopy:{tab:'migration',pane:'tabVmware',view:'disks',legacy:'vmware',title:'Receive and send disks',subtitle:'Set up the receiver that every copy goes to, or send one machine\'s disks by hand without the replication agent.',runs:'Receive and receiver media on the computer getting the disks; Send inside the machine being moved.'},
     failover:{tab:'migration',pane:'tabVmware',view:'failover',legacy:'vmware',title:'Start VMs from copies',subtitle:'Start a test VM on differencing disks, or the production VM after cutover, from copies this Hyper-V host received from Move VMs, Replicate servers or Send.',runs:'the Hyper-V host that receives the copies, as administrator.'},
     shares:{tab:'migration',pane:'tabMigrate',legacy:'migrate'},
+    sqlmove:{tab:'migration',pane:'tabSql',legacy:'sqlmove'},
     convert:{tab:'migration',pane:'tabConvert',legacy:'convert'},
     guest:{tab:'migration',pane:'tabVmware',view:'guest',legacy:'vmware',title:'Prepare and fix up',subtitle:'Record the machine\'s settings before the move and fix it up after it starts on the new platform, without installing anything in it.',runs:'the Hyper-V host or your admin computer, reaching the machine from outside (nothing installed in it); or inside the machine as a fallback.'},
     compare:{tab:'migration',pane:'tabVmware',view:'compare',legacy:'vmware',title:'Compare before and after',subtitle:'Compare the inventory collected before the move with the one collected after it.',runs:'any computer with both inventory packages.'}
@@ -2323,7 +2388,8 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     {id:'replicate',when:'the source is a physical server, a VM on another hypervisor or a VM with encrypted disks, or the copy must stay minutes behind for days until a scheduled cutover.',tool:'replicate',card:true,name:'Replicate servers',flow:'server',from:['server','vmware','hyperv'],to:['hyperv','scale','nutanix','proxmox','physical'],agent:'agent',live:'live',fromText:'Any running Windows Server or Linux server, physical or a VM on any hypervisor',note:'An agent on the source keeps the copy minutes behind until a cutover you schedule.'},
     {id:'sendbyhand',when:'you want a one-off copy of a running Windows computer without installing a service: run this application inside it and send.',tool:'diskcopy',card:true,name:'Send disks by hand',from:['server','vmware','hyperv'],to:['hyperv','scale','nutanix','proxmox','physical'],agent:'inguest',live:'live',fromText:'A running Windows computer, physical or virtual',note:'Run this application inside the source and send; send again for the changes. No service installed.'},
     {id:'convert',when:'the VM is shut down or exported and you have its disk files, or to copy this computer\'s own disks (P2V).',tool:'convert',card:true,name:'Convert disk images',flow:'image',from:['image','vmware','hyperv','server'],to:['hyperv','vsphere','scale','nutanix','proxmox'],agent:'agentless',live:'offline',fromText:'VMDK, VHD, VHDX, qcow2 or raw files from a VM that is shut down or exported, or this computer\'s own disks (P2V)',note:'Reads the files only. The source must not change while it is read.'},
-    {id:'shares',when:'only the file shares, files and permissions move to a new file server, not the whole server. Run it on the new file server, or on any admin computer: the new server then copies straight from the old one through PowerShell remoting.',tool:'shares',card:true,name:'Move file shares',from:['shares'],to:['fileserver','fileremote'],agent:'agentless',live:'live',fromText:'Windows file server shares, files and permissions (Windows Server 2012 or later)',toText:'a new Windows file server (Windows Server 2012 or later): this computer or another server',note:'Copies while users keep working, again and again until cutover; the shares move at cutover. Nothing is installed on either server.'}
+    {id:'shares',when:'only the file shares, files and permissions move to a new file server, not the whole server. Run it on the new file server, or on any admin computer: the new server then copies straight from the old one through PowerShell remoting.',tool:'shares',card:true,name:'Move file shares',from:['shares'],to:['fileserver','fileremote'],agent:'agentless',live:'live',fromText:'Windows file server shares, files and permissions (Windows Server 2012 or later)',toText:'a new Windows file server (Windows Server 2012 or later): this computer or another server',note:'Copies while users keep working, again and again until cutover; the shares move at cutover. Nothing is installed on either server.'},
+    {id:'sqlmove',when:'databases move to a new SQL Server rather than the whole server: each database is copied while it stays in use (log shipping, or a distributed availability group when it is already in an availability group) or at cutover (backup and restore), with its logins, jobs and linked servers.',tool:'sqlmove',card:true,name:'Move SQL databases',from:['sqldbs'],to:['sqlserver'],agent:'agentless',live:'live',fromText:'SQL Server 2012 or later databases (any edition; distributed availability groups need SQL Server 2016 or later with an availability group)',toText:'a new SQL Server of the same or a later version',note:'Nothing is installed on either SQL Server: this computer connects to both with T-SQL and PowerShell remoting. The old databases stay as they were at cutover until you roll back or remove them.'}
   ];
   var toolSupport={
     wizard:{works:'VMware (vCenter or ESXi 6.5 to 8.0) or Hyper-V VMs to this Hyper-V host or its failover cluster, start to finish; every other source and target gets its steps in order, each with the computer it runs on, a live check and its tool',when:'you start any migration and want only the choices it needs, in order',tags:['agentless','live']},
@@ -2336,7 +2402,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     guest:{works:'Windows Server 2008 R2 and later, and Windows clients, on any platform: from vCenter, PowerShell Direct, PowerShell remoting, or inside the machine as a fallback',tags:['agentless']},
     compare:{works:'Two inventories collected by this application',tags:['readonly']}
   };
-  var modeTargetNames={hyperv:'Hyper-V',scale:'Scale HyperCore',nutanix:'Nutanix AHV',proxmox:'Proxmox VE',physical:'a physical server',vsphere:'VMware ESXi or vCenter',fileserver:'a new Windows file server',fileremote:'another Windows file server'};
+  var modeTargetNames={hyperv:'Hyper-V',scale:'Scale HyperCore',nutanix:'Nutanix AHV',proxmox:'Proxmox VE',physical:'a physical server',vsphere:'VMware ESXi or vCenter',fileserver:'a new Windows file server',fileremote:'another Windows file server',sqlserver:'a new SQL Server'};
   var modeTagNames={agentless:'Agentless',agent:'Agent on the source',inguest:'Run inside the source',live:'Live, source keeps running',offline:'Offline, source shut down',readonly:'Read only',hyperv:'Hyper-V only'};
   function modeList(names){if(names.length<2){return names.join('');}return names.slice(0,-1).join(', ')+' or '+names[names.length-1];}
   function modeWorksText(mode){return (mode.fromText||mode.from.join(', '))+' to '+(mode.toText||modeList(mode.to.map(function(t){return modeTargetNames[t]||t;})));}
@@ -2483,6 +2549,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     if(id==='plans'){mpOpen();}
     if(id==='servers'){asOpen();}
     if(id==='rollback'){rbOpen();}
+    if(id==='sqlmove'){sqOpen();}
     if(id==='wizard'){nwOpen();}
     // A Build Hyper-V hosts editor marked stale (a new inventory) is drawn now, not at the next state poll.
     if(id==='hvbuild'){var hbEd=byId('hbEditor');if(hbEd&&(hbEd.getAttribute('data-stale')||!hbEd.childNodes.length)){hbRenderEditor();}}
@@ -3576,11 +3643,12 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     {id:'hyperv',name:'A Hyper-V VM',detail:'From a Hyper-V host. Nothing is installed in the VM.'},
     {id:'server',name:'A running server',detail:'Physical (P2V), or a VM on any platform. Windows or Linux. An agent copies it while it runs.'},
     {id:'image',name:'A disk image file',detail:'VMDK, VHD, VHDX, qcow2 or raw from a VM that is shut down or exported.'},
-    {id:'shares',name:'File shares',detail:'Shares, files and permissions from an old Windows file server.'}];
-  var gdTargetNames={hyperv:'Hyper-V',scale:'Scale Computing HyperCore',nutanix:'Nutanix AHV',proxmox:'Proxmox VE',physical:'A physical server',vsphere:'VMware ESXi or vCenter'};
-  var gdTargetDetail={hyperv:'VHDX disks and a new Hyper-V VM.',scale:'A new HyperCore VM.',nutanix:'A new AHV VM.',proxmox:'A new Proxmox VE VM.',physical:'Copied straight onto a server\'s own disks (V2P or P2P).',vsphere:'A new VM imported into vSphere.'};
-  var gdTargetsFor={vmware:['hyperv','scale','nutanix','proxmox','physical'],hyperv:['hyperv','scale','nutanix','proxmox','physical'],server:['hyperv','scale','nutanix','proxmox','physical'],image:['hyperv','vsphere','scale','nutanix','proxmox'],shares:[]};
-  var gdWhereNames={admin:'Your admin computer',hvhost:'The new Hyper-V host',inside:'Inside the machine being moved',newinside:'Inside the new machine',console:'The new machine\'s console',platform:'The platform\'s own console',fileserver:'The new file server',adminfs:'Any admin computer (directs the move)',any:'Any computer with this application',source:'The server being moved'};
+    {id:'shares',name:'File shares',detail:'Shares, files and permissions from an old Windows file server.'},
+    {id:'sqldbs',name:'SQL Server databases',detail:'Databases with their logins, jobs and linked servers, to a new SQL Server.'}];
+  var gdTargetNames={sqlserver:'A new SQL Server',hyperv:'Hyper-V',scale:'Scale Computing HyperCore',nutanix:'Nutanix AHV',proxmox:'Proxmox VE',physical:'A physical server',vsphere:'VMware ESXi or vCenter'};
+  var gdTargetDetail={sqlserver:'The databases are restored on a SQL Server you already installed.',hyperv:'VHDX disks and a new Hyper-V VM.',scale:'A new HyperCore VM.',nutanix:'A new AHV VM.',proxmox:'A new Proxmox VE VM.',physical:'Copied straight onto a server\'s own disks (V2P or P2P).',vsphere:'A new VM imported into vSphere.'};
+  var gdTargetsFor={vmware:['hyperv','scale','nutanix','proxmox','physical'],hyperv:['hyperv','scale','nutanix','proxmox','physical'],server:['hyperv','scale','nutanix','proxmox','physical'],image:['hyperv','vsphere','scale','nutanix','proxmox'],shares:[],sqldbs:['sqlserver']};
+  var gdWhereNames={admin:'Your admin computer',hvhost:'The new Hyper-V host',inside:'Inside the machine being moved',newinside:'Inside the new machine',console:'The new machine\'s console',platform:'The platform\'s own console',fileserver:'The new file server',adminfs:'Any admin computer (directs the move)',any:'Any computer with this application',source:'The server being moved',sqladmin:'Your admin computer (reaches both SQL Servers)'};
   var gdSource='',gdTarget='',gdFlowKey='',gdTicks={},gdStepsNow=[];
   function gdStore(key,value){try{if(value===undefined){return window.localStorage.getItem(key);}window.localStorage.setItem(key,value);}catch(e){}return null;}
   function gdCtx(){
@@ -3710,6 +3778,14 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
       if(tgt!=='vsphere'&&tgt!=='hyperv'){S('Fix up Windows for '+T,'any','For a Windows disk, convert to VHDX first, then Prepare a Windows disk for its new platform: add the VirtIO drivers and make them start at boot. Undo puts every value back.',null,'convert',{manual:true,focus:'fix'});}
       S('Send it to '+T+' and create the VM',tgt==='hyperv'?'hvhost':'any','Send to a host and create the VM converts the disk to '+T+'\'s format, uploads it and creates a new VM (an image or VM name already used stops it first).'+(tgt==='hyperv'?' For Hyper-V this runs on the Hyper-V host itself.':'')+' Or Convert only, and import the file yourself.',function(c){if(tgt==='hyperv'&&!c.hv){return gdBlock('This computer ('+c.computer+') is not a Hyper-V host. Do this step on the Hyper-V host, or Convert only and copy the VHDX there.');}return gdConvertDone(c);},'convert',{focus:'send',manual:true});
       fixup(tgt==='hyperv');
+    } else if(src==='sqldbs'){
+      S('Install the new SQL Server','admin','Install SQL Server on the new server (the same version as the old one or later) with the edition, collation and features the databases need. Nothing of this application is installed on either SQL Server.',null,null,{manual:true});
+      S('Read both servers','sqladmin','In Move SQL databases, type the old and new SQL Servers and Read both servers. Your sign-in needs sysadmin on both; a different Windows account or a SQL Server login also works. Reading changes nothing.',null,'sqlmove');
+      S('Choose databases and how each moves','sqladmin','Each database gets a suggested way: log shipping for databases in the full recovery model, backup and restore at cutover for the rest, and a distributed availability group for databases already in an availability group. Change any of them, the waves, the names and the logins, jobs and linked servers that move with them.',null,'sqlmove');
+      S('Check and start','sqladmin','Check backup folder confirms both SQL Server services can use the share, and Check the plan finds anything to fix first. Start copies logins and the first full backups, then keeps shipping the log until cutover.',null,'sqlmove');
+      S('Test','sqladmin','Test brings a copy of a database online on the new server under another name, so applications can be tried against it while the log keeps shipping. End test removes that copy only.',null,'sqlmove',{optional:true});
+      S('Cut over','sqladmin','Cut over (now or at a time): users are disconnected from the old database, the last changes are copied and the database comes online on the new server; the old one stays as it was, ready for Roll back. Jobs are turned on and a DNS alias can move with the last database.',null,'sqlmove');
+      S('Point applications at the new server','admin','Change connection strings that name the old server, unless they use the alias this plan moved.',null,null,{manual:true});
     } else if(src==='shares'&&tgt==='fileremote'){
       S('Choose the old and new servers','adminfs','Run this application on any admin computer (no administrator rights needed here). In Move file shares choose New server: Another server, type both names and the old server\'s administrator account. The new server copies straight from the old one through PowerShell remoting, so the files never pass through this computer and nothing is installed on either server.',gdSharesRemoteCheck,'shares');
       S('Choose shares and folders','adminfs','Every share is listed with its permissions; system shares start unticked. Choose where each one goes on the new server: Browse opens its drives through its administrative shares.',gdSharesCheck,'shares');
@@ -3730,6 +3806,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     if(src==='vmware'||src==='hyperv'){return tgt==='hyperv'?'Everything runs on the new Hyper-V host: it reads the source, copies each disk while the VM runs, and at cutover shuts the VM down, copies the last changes and builds the Hyper-V VM. Nothing is installed in the VM.':'Your admin computer reads the source, creates the new '+(tgt==='physical'?'server\'s receiver media':'VM on '+T)+' and copies each disk while the VM runs to a receiver running on the new machine; at cutover the VM is shut down and the last changes copied. Nothing is installed in the VM.';}
     if(src==='server'){return 'An agent on the server copies every disk from shadow copies (or LVM snapshots on Linux) to a receiver on the new machine, again and again, so the copy stays minutes behind. You test, then cut over at a time you choose.';}
     if(src==='image'){return 'Convert disk images reads the image (merging snapshots and differencing disks), converts it to '+T+'\'s format and can upload it and create the VM. The source file is only read.';}
+    if(src==='sqldbs'){return 'Your admin computer reaches both SQL Servers with T-SQL (and PowerShell remoting for a different Windows account). The old server backs each database up to a share, the new one restores it and keeps applying log backups until cutover, or a distributed availability group keeps it in sync. Nothing is installed on either server.';}
     if(tgt==='fileremote'){return 'Your admin computer directs the move: the new file server copies shares, files and permissions straight from the old one through PowerShell remoting while users keep working, then creates the shares at cutover. Files cross the network once and nothing is installed on either server.';}
     return 'The new file server copies shares, files and permissions from the old one while users keep working, then creates the shares at cutover.';
   }
@@ -3761,7 +3838,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
       try{gdTicks=JSON.parse(gdStore('simm.guide.ticks.'+gdFlowKey)||'{}')||{};}catch(e){gdTicks={};}
       gdStepsNow=gdSteps(gdSource,gdTarget);
       var srcName=gdSourceList.filter(function(o){return o.id===gdSource;})[0].name;
-      byId('gdPlanTitle').textContent=(gdSource==='shares'?(gdTarget==='fileremote'?'Moving file shares between two other servers':'Moving file shares to a new file server'):'Moving '+srcName.replace(/^A /,'a ')+' to '+gdTargetNames[gdTarget])+': the steps, in order';
+      byId('gdPlanTitle').textContent=(gdSource==='sqldbs'?'Moving SQL Server databases to a new SQL Server':gdSource==='shares'?(gdTarget==='fileremote'?'Moving file shares between two other servers':'Moving file shares to a new file server'):'Moving '+srcName.replace(/^A /,'a ')+' to '+gdTargetNames[gdTarget])+': the steps, in order';
       byId('gdHow').textContent=gdHow(gdSource,gdTarget);
       var comps=byId('gdComputers');comps.textContent='';comps.appendChild(el('span','gd-pick-title','Computers involved: '));
       gdComputers(gdStepsNow).forEach(function(w){var chip=el('span','gd-computer');chip.appendChild(el('b','',gdWhereNames[w]));comps.appendChild(chip);});
@@ -8950,7 +9027,8 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     {id:'vms',name:'VMs on VMware or Hyper-V',detail:'vCenter, ESXi or a Hyper-V host. Pick many at once; nothing is installed in them.'},
     {id:'servers',name:'Windows or Linux servers',detail:'Physical servers, or VMs on any other hypervisor, copied by an agent.'},
     {id:'shares',name:'File shares',detail:'Shares, files and permissions from an old file server.'},
-    {id:'images',name:'Disk image files',detail:'VMDK, VHD(X), qcow2 or raw files of a VM that is shut down or exported.'}
+    {id:'images',name:'Disk image files',detail:'VMDK, VHD(X), qcow2 or raw files of a VM that is shut down or exported.'},
+    {id:'sqldbs',name:'SQL Server databases',detail:'Databases, logins, jobs and linked servers to a new SQL Server, without moving the whole server.'}
   ];
   var nwTargetInfo={
     here:{name:'This Hyper-V host',detail:'This computer, or its failover cluster. Copies, syncs and cutover all run here.'},
@@ -8961,9 +9039,10 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     physical:{name:'A physical server',detail:'The server boots receiver media and gets the copy (V2P).'},
     vsphere:{name:'VMware ESXi or vCenter',detail:'The converted disk is imported as a new VM.'},
     fileserver:{name:'This file server',detail:'The shares are recreated on the computer running this application. Run it there as administrator.'},
+    sqlserver:{name:'A new SQL Server',detail:'A SQL Server you installed. This computer reaches both servers; nothing is installed on either.'},
     fileremote:{name:'Another file server',detail:'Run from any admin computer: the new server copies straight from the old one through PowerShell remoting, so files never pass through this computer. Nothing is installed on either server.'}
   };
-  function nwTargetsFor(src){return {vms:['here','hvremote','scale','nutanix','proxmox','physical'],servers:['here','scale','nutanix','proxmox','physical'],shares:['fileserver','fileremote'],images:['here','vsphere','scale','nutanix','proxmox']}[src]||[];}
+  function nwTargetsFor(src){return {vms:['here','hvremote','scale','nutanix','proxmox','physical'],servers:['here','scale','nutanix','proxmox','physical'],shares:['fileserver','fileremote'],sqldbs:['sqlserver'],images:['here','vsphere','scale','nutanix','proxmox']}[src]||[];}
   function nwMode(id){return migrationModes.filter(function(m){return m.id===id;})[0]||null;}
   function nwInvType(){return vmInventory?(vmInventory.serverType==='Hyper-V host'?'hyperv':'vmware'):'';}
   // The ways that fit, recommended first.
@@ -8976,6 +9055,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
     if(s==='vms'){if(t==='here'){return ['plans','movevms','replicate'];}if(t==='hvremote'){return nwInvType()==='hyperv'?['replicate']:['plans','onevmhv','replicate'];}return ['movevms','replicate','convert'];}
     if(s==='servers'){return ['replicate','sendbyhand'];}
     if(s==='shares'){return ['shares'];}
+    if(s==='sqldbs'){return ['sqlmove'];}
     if(s==='images'){return ['convert'];}
     return [];
   }
@@ -8984,7 +9064,7 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   // follows that flow's steps. Null when the way has no steps of its own.
   function nwGuideFlow(){
     var m=nwMode(nw.method);if(!m||!nw.source||!nw.target){return null;}
-    var src=m.flow||{vms:nwInvType()||'vmware',servers:'server',shares:'shares',images:'image'}[nw.source];
+    var src=m.flow||{vms:nwInvType()||'vmware',servers:'server',shares:'shares',images:'image',sqldbs:'sqldbs'}[nw.source];
     var tgt=src==='shares'?(nw.target==='fileremote'?'fileremote':'fileserver'):({here:'hyperv',hvremote:'hyperv'}[nw.target]||nw.target);
     if(!gdTargetsFor[src]||(src!=='shares'&&gdTargetsFor[src].indexOf(tgt)<0)){return null;}
     return {src:src,tgt:tgt};
@@ -10630,6 +10710,274 @@ kbd{display:inline-block;min-width:20px;padding:1px calc(6*var(--sp));border:1px
   byId('mpCutCancel').addEventListener('click',function(){var p=mpPlan();if(p){mpPost({action:'cancelCutover',id:p.id,vmIds:mpChosenIds()},'mpStatus');}});
   cfmBox(byId('mpConfirm'),{what:'I understand the selected VMs are shut down and cut over (now, or at the time chosen)'});
   ['mpConfirm','mpCutAt'].forEach(function(id){byId(id).addEventListener('input',syncMpButtons);});
+  // Move SQL databases (rule 71). The servers are read once (read only);
+  // each database gets a suggested method the operator can change, and a
+  // plan then runs on this computer while the application is open:
+  // seeding, log shipping, tests, cutover and rollback, all through
+  // /api/sql. Passwords are cleared from the page at once and kept in
+  // memory on this computer only.
+  var sqState=null,sqLastPoll=0,sqBusy=false,sqPick={},sqForm={methods:{},waves:{},names:{},touched:{}},sqReadKey='',sqPlanPick={},sqLogSig='',sqPlansSig='',sqObjSig='',sqDbSig='';
+  var sqAuthNames={current:'',windows:'A different Windows account',sql:'A SQL Server login'};
+  var sqMethodText={backup:'Backup and restore at cutover',logship:'Log shipping',dag:'Distributed availability group'};
+  var sqStateText={waiting:'Waiting',seeding:'First copy',ready:'In sync',syncing:'Shipping the log',testing:'Test copy online',cutting:'Cutting over',done:'Cut over',failed:'Failed','rolled-back':'Rolled back'};
+  function sqAuthBox(id){
+    var box=byId(id+'Auth');if(box.childNodes.length){return;}
+    var group=el('div','migrate-account'),lab=el('span','migrate-account-label','Connect as');lab.id=id+'AuthLabel';group.setAttribute('role','radiogroup');group.setAttribute('aria-labelledby',lab.id);group.appendChild(lab);
+    ['current','windows','sql'].forEach(function(v){var l=document.createElement('label'),i=document.createElement('input'),t=el('span','',v==='current'?signInLabel():sqAuthNames[v]);i.type='radio';i.name=id+'Auth';i.value=v;i.id=id+'Auth'+v;if(v==='current'){i.checked=true;t.setAttribute('data-signin-name','');}l.appendChild(i);l.appendChild(t);group.appendChild(l);i.addEventListener('change',function(){sqSyncAuth(id);});});
+    box.appendChild(group);
+    var fields=el('div','mp-three sq-account hidden');fields.id=id+'Account';
+    var u=document.createElement('label');u.className='vm-field';u.appendChild(document.createTextNode('Account'));var ui=document.createElement('input');ui.type='text';ui.id=id+'User';ui.maxLength=256;ui.spellcheck=false;ui.autocomplete='off';u.appendChild(ui);fields.appendChild(u);
+    var p=document.createElement('label');p.className='vm-field';p.appendChild(document.createTextNode('Password'));var pi=document.createElement('input');pi.type='password';pi.id=id+'Pass';pi.maxLength=256;pi.autocomplete='new-password';p.appendChild(pi);fields.appendChild(p);
+    box.appendChild(fields);
+    var why=el('div','migrate-help sq-auth-why');why.id=id+'AuthWhy';box.appendChild(why);
+    sqSyncAuth(id);
+  }
+  function sqAuthOf(id){var c=document.querySelector('input[name="'+id+'Auth"]:checked');return c?c.value:'current';}
+  function sqSyncAuth(id){
+    var a=sqAuthOf(id);byId(id+'Account').classList.toggle('hidden',a==='current');
+    byId(id+'User').placeholder=a==='sql'?'SQL Server login':'DOMAIN\\user';
+    byId(id+'AuthWhy').textContent=a==='windows'?'The account is used on that SQL Server\'s own computer (PowerShell remoting), where it signs in to SQL Server with Windows authentication.':(a==='sql'?'Connects directly with SQL Server authentication.':'');
+  }
+  function sqEndpoint(id){var a=sqAuthOf(id);return {server:trimText(byId(id).value),auth:a,user:a==='current'?'':trimText(byId(id+'User').value)};}
+  function sqView(){return sqState&&sqState.read||null;}
+  function sqLoad(){sqLastPoll=Date.now();request('GET','/api/sql/state',null,function(err,data){if(err){return;}sqState=data.sql||{};renderSql();});}
+  function sqOpen(){sqAuthBox('sqSrc');sqAuthBox('sqDst');sqLoad();}
+  function sqPost(path,body,statusId,done){
+    if(sqBusy){return;}sqBusy=true;if(statusId){vmSetStatus(statusId,'',false);}syncSqButtons();
+    request('POST','/api/sql/'+path,body,function(err,data){sqBusy=false;if(statusId){vmSetStatus(statusId,err||(data&&data.message)||'',!!err);}if(done){done(err,data||{});}syncSqButtons();sqLoad();});
+  }
+  byId('sqRead').addEventListener('click',function(){
+    var src=sqEndpoint('sqSrc'),dst=sqEndpoint('sqDst');
+    if(!src.server||!dst.server){vmSetStatus('sqReadStatus','Type both SQL Servers.',true);return;}
+    var sp=byId('sqSrcPass').value,dp=byId('sqDstPass').value;byId('sqSrcPass').value='';byId('sqDstPass').value='';
+    sqPost('read',{source:src,target:dst,sourcePassword:sp,targetPassword:dp},'sqReadStatus');
+  });
+  function sqChoices(){var v=sqView();return v&&v.choices||{};}
+  function sqMethodFor(name){return sqForm.methods[name]||(sqChoices()[name]||{}).method||'backup';}
+  function sqPicked(){var v=sqView();if(!v||!v.source){return [];}return vmArr(v.source.databases).filter(function(d){return sqPick[d.name]&&sqChoices()[d.name]&&!(v.reasons[d.name]||{}).off;});}
+  function sqSize(mb){mb=Number(mb)||0;return mb>=1024?(Math.round(mb/102.4)/10)+' GB':Math.round(mb)+' MB';}
+  function sqFillSuggestions(v){
+    var s=v.suggest||{},key=(v.source&&v.source.server)+'|'+(v.target&&v.target.server)+'|'+(v.source&&v.source.readAt);
+    if(key===sqReadKey){return;}sqReadKey=key;sqPick={};sqForm={methods:{},waves:{},names:{},touched:{}};
+    var fill=function(id,val){var f=byId(id);if(!f.value||f.getAttribute('data-suggested')===f.value){f.value=val||'';f.setAttribute('data-suggested',val||'');}};
+    fill('sqBackup',s.backupPath);fill('sqDataPath',s.dataPath);fill('sqLogPath',s.logPath);fill('sqAliasZone',s.aliasZone);
+    if(!byId('sqName').value){byId('sqName').value=(v.source.machine||v.source.server)+' to '+(v.target.machine||v.target.server);}
+    var parts=[];if(s.backupWhy){parts.push('Backup folder: '+s.backupWhy);}if(s.pathWhy){parts.push('Data and log folders: '+s.pathWhy);}if(s.syncWhy){parts.push('Log shipping: '+s.syncWhy);}
+    byId('sqSuggestNote').textContent=parts.join(' ');
+    sqObjSig='';sqDbSig='';
+  }
+  function renderSqFacts(v){
+    var box=byId('sqFacts');box.textContent='';
+    [['Old',v.source],['New',v.target]].forEach(function(x){var i=x[1];if(!i){return;}var line=el('div','sq-fact');line.appendChild(el('strong','',x[0]+': '+i.server));line.appendChild(el('span','vm-note',' '+[i.edition,'version '+i.version,vmPlural(vmArr(i.databases).length,'database'),i.serviceAccount?'service account '+i.serviceAccount:''].filter(function(t){return t;}).join(', ')+'.'));box.appendChild(line);});
+  }
+  function renderSqDbs(v){
+    var sig=JSON.stringify([sqReadKey,sqPick,sqForm]);if(sig===sqDbSig){return;}sqDbSig=sig;
+    var rows=byId('sqDbRows'),off=byId('sqOffList');rows.textContent='';off.textContent='';var offCount=0;
+    vmArr(v.source.databases).forEach(function(d){
+      var reason=(v.reasons[d.name]||{}).off,choice=sqChoices()[d.name];
+      if(reason&&!choice||!choice){offCount++;off.appendChild(el('div','vm-note',d.name+': '+(reason||'It cannot be moved.')));return;}
+      var tr=el('tr',sqPick[d.name]?'picked':'');tr.setAttribute('data-sq-db',d.name);
+      var td=el('td','vm-pick-col'),cb=document.createElement('input');cb.type='checkbox';cb.checked=!!sqPick[d.name];cb.setAttribute('data-sq-pick',d.name);cb.setAttribute('aria-label','Move '+d.name);td.appendChild(cb);tr.appendChild(td);
+      var nm=el('td');nm.appendChild(el('strong','selectable',d.name));if(d.ag){nm.appendChild(el('div','vm-note','In '+d.ag));}tr.appendChild(nm);
+      tr.appendChild(el('td','',sqSize((d.dataMB||0)+(d.logMB||0))));
+      tr.appendChild(el('td','',String(d.recovery||'').toLowerCase()));
+      var mt=el('td'),sel=document.createElement('select');sel.setAttribute('data-sq-method',d.name);sel.setAttribute('aria-label','How '+d.name+' moves');
+      ['backup','logship','dag'].forEach(function(m){var o=new Option(sqMethodText[m],m);var why=(choice.unavailable||{})[m];if(why){o.disabled=true;o.title=why;}sel.appendChild(o);});
+      sel.value=sqMethodFor(d.name);mt.appendChild(sel);mt.appendChild(el('span','mp-chip sq-tag',sqForm.touched[d.name]?'Set by you':'Suggested'));tr.appendChild(mt);
+      var wt=el('td'),w=document.createElement('input');w.type='text';w.inputMode='numeric';w.maxLength=2;w.className='sq-wave';w.value=String(sqForm.waves[d.name]||0);w.setAttribute('data-sq-wave',d.name);w.setAttribute('aria-label','Wave of '+d.name);wt.appendChild(w);tr.appendChild(wt);
+      var tt=el('td'),n=document.createElement('input');n.type='text';n.maxLength=120;n.spellcheck=false;n.value=sqForm.names[d.name]||'';n.placeholder=d.name;n.setAttribute('data-sq-name',d.name);n.setAttribute('aria-label','Name of '+d.name+' on the new server');tt.appendChild(n);
+      if(reason){tt.appendChild(el('div','vm-note sq-warn',reason));}tr.appendChild(tt);
+      var why=sqForm.touched[d.name]?'Chosen by you.':choice.why;var wy=el('td');wy.appendChild(errLine(why,'vm-note','sqwhy:'+d.name));tr.appendChild(wy);
+      rows.appendChild(tr);
+    });
+    byId('sqOff').classList.toggle('hidden',!offCount);byId('sqOffTitle').textContent=vmPlural(offCount,'database')+' cannot move';
+    var picked=sqPicked().length,shown=rows.querySelectorAll('[data-sq-pick]').length;
+    byId('sqPickAll').checked=shown>0&&picked===shown;
+    byId('sqPickCount').textContent=picked?vmPlural(picked,'database')+' chosen, '+sqSize(sqPicked().reduce(function(t,d){return t+(d.dataMB||0)+(d.logMB||0);},0))+'.':'Tick the databases to move.';
+  }
+  byId('sqDbRows').addEventListener('change',function(e){
+    var t=e.target,n;
+    if((n=t.getAttribute('data-sq-pick'))){sqPick[n]=t.checked;}
+    else if((n=t.getAttribute('data-sq-method'))){sqForm.methods[n]=t.value;sqForm.touched[n]=t.value!==(sqChoices()[n]||{}).method;}
+    else if((n=t.getAttribute('data-sq-wave'))){var w=parseInt(t.value,10);sqForm.waves[n]=isNaN(w)||w<0?0:Math.min(w,99);}
+    else if((n=t.getAttribute('data-sq-name'))){sqForm.names[n]=trimText(t.value);}
+    renderSqDbs(sqView());syncSqButtons();
+  });
+  byId('sqPickAll').addEventListener('change',function(){var on=byId('sqPickAll').checked;Array.prototype.forEach.call(byId('sqDbRows').querySelectorAll('[data-sq-pick]'),function(c){sqPick[c.getAttribute('data-sq-pick')]=on;});renderSqDbs(sqView());syncSqButtons();});
+  function renderSqObjects(v){
+    var sig=JSON.stringify([sqReadKey,v.counts,v.config,v.objects,v.errors]);if(sig===sqObjSig){return;}sqObjSig=sig;
+    var box=byId('sqObjects');box.textContent='';var c=v.counts||{},s=v.suggest||{};
+    var tick=function(id,text,on,why){var l=el('label','vm-check'),i=document.createElement('input');i.type='checkbox';i.id=id;i.checked=on;l.appendChild(i);l.appendChild(el('span','',text));box.appendChild(l);if(why){box.appendChild(el('div','vm-note sq-obj-why',why));}return i;};
+    tick('sqObjLogins','Logins ('+formatCount(c.logins||0)+'), with their SIDs and passwords, server roles and permissions',true,s.objectsWhy);
+    tick('sqObjJobs','SQL Server Agent jobs ('+formatCount(c.jobs||0)+'), created turned off and turned on at cutover',(c.jobs||0)>0&&!(v.target&&/express/i.test(v.target.edition||'')));
+    tick('sqObjLinked','Linked servers ('+formatCount(c.linked||0)+')',(c.linked||0)>0);
+    tick('sqObjOperators','Operators ('+formatCount(c.operators||0)+')',(c.operators||0)>0);
+    tick('sqObjDisableJobs','Turn the old server\'s jobs for these databases off at cutover',!!s.disableJobs,s.disableJobWhy);
+    if(v.errors&&v.errors.objects){box.appendChild(errLine('Instance objects could not be read: '+v.errors.objects,'restore-alert','sqobjerr'));}
+    if(v.errors&&v.errors.jobs){box.appendChild(el('div','vm-note',v.errors.jobs));}
+    var cfg=vmArr(v.config);
+    if(cfg.length){var d=el('details','sq-config');d.appendChild(el('summary','','Server settings that differ ('+cfg.length+')'));cfg.forEach(function(x){var l=el('label','vm-check'),i=document.createElement('input');i.type='checkbox';i.checked=!!x.default;i.setAttribute('data-sq-config',x.name);l.appendChild(i);l.appendChild(el('span','',x.name+': '+x.old+' on the old server, '+x.new+' on the new one'));d.appendChild(l);});box.appendChild(d);}
+    var items=vmArr(v.objects);
+    if(items.length){
+      var groups={create:[],exists:[],manual:[],conflict:[],skip:[]};items.forEach(function(it){(groups[it.action]||groups.skip).push(it);});
+      var dd=el('details','sq-object-list');dd.appendChild(el('summary','',formatCount(groups.create.length)+' to create, '+formatCount(groups.exists.length)+' already there, '+formatCount(groups.manual.length+groups.conflict.length)+' by hand'));
+      [['create','Created on the new server'],['conflict','Different on the new server: left as it is'],['manual','Move by hand'],['exists','Already on the new server'],['skip','Not copied']].forEach(function(g){var list=groups[g[0]];if(!list.length){return;}dd.appendChild(el('div','sq-object-head',g[1]));var ul=el('ul','sq-object-items');list.forEach(function(it){ul.appendChild(el('li','selectable',it.kind+' '+it.name+(it.detail?': '+it.detail:'')));});dd.appendChild(ul);});
+      box.appendChild(dd);
+    }
+  }
+  function sqInput(){
+    var v=sqView()||{},mode=byId('sqStartMode').value,at=byId('sqStartAt').value;
+    var cfg=Array.prototype.filter.call(document.querySelectorAll('[data-sq-config]'),function(c){return c.checked;}).map(function(c){return c.getAttribute('data-sq-config');});
+    var on=function(id){var x=byId(id);return !!(x&&x.checked);};
+    return {name:trimText(byId('sqName').value),source:sqEndpoint('sqSrc'),target:sqEndpoint('sqDst'),backupPath:trimText(byId('sqBackup').value),dataPath:trimText(byId('sqDataPath').value),logPath:trimText(byId('sqLogPath').value),
+      syncMinutes:parseInt(byId('sqSync').value,10),concurrency:parseInt(byId('sqConcurrency').value,10),startAt:mode==='at'&&at?new Date(at).toISOString():'0001-01-01T00:00:00Z',
+      objects:{logins:on('sqObjLogins'),jobs:on('sqObjJobs'),linkedServers:on('sqObjLinked'),operators:on('sqObjOperators'),disableSourceJobs:on('sqObjDisableJobs'),config:cfg},
+      alias:{name:trimText(byId('sqAliasName').value),zone:trimText(byId('sqAliasZone').value),dnsServer:trimText(byId('sqAliasDns').value),spn:byId('sqAliasSpn').checked,atCutover:byId('sqAliasAuto').checked},
+      databases:sqPicked().map(function(d){return {name:d.name,method:sqMethodFor(d.name),wave:sqForm.waves[d.name]||0,targetName:sqForm.names[d.name]||'',switchToFull:false};})};
+  }
+  byId('sqStartMode').addEventListener('change',function(){byId('sqStartAtField').classList.toggle('hidden',byId('sqStartMode').value!=='at');});
+  byId('sqCheckFolder').addEventListener('click',function(){var i=sqInput();sqPost('checkfolder',{source:i.source,target:i.target,backupPath:i.backupPath},'sqFolderStatus');});
+  function renderSqFindings(list){
+    var box=byId('sqFindings');box.textContent='';list=vmArr(list);
+    if(!list.length){box.appendChild(el('div','vm-note','No problems found.'));return;}
+    list.forEach(function(f){var row=el('div','sq-finding '+(f.severity||''));row.appendChild(el('span','mp-chip'+({blocker:' danger',warning:' warning'}[f.severity]||''),{blocker:'Fix first',warning:'Review',info:'Note'}[f.severity]||f.severity));row.appendChild(errLine((f.db?f.db+': ':'')+f.message,'sq-finding-text','sqf:'+f.code+f.db));box.appendChild(row);});
+  }
+  byId('sqCheck').addEventListener('click',function(){sqPost('check',sqInput(),'sqStartStatus',function(err,data){if(!err){renderSqFindings(data.findings);}});});
+  cfmBox(byId('sqConfirm'),{what:function(n){return 'I understand '+(n||'this plan')+' starts copying the chosen databases from the old server';}});
+  byId('sqName').addEventListener('input',syncSqButtons);byId('sqConfirm').addEventListener('input',syncSqButtons);
+  byId('sqStart').addEventListener('click',function(){
+    var i=sqInput();if(!cfmOk(byId('sqConfirm'),i.name)){return;}i.confirm=cfmVal(byId('sqConfirm'),i.name);
+    cfmAsk({title:'Start '+i.name+'?',text:'The chosen databases start copying from the old server. Nothing stops there until each database is cut over.',button:'Start',names:i.databases.map(function(d){return d.name;})},function(){
+      sqPost('create',i,'sqStartStatus',function(err,data){if(data&&data.findings){renderSqFindings(data.findings);}if(!err){cfmClear(byId('sqConfirm'));sqPick={};sqDbSig='';vmSetStatus('sqStartStatus','Started. The plan is listed above.',false);}});
+    });
+  });
+  function syncSqButtons(){
+    var v=sqView(),reading=!!(sqState&&sqState.reading);
+    byId('sqRead').disabled=sqBusy||reading;
+    var picked=sqPicked().length,name=trimText(byId('sqName').value);
+    byId('sqCheck').disabled=sqBusy||!v||!picked;byId('sqCheckFolder').disabled=sqBusy||!v||!trimText(byId('sqBackup').value);
+    byId('sqStart').disabled=sqBusy||!v||!picked||!name||!cfmOk(byId('sqConfirm'),name);
+  }
+  // A database's track: Copy, In sync, Tested, Cut over (Fixed up does not apply).
+  function sqTrack(d){
+    var copy=d.method==='backup'?(d.state==='done'?'done':'skip'):(mpTime(d.seeded)?'done':(d.state==='failed'?'failed':(d.state==='seeding'?'current':'todo')));
+    var sync=d.state==='done'?'done':(d.method==='backup'?'skip':(mpTime(d.seeded)?(d.state==='failed'?'failed':'current'):'todo'));
+    var tested=mpTime(d.testedAt)?'done':(d.test?'current':'todo');
+    var cut=d.state==='done'?'done':(d.state==='cutting'?'current':(d.state==='failed'&&mpTime(d.seeded)&&d.method!=='logship'?'todo':'todo'));
+    var next=d.state==='done'?'Check the applications, then keep it or roll back':(d.test?'Check the test copy, then end the test':(d.state==='failed'?'See the error':(mpTime(d.seeded)||d.method==='backup'?(mpTime(d.cutoverAt)?'Cutover at '+mpTime(d.cutoverAt):'Test, then cut over'):'Waiting for the first copy')));
+    if(d.state==='rolled-back'){next='Rolled back to the old server';}
+    return statusTrack([copy,sync,tested,cut,'skip'],next);
+  }
+  function renderSql(){
+    if(!sqState){return;}
+    var v=sqView(),plans=vmArr(sqState.plans),rest=byId('sqRest');
+    setToolBadge('sqlBadge',plans.length?String(plans.length):'');
+    if(sqState.reading){vmSetStatus('sqReadStatus',sqState.message||'Reading…',false);}else if(sqState.message&&!sqBusy){vmSetStatus('sqReadStatus',sqState.message,!!sqState.failed);}
+    rest.classList.toggle('hidden',!v);
+    if(v){sqFillSuggestions(v);renderSqFacts(v);renderSqDbs(v);renderSqObjects(v);}
+    renderSqPlans(plans);
+    var logs=vmArr(sqState.logs).join('\n');if(logs!==sqLogSig){sqLogSig=logs;byId('sqLog').textContent=logs;}
+    syncSqButtons();
+  }
+  function sqPlanChosen(p){return vmArr(p.databases).filter(function(d){return (sqPlanPick[p.id]||{})[d.name];}).map(function(d){return d.name;});}
+  function renderSqPlans(plans){
+    var sig=JSON.stringify([plans,sqState.running,sqState.ready,sqPlanPick,cfmStyle()]);if(sig===sqPlansSig){return;}sqPlansSig=sig;
+    var box=byId('sqPlans');
+    var keep={};Array.prototype.forEach.call(box.querySelectorAll('input[data-sq-keep]'),function(i){keep[i.getAttribute('data-sq-keep')]=i.value;});
+    box.textContent='';
+    plans.forEach(function(p){
+      var card=el('section','migrate-card sq-plan');card.setAttribute('data-sq-plan',p.id);
+      var head=el('div','sq-plan-head');head.appendChild(el('strong','',p.name+(p.paused?' (paused)':'')));head.appendChild(el('span','vm-note',' '+p.source.server+' to '+p.target.server+'. Log shipped every '+p.syncMinutes+' minutes.'));card.appendChild(head);
+      var ready=(sqState.ready||{})[p.id];
+      if(ready){
+        var si=el('div','restore-alert warning sq-signin');si.appendChild(el('div','',ready));
+        [['source','sourcePassword','old'],['target','targetPassword','new']].forEach(function(x){var e=p[x[0]];if(e.auth==='current'){return;}var l=el('label','vm-field','Password for '+e.user+' on '+e.server);var i=document.createElement('input');i.type='password';i.autocomplete='new-password';i.setAttribute('data-sq-pass',x[1]);l.appendChild(i);si.appendChild(l);});
+        var sb=el('button','secondary-button','Sign in');sb.type='button';sb.setAttribute('data-sq-signin',p.id);si.appendChild(sb);card.appendChild(si);
+      }
+      var dbs=vmArr(p.databases),count=function(f){return dbs.filter(f).length;};
+      var sum=el('div','mp-summary');
+      [['In sync',count(function(d){return d.state==='ready';}),'good'],['Copying',count(function(d){return d.state==='seeding'||d.state==='syncing'||d.state==='waiting';}),''],['Testing',count(function(d){return !!d.test;}),'warning'],['Cut over',count(function(d){return d.state==='done';}),'good'],['Failed',count(function(d){return d.state==='failed';}),'danger']].forEach(function(t){var s=el('div','mp-stat'+(t[1]&&t[2]?' '+t[2]:''));s.appendChild(el('strong','',formatCount(t[1])));s.appendChild(el('span','',t[0]));sum.appendChild(s);});
+      card.appendChild(sum);
+      var wrap=el('div','vm-table-wrap'),table=el('table','vm-table sq-plan-table'),thead=el('thead'),hr=el('tr');
+      var all=document.createElement('input');all.type='checkbox';all.setAttribute('data-sq-all',p.id);all.setAttribute('aria-label','Tick every database of '+p.name);all.checked=dbs.length>0&&sqPlanChosen(p).length===dbs.length;
+      var th0=el('th','vm-pick-col');th0.appendChild(all);hr.appendChild(th0);['Database','How it moves','Wave','Progress','Last log shipped','State'].forEach(function(h){hr.appendChild(el('th','',h));});thead.appendChild(hr);table.appendChild(thead);
+      var tb=el('tbody');
+      dbs.forEach(function(d){
+        var tr=el('tr',(sqPlanPick[p.id]||{})[d.name]?'picked':''),td=el('td','vm-pick-col'),cb=document.createElement('input');cb.type='checkbox';cb.checked=!!(sqPlanPick[p.id]||{})[d.name];cb.setAttribute('data-sq-row',p.id);cb.setAttribute('data-sq-dbname',d.name);cb.setAttribute('aria-label','Choose '+d.name);td.appendChild(cb);tr.appendChild(td);
+        var nm=el('td');nm.appendChild(el('strong','selectable',d.name));if(d.targetName){nm.appendChild(el('div','vm-note','as '+d.targetName));}tr.appendChild(nm);
+        tr.appendChild(el('td','',sqMethodText[d.method]||d.method));
+        tr.appendChild(el('td','',String(d.wave||0)));
+        var pr=el('td');pr.appendChild(sqTrack(d));tr.appendChild(pr);
+        var last=mpTime(d.lastRound);tr.appendChild(el('td','',d.method==='backup'?'At cutover':(d.method==='dag'?(d.sync?d.sync.toLowerCase()+(d.queueKB?', '+sqSize(d.queueKB/1024)+' queued':''):'—'):(last||'—'))));
+        var st=el('td');st.appendChild(el('span','mp-chip'+({ready:' good',done:' good',failed:' danger',testing:' warning',cutting:' warning'}[d.state]||''),sqStateText[d.state]||d.state));
+        if(d.step){st.appendChild(el('div','vm-note',d.step));}
+        if(d.error){st.appendChild(errLine(d.error,'mp-err','sqerr:'+p.id+d.name));}
+        if(d.note){st.appendChild(errLine(d.note,'vm-note','sqnote:'+p.id+d.name));}
+        if(d.test){st.appendChild(el('div','vm-note','Test copy '+d.test.name+' is online on '+p.target.server+'.'));}
+        tr.appendChild(st);tb.appendChild(tr);
+      });
+      table.appendChild(tb);wrap.appendChild(table);card.appendChild(wrap);
+      var chosen=sqPlanChosen(p),n=chosen.length;
+      var acts=el('div','mp-row-actions');
+      var btn=function(text,action,cls,title){var b=el('button',cls||'secondary-button',text);b.type='button';b.setAttribute('data-sq-act',action);b.setAttribute('data-sq-for',p.id);b.disabled=!!title;if(title){b.title=title;}acts.appendChild(b);return b;};
+      var none=n?'':'Tick databases first.';
+      btn('Ship the log now','sync','',none);btn('Test','test','',none);btn('End test','endtest','',none);btn('Copy again','reseed','',none);
+      btn(p.paused?'Resume':'Pause',p.paused?'resume':'pause');
+      card.appendChild(acts);
+      var cut=el('div','vm-move-actions sq-cut');
+      var conf=document.createElement('input');conf.type='text';conf.id='sqCut_'+p.id;conf.setAttribute('data-sq-keep','sqCut_'+p.id);conf.maxLength=6;conf.value=keep['sqCut_'+p.id]||'';conf.setAttribute('aria-label','Type the number of databases to cut over or roll back');cut.appendChild(conf);
+      var at=document.createElement('input');at.type='datetime-local';at.id='sqAt_'+p.id;at.setAttribute('data-sq-keep','sqAt_'+p.id);at.value=keep['sqAt_'+p.id]||'';at.setAttribute('aria-label','Cutover time');
+      var c1=el('button','primary-button','Cut over now');c1.type='button';c1.setAttribute('data-sq-act','cutover');c1.setAttribute('data-sq-for',p.id);
+      var c2=el('button','secondary-button','Schedule cutover');c2.type='button';c2.setAttribute('data-sq-act','schedule');c2.setAttribute('data-sq-for',p.id);
+      var c3=el('button','secondary-button danger-button','Roll back');c3.type='button';c3.setAttribute('data-sq-act','rollback');c3.setAttribute('data-sq-for',p.id);
+      cut.appendChild(c1);cut.appendChild(at);cut.appendChild(c2);cut.appendChild(c3);
+      var status=el('span','migrate-inline-status sq-why');status.id='sqPlanStatus_'+p.id;status.setAttribute('role','status');cut.appendChild(status);
+      card.appendChild(cut);
+      cfmBox(conf,{what:function(x){return 'I understand the '+(x==='1'?'database':x+' databases')+' ticked stop on one server and run on the other';}});
+      var ok=cfmOk(conf,n?String(n):'',chosen.join('|'));c1.disabled=c2.disabled=c3.disabled=!n||!ok;
+      if(!n){c1.title=c2.title=c3.title='Tick databases first.';}
+      // Alias and distributed AGs.
+      if(p.alias&&p.alias.name){
+        var al=el('div','sq-alias-row'),st2=p.aliasState;
+        al.appendChild(el('span','',(st2&&mpTime(st2.changedAt)&&!mpTime(st2.restored)?'The alias '+p.alias.name+' points at '+p.target.server+' since '+mpTime(st2.changedAt)+'.':'The alias '+p.alias.name+' still points at the old server'+(p.alias.atCutover?'; it moves when the last database is cut over.':'.'))));
+        var ab=el('button','secondary-button',st2&&mpTime(st2.changedAt)&&!mpTime(st2.restored)?'Point it back':'Move the alias now');ab.type='button';ab.setAttribute('data-sq-act',st2&&mpTime(st2.changedAt)&&!mpTime(st2.restored)?'unalias':'alias');ab.setAttribute('data-sq-for',p.id);al.appendChild(ab);card.appendChild(al);
+      }
+      vmArr(p.dags).forEach(function(l){if(!mpTime(l.cutAt)||mpTime(l.removed)){return;}var row=el('div','sq-alias-row');row.appendChild(el('span','','The distributed availability group '+l.name+' still links the old and new availability groups, so Roll back can fail back. Remove it once the new server is kept.'));var b=el('button','secondary-button','Remove '+l.name);b.type='button';b.setAttribute('data-sq-act','finishdag');b.setAttribute('data-sq-ag',l.sourceAg);b.setAttribute('data-sq-for',p.id);row.appendChild(b);card.appendChild(row);});
+      if(p.objectsNote){var on=el('details','sq-objects-done');on.appendChild(el('summary','',p.objectsNote));var ul=el('ul','sq-object-items');vmArr(p.objectItems).forEach(function(it){ul.appendChild(el('li','selectable',it.kind+' '+it.name+': '+it.action+(it.detail?' ('+it.detail+')':'')));});on.appendChild(ul);card.appendChild(on);}
+      if(p.note){card.appendChild(errLine(p.note,'vm-note','sqpn:'+p.id));}
+      var del=el('button','link-button','Delete this plan…');del.type='button';del.setAttribute('data-sq-act','delete');del.setAttribute('data-sq-for',p.id);card.appendChild(del);
+      box.appendChild(card);
+    });
+  }
+  function sqPlanById(id){return vmArr(sqState&&sqState.plans).filter(function(p){return p.id===id;})[0]||null;}
+  byId('sqPlans').addEventListener('change',function(e){
+    var t=e.target,k;
+    if((k=t.getAttribute('data-sq-row'))){var dn=t.getAttribute('data-sq-dbname');sqPlanPick[k]=sqPlanPick[k]||{};sqPlanPick[k][dn]=t.checked;sqPlansSig='';renderSqPlans(vmArr(sqState.plans));}
+    else if((k=t.getAttribute('data-sq-all'))){var p=sqPlanById(k);sqPlanPick[k]={};if(t.checked&&p){vmArr(p.databases).forEach(function(d){sqPlanPick[k][d.name]=true;});}sqPlansSig='';renderSqPlans(vmArr(sqState.plans));}
+  });
+  byId('sqPlans').addEventListener('input',function(e){var t=e.target;if(t.getAttribute('data-sq-keep')&&/^sqCut_/.test(t.id)){sqPlansSig='';renderSqPlans(vmArr(sqState.plans));var f=byId(t.id);if(f){f.focus();}}});
+  byId('sqPlans').addEventListener('click',function(e){
+    var b=e.target.closest('button');if(!b){return;}
+    var sid=b.getAttribute('data-sq-signin');
+    if(sid){var card=b.closest('[data-sq-plan]'),body={plan:sid};Array.prototype.forEach.call(card.querySelectorAll('[data-sq-pass]'),function(i){body[i.getAttribute('data-sq-pass')]=i.value;i.value='';});sqPost('signin',body,'sqPlanStatus_'+sid);return;}
+    var act=b.getAttribute('data-sq-act'),id=b.getAttribute('data-sq-for'),p=sqPlanById(id);if(!act||!p){return;}
+    var names=sqPlanChosen(p),body2={plan:id,action:act,names:names},st='sqPlanStatus_'+id;
+    var go=function(){sqPost('action',body2,st,function(err){if(!err&&(act==='cutover'||act==='schedule'||act==='rollback')){cfmClear(byId('sqCut_'+id));}});};
+    if(act==='cutover'||act==='schedule'||act==='rollback'){
+      var conf=byId('sqCut_'+id);if(!cfmOk(conf,String(names.length),names.join('|'))){return;}body2.confirm=cfmVal(conf,String(names.length));
+      if(act==='schedule'){var at=byId('sqAt_'+id).value;if(!at){vmSetStatus(st,'Choose the cutover time.',true);return;}body2.at=new Date(at).toISOString();}
+      var text={cutover:'The ticked databases stop taking changes on the old server (users are disconnected), the last changes are copied and they come online on the new server. Roll back brings the old ones back.',schedule:'The ticked databases are cut over at the time chosen, while this application is open.',rollback:'The new copies are taken offline (not deleted) and the old databases come back online as they were at cutover. Changes made on the new server since then are not on the old one.'}[act];
+      cfmAsk({title:{cutover:'Cut over now?',schedule:'Schedule the cutover?',rollback:'Roll back?'}[act],text:text,button:{cutover:'Cut over',schedule:'Schedule',rollback:'Roll back'}[act],names:names},go);return;
+    }
+    if(act==='delete'||act==='alias'||act==='unalias'||act==='finishdag'){
+      body2.confirm=p.name;if(act==='finishdag'){body2.ag=b.getAttribute('data-sq-ag');}
+      var txt={delete:'The plan record is removed from this computer. Nothing changes on either SQL Server.',alias:'The alias '+(p.alias&&p.alias.name)+' is pointed at '+p.target.server+'.',unalias:'The alias '+(p.alias&&p.alias.name)+' is put back as it was.',finishdag:'The distributed availability group is removed. The new availability group keeps running; Roll back can no longer fail back.'}[act];
+      openMigrateDialog({title:{delete:'Delete '+p.name+'?',alias:'Move the alias?',unalias:'Point the alias back?',finishdag:'Remove the distributed availability group?'}[act],text:txt,expected:p.name,understand:'I understand: '+txt,button:{delete:'Delete',alias:'Move',unalias:'Point back',finishdag:'Remove'}[act]},function(){go();});
+      return;
+    }
+    go();
+  });
+  setInterval(function(){if(activeTab==='sqlmove'?Date.now()-sqLastPoll>=3000:(sqState&&vmArr(sqState.plans).length&&Date.now()-sqLastPoll>=30000)){sqLoad();}},1500);
   setInterval(function(){if(activeTab==='plans'?Date.now()-mpLastPoll>=3000:Date.now()-mpLastPoll>=30000){mpLoad();}},1500);
   setInterval(function(){if(activeTab==='replication'?Date.now()-rpLastPoll>=4500:Date.now()-rpLastPoll>=30000){rpRefresh();}},1500);
   rpRefresh();
