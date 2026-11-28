@@ -126,6 +126,12 @@ type guestFixStatus struct {
 	Steps    []guestAutoFixStep `json:"steps,omitempty"`
 	Started  time.Time          `json:"started"`
 	Finished time.Time          `json:"finished,omitempty"`
+	// WaitUntil is when the wait for Windows in the new VM gives up.
+	WaitUntil time.Time `json:"waitUntil,omitempty"`
+	// LastTry is what the VM answered the last time it was tried while
+	// waiting (Windows' own error text), and LastTryAt when.
+	LastTry   string    `json:"lastTry,omitempty"`
+	LastTryAt time.Time `json:"lastTryAt,omitempty"`
 }
 
 // guestFixBoard keeps the latest fix-up of each VM for the page.
@@ -167,6 +173,34 @@ func (b *guestFixBoard) Update(name, state, message string) {
 			item.Finished = time.Now().UTC()
 		}
 	}
+}
+
+// Tried records what the VM answered while the fix-up waits for it.
+func (b *guestFixBoard) Tried(name, answer string) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if item := b.items[b.key(name)]; item != nil && item.State == guestFixWaiting {
+		item.LastTry, item.LastTryAt = answer, time.Now().UTC()
+	}
+}
+
+// guestWaitGrace is how long after its own wait limit the fix-up process is
+// ended when Windows in the new VM still has not answered: a PowerShell
+// Direct call that hangs keeps the script from checking that limit.
+const guestWaitGrace = 2 * time.Minute
+
+// guestWaitReason takes Windows' answer out of the engine's waiting line
+// ("... Waiting for Windows in the VM to start (<answer>).").
+func guestWaitReason(line string) (string, bool) {
+	const marker = "Waiting for Windows in the VM to start ("
+	at := strings.Index(line, marker)
+	if at < 0 {
+		return "", false
+	}
+	reason := strings.TrimSpace(line[at+len(marker):])
+	reason = strings.TrimSuffix(reason, ".")
+	reason = strings.TrimSuffix(reason, ")")
+	return strings.TrimSpace(reason), true
 }
 
 func (b *guestFixBoard) Get(name string) *guestFixStatus {

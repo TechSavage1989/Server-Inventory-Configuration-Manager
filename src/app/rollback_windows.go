@@ -116,7 +116,7 @@ func (a *application) recordCutover(rec rbRecord, log func(string)) {
 }
 
 // recordVMCutover records a cutover to Hyper-V (this host when node is "").
-func (a *application) recordVMCutover(vm vmMachine, hyperVID, node, plan, adapterRecord string) {
+func (a *application) recordVMCutover(vm vmMachine, hyperVID, node, plan, adapterRecord, nameRecord string) {
 	a.mu.Lock()
 	server := ""
 	if a.vmware.inventory != nil {
@@ -134,7 +134,7 @@ func (a *application) recordVMCutover(vm vmMachine, hyperVID, node, plan, adapte
 	} else {
 		node = ""
 	}
-	rec := rbNewRecord(method, rbSource{Kind: kind, Server: server, VMID: vm.ID, Name: vm.Name, Host: vm.Host, Datacenter: vm.Datacenter, AdapterRecord: adapterRecord}, rbNew{Kind: "hyperv", ID: hyperVID, Name: vm.Name, Host: node}, &vm)
+	rec := rbNewRecord(method, rbSource{Kind: kind, Server: server, VMID: vm.ID, Name: vm.Name, Host: vm.Host, Datacenter: vm.Datacenter, AdapterRecord: adapterRecord, NameRecord: nameRecord}, rbNew{Kind: "hyperv", ID: hyperVID, Name: vm.Name, Host: node}, &vm)
 	rec.Plan, rec.RollingHost = plan, rolling
 	a.recordCutover(rec, func(text string) { a.vmwareLog("%s", text) })
 }
@@ -270,7 +270,7 @@ func (a *application) rbReady(rec rbRecord, options rbOptions) string {
 			return "On " + vmTargetLabel(rec.New.Platform) + " the new VM is turned off, not shut down from inside: tick Turn it off, or shut it down from inside first."
 		}
 	}
-	if rec.Source.Kind == "vmware" && (options.Reconnect && rec.Source.AdapterRecord != "" || options.Start) {
+	if rec.Source.Kind == "vmware" && (options.Reconnect && rec.Source.AdapterRecord != "" || options.Start || rec.Source.NameRecord != "" && (options.Reconnect || options.Start)) {
 		if !strings.EqualFold(a.vmware.server, rec.Source.Server) || a.vmware.password == "" {
 			return "Sign in to " + rec.Source.Server + " again (the password is kept only while this application runs), so the old VM can be started."
 		}
@@ -393,6 +393,18 @@ func (o *rbWindowsOps) ReconnectSource(ctx context.Context, rec *rbRecord, log f
 	}
 	defer func() { options.Password = "" }()
 	return vmReconnectSourceAdapters(ctx, options, rec.Source.VMID, rec.Source.Name, rec.Source.AdapterRecord, filepath.Join(o.a.vmwareRoot(), safeName(strings.ToLower(rec.Source.Server)), "Move"), log)
+}
+
+func (o *rbWindowsOps) RenameSource(ctx context.Context, rec *rbRecord, log func(string)) (bool, error) {
+	if rec.Source.Kind != "vmware" || rec.Source.NameRecord == "" {
+		return false, nil
+	}
+	options, err := o.vsphere(rec)
+	if err != nil {
+		return false, err
+	}
+	defer func() { options.Password = "" }()
+	return vmUnmarkSource(ctx, options, rec.Source.VMID, rec.Source.NameRecord, log)
 }
 
 func (o *rbWindowsOps) StartSource(ctx context.Context, rec *rbRecord, log func(string)) error {

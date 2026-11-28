@@ -36,6 +36,7 @@ func (a *application) startPlans() {
 	}
 	runner := newMBRunner(filepath.Join(a.vmwareRoot(), "migration-plans.json"), &mbHostTarget{a: a})
 	runner.log = func(text string) { a.vmwareLog("Plan: %s", text) }
+	runner.logVM = func(vm, text string) { a.vmLogFiles().Write(vm, text) }
 	runner.ready = a.mbReady
 	runner.guard = a.prodGuard
 	runner.locate = func(plan *mbPlan, vm *mbVM) pgSlotKeys {
@@ -254,7 +255,7 @@ func (t *mbHostTarget) Create(ctx context.Context, plan *mbPlan, vm *mbVM, resul
 	if hyperV.ClusterResult != "" {
 		notes = append(notes, hyperV.ClusterResult)
 	}
-	notes = append(notes, a.afterCutover(ctx, m, id, "", plan.Settings.StartVMs, plan.Settings.DisconnectSource, plan.Settings.FixUp,
+	notes = append(notes, a.afterCutover(ctx, m, id, "", plan.Settings.StartVMs, plan.Settings.DisconnectSource, plan.Settings.KeepSourceName, plan.Settings.FixUp,
 		vmConnectOptions{Server: server, User: user, Password: password, Thumbprint: thumbprint, UserAgent: displayName + " " + appVersion, AppVersion: appVersion},
 		filepath.Join(a.vmwareRoot(), safeName(strings.ToLower(plan.Server)), "Move"), plan.Name, log)...)
 	return id, notes, nil

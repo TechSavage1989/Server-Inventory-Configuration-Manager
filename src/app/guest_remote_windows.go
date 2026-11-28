@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -355,14 +356,74 @@ func (a *application) runGuestRemoteOptions(target guestTarget, mode string, pla
 	command := exec.Command(a.powerShellPath, arguments...)
 	line, _ := json.Marshal(map[string]string{"user": target.User, "password": target.password, "hostUser": hostUser, "hostPassword": hostPassword})
 	command.Stdin = bytes.NewReader(append(line, '\n'))
+	// The wait for Windows ends for sure: a PowerShell Direct call that never
+	// returns would keep the script from checking its own deadline, so the
+	// process is ended two minutes after it, unless the VM answered by then.
+	var (
+		watchMu   sync.Mutex
+		answered  bool
+		timedOut  bool
+		lastWait  string
+		waitStart = time.Now()
+		watchdog  *time.Timer
+	)
 	waitErr := a.runEngineProcess(command, func(text string) {
+		reason, waiting := guestWaitReason(text)
+		if waiting {
+			watchMu.Lock()
+			same := reason == lastWait
+			lastWait = reason
+			watchMu.Unlock()
+			if same {
+				text = fmt.Sprintf("[INFO] Still waiting for Windows in the VM (%d min so far); it answers the same as before.", int(time.Since(waitStart).Minutes()))
+			}
+		}
 		a.mu.Lock()
 		a.appendVMwareLogLocked(text)
+		logs := a.vmLogFilesLocked()
 		a.mu.Unlock()
-		if extra.Started != nil && strings.Contains(text, "[INFO] The VM answers.") {
-			extra.Started()
+		if extra.LogVM != "" {
+			logs.Write(extra.LogVM, text)
 		}
-	}, func(*exec.Cmd) {})
+		if strings.Contains(text, "[INFO] The VM answers.") {
+			watchMu.Lock()
+			answered = true
+			watchMu.Unlock()
+			if extra.Started != nil {
+				extra.Started()
+			}
+		}
+		if waiting && extra.Waiting != nil {
+			extra.Waiting(reason)
+		}
+	}, func(started *exec.Cmd) {
+		if extra.WaitSeconds <= 0 || started == nil || started.Process == nil {
+			return
+		}
+		process := started.Process
+		watchdog = time.AfterFunc(time.Duration(extra.WaitSeconds)*time.Second+guestWaitGrace, func() {
+			watchMu.Lock()
+			defer watchMu.Unlock()
+			if !answered {
+				timedOut = true
+				_ = process.Kill()
+			}
+		})
+	})
+	if watchdog != nil {
+		watchdog.Stop()
+	}
+	watchMu.Lock()
+	killed := timedOut
+	watchMu.Unlock()
+	if killed {
+		minutes := extra.WaitSeconds / 60
+		reason := ""
+		if lastWait != "" {
+			reason = " Its last answer was: " + lastWait
+		}
+		return nil, fmt.Errorf("Windows in %s did not answer PowerShell Direct within %d minutes, so the wait was ended.%s", label, minutes, reason)
+	}
 	data, readErr := os.ReadFile(resultPath)
 	if readErr != nil {
 		if waitErr != nil {
