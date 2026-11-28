@@ -76,6 +76,11 @@ if ($Mode -eq 'Files') {
         $local = [string]$given.local
         $guest = [string]$given.guest
         $given = $null
+        # PowerShell Direct looks the VM up with an unqualified Get-VM; on a
+        # host with VMware PowerCLI that can be PowerCLI's. Use Hyper-V's.
+        Import-Module Hyper-V -ErrorAction Stop
+        $found = Get-Command Get-VM -ErrorAction SilentlyContinue
+        if (-not $found -or [string]$found.ModuleName -ne 'Hyper-V') { Set-Item -Path function:global:Get-VM -Value { Hyper-V\Get-VM @args } }
         $session = New-PSSession -VMId $VMId -Credential $credential
         try {
             if ($direction -eq 'to') {
