@@ -332,6 +332,7 @@ type consoleCaps struct {
 	FilesWhy     string   `json:"filesWhy,omitempty"`
 	FilesHow     string   `json:"filesHow,omitempty"`
 	Native       []string `json:"native,omitempty"`
+	EnhancedWhy  string   `json:"enhancedWhy,omitempty"`
 	Notes        []string `json:"notes,omitempty"`
 	KeyboardNote string   `json:"keyboardNote,omitempty"`
 }
@@ -499,6 +500,12 @@ func consoleNewID() string {
 	return hex.EncodeToString(b)
 }
 
+// consoleCapsSource is a backend whose abilities change while it is open
+// (a Hyper-V VM's mouse appears once Windows in it has started).
+type consoleCapsSource interface {
+	watchCaps(update func(change func(*consoleCaps)))
+}
+
 // start registers a session and runs its backend in the background.
 func (m *consoleManager) start(target consoleTarget, where string, caps consoleCaps, frame *consoleFrame, backend consoleBackend) (*consoleSession, error) {
 	m.mu.Lock()
@@ -516,6 +523,14 @@ func (m *consoleManager) start(target consoleTarget, where string, caps consoleC
 	ctx, cancel := context.WithCancel(context.Background())
 	s := &consoleSession{ID: consoleNewID(), Target: target, Where: where, Caps: caps, frame: frame, backend: backend, cancel: cancel, started: time.Now(), status: "connected", changed: make(chan struct{})}
 	m.sessions[s.ID] = s
+	if source, ok := backend.(consoleCapsSource); ok {
+		source.watchCaps(func(change func(*consoleCaps)) {
+			s.mu.Lock()
+			change(&s.Caps)
+			s.mu.Unlock()
+			s.poke()
+		})
+	}
 	go func() {
 		err := backend.Run(ctx)
 		message := "The console closed."
@@ -704,12 +719,77 @@ func consoleRuneKey(r rune) (keysym uint32, shift bool, ok bool) {
 
 const consoleTypeLimit = 20000
 
+// consoleTypePace is how typing is paced. Consoles drop keys that arrive as
+// a press and release with no time between them, or while Ctrl from the
+// Ctrl+V that started the typing is still down in the VM (Ctrl+H, the first
+// letter of "hubtech", was lost on a VMware sign-in screen, 2026-11-28), so
+// typing first lets go of every modifier, waits for the VM to see that, then
+// holds each key before releasing it.
+type consoleTypePace struct {
+	Settle time.Duration // after letting go of the modifiers, before the first key
+	Hold   time.Duration // between a key's press and its release
+	Shift  time.Duration // after pressing Shift and before releasing it
+	Gap    time.Duration // after each character
+}
+
+const (
+	consoleTypeSettle   = 250 * time.Millisecond
+	consoleTypeMinHold  = 12 * time.Millisecond
+	consoleTypeMaxHold  = 40 * time.Millisecond
+	consoleTypeMinGap   = 8 * time.Millisecond
+	consoleTypeShiftGap = 8 * time.Millisecond
+)
+
+// consoleTypePaceFor turns the window's speed (the delay between
+// characters) into a pace, never faster than minGap between characters.
+func consoleTypePaceFor(delay, minGap time.Duration) consoleTypePace {
+	hold := delay
+	if hold < consoleTypeMinHold {
+		hold = consoleTypeMinHold
+	}
+	if hold > consoleTypeMaxHold {
+		hold = consoleTypeMaxHold
+	}
+	gap := delay
+	if gap < minGap {
+		gap = minGap
+	}
+	return consoleTypePace{Settle: consoleTypeSettle, Hold: hold, Shift: consoleTypeShiftGap, Gap: gap}
+}
+
+// consoleModifierKeysyms are released before typing starts.
+var consoleModifierKeysyms = []uint32{ksShiftL, 0xffe2, ksControlL, 0xffe4, ksAltL, 0xffea, ksSuperL, 0xffec}
+
+// consoleSleep waits d or until ctx ends; tests replace it.
+var consoleSleep = func(ctx context.Context, d time.Duration) error {
+	if d <= 0 {
+		return ctx.Err()
+	}
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
+}
+
 // consoleTypeKeys types text through Key, one character at a time, holding
-// Shift where a US keyboard needs it. Carriage returns are dropped so a
-// pasted Windows line ending is one Enter.
+// Shift where a US keyboard needs it, at the pace consoleTypePaceFor gives.
+// Carriage returns are dropped so a pasted Windows line ending is one Enter.
 func consoleTypeKeys(ctx context.Context, backend consoleBackend, text string, delay time.Duration) error {
 	if !utf8.ValidString(text) {
 		return errors.New("the text is not valid UTF-8")
+	}
+	pace := consoleTypePaceFor(delay, consoleTypeMinGap)
+	for _, keysym := range consoleModifierKeysyms {
+		if err := backend.Key(keysym, false); err != nil {
+			return err
+		}
+	}
+	if err := consoleSleep(ctx, pace.Settle); err != nil {
+		return err
 	}
 	for _, r := range text {
 		if err := ctx.Err(); err != nil {
@@ -726,24 +806,34 @@ func consoleTypeKeys(ctx context.Context, backend consoleBackend, text string, d
 			if err := backend.Key(ksShiftL, true); err != nil {
 				return err
 			}
+			if err := consoleSleep(ctx, pace.Shift); err != nil {
+				return err
+			}
 		}
 		if err := backend.Key(keysym, true); err != nil {
+			return err
+		}
+		if err := consoleSleep(ctx, pace.Hold); err != nil {
+			backend.Key(keysym, false)
+			if shift {
+				backend.Key(ksShiftL, false)
+			}
 			return err
 		}
 		if err := backend.Key(keysym, false); err != nil {
 			return err
 		}
 		if shift {
+			if err := consoleSleep(ctx, pace.Shift); err != nil {
+				backend.Key(ksShiftL, false)
+				return err
+			}
 			if err := backend.Key(ksShiftL, false); err != nil {
 				return err
 			}
 		}
-		if delay > 0 {
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-time.After(delay):
-			}
+		if err := consoleSleep(ctx, pace.Gap); err != nil {
+			return err
 		}
 	}
 	return nil

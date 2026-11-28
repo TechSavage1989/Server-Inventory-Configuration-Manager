@@ -1,13 +1,45 @@
-## Unreleased: Move SQL databases — 2026-11-28
+## Unreleased: restore collection packages fully on a new server — 2026-11-28
 
-- New tool **Move SQL databases** (Migration and replication > Move servers, and New migration's source *SQL Server databases*). Reads both SQL Servers, suggests per database backup and restore, log shipping or a distributed availability group (only for databases already in an AG, owner decision), carries logins with SIDs and passwords, Agent jobs, operators, linked servers and chosen server settings, tests, cuts over (now or scheduled), moves a DNS alias and rolls back. Rule 72.
-- Engine `src/app/Invoke-SqlMigration.ps1` (signed, RemoteSigned), rules in `sqlmig*.go`, endpoints `/api/sql/*` in `sqlmig_windows.go`.
-- Tests: `go test -run TestSQL ./src/app` (fakes, any platform); CI job `sqlmig` runs `TestSQLMigrationOnLocalDB` with two LocalDB instances on Windows; workspace checks "Move SQL databases" and New migration's guide. Not field-validated against real SQL Server instances, availability groups or DNS.
+- Owner asked whether IIS restores fully working and then for every movable role to restore working on a different server. Audit result: firewall, registry, GPO, printers and NPS already moved; DHCP, DNS, tasks, ACLs, security policy and IIS were partial; roles, local accounts, shares and private keys were missing.
+- New: **Prepare this package for a new server** on Collection writes `09-Migration-Bundle` (Export-MigrationBundle.ps1, signed) with secrets encrypted by a passphrase that is never saved. The Restore tab unlocks it, shows **Changes for this server** (old addresses and drives mapped to this server's, auto-filled and editable) and asks for local user and task passwords. New restore components: Roles and features, Local users and groups, File shares; IIS gets website files, passwords and HTTPS bindings; certificates with private keys; SID and account mapping for ACLs, security policy and tasks; DNS forwarders and other zone types; DHCP authorization. AGENTS rule 74.
+- Tests: `bundle_test.go`, `restore_plan_test.go`, two workspace checks, and a bundle round trip in `scripts/Test-Restore.ps1` (CI job `restore`). Not field-validated on two real servers.
+- Ships in the release after 3.3.1 (stable and test), per the owner; merged once 3.3.1 was published.
 
 ## Unreleased: less data and less time for every copy — 2026-11-28
 
 - Copy engine reads and hashes ahead of writing (`vmCopyReadChunks`), Send disks and P2V conversion skip free NTFS space (`vmSkipFreeSpace`), VDDK reads ask for FastLZ compression, receivers advertise `deflate` and platform/remote Hyper-V sinks compress when they do, file share copies add Robocopy `/COMPRESS` where supported. AGENTS rule 73.
 - Tests: `go test -run 'TestCopyReadsAhead|TestCopyStops|TestPlatformReceiverSinks' ./src/app`. Not field-validated: VDDK FastLZ on real ESXi, Robocopy `/COMPRESS` between real servers, P2V free-space skip on a real server (covered by `TestConverterCopiesADiskOfThisComputer` on the runner).
+
+## Unreleased: Move SQL databases — 2026-11-28
+
+- New tool **Move SQL databases** (Migration and replication > Move servers, and New migration's source *SQL Server databases*). Reads both SQL Servers, suggests per database backup and restore, log shipping or a distributed availability group (only for databases already in an AG, owner decision), carries logins with SIDs and passwords, Agent jobs, operators, linked servers and chosen server settings, tests, cuts over (now or scheduled), moves a DNS alias and rolls back. Rule 72.
+- Engine `src/app/Invoke-SqlMigration.ps1` (signed, RemoteSigned), rules in `sqlmig*.go`, endpoints `/api/sql/*` in `sqlmig_windows.go`, demo backend `docs/demo/src/04-sql.js`.
+- Tests: `go test -run TestSQL ./src/app` (fakes, any platform); CI job `sqlmig` runs `TestSQLMigrationOnLocalDB` with two LocalDB instances on Windows; workspace checks "Move SQL databases" and New migration's guide. Not field-validated against real SQL Server instances, availability groups or DNS.
+
+## Unreleased: browser demo and feature tour on GitHub Pages — 2026-11-28
+
+- `docs/demo/` runs the real interface on a simulated backend with fictional data; `docs/tour/` is the annotated feature tour; `docs/index.html` links both. Served by GitHub Pages from `docs/` once the owner turns Pages on (Settings > Pages: `main`, `/docs`, custom domain migrationmanager.techsavage3d.com from `docs/CNAME`, set 2026-11-28). Docs only: no version change, no release.
+- Refresh the demo page with `python scripts/build_demo.py` after interface changes (rule 71). Tested in Chromium: every tool opens without errors; collection, New migration to a started plan, rollback and the VM console were clicked through.
+
+## 3.3.1 published and verified — 2026-11-28
+
+- [Release v3.3.1](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.3.1) ("Server Inventory and Migration Manager 3.3.1"), tag and target commit `885cb586d6a033f04211940d2c9997a3ec0c765b`. Batch #233 (#224, #227, #230, #231, #226, #229, #232) reached `main` with a merge commit (`67dfdad`) after full CI, and #236 published. The owner asked for it on 2026-11-28 ("please build the next one with my requests", "and release when done", "no need for test build this time"); no test build was made.
+- The [release run](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/46097533968) passed: publish job 02:20–02:43 UTC, embedded scripts and EXE signed through Azure Artifact Signing over OIDC before the tests and checksum (Valid, timestamped); public feed and downloads verified.
+- The actual 3.3.0-to-3.3.1 upgrade (published signed 3.3.0 EXE through Download and Install, restart into 3.3.1, native health, settings, shortcut, timers, cleanup and rollback) passed in the same run, 02:43–02:56 UTC.
+- Stable EXE: 29,729,584 bytes; SHA-256 `a5cd1c2df2d9b7f6ffa2198d985a294af5411d6587286f47cc78bb10cdf19b8f` (matches the public feed). Linux agent `simm-agent-linux-amd64`: 13,725,696 bytes; SHA-256 `7c09d6f9ff7d54791fba86a9ed8c62e6ee8ec1588bce1c666b84aeaf7a394662`. All 14 assets are published.
+- Not field-tested: reading and joining a real Hyper-V cluster, port matching on real hardware, and the console typing, Hyper-V mouse and Enhanced session fixes on a real Hyper-V host or ESXi.
+
+## 3.3.1 release preparation — 2026-11-28
+
+The owner asked for the next stable release with their requests and no test build this round ("please build the next one with my requests", "and release when done", "no need for test build this time"). 3.3.1 carries #224 (one discovery folder per server, History inside, no folder for automatic sign-ins; also pins the disks and linuxagent CI jobs to ubuntu-24.04 because ubuntu-latest moved to 26.04 without qemu-utils) and #227 (Build Hyper-V hosts joins an existing cluster or takes in standalone hosts, Still ESXi nodes in a rolling conversion, auto-filled Suggested values) and #230 (VM console typing no longer drops characters, Hyper-V clicks use `SetButtonState`, Enhanced session opens VMConnect or an RDP file and says why it cannot), plus #231 (docs only: browser demo and feature tour under `docs/` for GitHub Pages). `appVersion`, `collectorVersion` and the collector's `$scriptVersion` are 3.3.1; notes in `docs/release-notes/3.3.1.md`; the published-upgrade check starts from 3.3.0. The `test` branch stays at 3.3.0-test.5 plus #225 and #228 (no test build).
+
+## Unreleased (for 3.3.1): VM console typing, Hyper-V clicks and Enhanced session — 2026-11-28
+
+- Owner report: Ctrl+V on Hyper-V and VMware dropped characters ("hubtech" typed as "ubtech" on a VMware sign-in screen), Hyper-V clicks did nothing, and Enhanced session did nothing.
+- Typing now releases every modifier first, waits 250 ms, holds each key 12 to 40 ms and paces characters (Hyper-V one `TypeText` call per character, at least 20 ms apart). The page sends the typing request only after its queued key releases reach the server.
+- Hyper-V clicks called `SetButton`, which `root\virtualization\v2` does not have; it is `SetButtonState(buttonIndex, isDown)`, and scrolling takes `scrollPositionDelta` (one notch is 120). The mouse and enhanced session availability are re-read every 5 seconds, with a PS/2 mouse fallback for generation 1.
+- Enhanced session opens Virtual Machine Connection when installed, otherwise an `.rdp` file with `negotiate security layer:i:0`, and explains host policy off or Windows not ready.
+- Tests: `TestTypingLetsGoOfModifiersAndHoldsEveryKey`, `TestHyperVConsoleFollowsTheMouseAndEnhancedSessionAsTheVMStarts`, updated RFB/Hyper-V/RDP tests and the VM console workspace check (Ctrl release reaches the server before the typing request). Not field-validated on a real Hyper-V host or ESXi.
 
 ## Unreleased: join converted hosts to an existing Hyper-V cluster, auto-filled choices — 2026-11-27
 
@@ -15,6 +47,18 @@
 - ESXi hosts that still run VMs are `Later` nodes, left out of steps, reads and the cluster; **Next host to convert** walks the first one through (move its wave, remove it from vCenter, install Windows, type its name, read it).
 - Owner: "I don't know what choices to make so it must drive as much as possible" and "everything that's automatically filled must still be configurable". Read nodes moved into step 2 with each node's state; port fields are tick boxes after a read; `hbAutoFill` fills ports, iSCSI adapters, addresses, management VLAN, cluster name and address, disks and witness with a reason each, tagged **Suggested** (addresses: **check it is free**) or **Set by you**; operator values (`!key` in `suggested`) are never refilled. AGENTS rule 43 extended.
 - Tests: `hvbuild_join_test.go`, workspace check "join an existing cluster". Not field-validated: reading a real cluster, joining a real node, MAC/speed port matching on real hardware.
+
+## 3.3.0 published and verified — 2026-11-27
+
+- [Release v3.3.0](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.3.0) ("Server Inventory and Migration Manager 3.3.0"), tag and target commit `70454b04fe7302bf9b1e7bad9a728bd189b2a323`. It promotes the test line (3.3.0-test.5) to stable: #221 merged `test` into `release/next` with a merge commit and prepared 3.3.0, #220 recorded 3.2.41, the batch #222 reached `main` with a merge commit (`613ac94`) and #223 published. The owner asked for it on 2026-11-27 ("The next round I want the test moved to the stable release").
+- The [release run](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/46079644283) passed: publish job 22:56–23:20 UTC, embedded scripts and EXE signed through Azure Artifact Signing over OIDC before the tests and checksum (Valid, timestamped); public feed and downloads verified.
+- The actual 3.2.41-to-3.3.0 upgrade (published signed 3.2.41 EXE through Download and Install, restart into 3.3.0, native health, settings, shortcut, timers, cleanup and rollback) passed in the same run, 23:20–23:32 UTC.
+- Stable EXE: 29,575,984 bytes; SHA-256 `b57abc646245da9cb79f85e2b3d42f94d90d9994ff28a4dd2498fdd93289816d` (matches the public feed). Linux agent `simm-agent-linux-amd64`: 13,725,696 bytes; SHA-256 `0e5bbac44859197354c6c351622c72a4ed859a1cfa8b85dc9b66a36665c2a773`. All 14 assets are published.
+- Not field-tested: the VM consoles, console paste and Copy out against real vCenter, Hyper-V, Proxmox VE, Prism and HyperCore hosts, plus the 3.2.41 limits.
+
+## 3.3.0 release preparation (test promoted to stable) — 2026-11-27
+
+The owner asked for the test line to become the next stable release. `test` (3.3.0-test.5, `5f7b6ee`) was merged into `release/next` with a merge commit so `test` stays an ancestor; every conflict took the test side, which already carried each `release/next` fix (#202, #206, #208, #213, #215 were ported as #201, #207, #210, #214, #216), and afterwards the tree matched `test` except for the 3.2.41 records and release notes. `release/VERSION` kept the stable value until publication. `appVersion` is 3.3.0; `collectorVersion` and the collector's `$scriptVersion` were already 3.3.0, so baseline provenance is unchanged. Release notes: `docs/release-notes/3.3.0.md`. The published-upgrade check starts from 3.2.41. After publication, fast-forward `release/next` to `main` and merge `main` into `test` so both lines start from 3.3.0.
 
 ## 3.3.0-test.5 release preparation — 2026-11-27
 
@@ -76,7 +120,49 @@ Owner on 3.3.0-test.2: Ctrl+V should paste into a VM console. Pressing Ctrl+V (o
 - Not field-validated: all of it is covered by synthetic workspace checks and Go tests only. The Move VMs by-hand steps for Hyper-V stay (not removed), so nothing that worked before is gone.
 ## 3.2.40 release preparation — 2026-11-27
 
-Owner asked to publish now ("publish now"), mainly for the VDDK signature fix #190. Contents, merged into `release/next` after 3.2.39: #190 (VDDK DLL signatures and version read from the files) and #192 (3.2.39 record; the published-upgrade test starts from signed 3.2.39, `4aae60ff...52b8`). Version 3.2.40 in `main.go` and the collector, release notes in `docs/release-notes/3.2.40.md`.
+- Owner on 3.3.0-test.3: "i can't even tell if VDDK changed block sync is even working"; MATCHC-DC02's last round read all 90 GB. Cause: a round that stopped part way left the copy record unfinished, and the next round silently read the whole disk. `vmReplicaPlanDisk` now reads everything changed since the last whole copy's change ID instead, and every full read gives its reason (AGENTS rule 70). Hyper-V RCT accepts an unfinished copy the same way.
+- Each round records how each disk was read (VDDK, datastore, export, RCT, file), what change tracking reported and why it read more; Migration plans and All jobs and servers show it under Last sync with a ✓ or ! and a folded **Why:**, and the plan log has one summary line per round.
+- Near-real-time replication: plans sync every 5 or 10 minutes as well (`mbMinSyncMinutes`), with at least 2 minutes after a long round ends (`mbRoundGap`). Short intervals only read changes cheaply through VDDK (VMware) or RCT (Hyper-V); through vSphere's export every round streams the whole used disk.
+- With VDDK set up, a vTPM VM's failure ends with `vmEncryptedHomeVDDKHint` and offers Retry with VDDK and Open the VDDK log instead of Set up VDDK.
+- Saving migration plans keeps fields this version does not know (`mbKeepUnknownFields`), so a stable build no longer drops the test channel's `testedAt` when the owner switches channels.
+- Not field-validated: a real stopped round followed by a changed-block round on vCenter, and 5-minute rounds on a busy host.
+
+## 3.2.41 published and verified — 2026-11-27
+
+- [Release v3.2.41](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.41) ("Server Inventory and Migration Manager 3.2.41"), tag and target commit `4edd878b3114aa856603d6ad374d1d1a6e601c29`. Source: #196, #198, #202, #206, #208, #213 and #215 through the batch #200 (merged into `main` with a merge commit, `391fa5f`), prepared by #211 and #217, published by #219. The owner approved publishing on 2026-11-27 ("make all the current requested changes go out in the next releases").
+- The [release run](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/46069313015) passed: publish job 21:17–21:41 UTC, embedded scripts and EXE signed through Azure Artifact Signing over OIDC before the tests and checksum (Valid, timestamped); public feed and downloads verified.
+- The actual 3.2.40-to-3.2.41 upgrade (published signed 3.2.40 EXE through Download and Install, restart into 3.2.41, native health, settings, shortcut, timers, cleanup and rollback) passed in the same run, 21:41–21:53 UTC.
+- Stable EXE: 29,063,984 bytes; SHA-256 `9ed8202bbe48732430e424b110c1649281c5d31bd9d1c07ad3a4bf6394322bdb` (matches the public feed). Linux agent `simm-agent-linux-amd64`: 13,717,504 bytes; SHA-256 `709e36c674a14acac8e503649c0056d4bf7f550965eb8f4bb04fc43437f7192b`. All 14 assets are published.
+- Test channel the same day: 3.3.0-test.4 (run 46059649488, test `1c967f3`, EXE SHA-256 `6f0e7f99b2d13dc3841c604836f253ebe0d93e2006e47e67d0f510167f206af7`) and 3.3.0-test.5 (run 46066269602, test `5f7b6ee`, EXE SHA-256 `d76ef8839a5cfd7565182f6329789a15b7dddbc1c3dbc265df03aba0c5ad60fa`), both signed prereleases; the stable feed stayed on its stable version.
+- Not field-tested: VDDK plugin loading and vddk.log against a real VDDK, changed-block rounds after a stopped round on a real vCenter, 5-minute rounds on a busy host, remembered sign-ins after a restart.
+
+## 3.2.41 release preparation — 2026-11-27
+
+Owner asked to ship all of today's requested changes in the next releases ("make all the current requested changes go out in the next releases"). Contents, merged into `release/next` after 3.2.40: #196 (fewer obvious hints, layout stays still when rows are ticked), #198 (3.2.40 record; the published-upgrade test starts from signed 3.2.40, `45026e53...d7d6`), #202 (Sync now answers, inline plan sign-in, Syncing state, opt-in remembered sign-ins) #206 (save plans during copies, folded Discovery read sections, steadier New migration and guest account), #208 (VDDK start-up diagnosis: missing imports named, vddk.log, one-line errors with Details), #213 (SQL and DC check failures on one line per server) and #215 (changed-block reads after a stopped round, read method per disk, 5-minute syncs, VDDK-aware retries). Version 3.2.41 in `main.go` and the collector, release notes in `docs/release-notes/3.2.41.md`.
+
+## Unreleased: VDDK start-up diagnosis and one-line errors — 2026-11-27
+
+- Owner on 3.3.0-test.3: DESK21-CPA01/CPA02 rounds failed with VDDK error 16053 (VIX_E_DISK_SUBSYSTEM_INIT_FAIL) after the folder check passed. The owner's VixDiskLib log showed the cause: `Failed to load vddkVimAccess.dll : ErrorCode = 0x7e` and diskLibPlugin.dll not found, because VixDiskLib loads its plugins itself and their dependencies were searched for outside the VDDK folder. `vddkLoad` now calls `SetDllDirectory(bin)` before loading vixDiskLib.dll.
+- Check and save names DLLs the VDDK DLLs import that the computer lacks (`peImports`, `vddkMissingDependencies`). VixDiskLib's log functions now write `VMware\VDDK\Temp\vddk.log`; start, connect and open failures name the step and that log. `tmpDirectory` in `vixDiskLib.conf` is written with single backslashes.
+- Long errors in Migration plans, All jobs and servers and the transfer list show one line with Details (`errLine`, open state kept across refreshes in `errOpen`).
+- Tests: `TestVDDKNamesMissingVisualCRuntime`; the workspace check for virtual TPM VMs checks the folded error. Not field-validated: the log callbacks on a real VDDK.
+
+## 3.2.40 published and verified — 2026-11-27
+
+- [Release v3.2.40](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.2.40) ("Server Inventory and Migration Manager 3.2.40"), tag and target commit `b55347bc7c8b869fe8b49bf8b23f9d790f74df3d`. Source: #190 and #192 through the batch #193 (merged into `main` with a merge commit), prepared by #194, published by #195. The owner approved publishing on 2026-11-27 ("publish now").
+- The [release run](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/46032647588) passed: publish job 16:19–16:41 UTC, embedded scripts and EXE signed through Azure Artifact Signing over OIDC before the tests and checksum (Valid, timestamped); public feed and downloads verified.
+- The actual 3.2.39-to-3.2.40 upgrade (published signed 3.2.39 EXE through Download and Install, restart into 3.2.40, native health, settings, shortcut, timers, cleanup and rollback) passed in the same run, 16:41–16:55 UTC.
+- Stable EXE: 28,961,584 bytes; SHA-256 `45026e533f53e61cd2f4521d84d5410105dde8a1aee5612bb381c6fe1b80d7d6` (matches the public feed). Linux agent `simm-agent-linux-amd64`: 13,717,504 bytes; SHA-256 `b15b8bb646cb842aa61eb1072b3bc9b7658bd59a695df6ca00e4a38b329e9fb0`. All 14 assets are published.
+
+Limits: loading VDDK on the owner's Hyper-V host after the new signature check, and why Windows' own APIs refused those DLLs there, have not been field-tested. The limits under 3.2.39 still apply. CI artifacts were not downloaded, and no client data was used.
+
+## 3.3.0-test.1 published as a test prerelease — 2026-11-27
+
+- [Prerelease v3.3.0-test.1](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/tag/v3.3.0-test.1) from the `test` branch (3.2.39 merged in, with #175, #179 and the test-build check fix #191), tag and target commit `75f4e1c7fe50268f78de7d7c70a3a0c39f083c2b`, published 16:00 UTC with `--prerelease --latest=false`.
+- [Release run 46026990217](https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/actions/runs/46026990217) (workflow_dispatch from `test`): publish job 15:40–16:01 UTC, signed exactly like stable (Valid, timestamped); the stable feed was checked unchanged (it named 3.2.39 then, 3.2.40 now). The published-upgrade job is skipped for test builds by design. An earlier run (46015438386) stopped in the updater tests before publishing, because those tests assumed a plain X.Y.Z version; #191 fixed them and the CI version check.
+- EXE: 29,383,472 bytes; SHA-256 `fb9bb00ba90d03ab3235420c6c7fc1c9040e37336569544e91494b2341a27048`. Linux agent: 13,725,696 bytes; SHA-256 `d063eafb7e75bb27ce020c5a4ff11590c97e2daca7f64119fadc965d0dc96c01`.
+
+Limits: a real install of the test build through the Test channel, and the return to stable from it, have not been field-tested. 3.3.0-test.1 does not include the 3.2.40 VDDK fix; #197 merges `main` into `test` so the next test build carries it.
 
 ## 3.2.39 published and verified — 2026-11-27
 

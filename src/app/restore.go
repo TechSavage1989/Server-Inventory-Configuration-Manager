@@ -30,41 +30,6 @@ const (
 	restoreLogLimit    = 500
 )
 
-var restoreComponentIDs = []string{"dhcp", "nps", "printers", "iis", "dns", "gpo", "firewall", "certificates", "tasks", "acls", "registry", "secpol"}
-
-type restoreScanItem struct {
-	ID              string `json:"id"`
-	Title           string `json:"title"`
-	Detail          string `json:"detail"`
-	Available       bool   `json:"available"`
-	BlockedReason   string `json:"blockedReason"`
-	DefaultSelected bool   `json:"defaultSelected"`
-}
-
-type restoreScanComponent struct {
-	ID            string            `json:"id"`
-	Title         string            `json:"title"`
-	Description   string            `json:"description"`
-	Impact        string            `json:"impact"`
-	Available     bool              `json:"available"`
-	BlockedReason string            `json:"blockedReason"`
-	Warnings      []string          `json:"warnings"`
-	Items         []restoreScanItem `json:"items"`
-}
-
-type restoreScan struct {
-	PackagePath      string                 `json:"packagePath"`
-	PackageName      string                 `json:"packageName"`
-	SourceComputer   string                 `json:"sourceComputer"`
-	CurrentComputer  string                 `json:"currentComputer"`
-	SameComputer     bool                   `json:"sameComputer"`
-	CollectedAt      string                 `json:"collectedAt"`
-	ManifestVerified bool                   `json:"manifestVerified"`
-	ManifestMessage  string                 `json:"manifestMessage"`
-	IsAdministrator  bool                   `json:"isAdministrator"`
-	Components       []restoreScanComponent `json:"components"`
-}
-
 type restoreItemState struct {
 	Component string `json:"component"`
 	ID        string `json:"id"`
@@ -90,11 +55,11 @@ type restoreStateResponse struct {
 	CancelRequested bool               `json:"cancelRequested"`
 	StartedAtUnixMs int64              `json:"startedAtUnixMs"`
 	EndedAtUnixMs   int64              `json:"endedAtUnixMs"`
-}
-
-type restoreSelection struct {
-	ID    string   `json:"id"`
-	Items []string `json:"items"`
+	// RestartNeeded: installed roles and features need a restart.
+	RestartNeeded bool `json:"restartNeeded"`
+	// HasPassphrase says a bundle passphrase is held for this package (never
+	// the passphrase).
+	HasPassphrase bool `json:"hasPassphrase"`
 }
 
 type restoreRuntime struct {
@@ -113,6 +78,12 @@ type restoreRuntime struct {
 	endedAt      time.Time
 	finalEvent   string
 	cancelAsked  bool
+	// passphrase opens the package's migration bundle; it lives in memory
+	// from the scan until the restore ends, the package changes or the
+	// application closes, and reaches the engine only on standard input.
+	passphrase    string
+	changes       restoreChanges
+	restartNeeded bool
 }
 
 // Caller holds a.mu.
@@ -153,6 +124,8 @@ func (a *application) restoreSnapshotLocked() restoreStateResponse {
 		Items:           items,
 		Logs:            logs,
 		RollbackPath:    a.restore.rollbackPath,
+		RestartNeeded:   a.restore.restartNeeded,
+		HasPassphrase:   a.restore.passphrase != "",
 		CancelRequested: a.restore.cancelAsked && a.restore.status == "running",
 		StartedAtUnixMs: toMillis(a.restore.startedAt),
 		EndedAtUnixMs:   toMillis(a.restore.endedAt),
@@ -226,6 +199,8 @@ func (a *application) applyRestoreLineLocked(line string) {
 				}
 			}
 		}
+	case "restart":
+		a.restore.restartNeeded = true
 	case "done":
 		a.restore.finalEvent = event.Status
 		if event.Message != "" {
@@ -355,8 +330,11 @@ func (a *application) handleRestoreScan(response http.ResponseWriter, request *h
 	}
 	var input struct {
 		PackagePath string `json:"packagePath"`
+		// Passphrase: typed now; empty keeps the one held for this package.
+		Passphrase string         `json:"passphrase"`
+		Changes    restoreChanges `json:"changes"`
 	}
-	if err := json.NewDecoder(io.LimitReader(request.Body, 16*1024)).Decode(&input); err != nil {
+	if err := json.NewDecoder(io.LimitReader(request.Body, restoreSecretsRequestLimit)).Decode(&input); err != nil {
 		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "The restore request was invalid."})
 		return
 	}
@@ -376,11 +354,22 @@ func (a *application) handleRestoreScan(response http.ResponseWriter, request *h
 		writeJSON(response, http.StatusConflict, map[string]any{"ok": false, "error": "A restore or package check is already running."})
 		return
 	}
-	a.restore = restoreRuntime{status: "scanning", message: "Checking the package and this server.", packagePath: packagePath}
+	if len(input.Passphrase) > bundlePassphraseMax || strings.ContainsAny(input.Passphrase, "\r\n\x00") {
+		a.mu.Unlock()
+		a.endCriticalOperation()
+		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "That passphrase cannot be a migration bundle passphrase."})
+		return
+	}
+	passphrase := input.Passphrase
+	if passphrase == "" && strings.EqualFold(a.restore.packagePath, packagePath) {
+		passphrase = a.restore.passphrase
+	}
+	a.restore = restoreRuntime{status: "scanning", message: "Checking the package and this server.", packagePath: packagePath, passphrase: passphrase}
 	a.mu.Unlock()
+	input.Passphrase = ""
 	go func() {
 		defer a.endCriticalOperation()
-		scan, err := a.scanRestorePackage(packagePath)
+		scan, err := a.scanRestorePackage(packagePath, passphrase, input.Changes)
 		a.mu.Lock()
 		defer a.mu.Unlock()
 		if a.restore.packagePath != packagePath || a.restore.status != "scanning" {
@@ -393,20 +382,30 @@ func (a *application) handleRestoreScan(response http.ResponseWriter, request *h
 		}
 		a.restore.status = "ready"
 		a.restore.scan = scan
+		// A passphrase that does not open the bundle is not kept.
+		if scan.Bundle.Passphrase != "ok" {
+			a.restore.passphrase = ""
+		}
 		a.restore.message = "Choose what to restore."
 	}()
 	writeJSON(response, http.StatusAccepted, map[string]any{"ok": true})
 }
 
-func (a *application) scanRestorePackage(packagePath string) (*restoreScan, error) {
+func (a *application) scanRestorePackage(packagePath, passphrase string, changes restoreChanges) (*restoreScan, error) {
 	directory, script, err := a.prepareRestoreEngine("Restore-Scan-")
 	if err != nil {
 		return nil, fmt.Errorf("The restore engine could not be prepared: %v", err)
 	}
 	defer os.RemoveAll(directory)
 	resultPath := filepath.Join(directory, "Scan-Result.json")
+	planPath := filepath.Join(directory, "Scan-Changes.json")
+	plan, _ := json.Marshal(map[string]any{"mappings": changes})
+	if err := os.WriteFile(planPath, plan, 0600); err != nil {
+		return nil, fmt.Errorf("The package check could not be prepared: %v", err)
+	}
 	command := exec.Command(a.powerShellPath, "-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
-		"-File", script, "-Mode", "Scan", "-PackagePath", packagePath, "-ResultPath", resultPath)
+		"-File", script, "-Mode", "Scan", "-PackagePath", packagePath, "-ResultPath", resultPath, "-PlanPath", planPath, "-SecretsFromInput")
+	command.Stdin = restoreSecretsInput(passphrase, nil)
 	var lastError string
 	waitErr := a.runRestoreEngine(command, func(line string) {
 		a.mu.Lock()
@@ -455,55 +454,6 @@ func parseRestoreScan(data []byte) (*restoreScan, error) {
 	return &scan, nil
 }
 
-// validateRestoreSelection keeps only items the reviewed scan marked available.
-func validateRestoreSelection(scan *restoreScan, selections []restoreSelection) ([]restoreSelection, int, error) {
-	if scan == nil {
-		return nil, 0, errors.New("Check the package before restoring.")
-	}
-	components := map[string]*restoreScanComponent{}
-	for index := range scan.Components {
-		components[scan.Components[index].ID] = &scan.Components[index]
-	}
-	seen := map[string]bool{}
-	result := []restoreSelection{}
-	total := 0
-	for _, selection := range selections {
-		component := components[selection.ID]
-		if component == nil {
-			return nil, 0, fmt.Errorf("%q is not a restore component in this package.", selection.ID)
-		}
-		if seen[selection.ID] {
-			return nil, 0, fmt.Errorf("%s was selected twice.", component.Title)
-		}
-		seen[selection.ID] = true
-		available := map[string]bool{}
-		for _, item := range component.Items {
-			if item.Available {
-				available[item.ID] = true
-			}
-		}
-		chosen := []string{}
-		picked := map[string]bool{}
-		for _, id := range selection.Items {
-			if !available[id] {
-				return nil, 0, fmt.Errorf("An item selected under %s cannot be restored.", component.Title)
-			}
-			if !picked[id] {
-				picked[id] = true
-				chosen = append(chosen, id)
-			}
-		}
-		if len(chosen) > 0 {
-			result = append(result, restoreSelection{ID: selection.ID, Items: chosen})
-			total += len(chosen)
-		}
-	}
-	if total == 0 {
-		return nil, 0, errors.New("Select at least one item to restore.")
-	}
-	return result, total, nil
-}
-
 func (a *application) handleRestoreStart(response http.ResponseWriter, request *http.Request) {
 	if !a.requireAuthorization(response, request) {
 		return
@@ -516,6 +466,8 @@ func (a *application) handleRestoreStart(response http.ResponseWriter, request *
 		PackagePath         string             `json:"packagePath"`
 		Components          []restoreSelection `json:"components"`
 		ConfirmComputerName string             `json:"confirmComputerName"`
+		Changes             restoreChanges     `json:"changes"`
+		Passwords           map[string]string  `json:"passwords"`
 	}
 	if err := json.NewDecoder(io.LimitReader(request.Body, 512*1024)).Decode(&input); err != nil {
 		writeJSON(response, http.StatusBadRequest, map[string]any{"ok": false, "error": "The restore request was invalid."})
@@ -573,7 +525,19 @@ func (a *application) handleRestoreStart(response http.ResponseWriter, request *
 		fail(http.StatusBadRequest, err.Error())
 		return
 	}
+	changes, err := validateRestoreChanges(a.restore.scan, input.Changes)
+	if err != nil {
+		fail(http.StatusBadRequest, err.Error())
+		return
+	}
+	passwords, err := validateRestorePasswords(a.restore.scan, selections, input.Passwords)
+	input.Passwords = nil
+	if err != nil {
+		fail(http.StatusBadRequest, err.Error())
+		return
+	}
 	scan := a.restore.scan
+	passphrase := a.restore.passphrase
 	stamp := time.Now().Format("20060102_150405")
 	rollback := filepath.Join(a.update.appDataRoot, "Restore-Rollback", stamp+"_"+safeName(scan.PackageName))
 	a.restore = restoreRuntime{
@@ -583,11 +547,13 @@ func (a *application) handleRestoreStart(response http.ResponseWriter, request *
 		scan:         scan,
 		rollbackPath: rollback,
 		startedAt:    time.Now(),
+		passphrase:   passphrase,
+		changes:      changes,
 	}
 	a.mu.Unlock()
 	go func() {
 		defer a.endCriticalOperation()
-		a.runRestore(packagePath, selections, rollback)
+		a.runRestore(packagePath, selections, rollback, passphrase, changes, passwords)
 	}()
 	writeJSON(response, http.StatusAccepted, map[string]any{"ok": true, "rollbackPath": rollback})
 }
@@ -596,6 +562,9 @@ func (a *application) finishRestore(status, message string) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	a.restore.status = status
+	// The passphrase is needed again only for another restore, which starts
+	// with a new check of the package.
+	a.restore.passphrase = ""
 	if message != "" {
 		a.restore.message = message
 	}
@@ -618,7 +587,7 @@ func (a *application) finishRestore(status, message string) {
 	}
 }
 
-func (a *application) runRestore(packagePath string, selections []restoreSelection, rollback string) {
+func (a *application) runRestore(packagePath string, selections []restoreSelection, rollback, passphrase string, changes restoreChanges, passwords map[string]string) {
 	if err := os.MkdirAll(rollback, 0700); err != nil {
 		a.finishRestore("failed", "The rollback folder could not be created: "+err.Error())
 		return
@@ -635,7 +604,7 @@ func (a *application) runRestore(packagePath string, selections []restoreSelecti
 		return
 	}
 	defer os.RemoveAll(directory)
-	plan, _ := json.Marshal(map[string]any{"components": selections})
+	plan, _ := json.Marshal(map[string]any{"components": selections, "mappings": changes})
 	planPath := filepath.Join(directory, "Restore-Plan.json")
 	if err := os.WriteFile(planPath, plan, 0600); err != nil {
 		a.finishRestore("failed", "The restore plan could not be written: "+err.Error())
@@ -650,7 +619,11 @@ func (a *application) runRestore(packagePath string, selections []restoreSelecti
 	a.restoreLog("Rollback folder: %s", rollback)
 	a.logUpdate("Restore started from %s; rollback folder %s", packagePath, rollback)
 	command := exec.Command(a.powerShellPath, "-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
-		"-File", script, "-Mode", "Restore", "-PackagePath", packagePath, "-PlanPath", planPath, "-RollbackPath", rollback, "-CancelPath", cancelPath)
+		"-File", script, "-Mode", "Restore", "-PackagePath", packagePath, "-PlanPath", planPath, "-RollbackPath", rollback, "-CancelPath", cancelPath, "-SecretsFromInput")
+	command.Stdin = restoreSecretsInput(passphrase, passwords)
+	for key := range passwords {
+		delete(passwords, key)
+	}
 	waitErr := a.runRestoreEngine(command, func(line string) {
 		a.mu.Lock()
 		a.applyRestoreLineLocked(line)
@@ -749,4 +722,14 @@ func (a *application) stopRestoreAndWait() {
 			return
 		}
 	}
+}
+
+// restoreSecretsInput is the one JSON line the engine reads with
+// -SecretsFromInput.
+func restoreSecretsInput(passphrase string, passwords map[string]string) io.Reader {
+	if passwords == nil {
+		passwords = map[string]string{}
+	}
+	data, _ := json.Marshal(map[string]any{"passphrase": passphrase, "passwords": passwords})
+	return strings.NewReader(string(data) + "\n")
 }

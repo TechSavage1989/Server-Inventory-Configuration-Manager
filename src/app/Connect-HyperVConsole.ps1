@@ -151,10 +151,21 @@ function Get-Info {
     $settings = Get-Settings
     $generation = 0
     if ($settings -and [string]$settings.VirtualSystemSubType -match 'Type-(\d)') { $generation = [int]$Matches[1] }
-    $mouse = Get-FirstCim -Class 'Msvm_SyntheticMouse' -Filter ("SystemName='" + $VMId + "'")
+    # A synthetic mouse (generation 2, or generation 1 with integration
+    # services) is moved to absolute positions; a generation 1 VM without it
+    # has only the PS/2 mouse. Either is offered; a refused call says why.
+    $script:Mouse = Get-FirstCim -Class 'Msvm_SyntheticMouse' -Filter ("SystemName='" + $VMId + "'")
+    if (-not $script:Mouse) { $script:Mouse = Get-FirstCim -Class 'Msvm_Ps2Mouse' -Filter ("SystemName='" + $VMId + "'") }
     $mouseReady = $false
-    if ($mouse -and [int]$mouse.EnabledState -ne 3) { $mouseReady = $true }
-    return @{ ok = $true; name = [string]$current.ElementName; state = [int]$current.EnabledState; width = $width; height = $height; generation = $generation; mouse = $mouseReady; host = $computer }
+    if ($script:Mouse) { $mouseReady = $true }
+    $enhancedState = 0
+    try { if ($null -ne $current.EnhancedSessionModeState) { $enhancedState = [int]$current.EnhancedSessionModeState } } catch { }
+    $enhancedHost = $null
+    try {
+        $hostSettings = Get-FirstCim -Class 'Msvm_VirtualSystemManagementServiceSettingData'
+        if ($hostSettings -and $null -ne $hostSettings.EnhancedSessionModeEnabled) { $enhancedHost = [bool]$hostSettings.EnhancedSessionModeEnabled }
+    } catch { }
+    return @{ ok = $true; name = [string]$current.ElementName; state = [int]$current.EnabledState; width = $width; height = $height; generation = $generation; mouse = $mouseReady; host = $computer; enhancedState = $enhancedState; enhancedHost = $enhancedHost }
 }
 
 $script:Keyboard = $null
@@ -166,7 +177,8 @@ function Get-Keyboard {
 }
 function Get-Mouse {
     if (-not $script:Mouse) { $script:Mouse = Get-FirstCim -Class 'Msvm_SyntheticMouse' -Filter ("SystemName='" + $VMId + "'") }
-    if (-not $script:Mouse) { throw 'The VM has no synthetic mouse.' }
+    if (-not $script:Mouse) { $script:Mouse = Get-FirstCim -Class 'Msvm_Ps2Mouse' -Filter ("SystemName='" + $VMId + "'") }
+    if (-not $script:Mouse) { throw 'The VM has no mouse device Hyper-V can move yet.' }
     return $script:Mouse
 }
 
@@ -203,13 +215,25 @@ while ($true) {
             }
             'mouse' {
                 $m = Get-Mouse
-                [void](Invoke-Method -Instance $m -Name 'SetAbsolutePosition' -Arguments @{ horizontalPosition = [int32]$request.x; verticalPosition = [int32]$request.y })
+                try {
+                    [void](Invoke-Method -Instance $m -Name 'SetAbsolutePosition' -Arguments @{ horizontalPosition = [int32]$request.x; verticalPosition = [int32]$request.y })
+                } catch {
+                    # A generation 1 VM whose synthetic mouse driver is not
+                    # loaded refuses it; its PS/2 mouse may still answer.
+                    $ps2 = Get-FirstCim -Class 'Msvm_Ps2Mouse' -Filter ("SystemName='" + $VMId + "'")
+                    if (-not $ps2 -or [string]$m.CimClass.CimClassName -eq 'Msvm_Ps2Mouse') { throw }
+                    $m = $ps2
+                    $script:Mouse = $ps2
+                    [void](Invoke-Method -Instance $m -Name 'SetAbsolutePosition' -Arguments @{ horizontalPosition = [int32]$request.x; verticalPosition = [int32]$request.y })
+                }
                 foreach ($change in @($request.buttons)) {
                     if ($null -eq $change) { continue }
-                    [void](Invoke-Method -Instance $m -Name 'SetButton' -Arguments @{ button = [uint32]$change.button; isPressed = [bool]$change.down })
+                    # root\virtualization\v2 names it SetButtonState(buttonIndex, isDown);
+                    # there is no SetButton, which is why clicks did nothing.
+                    [void](Invoke-Method -Instance $m -Name 'SetButtonState' -Arguments @{ buttonIndex = [uint32]$change.button; isDown = [bool]$change.down })
                 }
                 if ($request.wheel) {
-                    [void](Invoke-Method -Instance $m -Name 'SetScrollPosition' -Arguments @{ scrollPosition = [int32]$request.wheel })
+                    [void](Invoke-Method -Instance $m -Name 'SetScrollPosition' -Arguments @{ scrollPositionDelta = [int32]$request.wheel })
                 }
                 Write-Answer @{ ok = $true }
             }

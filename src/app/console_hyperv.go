@@ -39,6 +39,12 @@ type consoleHVInfo struct {
 	Mouse      bool   `json:"mouse"`
 	Host       string `json:"host"`
 	Enhanced   bool   `json:"enhanced"`
+	// EnhancedState is Msvm_ComputerSystem.EnhancedSessionModeState: 2 the
+	// VM is ready for an enhanced session, 3 the host does not allow it, 6
+	// allowed but Windows in the VM is not ready (0 when not reported).
+	EnhancedState int `json:"enhancedState"`
+	// EnhancedHost is the host's Enhanced Session Mode Policy (nil unknown).
+	EnhancedHost *bool `json:"enhancedHost"`
 }
 
 type consoleHVFrame struct {
@@ -73,6 +79,33 @@ type consoleHyperVBackend struct {
 	mouse    bool
 	interval time.Duration
 	closed   bool
+	onCaps   func(change func(*consoleCaps))
+	enhanced string
+}
+
+func (b *consoleHyperVBackend) watchCaps(update func(change func(*consoleCaps))) {
+	b.mu.Lock()
+	b.onCaps = update
+	b.mu.Unlock()
+}
+
+// noteInfo follows the mouse and enhanced session as the VM starts: a
+// Hyper-V VM has no usable synthetic mouse until Windows in it has loaded
+// the driver, so the console must not decide once at open (2026-11-28,
+// owner: "i can't click things").
+func (b *consoleHyperVBackend) noteInfo(info consoleHVInfo) {
+	enhanced := consoleHVEnhancedWhy(info)
+	b.mu.Lock()
+	changed := b.mouse != info.Mouse || b.enhanced != enhanced
+	b.mouse, b.enhanced = info.Mouse, enhanced
+	update := b.onCaps
+	b.mu.Unlock()
+	if changed && update != nil {
+		update(func(caps *consoleCaps) {
+			caps.Mouse, caps.MouseWhy = info.Mouse, consoleHVMouseWhy(info)
+			caps.EnhancedWhy = enhanced
+		})
+	}
 }
 
 func newConsoleHyperVBackend(link consoleHVLink, frame *consoleFrame) (*consoleHyperVBackend, consoleHVInfo, error) {
@@ -86,7 +119,7 @@ func newConsoleHyperVBackend(link consoleHVLink, frame *consoleFrame) (*consoleH
 		link.close()
 		return nil, info, errors.New("the VM is not running, so it has no screen to show. Start it in Hyper-V first")
 	}
-	b.mouse = info.Mouse
+	b.mouse, b.enhanced = info.Mouse, consoleHVEnhancedWhy(info)
 	return b, info, nil
 }
 
@@ -147,6 +180,7 @@ func (b *consoleHyperVBackend) Run(ctx context.Context) error {
 			if info.State != 2 {
 				return errors.New("the VM is no longer running")
 			}
+			b.noteInfo(info)
 		}
 		b.mu.Lock()
 		width, height := consoleHVFrameSize(b.guestW, b.guestH)
@@ -223,10 +257,11 @@ func (b *consoleHyperVBackend) simple(request map[string]any) error {
 // Pointer scales from the shown frame to the guest's screen and sends button
 // changes one by one (1 left, 2 right, 3 middle in Msvm_SyntheticMouse).
 func (b *consoleHyperVBackend) Pointer(x, y int, buttons byte) error {
+	b.mu.Lock()
 	if !b.mouse {
+		b.mu.Unlock()
 		return nil
 	}
-	b.mu.Lock()
 	gx, gy := x, y
 	if b.frameW > 0 && b.frameH > 0 && b.guestW > 0 && b.guestH > 0 {
 		gx, gy = x*b.guestW/b.frameW, y*b.guestH/b.frameH
@@ -248,71 +283,68 @@ func (b *consoleHyperVBackend) Pointer(x, y int, buttons byte) error {
 		request["buttons"] = changes
 	}
 	if buttons&(8|16) != 0 && previous&(8|16) == 0 {
-		request["wheel"] = map[bool]int{true: 1, false: -1}[buttons&8 != 0]
+		request["wheel"] = map[bool]int{true: 120, false: -120}[buttons&8 != 0] // one wheel notch
 	}
 	return b.simple(request)
 }
 
-// TypeText sends ASCII runs through Msvm_Keyboard.TypeText (which handles
-// Shift itself) and line ends, tabs and other characters as keys.
+// consoleHVMinGap is the least time between characters typed into Hyper-V:
+// each one is a WMI call, and Msvm_Keyboard.TypeText given a whole string
+// types it faster than a sign-in screen takes it, dropping characters.
+const consoleHVMinGap = 20 * time.Millisecond
+
+// consoleHVModifierVKs are released before typing: generic, left and right
+// Shift, Ctrl and Alt, and both Windows keys.
+var consoleHVModifierVKs = []int{0x10, 0x11, 0x12, 0xA0, 0xA1, 0xA2, 0xA3, 0xA4, 0xA5, 0x5B, 0x5C}
+
+// TypeText lets go of every modifier, waits for the VM to see it, then types
+// one character per Msvm_Keyboard.TypeText call (which handles Shift itself),
+// and line ends, tabs and backspace as held keys.
 func (b *consoleHyperVBackend) TypeText(ctx context.Context, text string, delay time.Duration) error {
 	text = strings.ReplaceAll(text, "\r\n", "\n")
-	var run strings.Builder
-	flush := func() error {
-		if run.Len() == 0 {
-			return nil
-		}
-		chunk := run.String()
-		run.Reset()
-		for len(chunk) > 0 {
-			part := chunk
-			if len(part) > 256 {
-				part = part[:256]
-			}
-			chunk = chunk[len(part):]
-			if err := ctx.Err(); err != nil {
-				return err
-			}
-			if err := b.simple(map[string]any{"op": "type", "text": part}); err != nil {
-				return err
-			}
-		}
-		return nil
+	pace := consoleTypePaceFor(delay, consoleHVMinGap)
+	for _, vk := range consoleHVModifierVKs {
+		_ = b.simple(map[string]any{"op": "key", "vk": vk, "down": false})
+	}
+	if err := consoleSleep(ctx, pace.Settle); err != nil {
+		return err
 	}
 	for _, r := range text {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		if r >= 0x20 && r <= 0x7e {
-			run.WriteRune(r)
-			continue
-		}
-		if err := flush(); err != nil {
-			return err
-		}
-		var vk int
-		switch r {
-		case '\n', '\r':
-			vk = 0x0D
-		case '\t':
-			vk = 0x09
-		case '\b':
-			vk = 0x08
-		default:
-			continue // Msvm_Keyboard types ASCII only
-		}
-		if err := b.simple(map[string]any{"op": "key", "vk": vk, "down": true}); err != nil {
-			return err
-		}
-		if err := b.simple(map[string]any{"op": "key", "vk": vk, "down": false}); err != nil {
-			return err
-		}
-		if delay > 0 {
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-time.After(delay):
+			if err := b.simple(map[string]any{"op": "type", "text": string(r)}); err != nil {
+				return err
+			}
+		} else {
+			var vk int
+			switch r {
+			case '\n', '\r':
+				vk = 0x0D
+			case '\t':
+				vk = 0x09
+			case '\b':
+				vk = 0x08
+			default:
+				continue // Msvm_Keyboard types ASCII only
+			}
+			if err := b.simple(map[string]any{"op": "key", "vk": vk, "down": true}); err != nil {
+				return err
+			}
+			holdErr := consoleSleep(ctx, pace.Hold)
+			if err := b.simple(map[string]any{"op": "key", "vk": vk, "down": false}); err != nil {
+				return err
+			}
+			if holdErr != nil {
+				return holdErr
 			}
 		}
+		if err := consoleSleep(ctx, pace.Gap); err != nil {
+			return err
+		}
 	}
-	return flush()
+	return nil
 }
 
 func (b *consoleHyperVBackend) Special(name string) error {
@@ -347,9 +379,8 @@ func consoleHyperVCaps(info consoleHVInfo, local bool) consoleCaps {
 		},
 		KeyboardNote: "Paste as typing sends plain text (ASCII) through Hyper-V's keyboard, as Virtual Machine Connection's Type clipboard text does.",
 	}
-	if !info.Mouse {
-		caps.MouseWhy = "The VM has no synthetic mouse yet (Hyper-V integration services are not running in it, or it is generation 1 before Windows starts). Use the keyboard."
-	}
+	caps.MouseWhy = consoleHVMouseWhy(info)
+	caps.EnhancedWhy = consoleHVEnhancedWhy(info)
 	if local {
 		caps.FilesTo, caps.FilesFrom = true, true
 		caps.FilesHow = "Through PowerShell Direct from this Hyper-V host (Windows 10 or Windows Server 2016 and later in the VM). Needs a user name and password of Windows in the VM. Nothing is installed in the VM."
@@ -362,6 +393,27 @@ func consoleHyperVCaps(info consoleHVInfo, local bool) consoleCaps {
 		caps.Notes = append(caps.Notes, fmt.Sprintf("Generation %d VM on %s.", info.Generation, firstNonEmpty(info.Host, "this host")))
 	}
 	return caps
+}
+
+// consoleHVMouseWhy says why the mouse is off ("" when it works).
+func consoleHVMouseWhy(info consoleHVInfo) string {
+	if info.Mouse {
+		return ""
+	}
+	return "The VM has no mouse device Hyper-V can move yet. It turns on by itself once Windows in the VM has started; until then use the keyboard."
+}
+
+// consoleHVEnhancedWhy says why an enhanced session cannot open yet ("" when
+// it can, or when the host did not say).
+func consoleHVEnhancedWhy(info consoleHVInfo) string {
+	if info.EnhancedHost != nil && !*info.EnhancedHost || info.EnhancedState == 3 {
+		host := firstNonEmpty(info.Host, "the Hyper-V host")
+		return "Enhanced session is turned off on " + host + ". Turn on Allow enhanced session mode in that host's Hyper-V Settings (Enhanced Session Mode Policy), or run Set-VMHost -EnableEnhancedSessionMode $true there. This application does not change host settings."
+	}
+	if info.EnhancedState == 6 {
+		return "Windows in the VM is not ready for an enhanced session yet. It needs Windows 8.1 or Windows Server 2012 R2 or later, started to its sign-in screen, with the Remote Desktop Services service running. Use this window or Virtual Machine Connection meanwhile."
+	}
+	return ""
 }
 
 // consoleKeysymToVK maps X11 keysyms to Windows virtual-key codes for
@@ -413,7 +465,7 @@ func consoleEnhancedRDP(host, vmID string) (string, error) {
 		"full address:s:" + host,
 		"server port:i:2179",
 		"pcb:s:" + vmID + ";EnhancedMode=1",
-		"negotiate security layer:i:1",
+		"negotiate security layer:i:0", // port 2179 does not answer RDP security negotiation
 		"authentication level:i:2",
 		"enablecredsspsupport:i:1",
 		"prompt for credentials on client:i:1",

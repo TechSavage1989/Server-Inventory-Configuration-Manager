@@ -3,21 +3,25 @@
 </p>
 
 <h1 align="center">Server Inventory and Migration Manager</h1>
-<p align="center"><strong>Capture server configuration. Find the important details. Keep a useful handoff.</strong></p>
+<p align="center"><strong>Discover servers and virtual estates, plan the move, then migrate, replicate or restore them with one portable app.</strong></p>
 
 <p align="center">
   <a href="https://github.com/TechSavage1989/Server-Inventory-Configuration-Manager/releases/latest">Download</a> ·
   <a href="#getting-started">Get started</a> ·
   <a href="#features">Features</a> ·
   <a href="#screenshots">Screenshots</a> ·
-  <a href="#development">Development</a>
+  <a href="#updates-and-settings">Updates</a> ·
+  <a href="#development">Development</a> ·
+  <a href="https://migrationmanager.techsavage3d.com/demo/">Live demo</a>
 </p>
 
 <p align="center">
-  <img src="docs/images/hero.png" alt="Server Inventory and Migration Manager main window" width="900">
+  <img src="docs/images/hero.png" alt="All jobs and servers: every server and VM being moved or replicated, with its state, change-tracked syncs, waves and console buttons" width="900">
 </p>
 
 A portable **Windows x64 application** for collecting server inventory, exporting supported configurations, reviewing clear, searchable reports, restoring configuration, moving file shares to a new server, moving VMs off VMware or Hyper-V to Hyper-V, Scale Computing HyperCore, Nutanix AHV, Proxmox VE, Azure, Amazon EC2 or a physical server, converting virtual disks between VMDK, VHDX, VHD, qcow2 and raw, and replicating whole running servers to their new machines until cutover.
+
+Version 3.3 brings all of that together in **Migration and replication**: **New migration** walks you from picking VMs to cutover on one set of screens, **Migration plans** keep many VMs in sync with changed-block tracking, **All jobs and servers** shows and acts on every server at once, and you can open a **VM console**, **roll back** a cutover, keep **production space and bandwidth protected**, **build or join a Hyper-V cluster** from the VMware data, and **move SQL Server databases** with their logins and jobs, all from the same window.
 
 ## Features
 
@@ -34,9 +38,15 @@ A portable **Windows x64 application** for collecting server inventory, exportin
 | Put many VMware or Hyper-V VMs in one migration plan that seeds them from a start time and keeps them in sync on a schedule. | Watch every VM's state, progress, speed and time left, with tiles that filter to what is copying, in sync, testing or failed. | Test any VM on an isolated copy, then cut VMs over now or at a scheduled time, in wave order. |
 | See every server and job in one list, whatever moves it: agent replication, Migration plans, Move VMs, conversions, restores and file share moves. | One state for each (not configured, agent installed, initial copy, in sync, behind, testing, cut over, failed), with progress, speed, last copy and lag. | Tick many and act at once: install agents, create jobs, sync, pause, test failover, set waves, cut over in staggered waves.|
 | Roll back any cutover in one click when the migrated server does not work: the new VM is turned off and disconnected first, then the original starts with its own addresses and network. | See each cutover's rollback window and what is lost (changes made on the new VM since), with a strong warning for domain controllers. | Follow step-by-step instructions for every way of moving that cannot be rolled back automatically. |
+| Copy as little as possible each round: VMware VMs read only changed blocks through VDDK, Hyper-V VMs through resilient change tracking (RCT), and the Windows agent through the NTFS change journal. | Each plan row says how its last round read the disks (changed blocks or a full read) and why. | Full reads happen only when tracking cannot answer, and the reason is shown. |
+| Open the console of any source, test or migrated VM (VMware, Hyper-V, Proxmox VE, Nutanix AHV, HyperCore) in the app, with Ctrl+Alt+Del, paste as typing and file copy. | **What works here** says what each platform supports. | Nothing is installed in the VM and no power buttons are offered. |
+| Keep free space on every datastore and volume while snapshots grow, and cap copies at once and bandwidth (with business hours). | See which copies wait for space or a copy slot, and why. | A copy that would run a datastore low waits or stops cleanly; it is never counted as a failure. |
+| Build new Hyper-V hosts or a cluster from the VMware data, add hosts to an existing Hyper-V cluster, or convert ESXi hosts one at a time on the same hardware. | Every step previews exactly what it changes on each node; values filled in for you are tagged with the reason. | Steps only add what is missing and never remove anything. |
 | Install a replication agent on many servers at once and keep every disk copied to the new machine. | Watch each job's recovery point, alerts and log from **Replicate servers**, with summary tiles that filter to what needs attention. | Cut over now or at a set time: services stop, the last changes go across and every disk is checked. |
 
 ## Screenshots
+
+Try it in a browser, no install: the **[live demo](https://migrationmanager.techsavage3d.com/demo/)** runs the real interface on fictional data, so every tool can be clicked and its jobs progress live; nothing touches a real server. The **[feature tour](https://migrationmanager.techsavage3d.com/tour/)** walks through each part with annotated screenshots.
 
 ### Capture
 
@@ -67,11 +77,16 @@ A portable **Windows x64 application** for collecting server inventory, exportin
 
 <table>
   <tr><td colspan="2"><b>New migration: pick the VMs, then where, how and when, on one set of screens, and start it</b><br><img src="docs/images/new-migration.png" alt="New migration, first screen, with VMs ticked from a vCenter inventory" width="880"></td></tr>
+  <tr><td colspan="2"><b>Migration plans: each VM's status track (Copy, In sync, Tested, Cut over, Fixed up), changed blocks read through VDDK, and the automatic fix-up after cutover</b><br><img src="docs/images/migration-plans.png" alt="A migration plan with VMs cut over and fixed up, in sync through VDDK changed blocks, and seeding" width="880"></td></tr>
+  <tr><td colspan="2"><b>VM console: open any source, test or migrated VM in the app, with special keys, paste as typing, copy out and file transfer</b><br><img src="docs/images/vm-console.png" alt="VM console window for a VMware VM with the toolbar and the What works here panel" width="880"></td></tr>
+  <tr><td colspan="2"><b>Protect production: free space kept on every datastore while snapshots grow, copies at once and bandwidth capped</b><br><img src="docs/images/protect-production.png" alt="Help, Settings, Protect production while copying, with free space, stop level, copy limits and bandwidth" width="880"></td></tr>
   <tr><td colspan="2"><b>Every migration started there is shown live, wave by wave, through test and cutover</b><br><img src="docs/images/new-migration-status.png" alt="New migration status with clickable tiles, progress per VM and cutover by wave" width="880"></td></tr>
   <tr><td colspan="2"><b>Any other way of moving lists its steps in New migration, each with the computer it runs on and a live check</b><br><img src="docs/images/new-migration-steps.png" alt="New migration's How screen for Move VMs, with the steps in order and the computers involved" width="880"></td></tr>
-  <tr><td colspan="2"><b>All jobs and servers: every server being moved or replicated, by any method, with its state and progress, and actions on many at once</b><br><img src="docs/images/all-jobs-and-servers.png" alt="All jobs and servers with state tiles, two servers selected and bulk actions" width="880"></td></tr>
+  <tr><td colspan="2"><b>All jobs and servers: every server being moved or replicated, by any method, with its state, progress and last copy, and actions on many at once</b><br><img src="docs/images/all-jobs-and-servers.png" alt="All jobs and servers with state tiles, two servers selected and bulk actions" width="880"></td></tr>
   <tr><td colspan="2"><b>Roll back: the new VM is turned off first, then the original starts with its own network; a domain controller needs its own tick</b><br><img src="docs/images/roll-back.png" alt="Roll back dialog for a domain controller with the data warning, USN rollback tick box, the steps in order and the options" width="880"></td></tr>
-  <tr><td colspan="2"><b>Build the new Hyper-V hosts or cluster from the VMware data: every step previewed, then applied only after you confirm</b><br><img src="docs/images/hyperv-build.png" alt="Build Hyper-V hosts with a plan drafted from a VMware cluster and the roles step previewed on two nodes" width="880"></td></tr>
+  <tr><td colspan="2"><b>Build Hyper-V hosts: a new cluster from the VMware data, hosts added to an existing cluster, or ESXi hosts converted one at a time; every step previewed, then applied only after you confirm</b><br><img src="docs/images/hyperv-build.png" alt="Build Hyper-V hosts with the three ways to start and a plan drafted from a VMware cluster with one node per ESXi host" width="880"></td></tr>
+  <tr><td colspan="2"><b>Join an existing Hyper-V cluster: read it once, and the new nodes match its switches, VLANs, storage and live migration settings</b><br><img src="docs/images/hyperv-build-join.png" alt="Build Hyper-V hosts after reading cluster HVCLUS01, with its nodes, witness, Cluster Shared Volumes, switches and host adapters, and a plan drafted to join it" width="880"></td></tr>
+  <tr><td colspan="2"><b>Move SQL databases: each database moves the way that suits it (log shipping, backup and restore at cutover, or a distributed availability group), with its logins, jobs and linked servers</b><br><img src="docs/images/move-sql-databases.png" alt="Move SQL databases with two databases kept in sync by log shipping, one copied at cutover, and the cutover controls" width="880"></td></tr>
   <tr><td colspan="2"><b>The receiver shows who is connected and every copy arriving, with progress, speed and time left</b><br><img src="docs/images/receive-transfers.png" alt="Receiver with connected senders and copies in progress" width="880"></td></tr>
 </table>
 
@@ -92,7 +107,6 @@ A portable **Windows x64 application** for collecting server inventory, exportin
   <tr><td colspan="2"><b>Each host's page: hardware, configuration, capacity and alarms, with Monitor, Configure, VMs, datastores and networks</b><br><img src="docs/images/vmware-host.png" alt="A host's summary page with its hardware, configuration, capacity and alarms" width="880"></td></tr>
   <tr><td colspan="2"><b>Which computer runs what: the computer running the move, the VM being moved and the new machine, for the platform you choose</b><br><img src="docs/images/vmware-roles.png" alt="Which computer runs what for a move to Hyper-V" width="880"></td></tr>
   <tr><td colspan="2"><b>Copy a running VM's disks to Hyper-V, then cut over</b><br><img src="docs/images/vmware-move.png" alt="Copy a running VM's disks to Hyper-V, then cut over" width="880"></td></tr>
-  <tr><td colspan="2"><b>Migration plans: many VMs seeded on a schedule, kept in sync, tested and cut over together</b><br><img src="docs/images/migration-plans.png" alt="A migration plan with VMs copying, in sync and failed, live progress and the cutover panel" width="880"></td></tr>
   <tr><td colspan="2"><b>On a failover cluster, choose a Cluster Shared Volume with room for the VM and make it highly available at the cutover</b><br><img src="docs/images/vmware-move-cluster.png" alt="Move a VM onto a Cluster Shared Volume with its copy in progress" width="880"></td></tr>
   <tr><td colspan="2"><b>Move to Proxmox VE, Nutanix AHV, Scale HyperCore or a physical server through receiver media</b><br><img src="docs/images/vmware-move-target.png" alt="Move to Proxmox VE, Nutanix AHV, Scale HyperCore or a physical server through receiver media" width="880"></td></tr>
   <tr><td colspan="2"><b>Copy a whole machine's disks to another computer: choose which computer this is, then receive on the new host or send from the machine being moved</b><br><img src="docs/images/vmware-disk-copy.png" alt="Receive disks on one computer and send this computer's disks from another" width="880"></td></tr>
@@ -131,7 +145,7 @@ Direct links: [Download Windows EXE](https://github.com/TechSavage1989/Server-In
 - **Windows x64**, with Windows Server 2012+ as the compatibility target. Older Windows/PowerShell and individual server roles still require field validation; see [docs/VALIDATION.md](docs/VALIDATION.md).
 - **Built-in Windows PowerShell** for inventory collection and the permissions required to query/export the selected scope. Run with administrator rights for administrator-only data.
 - **Microsoft Edge or Chrome**, version 109 or later (109 is the last release for Windows Server 2012 and 2012 R2). Where company policy turns off guest browsing, or no supported browser is installed, the app opens in its own built-in window instead. That needs the **Microsoft Edge WebView2 Runtime**, which is part of Windows 10 and 11 and a separate free install from Microsoft on Windows Server 2012–2019. The app never changes browser policies.
-- A display of **800×600 or larger**. On small screens the header and panels become compact so the settings, log and report stay reachable.
+- A display of **800×600 or larger**. On small screens the tabs, status bar and panels become compact so the settings, log and report stay reachable.
 - A writable application location and output folder. Go, Python, and Node.js are **build tools**, not normal application requirements.
 
 ## Getting started
@@ -186,6 +200,8 @@ Every migration and replication tool lives in one **Migration and replication** 
 
 **New migration** is where Migration and replication opens. Tick the VMs (search, Select by host, cluster, folder, wave, readiness or power; blocked VMs say why), choose where they go and press Next. For another Hyper-V host or cluster, connect to it right there and pick the node; this computer then runs the whole migration over PowerShell remoting and the node's administrative share, with nothing installed on the host. The copy and VM folders come from the host (a Cluster Shared Volume on a cluster, with high availability ticked), and each network the VMs use is mapped to a switch and VLAN. How recommends the way to move and shows only its options; When sets the first copies, the waves and a cutover time for any wave. Review checks everything first (Hyper-V host, vCenter session, space, networks, snapshots, VMs already in a migration) and Start, once you confirm, creates the migration. Status then shows it live: click a tile to filter, select a wave, test a VM on an isolated copy and cut over. For **Windows or Linux servers**, tick the servers whose agent answers (or install the agent on new Windows servers on the same screen), choose this Hyper-V host and only the folder for the copies: the receiver here is started and paired for you. Start creates one replication job per server, and Status shows them live with Sync, Test failover and Cut over. The separate tools below it (**Tools (advanced)**) still do each part on its own.
 
+**How much each round copies.** The first copy of a disk reads only the space in use; every later round reads only what changed, wherever the platform can say what changed: VMware VMs through VDDK changed-block tracking (optional, see [Updates and settings](#updates-and-settings)), Hyper-V VMs through Hyper-V's resilient change tracking (Windows Server 2016 and later), and servers with the replication agent through the NTFS change journal. When tracking cannot answer (tracking turned off, no change ID yet, a moved disk, a refused query, or a round read through vSphere's export, which streams all used data), the round reads in full and says why. Each migration plan row shows **Changed blocks through VDDK**, **RCT** or a full read under Last sync, with the amount changed, read and written.
+
 **Seeing where everything stands.** Each VM in a migration plan and each row of **All jobs and servers** shows a short track (Copy, In sync, Tested, Cut over, Fixed up) and the next step. When something fails, the reason is explained in plain words above the exact error text, with a button for the fix when there is one (for example **Copy this VM again now**). A strip under the top tabs counts what is copying, in sync, in test, failing or due for cutover on every screen, and each count opens that list. Tool lists show each tool's name and one line; **About this tool** under a tool's title says what it works with, when to pick it and where it runs. From Discovery, **Migrate N VMs…** (on a host, cluster, folder or the VM list) or **Migrate in New migration** (on a VM) starts New migration with those VMs ticked, and its VM list is a sortable table with the VMs that cannot move folded away with the reason. Migration plans check each wave before its cutover (**Ready to cut over? Wave by wave**: copies finished and recent, nothing failed or under test, tested, no SQL Server or domain controller problem) and **Cut over wave N…** selects that wave for the cutover. **Saved defaults** keep a customer's folders, network map, sync interval, bandwidth and options under a name, to fill New migration and Migration plans next time (no password is saved). To convert ESXi hosts to Hyper-V on the same hardware, choose **Rolling conversion** in New migration's When: it lists one stage per host (move its wave, then rebuild the host in Build Hyper-V hosts).
 
 **Steps for every other way.** New migration's first screen says what this computer is (its name, administrator rights, Hyper-V host, the inventory open, receiving). When the way you pick in How continues in its own tool (Move VMs one VM at a time, Replicate servers, Convert disk images, Move file shares, or a HyperCore, Nutanix AHV, Proxmox VE or physical target), How lists that way's steps in order, one open at a time, each with the computer it runs on, a live check of what this computer can see and a button that opens the right tool. A step that would go wrong here (for example copying to Hyper-V from a computer that is not the Hyper-V host, or a host without room for the VM) is blocked with the reason, and a missing vCenter password can be typed inside the step. Ticks are remembered per way. This replaces the separate Guided migration tool.
@@ -215,7 +231,7 @@ Open the console of a source, replicated, test or migrated VM without leaving th
 - **Files** copies one file in or out through VMware Tools, the QEMU guest agent (Proxmox VE) or PowerShell Direct (on the Hyper-V host). An existing file is never replaced.
 - **What works here** says what each platform supports and why. The platform's own console (VMware Remote Console, Virtual Machine Connection, Hyper-V Enhanced session) opens from the toolbar when you want clipboard and drive sharing.
 
-Nothing is installed in the VM, and the console uses the connections you already made in the application. It has no power buttons. This feature is in test builds first and has not yet been tried against every platform.
+Nothing is installed in the VM, and the console uses the connections you already made in the application. It has no power buttons. It has not yet been tried against every platform in the field; report anything that does not work.
 
 ## Restore configuration
 
@@ -226,19 +242,42 @@ The **Restore** tab puts configuration from an inventory package back onto a ser
 | DHCP Server | Scopes, options, reservations, policies and leases; server options, classes and option definitions | `Import-DhcpServer` (on Windows Server 2016+, scopes only, with server settings applied separately because the import's NAP settings are refused) |
 | Network Policy Server | RADIUS clients, shared secrets and policies (only from packages collected with sensitive exports allowed) | `Import-NpsConfiguration` |
 | Printers and print drivers | Print queues, drivers, ports and processors | PrintBRM |
-| IIS | Sites, bindings, application pools, applications | `appcmd restore backup` |
-| DNS | Primary zones missing from this server, with their records | DNS Server cmdlets |
+| Roles and features | Windows roles and features the old server had and this one lacks, installed first (migration bundle) | `Install-WindowsFeature` |
+| Local users and groups | Local users (with a password you type, or created turned off), local groups and members (migration bundle) | ADSI |
+| File shares | Share names, folders, settings and share permissions (migration bundle) | `New-SmbShare` |
+| IIS | Sites, bindings, application pools, applications; with a migration bundle also website files, application pool and virtual directory passwords and HTTPS certificate bindings, adjusted to this server's addresses and drives | `appcmd restore backup`, IIS's own API, `netsh http add sslcert` |
+| DNS | Primary zones missing from this server, with their records; with a migration bundle also forwarders and secondary, stub and conditional forwarder zones | DNS Server cmdlets |
 | Group Policy | Domain GPOs from Backup-GPO (nothing selected by default) | `Restore-GPO` / `Import-GPO` |
 | Windows Firewall | All rules and profile settings | `netsh advfirewall import` |
-| Certificates | Public certificates missing from their original store | `Import-Certificate` |
-| Scheduled tasks | Custom tasks (not tasks that store a password) | `Register-ScheduledTask` |
+| Certificates | Public certificates missing from their original store; with a migration bundle also certificates with their private keys | `Import-Certificate`, `Import-PfxCertificate` |
+| Scheduled tasks | Custom tasks; with a migration bundle also tasks that run as an account with a stored password (you type it) | `Register-ScheduledTask` |
 | Share permissions | Complete recursive NTFS permission saves | `icacls /restore` |
 | Registry settings | Exported HKLM branches such as TLS, Remote Desktop and SMB (nothing selected by default) | `reg import` |
 | Local security policy | Password, lockout and audit policy, security options, user rights | `secedit /configure` |
 
 Restoring needs administrator rights. Review each component's warnings, select the items you need, and confirm. Components run in a fixed, safe order and the restore stops at the first failure. Before each item changes anything, its current configuration is saved to a rollback folder under `%LOCALAPPDATA%\Server Inventory Configuration Manager\Restore-Rollback\`, with an `UNDO.txt` in each component folder; **Open rollback folder** goes straight to it. **Stop after this item** never interrupts an item part way through. Collection, updates and closing the app wait until a restore finishes.
 
-Device drivers other than print drivers, Active Directory, SQL Server, RRAS, AD CS and Hyper-V are not restored; the package keeps their reference exports. Private keys were never exported, so certificates that need one must come from a protected PFX. Restoring onto a different server shows extra warnings for each component.
+Device drivers other than print drivers, Active Directory, SQL Server, RRAS, AD CS and Hyper-V are not restored; the package keeps their reference exports, and the Restore tab says how each is moved instead. Restoring onto a different server shows extra warnings for each component.
+
+### Restoring onto a new server
+
+To rebuild a server's roles on different hardware or a new VM, tick **Prepare this package for a new server** on **Discovery → This server** before collecting, and type a passphrase (at least 12 characters). The package then gets a migration bundle (`09-Migration-Bundle`): the roles and features installed, local users and groups, file shares, certificates with their private keys, the passwords IIS keeps encrypted, HTTPS bindings, website files (up to the size you set) and more DNS and DHCP settings. Certificates and passwords are encrypted with the passphrase (AES-256 with a key derived from it, checked with HMAC-SHA256); the passphrase itself is never saved, so keep it with your migration notes and protect the package like a backup that holds private keys.
+
+On the new server, open the package on the **Restore** tab and type the passphrase. **Changes for this server** lists the old server's IP addresses and drives that this server lacks, each filled in with the closest match here and changeable; IIS bindings, website folders, share folders and permissions follow them, and the old server's local account names and SIDs become this server's. Type a password for each local user and for scheduled tasks that run as one. Roles and features are installed first in the same restore, so items that need a role are offered even before it is installed; if Windows needs a restart to finish, the restore says so.
+
+## Move SQL databases to a new SQL Server
+
+**Move SQL databases** (in **Migration and replication**, or New migration's *SQL Server databases*) moves databases rather than the whole server. Type the old and new SQL Servers and **Read both servers**: reading changes nothing. Connect as your current sign-in (it needs sysadmin on both), a different Windows account (used on the SQL Server's own computer through PowerShell remoting) or a SQL Server login. Passwords are kept in memory only.
+
+- **Each database gets a suggested way**, with the reason, and you can change it: **log shipping** for databases in the full recovery model (the copy stays minutes behind, so the cutover is short), **backup and restore at cutover** for the rest, and a **distributed availability group** for databases already in an availability group (SQL Server 2016 or later). Databases that cannot move (system databases, offline ones) are listed with why.
+- **Logins, jobs and server objects**: logins keep their SIDs and passwords, so applications sign in unchanged; Agent jobs are created turned off and turned on at cutover; operators and chosen server settings are copied; linked servers whose passwords cannot be read are listed to set by hand.
+- **Backup folder**: a share both SQL Server service accounts can reach. **Check backup folder** tests that before anything starts.
+- **Test** brings a copy online on the new server under another name while the log keeps shipping; **End test** removes only that copy.
+- **Cut over** (now or at a time): users are disconnected from the old database, the last changes are copied and the database comes online on the new server. The old database stays as it was at cutover (restoring or read-only), its jobs turned off.
+- **DNS alias** (optional): a CNAME such as `sql-app` moves to the new server when the last database is cut over, with its Kerberos SPNs.
+- **Roll back** takes the new copy offline (it is never deleted) and brings the old database back online. Changes made on the new server since the cutover are not on the old one.
+
+The plan runs while the application is open on that computer, like Migration plans.
 
 ## Move SQL databases to a new SQL Server
 
@@ -502,6 +541,8 @@ The application was renamed from Server Inventory Configuration Manager to **Ser
 ## Development
 
 Read [AGENTS.md](AGENTS.md) and [DEVELOPMENT_HANDOFF.md](DEVELOPMENT_HANDOFF.md) first. [docs/VALIDATION.md](docs/VALIDATION.md) records provenance, hosted test evidence, and field-testing limits. The maintained application preserves the original executable's collectors and behavior; `legacy` is historical material, not the build source.
+
+The browser demo in `docs/demo` is the real `src/app/index.html` with a simulated backend in `docs/demo/src` (fictional data only). After interface changes, run `python scripts/build_demo.py` to refresh it; `--check` fails when it is out of date. The feature tour is `docs/tour/index.html` and uses the screenshots in `docs/images`.
 
 <details>
 <summary><strong>Build, icon editing, and report-renderer notes</strong></summary>

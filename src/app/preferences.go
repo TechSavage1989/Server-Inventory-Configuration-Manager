@@ -98,6 +98,9 @@ func (a *application) loadCollectionPreferences() {
 
 func safeSavedOptions(options collectionOptions) collectionOptions {
 	options.IncludeSensitive = false
+	// A bundle holds private keys; like sensitive exports it is chosen for
+	// each collection and never remembered.
+	options.MigrationBundle = false
 	options.InventoryCategories = append([]string{}, options.InventoryCategories...)
 	exports := []string{}
 	for _, value := range options.ExportCategories {
