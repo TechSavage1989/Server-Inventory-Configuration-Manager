@@ -964,6 +964,8 @@ async function check(name,fn){if(process.env.SIMM_CHECK&&!name.includes(process.
   const pasteEvents=f.consoleCalls.filter(c=>c.action==='input').flatMap(c=>c.body.events).slice(inputBefore);
   assert(!pasteEvents.some(e=>e.t==='k'&&e.s===0x76),'Ctrl+V sends no V key to the VM');
   const ctrlDown=pasteEvents.findIndex(e=>e.s===0xffe3&&e.d);assert(ctrlDown>=0&&pasteEvents.slice(ctrlDown+1).some(e=>e.s===0xffe3&&!e.d),'Ctrl is let go in the VM before the text is typed');
+  {const ti=f.consoleCalls.map(c=>c.action).lastIndexOf('type');const before=f.consoleCalls.slice(0,ti).filter(c=>c.action==='input').flatMap(c=>c.body.events).slice(inputBefore);
+    assert(before.some(e=>e.s===0xffe3&&!e.d),'the Ctrl release reaches the server before the typing request (the VM lost the first letter to Ctrl+H)');}
   assert((await f.page.locator('#cnHint').textContent()).includes('Ctrl+V types your clipboard'));
   const typedAfter=f.consoleCalls.filter(c=>c.action==='type').length;await f.page.keyboard.press('Control+Shift+V');await new Promise(r=>setTimeout(r,500));
   assert.equal(f.consoleCalls.filter(c=>c.action==='type').length,typedAfter,'Ctrl+Shift+V does not type the clipboard');

@@ -266,11 +266,11 @@ func TestRFBClientDecodesEveryEncodingAndSendsInput(t *testing.T) {
 		waitFor(t, "the keys", func() bool {
 			fake.mu.Lock()
 			defer fake.mu.Unlock()
-			return len(fake.keys) >= 18 && len(fake.clips) == 1
+			return len(fake.keys) >= 26 && len(fake.clips) == 1
 		})
 		fake.mu.Lock()
 		got := strings.Join(fake.keys, " ")
-		want := "1:61 0:61 1:ffe1 1:42 0:42 0:ffe1 1:ffe1 1:21 0:21 0:ffe1 1:ff0d 0:ff0d 1:ffe3 1:ffe9 1:ffff 0:ffff 0:ffe9 0:ffe3"
+		want := "0:ffe1 0:ffe2 0:ffe3 0:ffe4 0:ffe9 0:ffea 0:ffeb 0:ffec 1:61 0:61 1:ffe1 1:42 0:42 0:ffe1 1:ffe1 1:21 0:21 0:ffe1 1:ff0d 0:ff0d 1:ffe3 1:ffe9 1:ffff 0:ffff 0:ffe9 0:ffe3"
 		if got != want {
 			t.Errorf("keys\n got %s\nwant %s", got, want)
 		}
@@ -526,7 +526,7 @@ func TestEnhancedSessionFileHoldsNoPasswordAndSharesClipboardAndDrives(t *testin
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, line := range []string{"full address:s:HV01.example.com", "server port:i:2179", "pcb:s:6F1D2D2E-3A3B-4C4D-8E8F-9A9B0C0D1E1F;EnhancedMode=1", "redirectclipboard:i:1", "drivestoredirect:s:*"} {
+	for _, line := range []string{"full address:s:HV01.example.com", "server port:i:2179", "pcb:s:6F1D2D2E-3A3B-4C4D-8E8F-9A9B0C0D1E1F;EnhancedMode=1", "negotiate security layer:i:0", "redirectclipboard:i:1", "drivestoredirect:s:*"} {
 		if !strings.Contains(text, line+"\r\n") {
 			t.Errorf("missing %q", line)
 		}
@@ -544,21 +544,23 @@ func TestEnhancedSessionFileHoldsNoPasswordAndSharesClipboardAndDrives(t *testin
 
 // fakeHVLink answers like Connect-HyperVConsole.ps1.
 type fakeHVLink struct {
-	mu       sync.Mutex
-	requests []string
-	state    int
+	mu            sync.Mutex
+	requests      []string
+	state         int
+	noMouse       bool
+	enhancedState int
 }
 
 func (f *fakeHVLink) call(request map[string]any, answer any) error {
 	f.mu.Lock()
 	raw, _ := json.Marshal(request)
 	f.requests = append(f.requests, string(raw))
-	state := f.state
+	state, mouse, enhanced := f.state, !f.noMouse, f.enhancedState
 	f.mu.Unlock()
 	var reply any
 	switch request["op"] {
 	case "info":
-		reply = map[string]any{"ok": true, "name": "APP01", "state": state, "width": 800, "height": 600, "generation": 2, "mouse": true, "host": "HV01"}
+		reply = map[string]any{"ok": true, "name": "APP01", "state": state, "width": 800, "height": 600, "generation": 2, "mouse": mouse, "host": "HV01", "enhancedState": enhanced}
 	case "frame":
 		w, h := request["w"].(int), request["h"].(int)
 		data := make([]byte, w*h*2)
@@ -604,13 +606,115 @@ func TestHyperVConsoleShowsScreenshotsAndSendsKeyboardAndMouse(t *testing.T) {
 	link.mu.Lock()
 	defer link.mu.Unlock()
 	all := strings.Join(link.requests, "\n")
-	for _, want := range []string{`{"down":true,"op":"key","vk":65}`, `"op":"mouse","x":400,"y":300`, `{"buttons":[{"button":1,"down":true}]`, `{"op":"type","text":"Ab"}`, `{"down":true,"op":"key","vk":13}`, `{"op":"type","text":"c"}`, `{"op":"cad"}`} {
+	for _, want := range []string{`{"down":true,"op":"key","vk":65}`, `"op":"mouse","x":400,"y":300`, `{"buttons":[{"button":1,"down":true}]`, `{"op":"type","text":"A"}`, `{"op":"type","text":"b"}`, `{"down":true,"op":"key","vk":13}`, `{"op":"type","text":"c"}`, `{"op":"cad"}`} {
 		if !strings.Contains(all, want) {
 			t.Errorf("missing request %s in\n%s", want, all)
 		}
 	}
 	if strings.Count(all, `"vk":13`) != 2 {
 		t.Errorf("a pasted Windows line end must be one Enter:\n%s", all)
+	}
+}
+
+// keyLog records key events with the time the typing had waited before each.
+type keyLog struct {
+	mu     sync.Mutex
+	events []string
+	waited time.Duration
+}
+
+func (k *keyLog) Run(ctx context.Context) error { <-ctx.Done(); return nil }
+func (k *keyLog) Key(keysym uint32, down bool) error {
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	k.events = append(k.events, fmt.Sprintf("%v:%x@%d", map[bool]int{true: 1, false: 0}[down], keysym, k.waited/time.Millisecond))
+	return nil
+}
+func (k *keyLog) Pointer(x, y int, buttons byte) error { return nil }
+func (k *keyLog) Special(name string) error            { return nil }
+func (k *keyLog) TypeText(ctx context.Context, text string, d time.Duration) error {
+	return consoleTypeKeys(ctx, k, text, d)
+}
+func (k *keyLog) Close() error { return nil }
+
+func TestTypingLetsGoOfModifiersAndHoldsEveryKey(t *testing.T) {
+	log := &keyLog{}
+	saved := consoleSleep
+	consoleSleep = func(ctx context.Context, d time.Duration) error {
+		log.mu.Lock()
+		log.waited += d
+		log.mu.Unlock()
+		return ctx.Err()
+	}
+	defer func() { consoleSleep = saved }()
+	if err := consoleTypeKeys(context.Background(), log, "hU1", 0); err != nil {
+		t.Fatal(err)
+	}
+	got := strings.Join(log.events, " ")
+	// Every modifier is released first, then 250 ms pass before "h"
+	// (Ctrl+H lost the first letter); each key is held 12 ms and 8 ms pass
+	// between characters and around Shift.
+	want := "0:ffe1@0 0:ffe2@0 0:ffe3@0 0:ffe4@0 0:ffe9@0 0:ffea@0 0:ffeb@0 0:ffec@0 " +
+		"1:68@250 0:68@262 1:ffe1@270 1:55@278 0:55@290 0:ffe1@298 1:31@306 0:31@318"
+	if got != want {
+		t.Errorf("keys\n got %s\nwant %s", got, want)
+	}
+	if p := consoleTypePaceFor(60*time.Millisecond, consoleTypeMinGap); p.Hold != 40*time.Millisecond || p.Gap != 60*time.Millisecond {
+		t.Errorf("careful pace %+v", p)
+	}
+	if p := consoleTypePaceFor(4*time.Millisecond, consoleHVMinGap); p.Hold != 12*time.Millisecond || p.Gap != 20*time.Millisecond {
+		t.Errorf("fast Hyper-V pace %+v", p)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := consoleTypeKeys(ctx, &keyLog{}, "abc", 0); err == nil {
+		t.Error("a stopped typing must end with the context's error")
+	}
+}
+
+func TestHyperVConsoleFollowsTheMouseAndEnhancedSessionAsTheVMStarts(t *testing.T) {
+	link := &fakeHVLink{state: 2, noMouse: true, enhancedState: 6}
+	backend, info, err := newConsoleHyperVBackend(link, newConsoleFrame())
+	if err != nil {
+		t.Fatal(err)
+	}
+	caps := consoleHyperVCaps(info, true)
+	if caps.Mouse || caps.MouseWhy == "" || !strings.Contains(caps.EnhancedWhy, "not ready") {
+		t.Fatalf("a VM still starting has no mouse and no enhanced session yet: %+v", caps)
+	}
+	backend.Pointer(10, 10, 1)
+	link.mu.Lock()
+	for _, r := range link.requests {
+		if strings.Contains(r, `"op":"mouse"`) {
+			t.Errorf("no mouse request may be sent before the mouse exists: %s", r)
+		}
+	}
+	link.noMouse, link.enhancedState = false, 2
+	link.mu.Unlock()
+	m := newConsoleManager()
+	s, err := m.start(consoleTarget{Platform: "hyperv", ID: "6F1D2D2E-3A3B-4C4D-8E8F-9A9B0C0D1E1F", Name: "APP01"}, "this Hyper-V host", caps, newConsoleFrame(), backend)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer m.closeAll()
+	info, _ = backend.info()
+	backend.noteInfo(info)
+	if v := s.view(); !v.Caps.Mouse || v.Caps.MouseWhy != "" || v.Caps.EnhancedWhy != "" {
+		t.Fatalf("the mouse and enhanced session must turn on once Windows has started: %+v", v.Caps)
+	}
+	backend.Pointer(10, 10, 1)
+	link.mu.Lock()
+	clicked := false
+	for _, r := range link.requests {
+		clicked = clicked || strings.Contains(r, `"op":"mouse"`) && strings.Contains(r, `"button":1`)
+	}
+	link.mu.Unlock()
+	if !clicked {
+		t.Error("a click must reach Hyper-V once the mouse exists")
+	}
+	off := false
+	if why := consoleHVEnhancedWhy(consoleHVInfo{Host: "HV01", EnhancedHost: &off}); !strings.Contains(why, "turned off on HV01") || !strings.Contains(why, "does not change host settings") {
+		t.Errorf("host policy off: %q", why)
 	}
 }
 

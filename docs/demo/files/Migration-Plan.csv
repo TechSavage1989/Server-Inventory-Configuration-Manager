@@ -1,0 +1,17 @@
+VM,Host,Power,Wave,Readiness
+DC01,esx01.example.com,poweredOn,2,review
+DC02,esx02.example.com,poweredOn,8,review
+FS01,esx01.example.com,poweredOn,3,review
+SQL01,esx02.example.com,poweredOn,0,blocked
+APP01,esx01.example.com,poweredOn,5,ready
+APP02,esx03.example.com,poweredOn,5,ready
+WEB01,esx02.example.com,poweredOn,6,review
+WEB02,esx03.example.com,poweredOn,7,review
+PRINT01,esx01.example.com,poweredOff,1,ready
+LEGACY-ERP,esx02.example.com,poweredOn,0,blocked
+MON01,esx03.example.com,poweredOn,4,review
+BR-FS01,esx-br01.example.com,poweredOn,3,ready
+BR-APP01,esx-br01.example.com,poweredOn,6,ready
+vCLS-a1b2c3,esx01.example.com,poweredOn,0,skip
+vcenter,esx02.example.com,poweredOn,0,skip
+TPL-WS2022,esx03.example.com,poweredOff,0,ready
